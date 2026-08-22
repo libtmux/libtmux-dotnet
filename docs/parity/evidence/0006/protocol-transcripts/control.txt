@@ -1,0 +1,3 @@
+event=control-send sequence=1 bytes=42
+event=control-receive sequence=1 marker=%begin
+event=control-receive sequence=1 marker=%end
