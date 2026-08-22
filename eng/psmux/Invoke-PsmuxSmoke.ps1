@@ -206,13 +206,21 @@ function Get-BoundedNativeErrorDetail([string] $ErrorText) {
 function Get-NativeExitMessage(
         [string] $Leg,
         [int] $ExitCode,
-        [string] $ErrorText) {
+        [string] $ErrorText,
+        [string] $OutputText = '') {
     $message = "$Leg exited $ExitCode."
     $detail = Get-BoundedNativeErrorDetail $ErrorText
-    if (-not $detail) {
-        return $message
+    if ($detail) {
+        return "$message stderr: $detail"
     }
-    return "$message stderr: $detail"
+    # A test runner reports the assertion that failed on stdout and leaves
+    # stderr empty, so an exit code on its own tells whoever reads the gate
+    # nothing about which check broke.
+    $detail = Get-BoundedNativeErrorDetail $OutputText
+    if ($detail) {
+        return "$message stdout: $detail"
+    }
+    return $message
 }
 
 function Assert-QueryProgram(
@@ -344,7 +352,8 @@ function Invoke-CapturedNative(
                         throw (Get-NativeExitMessage `
                             "$Leg process-tree termination" `
                             $treeKill.ExitCode `
-                            $treeKill.Error)
+                            $treeKill.Error `
+                            $treeKill.Output)
                     }
                 }
                 else {
@@ -444,7 +453,8 @@ function Convert-ToWslPath(
         throw (Get-NativeExitMessage `
             "WSL $Kind path $operation" `
             $translation.ExitCode `
-            $translation.Error)
+            $translation.Error `
+            $translation.Output)
     }
     if ($translation.Output.Count -ne 1 -or
             [string]::IsNullOrWhiteSpace($translation.Output[0])) {
@@ -644,7 +654,8 @@ try {
             throw (Get-NativeExitMessage `
                 'WSL .NET executable validation' `
                 $wslDotnetResult.ExitCode `
-                $wslDotnetResult.Error)
+                $wslDotnetResult.Error `
+                $wslDotnetResult.Output)
         }
         if ($wslDotnetResult.Output.Count -ne 1 -or
                 [string]::IsNullOrWhiteSpace($wslDotnetResult.Output[0])) {
@@ -670,7 +681,8 @@ try {
         throw (Get-NativeExitMessage `
             'psmux version query' `
             $bannerResult.ExitCode `
-            $bannerResult.Error)
+            $bannerResult.Error `
+            $bannerResult.Output)
     }
     if ([string]::Join("`n", $banner) -cne
                 [string]::Join("`n", $expectedBanner)) {
@@ -695,7 +707,8 @@ try {
         throw (Get-NativeExitMessage `
             'psmux isolated namespace inspection' `
             $existingResult.ExitCode `
-            $existingResult.Error)
+            $existingResult.Error `
+            $existingResult.Output)
     }
     if ($existing.Count -ne 0) {
         throw "The isolated namespace is not empty: $([string]::Join(', ', $existing))"
@@ -751,7 +764,8 @@ try {
         throw (Get-NativeExitMessage `
             'psmux new-session after the creation attempt' `
             $creationExitCode `
-            $creationResult.Error)
+            $creationResult.Error `
+            $creationResult.Output)
     }
     if (-not $createdSessionId) {
         throw 'psmux created no session with an exact verifiable identity.'
@@ -772,7 +786,8 @@ try {
         throw (Get-NativeExitMessage `
             'psmux fixture input' `
             $sendResult.ExitCode `
-            $sendResult.Error)
+            $sendResult.Error `
+            $sendResult.Output)
     }
 
     $ready = $false
@@ -792,7 +807,8 @@ try {
             throw (Get-NativeExitMessage `
                 'psmux pane capture' `
                 $captureResult.ExitCode `
-                $captureResult.Error)
+                $captureResult.Error `
+                $captureResult.Output)
         }
         $ready = $capture.Where({ $_ -clike "*$expectedText*" }).Count -gt 0
         if (-not $ready) {
@@ -828,7 +844,8 @@ try {
         throw (Get-NativeExitMessage `
             'Native Windows .NET smoke' `
             $exitCode `
-            $nativeTestResult.Error)
+            $nativeTestResult.Error `
+            $nativeTestResult.Output)
     }
     Assert-OnePassingTest $nativeResultPath 'Native Windows .NET'
     $nativeExampleResult = Invoke-CapturedNative `
@@ -903,7 +920,8 @@ try {
             throw (Get-NativeExitMessage `
                 'WSL .NET smoke' `
                 $exitCode `
-                $wslTestResult.Error)
+                $wslTestResult.Error `
+                $wslTestResult.Output)
         }
         Assert-OnePassingTest $wslResultPath 'WSL .NET'
         $wslExampleResult = Invoke-CapturedNative `
@@ -992,7 +1010,8 @@ finally {
                         throw (Get-NativeExitMessage `
                             'psmux cleanup identity query' `
                             $currentIdentityResult.ExitCode `
-                            $currentIdentityResult.Error)
+                            $currentIdentityResult.Error `
+                            $currentIdentityResult.Output)
                     }
                 }
                 elseif ($currentIdentity.Count -ne 1) {
@@ -1014,7 +1033,8 @@ finally {
                         throw (Get-NativeExitMessage `
                             'psmux exact session cleanup' `
                             $killResult.ExitCode `
-                            $killResult.Error)
+                            $killResult.Error `
+                            $killResult.Output)
                     }
 
                     for ($attempt = 0; $attempt -lt 50 -and
