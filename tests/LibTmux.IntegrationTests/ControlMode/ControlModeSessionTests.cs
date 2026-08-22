@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
@@ -175,6 +176,17 @@ public sealed class ControlModeSessionTests
                 wrapper,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
+            // Linux refuses to exec a file while any process holds a write
+            // descriptor for it. Process.Start forks, and the child keeps every
+            // inherited descriptor until it execs, so a sibling test starting a
+            // process while this wrapper is being written makes the first exec
+            // fail with ETXTBSY though the wrapper itself is correct. That
+            // descriptor goes when the child execs, so wait for the wrapper to
+            // run rather than racing it.
+            await WaitUntilAsync(
+                () => CanExecute(wrapper),
+                TestContext.Current.CancellationToken);
+
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions(
                     tmuxBinaryPath: wrapper,
@@ -219,6 +231,28 @@ public sealed class ControlModeSessionTests
                 socketPath: raw.SocketPath,
                 configurationFile: "/dev/null"),
             token);
+
+    // errno 26. Process.Start surfaces it as the native error code on Linux.
+    private const int TextFileBusy = 26;
+
+    private static bool CanExecute(string path)
+    {
+        try
+        {
+            using Process? probe = Process.Start(
+                new ProcessStartInfo(path, "-V")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                });
+            probe?.WaitForExit();
+            return true;
+        }
+        catch (Win32Exception exception) when (exception.NativeErrorCode == TextFileBusy)
+        {
+            return false;
+        }
+    }
 
     private static bool IsProcessAlive(int processId)
     {
