@@ -113,6 +113,14 @@ elif [ "$requirement" != path ]; then
 fi
 printf '%s\n' "$candidate"
 '@
+
+# git checks this file out with CRLF wherever core.autocrlf is on, and the
+# scripts above are handed to /bin/sh inside WSL. A trailing carriage return
+# turns the first line into "expecting in", so these are LF by construction
+# rather than by however the checkout happened to land.
+$wslTimeoutScript = $wslTimeoutScript -replace "`r`n", "`n"
+$wslDotnetValidationScript = $wslDotnetValidationScript -replace "`r`n", "`n"
+$wslPathResolutionScript = $wslPathResolutionScript -replace "`r`n", "`n"
 if ($ExpectedSha256 -ine $supportedSha256) {
     throw 'ExpectedSha256 must match the exact audited psmux client build.'
 }
