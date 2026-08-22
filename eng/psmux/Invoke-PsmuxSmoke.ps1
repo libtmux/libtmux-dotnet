@@ -595,8 +595,8 @@ try {
 
     $binaryText = [Text.Encoding]::ASCII.GetString(
         [IO.File]::ReadAllBytes($psmuxFile.FullName))
-    if (-not $binaryText.Contains('aa26cd3') -or
-            -not $binaryText.Contains('2026-08-17')) {
+    if (-not $binaryText.Contains('66cf613') -or
+            -not $binaryText.Contains('2026-08-18')) {
         throw 'psmux does not contain the audited build markers.'
     }
 

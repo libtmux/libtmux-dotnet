@@ -45,8 +45,8 @@ internal static class PsmuxBinaryTrust
                 BufferSize,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var commit = new MarkerMatcher("aa26cd3"u8);
-            var date = new MarkerMatcher("2026-08-17"u8);
+            var commit = new MarkerMatcher("66cf613"u8);
+            var date = new MarkerMatcher("2026-08-18"u8);
             long total = 0;
             while (true)
             {

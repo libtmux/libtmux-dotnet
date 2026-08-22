@@ -153,8 +153,8 @@ public sealed class PsmuxConnectionTests
             $"libtmux-streamed-psmux-{Guid.NewGuid():N}.exe");
         byte[] contents = new byte[82032];
         Array.Fill(contents, (byte)'x');
-        "aa26cd3"u8.CopyTo(contents.AsSpan(81917));
-        "2026-08-17"u8.CopyTo(contents.AsSpan(82000));
+        "66cf613"u8.CopyTo(contents.AsSpan(81917));
+        "2026-08-18"u8.CopyTo(contents.AsSpan(82000));
         await File.WriteAllBytesAsync(binary, contents, TestContext.Current.CancellationToken);
         string hash = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(contents));
@@ -177,7 +177,7 @@ public sealed class PsmuxConnectionTests
         string binary = Path.Combine(
             Path.GetTempPath(),
             $"libtmux-context-psmux-{Guid.NewGuid():N}.exe");
-        byte[] contents = "aa26cd3 2026-08-17"u8.ToArray();
+        byte[] contents = "66cf613 2026-08-18"u8.ToArray();
         await File.WriteAllBytesAsync(binary, contents, TestContext.Current.CancellationToken);
         string hash = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(contents));
