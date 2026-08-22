@@ -107,7 +107,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # global.json pins an exact SDK, so this runner installs it rather than
+      # using whatever Windows already has. A self-hosted runner is an ordinary
+      # user account that cannot write to C:\Program Files\dotnet, so the
+      # install goes to the runner's own tool cache, which also survives runs.
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}\dotnet
         with:
           global-json-file: global.json
 
