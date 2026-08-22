@@ -393,6 +393,41 @@ $ mise exec -- which dotnet
 Those inputs make the gates runnable; they do not by themselves complete the
 runtime evidence.
 
+#### Provisioning the runner
+
+The machine needs Windows x64, a Windows `dotnet` and `git`, and a WSL
+distribution holding a checkout with its own Linux `dotnet`. The psmux job
+drives both sides from one PowerShell process, so a runner without WSL fails
+the gate rather than skipping it.
+
+Register it with the `psmux` label; `self-hosted`, `Windows` and `X64` are
+added for you, and `runs-on` matches on all four:
+
+```console
+$ ./config.cmd \
+    --unattended \
+    --replace \
+    --url https://github.com/libtmux/libtmux-dotnet \
+    --token "$(gh api -X POST \
+        repos/libtmux/libtmux-dotnet/actions/runners/registration-token \
+        --jq .token)" \
+    --name psmux-wsl-win \
+    --labels psmux
+```
+
+A registration token expires in an hour, so generate it when you use it. Run
+the listener with `./run.cmd`, or install it as a service with `./svc.cmd
+install` if it should survive a reboot. The runner must be online when the tag
+is pushed: `psmux` has no `ubuntu-latest` fallback, so a queued job waits
+rather than failing fast.
+
+Confirm what GitHub sees before relying on it:
+
+```console
+$ gh api repos/libtmux/libtmux-dotnet/actions/runners \
+    --jq '.runners[] | "\(.name) \(.status) [\([.labels[].name] | join(","))]"'
+```
+
 ### Recorded evidence is a release artifact
 
 A capability row is `pending` until a matrix run records evidence for it, and
