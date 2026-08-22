@@ -1061,9 +1061,9 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `F:LibTmux.PsmuxServer.SupportedBinarySha256` | `static const string LibTmux.PsmuxServer.SupportedBinarySha256` | Public | Yes | Portable | The exact psmux client executable SHA-256 accepted by this preview. Value: `1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e`. |
-| `F:LibTmux.PsmuxServer.SupportedCommit` | `static const string LibTmux.PsmuxServer.SupportedCommit` | Public | Yes | Portable | The exact psmux source commit accepted by this preview. Value: `aa26cd39edcfab03e718f94ea21bb47e8c5b85e8`. |
-| `F:LibTmux.PsmuxServer.SupportedImplementationBanner` | `static const string LibTmux.PsmuxServer.SupportedImplementationBanner` | Public | Yes | Portable | The exact clean implementation banner accepted by this preview. Value: `psmux 3.3.7 (aa26cd3 2026-08-17)`. |
+| `F:LibTmux.PsmuxServer.SupportedBinarySha256` | `static const string LibTmux.PsmuxServer.SupportedBinarySha256` | Public | Yes | Portable | The exact psmux client executable SHA-256 accepted by this preview. Value: `54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d`. |
+| `F:LibTmux.PsmuxServer.SupportedCommit` | `static const string LibTmux.PsmuxServer.SupportedCommit` | Public | Yes | Portable | The exact psmux source commit accepted by this preview. Value: `66cf61354c473b35d4f0c06c57384fc46d61ffdb`. |
+| `F:LibTmux.PsmuxServer.SupportedImplementationBanner` | `static const string LibTmux.PsmuxServer.SupportedImplementationBanner` | Public | Yes | Portable | The exact clean implementation banner accepted by this preview. Value: `psmux 3.3.8 (66cf613 2026-08-18)`. |
 | `M:LibTmux.PsmuxServer.ConnectAsync(PsmuxConnectionOptions,CancellationToken)` | `static Task<PsmuxServer> LibTmux.PsmuxServer.ConnectAsync(PsmuxConnectionOptions options, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Connects through the pinned client and validates one session. |
 | `M:LibTmux.PsmuxServer.GetPanesAsync(CancellationToken)` | `Task<IReadOnlyList<PsmuxPane>> LibTmux.PsmuxServer.GetPanesAsync(CancellationToken cancellationToken = default)` | Public | No | Portable | Reads all current panes in the sole visible session. |
 | `M:LibTmux.PsmuxServer.GetSessionAsync(CancellationToken)` | `Task<PsmuxSession> LibTmux.PsmuxServer.GetSessionAsync(CancellationToken cancellationToken = default)` | Public | No | Portable | Reads the sole visible session or fails closed. |

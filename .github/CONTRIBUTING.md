@@ -374,22 +374,24 @@ trusted-publishing policy registered on nuget.org, so change the policy first.
 
 ### The psmux preview gates
 
-Publishing the preview needs the accepted Windows x64 executable, which is a
-maintainer validation build rather than a published psmux release asset.
-[`docs/psmux.md`](../docs/psmux.md) states the trust boundary it has to meet.
+Publishing the preview needs the accepted Windows x64 client. It is a published
+psmux release asset, so `release.yml` downloads and hash-checks it like any
+other pinned dependency — there is no artifact to host and no repository
+variable naming one. [`docs/psmux.md`](../docs/psmux.md) states the trust
+boundary it has to meet.
 
-`release.yml` reads the repository variables `PSMUX_ARTIFACT_URL`,
-`PSMUX_SOURCE_PROVENANCE_URL`, `PSMUX_LICENSE_URL`, `PSMUX_WSL_DISTRIBUTION`
-and `PSMUX_WSL_DOTNET_PATH`, and needs a self-hosted `Windows`, `X64`, `psmux`
-runner for the native and WSL gates. `PSMUX_WSL_DOTNET_PATH` is the absolute
-Linux `dotnet` path for that checkout, which the runner reports:
+`release.yml` still reads the repository variables `PSMUX_WSL_DISTRIBUTION` and
+`PSMUX_WSL_DOTNET_PATH`, and needs a self-hosted `Windows`, `X64`, `psmux`
+runner for the native and WSL gates, because those describe one machine rather
+than the artifact. `PSMUX_WSL_DOTNET_PATH` is the absolute Linux `dotnet` path
+for that checkout, which the runner reports:
 
 ```console
 $ mise exec -- which dotnet
 ```
 
 Those inputs make the gates runnable; they do not by themselves complete the
-artifact or the runtime evidence.
+runtime evidence.
 
 ### Recorded evidence is a release artifact
 

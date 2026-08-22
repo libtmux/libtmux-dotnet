@@ -13,13 +13,15 @@ version.
 ### Added
 
 - **An experimental query-only psmux preview for native Windows and WSL
-  interop.** A separate
-  analyzer-clean API reads one isolated session, its windows and panes, and pane
-  text without exposing tmux lifecycle, mutation, chaining, control mode, or
-  MCP behavior that psmux cannot preserve. The client commit, clean banner, and
-  executable SHA-256 are pinned; publishing that exact artifact and completing
-  native/WSL runtime verification remain release prerequisites. The PowerShell
-  harness owns a fresh data directory and refuses ambiguous cleanup. See [the
+  interop.** A separate analyzer-clean API reads one isolated session, its
+  windows and panes, and pane text without exposing tmux lifecycle, mutation,
+  chaining, control mode, or MCP behavior that psmux cannot preserve. The
+  accepted client is the `psmux.exe` published in the psmux `v3.3.8` release:
+  `PsmuxServer.SupportedBinarySha256` is that asset's SHA-256, and the commit
+  and clean banner are pinned beside it. The caller supplies the executable;
+  LibTmux never bundles, downloads, or searches `PATH` for one. The PowerShell
+  harness owns a fresh data directory and refuses ambiguous cleanup. Completing
+  native/WSL runtime verification remains a release prerequisite. See [the
   exact trust and compatibility boundary](docs/psmux.md).
 - **Explicit control-stream loss reporting.** A bounded event reader now gets a
   `TmuxEventsDroppedEvent` with per-report and cumulative counts instead of

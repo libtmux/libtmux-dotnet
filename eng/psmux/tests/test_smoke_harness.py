@@ -24,7 +24,7 @@ def test_first_psmux_launch_uses_verified_binary_and_isolated_data() -> None:
 
     assert script.index("Get-FileHash", 0, first_launch) >= 0
     assert script.index("$ExpectedSha256 -ine $supportedSha256", 0, first_launch) >= 0
-    assert "1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e" in script
+    assert "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d" in script
     assert script.index("$binaryText.Contains('aa26cd3')", 0, first_launch) >= 0
     assert script.index("$binaryText.Contains('2026-08-17')", 0, first_launch) >= 0
     assert script.index("$env:PSMUX_DATA_DIR = $DataDirectory", 0, first_launch) >= 0

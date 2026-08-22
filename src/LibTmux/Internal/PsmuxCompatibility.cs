@@ -3,13 +3,13 @@ namespace LibTmux.Internal;
 /// <summary>Owns the exact psmux build and endpoint spellings this preview accepts.</summary>
 internal static class PsmuxCompatibility
 {
-    internal const string SupportedVersion = "3.3.7";
+    internal const string SupportedVersion = "3.3.8";
     internal const string SupportedCommit =
-        "aa26cd39edcfab03e718f94ea21bb47e8c5b85e8";
+        "66cf61354c473b35d4f0c06c57384fc46d61ffdb";
     internal const string SupportedBinarySha256 =
-        "1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e";
+        "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d";
     internal const string SupportedImplementationLine =
-        "psmux 3.3.7 (aa26cd3 2026-08-17)";
+        "psmux 3.3.8 (66cf613 2026-08-18)";
 
     internal static string ValidateExpectedBinarySha256(string value, string parameterName)
     {

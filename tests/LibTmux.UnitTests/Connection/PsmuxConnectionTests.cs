@@ -8,9 +8,9 @@ namespace LibTmux.UnitTests.Connection;
 public sealed class PsmuxConnectionTests
 {
     private const string AuditedBanner =
-        "tmux 3.3.7\npsmux 3.3.7 (aa26cd3 2026-08-17)\n";
+        "tmux 3.3.8\npsmux 3.3.8 (66cf613 2026-08-18)\n";
     private const string TestBinarySha256 =
-        "1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e";
+        "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d";
     private static readonly string TestBinaryPath = Path.Combine(
         Path.GetTempPath(),
         "libtmux-audited-psmux.exe");
@@ -257,7 +257,7 @@ public sealed class PsmuxConnectionTests
 
         Assert.True(connection.IsPsmux);
         Assert.Equal(new ServerGeneration(41, 100), generation);
-        Assert.Equal("tmux 3.3.7", rawVersion);
+        Assert.Equal("tmux 3.3.8", rawVersion);
         Assert.Equal(["-V"], calls[0]);
         Assert.Equal("list-sessions", calls[1][0]);
         Assert.Equal(
@@ -825,10 +825,10 @@ public sealed class PsmuxConnectionTests
     }
 
     [Theory]
-    [InlineData("psmux 3.3.7")]
-    [InlineData("psmux 3.3.7 (05cc5d4 2026-07-20)")]
-    [InlineData("psmux 3.3.7 (aa26cd3 2026-08-17 dirty)")]
-    [InlineData("psmux 3.3.7 (aa26cd3 2026-08-17, dirty)")]
+    [InlineData("psmux 3.3.8")]
+    [InlineData("psmux 3.3.8 (05cc5d4 2026-07-20)")]
+    [InlineData("psmux 3.3.8 (66cf613 2026-08-18 dirty)")]
+    [InlineData("psmux 3.3.8 (66cf613 2026-08-18, dirty)")]
     public async Task Psmux_connection_requires_the_audited_build_provenance(string secondLine)
     {
         int calls = 0;
@@ -839,7 +839,7 @@ public sealed class PsmuxConnectionTests
                 calls++;
                 return Task.FromResult(Result(
                     request.LogicalArguments,
-                    $"tmux 3.3.7\n{secondLine}\n"));
+                    $"tmux 3.3.8\n{secondLine}\n"));
             },
             implementation: TmuxImplementation.Unknown);
 

@@ -76,12 +76,11 @@ jobs:
           $env:NUGET_PACKAGES = 'fresh'
           dotnet restore LibTmux.slnx
       - env:
-          ARTIFACT_URL: ${{ vars.PSMUX_ARTIFACT_URL }}
-          SOURCE_URL: ${{ vars.PSMUX_SOURCE_PROVENANCE_URL }}
-          LICENSE_URL: ${{ vars.PSMUX_LICENSE_URL }}
+          ARTIFACT_URL: https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip
+          ARCHIVE_SHA256: 1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe
           WSL_DISTRIBUTION: ${{ vars.PSMUX_WSL_DISTRIBUTION }}
           WSL_DOTNET_PATH: ${{ vars.PSMUX_WSL_DOTNET_PATH }}
-        run: Invoke-PsmuxSmoke.ps1 -RunWslSmoke -WslDotnetPath /dotnet -WslRepository $env:GITHUB_WORKSPACE 1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e
+        run: Invoke-PsmuxSmoke.ps1 -RunWslSmoke -WslDotnetPath /dotnet -WslRepository $env:GITHUB_WORKSPACE 54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d
       - run: echo 'net8.0' 'net10.0'
   publish:
     needs: [dotnet, compatibility, psmux]
@@ -188,9 +187,8 @@ def test_a_missing_workflow_is_reported(tmp_path: pathlib.Path) -> None:
         "needs: [dotnet, compatibility, psmux]",
         "github.ref_type",
         "actions/download-artifact@",
-        "PSMUX_ARTIFACT_URL",
-        "PSMUX_SOURCE_PROVENANCE_URL",
-        "PSMUX_LICENSE_URL",
+        "https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip",
+        "1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe",
         "PSMUX_WSL_DISTRIBUTION",
         "PSMUX_WSL_DOTNET_PATH",
         "runs-on: [self-hosted, Windows, X64, psmux]",

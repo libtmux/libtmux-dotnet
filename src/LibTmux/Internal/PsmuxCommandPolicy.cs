@@ -50,7 +50,7 @@ internal static class PsmuxCommandPolicy
         if (!IsSupportedReadCommand(arguments))
         {
             throw new NotSupportedException(
-                "The psmux 3.3.7 preview supports read and query commands only.");
+                "The psmux 3.3.8 preview supports read and query commands only.");
         }
     }
 
@@ -62,13 +62,13 @@ internal static class PsmuxCommandPolicy
         if (argument.Length == 0)
         {
             throw new NotSupportedException(
-                "psmux 3.3.7 cannot preserve empty command arguments.");
+                "psmux 3.3.8 cannot preserve empty command arguments.");
         }
 
         if (argument.Contains('\0') || argument.Contains('\r') || argument.Contains('\n'))
         {
             throw new NotSupportedException(
-                "psmux 3.3.7 commands cannot safely contain NUL, CR, or LF characters.");
+                "psmux 3.3.8 commands cannot safely contain NUL, CR, or LF characters.");
         }
 
         if (argument.Contains('\'')
@@ -77,7 +77,7 @@ internal static class PsmuxCommandPolicy
             || argument.EndsWith('\\'))
         {
             throw new NotSupportedException(
-                "psmux 3.3.7 cannot preserve quotes, consecutive backslashes, or a trailing backslash in command arguments.");
+                "psmux 3.3.8 cannot preserve quotes, consecutive backslashes, or a trailing backslash in command arguments.");
         }
 
         if (argument.Contains(';'))

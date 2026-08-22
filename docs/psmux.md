@@ -28,11 +28,11 @@ not suppress `CA1416`; they use the `Psmux*` types instead.
 
 ## Pinned build and trust boundary
 
-The only accepted client is one Windows x64 executable built from clean psmux
-source at commit
-`aa26cd39edcfab03e718f94ea21bb47e8c5b85e8`, with the exact banner
-`psmux 3.3.7 (aa26cd3 2026-08-17)` and executable SHA-256
-`1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e`.
+The only accepted client is the Windows x64 `psmux.exe` published in the psmux
+`v3.3.8` release, built from commit
+`66cf61354c473b35d4f0c06c57384fc46d61ffdb`, with the exact banner
+`psmux 3.3.8 (66cf613 2026-08-18)` and executable SHA-256
+`54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d`.
 `PsmuxConnectionOptions` requires:
 
 - an absolute `.exe` path on a fixed local Windows drive rather than `PATH` or
@@ -69,21 +69,33 @@ banner would already be too late.
 
 ### Artifact availability
 
-The accepted Windows x64 executable is a maintainer validation artifact, not a
-published psmux release asset. Commit `aa26cd3` is not tagged. At that commit,
-the upstream release workflow requires an existing tag but does not pin its
-checkout to the tag input. It also builds with the moving `windows-latest`
-image and `stable` Rust toolchain. Rebuilding the same source therefore does
-not promise the exact bytes required by this preview. A matching source banner
-is not a substitute for the pinned SHA-256.
+The accepted client is a published psmux release asset, so anyone can obtain
+the exact bytes this preview accepts:
 
-Publication of the exact accepted artifact, or selection and review of a
-published replacement with a new pinned hash, is a prerequisite to shipping
-this preview. Without that published artifact URL, the native/WSL smoke is
-available only to a tester who already has the exact artifact. Do not install
-or rebuild psmux and assume the result is accepted.
+```console
+$ curl --fail --location --proto '=https' --tlsv1.2 \
+    --output psmux-v3.3.8-windows-x64.zip \
+    https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip
+```
 
-What a release needs on top of this contract — the repository variables and
+The archive is SHA-256
+`1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe`, and the
+`psmux.exe` inside it is the pinned client hash above. It also carries psmux's
+MIT `LICENSE`, so nothing has to redistribute a copy. Verify both hashes before
+use: a matching source banner is not a substitute for the pinned SHA-256.
+
+Rebuilding this source does not reproduce these bytes. The upstream release
+workflow builds with the moving `windows-latest` image and a `stable` Rust
+toolchain, and psmux pins no toolchain channel of its own. Download the
+published asset and check its hash; do not build psmux and assume the result is
+accepted.
+
+Commit `aa26cd3` — an untagged build that earlier releases of this preview
+pinned — is contained in `v3.3.8`. The startup reaper that makes an unaudited
+client dangerous is byte-identical between the two, so the audited behaviour is
+what the published release ships.
+
+What a release needs on top of this contract — the WSL repository variables and
 the self-hosted runner — is in
 [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md#the-psmux-preview-gates).
 
@@ -199,8 +211,8 @@ the server alive while both native .NET and WSL .NET query it:
 
 ```console
 $ & '\\wsl.localhost\<distribution>\home\<user>\libtmux-dotnet\eng\psmux\Invoke-PsmuxSmoke.ps1' `
-    -PsmuxPath 'C:\Tools\psmux-aa26cd3\psmux.exe' `
-    -ExpectedSha256 '1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e' `
+    -PsmuxPath 'C:\Tools\psmux-v3.3.8\psmux.exe' `
+    -ExpectedSha256 '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d' `
     -DataDirectory 'C:\Users\me\AppData\Local\Temp\libtmux-psmux-smoke-01a00fd3' `
     -NamespaceName 'libtmux_smoke_01a00fd3' `
     -DotnetPath 'C:\Program Files\dotnet\dotnet.exe' `
@@ -268,7 +280,7 @@ depends on a login profile or the non-login `wsl.exe --exec` search path.
   raw commands are absent from the public preview.
 - `Server.FromEnvironment()` rejects psmux markers and fake psmux `TMUX` paths;
   it never falls back to an installed `psmux.exe` or fake tmux `-S` routing.
-- Numeric version `3.3.7` has no tmux capability profile. Optional tmux flags
+- Numeric version `3.3.8` has no tmux capability profile. Optional tmux flags
   remain disabled rather than being inferred from a nearby release.
 
 This is a core one-shot query preview. `LibTmux.Workspace` and the creation

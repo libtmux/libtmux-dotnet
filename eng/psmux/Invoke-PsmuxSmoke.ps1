@@ -45,7 +45,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $savedOutputEncoding = [Console]::OutputEncoding
-$supportedSha256 = '1abd0eaa3de1ed5491a4f744c8b3db492ae9ac94e9e9a8fea9da217c744ba94e'
+$supportedSha256 = '54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d'
 $wslTimeoutScript = @'
 case "$(LC_ALL=C /usr/bin/timeout --version 2>/dev/null)" in
     'timeout (GNU coreutils) '*) ;;
@@ -454,8 +454,8 @@ function Convert-ToWslPath(
 }
 
 $expectedBanner = @(
-    'tmux 3.3.7'
-    'psmux 3.3.7 (aa26cd3 2026-08-17)'
+    'tmux 3.3.8'
+    'psmux 3.3.8 (66cf613 2026-08-18)'
 )
 $fixtureBytes = [byte[]] (
     0x68, 0xc3, 0xa9, 0x6c, 0x6c, 0x6f, 0x2d, 0xe9, 0x9b, 0xaa,
