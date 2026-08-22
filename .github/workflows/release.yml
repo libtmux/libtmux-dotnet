@@ -101,7 +101,10 @@ jobs:
     name: psmux native Windows and WSL
     needs: [validate, psmux-metadata]
     runs-on: [self-hosted, Windows, X64, psmux]
-    timeout-minutes: 45
+    # The gate restores into a throwaway NuGet cache on purpose, so every run
+    # pays a full cold restore. That is the point of the isolation, and on a
+    # self-hosted Windows machine it is slower than the hosted equivalent.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
