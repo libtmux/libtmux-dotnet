@@ -395,10 +395,22 @@ runtime evidence.
 
 #### Provisioning the runner
 
-The machine needs Windows x64, a Windows `dotnet` and `git`, and a WSL
+The machine needs Windows x64, `git`, PowerShell 7 (`pwsh`), and a WSL
 distribution holding a checkout with its own Linux `dotnet`. The psmux job
 drives both sides from one PowerShell process, so a runner without WSL fails
 the gate rather than skipping it.
+
+`pwsh` is the one a hosted runner would have supplied. Windows PowerShell 5.1
+is not it, and the job's steps ask for `pwsh` by name:
+
+```console
+$ winget install --id Microsoft.PowerShell --silent
+```
+
+A Windows `dotnet` is not a prerequisite. `global.json` pins an exact SDK, so
+the job installs that version into the runner's tool cache regardless of what
+the machine already has. Restart the listener after installing anything it
+needs to find on `PATH`; it reads the environment once, at start.
 
 Register it with the `psmux` label; `self-hosted`, `Windows` and `X64` are
 added for you, and `runs-on` matches on all four:
