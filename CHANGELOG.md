@@ -8,7 +8,7 @@ Versions follow [Semantic Versioning](https://semver.org). During alpha the
 public API can change in any release with no deprecation period — pin an exact
 version.
 
-## [Unreleased]
+## [0.0.0-alpha.9] — 2026-08-22
 
 ### Added
 
@@ -20,9 +20,9 @@ version.
   `PsmuxServer.SupportedBinarySha256` is that asset's SHA-256, and the commit
   and clean banner are pinned beside it. The caller supplies the executable;
   LibTmux never bundles, downloads, or searches `PATH` for one. The PowerShell
-  harness owns a fresh data directory and refuses ambiguous cleanup. Completing
-  native/WSL runtime verification remains a release prerequisite. See [the
-  exact trust and compatibility boundary](docs/psmux.md).
+  harness owns a fresh data directory and refuses ambiguous cleanup. Native
+  Windows and WSL runtime verification runs as a release gate. See [the exact
+  trust and compatibility boundary](docs/psmux.md).
 - **Explicit control-stream loss reporting.** A bounded event reader now gets a
   `TmuxEventsDroppedEvent` with per-report and cumulative counts instead of
   silently missing notifications when it falls behind.
@@ -324,7 +324,7 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.8...HEAD
+[0.0.0-alpha.9]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.9
 [0.0.0-alpha.8]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.8
 [0.0.0-alpha.7]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.7
 [0.0.0-alpha.6]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.6
