@@ -120,6 +120,16 @@ jobs:
         with:
           global-json-file: global.json
 
+      # The smoke runs the net8.0 assemblies as well, and global.json only
+      # brings the pinned 10.x SDK and its runtime. A hosted image happens to
+      # carry .NET 8 already; an isolated install directory does not, so the
+      # job installs it rather than depending on what the machine has.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.tool_cache }}\dotnet
+        with:
+          dotnet-version: '8.0'
+
       - name: Download the audited psmux release
         shell: pwsh
         env:
