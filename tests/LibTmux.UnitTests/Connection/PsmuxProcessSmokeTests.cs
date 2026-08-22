@@ -36,7 +36,9 @@ public sealed class PsmuxProcessSmokeTests
                 socketName),
             cancellationToken);
 
-        Assert.Equal(TmuxVersion.Parse("3.3.7"), server.Version);
+        Assert.Equal(
+            TmuxVersion.Parse(LibTmux.Internal.PsmuxCompatibility.SupportedVersion),
+            server.Version);
         PsmuxServer refreshed = await server.RefreshAsync(cancellationToken);
         Assert.Equal(server.Version, refreshed.Version);
 
