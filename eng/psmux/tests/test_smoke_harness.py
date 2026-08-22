@@ -25,8 +25,8 @@ def test_first_psmux_launch_uses_verified_binary_and_isolated_data() -> None:
     assert script.index("Get-FileHash", 0, first_launch) >= 0
     assert script.index("$ExpectedSha256 -ine $supportedSha256", 0, first_launch) >= 0
     assert "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d" in script
-    assert script.index("$binaryText.Contains('aa26cd3')", 0, first_launch) >= 0
-    assert script.index("$binaryText.Contains('2026-08-17')", 0, first_launch) >= 0
+    assert script.index("$binaryText.Contains('66cf613')", 0, first_launch) >= 0
+    assert script.index("$binaryText.Contains('2026-08-18')", 0, first_launch) >= 0
     assert script.index("$env:PSMUX_DATA_DIR = $DataDirectory", 0, first_launch) >= 0
     assert script.index("$env:PSMUX_NO_WARM = '1'", 0, first_launch) >= 0
     assert '"set -g warm off`n"' in script
