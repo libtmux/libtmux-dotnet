@@ -12,6 +12,18 @@ public static class OneShot
     {
         #region ConnectAndBuild
         Server server = await Server.ConnectAsync();
+        #endregion
+        await BuildHierarchy(server);
+    }
+
+    /// <summary>Builds the hierarchy on a supplied server.</summary>
+    [Example(
+        "Build a session and window on a supplied server",
+        RunsInDefaultSuite = false)]
+    public static async Task BuildHierarchy(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        #region BuildHierarchy
         Session session = await server.CreateSessionAsync(new NewSessionRequest(name: "build"));
         Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "tests"));
         Pane pane = (await window.GetPanesAsync())[0];
