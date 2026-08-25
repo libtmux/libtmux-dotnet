@@ -9,8 +9,9 @@ The copy is materialized rather than transcluded because these are package
 READMEs, and nuget.org renders the markdown it is given without resolving
 anything.
 
-Anchors name the region, and optionally namespaces the document adds above the
-block that the snippet file does not need::
+Anchors name one region or a ``+``-joined sequence of regions, and optionally
+namespaces the document adds above the block that the snippet file does not
+need::
 
     <!-- snippet: ConnectAndBuild usings: LibTmux -->
     ```csharp
@@ -70,14 +71,18 @@ def read_regions() -> dict[str, str]:
     return regions
 
 
-def render(name: str, options: str, regions: dict[str, str]) -> str:
-    """Return the fenced block a document should carry for one region."""
-    if name not in regions:
-        known = ", ".join(sorted(regions)) or "none"
-        msg = f"no #region named {name}. Published regions: {known}"
-        raise SystemExit(msg)
+def render(name: str, options: str, regions: dict[str, str], used: set[str]) -> str:
+    """Return the fenced block a document should carry for named regions."""
+    bodies: list[str] = []
+    for component in name.split("+"):
+        if component not in regions:
+            known = ", ".join(sorted(regions)) or "none"
+            msg = f"no #region named {component}. Published regions: {known}"
+            raise SystemExit(msg)
+        used.add(component)
+        bodies.append(regions[component])
 
-    body = regions[name]
+    body = "\n".join(bodies)
     using = USINGS.search(options)
     if using:
         namespaces = [part.strip() for part in re.split(r"[ ,]+", using.group("names")) if part.strip()]
@@ -91,8 +96,7 @@ def apply(text: str, regions: dict[str, str], used: set[str]) -> str:
 
     def replace(match: re.Match[str]) -> str:
         name = match.group("name")
-        used.add(name)
-        block = render(name, match.group("options"), regions)
+        block = render(name, match.group("options"), regions, used)
         return f"{match.group('open')}{block}{match.group('close')}"
 
     return ANCHOR.sub(replace, text)
