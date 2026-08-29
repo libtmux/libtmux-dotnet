@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted as the production implementation contract.
+Accepted; implementation complete. The production plan and its phase validator
+were transient execution scaffolding and were removed after closure. The
+canonical API and parity documents retain the durable contract.
 
 ADR 0005 supersedes this decision's exact capability-profile selection rule
 and closed stable-version support boundary.
@@ -270,5 +272,5 @@ The public contract is accepted only while all of the following remain true:
 - public member IDs and overloads are unique;
 - async, cancellation, ownership, platform, query, ID, and exception rules
   validate mechanically; and
-- the ignored production plan owns every row once and names the full completion
-  gates.
+- at the approval boundary, the production plan owned every row once and named
+  the full completion gates.

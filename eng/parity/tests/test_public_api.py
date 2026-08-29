@@ -291,13 +291,13 @@ def test_approval_does_not_claim_implementation() -> None:
     """Keep destination approval separate from production evidence."""
     ledger = load_json(csharp_docs_root() / "parity" / "parity-ledger.json")
     namespace = runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "verify_production_plan.py")
+        str(pathlib.Path(__file__).parents[1] / "verify_ledger.py")
     )
-    approval_ledger = t.cast(
+    approval_snapshot = t.cast(
         t.Callable[[dict[str, t.Any]], dict[str, t.Any]],
-        namespace["approval_ledger"],
+        namespace["approval_snapshot"],
     )
-    approved_ledger = approval_ledger(ledger)
+    approved_ledger = approval_snapshot(ledger)
     assert all(row["destinationStatus"] != "planned" for row in approved_ledger["rows"])
     production_rows = [
         row

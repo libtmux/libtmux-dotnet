@@ -307,11 +307,11 @@ differs between 3.2a and 3.7b goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json).
 
-**A public API addition needs five edits, and each will tell you.** The Roslyn
-analyzer baseline (`PublicAPI.Unshipped.txt`), the type and its members in
-`docs/public-api.json`, its values if it is an enum, and its owning component
-in `eng/parity/verify_production_plan.py`. They fail independently and by name;
-follow the errors.
+**A public API addition changes both enforced contracts.** Update the Roslyn
+analyzer baseline (`PublicAPI.Unshipped.txt`) and the type and member records in
+`docs/public-api.json`, including explicit enum values. If the addition maps a
+Python symbol, update its row in `docs/parity/parity-ledger.json`. The validators
+report each missing contract independently.
 
 **A documented example is compiled, and a `csharp run` block is executed
 against a live tmux.** `ReadmeExampleTests` compiles every C# block in the
