@@ -29,15 +29,6 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(value);
-        try
-        {
-            QueryDocumentValidator.Validate(value);
-        }
-        catch (UnsupportedQueryExpressionException exception)
-        {
-            throw new JsonException(exception.Message, exception);
-        }
-
         if (!string.Equals(value.Schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
         {
             throw new JsonException(
@@ -59,6 +50,17 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         writer.WritePropertyName("predicate");
         WriteNode(writer, value.Predicate, depth: 1);
         writer.WriteEndObject();
+
+        // The bounded walk must run first so semantic validation cannot recurse
+        // beyond the v1 depth or node ceilings.
+        try
+        {
+            QueryDocumentValidator.Validate(value);
+        }
+        catch (UnsupportedQueryExpressionException exception)
+        {
+            throw new JsonException(exception.Message, exception);
+        }
     }
 
     private static string Wire(QueryTarget target) => target switch

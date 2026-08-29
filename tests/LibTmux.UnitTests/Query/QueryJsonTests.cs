@@ -203,6 +203,30 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
+    public void Serialization_applies_structural_budgets_before_semantic_validation()
+    {
+        QueryNode tooDeep = SessionName;
+        for (int depth = 0; depth < QueryJsonLimits.V1.MaximumDepth; depth++)
+        {
+            tooDeep = new NotNode(tooDeep);
+        }
+
+        JsonException depthFailure = Assert.Throws<JsonException>(
+            () => QueryJson.Serialize(Document(tooDeep)));
+        Assert.Contains("maximum nesting depth", depthFailure.Message, StringComparison.Ordinal);
+
+        QueryNode[] tooMany =
+        [
+            .. Enumerable.Repeat<QueryNode>(
+                SessionName,
+                QueryJsonLimits.V1.MaximumNodes),
+        ];
+        JsonException nodeFailure = Assert.Throws<JsonException>(
+            () => QueryJson.Serialize(Document(new OrNode(tooMany))));
+        Assert.Contains("maximum node count", nodeFailure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void An_unknown_node_kind_is_refused_rather_than_guessed()
     {
         const string json =
