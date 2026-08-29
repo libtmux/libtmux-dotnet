@@ -1093,7 +1093,7 @@ public sealed class VersionParityTests
         RawTmuxTestContext context,
         params string[] accepted)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string running = string.Empty;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -1120,7 +1120,7 @@ public sealed class VersionParityTests
         RawTmuxTestContext context,
         Func<IReadOnlyList<string>, bool> settled)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         IReadOnlyList<string> lines = [];
         while (DateTimeOffset.UtcNow < deadline)
         {

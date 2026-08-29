@@ -1,10 +1,11 @@
 using System.Runtime.Versioning;
+// A namespace segment named Workspace would shadow LibTmux.Workspace for
+// every file in the assembly, so this sits at the assembly root instead.
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
 
-// A namespace segment named Workspace would shadow LibTmux.Workspace for
-// every file in the assembly, so this sits at the assembly root instead.
 namespace LibTmux.IntegrationTests;
 
 [UnsupportedOSPlatform("windows")]
@@ -107,7 +108,7 @@ public sealed class WorkspaceBuilderTests
                 '\n',
                 await shell[0].CaptureAsync(cancellationToken: cancellation)),
             captured => captured.Contains("command-two", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
         Assert.Contains("command-one", text, StringComparison.Ordinal);
@@ -309,7 +310,8 @@ public sealed class WorkspaceBuilderTests
 
             WorkspaceResult result = await new WorkspaceBuilder(
                     scope.Server,
-                    paneReadiness: PaneReadiness.Always)
+                    Readiness,
+                    PaneReadiness.Always)
                 .BuildAsync(workspace, token);
 
             string firstInput = await TmuxWait.UntilAsync(
@@ -357,13 +359,13 @@ public sealed class WorkspaceBuilderTests
         IReadOnlyList<string> first = await TmuxWait.UntilAsync(
             cancellation => panes[0].CaptureAsync(cancellationToken: cancellation),
             lines => lines.Contains("/usr", StringComparer.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
         IReadOnlyList<string> second = await TmuxWait.UntilAsync(
             cancellation => panes[1].CaptureAsync(cancellationToken: cancellation),
             lines => lines.Contains("/etc", StringComparer.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 

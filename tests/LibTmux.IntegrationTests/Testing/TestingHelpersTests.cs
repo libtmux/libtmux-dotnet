@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 
@@ -76,7 +77,7 @@ public sealed class TestingHelpersTests
                 '\n',
                 await scope.Pane.CaptureAsync(cancellationToken: cancellation)),
             captured => captured.Contains("hierarchy", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
         Assert.Contains("hierarchy", text, StringComparison.Ordinal);
@@ -203,7 +204,7 @@ public sealed class TestingHelpersTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => TmuxWait.UntilAsync(
                 static _ => Task.FromResult(false),
-                TimeSpan.FromSeconds(10),
+                TestBudget.Settle,
                 TimeSpan.FromMilliseconds(10),
                 cancellationToken: cancelled.Token));
     }

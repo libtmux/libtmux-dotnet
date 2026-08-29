@@ -636,7 +636,7 @@ public sealed class ControlModeSessionTests
     {
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        timeout.CancelAfter(TestBudget.Settle);
         while (!condition())
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);

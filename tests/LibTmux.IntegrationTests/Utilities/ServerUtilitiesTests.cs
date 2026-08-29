@@ -593,7 +593,7 @@ public sealed class ServerUtilitiesTests
     {
         // A conditional command runs on tmux's own schedule, so the option it
         // sets appears a moment after the call returns.
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string? seen = null;
         while (DateTimeOffset.UtcNow < deadline)
         {

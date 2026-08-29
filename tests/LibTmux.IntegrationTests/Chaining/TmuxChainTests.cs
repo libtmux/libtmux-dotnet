@@ -189,7 +189,7 @@ public sealed class TmuxChainTests
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("chained-keys", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -251,7 +251,7 @@ public sealed class TmuxChainTests
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("executed-keys", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -484,7 +484,7 @@ public sealed class TmuxChainTests
         await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("captured-by-chain", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -567,7 +567,7 @@ public sealed class TmuxChainTests
                 '\n',
                 await pane.CaptureAsync(new CapturePaneRequest(joinWrappedLines: true), inner)),
             text => text.Contains("chained-paste", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -835,7 +835,7 @@ public sealed class TmuxChainTests
                 ["display-message", "-p", "-t", pane.Id.ToString(), "#{pane_current_command}"],
                 inner)).StandardOutputLines[0],
             command => command == "cat",
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 

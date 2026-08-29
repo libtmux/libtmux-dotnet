@@ -599,7 +599,7 @@ public sealed class PaneOperationsTests
 
     private static async Task WaitForClearedHistoryAsync(Pane pane, CancellationToken token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string size = string.Empty;
         while (DateTimeOffset.UtcNow < deadline)
         {

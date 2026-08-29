@@ -189,7 +189,7 @@ public sealed class ClientAdministrationTests
     {
         // Attaching is asynchronous on tmux's side, so the client appears a
         // moment after the process starts.
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<Client> clients = await server.GetClientsAsync(token);
@@ -209,7 +209,7 @@ public sealed class ClientAdministrationTests
         int expected,
         CancellationToken token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         IReadOnlyList<Client> clients = [];
         while (DateTimeOffset.UtcNow < deadline)
         {

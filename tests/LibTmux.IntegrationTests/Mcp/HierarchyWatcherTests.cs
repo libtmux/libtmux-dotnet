@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -192,7 +193,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> clients = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 0,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Empty(clients);
@@ -263,7 +264,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> oneReference = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 1,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Single(oneReference);
@@ -272,7 +273,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> noReferences = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 0,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Empty(noReferences);
