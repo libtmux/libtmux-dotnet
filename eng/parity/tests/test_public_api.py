@@ -1772,26 +1772,13 @@ def test_c4_projection_framing_and_materialization_contract_is_complete() -> Non
             "IReadOnlyList<IReadOnlyDictionary<string,ReadOnlyMemory<byte>>>",
             ["ReadOnlySpan<byte>", "int", "int"],
         ),
-        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)": (
+        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)": (
             "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>>",
-            [
-                "MaterializationContext",
-                "string",
-                "IReadOnlyList<string>?",
-                "string?",
-                "CancellationToken",
-            ],
+            ["string", "IEnumerable<string>?", "CancellationToken"],
         ),
-        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)": (
-            "Task<IReadOnlyDictionary<string,string?>>",
-            [
-                "MaterializationContext",
-                "string",
-                "string",
-                "string",
-                "IReadOnlyList<string>?",
-                "CancellationToken",
-            ],
+        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)": (
+            "Task<IReadOnlyDictionary<string,string?>?>",
+            ["string", "string", "string", "TmuxTarget?", "CancellationToken"],
         ),
         "M:LibTmux.Internal.Materializer.MaterializeSession(MaterializationContext,IReadOnlyDictionary<string,string?>)": (
             "Session",
@@ -1836,7 +1823,7 @@ def test_c4_projection_framing_and_materialization_contract_is_complete() -> Non
         == C4_FRAMING_VALIDATION
     )
     assert members[
-        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)"
+        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)"
     ]["failureMapping"] == {
         "framing": "TmuxTransportException carrying logical tmux arguments",
         "lowLevel": "InvalidDataException",
@@ -1862,7 +1849,7 @@ def test_c4_contract_validator_rejects_projection_and_framing_drift() -> None:
         "M:LibTmux.Internal.SeparatedRowFramer.DecodeRows(ReadOnlySpan<byte>,int,int)"
     ]["validation"] = "delimiter-separated rows"
     members[
-        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)"
+        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)"
     ]["parameters"][2]["name"] = "target"
     types["T:LibTmux.Internal.MaterializationQuery"]["behavior"][
         "requiredUniversalFields"

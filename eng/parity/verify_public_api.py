@@ -737,8 +737,8 @@ def validate_c4_materialization_contracts(
             ["internal", "sealed"],
         ),
         "T:LibTmux.Internal.MaterializationQuery": (
-            "static class",
-            ["internal", "static"],
+            "sealed class",
+            ["internal", "sealed"],
         ),
     }
     expected_members = {
@@ -773,34 +773,29 @@ def validate_c4_materialization_contracts(
         ),
         (
             "M:LibTmux.Internal.MaterializationQuery.FetchAsync("
-            "MaterializationContext,string,IReadOnlyList<string>?,string?,"
-            "CancellationToken)"
+            "string,IEnumerable<string>?,CancellationToken)"
         ): (
             "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>>",
             (
-                ("context", "MaterializationContext", None),
                 ("listCommand", "string", None),
-                ("arguments", "IReadOnlyList<string>?", "null"),
-                ("target", "string?", "null"),
+                ("extraArguments", "IEnumerable<string>?", "null"),
                 ("cancellationToken", "CancellationToken", "default"),
             ),
-            True,
+            False,
         ),
         (
             "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync("
-            "MaterializationContext,string,string,string,IReadOnlyList<string>?,"
-            "CancellationToken)"
+            "string,string,string,TmuxTarget?,CancellationToken)"
         ): (
-            "Task<IReadOnlyDictionary<string,string?>>",
+            "Task<IReadOnlyDictionary<string,string?>?>",
             (
-                ("context", "MaterializationContext", None),
                 ("listCommand", "string", None),
-                ("targetId", "string", None),
-                ("idField", "string", None),
-                ("arguments", "IReadOnlyList<string>?", "null"),
+                ("idWireName", "string", None),
+                ("identifier", "string", None),
+                ("inSession", "TmuxTarget?", "null"),
                 ("cancellationToken", "CancellationToken", "default"),
             ),
-            True,
+            False,
         ),
         (
             "M:LibTmux.Internal.Materializer.MaterializeSession("
@@ -909,8 +904,8 @@ def validate_c4_materialization_contracts(
         violations.append("invalid C4 framing contract")
 
     fetch_ids = (
-        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)",
-        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)",
+        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)",
+        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)",
     )
     if any(
         members.get(member_id, {}).get("failureMapping") != C4_QUERY_FAILURE_MAPPING

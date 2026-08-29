@@ -588,17 +588,19 @@
       "id": "T:LibTmux.Internal.MaterializationQuery",
       "namespace": "LibTmux.Internal",
       "name": "MaterializationQuery",
-      "kind": "static class",
+      "kind": "sealed class",
       "package": "LibTmux",
       "modifiers": [
         "internal",
-        "static"
+        "sealed"
       ],
       "baseType": "object",
       "interfaces": [],
       "ownership": "value",
-      "state": [],
-      "summary": "Acquires version-gated framed rows for materialization.",
+      "state": [
+        "MaterializationContext"
+      ],
+      "summary": "Reads version-gated framed rows for materialization.",
       "behavior": {
         "requiredUniversalFields": [
           "pid",
@@ -5679,32 +5681,23 @@
       "summary": "Creates materialization context for one owning server."
     },
     {
-      "id": "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)",
+      "id": "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)",
       "declaringType": "T:LibTmux.Internal.MaterializationQuery",
       "name": "FetchAsync",
       "kind": "method",
       "visibility": "internal",
       "package": "LibTmux",
-      "static": true,
+      "static": false,
       "genericParameters": [],
       "returnType": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>>",
       "parameters": [
-        {
-          "name": "context",
-          "type": "MaterializationContext"
-        },
         {
           "name": "listCommand",
           "type": "string"
         },
         {
-          "name": "arguments",
-          "type": "IReadOnlyList<string>?",
-          "default": "null"
-        },
-        {
-          "name": "target",
-          "type": "string?",
+          "name": "extraArguments",
+          "type": "IEnumerable<string>?",
           "default": "null"
         },
         {
@@ -5713,7 +5706,7 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext context, string listCommand, IReadOnlyList<string>? arguments = null, string? target = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(string listCommand, IEnumerable<string>? extraArguments = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
@@ -5722,7 +5715,7 @@
       ],
       "summary": "Acquires and decodes every version-gated row for one logical tmux list command.",
       "behavior": {
-        "projection": "FormatProjection.Create(listCommand, context.Server.Version)",
+        "projection": "FormatProjection.Create(listCommand, context.TmuxVersion)",
         "result": "all decoded rows as copied dictionaries",
         "rawValues": "Utf8BackslashDecoder after byte framing"
       },
@@ -5732,35 +5725,31 @@
       }
     },
     {
-      "id": "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)",
+      "id": "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)",
       "declaringType": "T:LibTmux.Internal.MaterializationQuery",
       "name": "FetchOneAsync",
       "kind": "method",
       "visibility": "internal",
       "package": "LibTmux",
-      "static": true,
+      "static": false,
       "genericParameters": [],
-      "returnType": "Task<IReadOnlyDictionary<string,string?>>",
+      "returnType": "Task<IReadOnlyDictionary<string,string?>?>",
       "parameters": [
-        {
-          "name": "context",
-          "type": "MaterializationContext"
-        },
         {
           "name": "listCommand",
           "type": "string"
         },
         {
-          "name": "targetId",
+          "name": "idWireName",
           "type": "string"
         },
         {
-          "name": "idField",
+          "name": "identifier",
           "type": "string"
         },
         {
-          "name": "arguments",
-          "type": "IReadOnlyList<string>?",
+          "name": "inSession",
+          "type": "TmuxTarget?",
           "default": "null"
         },
         {
@@ -5769,17 +5758,18 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyDictionary<string,string?>> LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext context, string listCommand, string targetId, string idField, IReadOnlyList<string>? arguments = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyDictionary<string,string?>?> LibTmux.Internal.MaterializationQuery.FetchOneAsync(string listCommand, string idWireName, string identifier, TmuxTarget? inSession = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Acquires one canonical tmux target without conflating absence and server failure.",
+      "summary": "Reads one tmux entity without listing the server.",
       "behavior": {
-        "canonicalSession": "resolve session_name before list-windows or list-panes",
-        "missingTarget": "empty successful result throws TmuxObjectNotFoundException",
+        "read": "display-message -p -t target rendering the list command's projection",
+        "scoping": "a session-scoped target is read before the bare identifier",
+        "missingTarget": "a row that does not carry the identifier back returns null",
         "unreachableServer": "tmux or transport failure propagates distinctly"
       },
       "failureMapping": {
@@ -23524,7 +23514,7 @@
       "kind": "type",
       "visibility": "internal",
       "package": "LibTmux",
-      "signature": "static class LibTmux.Internal.MaterializationQuery",
+      "signature": "sealed class LibTmux.Internal.MaterializationQuery",
       "portable": true
     },
     {
