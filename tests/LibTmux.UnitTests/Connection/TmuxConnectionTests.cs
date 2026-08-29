@@ -906,17 +906,20 @@ public sealed class GenerationGuardTests
             FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
                 Result(request.LogicalArguments, 0, [], []))));
         var generation = new ServerGeneration(60, 400);
+        var server = new Server(connection, generation, "tmux 3.7");
+        var successor = new Server(connection, new ServerGeneration(61, 401), "tmux 3.7");
 
-        var session = new Session(connection, generation, new SessionId(1));
-        var equalSession = new Session(connection, generation, new SessionId(1));
+        var session = new Session(server, connection, generation, new SessionId(1));
+        var equalSession = new Session(server, connection, generation, new SessionId(1));
         var successorSession = new Session(
+            successor,
             connection,
             new ServerGeneration(61, 401),
             new SessionId(1));
-        var window = new Window(connection, generation, new WindowId(2));
-        var equalWindow = new Window(connection, generation, new WindowId(2));
-        var pane = new Pane(connection, generation, new PaneId(3));
-        var equalPane = new Pane(connection, generation, new PaneId(3));
+        var window = new Window(server, connection, generation, new WindowId(2));
+        var equalWindow = new Window(server, connection, generation, new WindowId(2));
+        var pane = new Pane(server, connection, generation, new PaneId(3));
+        var equalPane = new Pane(server, connection, generation, new PaneId(3));
 
         Assert.Equal(session, equalSession);
         Assert.Equal(session.GetHashCode(), equalSession.GetHashCode());

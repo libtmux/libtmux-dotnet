@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -18,9 +17,5 @@ public sealed partial class Server
         _commandDispatcher,
         OptionScope.Server,
         null,
-        DoubleEscapesDollar(this));
-
-    private static bool DoubleEscapesDollar(Server? owner) =>
-        owner?.Version is TmuxVersion version
-        && TmuxCapabilities.IsSupported(version, "option_dollar_double_escape");
+        TmuxOptions.DoubleEscapesDollar(this));
 }

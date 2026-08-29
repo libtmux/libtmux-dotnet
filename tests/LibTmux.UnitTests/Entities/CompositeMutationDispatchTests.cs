@@ -422,7 +422,11 @@ public sealed class CompositeMutationDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
     {
         var connection = CreateConnection(execute);
-        return new Pane(connection, Generation, new PaneId(1));
+        return new Pane(
+            new Server(connection, Generation, "tmux 3.7"),
+            connection,
+            Generation,
+            new PaneId(1));
     }
 
     private static Window CreateWindow(

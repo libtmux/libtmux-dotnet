@@ -17,6 +17,12 @@ public sealed class TmuxOptions
     private readonly string? _target;
     private readonly bool _doubleEscapedDollar;
 
+    /// <summary>Reports whether a tmux escapes a dollar sign twice in an option value.</summary>
+    /// <param name="owner">The server answering, or null when it is not known.</param>
+    internal static bool DoubleEscapesDollar(Server? owner) =>
+        owner?.Version is TmuxVersion version
+        && TmuxCapabilities.IsSupported(version, "option_dollar_double_escape");
+
     internal TmuxOptions(
         TmuxCommandDispatcher dispatcher,
         OptionScope scope,

@@ -149,7 +149,11 @@ public sealed class PaneSendKeysDispatchTests
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "send-keys-dispatch-test"),
             FakeMultiplexer.AnsweringVersion(execute));
-        return new Pane(connection, Generation, new PaneId(1));
+        return new Pane(
+            new Server(connection, Generation, "tmux 3.7"),
+            connection,
+            Generation,
+            new PaneId(1));
     }
 
     private static TmuxCommandResult Success(IReadOnlyList<string> arguments)

@@ -12,19 +12,6 @@ public sealed partial class Window
     private CapturedRelation<Session>? _linkedSessions;
     private SessionWindowEdge? _edge;
 
-    [UnsupportedOSPlatform("windows")]
-    internal Window(
-        Server owner,
-        TmuxConnection connection,
-        ServerGeneration generation,
-        WindowId id,
-        IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id, snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        _owner = owner;
-    }
-
     /// <summary>Gets the active pane recorded when this window was read.</summary>
     /// <exception cref="IncompleteSnapshotException">
     /// The window was resolved by identifier rather than materialized.
@@ -39,7 +26,7 @@ public sealed partial class Window
                 throw new IncompleteSnapshotException("active pane", SnapshotDepth.Windows);
             }
 
-            return new Pane(RequireConnection(), _generation, id);
+            return new Pane(RequireOwner("panes"), RequireConnection(), _generation, id);
         }
     }
 

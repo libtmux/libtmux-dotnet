@@ -39,9 +39,10 @@ public sealed partial class Window
     public int Width => ReadCapturedInt("window_width", "width");
 
     /// <summary>Gets the server that owns this window.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <remarks>
+    /// Every handle reached through a server carries it, whether the handle was
+    /// materialized from a listing or resolved from an identifier.
+    /// </remarks>
     public Server Server => RequireOwner("server");
 
     /// <summary>Gets the session this window was read through.</summary>
@@ -51,7 +52,7 @@ public sealed partial class Window
     [UnsupportedOSPlatform("windows")]
     public Session Session =>
         SessionId.TryParse(ReadSnapshot("session_id"), out SessionId id)
-            ? new Session(RequireConnection(), _generation, id)
+            ? new Session(RequireOwner("session"), RequireConnection(), _generation, id)
             : throw new IncompleteSnapshotException("session", SnapshotDepth.Windows);
 
     /// <summary>Re-reads this window from tmux.</summary>

@@ -525,6 +525,23 @@ public sealed class PaneOperationsTests
             token);
 
     [UnixFact]
+    public async Task A_pane_resolved_by_identifier_reaches_its_option_table()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Pane materialized = await FirstPaneAsync(server, token);
+
+        // A handle resolved by identifier carries no snapshot, so reaching a
+        // scope must not depend on one.
+        Pane resolved = await server.GetPaneAsync(materialized.Id, token);
+
+        await resolved.Hooks.GetAllAsync(cancellationToken: token);
+        await resolved.Options.GetAllAsync(cancellationToken: token);
+    }
+
+    [UnixFact]
     public async Task Killed_pane_is_a_raising_tombstone()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

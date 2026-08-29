@@ -110,7 +110,7 @@ public sealed partial class Server
 
         Session? materialized = null;
         MaterializeSession(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Session(connection, identity.Value.Generation, identity.Value.Id);
+        return materialized ?? new Session(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
     /// <summary>Gets one window by its typed identifier.</summary>
@@ -130,7 +130,7 @@ public sealed partial class Server
 
         Window? materialized = null;
         MaterializeWindow(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Window(connection, identity.Value.Generation, identity.Value.Id);
+        return materialized ?? new Window(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
     /// <summary>Gets one pane by its typed identifier.</summary>
@@ -150,7 +150,7 @@ public sealed partial class Server
 
         Pane? materialized = null;
         MaterializePane(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Pane(connection, identity.Value.Generation, identity.Value.Id);
+        return materialized ?? new Pane(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
     partial void MaterializeSession(

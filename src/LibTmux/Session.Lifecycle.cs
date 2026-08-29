@@ -34,9 +34,10 @@ public sealed partial class Session
             : throw new IncompleteSnapshotException("attached", SnapshotDepth.Sessions);
 
     /// <summary>Gets the server that owns this session.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <remarks>
+    /// Every handle reached through a server carries it, whether the handle was
+    /// materialized from a listing or resolved from an identifier.
+    /// </remarks>
     public Server Server => RequireOwner("server");
 
     /// <summary>Re-reads this session from tmux.</summary>

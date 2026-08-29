@@ -10,19 +10,6 @@ public sealed partial class Session
     private Func<CapturedRelation<Window>>? _windows;
     private CapturedRelation<Pane>? _panes;
 
-    [UnsupportedOSPlatform("windows")]
-    internal Session(
-        Server owner,
-        TmuxConnection connection,
-        ServerGeneration generation,
-        SessionId id,
-        IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id, snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        _owner = owner;
-    }
-
     /// <summary>Gets the active window recorded when this session was read.</summary>
     /// <exception cref="IncompleteSnapshotException">
     /// The session was resolved by identifier rather than materialized.
@@ -37,7 +24,7 @@ public sealed partial class Session
                 throw new IncompleteSnapshotException("active window", SnapshotDepth.Sessions);
             }
 
-            return new Window(RequireConnection(), _generation, id);
+            return new Window(RequireOwner("windows"), RequireConnection(), _generation, id);
         }
     }
 
@@ -55,7 +42,7 @@ public sealed partial class Session
                 throw new IncompleteSnapshotException("active pane", SnapshotDepth.Sessions);
             }
 
-            return new Pane(RequireConnection(), _generation, id);
+            return new Pane(RequireOwner("panes"), RequireConnection(), _generation, id);
         }
     }
 
