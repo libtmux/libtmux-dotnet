@@ -15,6 +15,8 @@ public sealed class QuerySemanticsTests
 
     private sealed record SessionDoubleCountRow(string SessionName, double SessionWindows);
 
+    private sealed record NullableRow(string? SessionName);
+
     private sealed record WindowCountRow(string WindowName, long WindowPanes);
 
     [Fact]
@@ -184,6 +186,23 @@ public sealed class QuerySemanticsTests
 
         Assert.True(predicate(new Row("build", true)));
         Assert.False(predicate(new Row("build", false)));
+    }
+
+    [Fact]
+    public void A_present_property_can_match_a_null_constant()
+    {
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new ComparisonNode(
+                QueryComparison.Equal,
+                new FieldNode(QueryTarget.Session, "session_name"),
+                new ConstantNode(new NullConstant())));
+        Func<NullableRow, bool> predicate = document.Compile<NullableRow>();
+
+        Assert.True(predicate(new NullableRow(null)));
+        Assert.False(predicate(new NullableRow("build")));
     }
 
     [Fact]

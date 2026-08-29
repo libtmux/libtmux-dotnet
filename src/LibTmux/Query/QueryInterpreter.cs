@@ -178,9 +178,14 @@ internal static class QueryInterpreter
                 ? mapped
                 : ToClrName(field.WireName);
 
-        return type.GetProperty(property)?.GetValue(element)
-            ?? throw new UnsupportedQueryExpressionException(
+        var member = type.GetProperty(property);
+        if (member is null)
+        {
+            throw new UnsupportedQueryExpressionException(
                 $"Element exposes no member for field '{field.WireName}'.");
+        }
+
+        return member.GetValue(element);
     }
 
     private static object? Literal(QueryConstant constant) => constant switch
