@@ -101,6 +101,11 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// no waiter is left to take it. That leaves the channel pending rather
     /// than empty — an extra wake for the next caller, never a lost one.
     /// </para>
+    /// <para>
+    /// A signal wakes every waiter on the channel and tmux offers no way to
+    /// deregister one on its own, so withdrawing here also completes any other
+    /// wait open on the same channel. Keep one open wait per channel.
+    /// </para>
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
