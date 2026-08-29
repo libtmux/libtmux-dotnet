@@ -17,6 +17,8 @@ public sealed class QuerySemanticsTests
 
     private sealed record NullableRow(string? SessionName);
 
+    private sealed record PaneIdRow(string PaneId);
+
     private sealed record WindowCountRow(string WindowName, long WindowPanes);
 
     [Fact]
@@ -186,6 +188,20 @@ public sealed class QuerySemanticsTests
 
         Assert.True(predicate(new Row("build", true)));
         Assert.False(predicate(new Row("build", false)));
+    }
+
+    [Fact]
+    public void A_typed_id_field_can_be_compared_through_a_string_projection()
+    {
+        QueryDocument document = QueryExtensions.Translate<PaneIdRow>(row => row.PaneId == "%1");
+
+        ComparisonNode comparison = Assert.IsType<ComparisonNode>(document.Predicate);
+        Assert.Equal(
+            new TypedIdConstant(QueryTarget.Pane, "%1"),
+            Assert.IsType<ConstantNode>(comparison.Right).Value);
+        Func<PaneIdRow, bool> predicate = document.Compile<PaneIdRow>();
+        Assert.True(predicate(new PaneIdRow("%1")));
+        Assert.False(predicate(new PaneIdRow("%2")));
     }
 
     [Fact]

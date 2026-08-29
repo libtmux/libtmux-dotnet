@@ -91,10 +91,20 @@ internal static class QueryTranslator
         QueryNode left = TranslateOperand(binary.Left, parameter);
         QueryNode right = TranslateOperand(binary.Right, parameter);
         if (comparison is QueryComparison.Equal or QueryComparison.NotEqual
-            && StripConvert(binary.Left).Type == typeof(string))
+            && left is FieldNode field
+            && right is ConstantNode constant
+            && QueryFieldCatalog.TryGetKind(field.WireName, out QueryValueKind kind))
         {
-            StringNode equality = new(QueryStringOperation.EqualsOrdinal, left, right);
-            return comparison == QueryComparison.Equal ? equality : new NotNode(equality);
+            if (kind == QueryValueKind.String && constant.Value is StringConstant)
+            {
+                StringNode equality = new(QueryStringOperation.EqualsOrdinal, left, right);
+                return comparison == QueryComparison.Equal ? equality : new NotNode(equality);
+            }
+
+            if (kind == QueryValueKind.TypedId && constant.Value is StringConstant id)
+            {
+                right = new ConstantNode(new TypedIdConstant(field.Target, id.Value));
+            }
         }
 
         return new ComparisonNode(comparison, left, right);
