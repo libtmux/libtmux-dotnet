@@ -208,11 +208,16 @@ references, so they run only after `dotnet pack`.
 
 ### Validators that read documents, not the build
 
-Five checks run against documents rather than code, which is what makes them
-easy to forget locally:
+Eight checks run against documents rather than code, which is what makes them
+easy to forget locally. They are listed here in the order
+[`dotnet.yml`](workflows/dotnet.yml) runs them:
 
 ```console
 $ uv run python eng/parity/verify_public_api.py
+```
+
+```console
+$ uv run python eng/parity/render_public_api.py --check
 ```
 
 ```console
@@ -224,12 +229,25 @@ $ uv run python eng/parity/verify_workflows.py
 ```
 
 ```console
+$ uv run python eng/parity/verify_tmux_versions.py
+```
+
+```console
+$ uv run python eng/docs/render_api_reference.py --check
+```
+
+```console
 $ uv run python eng/docs/sync_snippets.py --check
 ```
 
 ```console
 $ uv run eng/mcp/dump_tools.py --check
 ```
+
+The two renderers hold `docs/api/README.md` and `docs/public-api.md` to the
+documents they are generated from. Adding a public member without recording it
+fails `render_api_reference.py --check` and nothing before it, so run the whole
+list rather than the first few.
 
 `sync_snippets.py --check` is the one that catches a hand-edited example. It
 compares each published block against the region it was quoted from and fails
