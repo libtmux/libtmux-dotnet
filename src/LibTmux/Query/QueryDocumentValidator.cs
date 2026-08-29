@@ -1,8 +1,10 @@
+using System.Text.RegularExpressions;
+
 namespace LibTmux.Query;
 
 internal static class QueryDocumentValidator
 {
-    internal static void Validate(QueryDocument document)
+    internal static QueryValidationResult Validate(QueryDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (!string.Equals(
@@ -15,10 +17,15 @@ internal static class QueryDocumentValidator
         }
 
         _ = Target(document.Target);
-        ValidatePredicate(document.Predicate, document.Target);
+        QueryValidationResult result = new();
+        ValidatePredicate(document.Predicate, document.Target, result);
+        return result;
     }
 
-    private static void ValidatePredicate(QueryNode? node, QueryTarget expectedTarget)
+    private static void ValidatePredicate(
+        QueryNode? node,
+        QueryTarget expectedTarget,
+        QueryValidationResult result)
     {
         switch (node)
         {
@@ -26,13 +33,13 @@ internal static class QueryDocumentValidator
             case ConstantNode { Value: BooleanConstant }:
                 return;
             case AndNode and:
-                ValidateOperands(and.Operands, expectedTarget);
+                ValidateOperands(and.Operands, expectedTarget, result);
                 return;
             case OrNode or:
-                ValidateOperands(or.Operands, expectedTarget);
+                ValidateOperands(or.Operands, expectedTarget, result);
                 return;
             case NotNode not:
-                ValidatePredicate(not.Operand, expectedTarget);
+                ValidatePredicate(not.Operand, expectedTarget, result);
                 return;
             case ComparisonNode comparison:
                 ValidateComparison(comparison, expectedTarget);
@@ -41,10 +48,10 @@ internal static class QueryDocumentValidator
                 ValidateString(text, expectedTarget);
                 return;
             case RegexNode regex:
-                ValidateRegex(regex, expectedTarget);
+                ValidateRegex(regex, expectedTarget, result);
                 return;
             case QuantifierNode quantifier:
-                ValidateQuantifier(quantifier, expectedTarget);
+                ValidateQuantifier(quantifier, expectedTarget, result);
                 return;
             case null:
                 throw Unsupported("Query predicate is null.");
@@ -55,11 +62,12 @@ internal static class QueryDocumentValidator
 
     private static void ValidateOperands(
         IReadOnlyList<QueryNode> operands,
-        QueryTarget expectedTarget)
+        QueryTarget expectedTarget,
+        QueryValidationResult result)
     {
         foreach (QueryNode operand in operands)
         {
-            ValidatePredicate(operand, expectedTarget);
+            ValidatePredicate(operand, expectedTarget, result);
         }
     }
 
@@ -118,7 +126,10 @@ internal static class QueryDocumentValidator
         };
     }
 
-    private static void ValidateRegex(RegexNode regex, QueryTarget expectedTarget)
+    private static void ValidateRegex(
+        RegexNode regex,
+        QueryTarget expectedTarget,
+        QueryValidationResult result)
     {
         if (regex.Input is not FieldNode field
             || ResolveField(field, expectedTarget) != QueryValueKind.String
@@ -129,7 +140,7 @@ internal static class QueryDocumentValidator
             || !QueryTextSemantics.TryCountScalars(regex.Pattern, out int length)
             || length > QueryRegexSemantics.MaximumPatternLength
             || !QueryRegexSemantics.IsSupported(regex.SemanticOptions)
-            || !QueryRegexSemantics.IsValidPattern(regex.Pattern, regex.SemanticOptions))
+            || !result.TryAddRegex(regex))
         {
             throw Unsupported("Regex does not match the query wire semantics.");
         }
@@ -137,7 +148,8 @@ internal static class QueryDocumentValidator
 
     private static void ValidateQuantifier(
         QuantifierNode quantifier,
-        QueryTarget expectedTarget)
+        QueryTarget expectedTarget,
+        QueryValidationResult result)
     {
         _ = ResolveField(quantifier.Relation, expectedTarget);
         if (quantifier.Quantifier is not QueryQuantifier.Any and not QueryQuantifier.All
@@ -152,7 +164,7 @@ internal static class QueryDocumentValidator
             "window_panes" => QueryTarget.Pane,
             _ => throw Unsupported("Quantifier does not name a supported relation."),
         };
-        ValidatePredicate(quantifier.Predicate, childTarget);
+        ValidatePredicate(quantifier.Predicate, childTarget, result);
     }
 
     private static QueryValueKind ResolveField(FieldNode field, QueryTarget expectedTarget)
@@ -208,4 +220,32 @@ internal static class QueryDocumentValidator
     };
 
     private static UnsupportedQueryExpressionException Unsupported(string message) => new(message);
+}
+
+internal sealed class QueryValidationResult
+{
+    private readonly Dictionary<RegexNode, Regex> _regexes = [];
+
+    internal int RegexCount => _regexes.Count;
+
+    internal Regex GetRegex(RegexNode node) => _regexes[node];
+
+    internal bool TryAddRegex(RegexNode node)
+    {
+        if (_regexes.ContainsKey(node))
+        {
+            return true;
+        }
+
+        if (!QueryRegexSemantics.TryCreate(
+                node.Pattern,
+                node.SemanticOptions,
+                out Regex? regex))
+        {
+            return false;
+        }
+
+        _regexes.Add(node, regex);
+        return true;
+    }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 namespace LibTmux.Query;
@@ -22,15 +23,19 @@ internal static class QueryRegexSemantics
         (options & ~AllowedOptions) == 0
         && (options & RegexOptions.CultureInvariant) != 0;
 
-    internal static bool IsValidPattern(string pattern, RegexOptions options)
+    internal static bool TryCreate(
+        string pattern,
+        RegexOptions options,
+        [NotNullWhen(true)] out Regex? regex)
     {
         try
         {
-            _ = new Regex(pattern, options, MatchTimeout);
+            regex = new Regex(pattern, options, MatchTimeout);
             return true;
         }
         catch (ArgumentException)
         {
+            regex = null;
             return false;
         }
     }

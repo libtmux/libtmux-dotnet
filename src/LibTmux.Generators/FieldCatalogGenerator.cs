@@ -155,6 +155,88 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
         source.AppendLine("        return false;");
         source.AppendLine("    }");
         source.AppendLine();
+        source.AppendLine(
+            "    internal static bool TryBindEntityScalar(global::System.Type owner, "
+            + "string wireName, out QueryFieldAccessor accessor)");
+        source.AppendLine("    {");
+        foreach ((string wireName, string target, string kind, bool relation, string? property) in Fields)
+        {
+            if (property is null)
+            {
+                continue;
+            }
+
+            string read = relation
+                ? $"checked((long)((global::LibTmux.{target})element).{property}.Count)"
+                : kind switch
+                {
+                    "Boolean" => $"(bool)((global::LibTmux.{target})element).{property}",
+                    "String" => $"(string)((global::LibTmux.{target})element).{property}",
+                    "TypedId" =>
+                        $"(global::LibTmux.{target}Id)((global::LibTmux.{target})element).{property}",
+                    _ => $"((global::LibTmux.{target})element).{property}",
+                };
+            string valueType = relation
+                ? "typeof(long)"
+                : kind switch
+                {
+                    "Boolean" => "typeof(bool)",
+                    "String" => "typeof(string)",
+                    "TypedId" => $"typeof(global::LibTmux.{target}Id)",
+                    _ =>
+                        $"typeof(global::LibTmux.{target}).GetProperty(\"{property}\")!.PropertyType",
+                };
+
+            source.AppendLine(
+                $"        if (owner == typeof(global::LibTmux.{target}) "
+                + $"&& wireName == \"{wireName}\")");
+            source.AppendLine("        {");
+            source.AppendLine(
+                "            accessor = new QueryFieldAccessor("
+                + $"static element => {read}, {valueType});");
+            source.AppendLine("            return true;");
+            source.AppendLine("        }");
+        }
+
+        source.AppendLine("        accessor = null!;");
+        source.AppendLine("        return false;");
+        source.AppendLine("    }");
+        source.AppendLine();
+        source.AppendLine(
+            "    internal static bool TryBindEntityRelation(global::System.Type owner, "
+            + "string wireName, out QueryFieldAccessor accessor)");
+        source.AppendLine("    {");
+        foreach ((string wireName, string target, _, bool relation, string? property) in Fields)
+        {
+            if (!relation || property is null)
+            {
+                continue;
+            }
+
+            string child = wireName switch
+            {
+                "session_windows" => "Window",
+                "window_panes" => "Pane",
+                _ => throw new System.InvalidOperationException(
+                    $"Unknown relation field '{wireName}'."),
+            };
+            source.AppendLine(
+                $"        if (owner == typeof(global::LibTmux.{target}) "
+                + $"&& wireName == \"{wireName}\")");
+            source.AppendLine("        {");
+            source.AppendLine(
+                "            accessor = new QueryFieldAccessor("
+                + $"static element => (global::LibTmux.CapturedRelation<global::LibTmux.{child}>)"
+                + $"((global::LibTmux.{target})element).{property}, "
+                + $"typeof(global::LibTmux.CapturedRelation<global::LibTmux.{child}>));");
+            source.AppendLine("            return true;");
+            source.AppendLine("        }");
+        }
+
+        source.AppendLine("        accessor = null!;");
+        source.AppendLine("        return false;");
+        source.AppendLine("    }");
+        source.AppendLine();
         source.AppendLine("    internal static IReadOnlyList<string> WireNames { get; } =");
         source.AppendLine("    [");
         foreach ((string wireName, _, _, _, _) in Fields)
