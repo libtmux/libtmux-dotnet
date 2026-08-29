@@ -23,6 +23,8 @@ REQUIRED_BUILD_STEPS = (
     "--warnaserror",
     "dotnet pack",
     "LibTmux.AotSmoke",
+    "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
+    "--configfile tests/NuGet.config",
     "LibTmux.PackageConsumer",
     "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer",
     "LibTmux.Examples",

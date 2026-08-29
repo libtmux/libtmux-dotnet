@@ -11,7 +11,6 @@
     <Project Path="benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj" />
     <Project Path="tests/LibTmux.ExampleTests/LibTmux.ExampleTests.csproj" />
     <Project Path="tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj" />
     <Project Path="tests/LibTmux.TestChild/LibTmux.TestChild.csproj" />

@@ -7,9 +7,6 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsAotCompatible>true</IsAotCompatible>
 
-    <!-- NativeAOT restore writes this graph into the checked-in lock file. -->
-    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
-
     <PackageId>LibTmux.Query.Json</PackageId>
     <Description>System.Text.Json support for LibTmux query documents. The core library does not reference it, so a caller who does not want a JSON dependency does not get one.</Description>
     <PackageTags>tmux;json;query;serialization</PackageTags>

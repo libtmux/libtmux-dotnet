@@ -87,7 +87,8 @@ jobs:
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
         run: |
-          dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
+          dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+            --configfile tests/NuGet.config
           for framework in net8.0 net10.0; do
             dotnet run \
               --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
@@ -98,16 +99,21 @@ jobs:
 
       - name: Ahead-of-time smoke test
         # Trim and ahead-of-time warnings are only complete once something is
-        # published that way and run. This publishes where the closure tests
-        # below look for it, which is the default location rather than one
-        # this job picked.
+        # published that way and run. The isolated cache and mapped source make
+        # this a test of the packages above rather than the project graph.
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
         run: |
           sudo apt-get install --yes clang zlib1g-dev
+          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+            --runtime linux-x64 \
+            --configfile tests/NuGet.config
           for framework in net8.0 net10.0; do
             dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
               --configuration Release \
               --framework "${framework}" \
-              --runtime linux-x64
+              --runtime linux-x64 \
+              --no-restore
             "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
           done
 

@@ -38,7 +38,11 @@ jobs:
       - run: dotnet format --verify-no-changes
       - run: dotnet build --warnaserror
       - run: dotnet pack src/LibTmux/LibTmux.csproj
-      - run: dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
+      - env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: |
+          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --configfile tests/NuGet.config
+          dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --no-restore
       - env:
           NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
         run: dotnet run --project tests/LibTmux.PackageConsumer
@@ -155,6 +159,8 @@ def test_skipped_integration_tests_are_reported(tmp_path: pathlib.Path) -> None:
         "--locked-mode",
         "--warnaserror",
         "dotnet pack",
+        "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
+        "--configfile tests/NuGet.config",
         "LibTmux.PackageConsumer",
         "LibTmux.ExampleTests",
         "render_api_reference.py --check",

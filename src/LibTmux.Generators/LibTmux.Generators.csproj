@@ -5,11 +5,6 @@
     <RootNamespace>LibTmux.Generators</RootNamespace>
     <IsPackable>false</IsPackable>
 
-    <!-- The ahead-of-time smoke test publishes this graph for a runtime
-         identifier, and restore writes one into every lock file in it. Naming
-         it here is what keeps the checked-in lock files consistent with both
-         restores: the plain one and the published one. -->
-    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <!-- Roslyn loads analyzers on the compiler's own runtime, which is why this

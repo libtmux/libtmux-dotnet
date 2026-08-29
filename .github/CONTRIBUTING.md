@@ -142,6 +142,12 @@ $ uv run python eng/parity/inspect_packages.py
 ```
 
 ```console
+$ mise exec -- dotnet restore \
+    tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+    --configfile tests/NuGet.config
+```
+
+```console
 $ mise exec -- dotnet run \
     --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
     --configuration Release \
@@ -150,16 +156,24 @@ $ mise exec -- dotnet run \
 ```
 
 ```console
+$ mise exec -- dotnet restore \
+    tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+    --runtime linux-x64 \
+    --configfile tests/NuGet.config
+```
+
+```console
 $ mise exec -- dotnet publish \
     tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
     --configuration Release \
     --framework net10.0 \
-    --runtime linux-x64
+    --runtime linux-x64 \
+    --no-restore
 ```
 
-`LibTmux.PackageConsumer` is deliberately absent from `LibTmux.slnx`. It exists
-to prove the packaged artifact rather than a project reference, so it restores
-and runs standalone.
+`LibTmux.PackageConsumer` and `LibTmux.AotSmoke` are deliberately absent from
+`LibTmux.slnx`. Both restore the packed artifacts rather than project
+references, so they run only after `dotnet pack`.
 
 ### Validators that read documents, not the build
 
@@ -208,22 +222,18 @@ The engineering scripts have tests of their own:
 $ uv run --with pytest --with tomlkit python -m pytest eng --quiet
 ```
 
-### NU1004, which is not a dependency problem
+### AOT restore ownership
 
-Publishing ahead of time names a runtime identifier, and restore then writes
-one into the lock file of every project in that graph — including the
-library's, where the section is empty because no package resolves differently.
-That is why `src/LibTmux` and `src/LibTmux.Generators` declare
-`RuntimeIdentifiers`: without it the lock files disagree with the projects and
-the *next* `restore --locked-mode` fails with NU1004, which reads like a
-dependency problem and is not one.
+Only `LibTmux.AotSmoke` names a runtime identifier. The libraries and their
+lock files stay portable because the smoke project consumes their packages
+instead of adding its runtime to their project graph. The smoke project has no
+checked-in lock: its package inputs keep the development version while their
+bytes change with each commit. CI combines a clean package cache with
+`tests/NuGet.config` source mapping so it cannot substitute a stale or public
+package.
 
-Adding a platform to the matrix means adding its identifier there and
-regenerating:
-
-```console
-$ mise exec -- dotnet restore LibTmux.slnx --force-evaluate
-```
+Adding a platform means adding its identifier to `LibTmux.AotSmoke` and adding
+the matching standalone restore and publish to the workflow.
 
 ### The other workflows
 
