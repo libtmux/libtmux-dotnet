@@ -154,6 +154,7 @@ modes differ.
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
 | `LibTmux.TmuxVersionTooLowException` | Reports an unsupported tmux version. |
+| `LibTmux.TmuxWaitChannel` | An open wait on a tmux wait-for channel. |
 | `LibTmux.TmuxWaitMode` | What to do with a wait-for channel. |
 | `LibTmux.TmuxWaitTimeoutException` | Reports an expired bounded wait. |
 | `LibTmux.TmuxWindowException` | Thrown when a window operation is refused before tmux sees it. |
@@ -337,6 +338,7 @@ modes differ.
 | `LibTmux.Server.LockAsync(System.Threading.CancellationToken)` | Locks every client attached to this server. |
 | `LibTmux.Server.LockClientAsync(System.String,System.Threading.CancellationToken)` | Locks one client. |
 | `LibTmux.Server.Open(LibTmux.ServerConnectionOptions)` | Opens an unmaterialized server connection handle. |
+| `LibTmux.Server.OpenWaitChannel(System.String)` | Opens a wait on a channel that survives a timed attempt. |
 | `LibTmux.Server.RaiseIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.RefreshClientAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Redraws one client. |
 | `LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest,System.Threading.CancellationToken)` | Runs a shell command and reports what it printed. |
@@ -554,6 +556,8 @@ modes differ.
 | `LibTmux.TmuxVersion.op_LessThan(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is older. |
 | `LibTmux.TmuxVersion.op_LessThanOrEqual(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is at most the right version. |
 | `LibTmux.TmuxVersionTooLowException.#ctor(System.String,LibTmux.TmuxVersion,LibTmux.TmuxVersion,System.Exception)` | Initializes an unsupported-version exception. |
+| `LibTmux.TmuxWaitChannel.DisposeAsync` | Withdraws the waiter from tmux. |
+| `LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)` | Waits for the signal, giving this attempt a budget. |
 | `LibTmux.TmuxWaitTimeoutException.#ctor(System.String,System.TimeSpan,System.Exception)` | Initializes a wait-timeout exception. |
 | `LibTmux.TmuxWindowException.#ctor(System.String,LibTmux.WindowId,System.Exception)` | Initializes the exception for one window. |
 | `LibTmux.UnbindKeyRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean)` | Initializes a request to remove a binding. |
@@ -1095,6 +1099,8 @@ modes differ.
 | `LibTmux.TmuxVersion.Suffix` | Gets the exact preserved suffix projection. |
 | `LibTmux.TmuxVersionTooLowException.ActualVersion` | Gets the actual tmux version. |
 | `LibTmux.TmuxVersionTooLowException.RequiredVersion` | Gets the required tmux version. |
+| `LibTmux.TmuxWaitChannel.Channel` | Gets the channel being waited on. |
+| `LibTmux.TmuxWaitChannel.Signalled` | Gets whether something really signalled the channel. |
 | `LibTmux.TmuxWaitTimeoutException.Timeout` | Gets the expired timeout. |
 | `LibTmux.TmuxWindowException.WindowId` | Gets the window the request named. |
 | `LibTmux.UnbindKeyRequest.All` | Gets whether every binding in the table goes. |
