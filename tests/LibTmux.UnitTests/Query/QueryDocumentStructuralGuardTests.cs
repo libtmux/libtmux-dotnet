@@ -143,6 +143,35 @@ public sealed class QueryDocumentStructuralGuardTests
     }
 
     [Fact]
+    public void Snapshot_depth_rejects_semantically_invalid_documents()
+    {
+        QueryDocument[] malformed =
+        [
+            new("someone-else", QueryDocument.CurrentVersion, QueryTarget.Session, True),
+            new(
+                QueryDocument.CurrentSchema,
+                QueryDocument.CurrentVersion + 1,
+                QueryTarget.Session,
+                True),
+            new(
+                QueryDocument.CurrentSchema,
+                QueryDocument.CurrentVersion,
+                (QueryTarget)int.MaxValue,
+                True),
+            new(
+                QueryDocument.CurrentSchema,
+                QueryDocument.CurrentVersion,
+                QueryTarget.Session,
+                new FieldNode(QueryTarget.Session, "unknown_field")),
+        ];
+
+        Assert.All(
+            malformed,
+            document => Assert.Throws<UnsupportedQueryExpressionException>(
+                () => document.RequiredSnapshotDepth));
+    }
+
+    [Fact]
     public void Compilation_preserves_the_cancellation_token()
     {
         using var cancellation = new CancellationTokenSource();

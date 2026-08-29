@@ -34,7 +34,7 @@ public sealed record QueryDocument(
     {
         get
         {
-            QueryDocumentStructuralGuard.Validate(Predicate);
+            _ = QueryDocumentValidator.Validate(this);
             return Depth(Predicate, Target);
         }
     }
