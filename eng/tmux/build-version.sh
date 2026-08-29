@@ -6,6 +6,12 @@ readonly SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly CSHARP_DIRECTORY="$(cd -- "${SCRIPT_DIRECTORY}/../.." && pwd)"
 readonly ARTIFACT_DIRECTORY="${LIBTMUX_TMUX_ARTIFACT_DIRECTORY:-${CSHARP_DIRECTORY}/artifacts/tmux}"
 
+if [[ -n "${LIBTMUX_BUILD_JOBS:-}" \
+    && ! "${LIBTMUX_BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "LIBTMUX_BUILD_JOBS must be a positive integer" >&2
+    exit 2
+fi
+
 sha256_file() {
     local path="$1"
     if command -v sha256sum >/dev/null 2>&1; then
@@ -21,13 +27,13 @@ sha256_file() {
 }
 
 if [[ $# -ne 1 ]]; then
-    echo "usage: build-version.sh <3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|master>" >&2
+    echo "usage: build-version.sh <3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|master>" >&2
     exit 2
 fi
 
 readonly VERSION="$1"
 case "${VERSION}" in
-    3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|master) ;;
+    3.2a|3.3a|3.4|3.5|3.6|3.7|3.7a|3.7b|3.7c|master) ;;
     *)
         echo "unsupported tmux version: ${VERSION}" >&2
         exit 2
@@ -107,11 +113,17 @@ if [[ "${VERSION}" != master ]]; then
     fi
 fi
 
+readonly BUILD_JOBS="${LIBTMUX_BUILD_JOBS:-$(getconf _NPROCESSORS_ONLN)}"
+if [[ ! "${BUILD_JOBS}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "detected build worker count must be a positive integer" >&2
+    exit 1
+fi
+
 (
     cd "${SOURCE_DIRECTORY}"
     sh autogen.sh
     ./configure --prefix="${INSTALL_DIRECTORY}"
-    make -j"$(getconf _NPROCESSORS_ONLN)"
+    make -j"${BUILD_JOBS}"
     make install
 ) >&2
 

@@ -12,7 +12,16 @@ import argparse
 import pathlib
 import sys
 
-SUPPORTED_TMUX_VERSIONS = ("3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b")
+SUPPORTED_TMUX_VERSIONS = (
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c",
+)
 TARGET_FRAMEWORKS = ("net8.0", "net10.0")
 
 #: Checks a change has to pass locally. A workflow missing one of these would

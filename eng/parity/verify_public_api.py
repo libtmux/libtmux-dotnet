@@ -74,6 +74,7 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
             "3.7": None,
             "3.3.7": "7",
             "3.7b": "b",
+            "3.7c": "c",
             "3.0-rc3": "rc3",
             "3.3a-openbsd": "a-openbsd",
             "next-3.8": "next",
@@ -119,9 +120,9 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
         "exactIdentity": "CompareTo returns zero if and only if equality is true",
         "examples": [
             "next-3.7 < 3.7-dev < 3.7-dev.0 < 3.7-rc1 < 3.7-rc2",
-            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b",
+            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b < 3.7c",
             "3.3 < 3.3.1 < 3.3.10 < 3.3a",
-            "3.7b < next-3.8 < 3.8",
+            "3.7c < next-3.8 < 3.8",
         ],
         "invalidOperands": (
             "CompareTo, <, <=, >, >=, IsAtLeast, and EnsureAtLeast throw "
@@ -162,12 +163,12 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
     "support": {
         "minimum": "3.2a",
         "minimumInclusive": True,
-        "maximumTested": "3.7b",
+        "maximumTested": "3.7c",
         "maximumTestedSemantics": "informational; not a support ceiling",
         "minimumChecks": (
             "enforce only the minimum; newer untested versions may satisfy them"
         ),
-        "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
+        "exactVersionIdentity": "3.7, 3.7a, 3.7b, and 3.7c are distinct",
         "capabilitySelection": (
             "named support intervals apply to every stable release at or above the "
             "minimum; capabilities without a recorded end remain supported on later "
@@ -181,7 +182,7 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
 }
 TMUX_MAX_VERSION_ADAPTATION = (
     "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
-    "MaximumTestedTmuxVersion 3.7b, the highest required tested version"
+    "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
 )
 C4_FRAMING_VALIDATION = (
     "row := value{projection.Fields.Count}, each value terminated by "
@@ -448,6 +449,7 @@ def validate_header(contract: dict[str, t.Any], violations: list[str]) -> None:
         "3.6",
         "3.7a",
         "3.7b",
+        "3.7c",
     ]:
         violations.append("invalid required tmux versions")
     if (

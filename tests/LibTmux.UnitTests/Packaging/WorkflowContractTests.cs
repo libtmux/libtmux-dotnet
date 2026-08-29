@@ -9,7 +9,7 @@ namespace LibTmux.UnitTests.Packaging;
 public sealed class WorkflowContractTests
 {
     private static readonly string[] SupportedTmuxVersions =
-        ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"];
+        ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c"];
 
     private static readonly string[] TargetFrameworks = ["net8.0", "net10.0"];
 

@@ -17,7 +17,21 @@ import subprocess
 import sys
 import typing as t
 
-REQUIRED_TMUX_VERSIONS = ("3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b")
+REQUIRED_TMUX_VERSIONS = (
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c",
+)
+LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+KNOWN_REQUIRED_TMUX_VERSION_SETS = {
+    LEGACY_REQUIRED_TMUX_VERSIONS,
+    REQUIRED_TMUX_VERSIONS,
+}
 REQUIRED_FRAMEWORKS = ("net10.0", "net8.0")
 REDACTION_CATEGORIES = (
     "absolute-paths",
@@ -400,7 +414,7 @@ def _validate_decision_transcripts(root: pathlib.Path) -> None:
 
 def _validate_environment(
     environment: dict[str, t.Any],
-) -> tuple[str, bool, str | None, dict[str, str] | None]:
+) -> tuple[str, bool, str | None, dict[str, str] | None, tuple[str, ...]]:
     if set(environment) not in {
         frozenset(LEGACY_ENVIRONMENT_KEYS),
         frozenset(MARKED_COHORT_ENVIRONMENT_KEYS),
@@ -413,6 +427,13 @@ def _validate_environment(
     transition_commits = environment.get("transitionTmuxSourceCommits")
     capability_cohort = environment.get("capabilityCohort")
     evaluated_tree = environment.get("evaluatedCommitTree")
+    tmux_versions = environment.get("tmuxVersions")
+    required_versions = (
+        tuple(tmux_versions)
+        if isinstance(tmux_versions, list)
+        and all(isinstance(version, str) for version in tmux_versions)
+        else ()
+    )
     if capability_cohort is not None and (
         not isinstance(evaluated_tree, str)
         or COMMIT_PATTERN.fullmatch(evaluated_tree) is None
@@ -422,7 +443,7 @@ def _validate_environment(
         environment["schemaVersion"] != 1
         or environment["frameworks"] != list(REQUIRED_FRAMEWORKS)
         or not isinstance(environment["includeMasterAdvisory"], bool)
-        or environment["tmuxVersions"] != list(REQUIRED_TMUX_VERSIONS)
+        or required_versions not in KNOWN_REQUIRED_TMUX_VERSION_SETS
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
         or environment["sdkVersion"] != "10.0.302"
@@ -459,6 +480,7 @@ def _validate_environment(
             "dict[str, str] | None",
             transition_commits,
         ),
+        required_versions,
     )
 
 
@@ -467,6 +489,7 @@ def _validate_matrix_rows(
     commit: str,
     include_master_advisory: bool,
     capability_cohort: str | None,
+    required_versions: tuple[str, ...],
 ) -> dict[str, str]:
     observed: dict[tuple[str, str], dict[str, t.Any]] = {}
     for row in rows:
@@ -477,7 +500,7 @@ def _validate_matrix_rows(
         if not isinstance(version, str) or not isinstance(framework, str):
             raise EvidenceValidationError("matrix row identity is invalid")
         if (
-            version not in {*REQUIRED_TMUX_VERSIONS, "master"}
+            version not in {*required_versions, "master"}
             or framework not in REQUIRED_FRAMEWORKS
         ):
             raise EvidenceValidationError("matrix contains an unknown row")
@@ -491,7 +514,7 @@ def _validate_matrix_rows(
         if not isinstance(count, int) or isinstance(count, bool):
             raise EvidenceValidationError("matrix row observation is invalid")
         source_commit = row["tmuxSourceCommit"]
-        if version in REQUIRED_TMUX_VERSIONS:
+        if version in required_versions:
             if (
                 row["advisory"] is not False
                 or row["status"] != "passed"
@@ -517,7 +540,7 @@ def _validate_matrix_rows(
             raise EvidenceValidationError("master matrix row observation is invalid")
     required = {
         (version, framework)
-        for version in REQUIRED_TMUX_VERSIONS
+        for version in required_versions
         for framework in REQUIRED_FRAMEWORKS
     }
     if not required.issubset(observed):
@@ -527,10 +550,10 @@ def _validate_matrix_rows(
         and set(observed) != required
     ):
         raise EvidenceValidationError(
-            "capability cohort matrix must contain exactly fourteen required rows"
+            "capability cohort matrix must contain exactly the required rows"
         )
     source_commits: dict[str, str] = {}
-    for version in REQUIRED_TMUX_VERSIONS:
+    for version in required_versions:
         commits = {
             observed[(version, framework)]["tmuxSourceCommit"]
             for framework in REQUIRED_FRAMEWORKS
@@ -634,6 +657,7 @@ def validate_matrix(root: pathlib.Path) -> str:
         include_master_advisory,
         capability_cohort,
         transition_commits,
+        required_versions,
     ) = _validate_environment(environment)
     proof = load_json(root / "redaction-proof.json")
     if (
@@ -647,6 +671,7 @@ def validate_matrix(root: pathlib.Path) -> str:
         commit,
         include_master_advisory,
         capability_cohort,
+        required_versions,
     )
     _validate_transcripts(root)
     transition_path = root / "protocol-transcripts" / BREAK_PANE_TRANSCRIPT

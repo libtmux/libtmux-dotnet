@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly REQUIRED_VERSIONS=(3.2a 3.3a 3.4 3.5 3.6 3.7a 3.7b)
+readonly REQUIRED_VERSIONS=(3.2a 3.3a 3.4 3.5 3.6 3.7a 3.7b 3.7c)
 readonly FRAMEWORKS=(net10.0 net8.0)
 readonly COMPONENT_THREE_COHORT=0001
 readonly CLOSURE_COHORT=closure
@@ -359,7 +359,7 @@ if [[ -n "${candidate}" ]]; then
         --argjson capabilityCohortPresent "${capability_cohort_json}" \
         --argjson includeMasterAdvisory "${include_master_json}" \
         --argjson transitionProof "${transition_proof_json}" \
-        '({evaluatedCommit:$evaluatedCommit,frameworks:["net10.0","net8.0"],includeMasterAdvisory:$includeMasterAdvisory,platform:$platform,redactionProof:true,schemaVersion:1,sdkVersion:$sdkVersion,sourceState:$sourceState,sourceTreeFingerprint:$sourceTreeFingerprint,tmuxVersions:["3.2a","3.3a","3.4","3.5","3.6","3.7a","3.7b"]} + (if $capabilityCohortPresent then {capabilityCohort:$capabilityCohort,evaluatedCommitTree:$evaluatedCommitTree} else {} end) + (if $transitionProof then {transitionTmuxSourceCommits:{"3.7":$transitionTmuxSourceCommit}} else {} end))' \
+        '({evaluatedCommit:$evaluatedCommit,frameworks:["net10.0","net8.0"],includeMasterAdvisory:$includeMasterAdvisory,platform:$platform,redactionProof:true,schemaVersion:1,sdkVersion:$sdkVersion,sourceState:$sourceState,sourceTreeFingerprint:$sourceTreeFingerprint,tmuxVersions:["3.2a","3.3a","3.4","3.5","3.6","3.7a","3.7b","3.7c"]} + (if $capabilityCohortPresent then {capabilityCohort:$capabilityCohort,evaluatedCommitTree:$evaluatedCommitTree} else {} end) + (if $transitionProof then {transitionTmuxSourceCommits:{"3.7":$transitionTmuxSourceCommit}} else {} end))' \
         > "${candidate}/environment.json"
     jq -n '{passed:true,rejected:["absolute-paths","emails","environment-values","executable-paths","hostnames","socket-names","temporary-directories","terminal-device-names","tokens","usernames"]}' \
         > "${candidate}/redaction-proof.json"

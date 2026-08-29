@@ -261,7 +261,7 @@ def render(contract: dict[str, t.Any]) -> str:
         "## TmuxVersion semantic contract",
         "",
         (
-            "Minimum support is `3.2a` inclusive; `3.7b` is informational, "
+            "Minimum support is `3.2a` inclusive; `3.7c` is informational, "
             "not a support ceiling."
         ),
         "Stable releases use named capability intervals.",

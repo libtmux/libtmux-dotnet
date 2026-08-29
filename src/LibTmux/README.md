@@ -2,11 +2,11 @@
 
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET.
 Servers, sessions, windows, panes, clients, options, hooks and buffers, against
-every tmux from **3.2a to 3.7b**, on **net8.0** and **net10.0**.
+every tmux from **3.2a to 3.7c**, on **net8.0** and **net10.0**.
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version. The behaviour is proven against all
-> seven supported tmux versions on every commit.
+> eight supported tmux versions on every commit.
 
 ```console
 $ dotnet package add LibTmux --prerelease
@@ -312,7 +312,7 @@ broke, and `Unknown` is the default for exactly that reason. A
 
 | | |
 |---|---|
-| tmux | 3.2a to 3.7b |
+| tmux | 3.2a to 3.7c |
 | .NET | net8.0, net10.0 |
 | OS | Linux and macOS. `Server`, `Session`, `Window` and `Pane` are annotated unsupported on Windows, because their lifecycle, mutation and control-mode contracts need a real tmux |
 | Trimming / NativeAOT | Core APIs are analyzer-gated. Query `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties |

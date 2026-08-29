@@ -33,8 +33,18 @@ REDACTION_CATEGORIES = [
     "tokens",
     "usernames",
 ]
-REQUIRED_TMUX_VERSIONS = ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"]
+REQUIRED_TMUX_VERSIONS = [
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c",
+]
 REQUIRED_FRAMEWORKS = ["net10.0", "net8.0"]
+REQUIRED_MATRIX_ROWS = len(REQUIRED_TMUX_VERSIONS) * len(REQUIRED_FRAMEWORKS)
 TRANSITION_TMUX_SOURCE_COMMIT = "7" * 40
 EVALUATED_COMMIT_TREE = "e" * 40
 CAPABILITY_COHORT = "0001"
@@ -200,7 +210,7 @@ def test_matrix_runner_skips_transition_outside_component_three_cohort(
     observations = [
         line.split("|", maxsplit=3) for line in log.read_text().splitlines()
     ]
-    assert len(observations) == 14
+    assert len(observations) == REQUIRED_MATRIX_ROWS
     assert {row[1] for row in observations} == {""}
     assert {row[2] for row in observations} == {""}
     assert not transition_install.exists()
@@ -232,7 +242,7 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
     ]
     ordinary = [row for row in observations if "--filter-method" not in row[3]]
     transition = [row for row in observations if "--filter-method" in row[3]]
-    assert len(ordinary) == 14
+    assert len(ordinary) == REQUIRED_MATRIX_ROWS
     assert {row[0] for row in ordinary} == set(REQUIRED_TMUX_VERSIONS)
     assert len(transition) == 4
     assert {row[0] for row in transition} == {"3.7", "3.7a"}
@@ -249,7 +259,10 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
     lines = transcript.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 4
     assert all(validate.BREAK_PANE_TRANSCRIPT_PATTERN.fullmatch(line) for line in lines)
-    assert len(list((evidence / "results.ndjson").read_text().splitlines())) == 14
+    assert (
+        len(list((evidence / "results.ndjson").read_text().splitlines()))
+        == REQUIRED_MATRIX_ROWS
+    )
     environment_observation = json.loads(
         (evidence / "environment.json").read_text(encoding="utf-8")
     )
@@ -282,7 +295,7 @@ def test_matrix_runner_does_not_infer_cohort_from_evidence_basename(
     observations = [
         line.split("|", maxsplit=3) for line in log.read_text().splitlines()
     ]
-    assert len(observations) == 14
+    assert len(observations) == REQUIRED_MATRIX_ROWS
     assert all("--filter-method" not in row[3] for row in observations)
     recorded_environment = json.loads(
         (evidence / "environment.json").read_text(encoding="utf-8")
@@ -315,7 +328,7 @@ def test_matrix_runner_records_wrapper_policy_closure_without_transition(
     observations = [
         line.split("|", maxsplit=3) for line in log.read_text().splitlines()
     ]
-    assert len(observations) == 14
+    assert len(observations) == REQUIRED_MATRIX_ROWS
     assert all("--filter-method" not in row[3] for row in observations)
     recorded_environment = json.loads(
         (evidence / "environment.json").read_text(encoding="utf-8")
@@ -326,7 +339,10 @@ def test_matrix_runner_records_wrapper_policy_closure_without_transition(
     assert not (
         evidence / "protocol-transcripts" / "break-pane-transition.txt"
     ).exists()
-    assert len((evidence / "results.ndjson").read_text().splitlines()) == 14
+    assert (
+        len((evidence / "results.ndjson").read_text().splitlines())
+        == REQUIRED_MATRIX_ROWS
+    )
     source_commands = (tmp_path / "source-identity.txt").read_text().splitlines()
     assert len(source_commands) == 2
     assert all(f"--exclude-root {evidence}" in command for command in source_commands)
@@ -493,6 +509,28 @@ def test_matrix_phase_accepts_exact_break_pane_transition_proof(
 ) -> None:
     """Accept four source-bound observations across both target frameworks."""
     bundle = _matrix_bundle(tmp_path)
+
+    validate.validate_bundle(bundle, phase="matrix")
+
+
+def test_matrix_phase_retains_previous_complete_release_set(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Keep recorded 3.7b evidence valid after the required matrix widens."""
+    bundle = _matrix_bundle(tmp_path)
+    environment_path = bundle / "environment.json"
+    environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    environment["tmuxVersions"] = REQUIRED_TMUX_VERSIONS[:-1]
+    environment_path.write_text(
+        json.dumps(environment, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    rows = [
+        row
+        for row in _matrix_rows(COMMIT)
+        if row["tmuxVersion"] != REQUIRED_TMUX_VERSIONS[-1]
+    ]
+    _write_rows(bundle, rows)
 
     validate.validate_bundle(bundle, phase="matrix")
 
@@ -813,6 +851,7 @@ def test_matrix_phase_requires_all_release_framework_rows(
     [
         ("frameworks", ["net8.0", "net10.0"]),
         ("tmuxVersions", ["3.7b"]),
+        ("tmuxVersions", [{}]),
         ("schemaVersion", 2),
         ("sourceState", "maybe"),
         ("sourceTreeFingerprint", "short"),

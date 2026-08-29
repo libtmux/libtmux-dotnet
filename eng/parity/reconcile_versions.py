@@ -222,7 +222,21 @@ HOOK_SCOPE_CAPABILITIES = {
     "hook_scope_pane_window_show",
 }
 REQUIRED_FRAMEWORKS = ("net10.0", "net8.0")
-REQUIRED_TMUX_VERSIONS = ("3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b")
+REQUIRED_TMUX_VERSIONS = (
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c",
+)
+LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
+KNOWN_REQUIRED_TMUX_VERSION_SETS = {
+    LEGACY_REQUIRED_TMUX_VERSIONS,
+    REQUIRED_TMUX_VERSIONS,
+}
 TMUX_SOURCE_ENDPOINTS = {
     "3.2a": "https://github.com/tmux/tmux/tree/3.2a",
     "3.7b": "https://github.com/tmux/tmux/tree/3.7b",
@@ -357,6 +371,16 @@ def is_tmux_version_bound(value: object) -> bool:
     return value == "unknown" or (
         isinstance(value, str) and TMUX_VERSION_PATTERN.fullmatch(value) is not None
     )
+
+
+def _known_required_tmux_versions(value: object) -> tuple[str, ...] | None:
+    """Return an exact current or retained historical release set."""
+    versions = (
+        tuple(value)
+        if isinstance(value, list) and all(isinstance(version, str) for version in value)
+        else ()
+    )
+    return versions if versions in KNOWN_REQUIRED_TMUX_VERSION_SETS else None
 
 
 def is_real_server_test(value: object) -> bool:
@@ -515,6 +539,7 @@ def _validate_reconciled_evidence(
     tests = value["tests"]
     content_fingerprint = value["sourceContentFingerprint"]
     fingerprint = value["sourceTreeFingerprint"]
+    required_versions = _known_required_tmux_versions(value["tmuxVersions"])
     base_valid = (
         isinstance(commit, str)
         and COMMIT_PATTERN.fullmatch(commit) is not None
@@ -539,14 +564,14 @@ def _validate_reconciled_evidence(
             for test in tests
         )
         and len(tests) == len(set(tests))
+        and required_versions is not None
         and isinstance(commits, dict)
-        and set(commits) == set(REQUIRED_TMUX_VERSIONS)
+        and set(commits) == set(required_versions)
         and all(
             isinstance(source_commit, str)
             and COMMIT_PATTERN.fullmatch(source_commit) is not None
             for source_commit in commits.values()
         )
-        and value["tmuxVersions"] == list(REQUIRED_TMUX_VERSIONS)
     )
     return base_valid
 
@@ -835,6 +860,7 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
         _fail("matrix environment schema is not exact")
     commit = environment["evaluatedCommit"]
     fingerprint = environment["sourceTreeFingerprint"]
+    required_versions = _known_required_tmux_versions(environment["tmuxVersions"])
     if (
         not isinstance(commit, str)
         or COMMIT_PATTERN.fullmatch(commit) is None
@@ -848,7 +874,7 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
         or environment["sourceState"] not in {"clean", "uncommitted"}
         or not isinstance(fingerprint, str)
         or FINGERPRINT_PATTERN.fullmatch(fingerprint) is None
-        or environment["tmuxVersions"] != list(REQUIRED_TMUX_VERSIONS)
+        or required_versions is None
     ):
         _fail("matrix environment observations are invalid")
     if cohort == CAPABILITY_COHORT:
@@ -967,6 +993,11 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
     >>> callable(_inspect_matrix)
     True
     """
+    environment = _load_environment(path.with_name("environment.json"))
+    required_versions = t.cast(
+        "tuple[str, ...]",
+        _known_required_tmux_versions(environment["tmuxVersions"]),
+    )
     observed: dict[tuple[str, str], dict[str, t.Any]] = {}
     for row in _load_matrix(path):
         if set(row) != MATRIX_ROW_KEYS:
@@ -976,7 +1007,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
         if (
             not isinstance(version, str)
             or not isinstance(framework, str)
-            or version not in {*REQUIRED_TMUX_VERSIONS, "master"}
+            or version not in {*required_versions, "master"}
             or framework not in REQUIRED_FRAMEWORKS
         ):
             _fail("matrix contains an unknown row")
@@ -991,7 +1022,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
             _fail("matrix evaluated commit is invalid")
         count = row["testCount"]
         source_commit = row["tmuxSourceCommit"]
-        if version in REQUIRED_TMUX_VERSIONS:
+        if version in required_versions:
             if (
                 row["advisory"] is not False
                 or row["status"] != "passed"
@@ -1023,7 +1054,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
         observed[pair] = row
     required = {
         (version, framework)
-        for version in REQUIRED_TMUX_VERSIONS
+        for version in required_versions
         for framework in REQUIRED_FRAMEWORKS
     }
     if not required.issubset(observed):
@@ -1034,7 +1065,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
     if len(commits) != 1 or len(counts) != 1:
         _fail("required matrix observations are invalid")
     source_commits: dict[str, str] = {}
-    for version in REQUIRED_TMUX_VERSIONS:
+    for version in required_versions:
         version_commits = {
             t.cast(str, observed[(version, framework)]["tmuxSourceCommit"])
             for framework in REQUIRED_FRAMEWORKS
@@ -1056,7 +1087,7 @@ def _inspect_matrix(path: pathlib.Path) -> dict[str, t.Any]:
         "frameworks": list(REQUIRED_FRAMEWORKS),
         "testCount": counts.pop(),
         "tmuxSourceCommits": source_commits,
-        "tmuxVersions": list(REQUIRED_TMUX_VERSIONS),
+        "tmuxVersions": list(required_versions),
     }
 
 

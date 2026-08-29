@@ -24,6 +24,7 @@ public sealed class TmuxCapabilitiesTests
     [InlineData("3.7", 3, 7, null)]
     [InlineData("3.3.7", 3, 3, "7")]
     [InlineData("3.7b", 3, 7, "b")]
+    [InlineData("3.7c", 3, 7, "c")]
     [InlineData("3.0-rc3", 3, 0, "rc3")]
     [InlineData("3.3a-openbsd", 3, 3, "a-openbsd")]
     [InlineData("3.7-openbsd", 3, 7, "openbsd")]
@@ -106,8 +107,9 @@ public sealed class TmuxCapabilitiesTests
     [InlineData("3.3.10", "3.3a")]
     [InlineData("3.7a", "3.7a-openbsd")]
     [InlineData("3.7a-openbsd", "3.7b")]
+    [InlineData("3.7b", "3.7c")]
     [InlineData("3.7z", "3.7aa")]
-    [InlineData("3.7b", "next-3.8")]
+    [InlineData("3.7c", "next-3.8")]
     [InlineData("next-3.8", "3.8")]
     [InlineData("3.9", "4.0")]
     public void Ordering_follows_the_frozen_total_order(string olderRaw, string newerRaw)
@@ -160,7 +162,7 @@ public sealed class TmuxCapabilitiesTests
     public void Package_support_metadata_is_inclusive_and_not_a_ceiling()
     {
         Assert.Equal(TmuxVersion.Parse("3.2a"), LibTmuxInfo.MinimumTmuxVersion);
-        Assert.Equal(TmuxVersion.Parse("3.7b"), LibTmuxInfo.MaximumTestedTmuxVersion);
+        Assert.Equal(TmuxVersion.Parse("3.7c"), LibTmuxInfo.MaximumTestedTmuxVersion);
         Assert.NotNull(LibTmuxInfo.Version);
         Assert.True(TmuxVersion.Parse("next-3.8").IsAtLeast(LibTmuxInfo.MinimumTmuxVersion));
     }

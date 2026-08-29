@@ -5,7 +5,7 @@
 
 The API targets `net8.0` and `net10.0`. Stable tmux releases from `3.2a` onward are supported.
 The required compatibility matrix covers
-3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b; tmux master is advisory and `unknown`.
+3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c; tmux master is advisory and `unknown`.
 Native Windows tmux execution is unsupported. IDs, snapshots, local query
 evaluation, JSON, and pure test helpers remain portable.
 
@@ -16,7 +16,7 @@ zero-argument methods.
 
 ## TmuxVersion semantic contract
 
-Minimum support is `3.2a` inclusive; `3.7b` is informational, not a support ceiling.
+Minimum support is `3.2a` inclusive; `3.7c` is informational, not a support ceiling.
 Stable releases use named capability intervals.
 The detection line starts with the exact lowercase prefix `tmux `.
 The complete parsing, ordering, detection, and support contract follows.
@@ -41,6 +41,7 @@ The complete parsing, ordering, detection, and support contract follows.
       "3.7": null,
       "3.3.7": "7",
       "3.7b": "b",
+      "3.7c": "c",
       "3.0-rc3": "rc3",
       "3.3a-openbsd": "a-openbsd",
       "next-3.8": "next"
@@ -80,9 +81,9 @@ The complete parsing, ordering, detection, and support contract follows.
     "exactIdentity": "CompareTo returns zero if and only if equality is true",
     "examples": [
       "next-3.7 < 3.7-dev < 3.7-dev.0 < 3.7-rc1 < 3.7-rc2",
-      "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b",
+      "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b < 3.7c",
       "3.3 < 3.3.1 < 3.3.10 < 3.3a",
-      "3.7b < next-3.8 < 3.8"
+      "3.7c < next-3.8 < 3.8"
     ],
     "invalidOperands": "CompareTo, <, <=, >, >=, IsAtLeast, and EnsureAtLeast throw InvalidOperationException if either operand is invalid",
     "ensureAtLeastFailure": "a valid value below a valid minimum throws TmuxVersionTooLowException"
@@ -111,10 +112,10 @@ The complete parsing, ordering, detection, and support contract follows.
   "support": {
     "minimum": "3.2a",
     "minimumInclusive": true,
-    "maximumTested": "3.7b",
+    "maximumTested": "3.7c",
     "maximumTestedSemantics": "informational; not a support ceiling",
     "minimumChecks": "enforce only the minimum; newer untested versions may satisfy them",
-    "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
+    "exactVersionIdentity": "3.7, 3.7a, 3.7b, and 3.7c are distinct",
     "capabilitySelection": "named support intervals apply to every stable release at or above the minimum; capabilities without a recorded end remain supported on later stable releases",
     "unknownCapabilityVersion": "invalid, below-minimum, development, release-candidate, and next versions have unknown capability state"
   }

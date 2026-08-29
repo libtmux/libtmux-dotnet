@@ -303,7 +303,7 @@ either of those changes what a user sees on their own screen.
 being right about tmux, and only tmux can say whether it is.
 
 **A version-dependent behaviour needs a row in the ledger.** Anything that
-differs between 3.2a and 3.7b goes through the capability model, and each
+differs between 3.2a and 3.7c goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json).
 
@@ -480,13 +480,13 @@ $ uv run python eng/parity/reconcile_versions.py \
 
 Commit the bundle and the rewritten `version-deltas.json` together, because the
 fingerprint is of the tree that commit produces. A tmux build takes about forty
-seconds here and the matrix runs the suite fourteen times, so budget half an
+seconds here and the matrix runs the suite sixteen times, so budget half an
 hour.
 
 ## Compatibility
 
 Stable tmux **3.2a and newer**, on **net8.0** and **net10.0**. The required
-Linux matrix covers 3.2a through 3.7b; the advisory macOS lane uses the current
+Linux matrix covers 3.2a through 3.7c; the advisory macOS lane uses the current
 Homebrew tmux. Windows is unsupported. The `LibTmux` core package is trim- and
 ahead-of-time-analyzer gated and has a Linux NativeAOT execution smoke test.
 Optional packages make narrower compatibility claims in their project files
