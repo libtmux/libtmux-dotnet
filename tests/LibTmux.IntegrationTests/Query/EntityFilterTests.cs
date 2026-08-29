@@ -28,7 +28,7 @@ public sealed class EntityFilterTests
 
         IReadOnlyList<Session> sessions = await scope.Server.GetSessionsAsync(token);
         IReadOnlyList<Session> building = sessions.Matching<Session>(
-            session => session.Name.StartsWith("build"));
+            session => session.Name.StartsWith("build", StringComparison.Ordinal));
 
         Assert.Equal(2, building.Count);
         Assert.All(building, session => Assert.StartsWith("build", session.Name, StringComparison.Ordinal));
@@ -46,11 +46,12 @@ public sealed class EntityFilterTests
         // The point of a document is that it can be written somewhere else and
         // still mean this, so the two paths have to agree.
         QueryDocument document = QueryExtensions.Translate<Window>(
-            window => window.Name.StartsWith("build"));
+            window => window.Name.StartsWith("build", StringComparison.Ordinal));
         IReadOnlyList<Window> windows = await scope.Session.GetWindowsAsync(token);
 
         Assert.Equal(
-            windows.Matching<Window>(window => window.Name.StartsWith("build")).Count,
+            windows.Matching<Window>(
+                window => window.Name.StartsWith("build", StringComparison.Ordinal)).Count,
             windows.Matching(document).Count);
         Assert.Single(windows.Matching(document));
     }

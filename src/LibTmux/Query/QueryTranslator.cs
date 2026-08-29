@@ -124,18 +124,23 @@ internal static class QueryTranslator
             "Contains" => QueryStringOperation.ContainsOrdinal,
             _ => throw Unsupported(call),
         };
-        // The wire form is ordinal, so only the overload naming
-        // StringComparison.Ordinal is accepted -- the same one CA1310 asks
-        // callers to write. A culture-sensitive overload has no wire form and
-        // throws instead of silently meaning something else.
-        if (call.Object is null || call.Arguments.Count is not (1 or 2))
+        if (call.Method.DeclaringType != typeof(string) || call.Object is null)
         {
             throw Unsupported(call);
         }
 
-        if (call.Arguments.Count == 2
-            && !(TryConstant(call.Arguments[1], out object? comparison)
-                && comparison is StringComparison.Ordinal))
+        if (call.Arguments.Count == 1)
+        {
+            // Contains(string) is ordinal. The one-argument StartsWith and
+            // EndsWith overloads use the current culture and have no v1 wire form.
+            if (operation != QueryStringOperation.ContainsOrdinal)
+            {
+                throw Unsupported(call);
+            }
+        }
+        else if (call.Arguments.Count != 2
+            || !TryConstant(call.Arguments[1], out object? comparison)
+            || comparison is not StringComparison.Ordinal)
         {
             throw Unsupported(call);
         }
@@ -150,10 +155,11 @@ internal static class QueryTranslator
         MethodCallExpression call,
         ParameterExpression parameter)
     {
-        if (call.Arguments.Count < 2 || !TryConstant(call.Arguments[1], out object? pattern))
+        if (call.Arguments.Count is not (2 or 3)
+            || !TryConstant(call.Arguments[1], out object? pattern))
         {
-            // A non-constant pattern cannot be carried on the wire, and
-            // compiling it locally would diverge from the document.
+            // A non-constant pattern or explicit timeout cannot be carried on
+            // the wire, and dropping either would change the predicate.
             throw Unsupported(call);
         }
 

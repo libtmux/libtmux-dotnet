@@ -28,7 +28,8 @@ document that travels:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 
 string wire = QueryJson.Serialize(document);
 QueryDocument parsed = QueryJson.Deserialize(wire);
@@ -75,7 +76,7 @@ The same document filters what you already hold, wherever it was written:
 ```csharp run
 // However this arrived — an argument, a request body, a stored filter.
 string received = QueryJson.Serialize(QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build")));
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)));
 
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> matched = sessions.Matching(QueryJson.Deserialize(received));

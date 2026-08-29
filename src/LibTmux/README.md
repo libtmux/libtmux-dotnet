@@ -194,7 +194,8 @@ objects you already hold:
 ```csharp run
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 ```
 
 Relations quantify, and the element type carries its own fields:
@@ -202,7 +203,8 @@ Relations quantify, and the element type carries its own fields:
 ```csharp run
 Server captured = await server.CaptureSnapshotAsync(SnapshotDepth.Windows, ct);
 IReadOnlyList<Session> withBuild = captured.Sessions.Matching<Session>(
-    session => session.Windows.Any(each => each.Name.StartsWith("build")));
+    session => session.Windows.Any(
+        each => each.Name.StartsWith("build", StringComparison.Ordinal)));
 ```
 
 The same expression is also a document, which can be written here and answered
@@ -210,7 +212,8 @@ somewhere else:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 ```
 
 You write C# and tmux receives tmux. The catalog carries the pair for all

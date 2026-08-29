@@ -170,7 +170,7 @@ it over the objects you already hold:
 ```csharp run
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
-    session => session.Name.StartsWith("build"));
+    session => session.Name.StartsWith("build", StringComparison.Ordinal));
 ```
 
 The same expression is also a document, which can be written here and answered
@@ -178,7 +178,8 @@ somewhere else:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 
 Console.WriteLine(document.Target);   // Session
 ```

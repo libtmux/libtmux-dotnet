@@ -125,8 +125,10 @@ public sealed class Component08ParityTests
     private static bool ProvesExpressionVocabulary()
     {
         IReadOnlyList<SessionRow> rows = [new SessionRow("devbox", 2)];
-        return rows.Matching<SessionRow>(row => row.SessionName.StartsWith("dev")).Count == 1
-            && rows.Matching<SessionRow>(row => row.SessionName.EndsWith("box")).Count == 1
+        return rows.Matching<SessionRow>(
+                row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)).Count == 1
+            && rows.Matching<SessionRow>(
+                row => row.SessionName.EndsWith("box", StringComparison.Ordinal)).Count == 1
             && rows.Matching<SessionRow>(row => row.SessionWindows >= 2).Count == 1
             && rows.Matching<SessionRow>(row => !row.SessionName.Contains("prod")).Count == 1;
     }

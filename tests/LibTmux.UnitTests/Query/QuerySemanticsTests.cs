@@ -19,7 +19,7 @@ public sealed class QuerySemanticsTests
         Assert.Equal(
             "session_name",
             Field(QueryExtensions.Translate<Session>(
-                session => session.Name.StartsWith("build"))));
+                session => session.Name.StartsWith("build", StringComparison.Ordinal))));
         Assert.Equal(
             "session_attached",
             Field(QueryExtensions.Translate<Session>(session => session.Attached)));
@@ -51,7 +51,8 @@ public sealed class QuerySemanticsTests
         // the wire names already. Both spellings reach the same document.
         Assert.Equal(
             "session_name",
-            Field(QueryExtensions.Translate<Row>(row => row.SessionName.StartsWith("dev"))));
+            Field(QueryExtensions.Translate<Row>(
+                row => row.SessionName.StartsWith("dev", StringComparison.Ordinal))));
     }
 
     [Fact]
@@ -76,7 +77,8 @@ public sealed class QuerySemanticsTests
     public void Matching_translates_and_interprets_the_canonical_AST()
     {
         QueryDocument document = QueryExtensions.Translate<Row>(
-            row => row.SessionName.StartsWith("dev") && row.SessionAttached);
+            row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)
+                && row.SessionAttached);
 
         Assert.Equal(QueryDocument.CurrentSchema, document.Schema);
         Assert.Equal(QueryDocument.CurrentVersion, document.Version);
@@ -108,7 +110,9 @@ public sealed class QuerySemanticsTests
         {
             new Row("devbox", true),
             new Row("prod", true),
-        }.Matching<Row>(row => row.SessionName.StartsWith("dev") && row.SessionAttached);
+        }.Matching<Row>(
+            row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)
+                && row.SessionAttached);
         Assert.Single(matched);
         Assert.Equal("devbox", matched[0].SessionName);
     }
@@ -158,11 +162,34 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void String_translation_preserves_the_selected_comparison_semantics()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(row => row.SessionName.StartsWith("dev")));
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(row => row.SessionName.EndsWith("box")));
+
+        QueryDocument contains = QueryExtensions.Translate<Row>(
+            row => row.SessionName.Contains("dev"));
+
+        Assert.Equal(
+            QueryStringOperation.ContainsOrdinal,
+            Assert.IsType<StringNode>(contains.Predicate).Operator);
+    }
+
+    [Fact]
     public void Regex_translation_requires_explicit_culture_invariance()
     {
         Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryExtensions.Translate<Row>(
                 row => Regex.IsMatch(row.SessionName, "^build", RegexOptions.IgnoreCase)));
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(
+                row => Regex.IsMatch(
+                    row.SessionName,
+                    "^build",
+                    RegexOptions.CultureInvariant,
+                    TimeSpan.FromSeconds(1))));
 
         QueryDocument document = QueryExtensions.Translate<Row>(
             row => Regex.IsMatch(

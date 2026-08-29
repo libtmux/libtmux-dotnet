@@ -23,7 +23,8 @@ public sealed class QueryJsonTests
             {
                 "string-and-comparison",
                 QueryExtensions.Translate<Row>(
-                    row => row.SessionName.StartsWith("dev") && row.SessionAttached)
+                    row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)
+                        && row.SessionAttached)
             },
             {
                 "negated-contains",
