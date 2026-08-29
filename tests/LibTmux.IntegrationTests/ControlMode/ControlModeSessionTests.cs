@@ -144,12 +144,28 @@ public sealed class ControlModeSessionTests
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
         const string Value = "space ' ; $HOME \\ π";
+        const string BufferName = "libtmux-control-literal";
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-control-literal-{Guid.NewGuid():N}");
 
-        IReadOnlyList<string> output = await control.SendAsync(
-            TmuxCommand.Create("display-message", "-p", Value),
-            token);
+        try
+        {
+            IReadOnlyList<string> written = await control.SendAsync(
+                TmuxCommand.Create("set-buffer", "-b", BufferName, Value),
+                token);
+            IReadOnlyList<string> saved = await control.SendAsync(
+                TmuxCommand.Create("save-buffer", "-b", BufferName, path),
+                token);
 
-        Assert.Equal([Value], output);
+            Assert.Empty(written);
+            Assert.Empty(saved);
+            Assert.Equal(Value, await File.ReadAllTextAsync(path, token));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [UnixFact]
