@@ -458,10 +458,8 @@ internal sealed class ControlModeSession : IControlModeSession
 
                 if (!line.StartsWith('%'))
                 {
-                    // tmux prints nothing outside a block that is not a
-                    // notification, so anything here is a protocol the reader
-                    // does not know rather than data to guess at.
-                    continue;
+                    throw new InvalidDataException(
+                        "The tmux control client sent output outside a block.");
                 }
 
                 (string name, IReadOnlyList<string> arguments) = SplitNotification(line);

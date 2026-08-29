@@ -310,6 +310,21 @@ public sealed class ControlModeCorrelationTests
         Assert.Empty(error.ErrorLines);
     }
 
+    [Fact]
+    public async Task Output_outside_a_block_fails_the_session()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+
+        process.EmitProtocolLine("unexpected output");
+
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => session.DisposeAsync().AsTask());
+        Assert.Equal("The tmux control client sent output outside a block.", error.Message);
+    }
+
     [Theory]
     [InlineData("%begin")]
     [InlineData("%begin malformed")]
