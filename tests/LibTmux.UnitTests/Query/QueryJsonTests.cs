@@ -15,7 +15,7 @@ public sealed class QueryJsonTests
     private static readonly ConstantNode True =
         new(new BooleanConstant(true));
 
-    public static TheoryData<string, QueryDocument> Goldens =>
+    public static TheoryData<string, QueryDocument> TranslatedDocuments =>
         new()
         {
             {
@@ -36,8 +36,8 @@ public sealed class QueryJsonTests
         };
 
     [Theory]
-    [MemberData(nameof(Goldens))]
-    public void Round_trips_every_version_one_golden_byte_for_byte(
+    [MemberData(nameof(TranslatedDocuments))]
+    public void Translated_documents_round_trip_byte_for_byte(
         string name,
         QueryDocument document)
     {
@@ -51,6 +51,25 @@ public sealed class QueryJsonTests
         Assert.Equal(json, QueryJson.Serialize(restored));
         Assert.Equal(document, restored);
         Assert.DoesNotContain("\n", json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("attached-nvim.json")]
+    [InlineData("regex-invariant.json")]
+    [InlineData("turkish-ignore-case.json")]
+    [InlineData("typed-id.json")]
+    public void Round_trips_every_version_one_golden_byte_for_byte(string fileName)
+    {
+        string resourceName = $"LibTmux.UnitTests.QueryGoldens.{fileName}";
+        using Stream stream = typeof(QueryJsonTests).Assembly
+            .GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Missing embedded resource '{resourceName}'.");
+        using StreamReader reader = new(stream);
+        string json = reader.ReadToEnd().TrimEnd('\r', '\n');
+
+        QueryDocument document = QueryJson.Deserialize(json);
+
+        Assert.Equal(json, QueryJson.Serialize(document));
     }
 
     [Fact]
