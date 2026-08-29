@@ -2,15 +2,6 @@ using System.Runtime.Versioning;
 
 namespace LibTmux.Workspace;
 
-/// <summary>Describes a built workspace and any layout tmux rejected.</summary>
-/// <param name="Session">The session that was built.</param>
-/// <param name="Windows">The windows, in the order the file listed them.</param>
-/// <param name="Unsupported">The layouts tmux rejected after creating their windows.</param>
-public sealed record WorkspaceResult(
-    Session Session,
-    IReadOnlyList<Window> Windows,
-    IReadOnlyList<string> Unsupported);
-
 /// <summary>Builds a tmux session from a tmuxp workspace file.</summary>
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilder
