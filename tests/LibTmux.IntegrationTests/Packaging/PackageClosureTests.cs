@@ -128,6 +128,7 @@ public sealed class PackageClosureTests
 
             Assert.Contains("buffer  aot", output, StringComparison.Ordinal);
             Assert.Contains("query-json True", output, StringComparison.Ordinal);
+            Assert.Contains("query-compile True", output, StringComparison.Ordinal);
         }
     }
 

@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using LibTmux.Query;
 
@@ -152,6 +154,22 @@ public sealed class QuerySemanticsTests
 
         Assert.True(predicate(new Row("build", true)));
         Assert.False(predicate(new Row("build", false)));
+    }
+
+    [Fact]
+    public void Reflection_based_evaluation_declares_its_trimming_contract()
+    {
+        MethodInfo[] evaluationMethods =
+        [
+            .. typeof(QueryExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name is "Compile" or "Matching"),
+        ];
+
+        Assert.Equal(3, evaluationMethods.Length);
+        Assert.All(
+            evaluationMethods,
+            method => Assert.NotNull(
+                method.GetCustomAttribute<RequiresUnreferencedCodeAttribute>()));
     }
 
     [Fact]

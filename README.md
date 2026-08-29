@@ -300,7 +300,7 @@ never reaches the model's list.
 | tmux | Stable 3.2a and newer. CI builds 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, and 3.7b; development, release-candidate, and `next-*` versions have unknown capability state |
 | .NET | net8.0, net10.0 |
 | OS | Linux, macOS. The bounded [`Psmux*` native-Windows and WSL query preview](docs/psmux.md) is experimental; its release gate runs both paths on net8.0 and net10.0 |
-| Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. That proof does not cover the other packages, macOS, or native Windows/psmux |
+| Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties. The proof does not cover the other packages, macOS, or native Windows/psmux |
 
 ## License
 

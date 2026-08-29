@@ -91,6 +91,9 @@ nesting depth, node count, string length, and regex pattern length. A caller
 may tighten those ceilings but cannot widen the v1 contract. The schema ships
 in the package as `libtmux-query-v1.schema.json`.
 
+Evaluating the result with `Compile` or `Matching` resolves public properties
+by name. Those methods warn trimmed callers to preserve that metadata.
+
 ```csharp run
 Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLimits.V1.MaximumNodes}");
 ```

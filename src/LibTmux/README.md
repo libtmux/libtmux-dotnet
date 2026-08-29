@@ -313,6 +313,7 @@ broke, and `Unknown` is the default for exactly that reason. A
 | tmux | 3.2a to 3.7b |
 | .NET | net8.0, net10.0 |
 | OS | Linux and macOS. `Server`, `Session`, `Window` and `Pane` are annotated unsupported on Windows, because their lifecycle, mutation and control-mode contracts need a real tmux |
+| Trimming / NativeAOT | Core APIs are analyzer-gated. Query `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties |
 | Windows preview | `PsmuxServer`, `PsmuxSession`, `PsmuxWindow` and `PsmuxPane` read one [psmux](https://github.com/psmux/psmux) session — its windows, its panes, and pane text — natively or across WSL. They cannot express lifecycle, mutation, chaining, control mode, or raw commands, so a caller gets a compile error where a suppression would have given a silent gap. [The preview contract](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/psmux.md) names the build it accepts and how to provision it |
 
 ## Related packages

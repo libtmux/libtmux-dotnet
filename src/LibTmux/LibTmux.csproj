@@ -25,8 +25,8 @@
     <PackageTags>tmux;terminal;multiplexer;automation;pty</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- The library reflects over nothing, so a trimmed or ahead-of-time
-         published app keeps everything it needs. -->
+    <!-- The query interpreter declares its reflective property requirement on
+         the public methods that reach it; the rest of the library is static. -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>

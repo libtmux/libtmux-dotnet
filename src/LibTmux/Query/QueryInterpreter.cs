@@ -13,6 +13,9 @@ namespace LibTmux.Query;
 /// </remarks>
 internal static class QueryInterpreter
 {
+    internal const string TrimmingMessage =
+        "Compiling a query reads public properties by name. Trimmed applications must preserve the filtered types' public properties.";
+
     /// <summary>How long one regex may run before it is treated as hostile.</summary>
     /// <remarks>
     /// A query document can come from outside this process, and a pattern
@@ -22,6 +25,7 @@ internal static class QueryInterpreter
     /// </remarks>
     private static readonly TimeSpan RegexBudget = TimeSpan.FromSeconds(1);
 
+    [RequiresUnreferencedCode(TrimmingMessage)]
     internal static Func<T, bool> Compile<T>(QueryDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -139,14 +143,10 @@ internal static class QueryInterpreter
             $"Node '{node.GetType().Name}' is not an operand."),
     };
 
-    // Matching in memory reads the element's own properties by name, which a
-    // trimmer cannot see and may therefore remove. The whole interpreter is
-    // marked so that a caller trimming their app is told, rather than finding
-    // out when a filter silently stops matching.
     [UnconditionalSuppressMessage(
         "Trimming",
         "IL2075:Members might be removed",
-        Justification = "Marked on the query surface a caller reaches this through.")]
+        Justification = "Every public compilation entry point declares the metadata requirement.")]
     private static object? ReadMember(FieldNode field, object element)
     {
         Type type = element.GetType();

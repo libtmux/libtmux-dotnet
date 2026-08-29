@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
 using LibTmux.Query;
 using LibTmux.Query.Json;
@@ -13,6 +14,15 @@ namespace LibTmux.AotSmoke;
 [UnsupportedOSPlatform("windows")]
 internal static class Program
 {
+    private sealed class QueryRow
+    {
+        private readonly string _sessionName;
+
+        internal QueryRow(string sessionName) => _sessionName = sessionName;
+
+        public string SessionName => _sessionName;
+    }
+
     private static async Task<int> Main()
     {
         if (OperatingSystem.IsWindows())
@@ -35,6 +45,7 @@ internal static class Program
                 QueryEdgeParser.ParseNameContains(QueryTarget.Session, "aot");
             bool queryRoundTrips =
                 QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
+            bool queryMatches = CompileQuery(query);
             Server server = scope.Server;
             Session session = scope.Session;
             Window window = scope.Window;
@@ -52,7 +63,21 @@ internal static class Program
             Console.WriteLine($"option  {option.Value.Raw}");
             Console.WriteLine($"buffer  {buffer}");
             Console.WriteLine($"query-json {queryRoundTrips}");
-            return option.Value.Boolean == false && buffer == "aot" && queryRoundTrips ? 0 : 1;
+            Console.WriteLine($"query-compile {queryMatches}");
+            return option.Value.Boolean == false
+                && buffer == "aot"
+                && queryRoundTrips
+                && queryMatches
+                ? 0
+                : 1;
         }
     }
+
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(QueryRow))]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "The dynamic dependency preserves the reflected query row.")]
+    private static bool CompileQuery(QueryDocument query) =>
+        query.Compile<QueryRow>()(new QueryRow("package-aot"));
 }

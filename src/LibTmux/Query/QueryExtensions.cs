@@ -27,6 +27,7 @@ public static class QueryExtensions
     /// <typeparam name="T">The filtered element type.</typeparam>
     /// <param name="document">The translated document.</param>
     /// <returns>The compiled predicate.</returns>
+    [RequiresUnreferencedCode(QueryInterpreter.TrimmingMessage)]
     public static Func<T, bool> Compile<T>(this QueryDocument document) =>
         QueryInterpreter.Compile<T>(document);
 
@@ -37,6 +38,7 @@ public static class QueryExtensions
     /// <returns>The matching elements.</returns>
     [RequiresDynamicCode(
         "Translating an expression evaluates its captured values, which needs runtime code generation.")]
+    [RequiresUnreferencedCode(QueryInterpreter.TrimmingMessage)]
     public static IReadOnlyList<T> Matching<T>(
         this IEnumerable<T> source,
         Expression<Func<T, bool>> predicate) =>
@@ -47,6 +49,7 @@ public static class QueryExtensions
     /// <param name="source">The captured elements.</param>
     /// <param name="document">The translated document.</param>
     /// <returns>The matching elements.</returns>
+    [RequiresUnreferencedCode(QueryInterpreter.TrimmingMessage)]
     public static IReadOnlyList<T> Matching<T>(
         this IEnumerable<T> source,
         QueryDocument document)
