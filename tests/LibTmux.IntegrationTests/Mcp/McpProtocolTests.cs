@@ -493,7 +493,10 @@ public sealed class McpProtocolTests
             string socketName = $"ltp-{Guid.NewGuid():N}"[..20];
             McpServerComposition.Add(
                 services,
-                new ServerPolicy { Tier = tier, WaitCeiling = TimeSpan.FromSeconds(10) },
+                // Ten seconds clamped what these tests ask for, so a job that
+                // waited on a shell starting under load reported no exit status
+                // rather than the one it was about to produce.
+                new ServerPolicy { Tier = tier, WaitCeiling = TimeSpan.FromSeconds(20) },
                 new ServerConnectionOptions(
                     tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
                     socketName: socketName,
