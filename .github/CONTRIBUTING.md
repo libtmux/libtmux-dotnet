@@ -485,8 +485,12 @@ hour.
 
 ## Compatibility
 
-tmux **3.2a through 3.7b**, on **net8.0** and **net10.0**, on Linux and macOS.
-Windows is unsupported. The packages are trim- and ahead-of-time-safe.
+Stable tmux **3.2a and newer**, on **net8.0** and **net10.0**. The required
+Linux matrix covers 3.2a through 3.7b; the advisory macOS lane uses the current
+Homebrew tmux. Windows is unsupported. The `LibTmux` core package is trim- and
+ahead-of-time-analyzer gated and has a Linux NativeAOT execution smoke test.
+Optional packages make narrower compatibility claims in their project files
+and package READMEs.
 
 During alpha the public API can change in any release with no deprecation
 period, so a consumer pins an exact version. Widening the supported range means

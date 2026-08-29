@@ -9,17 +9,18 @@ canonical API and parity documents retain the durable contract.
 ADR 0006 supersedes this decision's exact capability-profile selection rule
 and closed stable-version support boundary.
 
-This decision approves names, signatures, ownership, package placement, and
-parity destinations. It does not claim that production code or behavioral
-evidence exists. Every parity row remains `implementationStatus=not_started`
-and `evidenceStatus=none` until its production component passes its full gate.
+This decision originally approved names, signatures, ownership, package
+placement, and parity destinations without claiming that production code or
+behavioral evidence existed. That approval boundary is historical: production
+is implemented, and current status belongs to the parity ledger and release
+evidence.
 
 ## Context
 
 The Python public inventory contains 626 source-grounded rows. Decisions 0001,
 0002, and 0003 select the raw-byte process transport, immutable hierarchy, and
-closed query catalog. A production port still needs one idiomatic
-.NET surface rather than a transliteration of Python implementation details.
+closed query catalog. The production port keeps one idiomatic .NET surface
+rather than a transliteration of Python implementation details.
 
 The canonical contract is `docs/public-api.json`.
 `docs/public-api.md` is a deterministic human review generated from that
@@ -246,31 +247,31 @@ portable APIs and pure tests remain supported.
 
 ## Consequences
 
-Production work implements the canonical JSON contract rather than inventing
-signatures component by component. Each of the 18 production components owns
-an exhaustive set of ledger rows and updates implementation and evidence state
-only after its behavioral and platform gates pass.
+Production follows the canonical JSON contract rather than inventing signatures
+component by component. Each of the 18 production components owns an exhaustive
+set of ledger rows, with implementation and evidence state updated only after
+its behavioral and platform gates pass.
 
 The immutable hierarchy requires callers to retain mutation results. In
 exchange, captured state is safe for concurrent reads and I/O stays visible.
 Named owned scopes add a small amount of ceremony but make destructive cleanup
 intent explicit.
 
-The generated query catalog adds build machinery, but its implementation
-details do not leak into consumer signatures. The two-package boundary keeps
-JSON optional without introducing a second query model.
+The closed query catalog remains internal and does not leak its implementation
+details into consumer signatures. The two-package boundary keeps JSON optional
+without introducing a second query model.
 
-## Approval criteria
+## Approval criteria at decision time
 
-The public contract is accepted only while all of the following remain true:
+The public contract was accepted only while all of the following were true:
 
 - deterministic Markdown rendering matches the canonical JSON;
 - every approved or internalized parity row names an exact member;
 - every exclusion states its reason and replacement;
 - all 626 rows belong to exactly one component numbered 1 through 18;
-- implementation and evidence remain absent at this approval boundary;
+- implementation and evidence were absent at this approval boundary;
 - public member IDs and overloads are unique;
 - async, cancellation, ownership, platform, query, ID, and exception rules
   validate mechanically; and
-- at the approval boundary, the production plan owned every row once and named
+- the production plan owned every row once and named
   the full completion gates.

@@ -211,12 +211,8 @@ jobs:
           tmux -V
 
       - name: Restore
-        # Locked mode is off here, and omitting --locked-mode is not enough to
-        # do that: Directory.Build.props turns RestoreLockedMode on whenever CI
-        # is set. The lock files are generated for the Linux runtime identifier
-        # this repository publishes ahead of time, so a macOS restore resolves
-        # osx-arm64 and NU1004s against them -- which is the lock files being
-        # right about Linux, not a dependency problem.
+        # Directory.Build.props enables locked mode in CI. This advisory macOS
+        # lane opts out; the required Linux lanes remain the lock-file gate.
         run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
 
       - name: Build
