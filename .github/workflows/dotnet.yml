@@ -163,6 +163,7 @@ jobs:
           uv run python eng/parity/render_public_api.py --check
           uv run python eng/parity/verify_capabilities.py
           uv run python eng/parity/verify_workflows.py
+          uv run python eng/parity/verify_tmux_versions.py
           uv run python eng/docs/render_api_reference.py --check
           uv run python eng/docs/sync_snippets.py --check
           uv run eng/mcp/dump_tools.py --check

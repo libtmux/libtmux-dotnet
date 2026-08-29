@@ -1,0 +1,17 @@
+{
+  "$comment": "The tmux versions this repository supports. Every list of them elsewhere is checked against this by eng/parity/verify_tmux_versions.py; add a version here first.",
+  "schemaVersion": 1,
+  "minimum": "3.2a",
+  "maximumTested": "3.7c",
+  "transition": "3.7",
+  "supported": [
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c"
+  ]
+}

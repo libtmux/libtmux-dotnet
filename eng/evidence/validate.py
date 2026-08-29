@@ -17,16 +17,16 @@ import subprocess
 import sys
 import typing as t
 
-REQUIRED_TMUX_VERSIONS = (
-    "3.2a",
-    "3.3a",
-    "3.4",
-    "3.5",
-    "3.6",
-    "3.7a",
-    "3.7b",
-    "3.7c",
-)
+#: Read rather than repeated, so a new version is decided in one place.
+TMUX_VERSION_MANIFEST = pathlib.Path(__file__).parents[1] / "tmux" / "versions.json"
+
+
+def _supported_tmux_versions() -> tuple[str, ...]:
+    with TMUX_VERSION_MANIFEST.open(encoding="utf-8") as handle:
+        return tuple(json.load(handle)["supported"])
+
+
+REQUIRED_TMUX_VERSIONS = _supported_tmux_versions()
 LEGACY_REQUIRED_TMUX_VERSIONS = REQUIRED_TMUX_VERSIONS[:-1]
 KNOWN_REQUIRED_TMUX_VERSION_SETS = {
     LEGACY_REQUIRED_TMUX_VERSIONS,

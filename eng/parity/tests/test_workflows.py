@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import runpy
+import shutil
 import typing as t
 
 import pytest
@@ -16,7 +18,11 @@ def load_checker() -> dict[str, t.Any]:
     )
 
 
-SUPPORTED_TMUX_VERSIONS: tuple[str, ...] = load_checker()["SUPPORTED_TMUX_VERSIONS"]
+REPOSITORY_ROOT = pathlib.Path(__file__).parents[3]
+MANIFEST = REPOSITORY_ROOT / "eng" / "tmux" / "versions.json"
+SUPPORTED_TMUX_VERSIONS: tuple[str, ...] = tuple(
+    json.loads(MANIFEST.read_text(encoding="utf-8"))["supported"]
+)
 
 
 def verify(root: pathlib.Path) -> list[str]:
@@ -110,6 +116,12 @@ def write(
     (workflows / "dotnet.yml").write_text(build, encoding="utf-8")
     (workflows / "dotnet-tmux.yml").write_text(matrix, encoding="utf-8")
     (workflows / "release.yml").write_text(release, encoding="utf-8")
+
+    # The check measures a root against that root's own version manifest, so a
+    # laid-out repository needs one.
+    manifest = root / "eng" / "tmux" / "versions.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(MANIFEST, manifest)
     return root
 
 

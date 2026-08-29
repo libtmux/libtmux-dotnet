@@ -9,19 +9,21 @@ it.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import sys
 
-SUPPORTED_TMUX_VERSIONS = (
-    "3.2a",
-    "3.3a",
-    "3.4",
-    "3.5",
-    "3.6",
-    "3.7a",
-    "3.7b",
-    "3.7c",
-)
+#: Read rather than repeated. eng/parity/verify_tmux_versions.py checks the
+#: lists that cannot read it, such as the workflow matrix this one inspects.
+TMUX_VERSION_MANIFEST = pathlib.Path("eng/tmux/versions.json")
+
+
+def supported_tmux_versions(root: pathlib.Path) -> tuple[str, ...]:
+    """Answer the tmux versions the repository claims to support."""
+    with (root / TMUX_VERSION_MANIFEST).open(encoding="utf-8") as handle:
+        return tuple(json.load(handle)["supported"])
+
+
 TARGET_FRAMEWORKS = ("net8.0", "net10.0")
 
 #: Checks a change has to pass locally. A workflow missing one of these would
@@ -91,7 +93,7 @@ def verify(root: pathlib.Path) -> list[str]:
     )
     violations.extend(
         f"dotnet-tmux.yml omits tmux {version}"
-        for version in SUPPORTED_TMUX_VERSIONS
+        for version in supported_tmux_versions(root)
         if f"'{version}'" not in matrix_text
     )
     violations.extend(

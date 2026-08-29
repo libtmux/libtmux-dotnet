@@ -320,6 +320,16 @@ either of those changes what a user sees on their own screen.
 **A behaviour change needs a test against a real tmux.** This library's job is
 being right about tmux, and only tmux can say whether it is.
 
+**A new tmux version starts in the manifest.**
+[`eng/tmux/versions.json`](../eng/tmux/versions.json) decides which versions
+this repository supports. The workflow matrix, both build scripts, the runtime
+constants and every README repeat that list, and
+`eng/parity/verify_tmux_versions.py` names each one that has not caught up:
+
+```console
+$ uv run python eng/parity/verify_tmux_versions.py
+```
+
 **A version-dependent behaviour needs a row in the ledger.** Anything that
 differs between 3.2a and 3.7c goes through the capability model, and each
 difference names the test that proves it in
