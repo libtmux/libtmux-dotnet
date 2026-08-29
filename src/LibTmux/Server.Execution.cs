@@ -117,6 +117,17 @@ public sealed partial class Server
         return RunUtilityAsync(BuildWaitForArguments(request), cancellationToken);
     }
 
+    /// <summary>Opens a wait on a channel that survives a timed attempt.</summary>
+    /// <param name="channel">The channel to wait on.</param>
+    /// <returns>The open wait, which must be disposed to withdraw it.</returns>
+    /// <remarks>
+    /// Prefer this to <see cref="WaitForAsync" /> whenever the wait has a
+    /// deadline. Cancelling a waiting <c>wait-for</c> kills its client while
+    /// tmux keeps the registration, and that registration eats the next signal.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxWaitChannel OpenWaitChannel(string channel) => new(this, channel);
+
     internal static List<string> BuildWaitForArguments(WaitForRequest request)
     {
         List<string> arguments = ["wait-for"];

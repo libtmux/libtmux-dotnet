@@ -446,6 +446,7 @@ internal static class Program
 | `T:LibTmux.TmuxCommand` | record | `public, sealed` | None | `object` | value | One tmux command and the arguments it carries. | `LibTmux` |
 | `T:LibTmux.TmuxChain` | class | `public, sealed` | None | `object` | reference | Commands tmux runs together, in one process. | `LibTmux` |
 | `T:LibTmux.TmuxChaining` | class | `public, static` | None | `object` | value | Turns a request record into a command a chain can carry. | `LibTmux` |
+| `T:LibTmux.TmuxWaitChannel` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Holds a tmux wait-for registration across timed attempts. | `LibTmux` |
 
 ## Public members
 
@@ -1444,6 +1445,7 @@ internal static class Program
 | `M:LibTmux.Server.LockAsync(CancellationToken)` | `Task LibTmux.Server.LockAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Lock. |
 | `M:LibTmux.Server.LockClientAsync(string?,CancellationToken)` | `Task LibTmux.Server.LockClientAsync(string? targetClient = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs LockClient. |
 | `M:LibTmux.Server.Open(ServerConnectionOptions?)` | `static Server LibTmux.Server.Open(ServerConnectionOptions? options = null)` | Public | Yes | Portable | Opens an unmaterialized connection handle without starting a process. |
+| `M:LibTmux.Server.OpenWaitChannel(String)` | `TmuxWaitChannel LibTmux.Server.OpenWaitChannel(string channel)` | Public | No | `UnsupportedOSPlatform("windows")` | Opens a wait that survives a timed attempt. |
 | `M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)` | `Task LibTmux.Server.RaiseIfDeadAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RaiseIfDead. |
 | `M:LibTmux.Server.RefreshClientAsync(string?,bool,CancellationToken)` | `Task LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RefreshClient. |
 | `M:LibTmux.Server.RunShellAsync(RunShellRequest,CancellationToken)` | `Task<IReadOnlyList<string>?> LibTmux.Server.RunShellAsync(RunShellRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RunShell. |
@@ -2128,6 +2130,15 @@ internal static class Program
 | `M:LibTmux.TmuxVersionTooLowException.#ctor(string,TmuxVersion,TmuxVersion,Exception?)` | `TmuxVersionTooLowException(string message, TmuxVersion requiredVersion, TmuxVersion actualVersion, Exception? innerException = null)` | Public | No | Portable | Creates TmuxVersionTooLowException. |
 | `P:LibTmux.TmuxVersionTooLowException.ActualVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.ActualVersion { get; }` | Public | No | Portable | Gets ActualVersion. |
 | `P:LibTmux.TmuxVersionTooLowException.RequiredVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.RequiredVersion { get; }` | Public | No | Portable | Gets RequiredVersion. |
+
+### `T:LibTmux.TmuxWaitChannel`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxWaitChannel.DisposeAsync()` | `ValueTask LibTmux.TmuxWaitChannel.DisposeAsync()` | Public | No | `UnsupportedOSPlatform("windows")` | Withdraws the waiter from tmux. |
+| `M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)` | `Task<bool> LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan budget, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Waits for the signal, giving this attempt a budget. |
+| `P:LibTmux.TmuxWaitChannel.Channel` | `string LibTmux.TmuxWaitChannel.Channel { get; }` | Public | No | Portable | Gets the channel being waited on. |
+| `P:LibTmux.TmuxWaitChannel.Signalled` | `bool LibTmux.TmuxWaitChannel.Signalled { get; }` | Public | No | Portable | Gets whether something really signalled the channel. |
 
 ### `T:LibTmux.TmuxWaitMode`
 

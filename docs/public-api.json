@@ -3183,6 +3183,24 @@
       "ownership": "value",
       "state": [],
       "summary": "Turns a request record into a command a chain can carry."
+    },
+    {
+      "id": "T:LibTmux.TmuxWaitChannel",
+      "namespace": "LibTmux",
+      "name": "TmuxWaitChannel",
+      "kind": "class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "object",
+      "interfaces": [
+        "IAsyncDisposable"
+      ],
+      "ownership": "owned",
+      "state": [],
+      "summary": "Holds a tmux wait-for registration across timed attempts."
     }
   ],
   "members": [
@@ -27581,6 +27599,119 @@
       "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SetHooksRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)",
       "portable": true,
       "summary": "Runs a multi-entry hook request in one invocation."
+    },
+    {
+      "id": "M:LibTmux.Server.OpenWaitChannel(String)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "OpenWaitChannel",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxWaitChannel",
+      "parameters": [
+        {
+          "name": "channel",
+          "type": "string"
+        }
+      ],
+      "signature": "TmuxWaitChannel LibTmux.Server.OpenWaitChannel(string channel)",
+      "performsIO": false,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Opens a wait that survives a timed attempt."
+    },
+    {
+      "id": "P:LibTmux.TmuxWaitChannel.Channel",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "Channel",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "string",
+      "parameters": [],
+      "signature": "string LibTmux.TmuxWaitChannel.Channel { get; }",
+      "portable": true,
+      "summary": "Gets the channel being waited on."
+    },
+    {
+      "id": "P:LibTmux.TmuxWaitChannel.Signalled",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "Signalled",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "bool",
+      "parameters": [],
+      "signature": "bool LibTmux.TmuxWaitChannel.Signalled { get; }",
+      "portable": true,
+      "summary": "Gets whether something really signalled the channel."
+    },
+    {
+      "id": "M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "WaitAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<bool>",
+      "parameters": [
+        {
+          "name": "budget",
+          "type": "TimeSpan"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<bool> LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan budget, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Waits for the signal, giving this attempt a budget."
+    },
+    {
+      "id": "M:LibTmux.TmuxWaitChannel.DisposeAsync()",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "DisposeAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "ValueTask",
+      "parameters": [],
+      "signature": "ValueTask LibTmux.TmuxWaitChannel.DisposeAsync()",
+      "performsIO": false,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Withdraws the waiter from tmux."
+    },
+    {
+      "id": "T:LibTmux.TmuxWaitChannel",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "TmuxWaitChannel",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "class LibTmux.TmuxWaitChannel",
+      "portable": true
     }
   ]
 }

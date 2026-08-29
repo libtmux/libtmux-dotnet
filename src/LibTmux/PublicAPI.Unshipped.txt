@@ -1912,3 +1912,9 @@ virtual LibTmux.Query.QueryNode.PrintMembers(System.Text.StringBuilder! builder)
 virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
+LibTmux.Server.OpenWaitChannel(string! channel) -> LibTmux.TmuxWaitChannel!
+LibTmux.TmuxWaitChannel
+LibTmux.TmuxWaitChannel.Channel.get -> string!
+LibTmux.TmuxWaitChannel.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.TmuxWaitChannel.Signalled.get -> bool
+LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan budget, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
