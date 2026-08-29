@@ -18,8 +18,6 @@ public static class QueryExtensions
     /// <exception cref="UnsupportedQueryExpressionException">
     /// The expression contains a node the query vocabulary does not cover.
     /// </exception>
-    [RequiresDynamicCode(
-        "Translating an expression evaluates its captured values, which needs runtime code generation.")]
     public static QueryDocument Translate<T>(Expression<Func<T, bool>> predicate) =>
         QueryTranslator.Translate(predicate);
 
@@ -36,8 +34,6 @@ public static class QueryExtensions
     /// <param name="source">The captured elements.</param>
     /// <param name="predicate">The predicate to translate and apply.</param>
     /// <returns>The matching elements.</returns>
-    [RequiresDynamicCode(
-        "Translating an expression evaluates its captured values, which needs runtime code generation.")]
     [RequiresUnreferencedCode(QueryInterpreter.TrimmingMessage)]
     public static IReadOnlyList<T> Matching<T>(
         this IEnumerable<T> source,

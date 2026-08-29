@@ -46,6 +46,7 @@ internal static class Program
             bool queryRoundTrips =
                 QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
             bool queryMatches = CompileQuery(query);
+            bool queryTranslates = TranslateQuery();
             Server server = scope.Server;
             Session session = scope.Session;
             Window window = scope.Window;
@@ -64,10 +65,12 @@ internal static class Program
             Console.WriteLine($"buffer  {buffer}");
             Console.WriteLine($"query-json {queryRoundTrips}");
             Console.WriteLine($"query-compile {queryMatches}");
+            Console.WriteLine($"query-translate {queryTranslates}");
             return option.Value.Boolean == false
                 && buffer == "aot"
                 && queryRoundTrips
                 && queryMatches
+                && queryTranslates
                 ? 0
                 : 1;
         }
@@ -80,4 +83,12 @@ internal static class Program
         Justification = "The dynamic dependency preserves the reflected query row.")]
     private static bool CompileQuery(QueryDocument query) =>
         query.Compile<QueryRow>()(new QueryRow("package-aot"));
+
+    private static bool TranslateQuery()
+    {
+        string expected = "aot";
+        QueryDocument query = QueryExtensions.Translate<QueryRow>(
+            row => row.SessionName.Contains(expected));
+        return CompileQuery(query);
+    }
 }

@@ -1,6 +1,6 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace LibTmux.Query;
@@ -11,11 +11,6 @@ namespace LibTmux.Query;
 /// raises <see cref="UnsupportedQueryExpressionException" /> rather than being
 /// left for in-memory evaluation, so one predicate cannot mean two things.
 /// </remarks>
-// Reading a captured value out of an expression means running the code that
-// produced it, and running code an expression describes needs the runtime to
-// generate it. Ahead-of-time publishing cannot, so every caller is told.
-[RequiresDynamicCode(
-    "Translating an expression evaluates its captured values, which needs runtime code generation.")]
 internal static class QueryTranslator
 {
     internal static QueryDocument Translate<T>(Expression<Func<T, bool>> predicate)
@@ -284,18 +279,21 @@ internal static class QueryTranslator
             return true;
         }
 
-        try
+        if (expression is MemberExpression
+            {
+                Expression: ConstantExpression { Value: not null } closure,
+                Member: FieldInfo { IsStatic: false } field,
+            }
+            && field.DeclaringType?.IsDefined(
+                typeof(CompilerGeneratedAttribute),
+                inherit: false) == true)
         {
-            value = Expression.Lambda(Expression.Convert(expression, typeof(object)))
-                .Compile()
-                .DynamicInvoke();
+            value = field.GetValue(closure.Value);
             return true;
         }
-        catch (InvalidOperationException)
-        {
-            value = null;
-            return false;
-        }
+
+        value = null;
+        return false;
     }
 
     private static Expression StripConvert(Expression expression) =>
