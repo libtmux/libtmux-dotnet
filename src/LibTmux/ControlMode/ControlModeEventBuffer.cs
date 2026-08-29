@@ -71,6 +71,7 @@ internal sealed class ControlModeEventBuffer
     {
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             TmuxEvent? item = null;
             Task? wait = null;
             long dropped = 0;
