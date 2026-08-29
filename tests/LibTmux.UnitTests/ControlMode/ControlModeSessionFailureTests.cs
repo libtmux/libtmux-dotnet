@@ -172,9 +172,11 @@ public sealed class ControlModeSessionFailureTests
         await session.WaitForReadyAsync(token);
         Task eventsCompleted = DrainEventsAsync(session.Events, token);
         process.EndOutput(pumpFailure);
-        await eventsCompleted.WaitAsync(token);
+        IOException eventFailure = await Assert.ThrowsAsync<IOException>(
+            async () => await eventsCompleted.WaitAsync(token));
 
         Assert.False(session.IsRunning);
+        Assert.Same(pumpFailure, eventFailure);
         await Assert.ThrowsAsync<ObjectDisposedException>(
             () => session.SendAsync(
                 TmuxCommand.Create("display-message", "-p", "too-late"),

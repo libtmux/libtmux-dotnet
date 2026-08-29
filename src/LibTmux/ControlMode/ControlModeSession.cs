@@ -481,7 +481,7 @@ internal sealed class ControlModeSession : IControlModeSession
         finally
         {
             _events.TryWrite(new TmuxExitEvent(exitReason));
-            _events.Complete();
+            _events.Complete(pumpFailure);
             Exception terminalFailure = pumpFailure ?? new InvalidOperationException(
                 WithStandardError(
                     "The tmux control client exited before it finished attaching."));
