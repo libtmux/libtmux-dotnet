@@ -121,6 +121,25 @@ public sealed class PsmuxConnectionTests
     }
 
     [Fact]
+    public void The_pinned_build_identity_agrees_with_itself()
+    {
+        // The banner, the markers the binary is scanned for and the commit are
+        // one fact spelled three ways. Moving the pin must move all of them.
+        Assert.StartsWith(
+            PsmuxCompatibility.SupportedShortCommit,
+            PsmuxCompatibility.SupportedCommit,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            PsmuxCompatibility.SupportedShortCommit,
+            PsmuxCompatibility.SupportedImplementationLine,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            PsmuxCompatibility.SupportedBuildDate,
+            PsmuxCompatibility.SupportedImplementationLine,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Binary_trust_rejects_missing_build_markers()
     {
         string binary = Path.Combine(
