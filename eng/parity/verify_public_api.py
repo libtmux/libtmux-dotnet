@@ -13,6 +13,7 @@ DOCUMENT_ROOT = pathlib.Path(__file__).parents[2] / "docs"
 API_PATH = DOCUMENT_ROOT / "public-api.json"
 LEDGER_PATH = DOCUMENT_ROOT / "parity" / "parity-ledger.json"
 PACKAGES_PATH = pathlib.Path(__file__).parents[2] / "Directory.Packages.props"
+SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src"
 PACKAGE_IDS = ["LibTmux", "LibTmux.Query.Json"]
 COMPONENT_IDS = set(range(1, 19))
 ENTITY_IDS = {
@@ -1331,6 +1332,63 @@ def validate(contract: dict[str, t.Any], ledger: dict[str, t.Any]) -> list[str]:
     validate_query(contract, violations)
     validate_examples_and_reachability(contract, violations)
     validate_ledger(contract, ledger, members, violations)
+    violations.extend(validate_visibility(members))
+    return violations
+
+
+def shipped_surface() -> set[str]:
+    """Read the declarations the Roslyn analyzer holds each assembly to.
+
+    Returns
+    -------
+    set[str]
+        One entry per approved declaration, without its return type.
+
+    Examples
+    --------
+    >>> "LibTmux.Pane" in shipped_surface()
+    True
+    """
+    surface: set[str] = set()
+    for path in sorted(SOURCE_ROOT.glob("*/PublicAPI.*.txt")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            entry = line.strip()
+            if entry and not entry.startswith("#"):
+                surface.add(entry.split(" -> ")[0].removeprefix("static "))
+    return surface
+
+
+def validate_visibility(members: dict[str, t.Any]) -> list[str]:
+    """Hold the contract's internal members to being absent from the assembly.
+
+    The analyzer baselines are generated from the built assembly, so a member
+    the contract calls internal and the baseline lists is public in fact. That
+    disagreement is invisible to the analyzer, which never reads the contract,
+    and to the rest of this file, which never reads the assembly.
+
+    Parameters
+    ----------
+    members
+        Contract members keyed by member id.
+
+    Returns
+    -------
+    list[str]
+        One violation per member the contract and the assembly disagree on.
+
+    Examples
+    --------
+    >>> validate_visibility({})
+    []
+    """
+    surface = shipped_surface()
+    violations = []
+    for member_id, member in sorted(members.items()):
+        if member.get("visibility") != "internal":
+            continue
+        declaration = member_id[2:].split("(")[0].replace("`1", "<T>")
+        if any(entry.startswith(declaration) for entry in surface):
+            violations.append(f"contract calls {member_id} internal; the assembly ships it")
     return violations
 
 

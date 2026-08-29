@@ -234,8 +234,6 @@ LibTmux.IncompleteSnapshotException
 LibTmux.IncompleteSnapshotException.CapturedDepth.get -> LibTmux.SnapshotDepth
 LibTmux.IncompleteSnapshotException.IncompleteSnapshotException(string! relation, LibTmux.SnapshotDepth capturedDepth) -> void
 LibTmux.IncompleteSnapshotException.Relation.get -> string!
-LibTmux.Internal.TmuxCommandContext
-LibTmux.Internal.TmuxCommandContext.Logger.get -> Microsoft.Extensions.Logging.ILogger!
 LibTmux.LibTmuxException
 LibTmux.LibTmuxException.Dispatch.get -> LibTmux.TmuxDispatchState
 LibTmux.LibTmuxException.LibTmuxException(string! message, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void

@@ -10,7 +10,7 @@ namespace LibTmux.Internal;
 /// sites. Holding the logger alongside the socket it belongs to also keeps two
 /// servers in one process from writing each other's history.
 /// </remarks>
-public sealed class TmuxCommandContext
+internal sealed class TmuxCommandContext
 {
     internal TmuxCommandContext(ILogger logger, string? socket)
     {
