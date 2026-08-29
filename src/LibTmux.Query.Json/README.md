@@ -41,14 +41,30 @@ Console.WriteLine(parsed == document);
 
 ```json
 {
-  "schema": "libtmux.query",
+  "schema": "libtmux-query",
   "version": 1,
   "target": "session",
   "predicate": {
     "kind": "and",
     "operands": [
-      { "kind": "string", "operator": "startsWith", "field": "session_name", "value": "build" },
-      { "kind": "comparison", "operator": "equal", "field": "session_attached", "value": true }
+      {
+        "kind": "comparison",
+        "operator": "startsWithOrdinal",
+        "left": {
+          "kind": "field",
+          "target": "session",
+          "wireName": "session_name"
+        },
+        "right": {
+          "kind": "constant",
+          "value": { "kind": "string", "value": "build" }
+        }
+      },
+      {
+        "kind": "field",
+        "target": "session",
+        "wireName": "session_attached"
+      }
     ]
   }
 }
@@ -69,10 +85,10 @@ Console.WriteLine(matched.Count);
 
 ## What reading a document costs
 
-Deserializing applies the limits in `QueryJsonLimits.V1` — depth, node count,
-string length — so a document that arrived from somewhere else cannot cost more
-than a document is allowed to. The schema those limits describe ships in the
-package as `libtmux-query-v1.schema.json`.
+Deserializing applies the limits in `QueryJsonLimits.V1`: document size,
+nesting depth, node count, string length, and regex pattern length. A caller
+may tighten those ceilings but cannot widen the v1 contract. The schema ships
+in the package as `libtmux-query-v1.schema.json`.
 
 ```csharp run
 Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLimits.V1.MaximumNodes}");
