@@ -593,11 +593,8 @@
                 "stringEqualOrdinal",
                 "stringEqualOrdinalIgnoreCase",
                 "startsWithOrdinal",
-                "startsWithOrdinalIgnoreCase",
                 "endsWithOrdinal",
-                "endsWithOrdinalIgnoreCase",
-                "containsOrdinal",
-                "containsOrdinalIgnoreCase"
+                "containsOrdinal"
               ]
             },
             "left": { "$ref": "#/$defs/stringField" },
