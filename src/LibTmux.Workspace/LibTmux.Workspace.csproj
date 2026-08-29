@@ -11,10 +11,10 @@
     <PackageTags>tmux;tmuxp;workspace;yaml</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- The YAML reader binds to properties by name, which a trimmer cannot
-         see, so this package does not claim to be trimmable. Nothing in the
-         core library depends on it. -->
+    <!-- NativeAOT closure has not been proven for this optional dependency. -->
     <IsAotCompatible>false</IsAotCompatible>
+
+    <NoWarn>$(NoWarn);RS0017;RS0026;RS0036</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,5 +25,14 @@
     <ProjectReference Include="..\LibTmux\LibTmux.csproj" />
     <PackageReference Include="YamlDotNet" />
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

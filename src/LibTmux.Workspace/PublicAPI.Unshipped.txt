@@ -1,0 +1,42 @@
+#nullable enable
+LibTmux.Workspace.WorkspaceBuilder
+LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
+LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server) -> void
+LibTmux.Workspace.WorkspaceFile
+LibTmux.Workspace.WorkspaceFile.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceFile.SessionName.get -> string?
+LibTmux.Workspace.WorkspaceFile.StartDirectory.get -> string?
+LibTmux.Workspace.WorkspaceFile.Windows.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>!
+LibTmux.Workspace.WorkspaceFile.WorkspaceFile(string? sessionName = null, string? startDirectory = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>? windows = null) -> void
+LibTmux.Workspace.WorkspaceFormatException
+LibTmux.Workspace.WorkspaceFormatException.WorkspaceFormatException(string! message, System.Exception? innerException = null) -> void
+LibTmux.Workspace.WorkspacePane
+LibTmux.Workspace.WorkspacePane.Focus.get -> bool
+LibTmux.Workspace.WorkspacePane.ShellCommands.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Workspace.WorkspacePane.StartDirectory.get -> string?
+LibTmux.Workspace.WorkspacePane.WorkspacePane(System.Collections.Generic.IReadOnlyList<string!>? shellCommands = null, string? startDirectory = null, bool focus = false) -> void
+LibTmux.Workspace.WorkspaceResult
+LibTmux.Workspace.WorkspaceResult.<Clone>$() -> LibTmux.Workspace.WorkspaceResult!
+LibTmux.Workspace.WorkspaceResult.Deconstruct(out LibTmux.Session! Session, out System.Collections.Generic.IReadOnlyList<LibTmux.Window!>! Windows, out System.Collections.Generic.IReadOnlyList<string!>! Unsupported) -> void
+LibTmux.Workspace.WorkspaceResult.Equals(LibTmux.Workspace.WorkspaceResult? other) -> bool
+LibTmux.Workspace.WorkspaceResult.Session.get -> LibTmux.Session!
+LibTmux.Workspace.WorkspaceResult.Session.init -> void
+LibTmux.Workspace.WorkspaceResult.Unsupported.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Workspace.WorkspaceResult.Unsupported.init -> void
+LibTmux.Workspace.WorkspaceResult.Windows.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Window!>!
+LibTmux.Workspace.WorkspaceResult.Windows.init -> void
+LibTmux.Workspace.WorkspaceResult.WorkspaceResult(LibTmux.Session! Session, System.Collections.Generic.IReadOnlyList<LibTmux.Window!>! Windows, System.Collections.Generic.IReadOnlyList<string!>! Unsupported) -> void
+LibTmux.Workspace.WorkspaceWindow
+LibTmux.Workspace.WorkspaceWindow.Focus.get -> bool
+LibTmux.Workspace.WorkspaceWindow.Layout.get -> string?
+LibTmux.Workspace.WorkspaceWindow.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceWindow.Panes.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspacePane!>!
+LibTmux.Workspace.WorkspaceWindow.StartDirectory.get -> string?
+LibTmux.Workspace.WorkspaceWindow.WindowName.get -> string?
+LibTmux.Workspace.WorkspaceWindow.WorkspaceWindow(string? windowName = null, string? startDirectory = null, string? layout = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspacePane!>? panes = null) -> void
+override LibTmux.Workspace.WorkspaceResult.Equals(object? obj) -> bool
+override LibTmux.Workspace.WorkspaceResult.GetHashCode() -> int
+override LibTmux.Workspace.WorkspaceResult.ToString() -> string!
+static LibTmux.Workspace.WorkspaceFile.Parse(string! yaml) -> LibTmux.Workspace.WorkspaceFile!
+static LibTmux.Workspace.WorkspaceResult.operator !=(LibTmux.Workspace.WorkspaceResult? left, LibTmux.Workspace.WorkspaceResult? right) -> bool
+static LibTmux.Workspace.WorkspaceResult.operator ==(LibTmux.Workspace.WorkspaceResult? left, LibTmux.Workspace.WorkspaceResult? right) -> bool

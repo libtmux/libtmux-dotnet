@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace LibTmux.UnitTests.Packaging;
 
@@ -78,6 +79,55 @@ public sealed class PublicApiContractTests
             $"The approved surface names {absent.Length} members the assembly does not declare:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, absent));
+    }
+
+    [Fact]
+    public void Every_packable_library_has_a_Roslyn_public_API_baseline()
+    {
+        string repositoryRoot = Directory.GetParent(Path.GetDirectoryName(ContractPath())!)!.FullName;
+        string[] projects =
+        [
+            .. Directory.EnumerateFiles(
+                    Path.Combine(repositoryRoot, "src"),
+                    "*.csproj",
+                    SearchOption.AllDirectories)
+                .Where(IsPackableLibrary)
+                .Order(StringComparer.Ordinal),
+        ];
+
+        Assert.NotEmpty(projects);
+        foreach (string project in projects)
+        {
+            XDocument document = XDocument.Load(project);
+            string[] additionalFiles =
+            [
+                .. document.Descendants("AdditionalFiles")
+                    .Select(element => Path.GetFileName((string?)element.Attribute("Include")))
+                    .OfType<string>(),
+            ];
+            bool hasAnalyzer = document.Descendants("PackageReference").Any(
+                element => string.Equals(
+                    (string?)element.Attribute("Include"),
+                    "Microsoft.CodeAnalysis.PublicApiAnalyzers",
+                    StringComparison.Ordinal));
+
+            Assert.Contains("PublicAPI.Shipped.txt", additionalFiles);
+            Assert.Contains("PublicAPI.Unshipped.txt", additionalFiles);
+            Assert.True(hasAnalyzer, $"{Path.GetFileName(project)} has no public API analyzer.");
+            Assert.True(
+                File.Exists(Path.Combine(Path.GetDirectoryName(project)!, "PublicAPI.Shipped.txt")));
+            Assert.True(
+                File.Exists(Path.Combine(Path.GetDirectoryName(project)!, "PublicAPI.Unshipped.txt")));
+        }
+    }
+
+    private static bool IsPackableLibrary(string project)
+    {
+        XDocument document = XDocument.Load(project);
+        return document.Descendants("IsPackable").Any(
+                element => string.Equals(element.Value, "true", StringComparison.OrdinalIgnoreCase))
+            && !document.Descendants("PackAsTool").Any(
+                element => string.Equals(element.Value, "true", StringComparison.OrdinalIgnoreCase));
     }
 
     private static List<string> AbsentApprovedMembers()
