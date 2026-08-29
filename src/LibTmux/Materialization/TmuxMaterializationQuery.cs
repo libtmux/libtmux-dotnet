@@ -57,6 +57,10 @@ internal sealed class MaterializationQuery
     /// one row per entity on it. Reading the scoped target first keeps a
     /// refreshed handle in the session its predecessor was read in; the bare
     /// identifier still answers when the entity has left that session.
+    /// <para>
+    /// The server's own fields resolve whether or not the target does, so a
+    /// stale generation is rejected before absence is reported.
+    /// </para>
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     internal async Task<IReadOnlyDictionary<string, string?>?> FetchOneAsync(
@@ -113,14 +117,10 @@ internal sealed class MaterializationQuery
                 arguments);
         }
 
-        // display-message declares its target CMD_FIND_CANFAIL and exits zero
-        // on one it cannot resolve. A target that resolves to nothing leaves
-        // every entity field empty; one that resolves only in part -- a session
-        // that still exists naming a window that does not -- answers with that
-        // session's current window or pane. Requiring the identifier back
-        // separates either from the entity being there. The server's own fields
-        // resolve throughout, so a stale generation is still rejected before
-        // absence is reported.
+        // display-message declares its target CMD_FIND_CANFAIL and exits zero on
+        // one it cannot resolve: an unresolvable target leaves every entity
+        // field empty, and one that resolves only in part answers with its
+        // session's current window or pane. The identifier separates both.
         return rows[0].TryGetValue(idWireName, out string? id)
             && string.Equals(id, identifier, StringComparison.Ordinal)
                 ? rows[0]

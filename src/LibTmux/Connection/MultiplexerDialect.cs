@@ -11,7 +11,6 @@ internal abstract class MultiplexerDialect
 {
     private readonly Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
         _executeVersion;
-    private readonly object _publication = new();
     private string? _rawVersion;
 
     private protected MultiplexerDialect(
@@ -91,17 +90,10 @@ internal abstract class MultiplexerDialect
         }
 
         AcceptBanner(banner);
-        lock (_publication)
-        {
-            if (_rawVersion is not null
-                && !string.Equals(_rawVersion, banner.RawVersion, StringComparison.Ordinal))
-            {
-                throw new InvalidDataException(
-                    "The multiplexer changed version between two readings.");
-            }
 
-            _rawVersion = banner.RawVersion;
-            return banner.RawVersion;
-        }
+        // Two first dispatches can read the banner at once. Each is accepted on
+        // its own, so the first published reading is the one they both use.
+        return Interlocked.CompareExchange(ref _rawVersion, banner.RawVersion, null)
+            ?? banner.RawVersion;
     }
 }

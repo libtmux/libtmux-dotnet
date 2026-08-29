@@ -20,7 +20,7 @@ internal sealed class TmuxCommandContext
     }
 
     /// <summary>Gets the logger tmux commands are recorded through.</summary>
-    public ILogger Logger { get; }
+    internal ILogger Logger { get; }
 
     /// <summary>Gets the socket the commands are sent to, when one is named.</summary>
     internal string? Socket { get; }

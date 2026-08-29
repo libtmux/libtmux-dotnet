@@ -28,6 +28,7 @@ internal sealed class ConnectionUnixFactAttribute : FactAttribute
 
 public sealed class ConnectionValueTests
 {
+
     [Fact]
     public void Typed_ids_validate_and_round_trip_canonical_values()
     {
