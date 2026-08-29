@@ -3,6 +3,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Versioning;
 
 public sealed class TmuxCapabilitiesTests
@@ -609,14 +611,14 @@ public sealed class TmuxCapabilitiesTests
             });
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            static (request, _) => Task.FromResult(
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
                 new TmuxCommandResult(
                     request.LogicalArguments,
                     0,
                     ReadOnlyMemory<byte>.Empty,
                     ReadOnlyMemory<byte>.Empty,
                     [],
-                    [])));
+                    []))));
         return (Server)constructor.Invoke(
             [connection, new ServerGeneration(1, 1), rawVersion]);
     }

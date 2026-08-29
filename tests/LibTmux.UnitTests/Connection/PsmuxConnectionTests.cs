@@ -219,8 +219,7 @@ public sealed class PsmuxConnectionTests
                 calls++;
                 Assert.Equal(["-V"], request.LogicalArguments);
                 return Task.FromResult(Result(request.LogicalArguments, AuditedBanner));
-            },
-            implementation: TmuxImplementation.Unknown);
+            });
 
         await Assert.ThrowsAsync<NotSupportedException>(
             () => connection.ServerDispatcher.ExecuteAsync(
@@ -249,8 +248,7 @@ public sealed class PsmuxConnectionTests
                     "display-message" => Result(arguments, "41:100\t$7\talpha\n"),
                     _ => throw new Xunit.Sdk.XunitException("Unexpected command."),
                 });
-            },
-            implementation: TmuxImplementation.Unknown);
+            });
 
         (ServerGeneration generation, string rawVersion) = await connection.DiscoverAsync(
             TestContext.Current.CancellationToken);
@@ -516,6 +514,39 @@ public sealed class PsmuxConnectionTests
     }
 
     [Fact]
+    public async Task Unguarded_grouped_commands_are_rejected_before_dispatch()
+    {
+        int calls = 0;
+        var connection = PsmuxConnection((request, _) =>
+        {
+            calls++;
+            return Task.FromResult(Result(request.LogicalArguments, "41:100\t$7\talpha\n"));
+        });
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => connection.ServerDispatcher.ExecuteGroupAsync(
+                [["display-message", "-p", "one"], ["display-message", "-p", "two"]],
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task A_tmux_banner_from_the_trusted_executable_is_rejected()
+    {
+        var connection = new TmuxConnection(
+            PsmuxOptions(),
+            (request, _) => Task.FromResult(Result(request.LogicalArguments, "tmux 3.3.8\n")));
+
+        NotSupportedException error = await Assert.ThrowsAsync<NotSupportedException>(
+            () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            "The trusted psmux preview executable reported a tmux banner.",
+            error.Message);
+    }
+
+    [Fact]
     public async Task Empty_namespace_normalizes_list_and_has_session_as_dead()
     {
         var connection = PsmuxConnection((request, _) =>
@@ -757,8 +788,7 @@ public sealed class PsmuxConnectionTests
                 return Task.FromResult(request.LogicalArguments[0] == "-V"
                     ? Result(request.LogicalArguments, AuditedBanner)
                     : OneSessionResult(request));
-            },
-            implementation: TmuxImplementation.Unknown);
+            });
         (ServerGeneration generation, string rawVersion) = await connection.DiscoverAsync(
             TestContext.Current.CancellationToken);
         var facade = new PsmuxServer(
@@ -816,8 +846,7 @@ public sealed class PsmuxConnectionTests
                 return Task.FromResult(Result(
                     request.LogicalArguments,
                     $"tmux {version}\npsmux {version}\n"));
-            },
-            implementation: TmuxImplementation.Unknown);
+            });
 
         await Assert.ThrowsAsync<NotSupportedException>(
             () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
@@ -840,8 +869,7 @@ public sealed class PsmuxConnectionTests
                 return Task.FromResult(Result(
                     request.LogicalArguments,
                     $"tmux 3.3.8\n{secondLine}\n"));
-            },
-            implementation: TmuxImplementation.Unknown);
+            });
 
         await Assert.ThrowsAsync<NotSupportedException>(
             () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
@@ -885,8 +913,7 @@ public sealed class PsmuxConnectionTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute) =>
         new(
             PsmuxOptions(),
-            execute,
-            implementation: TmuxImplementation.Psmux);
+            FakeMultiplexer.AnsweringVersion(execute, AuditedBanner));
 
     private static ServerConnectionOptions PsmuxOptions(
         string? binaryPath = null,

@@ -8,6 +8,20 @@ internal static class PsmuxBinaryTrust
     private const int BufferSize = 81920;
     private const long MaximumBinaryBytes = 128L * 1024 * 1024;
 
+    /// <summary>Verifies the executable when, and only when, the preview is in use.</summary>
+    internal static ValueTask VerifyIfPreviewAsync(
+        ServerConnectionOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.PsmuxPreview is PsmuxPreviewOptions preview
+            ? new ValueTask(VerifyAsync(
+                options.TmuxBinaryPath,
+                preview.ExpectedBinarySha256,
+                cancellationToken))
+            : ValueTask.CompletedTask;
+    }
+
     internal static async Task VerifyAsync(
         string path,
         string expectedSha256,

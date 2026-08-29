@@ -3,6 +3,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Entities;
 
 [UnsupportedOSPlatform("windows")]
@@ -146,8 +148,7 @@ public sealed class PaneSendKeysDispatchTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "send-keys-dispatch-test"),
-            execute,
-            implementation: TmuxImplementation.Tmux);
+            FakeMultiplexer.AnsweringVersion(execute));
         return new Pane(connection, Generation, new PaneId(1));
     }
 

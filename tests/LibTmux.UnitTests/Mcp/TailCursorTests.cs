@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Connection;
 using ModelContextProtocol;
 
 namespace LibTmux.UnitTests;
@@ -151,14 +152,13 @@ public sealed class TailCursorTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: socketName),
-            static (request, _) => Task.FromResult(new TmuxCommandResult(
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,
                 ReadOnlyMemory<byte>.Empty,
                 ReadOnlyMemory<byte>.Empty,
                 [],
-                [])),
-            implementation: TmuxImplementation.Tmux);
+                []))));
         var server = new Server(connection, generation, "tmux 3.7");
         return new Pane(
             server,

@@ -278,8 +278,8 @@ public sealed class ConnectionValueTests
                         factoryCalls++;
                         return "unused";
                     }),
-                static (request, _) => Task.FromResult(
-                    Result(request.LogicalArguments, 0, [], []))));
+                FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
+                    Result(request.LogicalArguments, 0, [], [])))));
 
         Assert.Equal("colorMode", error.ParamName);
         Assert.Equal(0, factoryCalls);
@@ -527,11 +527,11 @@ public sealed class ConnectionValueTests
         Assert.Throws<InvalidOperationException>(
             () => new TmuxConnection(
                 options,
-                (request, _) =>
+                FakeMultiplexer.AnsweringVersion((request, _) =>
                 {
                     executions++;
                     return Task.FromResult(Result(request.LogicalArguments, 0, [], []));
-                }));
+                })));
         Assert.Equal(1, factoryCalls);
         Assert.Equal(0, executions);
     }
@@ -679,11 +679,11 @@ public sealed class GenerationGuardTests
         byte[] groupedOutput = [.. "41:100\n"u8, 0x66, 0x80, 0x0a];
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) =>
+            FakeMultiplexer.AnsweringVersion((request, _) =>
             {
                 captured = request;
                 return Task.FromResult(Result(request.LogicalArguments, 0, groupedOutput, []));
-            },
+            }),
             () => Marker);
         TmuxCommandDispatcher dispatcher = connection.CreateEntityDispatcher(generation);
         string[] logical = ["display-message", "-t", "$0", "-p", ";"];
@@ -725,12 +725,12 @@ public sealed class GenerationGuardTests
         var actual = new ServerGeneration(42, 101);
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) => Task.FromResult(
+            FakeMultiplexer.AnsweringVersion((request, _) => Task.FromResult(
                 Result(
                     request.LogicalArguments,
                     1,
                     "42:101\n"u8.ToArray(),
-                    Encoding.UTF8.GetBytes($"unknown command: {Marker}\n"))),
+                    Encoding.UTF8.GetBytes($"unknown command: {Marker}\n")))),
             () => Marker);
         TmuxCommandDispatcher dispatcher = connection.CreateEntityDispatcher(expected);
 
@@ -760,12 +760,12 @@ public sealed class GenerationGuardTests
         {
             var connection = new TmuxConnection(
                 new ServerConnectionOptions(),
-                (request, _) => Task.FromResult(
+                FakeMultiplexer.AnsweringVersion((request, _) => Task.FromResult(
                     Result(
                         request.LogicalArguments,
                         exitCode,
                         "44:201\n"u8.ToArray(),
-                        Encoding.UTF8.GetBytes(stderr))),
+                        Encoding.UTF8.GetBytes(stderr)))),
                 () => Marker);
             TmuxCommandResult result = await connection
                 .CreateEntityDispatcher(new ServerGeneration(44, 200))
@@ -785,8 +785,8 @@ public sealed class GenerationGuardTests
         byte[] stderr = "no server running on /tmp/missing\n"u8.ToArray();
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) => Task.FromResult(
-                Result(request.LogicalArguments, 1, stdout, stderr)),
+            FakeMultiplexer.AnsweringVersion((request, _) => Task.FromResult(
+                Result(request.LogicalArguments, 1, stdout, stderr))),
             () => "libtmux_guard_10203040");
         string[] logical = ["display-message", "-t", "$0", "-p", "#{session_id}"];
 
@@ -808,12 +808,12 @@ public sealed class GenerationGuardTests
         const string Marker = "libtmux_guard_50607080";
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) => Task.FromResult(
+            FakeMultiplexer.AnsweringVersion((request, _) => Task.FromResult(
                 Result(
                     request.LogicalArguments,
                     1,
                     [],
-                    Encoding.UTF8.GetBytes($"unknown command: {Marker}\n"))),
+                    Encoding.UTF8.GetBytes($"unknown command: {Marker}\n")))),
             () => Marker);
 
         await Assert.ThrowsAsync<InvalidDataException>(
@@ -830,11 +830,11 @@ public sealed class GenerationGuardTests
         var root = new IOException("transport root");
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) => throw new TmuxTransportException(
+            FakeMultiplexer.AnsweringVersion((request, _) => throw new TmuxTransportException(
                 "transport failed",
                 request.LogicalArguments,
                 TmuxDispatchState.NotDispatched,
-                root),
+                root)),
             () => "libtmux_guard_abcd1234");
         string[] logical = ["select-pane", "-t", "%0", "-P", "hostile;value"];
 
@@ -856,11 +856,11 @@ public sealed class GenerationGuardTests
         int markers = 0;
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            (request, _) =>
+            FakeMultiplexer.AnsweringVersion((request, _) =>
             {
                 executions++;
                 return Task.FromResult(Result(request.LogicalArguments, 0, [], []));
-            },
+            }),
             () =>
             {
                 markers++;
@@ -880,7 +880,7 @@ public sealed class GenerationGuardTests
             int calls = 0;
             var connection = new TmuxConnection(
                 new ServerConnectionOptions(),
-                (request, _) =>
+                FakeMultiplexer.AnsweringVersion((request, _) =>
                 {
                     calls++;
                     return Task.FromResult(
@@ -889,7 +889,7 @@ public sealed class GenerationGuardTests
                             0,
                             Encoding.UTF8.GetBytes($"{malformed}\n"),
                             []));
-                });
+                }));
 
             await Assert.ThrowsAsync<InvalidDataException>(
                 () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
@@ -902,8 +902,8 @@ public sealed class GenerationGuardTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            static (request, _) => Task.FromResult(
-                Result(request.LogicalArguments, 0, [], [])));
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
+                Result(request.LogicalArguments, 0, [], []))));
         var generation = new ServerGeneration(60, 400);
 
         var session = new Session(connection, generation, new SessionId(1));

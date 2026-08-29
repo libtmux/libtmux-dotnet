@@ -4,6 +4,8 @@ using System.Text;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Mcp;
 
 [UnsupportedOSPlatform("windows")]
@@ -157,8 +159,7 @@ public sealed class PasteTextCleanupTests
                     : new InvalidOperationException("paste failed");
             var connection = new TmuxConnection(
                 new ServerConnectionOptions(socketName: "paste-cleanup-test"),
-                ExecuteAsync,
-                implementation: TmuxImplementation.Tmux);
+                FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
             Tools = new WriteTools(_accessor, new ServerPolicy(), _activity, _jobs);

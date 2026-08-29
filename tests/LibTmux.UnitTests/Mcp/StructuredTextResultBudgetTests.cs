@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Connection;
 using ModelContextProtocol;
 
 namespace LibTmux.UnitTests;
@@ -273,14 +274,13 @@ public sealed class StructuredTextResultBudgetTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "budget-cursor"),
-            static (request, _) => Task.FromResult(new TmuxCommandResult(
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,
                 ReadOnlyMemory<byte>.Empty,
                 ReadOnlyMemory<byte>.Empty,
                 [],
-                [])),
-            implementation: TmuxImplementation.Tmux);
+                []))));
         var generation = new ServerGeneration(int.MaxValue, long.MaxValue);
         var pane = new Pane(
             new Server(connection, generation, "tmux 3.7"),

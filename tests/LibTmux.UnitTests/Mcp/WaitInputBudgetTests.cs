@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using LibTmux.Internal;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Connection;
 using ModelContextProtocol;
 
 namespace LibTmux.UnitTests;
@@ -51,7 +52,7 @@ public sealed class WaitInputBudgetTests
         int dispatches = 0;
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "wait-no-dispatch"),
-            (request, _) =>
+            FakeMultiplexer.AnsweringVersion((request, _) =>
             {
                 Interlocked.Increment(ref dispatches);
                 return Task.FromResult(new TmuxCommandResult(
@@ -61,8 +62,7 @@ public sealed class WaitInputBudgetTests
                     ReadOnlyMemory<byte>.Empty,
                     [],
                     []));
-            },
-            implementation: TmuxImplementation.Tmux);
+            }));
         var generation = new ServerGeneration(11, 22);
         var server = new Server(connection, generation, "tmux 3.7");
         using var accessor = new TmuxConnectionAccessor(server);

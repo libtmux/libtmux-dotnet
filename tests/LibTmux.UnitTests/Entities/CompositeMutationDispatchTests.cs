@@ -207,11 +207,12 @@ public sealed class CompositeMutationDispatchTests
         AssertPartialFailure(failure, typeof(TmuxTransportException));
         Assert.Equal(
             [
+                // The banner is read once, before the first command reaches tmux.
+                "-V",
                 "has-session",
                 "kill-session",
                 "new-session",
                 "display-message",
-                "-V",
                 ProjectionRead,
             ],
             commands.ToArray());
@@ -243,6 +244,7 @@ public sealed class CompositeMutationDispatchTests
             string command = ActualCommand(arguments);
             return command switch
             {
+                "-V" => Task.FromResult(Success(request)),
                 "display-message" => Task.FromResult(Success(request, "-team-x\n")),
                 "new-window" => Task.FromResult(Success(request)),
                 "list-windows" => Task.FromResult(Success(
@@ -353,7 +355,9 @@ public sealed class CompositeMutationDispatchTests
     public async Task Exact_missing_environment_result_remains_an_absence_answer()
     {
         Server server = CreateServer((request, _) => Task.FromResult(
-            Failure(request, 1, "unknown variable: MISSING\n")));
+            request.LogicalArguments is ["-V"]
+                ? Success(request)
+                : Failure(request, 1, "unknown variable: MISSING\n")));
 
         TmuxEnvironmentEntry? entry = await server.Environment.GetAsync(
             "MISSING",
@@ -471,8 +475,7 @@ public sealed class CompositeMutationDispatchTests
             new ServerConnectionOptions(
                 socketName: "composite-mutation-test",
                 initializeAsync: initializeAsync),
-            execute,
-            implementation: TmuxImplementation.Tmux);
+            execute);
 
     private static TmuxTransportException NotDispatched(
         IReadOnlyList<string> arguments,
@@ -502,6 +505,14 @@ public sealed class CompositeMutationDispatchTests
         ServerGeneration? generation = null)
     {
         string[] arguments = [.. request.LogicalArguments];
+
+        // Every connection reads the version banner once before its first
+        // command, whatever else a test is scripting.
+        if (arguments is ["-V"])
+        {
+            payload = "tmux 3.7\n";
+        }
+
         bool guarded = arguments.Contains("if-shell", StringComparer.Ordinal);
         ServerGeneration effectiveGeneration = generation ?? Generation;
         string output = guarded

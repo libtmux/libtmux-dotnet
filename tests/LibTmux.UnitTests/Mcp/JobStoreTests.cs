@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using LibTmux.Internal;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Connection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 
@@ -1032,8 +1033,7 @@ public sealed class JobStoreTests
             Generation = generation;
             _connection = new TmuxConnection(
                 options,
-                ExecuteAsync,
-                implementation: TmuxImplementation.Tmux);
+                FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             Server = new Server(_connection, generation, "tmux 3.7");
             Pane = new Pane(
                 Server,
