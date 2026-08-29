@@ -342,6 +342,62 @@ public sealed class ControlModeSessionTests
         }
     }
 
+    [UnixFact]
+    public async Task Startup_drains_standard_error_before_waiting_for_attach()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-control-stderr-{Guid.NewGuid():N}");
+        string wrapper = Path.Combine(directory, "tmux-wrapper");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            string script = $"""
+                #!/bin/sh
+                for argument in "$@"; do
+                    if [ "$argument" = "-C" ]; then
+                        dd if=/dev/zero bs=65536 count=4 1>&2 2>/dev/null
+                        printf '%%begin 1 1 0\n%%end 1 1 0\n'
+                        while IFS= read -r ignored; do :; done
+                        exit 0
+                    fi
+                done
+                exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
+                """;
+            await File.WriteAllTextAsync(
+                wrapper,
+                script,
+                TestContext.Current.CancellationToken);
+            File.SetUnixFileMode(
+                wrapper,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await WaitUntilAsync(
+                () => CanExecute(wrapper),
+                TestContext.Current.CancellationToken);
+
+            Server server = await Server.ConnectAsync(
+                new ServerConnectionOptions(
+                    tmuxBinaryPath: wrapper,
+                    socketPath: raw.SocketPath,
+                    configurationFile: "/dev/null"),
+                TestContext.Current.CancellationToken);
+            using var startupBudget = CancellationTokenSource.CreateLinkedTokenSource(
+                TestContext.Current.CancellationToken);
+            startupBudget.CancelAfter(TimeSpan.FromSeconds(3));
+
+            await using IControlModeSession control = await server.EnterControlModeAsync(
+                cancellationToken: startupBudget.Token);
+            Assert.True(control.IsRunning);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static Task<Server> ConnectAsync(
         RawTmuxTestContext raw,
         CancellationToken token) =>

@@ -6,25 +6,6 @@ using LibTmux.Internal;
 
 namespace LibTmux;
 
-internal interface IControlModeProcess : IDisposable
-{
-    public bool HasExited { get; }
-
-    public Task WriteLineAsync(
-        ReadOnlyMemory<char> command,
-        CancellationToken cancellationToken);
-
-    public Task FlushAsync(CancellationToken cancellationToken);
-
-    public Task<string?> ReadLineAsync();
-
-    public void CloseInput();
-
-    public void Kill();
-
-    public Task WaitForExitAsync(CancellationToken cancellationToken = default);
-}
-
 /// <summary>Reads one tmux control client and correlates what it says.</summary>
 /// <remarks>
 /// tmux answers on one stream that carries two different things: blocks that
@@ -100,8 +81,6 @@ internal sealed class ControlModeSession : IControlModeSession
         ServerGeneration generation,
         Action<ProcessStartInfo> configureEnvironment)
     {
-        // Draining stderr can hang when tmux hands its pipe to the longer-lived server.
-        // Startup failures write too little to fill that pipe before the client exits.
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
             RedirectStandardInput = true,
@@ -130,7 +109,7 @@ internal sealed class ControlModeSession : IControlModeSession
         Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("The tmux control client did not start.");
         return new ControlModeSession(
-            new SystemControlModeProcess(process),
+            new SystemControlModeProcess(process, new ControlModeLimits()),
             generation: generation);
     }
 
@@ -340,6 +319,18 @@ internal sealed class ControlModeSession : IControlModeSession
         catch (Exception error)
         {
             pumpFailure = error;
+        }
+
+        using (var errorPumpBudget = new CancellationTokenSource(_exitBudget))
+        {
+            try
+            {
+                await _process.StopErrorPumpAsync(errorPumpBudget.Token).ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                cleanupFailures.Add(error);
+            }
         }
 
         try
@@ -567,7 +558,8 @@ internal sealed class ControlModeSession : IControlModeSession
             _events.TryWrite(new TmuxExitEvent(exitReason));
             _events.Complete();
             Exception terminalFailure = pumpFailure ?? new InvalidOperationException(
-                "The tmux control client exited before it finished attaching.");
+                WithStandardError(
+                    "The tmux control client exited before it finished attaching."));
             _ready.TrySetException(terminalFailure);
             StopAndFailPending(terminalFailure);
         }
@@ -610,8 +602,8 @@ internal sealed class ControlModeSession : IControlModeSession
 
         // Attach's reply is the readiness block; enqueuing it shifts every later reply.
         InvalidOperationException? attachFailure = failed
-            ? new InvalidOperationException(
-                lines.Count == 0 ? "The tmux attach failed." : string.Join('\n', lines))
+            ? new InvalidOperationException(WithStandardError(
+                lines.Count == 0 ? "The tmux attach failed." : string.Join('\n', lines)))
             : null;
         bool completedReadiness = attachFailure is null
             ? _ready.TrySetResult()
@@ -727,6 +719,14 @@ internal sealed class ControlModeSession : IControlModeSession
         return new TmuxOutputEvent(arguments[0], OptionParser.DecodeEscapes(payload));
     }
 
+    private string WithStandardError(string message)
+    {
+        string standardError = _process.StandardErrorTail.Trim();
+        return standardError.Length == 0
+            ? message
+            : $"{message}\nStandard error:\n{standardError}";
+    }
+
     private void FailPending(Exception? failure = null)
     {
         failure ??= new InvalidOperationException(
@@ -752,27 +752,4 @@ internal sealed class ControlModeSession : IControlModeSession
         }
     }
 
-    private sealed class SystemControlModeProcess(Process process) : IControlModeProcess
-    {
-        public bool HasExited => process.HasExited;
-
-        public Task WriteLineAsync(
-            ReadOnlyMemory<char> command,
-            CancellationToken cancellationToken) =>
-            process.StandardInput.WriteLineAsync(command, cancellationToken);
-
-        public Task FlushAsync(CancellationToken cancellationToken) =>
-            process.StandardInput.FlushAsync(cancellationToken);
-
-        public Task<string?> ReadLineAsync() => process.StandardOutput.ReadLineAsync();
-
-        public void CloseInput() => process.StandardInput.Close();
-
-        public void Kill() => process.Kill(entireProcessTree: false);
-
-        public Task WaitForExitAsync(CancellationToken cancellationToken = default) =>
-            process.WaitForExitAsync(cancellationToken);
-
-        public void Dispose() => process.Dispose();
-    }
 }
