@@ -783,6 +783,34 @@ public sealed class JobStoreTests
     }
 
     [Fact]
+    public async Task A_tmux_watcher_failure_says_why_the_job_was_lost()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        FakeEndpoint endpoint = new("watch-tmux-fault", new ServerGeneration(809, 8009));
+        endpoint.Handler = (arguments, _) =>
+            arguments.Count > 0 && arguments[0] == "wait-for"
+                ? Task.FromException<TmuxCommandResult>(
+                    new TmuxTransportException("the client went away", arguments))
+                : Task.FromResult(endpoint.Success(arguments));
+        var logger = new RecordingLogger();
+        await using JobStore jobs = new(logger);
+
+        JobInfo started = await jobs.StartAsync(
+            endpoint.Server,
+            endpoint.Pane,
+            "echo watched",
+            suppressHistory: true,
+            token);
+        Task watcher = Assert.IsAssignableFrom<Task>(jobs.Resolve(started.JobId, null).Watcher);
+        await watcher.WaitAsync(token);
+
+        Assert.Equal(JobState.Lost, jobs.Get(started.JobId).State);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.EventId.Id == 9 && entry.Error is TmuxTransportException);
+    }
+
+    [Fact]
     public async Task Unexpected_watcher_failure_is_observed_and_marks_the_job_lost()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

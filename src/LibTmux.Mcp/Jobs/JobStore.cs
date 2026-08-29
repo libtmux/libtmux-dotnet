@@ -366,7 +366,7 @@ public sealed class JobStore : IAsyncDisposable
 
     private async Task WatchAsync(Server server, Pane pane, StoredJob job)
     {
-        Exception? unexpected = null;
+        Exception? failure = null;
         try
         {
             await server.WaitForAsync(
@@ -383,19 +383,17 @@ public sealed class JobStore : IAsyncDisposable
         {
             // The command belongs to tmux and survives this bookkeeping store.
         }
-        catch (LibTmuxException)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
-            job.TryFinish(JobState.Lost, null);
-        }
-        catch (Exception error)
-        {
-            unexpected = error;
+            // A tmux or transport failure is the likely way to lose a job, so
+            // it is the one that must say why rather than the one that does not.
+            failure = error;
             job.TryFinish(JobState.Lost, null);
         }
 
-        if (_logger is not null && unexpected is not null)
+        if (_logger is not null && failure is not null)
         {
-            Log.JobWatcherFailed(_logger, unexpected, job.JobId, job.PaneId);
+            Log.JobWatcherFailed(_logger, failure, job.JobId, job.PaneId);
         }
 
         if (_logger is not null && job.State != JobState.Running)
