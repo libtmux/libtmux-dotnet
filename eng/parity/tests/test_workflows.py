@@ -39,7 +39,9 @@ jobs:
       - run: dotnet build --warnaserror
       - run: dotnet pack src/LibTmux/LibTmux.csproj
       - run: dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
-      - run: dotnet run --project tests/LibTmux.PackageConsumer
+      - env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
+        run: dotnet run --project tests/LibTmux.PackageConsumer
       - run: dotnet run --project examples/LibTmux.Examples
       - run: dotnet test --project tests/LibTmux.ExampleTests
       - run: uv run python eng/docs/render_api_reference.py --check
@@ -169,6 +171,18 @@ def test_a_dropped_build_step_is_reported(tmp_path: pathlib.Path, step: str) -> 
     )
 
     assert f"dotnet.yml omits {step}" in verify(root)
+
+
+def test_a_shared_package_consumer_cache_is_reported(tmp_path: pathlib.Path) -> None:
+    """A warm solution cache can hide an incomplete package restore graph."""
+    isolation = "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer"
+    root = write(
+        tmp_path,
+        BUILD.replace(isolation, "NUGET_PACKAGES: shared"),
+        MATRIX.format(versions=every_version()),
+    )
+
+    assert f"dotnet.yml omits {isolation}" in verify(root)
 
 
 def test_a_missing_workflow_is_reported(tmp_path: pathlib.Path) -> None:

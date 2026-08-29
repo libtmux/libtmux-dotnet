@@ -24,6 +24,7 @@ REQUIRED_BUILD_STEPS = (
     "dotnet pack",
     "LibTmux.AotSmoke",
     "LibTmux.PackageConsumer",
+    "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer",
     "LibTmux.Examples",
     "LibTmux.ExampleTests",
     "render_api_reference.py --check",

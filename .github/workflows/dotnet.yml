@@ -84,6 +84,8 @@ jobs:
         # Reaching the library through the package is the point: a missing
         # assembly or a wrong target framework is invisible from inside the
         # repository.
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
         run: |
           dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
           for framework in net8.0 net10.0; do
