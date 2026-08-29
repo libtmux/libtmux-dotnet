@@ -491,10 +491,6 @@ LibTmux.PsmuxWindow.Name.get -> string!
 LibTmux.PsmuxWindow.Server.get -> LibTmux.PsmuxServer!
 LibTmux.PsmuxWindow.SessionId.get -> LibTmux.SessionId
 LibTmux.PsmuxWindow.Width.get -> int
-const LibTmux.PsmuxServer.SupportedBinarySha256 = "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d" -> string!
-const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d61ffdb" -> string!
-const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
-static LibTmux.PsmuxServer.ConnectAsync(LibTmux.PsmuxConnectionOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PsmuxServer!>!
 LibTmux.Query.AndNode
 LibTmux.Query.AndNode.AndNode(System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryNode!>! operands) -> void
 LibTmux.Query.AndNode.Equals(LibTmux.Query.AndNode? other) -> bool
@@ -762,6 +758,7 @@ LibTmux.Server.KillSessionAsync(string! target, System.Threading.CancellationTok
 LibTmux.Server.LoadBufferAsync(string! path, string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.LockAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.LockClientAsync(string? targetClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Server.OpenWaitChannel(string! channel) -> LibTmux.TmuxWaitChannel!
 LibTmux.Server.Options.get -> LibTmux.TmuxOptions!
 LibTmux.Server.Panes.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
 LibTmux.Server.RaiseIfDeadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -927,8 +924,8 @@ LibTmux.SplitPaneRequest.Zoom.get -> bool
 LibTmux.StaleServerGenerationException
 LibTmux.StaleServerGenerationException.Actual.get -> LibTmux.ServerGeneration?
 LibTmux.StaleServerGenerationException.Expected.get -> LibTmux.ServerGeneration
-LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! message, LibTmux.ServerGeneration expected, System.Exception? innerException = null) -> void
 LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! message, LibTmux.ServerGeneration expected, LibTmux.ServerGeneration actual, System.Exception? innerException = null) -> void
+LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! message, LibTmux.ServerGeneration expected, System.Exception? innerException = null) -> void
 LibTmux.SwapPaneRequest
 LibTmux.SwapPaneRequest.<Clone>$() -> LibTmux.SwapPaneRequest!
 LibTmux.SwapPaneRequest.Detach.get -> bool
@@ -999,6 +996,7 @@ LibTmux.TmuxChain
 LibTmux.TmuxChain.Commands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.TmuxCommand!>!
 LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!
 LibTmux.TmuxChain.Then(LibTmux.TmuxCommand! command) -> LibTmux.TmuxChain!
+LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable<LibTmux.TmuxCommand!>! commands) -> LibTmux.TmuxChain!
 LibTmux.TmuxChain.Then(string! name, params string![]! arguments) -> LibTmux.TmuxChain!
 LibTmux.TmuxChaining
 LibTmux.TmuxCleanupException
@@ -1177,6 +1175,11 @@ LibTmux.TmuxVersionTooLowException
 LibTmux.TmuxVersionTooLowException.ActualVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.RequiredVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.TmuxVersionTooLowException(string! message, LibTmux.TmuxVersion requiredVersion, LibTmux.TmuxVersion actualVersion, System.Exception? innerException = null) -> void
+LibTmux.TmuxWaitChannel
+LibTmux.TmuxWaitChannel.Channel.get -> string!
+LibTmux.TmuxWaitChannel.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.TmuxWaitChannel.Signalled.get -> bool
+LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan budget, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 LibTmux.TmuxWaitMode
 LibTmux.TmuxWaitMode.Lock = 2 -> LibTmux.TmuxWaitMode
 LibTmux.TmuxWaitMode.Signal = 1 -> LibTmux.TmuxWaitMode
@@ -1290,6 +1293,9 @@ LibTmux.WindowRotationDirection.Up = 0 -> LibTmux.WindowRotationDirection
 abstract LibTmux.Query.QueryConstant.<Clone>$() -> LibTmux.Query.QueryConstant!
 abstract LibTmux.Query.QueryNode.<Clone>$() -> LibTmux.Query.QueryNode!
 abstract LibTmux.TmuxEvent.<Clone>$() -> LibTmux.TmuxEvent!
+const LibTmux.PsmuxServer.SupportedBinarySha256 = "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d" -> string!
+const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d61ffdb" -> string!
+const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
 const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
 const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
 override LibTmux.AttachSessionRequest.Equals(object? obj) -> bool
@@ -1598,8 +1604,8 @@ override sealed LibTmux.Query.RegexNode.Equals(LibTmux.Query.QueryNode? other) -
 override sealed LibTmux.Query.StringConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
 override sealed LibTmux.Query.StringNode.Equals(LibTmux.Query.QueryNode? other) -> bool
 override sealed LibTmux.Query.TypedIdConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-override sealed LibTmux.TmuxExitEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxEventsDroppedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
+override sealed LibTmux.TmuxExitEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxNotificationEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxOutputEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 static LibTmux.AttachSessionRequest.operator !=(LibTmux.AttachSessionRequest? left, LibTmux.AttachSessionRequest? right) -> bool
@@ -1667,6 +1673,7 @@ static LibTmux.PasteBufferRequest.operator !=(LibTmux.PasteBufferRequest? left, 
 static LibTmux.PasteBufferRequest.operator ==(LibTmux.PasteBufferRequest? left, LibTmux.PasteBufferRequest? right) -> bool
 static LibTmux.PipePaneRequest.operator !=(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool
 static LibTmux.PipePaneRequest.operator ==(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool
+static LibTmux.PsmuxServer.ConnectAsync(LibTmux.PsmuxConnectionOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PsmuxServer!>!
 static LibTmux.Query.AndNode.operator !=(LibTmux.Query.AndNode? left, LibTmux.Query.AndNode? right) -> bool
 static LibTmux.Query.AndNode.operator ==(LibTmux.Query.AndNode? left, LibTmux.Query.AndNode? right) -> bool
 static LibTmux.Query.BooleanConstant.operator !=(LibTmux.Query.BooleanConstant? left, LibTmux.Query.BooleanConstant? right) -> bool
@@ -1820,7 +1827,7 @@ static LibTmux.TmuxChaining.ToCommand(this LibTmux.MovePaneRequest! request, Lib
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.MoveWindowRequest! request, LibTmux.Window! window) -> LibTmux.TmuxCommand!
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.NewPaneRequest! request, LibTmux.Pane! pane) -> LibTmux.TmuxCommand!
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.NewSessionRequest! request) -> LibTmux.TmuxCommand!
-static LibTmux.TmuxChaining.ToCommand(this LibTmux.NewWindowRequest! request, string! target) -> LibTmux.TmuxCommand!
+static LibTmux.TmuxChaining.ToCommand(this LibTmux.NewWindowRequest! request, LibTmux.Session! session) -> LibTmux.TmuxCommand!
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.PasteBufferRequest! request, LibTmux.Pane! pane) -> LibTmux.TmuxCommand!
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.PipePaneRequest! request, LibTmux.Pane! pane) -> LibTmux.TmuxCommand!
 static LibTmux.TmuxChaining.ToCommand(this LibTmux.ResizePaneRequest! request, LibTmux.Pane! pane) -> LibTmux.TmuxCommand!
@@ -1910,9 +1917,3 @@ virtual LibTmux.Query.QueryNode.PrintMembers(System.Text.StringBuilder! builder)
 virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
-LibTmux.Server.OpenWaitChannel(string! channel) -> LibTmux.TmuxWaitChannel!
-LibTmux.TmuxWaitChannel
-LibTmux.TmuxWaitChannel.Channel.get -> string!
-LibTmux.TmuxWaitChannel.DisposeAsync() -> System.Threading.Tasks.ValueTask
-LibTmux.TmuxWaitChannel.Signalled.get -> bool
-LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan budget, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!

@@ -48,6 +48,27 @@ public sealed class TmuxChain
         return new TmuxChain(_dispatcher, [.. _commands, command], _guarded);
     }
 
+    /// <summary>Adds every command in order and returns the longer chain.</summary>
+    /// <param name="commands">The commands to run, in order, after the ones already added.</param>
+    /// <returns>A chain ending with <paramref name="commands" />.</returns>
+    /// <remarks>
+    /// One request can answer several commands. This takes what
+    /// <see cref="TmuxChaining.ToCommands(SetHooksRequest, TmuxHooks)" /> returns
+    /// without unrolling it at the call site.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    public TmuxChain Then(IEnumerable<TmuxCommand> commands)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        TmuxCommand[] added = [.. commands];
+        if (Array.IndexOf(added, null) >= 0)
+        {
+            throw new ArgumentException("A chained command cannot be null.", nameof(commands));
+        }
+
+        return new TmuxChain(_dispatcher, [.. _commands, .. added], _guarded);
+    }
+
     /// <summary>Adds one command by name and returns the longer chain.</summary>
     /// <param name="name">The tmux command name.</param>
     /// <param name="arguments">Its arguments.</param>

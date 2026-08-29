@@ -141,8 +141,11 @@ public sealed class TmuxChainTests
 
         // The one-shot and chained paths build arguments from the same code,
         // so this compares the built command against what the wrapper sends.
-        TmuxCommand command = request.ToCommand(session.Id.ToString());
+        TmuxCommand command = request.ToCommand(session);
 
+        // The session identifier travels into the chain as plain text, so the
+        // command carries the generation that identifier belongs to.
+        Assert.Equal(session.Generation, command.RequiredGeneration);
         Assert.Equal("new-window", command.Name);
         Assert.Contains("typed", command.Arguments);
         Assert.Contains("/tmp", command.Arguments);
@@ -868,6 +871,29 @@ public sealed class TmuxChainTests
     }
 
     [UnixFact]
+    public async Task A_chain_refuses_commands_from_two_servers()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+
+        // At most one of two generations names a running server, so a chain
+        // carrying both cannot be valid however tmux answers it.
+        TmuxCommand here = new NewWindowRequest(name: "here").ToCommand(session);
+        TmuxCommand elsewhere = here with
+        {
+            RequiredGeneration = new ServerGeneration(
+                session.Generation.ProcessId + 1,
+                session.Generation.StartTime),
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => server.Chain().Then(here).Then(elsewhere).ExecuteAsync(token));
+    }
+
+    [UnixFact]
     public async Task Buffer_listing_and_access_chain()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -1066,7 +1092,9 @@ public sealed class TmuxChainTests
 
         Assert.Equal(3, entries.ToCommands(server.Hooks).Count);
 
-        await entries.ExecuteAsync(server.Hooks, server, token);
+        // A request answering several commands joins a chain whole, so the
+        // clear and both entries reach tmux in one invocation.
+        await server.Chain().Then(entries.ToCommands(server.Hooks)).ExecuteAsync(token);
 
         TmuxCommandResult listed = await new ListHooksRequest()
             .ExecuteAsync(server.Hooks, server, token);

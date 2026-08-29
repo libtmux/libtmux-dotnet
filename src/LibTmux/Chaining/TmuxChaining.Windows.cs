@@ -7,15 +7,17 @@ public static partial class TmuxChaining
 {
     /// <summary>Returns a window request as one tmux command.</summary>
     /// <param name="request">The window to create.</param>
-    /// <param name="target">The session the window is created in.</param>
+    /// <param name="session">The session the window is created in.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="request" /> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="target" /> is empty.</exception>
-    public static TmuxCommand ToCommand(this NewWindowRequest request, string target)
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static TmuxCommand ToCommand(this NewWindowRequest request, Session session)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrEmpty(target);
-        return Command([.. Session.BuildNewWindowArguments(request, target)]);
+        ArgumentNullException.ThrowIfNull(session);
+        return Command([.. Session.BuildNewWindowArguments(request, session.Id.ToString())]) with
+        {
+            RequiredGeneration = session.Generation,
+        };
     }
 
     /// <summary>Returns a layout request as one tmux command for a window.</summary>
@@ -167,7 +169,7 @@ public static partial class TmuxChaining
         ArgumentNullException.ThrowIfNull(session);
         return session.Server
             .Chain()
-            .Then(request.ToCommand(session.Id.ToString()))
+            .Then(request.ToCommand(session))
             .ExecuteAsync(cancellationToken);
     }
 }
