@@ -59,6 +59,10 @@ public sealed record DisplayMenuRequest
     public IReadOnlyList<TmuxMenuItem> Items => _items;
 
     /// <summary>Gets the title shown above them.</summary>
+    /// <remarks>
+    /// tmux expands it as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? Title { get; }
 
     /// <summary>Gets the pane the menu belongs to.</summary>

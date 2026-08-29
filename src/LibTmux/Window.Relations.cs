@@ -26,7 +26,7 @@ public sealed partial class Window
                 throw new IncompleteSnapshotException("active pane", SnapshotDepth.Windows);
             }
 
-            return new Pane(RequireOwner("panes"), RequireConnection(), _generation, id);
+            return new Pane(RequireOwner("active pane"), RequireConnection(), _generation, id);
         }
     }
 

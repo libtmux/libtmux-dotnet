@@ -13,8 +13,7 @@ public sealed partial class Pane
     /// Every handle reached through a server carries it, whether the handle was
     /// materialized from a listing or resolved from an identifier.
     /// </remarks>
-    public Server Server =>
-        _owner ?? throw new IncompleteSnapshotException("server", SnapshotDepth.Server);
+    public Server Server => RequireOwner("server");
 
     /// <summary>Gets the session containing this pane.</summary>
     /// <exception cref="IncompleteSnapshotException">
@@ -51,6 +50,9 @@ public sealed partial class Pane
             return new Window(Server, RequireConnection(), _generation, id);
         }
     }
+
+    private Server RequireOwner(string relation) =>
+        _owner ?? throw new IncompleteSnapshotException(relation, SnapshotDepth.Server);
 
     private TmuxConnection RequireConnection() =>
         Server.Connection

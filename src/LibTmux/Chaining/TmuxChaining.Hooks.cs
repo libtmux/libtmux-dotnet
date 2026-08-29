@@ -164,12 +164,6 @@ public static partial class TmuxChaining
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(server);
-        TmuxChain chain = server.Chain();
-        foreach (TmuxCommand command in request.ToCommands(hooks))
-        {
-            chain = chain.Then(command);
-        }
-
-        return chain.ExecuteAsync(cancellationToken);
+        return server.Chain().Then(request.ToCommands(hooks)).ExecuteAsync(cancellationToken);
     }
 }
