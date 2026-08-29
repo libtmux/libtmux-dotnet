@@ -25,6 +25,7 @@ internal static class QueryInterpreter
     internal static Func<T, bool> Compile<T>(QueryDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
+        QueryDocumentValidator.Validate(document);
         return element => Evaluate(document.Predicate, element!);
     }
 
@@ -41,6 +42,8 @@ internal static class QueryInterpreter
             regex.SemanticOptions,
             RegexBudget),
         QuantifierNode quantifier => Quantify(quantifier, element),
+        FieldNode field => ReadBoolean(field, element),
+        ConstantNode { Value: BooleanConstant boolean } => boolean.Value,
         _ => throw new UnsupportedQueryExpressionException(
             $"Node '{node.GetType().Name}' has no interpretation."),
     };
@@ -121,6 +124,12 @@ internal static class QueryInterpreter
         Read(node, element) is object value
             ? Convert.ToString(value, CultureInfo.InvariantCulture)
             : null;
+
+    private static bool ReadBoolean(FieldNode field, object element) =>
+        Read(field, element) is bool value
+            ? value
+            : throw new UnsupportedQueryExpressionException(
+                $"Field '{field.WireName}' did not produce a Boolean value.");
 
     private static object? Read(QueryNode node, object element) => node switch
     {

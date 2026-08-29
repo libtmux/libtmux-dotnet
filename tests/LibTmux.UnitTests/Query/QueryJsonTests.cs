@@ -7,7 +7,7 @@ namespace LibTmux.UnitTests.Query;
 
 public sealed class QueryJsonTests
 {
-    private sealed record Row(string SessionName, long SessionWindows);
+    private sealed record Row(string SessionName, bool SessionAttached);
 
     private static readonly FieldNode SessionName =
         new(QueryTarget.Session, "session_name");
@@ -21,7 +21,7 @@ public sealed class QueryJsonTests
             {
                 "string-and-comparison",
                 QueryExtensions.Translate<Row>(
-                    row => row.SessionName.StartsWith("dev") && row.SessionWindows > 1)
+                    row => row.SessionName.StartsWith("dev") && row.SessionAttached)
             },
             {
                 "negated-contains",
@@ -30,7 +30,7 @@ public sealed class QueryJsonTests
             {
                 "disjunction",
                 QueryExtensions.Translate<Row>(
-                    row => row.SessionName == "a" || row.SessionWindows <= 3)
+                    row => row.SessionName == "a" || row.SessionAttached)
             },
             { "legacy-name-contains", QueryEdgeParser.ParseNameContains(QueryTarget.Window, "log") },
         };

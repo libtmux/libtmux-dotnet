@@ -191,5 +191,18 @@ public sealed class QueryJsonTrustBoundaryTests
         Assert.Contains("connection", failure.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_field_outside_the_catalog_is_refused_while_deserializing()
+    {
+        string json = Document(
+            """
+            {"kind":"comparison","operator":"stringEqualOrdinal",
+             "left":{"kind":"field","target":"session","wireName":"connection"},
+             "right":{"kind":"constant","value":{"kind":"string","value":"anything"}}}
+            """);
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
     private sealed record SessionRow(string SessionName, bool SessionAttached);
 }

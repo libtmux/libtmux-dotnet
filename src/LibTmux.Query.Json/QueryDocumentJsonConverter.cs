@@ -85,28 +85,9 @@ internal static class QueryJsonWireRules
 
     internal static int ScalarLength(string? value, string description)
     {
-        if (value is null)
+        if (!QueryTextSemantics.TryCountScalars(value, out int scalars))
         {
-            throw new JsonException($"{description} is null.");
-        }
-
-        int scalars = 0;
-        for (int index = 0; index < value.Length; index++, scalars++)
-        {
-            char character = value[index];
-            if (char.IsHighSurrogate(character))
-            {
-                if (index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1]))
-                {
-                    throw new JsonException($"{description} contains an unpaired surrogate.");
-                }
-
-                index++;
-            }
-            else if (char.IsLowSurrogate(character))
-            {
-                throw new JsonException($"{description} contains an unpaired surrogate.");
-            }
+            throw new JsonException($"{description} is null or contains invalid Unicode.");
         }
 
         return scalars;
@@ -160,6 +141,15 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(value);
+        try
+        {
+            QueryDocumentValidator.Validate(value);
+        }
+        catch (UnsupportedQueryExpressionException exception)
+        {
+            throw new JsonException(exception.Message, exception);
+        }
+
         if (!string.Equals(value.Schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
         {
             throw new JsonException(

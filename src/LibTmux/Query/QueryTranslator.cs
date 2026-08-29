@@ -24,11 +24,13 @@ internal static class QueryTranslator
         ArgumentNullException.ThrowIfNull(predicate);
         ParameterExpression parameter = predicate.Parameters[0];
         QueryNode node = TranslateNode(predicate.Body, parameter);
-        return new QueryDocument(
+        QueryDocument document = new(
             QueryDocument.CurrentSchema,
             QueryDocument.CurrentVersion,
             TargetOf(node),
             node);
+        QueryDocumentValidator.Validate(document);
+        return document;
     }
 
     private static QueryNode TranslateNode(Expression body, ParameterExpression parameter) =>

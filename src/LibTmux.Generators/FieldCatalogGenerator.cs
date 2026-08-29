@@ -19,21 +19,21 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
     /// not systematic (<c>client_control</c> → <c>IsControlClient</c>, and two
     /// fields have no property at all).
     /// </remarks>
-    private static readonly (string WireName, string Target, bool Relation, string? Property)[]
+    private static readonly (string WireName, string Target, string Kind, string? Property)[]
         Fields =
     {
-        ("client_control", "Client", false, "IsControlClient"),
-        ("client_id", "Client", false, null),
-        ("client_name", "Client", false, "Name"),
-        ("pane_command", "Pane", false, null),
-        ("pane_id", "Pane", false, "Id"),
-        ("session_attached", "Session", false, "Attached"),
-        ("session_id", "Session", false, "Id"),
-        ("session_name", "Session", false, "Name"),
-        ("session_windows", "Session", true, "Windows"),
-        ("window_id", "Window", false, "Id"),
-        ("window_name", "Window", false, "Name"),
-        ("window_panes", "Window", true, "Panes"),
+        ("client_control", "Client", "Boolean", "IsControlClient"),
+        ("client_id", "Client", "TypedId", null),
+        ("client_name", "Client", "String", "Name"),
+        ("pane_command", "Pane", "String", null),
+        ("pane_id", "Pane", "TypedId", "Id"),
+        ("session_attached", "Session", "Boolean", "Attached"),
+        ("session_id", "Session", "TypedId", "Id"),
+        ("session_name", "Session", "String", "Name"),
+        ("session_windows", "Session", "Relation", "Windows"),
+        ("window_id", "Window", "TypedId", "Id"),
+        ("window_name", "Window", "String", "Name"),
+        ("window_panes", "Window", "Relation", "Panes"),
     };
 
     /// <inheritdoc />
@@ -56,9 +56,9 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
         source.AppendLine(
             "    internal static bool IsRelation(string wireName) => wireName switch");
         source.AppendLine("    {");
-        foreach ((string wireName, _, bool relation, _) in Fields)
+        foreach ((string wireName, _, string kind, _) in Fields)
         {
-            if (relation)
+            if (kind == "Relation")
             {
                 source.AppendLine($"        \"{wireName}\" => true,");
             }
@@ -81,6 +81,24 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
 
         source.AppendLine("            default:");
         source.AppendLine("                target = default;");
+        source.AppendLine("                return false;");
+        source.AppendLine("        }");
+        source.AppendLine("    }");
+        source.AppendLine();
+        source.AppendLine(
+            "    internal static bool TryGetKind(string wireName, out QueryValueKind kind)");
+        source.AppendLine("    {");
+        source.AppendLine("        switch (wireName)");
+        source.AppendLine("        {");
+        foreach ((string wireName, _, string kind, _) in Fields)
+        {
+            source.AppendLine($"            case \"{wireName}\":");
+            source.AppendLine($"                kind = QueryValueKind.{kind};");
+            source.AppendLine("                return true;");
+        }
+
+        source.AppendLine("            default:");
+        source.AppendLine("                kind = default;");
         source.AppendLine("                return false;");
         source.AppendLine("        }");
         source.AppendLine("    }");

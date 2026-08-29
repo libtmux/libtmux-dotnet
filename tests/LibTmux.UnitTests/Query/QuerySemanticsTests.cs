@@ -5,7 +5,9 @@ namespace LibTmux.UnitTests.Query;
 
 public sealed class QuerySemanticsTests
 {
-    private sealed record Row(string SessionName, long SessionWindows);
+    private sealed record Row(string SessionName, bool SessionAttached);
+
+    private sealed record MismatchedRow(string SessionName, long SessionWindows);
 
     [Fact]
     public void An_entity_translates_through_the_name_tmux_uses_for_the_field()
@@ -72,7 +74,7 @@ public sealed class QuerySemanticsTests
     public void Matching_translates_and_interprets_the_canonical_AST()
     {
         QueryDocument document = QueryExtensions.Translate<Row>(
-            row => row.SessionName.StartsWith("dev") && row.SessionWindows > 1);
+            row => row.SessionName.StartsWith("dev") && row.SessionAttached);
 
         Assert.Equal(QueryDocument.CurrentSchema, document.Schema);
         Assert.Equal(QueryDocument.CurrentVersion, document.Version);
@@ -88,20 +90,23 @@ public sealed class QuerySemanticsTests
         Assert.Equal(
             new ConstantNode(new StringConstant("dev")),
             Assert.IsType<ConstantNode>(prefix.Right));
-        ComparisonNode greater = Assert.IsType<ComparisonNode>(conjunction.Operands[1]);
-        Assert.Equal(QueryComparison.GreaterThan, greater.Operator);
+        ComparisonNode attached = Assert.IsType<ComparisonNode>(conjunction.Operands[1]);
+        Assert.Equal(QueryComparison.Equal, attached.Operator);
+        Assert.Equal(
+            new ConstantNode(new BooleanConstant(true)),
+            Assert.IsType<ConstantNode>(attached.Right));
 
         // The same predicate must mean the same thing in memory as on the wire.
         Func<Row, bool> compiled = document.Compile<Row>();
-        Assert.True(compiled(new Row("devbox", 2)));
-        Assert.False(compiled(new Row("devbox", 1)));
-        Assert.False(compiled(new Row("prod", 4)));
+        Assert.True(compiled(new Row("devbox", true)));
+        Assert.False(compiled(new Row("devbox", false)));
+        Assert.False(compiled(new Row("prod", true)));
 
         IReadOnlyList<Row> matched = new[]
         {
-            new Row("devbox", 2),
-            new Row("prod", 9),
-        }.Matching<Row>(row => row.SessionName.StartsWith("dev") && row.SessionWindows > 1);
+            new Row("devbox", true),
+            new Row("prod", true),
+        }.Matching<Row>(row => row.SessionName.StartsWith("dev") && row.SessionAttached);
         Assert.Single(matched);
         Assert.Equal("devbox", matched[0].SessionName);
     }
@@ -115,6 +120,27 @@ public sealed class QuerySemanticsTests
             Assert.Throws<UnsupportedQueryExpressionException>(
                 () => QueryExtensions.Translate<Unknown>(row => row.PaneTitle == "x"));
         Assert.Contains("pane_title", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Translation_refuses_a_projection_that_changes_a_field_kind()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<MismatchedRow>(row => row.SessionWindows > 1));
+    }
+
+    [Fact]
+    public void A_boolean_field_is_a_complete_predicate()
+    {
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new FieldNode(QueryTarget.Session, "session_attached"));
+        Func<Row, bool> predicate = document.Compile<Row>();
+
+        Assert.True(predicate(new Row("build", true)));
+        Assert.False(predicate(new Row("build", false)));
     }
 
     [Fact]

@@ -125,17 +125,20 @@ public static class QueryJson
             }
 
             var reader = new QueryDocumentJsonReader(bounds);
-            return new QueryDocument(
+            QueryDocument document = new(
                 schema,
                 version,
                 QueryDocumentJsonReader.ReadTarget(root.GetProperty("target")),
                 reader.ReadNode(root.GetProperty("predicate"), depth: 1));
+            QueryDocumentValidator.Validate(document);
+            return document;
         }
         catch (Exception exception) when (
             exception is KeyNotFoundException
             or InvalidCastException
             or InvalidOperationException
-            or FormatException)
+            or FormatException
+            or UnsupportedQueryExpressionException)
         {
             throw new JsonException("Query document does not match the v1 wire form.", exception);
         }
