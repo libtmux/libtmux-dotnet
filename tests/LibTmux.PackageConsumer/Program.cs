@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Query;
+using LibTmux.Query.Json;
 using LibTmux.Testing;
 
 namespace LibTmux.PackageConsumer;
@@ -14,6 +16,15 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        QueryDocument query =
+            QueryEdgeParser.ParseNameContains(QueryTarget.Session, "package");
+        bool queryRoundTrips = QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
+        Console.WriteLine($"query-json {queryRoundTrips}");
+        if (!queryRoundTrips)
+        {
+            return 1;
+        }
+
         if (args is ["--psmux"])
         {
             Console.OutputEncoding = new UTF8Encoding(false, true);

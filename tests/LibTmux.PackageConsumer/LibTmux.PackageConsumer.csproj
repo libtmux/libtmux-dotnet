@@ -18,18 +18,14 @@
          lock file, which is where it belongs. -->
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <RestoreLockedMode>false</RestoreLockedMode>
+
+    <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
+    <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The version comes from the same place the package's does, so bumping
-         the repository's version cannot leave this pointing at a package that
-         is no longer built. The two forms are the same reference: a suffix is
-         only part of a version while there is one. -->
-    <PackageReference Include="LibTmux"
-                      Version="$(VersionPrefix)-$(VersionSuffix)"
-                      Condition="'$(VersionSuffix)' != ''" />
-    <PackageReference Include="LibTmux"
-                      Version="$(VersionPrefix)"
-                      Condition="'$(VersionSuffix)' == ''" />
+    <!-- Both references consume the package version this repository builds. -->
+    <PackageReference Include="LibTmux" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Query.Json" Version="$(LibTmuxPackageVersion)" />
   </ItemGroup>
 </Project>

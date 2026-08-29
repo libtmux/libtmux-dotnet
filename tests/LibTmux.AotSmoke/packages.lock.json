@@ -25,6 +25,12 @@
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
         }
       },
+      "libtmux.query.json": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.9, )"
+        }
+      },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
         "requested": "[10.0.10, )",
@@ -73,6 +79,12 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )"
+        }
+      },
+      "libtmux.query.json": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.9, )"
         }
       },
       "Microsoft.Extensions.Logging.Abstractions": {

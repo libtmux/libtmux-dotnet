@@ -1,4 +1,6 @@
 using System.Runtime.Versioning;
+using LibTmux.Query;
+using LibTmux.Query.Json;
 using LibTmux.Testing;
 
 namespace LibTmux.AotSmoke;
@@ -29,6 +31,10 @@ internal static class Program
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
         {
+            QueryDocument query =
+                QueryEdgeParser.ParseNameContains(QueryTarget.Session, "aot");
+            bool queryRoundTrips =
+                QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
             Server server = scope.Server;
             Session session = scope.Session;
             Window window = scope.Window;
@@ -45,7 +51,8 @@ internal static class Program
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");
             Console.WriteLine($"option  {option.Value.Raw}");
             Console.WriteLine($"buffer  {buffer}");
-            return option.Value.Boolean == false && buffer == "aot" ? 0 : 1;
+            Console.WriteLine($"query-json {queryRoundTrips}");
+            return option.Value.Boolean == false && buffer == "aot" && queryRoundTrips ? 0 : 1;
         }
     }
 }

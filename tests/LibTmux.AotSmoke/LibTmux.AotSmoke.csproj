@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibTmux\LibTmux.csproj" />
+    <ProjectReference Include="..\..\src\LibTmux.Query.Json\LibTmux.Query.Json.csproj" />
 
     <!-- Real tmux runs here, so this assembly claims a socket root of its own. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
