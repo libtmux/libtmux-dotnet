@@ -46,8 +46,7 @@ public sealed class Component05ParityTests
         Server server = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
-        ServerSnapshot snapshot = await ServerSnapshot.CaptureAsync(
-            server,
+        Server snapshot = await server.CaptureSnapshotAsync(
             SnapshotDepth.Panes,
             TestContext.Current.CancellationToken);
         Session session = snapshot.Sessions[0];

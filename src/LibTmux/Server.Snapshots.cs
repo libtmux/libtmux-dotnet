@@ -74,7 +74,5 @@ public sealed partial class Server
         return new Server(connection, live.Generation, live.RawVersion, snapshot);
     }
 
-    internal ServerSnapshot? Snapshot => _snapshot;
-
     private SnapshotDepth Depth => _snapshot?.Depth ?? SnapshotDepth.Server;
 }

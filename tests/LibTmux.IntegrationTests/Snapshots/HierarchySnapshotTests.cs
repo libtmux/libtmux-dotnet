@@ -33,19 +33,21 @@ public sealed class HierarchySnapshotTests
             ["link-window", "-s", windowId, "-t", "target:"],
             TestContext.Current.CancellationToken);
 
-        ServerSnapshot snapshot = await ServerSnapshot.CaptureAsync(
-            server,
+        Server snapshot = await server.CaptureSnapshotAsync(
             SnapshotDepth.Panes,
             TestContext.Current.CancellationToken);
 
-        SessionWindowEdge[] linked = [.. snapshot.WindowEdges.Where(
-            edge => edge.WindowId.ToString() == windowId)];
+        SessionWindowEdge[] linked =
+        [
+            .. snapshot.Windows.Select(static window => window.Edge).Where(
+                edge => edge.WindowId.ToString() == windowId),
+        ];
 
         // The same window is linked into two sessions, so it must appear once
         // per session while remaining one window identity.
         Assert.Equal(2, linked.Length);
         Assert.Single(linked.Select(static edge => edge.WindowId).Distinct());
         Assert.Equal(2, linked.Select(static edge => edge.SessionId).Distinct().Count());
-        Assert.Equal(SnapshotDepth.Panes, snapshot.Depth);
+        Assert.True(snapshot.Panes.IsCaptured);
     }
 }

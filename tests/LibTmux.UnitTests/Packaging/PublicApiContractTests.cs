@@ -11,16 +11,6 @@ namespace LibTmux.UnitTests.Packaging;
 /// </remarks>
 public sealed class PublicApiContractTests
 {
-    /// <summary>Types the assembly offers that the approved surface
-    /// deliberately omits; entries may shrink but never grow unnoticed.</summary>
-    private static readonly HashSet<string> UnapprovedTypes = new(StringComparer.Ordinal)
-    {
-        "T:LibTmux.CapturedRelation",
-        "T:LibTmux.ServerSnapshot",
-        "T:LibTmux.SnapshotCollectionExtensions",
-        "T:LibTmux.SnapshotLookup`2",
-    };
-
     [Fact]
     public void Shipped_baselines_match_both_packages()
     {
@@ -33,7 +23,7 @@ public sealed class PublicApiContractTests
         ];
         string[] extra =
         [
-            .. built.Except(approved).Except(UnapprovedTypes).Order(StringComparer.Ordinal),
+            .. built.Except(approved).Order(StringComparer.Ordinal),
         ];
 
         Assert.True(
@@ -46,25 +36,6 @@ public sealed class PublicApiContractTests
             $"The assembly offers {extra.Length} types the approved surface does not name:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, extra));
-    }
-
-    [Fact]
-    public void Every_tracked_divergence_is_still_one()
-    {
-        // A list of known problems that has stopped being true is worse than
-        // no list, because it says the drift is understood when it is not.
-        HashSet<string> approved = ReadApprovedTypes();
-        HashSet<string> built = ReadBuiltTypes();
-
-        foreach (string unapproved in UnapprovedTypes)
-        {
-            Assert.True(
-                built.Contains(unapproved),
-                $"{unapproved} is tracked as unapproved but the assembly no longer offers it.");
-            Assert.False(
-                approved.Contains(unapproved),
-                $"{unapproved} is tracked as unapproved but the contract now names it.");
-        }
     }
 
     [Fact]

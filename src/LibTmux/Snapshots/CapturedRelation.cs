@@ -49,16 +49,9 @@ public sealed class CapturedRelation<T> : IReadOnlyList<T>
     public IReadOnlyList<T> OrEmpty() => _items ?? None;
 }
 
-/// <summary>Creates captured and uncaptured relations with inferred types.</summary>
-public static class CapturedRelation
+internal static class CapturedRelation
 {
-    /// <summary>Creates a captured relation over a read child sequence.</summary>
-    /// <typeparam name="T">The captured child type.</typeparam>
-    /// <param name="items">The children the snapshot read.</param>
-    /// <param name="relation">The relation name.</param>
-    /// <param name="capturedDepth">The depth the snapshot reached.</param>
-    /// <returns>The captured relation.</returns>
-    public static CapturedRelation<T> Capture<T>(
+    internal static CapturedRelation<T> Capture<T>(
         IEnumerable<T> items,
         string relation,
         SnapshotDepth capturedDepth)
@@ -68,12 +61,7 @@ public static class CapturedRelation
         return new CapturedRelation<T>([.. items], relation, capturedDepth);
     }
 
-    /// <summary>Creates a relation the snapshot did not read.</summary>
-    /// <typeparam name="T">The child type that was not captured.</typeparam>
-    /// <param name="relation">The relation name.</param>
-    /// <param name="capturedDepth">The depth the snapshot reached.</param>
-    /// <returns>The uncaptured relation.</returns>
-    public static CapturedRelation<T> Uncaptured<T>(
+    internal static CapturedRelation<T> Uncaptured<T>(
         string relation,
         SnapshotDepth capturedDepth)
     {

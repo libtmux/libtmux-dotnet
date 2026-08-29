@@ -40,7 +40,6 @@ LibTmux.CapturePaneRequest.PreserveTrailingSpaces.get -> bool
 LibTmux.CapturePaneRequest.Quiet.get -> bool
 LibTmux.CapturePaneRequest.StartLine.get -> LibTmux.CapturePanePosition?
 LibTmux.CapturePaneRequest.TrimTrailingSpaces.get -> bool
-LibTmux.CapturedRelation
 LibTmux.CapturedRelation<T>
 LibTmux.CapturedRelation<T>.CapturedDepth.get -> LibTmux.SnapshotDepth
 LibTmux.CapturedRelation<T>.Count.get -> int
@@ -814,14 +813,6 @@ LibTmux.ServerGeneration.ProcessId.get -> int
 LibTmux.ServerGeneration.ServerGeneration() -> void
 LibTmux.ServerGeneration.ServerGeneration(int processId, long startTime) -> void
 LibTmux.ServerGeneration.StartTime.get -> long
-LibTmux.ServerSnapshot
-LibTmux.ServerSnapshot.Depth.get -> LibTmux.SnapshotDepth
-LibTmux.ServerSnapshot.Generation.get -> LibTmux.ServerGeneration
-LibTmux.ServerSnapshot.Panes.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
-LibTmux.ServerSnapshot.Server.get -> LibTmux.Server!
-LibTmux.ServerSnapshot.Sessions.get -> LibTmux.CapturedRelation<LibTmux.Session!>!
-LibTmux.ServerSnapshot.WindowEdges.get -> System.Collections.Generic.IReadOnlyList<LibTmux.SessionWindowEdge!>!
-LibTmux.ServerSnapshot.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
 LibTmux.Session
 LibTmux.Session.ActivePane.get -> LibTmux.Pane!
 LibTmux.Session.ActiveWindow.get -> LibTmux.Window!
@@ -910,16 +901,11 @@ LibTmux.ShowMessagesMode
 LibTmux.ShowMessagesMode.Jobs = 1 -> LibTmux.ShowMessagesMode
 LibTmux.ShowMessagesMode.Messages = 0 -> LibTmux.ShowMessagesMode
 LibTmux.ShowMessagesMode.Terminals = 2 -> LibTmux.ShowMessagesMode
-LibTmux.SnapshotCollectionExtensions
 LibTmux.SnapshotDepth
 LibTmux.SnapshotDepth.Panes = 3 -> LibTmux.SnapshotDepth
 LibTmux.SnapshotDepth.Server = 0 -> LibTmux.SnapshotDepth
 LibTmux.SnapshotDepth.Sessions = 1 -> LibTmux.SnapshotDepth
 LibTmux.SnapshotDepth.Windows = 2 -> LibTmux.SnapshotDepth
-LibTmux.SnapshotLookup<TKey, TValue>
-LibTmux.SnapshotLookup<TKey, TValue>.Count.get -> int
-LibTmux.SnapshotLookup<TKey, TValue>.TryGetValue(TKey key, out TValue value) -> bool
-LibTmux.SnapshotLookup<TKey, TValue>.this[TKey key].get -> TValue
 LibTmux.SplitPaneRequest
 LibTmux.SplitPaneRequest.<Clone>$() -> LibTmux.SplitPaneRequest!
 LibTmux.SplitPaneRequest.ActiveBorderStyle.get -> string?
@@ -1628,8 +1614,6 @@ static LibTmux.CapturePanePosition.operator !=(LibTmux.CapturePanePosition left,
 static LibTmux.CapturePanePosition.operator ==(LibTmux.CapturePanePosition left, LibTmux.CapturePanePosition right) -> bool
 static LibTmux.CapturePaneRequest.operator !=(LibTmux.CapturePaneRequest? left, LibTmux.CapturePaneRequest? right) -> bool
 static LibTmux.CapturePaneRequest.operator ==(LibTmux.CapturePaneRequest? left, LibTmux.CapturePaneRequest? right) -> bool
-static LibTmux.CapturedRelation.Capture<T>(System.Collections.Generic.IEnumerable<T>! items, string! relation, LibTmux.SnapshotDepth capturedDepth) -> LibTmux.CapturedRelation<T>!
-static LibTmux.CapturedRelation.Uncaptured<T>(string! relation, LibTmux.SnapshotDepth capturedDepth) -> LibTmux.CapturedRelation<T>!
 static LibTmux.ChooseTreeRequest.operator !=(LibTmux.ChooseTreeRequest? left, LibTmux.ChooseTreeRequest? right) -> bool
 static LibTmux.ChooseTreeRequest.operator ==(LibTmux.ChooseTreeRequest? left, LibTmux.ChooseTreeRequest? right) -> bool
 static LibTmux.Client.GetAsync(LibTmux.Server! server, string! name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Client!>!
@@ -1750,7 +1734,6 @@ static LibTmux.ServerConnectionOptions.operator !=(LibTmux.ServerConnectionOptio
 static LibTmux.ServerConnectionOptions.operator ==(LibTmux.ServerConnectionOptions? left, LibTmux.ServerConnectionOptions? right) -> bool
 static LibTmux.ServerGeneration.operator !=(LibTmux.ServerGeneration left, LibTmux.ServerGeneration right) -> bool
 static LibTmux.ServerGeneration.operator ==(LibTmux.ServerGeneration left, LibTmux.ServerGeneration right) -> bool
-static LibTmux.ServerSnapshot.CaptureAsync(LibTmux.Server! server, LibTmux.SnapshotDepth depth = LibTmux.SnapshotDepth.Panes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerSnapshot!>!
 static LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 static LibTmux.SessionId.Parse(string! text) -> LibTmux.SessionId
 static LibTmux.SessionId.TryParse(string? text, out LibTmux.SessionId result) -> bool
@@ -1764,7 +1747,6 @@ static LibTmux.SetHooksRequest.operator !=(LibTmux.SetHooksRequest? left, LibTmu
 static LibTmux.SetHooksRequest.operator ==(LibTmux.SetHooksRequest? left, LibTmux.SetHooksRequest? right) -> bool
 static LibTmux.SetOptionRequest.operator !=(LibTmux.SetOptionRequest? left, LibTmux.SetOptionRequest? right) -> bool
 static LibTmux.SetOptionRequest.operator ==(LibTmux.SetOptionRequest? left, LibTmux.SetOptionRequest? right) -> bool
-static LibTmux.SnapshotCollectionExtensions.ToLookupByKey<TKey, TValue>(this System.Collections.Generic.IEnumerable<TValue>! source, System.Func<TValue, TKey>! keySelector) -> LibTmux.SnapshotLookup<TKey, TValue>!
 static LibTmux.SplitPaneRequest.operator !=(LibTmux.SplitPaneRequest? left, LibTmux.SplitPaneRequest? right) -> bool
 static LibTmux.SplitPaneRequest.operator ==(LibTmux.SplitPaneRequest? left, LibTmux.SplitPaneRequest? right) -> bool
 static LibTmux.SwapPaneRequest.operator !=(LibTmux.SwapPaneRequest? left, LibTmux.SwapPaneRequest? right) -> bool
