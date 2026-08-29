@@ -104,6 +104,18 @@ public sealed class QueryJsonTrustBoundaryTests
     }
 
     [Fact]
+    public void A_malformed_regex_is_refused_on_the_way_in()
+    {
+        string json = Document(
+            """
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
+             "dialect":"dotnet","pattern":"(","semanticOptions":512}
+            """);
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
     public void An_unknown_quantifier_is_refused_rather_than_treated_as_all()
     {
         string json = Document(

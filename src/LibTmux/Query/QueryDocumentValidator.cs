@@ -128,7 +128,8 @@ internal static class QueryDocumentValidator
                 StringComparison.Ordinal)
             || !QueryTextSemantics.TryCountScalars(regex.Pattern, out int length)
             || length > QueryRegexSemantics.MaximumPatternLength
-            || !QueryRegexSemantics.IsSupported(regex.SemanticOptions))
+            || !QueryRegexSemantics.IsSupported(regex.SemanticOptions)
+            || !QueryRegexSemantics.IsValidPattern(regex.Pattern, regex.SemanticOptions))
         {
             throw Unsupported("Regex does not match the query wire semantics.");
         }

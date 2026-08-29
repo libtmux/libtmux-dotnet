@@ -16,15 +16,6 @@ internal static class QueryInterpreter
     internal const string TrimmingMessage =
         "Compiling a query reads public properties by name. Trimmed applications must preserve the filtered types' public properties.";
 
-    /// <summary>How long one regex may run before it is treated as hostile.</summary>
-    /// <remarks>
-    /// A query document can come from outside this process, and a pattern
-    /// like <c>(a+)+$</c> against a long subject can backtrack indefinitely.
-    /// Matching is bounded, so an over-budget pattern raises rather than
-    /// hangs the evaluating process.
-    /// </remarks>
-    private static readonly TimeSpan RegexBudget = TimeSpan.FromSeconds(1);
-
     [RequiresUnreferencedCode(TrimmingMessage)]
     internal static Func<T, bool> Compile<T>(QueryDocument document)
     {
@@ -44,7 +35,7 @@ internal static class QueryInterpreter
             ReadText(regex.Input, element) ?? string.Empty,
             regex.Pattern,
             regex.SemanticOptions,
-            RegexBudget),
+            QueryRegexSemantics.MatchTimeout),
         QuantifierNode quantifier => Quantify(quantifier, element),
         FieldNode field => ReadBoolean(field, element),
         ConstantNode { Value: BooleanConstant boolean } => boolean.Value,
