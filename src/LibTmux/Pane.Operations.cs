@@ -185,7 +185,7 @@ public sealed partial class Pane
         string text,
         bool enter = true,
         CancellationToken cancellationToken = default) =>
-        SendKeysAsync(new SendKeysRequest(text, enter), cancellationToken);
+        SendKeysAsync(new SendKeysRequest(text, enter, literal: true), cancellationToken);
 
     /// <summary>Sends the configured prefix key to the pane.</summary>
     /// <param name="secondary">Whether the secondary prefix is sent.</param>

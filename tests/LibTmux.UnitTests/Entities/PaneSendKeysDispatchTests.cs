@@ -11,6 +11,27 @@ public sealed class PaneSendKeysDispatchTests
     private static readonly ServerGeneration Generation = new(91, 901);
 
     [Fact]
+    public async Task Send_text_uses_literal_mode()
+    {
+        var dispatched = new ConcurrentQueue<string[]>();
+        Pane pane = CreatePane((request, _) =>
+        {
+            dispatched.Enqueue([.. request.LogicalArguments]);
+            return Task.FromResult(Success(request.LogicalArguments));
+        });
+
+        await pane.SendTextAsync(
+            "Enter",
+            enter: false,
+            TestContext.Current.CancellationToken);
+
+        string[] sent = Assert.Single(dispatched);
+        int commandStart = Array.IndexOf(sent, "send-keys");
+        Assert.NotEqual(-1, commandStart);
+        Assert.Equal(["send-keys", "-t", "%1", "-l", "Enter"], sent[commandStart..]);
+    }
+
+    [Fact]
     public async Task Enter_not_dispatched_after_text_is_reported_as_unknown()
     {
         var dispatched = new ConcurrentQueue<string[]>();

@@ -36,6 +36,10 @@ public sealed class PaneOperationsTests
         Assert.Contains("LITERALPAYLOAD", afterText, StringComparison.Ordinal);
         Assert.DoesNotContain("echo LITERALPAYLOADEnter", afterText, StringComparison.Ordinal);
 
+        await pane.SendTextAsync("Enter", enter: false, token);
+        Assert.Contains("Enter", await ReadPaneAsync(pane, "Enter", token), StringComparison.Ordinal);
+        await pane.SendKeysAsync(new SendKeysRequest("C-u"), token);
+
         // Keeping a line out of shell history is a leading space, not a flag.
         await pane.SendKeysAsync(
             new SendKeysRequest("echo hidden", suppressHistory: true, enter: false),
