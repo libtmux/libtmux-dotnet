@@ -271,7 +271,6 @@ internal sealed class ControlModeSession : IControlModeSession
         bool writeLockHeld = false;
         try
         {
-            FailPending(new ObjectDisposedException(nameof(ControlModeSession)));
             writeLockHeld = await _writeLock.WaitAsync(_exitBudget).ConfigureAwait(false);
             if (!writeLockHeld)
             {
@@ -288,9 +287,6 @@ internal sealed class ControlModeSession : IControlModeSession
                 await StopProcessAsync(cleanupFailures, forceStop: false).ConfigureAwait(false);
             }
 
-            // A sender can pass its final stopping check immediately before
-            // disposal begins, then enqueue while disposal is waiting for it.
-            FailPending(new ObjectDisposedException(nameof(ControlModeSession)));
         }
         catch (Exception error)
         {

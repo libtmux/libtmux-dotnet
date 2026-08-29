@@ -88,6 +88,27 @@ public sealed class ControlModeSessionFailureTests
     }
 
     [Fact]
+    public async Task Disposal_does_not_orphan_a_reply_from_an_enqueued_write()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new StalledWriteProcess(replyOnRelease: true);
+        var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+
+        Task<IReadOnlyList<string>> send = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "reply"),
+            token);
+        await process.WriteStarted.Task.WaitAsync(token);
+
+        Task disposal = session.DisposeAsync().AsTask();
+        process.ReleaseWrite();
+
+        Assert.Equal(["reply"], await send.WaitAsync(token));
+        await disposal.WaitAsync(token);
+        Assert.True(process.DisposeCalled);
+    }
+
+    [Fact]
     public async Task Terminal_eof_rejects_commands_when_the_process_still_claims_to_run()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -698,10 +719,12 @@ public sealed class ControlModeSessionFailureTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _releaseWrite = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly bool _replyOnRelease;
         private int _hasExited;
 
-        internal StalledWriteProcess()
+        internal StalledWriteProcess(bool replyOnRelease = false)
         {
+            _replyOnRelease = replyOnRelease;
             _output.Writer.TryWrite("%begin 1 1 0");
             _output.Writer.TryWrite("%end 1 1 0");
         }
@@ -719,13 +742,33 @@ public sealed class ControlModeSessionFailureTests
             ReadOnlyMemory<char> command,
             CancellationToken cancellationToken)
         {
+            string sentinel = RequestFence(command);
             WriteStarted.TrySetResult();
             await _releaseWrite.Task.ConfigureAwait(false);
+            if (_replyOnRelease)
+            {
+                _output.Writer.TryWrite("%begin 2 2 1");
+                _output.Writer.TryWrite("reply");
+                _output.Writer.TryWrite("%end 2 2 1");
+                _output.Writer.TryWrite("%begin 2 3 1");
+                _output.Writer.TryWrite($"parse error: unknown command: {sentinel}");
+                _output.Writer.TryWrite("%error 2 3 1");
+                return;
+            }
+
             throw new IOException("The client was killed during its write.");
         }
 
-        public Task FlushAsync(CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("A stalled write must not be flushed.");
+        public Task FlushAsync(CancellationToken cancellationToken)
+        {
+            if (!_replyOnRelease)
+            {
+                throw new InvalidOperationException("A stalled write must not be flushed.");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        }
 
         public async Task<string?> ReadLineAsync()
         {
@@ -739,8 +782,18 @@ public sealed class ControlModeSessionFailureTests
             }
         }
 
-        public void CloseInput() => throw new InvalidOperationException(
-            "Forced disposal must kill rather than close behind an active writer.");
+        public void CloseInput()
+        {
+            if (!_replyOnRelease)
+            {
+                throw new InvalidOperationException(
+                    "Forced disposal must kill rather than close behind an active writer.");
+            }
+
+            Volatile.Write(ref _hasExited, 1);
+            _output.Writer.TryComplete();
+            _exited.TrySetResult();
+        }
 
         public void Kill()
         {
@@ -755,6 +808,8 @@ public sealed class ControlModeSessionFailureTests
             _exited.Task.WaitAsync(cancellationToken);
 
         public void Dispose() => DisposeCalled = true;
+
+        internal void ReleaseWrite() => _releaseWrite.TrySetResult();
     }
 
     private sealed class AmbiguousDispatchProcess : IControlModeProcess
