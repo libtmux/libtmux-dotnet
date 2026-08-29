@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
+using System.Text;
 using LibTmux.Internal;
 
 namespace LibTmux;
@@ -19,6 +20,7 @@ internal sealed class ControlModeSession : IControlModeSession
     private readonly IControlModeProcess _process;
     private readonly ServerGeneration? _generation;
     private readonly TimeSpan _exitBudget;
+    private readonly ControlModeLimits _limits;
     private readonly Func<string> _sentinelFactory;
     /// <summary>How many unread events are held before the oldest are dropped.</summary>
     /// <remarks>
@@ -27,11 +29,12 @@ internal sealed class ControlModeSession : IControlModeSession
     /// The buffer drops the oldest event instead of blocking, since blocking
     /// would also stall the reader that completes commands.
     /// </remarks>
-    internal const int EventBufferCapacity = 4096;
+    internal const int EventBufferCapacity = 512;
 
     private readonly ControlModeEventBuffer _events = new(EventBufferCapacity);
 
-    private readonly Queue<PendingCommand> _pending = new();
+    private readonly Queue<PendingControlModeCommand> _pending = new();
+    private readonly SemaphoreSlim _pendingSlots;
     private readonly SemaphoreSlim _writeLock;
     private readonly object _disposeGate = new();
     private readonly TaskCompletionSource _ready =
@@ -54,10 +57,15 @@ internal sealed class ControlModeSession : IControlModeSession
         SemaphoreSlim? writeLock = null,
         TimeSpan? exitBudget = null,
         ServerGeneration? generation = null,
-        Func<string>? sentinelFactory = null)
+        Func<string>? sentinelFactory = null,
+        ControlModeLimits? limits = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
         _generation = generation;
+        _limits = limits ?? new ControlModeLimits();
+        _pendingSlots = new SemaphoreSlim(
+            _limits.MaxPendingCommands,
+            _limits.MaxPendingCommands);
         _writeLock = writeLock ?? new SemaphoreSlim(1, 1);
         _exitBudget = exitBudget ?? DefaultExitBudget;
         _sentinelFactory = sentinelFactory ?? CreateSentinel;
@@ -108,9 +116,11 @@ internal sealed class ControlModeSession : IControlModeSession
         configureEnvironment(startInfo);
         Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("The tmux control client did not start.");
+        var limits = new ControlModeLimits();
         return new ControlModeSession(
-            new SystemControlModeProcess(process, new ControlModeLimits()),
-            generation: generation);
+            new SystemControlModeProcess(process, limits),
+            generation: generation,
+            limits: limits);
     }
 
     /// <summary>Waits until tmux has answered its own attach.</summary>
@@ -129,87 +139,154 @@ internal sealed class ControlModeSession : IControlModeSession
             throw new InvalidOperationException("The tmux control client has exited.");
         }
 
-        string sentinel = _sentinelFactory();
-        var pending = new PendingCommand(command, sentinel);
-        Task<IReadOnlyList<string>> transaction = DispatchAndWaitAsync(
-            ControlModeCommandRenderer.Render(command),
-            pending,
-            cancellationToken);
-        return cancellationToken.CanBeCanceled
-            ? WaitForCallerAsync(transaction, cancellationToken)
-            : transaction;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_pendingSlots.Wait(0, CancellationToken.None))
+        {
+            throw new InvalidOperationException(
+                $"The control-mode session reached its {_limits.MaxPendingCommands}-command pending limit.");
+        }
+
+        return SendAdmittedAsync(command, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<string>> DispatchAndWaitAsync(
-        string commandLine,
-        PendingCommand pending,
+    private async Task<IReadOnlyList<string>> SendAdmittedAsync(
+        TmuxCommand command,
         CancellationToken cancellationToken)
     {
-        Exception? dispatchFailure = null;
-
-        // Queueing and writing happen together under one lock. tmux answers in
-        // the order it was asked, so a caller that queued second and wrote
-        // first would be handed the other caller's answer.
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        bool transferredSlot = false;
         try
         {
-            lock (_pending)
+            cancellationToken.ThrowIfCancellationRequested();
+            string sentinel = _sentinelFactory();
+            if (string.IsNullOrEmpty(sentinel)
+                || sentinel.Contains('\0', StringComparison.Ordinal)
+                || sentinel.Contains('\r', StringComparison.Ordinal)
+                || sentinel.Contains('\n', StringComparison.Ordinal))
             {
-                ThrowIfStopping();
-                if (_process.HasExited)
-                {
-                    throw new InvalidOperationException("The tmux control client has exited.");
-                }
-
-                // Queued before the write: a command such as kill-server can end
-                // the client as its own answer, and the pump's exit sweep must
-                // find this waiter already queued to fail it.
-                _pending.Enqueue(pending);
+                throw new InvalidOperationException(
+                    "The control-mode request fence is invalid.");
             }
 
-            try
+            long requestBytes = ControlModeCommandRenderer.GetRenderedByteCount(command)
+                + Encoding.UTF8.GetByteCount(sentinel)
+                + 2L;
+            if (requestBytes > _limits.MaxRequestBytes)
             {
-                string framedCommand = $"{commandLine}\n{pending.Sentinel}";
-                await _process.WriteLineAsync(framedCommand.AsMemory(), CancellationToken.None)
-                    .ConfigureAwait(false);
-                await _process.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+                throw new ArgumentException(
+                    $"The control-mode request exceeds its {_limits.MaxRequestBytes}-byte limit.",
+                    nameof(command));
             }
-            catch (Exception error)
-            {
-                // A failed pipe write may have dispatched any prefix, including
-                // the whole command. No later reply can be correlated safely.
-                Volatile.Write(ref _stopRequested, 1);
-                dispatchFailure = error;
-                FailPending(new InvalidOperationException(
-                    "The control client lost command alignment after an ambiguous write failure.",
-                    error));
-                _ = pending.Completion.Task.Exception;
-            }
+
+            var pending = new PendingControlModeCommand(command, sentinel);
+            Task<IReadOnlyList<string>> transaction = DispatchAndWaitAsync(
+                command,
+                pending,
+                cancellationToken);
+            transferredSlot = true;
+            return cancellationToken.CanBeCanceled
+                ? await WaitForCallerAsync(transaction, pending, cancellationToken)
+                    .ConfigureAwait(false)
+                : await transaction.ConfigureAwait(false);
         }
         finally
         {
-            _writeLock.Release();
+            if (!transferredSlot)
+            {
+                _pendingSlots.Release();
+            }
         }
+    }
 
-        if (dispatchFailure is not null)
+    private async Task<IReadOnlyList<string>> DispatchAndWaitAsync(
+        TmuxCommand command,
+        PendingControlModeCommand pending,
+        CancellationToken cancellationToken)
+    {
+        Exception? dispatchFailure = null;
+        bool ownsPendingSlot = true;
+
+        try
         {
+            // Queueing and writing happen together under one lock. tmux answers in
+            // the order it was asked, so a caller that queued second and wrote
+            // first would be handed the other caller's answer.
+            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await DisposeAsync().ConfigureAwait(false);
+                lock (_pending)
+                {
+                    ThrowIfStopping();
+                    if (_process.HasExited)
+                    {
+                        throw new InvalidOperationException(
+                            "The tmux control client has exited.");
+                    }
+
+                    // Queued before the write: a command such as kill-server can end
+                    // the client as its own answer, and the pump's exit sweep must
+                    // find this waiter already queued to fail it.
+                    _pending.Enqueue(pending);
+                    ownsPendingSlot = false;
+                    pending.MarkEnqueued();
+                }
+
+                try
+                {
+                    await WriteRequestAsync(command, pending.Sentinel).ConfigureAwait(false);
+                }
+                catch (Exception error)
+                {
+                    // A failed pipe write may have dispatched any prefix, including
+                    // the whole command. No later reply can be correlated safely.
+                    Volatile.Write(ref _stopRequested, 1);
+                    dispatchFailure = error;
+                    FailPending(new InvalidOperationException(
+                        "The control client lost command alignment after an ambiguous write failure.",
+                        error));
+                    _ = pending.Completion.Task.Exception;
+                }
             }
-            catch (Exception cleanupFailure)
+            finally
             {
-                dispatchFailure.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
+                _writeLock.Release();
             }
 
-            ExceptionDispatchInfo.Capture(dispatchFailure).Throw();
-        }
+            if (dispatchFailure is not null)
+            {
+                try
+                {
+                    await DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception cleanupFailure)
+                {
+                    dispatchFailure.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
+                }
 
-        return await pending.Completion.Task.ConfigureAwait(false);
+                ExceptionDispatchInfo.Capture(dispatchFailure).Throw();
+            }
+
+            return await pending.Completion.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            if (ownsPendingSlot)
+            {
+                _pendingSlots.Release();
+            }
+        }
+    }
+
+    private async Task WriteRequestAsync(TmuxCommand command, string sentinel)
+    {
+        string framedCommand = $"{ControlModeCommandRenderer.Render(command)}\n{sentinel}";
+        await _process.WriteLineAsync(framedCommand.AsMemory(), CancellationToken.None)
+            .ConfigureAwait(false);
+        await _process.FlushAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     private static async Task<IReadOnlyList<string>> WaitForCallerAsync(
         Task<IReadOnlyList<string>> transaction,
+        PendingControlModeCommand pending,
         CancellationToken cancellationToken)
     {
         try
@@ -218,6 +295,8 @@ internal sealed class ControlModeSession : IControlModeSession
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            pending.Abandon();
+            await Task.WhenAny(transaction, pending.Enqueued).ConfigureAwait(false);
             _ = transaction.ContinueWith(
                 static completed => _ = completed.Exception,
                 CancellationToken.None,
@@ -490,21 +569,6 @@ internal sealed class ControlModeSession : IControlModeSession
     private void ThrowIfStopping() =>
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopRequested) != 0, this);
 
-    /// <summary>One waiting command.</summary>
-    private sealed class PendingCommand(TmuxCommand command, string sentinel)
-    {
-        internal TmuxCommand Command { get; } = command;
-
-        internal List<string> ErrorLines { get; } = [];
-
-        internal List<string> OutputLines { get; } = [];
-
-        internal string Sentinel { get; } = sentinel;
-
-        internal TaskCompletionSource<IReadOnlyList<string>> Completion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-    }
-
     private async Task PumpAsync()
     {
         string? exitReason = null;
@@ -565,6 +629,7 @@ internal sealed class ControlModeSession : IControlModeSession
     {
         // Only a matching %end or %error terminates a block; output may start with %.
         List<string> lines = [];
+        int blockBytes = 0;
         bool failed = false;
         bool terminated = false;
 
@@ -587,7 +652,21 @@ internal sealed class ControlModeSession : IControlModeSession
                 }
             }
 
+            if (lines.Count >= _limits.MaxBlockLines)
+            {
+                throw new InvalidDataException(
+                    $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.");
+            }
+
+            int lineBytes = Encoding.UTF8.GetByteCount(line);
+            if (lineBytes > _limits.MaxBlockBytes - blockBytes)
+            {
+                throw new InvalidDataException(
+                    $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.");
+            }
+
             lines.Add(line);
+            blockBytes += lineBytes;
         }
 
         if (!terminated)
@@ -616,7 +695,7 @@ internal sealed class ControlModeSession : IControlModeSession
             return;
         }
 
-        PendingCommand? pending;
+        PendingControlModeCommand? pending;
         lock (_pending)
         {
             pending = _pending.Count == 0 ? null : _pending.Peek();
@@ -646,24 +725,10 @@ internal sealed class ControlModeSession : IControlModeSession
                 "The tmux control client returned an unrecognized request fence.");
         }
 
-        if (failed)
-        {
-            if (lines.Count == 0)
-            {
-                pending.ErrorLines.Add("The tmux command failed.");
-            }
-            else
-            {
-                pending.ErrorLines.AddRange(lines);
-            }
-
-            return;
-        }
-
-        pending.OutputLines.AddRange(lines);
+        pending.AddBlock(lines, blockBytes, failed, _limits);
     }
 
-    private void CompletePending(PendingCommand pending)
+    private void CompletePending(PendingControlModeCommand pending)
     {
         lock (_pending)
         {
@@ -676,18 +741,8 @@ internal sealed class ControlModeSession : IControlModeSession
             _pending.Dequeue();
         }
 
-        if (pending.ErrorLines.Count == 0)
-        {
-            pending.Completion.TrySetResult([.. pending.OutputLines]);
-            return;
-        }
-
-        string reported = string.Join('\n', pending.ErrorLines);
-        pending.Completion.TrySetException(new ControlModeCommandException(
-            reported.Length == 0 ? "The tmux command failed." : reported,
-            pending.Command,
-            pending.OutputLines,
-            pending.ErrorLines));
+        _pendingSlots.Release();
+        pending.Complete();
     }
 
     private static (string Name, IReadOnlyList<string> Arguments) SplitNotification(string line)
@@ -727,24 +782,38 @@ internal sealed class ControlModeSession : IControlModeSession
     {
         failure ??= new InvalidOperationException(
             "The tmux control client exited before answering.");
+        int released = 0;
         lock (_pending)
         {
             while (_pending.Count > 0)
             {
                 _pending.Dequeue().Completion.TrySetException(failure);
+                released++;
             }
+        }
+
+        if (released > 0)
+        {
+            _pendingSlots.Release(released);
         }
     }
 
     private void StopAndFailPending(Exception failure)
     {
+        int released = 0;
         lock (_pending)
         {
             Volatile.Write(ref _stopRequested, 1);
             while (_pending.Count > 0)
             {
                 _pending.Dequeue().Completion.TrySetException(failure);
+                released++;
             }
+        }
+
+        if (released > 0)
+        {
+            _pendingSlots.Release(released);
         }
     }
 

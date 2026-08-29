@@ -9,17 +9,26 @@ internal static class ControlModeCommandRenderer
     {
         ArgumentNullException.ThrowIfNull(command);
         var rendered = new StringBuilder();
-        foreach (string token in command.ToArguments())
+        AppendToken(rendered, command.Name);
+        foreach (string token in command.Arguments)
         {
-            if (rendered.Length > 0)
-            {
-                rendered.Append(' ');
-            }
-
+            rendered.Append(' ');
             AppendToken(rendered, token);
         }
 
         return rendered.ToString();
+    }
+
+    internal static long GetRenderedByteCount(TmuxCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        long bytes = GetTokenByteCount(command.Name);
+        foreach (string token in command.Arguments)
+        {
+            bytes += 1 + GetTokenByteCount(token);
+        }
+
+        return bytes;
     }
 
     private static void AppendToken(StringBuilder rendered, string token)
@@ -43,5 +52,26 @@ internal static class ControlModeCommandRenderer
         }
 
         rendered.Append('\'');
+    }
+
+    private static long GetTokenByteCount(string token)
+    {
+        int utf8Bytes = Encoding.UTF8.GetByteCount(token);
+        if (token.Contains('\r', StringComparison.Ordinal)
+            || token.Contains('\n', StringComparison.Ordinal))
+        {
+            return (long)utf8Bytes * 4;
+        }
+
+        long quotedBytes = utf8Bytes + 2L;
+        foreach (char character in token)
+        {
+            if (character == '\'')
+            {
+                quotedBytes += 4;
+            }
+        }
+
+        return quotedBytes;
     }
 }

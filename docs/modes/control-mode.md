@@ -82,6 +82,11 @@ await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 `SendAsync` is safe to call concurrently: tmux answers in the order it was
 asked, and each caller gets its own answer.
 
+Outstanding calls are bounded. If the session has reached its pending limit,
+`SendAsync` throws `InvalidOperationException` before dispatching another
+command. Cancellation stops that caller's wait, not the command; the session
+discards that answer until tmux finishes the command, preserving later replies.
+
 ## When this is not the right mode
 
 For a single command it is more machinery than the job needs — use

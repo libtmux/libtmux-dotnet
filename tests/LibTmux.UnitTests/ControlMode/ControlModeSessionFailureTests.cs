@@ -109,6 +109,38 @@ public sealed class ControlModeSessionFailureTests
     }
 
     [Fact]
+    public async Task A_canceled_write_lock_wait_releases_its_unenqueued_slot()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new StalledWriteProcess();
+        var session = new ControlModeSession(
+            process,
+            exitBudget: TimeSpan.FromMilliseconds(25),
+            limits: new ControlModeLimits(maxPendingCommands: 2));
+        await session.WaitForReadyAsync(token);
+
+        Task<IReadOnlyList<string>> first = session.SendAsync(
+            TmuxCommand.Create("first"),
+            token);
+        await process.WriteStarted.Task.WaitAsync(token);
+        using var canceled = CancellationTokenSource.CreateLinkedTokenSource(token);
+        Task<IReadOnlyList<string>> waiting = session.SendAsync(
+            TmuxCommand.Create("waiting"),
+            canceled.Token);
+
+        canceled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        Task<IReadOnlyList<string>> admitted = session.SendAsync(
+            TmuxCommand.Create("admitted"),
+            token);
+        Assert.False(admitted.IsCompleted);
+
+        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2), token);
+        await Assert.ThrowsAsync<IOException>(async () => await first);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await admitted);
+    }
+
+    [Fact]
     public async Task Terminal_eof_rejects_commands_when_the_process_still_claims_to_run()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

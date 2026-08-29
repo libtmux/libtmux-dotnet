@@ -40,10 +40,15 @@ public interface IControlModeSession : IAsyncDisposable
     /// <exception cref="ControlModeCommandException">
     /// Tmux reported the command failed.
     /// </exception>
+    /// <exception cref="ArgumentException">
+    /// The rendered command is too large for one bounded request.
+    /// </exception>
     /// <exception cref="StaleServerGenerationException">
     /// The command targets a different tmux server generation.
     /// </exception>
-    /// <exception cref="InvalidOperationException">The client is no longer running.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The client is no longer running or has too many unanswered commands.
+    /// </exception>
     public Task<IReadOnlyList<string>> SendAsync(
         TmuxCommand command,
         CancellationToken cancellationToken = default);
