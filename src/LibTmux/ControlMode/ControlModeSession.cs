@@ -433,6 +433,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
     private async Task PumpAsync()
     {
+        bool sawExit = false;
         string? exitReason = null;
         Exception? pumpFailure = null;
         try
@@ -466,11 +467,18 @@ internal sealed class ControlModeSession : IControlModeSession
                 (string name, IReadOnlyList<string> arguments) = SplitNotification(line);
                 if (string.Equals(name, "exit", StringComparison.Ordinal))
                 {
+                    sawExit = true;
                     exitReason = arguments.Count == 0 ? null : string.Join(' ', arguments);
                     break;
                 }
 
                 _events.TryWrite(ToEvent(name, arguments));
+            }
+
+            if (!sawExit && Volatile.Read(ref _stopRequested) == 0)
+            {
+                throw new EndOfStreamException(WithStandardError(
+                    "The tmux control stream ended without an %exit notification."));
             }
         }
         catch (Exception error)
@@ -480,11 +488,17 @@ internal sealed class ControlModeSession : IControlModeSession
         }
         finally
         {
-            _events.TryWrite(new TmuxExitEvent(exitReason));
+            if (pumpFailure is null)
+            {
+                _events.TryWrite(new TmuxExitEvent(exitReason));
+            }
+
             _events.Complete(pumpFailure);
+            string terminalMessage = _ready.Task.IsCompletedSuccessfully
+                ? "The tmux control client exited before answering a pending command."
+                : "The tmux control client exited before it finished attaching.";
             Exception terminalFailure = pumpFailure ?? new InvalidOperationException(
-                WithStandardError(
-                    "The tmux control client exited before it finished attaching."));
+                WithStandardError(terminalMessage));
             _ready.TrySetException(terminalFailure);
             StopAndFailPending(terminalFailure);
         }

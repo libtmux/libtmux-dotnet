@@ -141,22 +141,79 @@ public sealed class ControlModeSessionFailureTests
     }
 
     [Fact]
-    public async Task Terminal_eof_rejects_commands_when_the_process_still_claims_to_run()
+    public async Task Raw_eof_faults_without_a_synthetic_exit_event()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new TerminalWhileRunningProcess();
         var session = new ControlModeSession(process);
 
         await session.WaitForReadyAsync(token);
-        Task eventsCompleted = DrainEventsAsync(session.Events, token);
+        await using IAsyncEnumerator<TmuxEvent> events =
+            session.Events.GetAsyncEnumerator(token);
         process.EndOutput();
-        await eventsCompleted.WaitAsync(token);
+        EndOfStreamException eventFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(async () =>
+                await events.MoveNextAsync().AsTask().WaitAsync(token));
 
         Assert.False(session.IsRunning);
         await Assert.ThrowsAsync<ObjectDisposedException>(
             () => session.SendAsync(
                 TmuxCommand.Create("display-message", "-p", "too-late"),
                 token));
+        EndOfStreamException disposalFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(
+                () => session.DisposeAsync().AsTask());
+        Assert.Same(eventFailure, disposalFailure);
+        Assert.True(process.DisposeCalled);
+    }
+
+    [Fact]
+    public async Task Disposal_induced_eof_completes_with_an_exit_event()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new TerminalWhileRunningProcess();
+        var session = new ControlModeSession(process);
+
+        await session.WaitForReadyAsync(token);
+        await session.DisposeAsync().AsTask().WaitAsync(token);
+
+        await using IAsyncEnumerator<TmuxEvent> events =
+            session.Events.GetAsyncEnumerator(token);
+        Assert.True(await events.MoveNextAsync());
+        TmuxExitEvent exit = Assert.IsType<TmuxExitEvent>(events.Current);
+        Assert.Null(exit.Reason);
+        Assert.False(await events.MoveNextAsync());
+        Assert.True(process.DisposeCalled);
+    }
+
+    [Fact]
+    public async Task Exit_after_attach_reports_the_unanswered_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new TerminalWhileRunningProcess();
+        var session = new ControlModeSession(process);
+
+        await session.WaitForReadyAsync(token);
+        Task<IReadOnlyList<string>> command = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "unanswered"),
+            token);
+        await process.Flushed.Task.WaitAsync(token);
+        process.Exit("server stopped");
+
+        InvalidOperationException failure =
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await command);
+        Assert.Equal(
+            "The tmux control client exited before answering a pending command.",
+            failure.Message);
+
+        var observed = new List<TmuxEvent>();
+        await foreach (TmuxEvent item in session.Events.WithCancellation(token))
+        {
+            observed.Add(item);
+        }
+
+        TmuxExitEvent exit = Assert.IsType<TmuxExitEvent>(Assert.Single(observed));
+        Assert.Equal("server stopped", exit.Reason);
         await session.DisposeAsync();
         Assert.True(process.DisposeCalled);
     }
@@ -188,7 +245,7 @@ public sealed class ControlModeSessionFailureTests
     }
 
     [Fact]
-    public async Task Terminal_eof_during_final_check_cannot_escape_the_pending_sweep()
+    public async Task Raw_eof_during_final_check_cannot_escape_the_pending_sweep()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new TerminalWhileRunningProcess(endDuringFinalCheck: true);
@@ -196,15 +253,20 @@ public sealed class ControlModeSessionFailureTests
 
         await session.WaitForReadyAsync(token);
         TmuxCommand command = TmuxCommand.Create("display-message", "-p", "racing");
-        InvalidOperationException terminalFailure =
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        EndOfStreamException terminalFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(async () =>
                 await session.SendAsync(command, token)
                     .WaitAsync(TimeSpan.FromSeconds(2), token));
 
-        Assert.Contains("exited before", terminalFailure.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "The tmux control stream ended without an %exit notification.",
+            terminalFailure.Message);
         Assert.False(session.IsRunning);
         Assert.Equal([ControlModeCommandRenderer.Render(command)], process.WriteAttempts);
-        await session.DisposeAsync();
+        EndOfStreamException disposalFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(
+                () => session.DisposeAsync().AsTask());
+        Assert.Same(terminalFailure, disposalFailure);
         Assert.True(process.DisposeCalled);
     }
 
@@ -674,6 +736,9 @@ public sealed class ControlModeSessionFailureTests
 
         internal bool DisposeCalled { get; private set; }
 
+        internal TaskCompletionSource Flushed { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
         internal List<string> WriteAttempts { get; } = [];
 
         public bool HasExited
@@ -703,6 +768,7 @@ public sealed class ControlModeSessionFailureTests
         public Task FlushAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Flushed.TrySetResult();
             return Task.CompletedTask;
         }
 
@@ -736,6 +802,12 @@ public sealed class ControlModeSessionFailureTests
             _exited.Task.WaitAsync(cancellationToken);
 
         public void Dispose() => DisposeCalled = true;
+
+        internal void Exit(string reason)
+        {
+            _output.Writer.TryWrite($"%exit {reason}");
+            EndOutput();
+        }
 
         internal void EndOutput(Exception? failure = null) =>
             _output.Writer.TryComplete(failure);

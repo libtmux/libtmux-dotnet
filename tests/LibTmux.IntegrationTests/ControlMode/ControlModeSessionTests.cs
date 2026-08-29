@@ -299,6 +299,49 @@ public sealed class ControlModeSessionTests
     }
 
     [UnixFact]
+    public async Task A_killed_control_client_faults_without_an_exit_event()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+        RawTmuxResult clients = await raw.ExecuteAsync(
+            ["list-clients", "-F", "#{client_pid}\t#{client_control_mode}"],
+            token);
+        string client = Assert.Single(
+            clients.StandardOutputLines,
+            static line => line.EndsWith("\t1", StringComparison.Ordinal));
+        string[] fields = client.Split('\t');
+        Assert.True(int.TryParse(fields[0], out int clientProcessId));
+
+        using (Process process = Process.GetProcessById(clientProcessId))
+        {
+            process.Kill(entireProcessTree: false);
+            await process.WaitForExitAsync(token);
+        }
+
+        var observed = new List<TmuxEvent>();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        EndOfStreamException eventFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(async () =>
+            {
+                await foreach (TmuxEvent item in control.Events.WithCancellation(timeout.Token))
+                {
+                    observed.Add(item);
+                }
+            });
+
+        Assert.DoesNotContain(observed, static item => item is TmuxExitEvent);
+        EndOfStreamException disposalFailure =
+            await Assert.ThrowsAsync<EndOfStreamException>(
+                () => control.DisposeAsync().AsTask());
+        Assert.Same(eventFailure, disposalFailure);
+    }
+
+    [UnixFact]
     public async Task Startup_rejects_a_server_restart_between_discovery_and_attach()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
