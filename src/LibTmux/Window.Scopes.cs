@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 
 namespace LibTmux;
 
-// Reaches this window's option table.
+// Reaches the option and hook tables this window scopes.
 public sealed partial class Window
 {
     private TmuxOptions? _options;
@@ -19,4 +19,13 @@ public sealed partial class Window
         OptionScope.Window,
         _id.ToString(),
         TmuxOptions.DoubleEscapesDollar(_owner));
+
+    private TmuxHooks? _hooks;
+
+    /// <summary>Gets the hooks of this window.</summary>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxHooks Hooks => _hooks ??= new TmuxHooks(
+        _commandDispatcher,
+        OptionScope.Window,
+        _id.ToString());
 }
