@@ -33,6 +33,23 @@ It also only ever sees what it asked for. To notice a window appearing, or read
 what a program writes into a pane, you need a client that stays —
 [control mode](control-mode.md).
 
+## Cancellation is the deadline
+
+No call carries a deadline of its own. A `CancellationToken` is what bounds
+one, and a caller that passes none waits as long as tmux takes — which is
+forever against a socket that accepts a connection and never answers:
+
+```csharp
+using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+Server server = await Server.ConnectAsync(cancellationToken: deadline.Token);
+```
+
+Cancelling after the client started kills and reaps it, and the failure says
+so: `TmuxOperationCanceledException` carries the client's process id and
+reports that the command may already have run. What it cannot reap is a
+process the client left behind — a pane's program outlives the client that
+spawned it, by design.
+
 The transport this uses, and the two shapes it beat, are recorded in
 [ADR 0001](../decisions/0001-transport-framing-bakeoff.md).
 
