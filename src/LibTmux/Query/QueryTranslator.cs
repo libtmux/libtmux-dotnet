@@ -253,8 +253,6 @@ internal static class QueryTranslator
         null => new NullConstant(),
         bool boolean => new BooleanConstant(boolean),
         string text => new StringConstant(text),
-        DateTimeOffset instant => new InstantConstant(instant.ToUnixTimeSeconds()),
-        Enum member => new EnumConstant(declared.Name, member.ToString()),
         SessionId id => new TypedIdConstant(QueryTarget.Session, id.ToString()),
         WindowId id => new TypedIdConstant(QueryTarget.Window, id.ToString()),
         PaneId id => new TypedIdConstant(QueryTarget.Pane, id.ToString()),

@@ -341,9 +341,7 @@ internal static class Program
 | `T:LibTmux.Query.BooleanConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical boolean constant. | `LibTmux` |
 | `T:LibTmux.Query.ComparisonNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical comparison query node. | `LibTmux` |
 | `T:LibTmux.Query.ConstantNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical constant query node. | `LibTmux` |
-| `T:LibTmux.Query.EnumConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical enum constant. | `LibTmux` |
 | `T:LibTmux.Query.FieldNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical field query node. | `LibTmux` |
-| `T:LibTmux.Query.InstantConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical instant constant. | `LibTmux` |
 | `T:LibTmux.Query.Int64Constant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical int64 constant. | `LibTmux` |
 | `T:LibTmux.Query.Json.QueryJson` | static class | `public, static` | None | `object` | value | Serializes and parses v1 query documents. | `LibTmux.Query.Json` |
 | `T:LibTmux.Query.Json.QueryJsonLimits` | record | `public, sealed` | None | `object` | value | Tightens the fixed v1 JSON resource ceilings. | `LibTmux.Query.Json` |
@@ -1137,14 +1135,6 @@ internal static class Program
 | `M:LibTmux.Query.ConstantNode.#ctor(QueryConstant)` | `ConstantNode(QueryConstant value)` | Public | No | Portable | Creates ConstantNode. |
 | `P:LibTmux.Query.ConstantNode.Value` | `QueryConstant LibTmux.Query.ConstantNode.Value { get; }` | Public | No | Portable | Gets Value. |
 
-### `T:LibTmux.Query.EnumConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.EnumConstant.#ctor(string,string)` | `EnumConstant(string type, string value)` | Public | No | Portable | Creates EnumConstant. |
-| `P:LibTmux.Query.EnumConstant.Type` | `string LibTmux.Query.EnumConstant.Type { get; }` | Public | No | Portable | Gets Type. |
-| `P:LibTmux.Query.EnumConstant.Value` | `string LibTmux.Query.EnumConstant.Value { get; }` | Public | No | Portable | Gets Value. |
-
 ### `T:LibTmux.Query.FieldNode`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -1152,13 +1142,6 @@ internal static class Program
 | `M:LibTmux.Query.FieldNode.#ctor(QueryTarget,string)` | `FieldNode(QueryTarget target, string wireName)` | Public | No | Portable | Creates FieldNode. |
 | `P:LibTmux.Query.FieldNode.Target` | `QueryTarget LibTmux.Query.FieldNode.Target { get; }` | Public | No | Portable | Gets Target. |
 | `P:LibTmux.Query.FieldNode.WireName` | `string LibTmux.Query.FieldNode.WireName { get; }` | Public | No | Portable | Gets WireName. |
-
-### `T:LibTmux.Query.InstantConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.InstantConstant.#ctor(long)` | `InstantConstant(long unixSeconds)` | Public | No | Portable | Creates InstantConstant. |
-| `P:LibTmux.Query.InstantConstant.UnixSeconds` | `long LibTmux.Query.InstantConstant.UnixSeconds { get; }` | Public | No | Portable | Gets UnixSeconds. |
 
 ### `T:LibTmux.Query.Int64Constant`
 

@@ -6,6 +6,4 @@ internal enum QueryValueKind
     Int64,
     String,
     TypedId,
-    Enum,
-    Instant,
 }

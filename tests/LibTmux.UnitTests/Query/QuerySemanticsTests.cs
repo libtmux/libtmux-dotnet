@@ -50,6 +50,21 @@ public sealed class QuerySemanticsTests
     private sealed record WindowCountRow(string WindowName, long WindowPanes);
 
     [Fact]
+    public void Every_value_kind_has_a_catalog_field()
+    {
+        var catalogKinds = new HashSet<QueryValueKind>();
+        foreach (string wireName in QueryFieldCatalog.WireNames)
+        {
+            Assert.True(QueryFieldCatalog.TryGetKind(wireName, out QueryValueKind kind));
+            catalogKinds.Add(kind);
+        }
+
+        Assert.Equal(
+            Enum.GetValues<QueryValueKind>().Order(),
+            catalogKinds.Order());
+    }
+
+    [Fact]
     public void An_entity_translates_through_the_name_tmux_uses_for_the_field()
     {
         // A property name and its tmux field name are not derivable from one

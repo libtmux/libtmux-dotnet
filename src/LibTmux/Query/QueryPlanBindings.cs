@@ -151,8 +151,6 @@ internal sealed class QueryPlanBindings
             QueryValueKind.Boolean => valueType == typeof(bool),
             QueryValueKind.Int64 => IsInteger(valueType),
             QueryValueKind.String => valueType == typeof(string),
-            QueryValueKind.Instant => IsInteger(valueType),
-            QueryValueKind.Enum => valueType == typeof(string) || valueType.IsEnum,
             QueryValueKind.TypedId => IsTypedId(field.Target, valueType),
             _ => false,
         };

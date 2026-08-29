@@ -1334,22 +1334,6 @@
       "summary": "A canonical constant query node."
     },
     {
-      "id": "T:LibTmux.Query.EnumConstant",
-      "namespace": "LibTmux.Query",
-      "name": "EnumConstant",
-      "kind": "record",
-      "package": "LibTmux",
-      "modifiers": [
-        "public",
-        "sealed"
-      ],
-      "baseType": "QueryConstant",
-      "interfaces": [],
-      "ownership": "value",
-      "state": [],
-      "summary": "A canonical enum constant."
-    },
-    {
       "id": "T:LibTmux.Query.FieldNode",
       "namespace": "LibTmux.Query",
       "name": "FieldNode",
@@ -1364,22 +1348,6 @@
       "ownership": "value",
       "state": [],
       "summary": "A canonical field query node."
-    },
-    {
-      "id": "T:LibTmux.Query.InstantConstant",
-      "namespace": "LibTmux.Query",
-      "name": "InstantConstant",
-      "kind": "record",
-      "package": "LibTmux",
-      "modifiers": [
-        "public",
-        "sealed"
-      ],
-      "baseType": "QueryConstant",
-      "interfaces": [],
-      "ownership": "value",
-      "state": [],
-      "summary": "A canonical instant constant."
     },
     {
       "id": "T:LibTmux.Query.Int64Constant",
@@ -8428,29 +8396,6 @@
       "summary": "Creates ConstantNode."
     },
     {
-      "id": "M:LibTmux.Query.EnumConstant.#ctor(string,string)",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "EnumConstant",
-      "parameters": [
-        {
-          "name": "type",
-          "type": "string"
-        },
-        {
-          "name": "value",
-          "type": "string"
-        }
-      ],
-      "signature": "EnumConstant(string type, string value)",
-      "portable": true,
-      "summary": "Creates EnumConstant."
-    },
-    {
       "id": "M:LibTmux.Query.FieldNode.#ctor(QueryTarget,string)",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": ".ctor",
@@ -8472,25 +8417,6 @@
       "signature": "FieldNode(QueryTarget target, string wireName)",
       "portable": true,
       "summary": "Creates FieldNode."
-    },
-    {
-      "id": "M:LibTmux.Query.InstantConstant.#ctor(long)",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "InstantConstant",
-      "parameters": [
-        {
-          "name": "unixSeconds",
-          "type": "long"
-        }
-      ],
-      "signature": "InstantConstant(long unixSeconds)",
-      "portable": true,
-      "summary": "Creates InstantConstant."
     },
     {
       "id": "M:LibTmux.Query.Int64Constant.#ctor(long)",
@@ -19694,34 +19620,6 @@
       "summary": "Gets Value."
     },
     {
-      "id": "P:LibTmux.Query.EnumConstant.Type",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "Type",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "string",
-      "parameters": [],
-      "signature": "string LibTmux.Query.EnumConstant.Type { get; }",
-      "portable": true,
-      "summary": "Gets Type."
-    },
-    {
-      "id": "P:LibTmux.Query.EnumConstant.Value",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "Value",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "string",
-      "parameters": [],
-      "signature": "string LibTmux.Query.EnumConstant.Value { get; }",
-      "portable": true,
-      "summary": "Gets Value."
-    },
-    {
       "id": "P:LibTmux.Query.FieldNode.Target",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": "Target",
@@ -19748,20 +19646,6 @@
       "signature": "string LibTmux.Query.FieldNode.WireName { get; }",
       "portable": true,
       "summary": "Gets WireName."
-    },
-    {
-      "id": "P:LibTmux.Query.InstantConstant.UnixSeconds",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": "UnixSeconds",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "long",
-      "parameters": [],
-      "signature": "long LibTmux.Query.InstantConstant.UnixSeconds { get; }",
-      "portable": true,
-      "summary": "Gets UnixSeconds."
     },
     {
       "id": "P:LibTmux.Query.Int64Constant.Value",
@@ -24064,16 +23948,6 @@
       "portable": true
     },
     {
-      "id": "T:LibTmux.Query.EnumConstant",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "EnumConstant",
-      "kind": "type",
-      "visibility": "public",
-      "package": "LibTmux",
-      "signature": "record LibTmux.Query.EnumConstant",
-      "portable": true
-    },
-    {
       "id": "T:LibTmux.Query.FieldNode",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": "FieldNode",
@@ -24081,16 +23955,6 @@
       "visibility": "public",
       "package": "LibTmux",
       "signature": "record LibTmux.Query.FieldNode",
-      "portable": true
-    },
-    {
-      "id": "T:LibTmux.Query.InstantConstant",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": "InstantConstant",
-      "kind": "type",
-      "visibility": "public",
-      "package": "LibTmux",
-      "signature": "record LibTmux.Query.InstantConstant",
       "portable": true
     },
     {

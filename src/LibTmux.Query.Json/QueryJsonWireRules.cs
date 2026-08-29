@@ -19,8 +19,6 @@ internal static class QueryJsonWireRules
     private static readonly string[] KindProperties = ["kind"];
     private static readonly string[] ValueProperties = ["kind", "value"];
     private static readonly string[] TypedIdProperties = ["kind", "type", "value"];
-    private static readonly string[] EnumProperties = ["kind", "type", "token"];
-    private static readonly string[] InstantProperties = ["kind", "unixSeconds"];
 
     internal static void ValidateEnvelope(JsonElement element) =>
         ValidateProperties(element, EnvelopeProperties, "query envelope");
@@ -51,8 +49,6 @@ internal static class QueryJsonWireRules
             "null" => KindProperties,
             "boolean" or "int64" or "string" => ValueProperties,
             "typedId" => TypedIdProperties,
-            "enum" => EnumProperties,
-            "instant" => InstantProperties,
             _ => null,
         };
         if (allowed is not null)

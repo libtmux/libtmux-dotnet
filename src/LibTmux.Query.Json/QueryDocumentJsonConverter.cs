@@ -232,15 +232,6 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 writer.WriteString("kind", "string");
                 WriteBoundedString(writer, "value", text.Value, "String value");
                 break;
-            case InstantConstant instant:
-                writer.WriteString("kind", "instant");
-                writer.WriteNumber("unixSeconds", instant.UnixSeconds);
-                break;
-            case EnumConstant member:
-                writer.WriteString("kind", "enum");
-                WriteBoundedString(writer, "type", member.Type, "Enum type");
-                WriteBoundedString(writer, "token", member.Value, "Enum value");
-                break;
             case TypedIdConstant id:
                 writer.WriteString("kind", "typedId");
                 writer.WriteString("type", Wire(id.Target));

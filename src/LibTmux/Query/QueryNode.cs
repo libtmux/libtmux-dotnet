@@ -94,15 +94,6 @@ public sealed record Int64Constant(long Value) : QueryConstant;
 /// <param name="Value">The literal value.</param>
 public sealed record StringConstant(string Value) : QueryConstant;
 
-/// <summary>An instant literal, in whole seconds since the Unix epoch.</summary>
-/// <param name="UnixSeconds">Seconds since the Unix epoch.</param>
-public sealed record InstantConstant(long UnixSeconds) : QueryConstant;
-
-/// <summary>An enumeration literal, named by type and member.</summary>
-/// <param name="Type">The enumeration type name.</param>
-/// <param name="Value">The member name.</param>
-public sealed record EnumConstant(string Type, string Value) : QueryConstant;
-
 /// <summary>A typed tmux identifier literal.</summary>
 /// <param name="Target">The object the identifier names.</param>
 /// <param name="Value">The identifier text.</param>

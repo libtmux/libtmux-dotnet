@@ -92,14 +92,12 @@ internal static class QueryDocumentValidator
             case QueryComparison.LessThanOrEqual:
             case QueryComparison.GreaterThan:
             case QueryComparison.GreaterThanOrEqual:
-                if ((kind == QueryValueKind.Int64 && constant.Value is Int64Constant)
-                    || (kind == QueryValueKind.Instant
-                        && constant.Value is InstantConstant))
+                if (kind == QueryValueKind.Int64 && constant.Value is Int64Constant)
                 {
                     return;
                 }
 
-                throw Unsupported("Ordered comparison requires an integer or instant field.");
+                throw Unsupported("Ordered comparison requires an integer field.");
             default:
                 throw Unsupported("Query document names an unknown comparison.");
         }
@@ -197,11 +195,6 @@ internal static class QueryDocumentValidator
                 kind == QueryValueKind.TypedId
                 && id.Target == target
                 && QueryTextSemantics.TryCountScalars(id.Value, out _),
-            EnumConstant member =>
-                kind == QueryValueKind.Enum
-                && QueryTextSemantics.TryCountScalars(member.Type, out _)
-                && QueryTextSemantics.TryCountScalars(member.Value, out _),
-            InstantConstant => kind == QueryValueKind.Instant,
             _ => false,
         };
         if (!compatible)

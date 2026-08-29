@@ -86,11 +86,13 @@ produces the same canonical AST.
 Approve schema `libtmux-query`, version 1, and the retained JSON Schema and four
 positive golden documents. The wire grammar is closed, rejects unknown members
 and discriminators, and uses tagged null, Boolean, signed 64-bit integer,
-string, typed-ID, enum, and Unix-seconds instant constants. Custom parser limits
-may tighten but not widen the v1 limits. Regex nodes use the .NET dialect,
-require `CultureInvariant`, reject unsupported option bits and inline
-culture-dependent case behavior, count pattern limits by Unicode scalar, and
-execute with a timeout.
+string, and typed-ID constants. The retained bakeoff schema also listed enum
+and Unix-seconds instant constants, but no catalog field could consume either;
+production removed those phantom definitions without changing the set of valid
+root documents. Custom parser limits may tighten but not widen the v1 limits.
+Regex nodes use the .NET dialect, require `CultureInvariant`, reject unsupported
+option bits and inline culture-dependent case behavior, count pattern limits by
+Unicode scalar, and execute with a timeout.
 
 Typed documents are not lowered into native tmux filters. Callers capture or
 list entities, then use `Matching()`; relation predicates declare the snapshot
@@ -389,7 +391,7 @@ proof is added.
     "final public names and exhaustive Python inventory dispositions"
   ],
   "capabilities": [
-    "closed sealed-record query AST and seven tagged constant kinds",
+    "closed sealed-record query AST and five tagged constant kinds",
     "pure expression translation with frozen constants and no silent fallback",
     "direct local interpretation and immutable Matching results",
     "version-one canonical JSON schema with bounded parsing and invariant regex semantics",

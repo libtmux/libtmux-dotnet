@@ -281,46 +281,13 @@
         }
       }
     },
-    "enumConstant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "type", "token"],
-      "properties": {
-        "kind": { "const": "enum" },
-        "type": {
-          "type": "string",
-          "maxLength": 4096,
-          "pattern": "^[^\\uD800-\\uDFFF]*$"
-        },
-        "token": {
-          "type": "string",
-          "maxLength": 4096,
-          "pattern": "^[^\\uD800-\\uDFFF]*$"
-        }
-      }
-    },
-    "instantConstant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "unixSeconds"],
-      "properties": {
-        "kind": { "const": "instant" },
-        "unixSeconds": {
-          "type": "integer",
-          "minimum": -9223372036854775808,
-          "maximum": 9223372036854775807
-        }
-      }
-    },
     "constant": {
       "oneOf": [
         { "$ref": "#/$defs/nullConstant" },
         { "$ref": "#/$defs/booleanConstant" },
         { "$ref": "#/$defs/int64Constant" },
         { "$ref": "#/$defs/stringConstant" },
-        { "$ref": "#/$defs/typedIdConstant" },
-        { "$ref": "#/$defs/enumConstant" },
-        { "$ref": "#/$defs/instantConstant" }
+        { "$ref": "#/$defs/typedIdConstant" }
       ]
     },
     "constantNode": {

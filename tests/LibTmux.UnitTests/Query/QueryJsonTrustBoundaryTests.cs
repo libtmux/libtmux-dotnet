@@ -130,8 +130,6 @@ public sealed class QueryJsonTrustBoundaryTests
 
     [Theory]
     [InlineData("\"kind\":\"string\",\"value\":null")]
-    [InlineData("\"kind\":\"enum\",\"type\":null,\"token\":\"Ready\"")]
-    [InlineData("\"kind\":\"enum\",\"type\":\"State\",\"token\":null")]
     [InlineData("\"kind\":\"typedId\",\"type\":\"session\",\"value\":null")]
     public void Null_constant_text_is_refused(string members)
     {

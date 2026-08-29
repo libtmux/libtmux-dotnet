@@ -378,8 +378,6 @@ internal static class QueryInterpreter
         BooleanConstant boolean => boolean.Value,
         Int64Constant number => number.Value,
         StringConstant text => text.Value,
-        InstantConstant instant => instant.UnixSeconds,
-        EnumConstant member => member.Value,
         TypedIdConstant id => id.Value,
         _ => throw new UnsupportedQueryExpressionException(
             $"Constant '{constant.GetType().Name}' has no value."),

@@ -142,10 +142,6 @@ internal sealed class QueryDocumentJsonReader
             "boolean" => new BooleanConstant(element.GetProperty("value").GetBoolean()),
             "int64" => new Int64Constant(element.GetProperty("value").GetInt64()),
             "string" => new StringConstant(ReadBoundedString(element.GetProperty("value"))),
-            "instant" => new InstantConstant(element.GetProperty("unixSeconds").GetInt64()),
-            "enum" => new EnumConstant(
-                ReadBoundedString(element.GetProperty("type"), "Enum type"),
-                ReadBoundedString(element.GetProperty("token"), "Enum value")),
             "typedId" => new TypedIdConstant(
                 ReadTarget(element.GetProperty("type")),
                 ReadBoundedString(element.GetProperty("value"), "Typed ID value")),

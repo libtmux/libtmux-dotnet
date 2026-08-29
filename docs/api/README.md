@@ -68,9 +68,7 @@ modes differ.
 | `LibTmux.Query.BooleanConstant` | A boolean literal. |
 | `LibTmux.Query.ComparisonNode` | An ordering or equality comparison. |
 | `LibTmux.Query.ConstantNode` | A literal operand. |
-| `LibTmux.Query.EnumConstant` | An enumeration literal, named by type and member. |
 | `LibTmux.Query.FieldNode` | A tmux format field operand. |
-| `LibTmux.Query.InstantConstant` | An instant literal, in whole seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant` | A 64-bit integer literal. |
 | `LibTmux.Query.NotNode` | The negation of one predicate. |
 | `LibTmux.Query.NullConstant` | The absence of a value. |
@@ -273,9 +271,7 @@ modes differ.
 | `LibTmux.Query.BooleanConstant.#ctor(System.Boolean)` | A boolean literal. |
 | `LibTmux.Query.ComparisonNode.#ctor(LibTmux.Query.QueryComparison,LibTmux.Query.QueryNode,LibTmux.Query.QueryNode)` | An ordering or equality comparison. |
 | `LibTmux.Query.ConstantNode.#ctor(LibTmux.Query.QueryConstant)` | A literal operand. |
-| `LibTmux.Query.EnumConstant.#ctor(System.String,System.String)` | An enumeration literal, named by type and member. |
 | `LibTmux.Query.FieldNode.#ctor(LibTmux.Query.QueryTarget,System.String)` | A tmux format field operand. |
-| `LibTmux.Query.InstantConstant.#ctor(System.Int64)` | An instant literal, in whole seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant.#ctor(System.Int64)` | A 64-bit integer literal. |
 | `LibTmux.Query.NotNode.#ctor(LibTmux.Query.QueryNode)` | The negation of one predicate. |
 | `LibTmux.Query.OrNode.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.Query.QueryNode})` | Initializes a disjunction. |
@@ -872,11 +868,8 @@ modes differ.
 | `LibTmux.Query.ComparisonNode.Operator` | The comparison. |
 | `LibTmux.Query.ComparisonNode.Right` | The right operand. |
 | `LibTmux.Query.ConstantNode.Value` | The literal. |
-| `LibTmux.Query.EnumConstant.Type` | The enumeration type name. |
-| `LibTmux.Query.EnumConstant.Value` | The member name. |
 | `LibTmux.Query.FieldNode.Target` | The object that owns the field. |
 | `LibTmux.Query.FieldNode.WireName` | The tmux format token name. |
-| `LibTmux.Query.InstantConstant.UnixSeconds` | Seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant.Value` | The literal value. |
 | `LibTmux.Query.NotNode.Operand` | The negated predicate. |
 | `LibTmux.Query.OrNode.Operands` | Gets the ordered operands. |
