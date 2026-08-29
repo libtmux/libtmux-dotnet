@@ -96,17 +96,12 @@ def test_every_gate_in_the_library_names_a_declared_capability() -> None:
     assert set(references) <= declared
 
 
-def test_the_dollar_escape_gate_is_read_from_the_option_scopes() -> None:
+def test_the_dollar_escape_gate_is_read_from_the_option_table() -> None:
     """Name the gate whose absence from the matrix this check was added for."""
     namespace = load_verifier()
     references = namespace["referenced_capabilities"](namespace["SOURCE_ROOT"])
 
-    assert references["option_dollar_double_escape"] == {
-        "Pane.Options.cs",
-        "Server.Options.cs",
-        "Session.Options.cs",
-        "Window.Options.cs",
-    }
+    assert references["option_dollar_double_escape"] == {"TmuxOptions.cs"}
 
 
 def test_interval_boundary_drift_is_rejected() -> None:
