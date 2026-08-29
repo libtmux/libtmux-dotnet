@@ -542,6 +542,24 @@ public sealed class PaneOperationsTests
     }
 
     [UnixFact]
+    public async Task A_name_and_a_title_are_expanded_as_formats()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await FirstPaneAsync(server, token);
+
+        // tmux expands the argument of select-pane -T and rename-session before
+        // storing it, so neither survives a '#' verbatim.
+        Pane titled = await pane.SetTitleAsync("#{pane_id}", token);
+        Session renamed = await pane.Session.RenameAsync("x#{pane_id}", token);
+
+        Assert.Equal(pane.Id.ToString(), titled.Title);
+        Assert.Equal($"x{pane.Id}", renamed.Name);
+    }
+
+    [UnixFact]
     public async Task Killed_pane_is_a_raising_tombstone()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

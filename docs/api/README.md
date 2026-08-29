@@ -412,6 +412,7 @@ modes differ.
 | `LibTmux.TmuxBuffer.#ctor(System.String,System.Int64,System.String)` | Initializes one buffer. |
 | `LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | Runs every command in one tmux invocation. |
 | `LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | Adds one command and returns the longer chain. |
+| `LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})` | Adds every command in order and returns the longer chain. |
 | `LibTmux.TmuxChain.Then(System.String,System.String[])` | Adds one command by name and returns the longer chain. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.AttachSessionRequest,LibTmux.Session,System.Threading.CancellationToken)` | Runs an attach request on its own. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.BindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)` | Runs a key-binding request on its own. |
@@ -475,7 +476,7 @@ modes differ.
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)` | Returns a window-move request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)` | Returns a floating-pane request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)` | Returns a session request as one tmux command. |
-| `LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,System.String)` | Returns a window request as one tmux command. |
+| `LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)` | Returns a window request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)` | Returns a pane-resize request as one tmux command. |

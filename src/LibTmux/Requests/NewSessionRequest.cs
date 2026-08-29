@@ -56,6 +56,10 @@ public sealed record NewSessionRequest
     }
 
     /// <summary>Gets the session name, or null to let tmux choose.</summary>
+    /// <remarks>
+    /// tmux expands the name as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? Name { get; }
 
     /// <summary>Gets whether a session of the same name is removed first.</summary>

@@ -25444,6 +25444,25 @@
       "summary": "Adds one command and returns the longer chain."
     },
     {
+      "id": "M:LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})",
+      "declaringType": "T:LibTmux.TmuxChain",
+      "name": "Then",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxChain",
+      "parameters": [
+        {
+          "name": "commands",
+          "type": "IEnumerable<TmuxCommand>"
+        }
+      ],
+      "signature": "TmuxChain Then(IEnumerable<TmuxCommand> commands)",
+      "portable": true,
+      "summary": "Adds every command in order and returns the longer chain."
+    },
+    {
       "id": "M:LibTmux.TmuxChain.Then(string,string[])",
       "declaringType": "T:LibTmux.TmuxChain",
       "name": "Then",
@@ -25529,7 +25548,7 @@
       "summary": "Returns a session request as one tmux command."
     },
     {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,string)",
+      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)",
       "declaringType": "T:LibTmux.TmuxChaining",
       "name": "ToCommand",
       "kind": "method",
@@ -25543,11 +25562,11 @@
           "type": "NewWindowRequest"
         },
         {
-          "name": "target",
-          "type": "string"
+          "name": "session",
+          "type": "Session"
         }
       ],
-      "signature": "static TmuxCommand ToCommand(this NewWindowRequest request, string target)",
+      "signature": "static TmuxCommand ToCommand(this NewWindowRequest request, Session session)",
       "portable": true,
       "summary": "Returns a window request as one tmux command."
     },

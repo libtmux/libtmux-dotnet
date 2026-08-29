@@ -364,6 +364,10 @@ public sealed partial class Pane
     /// <param name="title">The new title.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A replacement handle carrying the new title.</returns>
+    /// <remarks>
+    /// tmux expands the title as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Pane> SetTitleAsync(
         string title,

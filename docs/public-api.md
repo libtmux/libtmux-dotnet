@@ -1769,6 +1769,7 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | `Task<TmuxCommandResult> ExecuteAsync(CancellationToken cancellationToken = default)` | Public | No | Portable | Runs every command in one tmux invocation. |
 | `M:LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | `TmuxChain Then(TmuxCommand command)` | Public | No | Portable | Adds one command and returns the longer chain. |
+| `M:LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})` | `TmuxChain Then(IEnumerable<TmuxCommand> commands)` | Public | No | Portable | Adds every command in order and returns the longer chain. |
 | `M:LibTmux.TmuxChain.Then(string,string[])` | `TmuxChain Then(string name, params string[] arguments)` | Public | No | Portable | Adds one command by name and returns the longer chain. |
 | `P:LibTmux.TmuxChain.Commands` | `IReadOnlyList<TmuxCommand> LibTmux.TmuxChain.Commands { get; }` | Public | No | Portable | Gets the commands this chain will run, in order. |
 
@@ -1838,7 +1839,7 @@ internal static class Program
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this MoveWindowRequest request, Window window)` | Public | Yes | Portable | Returns a window-move request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this NewPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a floating-pane request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)` | `static static TmuxCommand ToCommand(this NewSessionRequest request)` | Public | Yes | Portable | Returns a session request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,string)` | `static static TmuxCommand ToCommand(this NewWindowRequest request, string target)` | Public | Yes | Portable | Returns a window request as one tmux command. |
+| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)` | `static static TmuxCommand ToCommand(this NewWindowRequest request, Session session)` | Public | Yes | Portable | Returns a window request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PasteBufferRequest request, Pane pane)` | Public | Yes | Portable | Returns a paste request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PipePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-piping request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this ResizePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-resize request as one tmux command. |

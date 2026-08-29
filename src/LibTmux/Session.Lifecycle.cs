@@ -66,6 +66,10 @@ public sealed partial class Session
     /// <param name="name">The new name.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A replacement handle carrying the new name.</returns>
+    /// <remarks>
+    /// tmux expands the name as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> RenameAsync(
         string name,
