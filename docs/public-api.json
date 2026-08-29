@@ -22,6 +22,8 @@
     "net10.0"
   ],
   "supportedTmuxVersions": {
+    "minimum": "3.2a",
+    "stableSupport": "every canonical stable release at or above the minimum",
     "required": [
       "3.2a",
       "3.3a",
@@ -2782,8 +2784,8 @@
           "maximumTestedSemantics": "informational; not a support ceiling",
           "minimumChecks": "enforce only the minimum; newer untested versions may satisfy them",
           "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-          "capabilityProfileSelection": "exact parsed version identity only; no nearest-lower fallback",
-          "unknownCapabilityProfile": "a version may satisfy the minimum without an approved profile"
+          "capabilitySelection": "named support intervals apply to every stable release at or above the minimum; capabilities without a recorded end remain supported on later stable releases",
+          "unknownCapabilityVersion": "invalid, below-minimum, development, release-candidate, and next versions have unknown capability state"
         }
       }
     },

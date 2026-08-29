@@ -11,17 +11,39 @@ import typing as t
 SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src" / "LibTmux"
 TESTS_ROOT = pathlib.Path(__file__).parents[2] / "tests"
 REPOSITORY_ROOT = pathlib.Path(__file__).parents[2]
-PROFILE_PATH = SOURCE_ROOT / "Versioning" / "TmuxCapabilities.cs"
+MODEL_PATH = SOURCE_ROOT / "Versioning" / "TmuxCapabilities.cs"
 DELTAS_PATH = (
     pathlib.Path(__file__).parents[2] / "docs" / "parity" / "version-deltas.json"
 )
 # Every capability name carries an underscore, which the other literals in the
 # profile source -- versions, messages, platform names -- do not.
 CAPABILITY_LITERAL = re.compile(r'"([a-z][a-z0-9]*(?:_[a-z0-9]+)+)"')
-CONTAINS_LITERAL = re.compile(r'Capabilities\.Contains\("([^"]+)"\)')
+CAPABILITY_CALL_LITERAL = re.compile(
+    r"\b(?:TmuxCapabilities\.(?:GetState|IsSupported)|Supports)\("
+    r'[^;]*?,\s*"([a-z][a-z0-9]*(?:_[a-z0-9]+)+)"\s*\)',
+    re.DOTALL,
+)
 CAPABILITY_CONST = re.compile(
     r'const\s+string\s+\w*Capability\s*=\s*\n?\s*"([^"]+)"',
 )
+CAPABILITY_GROUP = re.compile(
+    r"private static readonly string\[\] (?P<name>\w+)\s*=\s*"
+    r"\[(?P<body>.*?)\];",
+    re.DOTALL,
+)
+VERSION_BINDING = re.compile(
+    r"TmuxVersion\s+(?P<name>\w+)\s*=\s*"
+    r'(?:LibTmuxInfo\.MinimumTmuxVersion|TmuxVersion\.Parse\("(?P<raw>[^"]+)"\));',
+)
+INTERVAL_ADD = re.compile(
+    r"Add\(intervals,\s*(?P<capabilities>\w+|\[[^]]+\]),\s*"
+    r"(?P<start>\w+)(?:,\s*(?P<end>\w+))?\);",
+)
+STABLE_VERSION = re.compile(
+    r"(?P<major>0|[1-9][0-9]*)\.(?P<minor>0|[1-9][0-9]*)"
+    r"(?:\.(?P<micro>0|[1-9][0-9]*)|(?P<patch>[a-z]+))?",
+)
+MINIMUM_VERSION = "3.2a"
 # A proof is an xunit fact, which is a public method on a test class. The
 # modifiers are listed rather than skipped over, so the return type cannot be
 # mistaken for the name.
@@ -33,12 +55,12 @@ TEST_MEMBER = re.compile(
 
 
 def declared_capabilities(source: str) -> set[str]:
-    """Return the capability names the profiles are built from.
+    """Return the capability names the interval model is built from.
 
     Parameters
     ----------
     source : str
-        Contents of the capability profile source file.
+        Contents of the capability model source file.
 
     Returns
     -------
@@ -51,6 +73,95 @@ def declared_capabilities(source: str) -> set[str]:
     ['a_b', 'c_d']
     """
     return set(CAPABILITY_LITERAL.findall(source))
+
+
+def declared_intervals(source: str) -> dict[str, tuple[str, str | None]]:
+    """Return each checked-in capability interval.
+
+    Parameters
+    ----------
+    source : str
+        Contents of the capability model source file.
+
+    Returns
+    -------
+    dict[str, tuple[str, str | None]]
+        Capability name to inclusive start and exclusive end.
+
+    Examples
+    --------
+    >>> sample = '''
+    ... private static readonly string[] Base = ["a_b"];
+    ... TmuxVersion minimum = LibTmuxInfo.MinimumTmuxVersion;
+    ... TmuxVersion end = TmuxVersion.Parse("3.7");
+    ... Add(intervals, Base, minimum, end);
+    ... '''
+    >>> declared_intervals(sample)
+    {'a_b': ('3.2a', '3.7')}
+    """
+    groups = {
+        match.group("name"): CAPABILITY_LITERAL.findall(match.group("body"))
+        for match in CAPABILITY_GROUP.finditer(source)
+    }
+    versions = {
+        match.group("name"): match.group("raw") or MINIMUM_VERSION
+        for match in VERSION_BINDING.finditer(source)
+    }
+    intervals: dict[str, tuple[str, str | None]] = {}
+    for match in INTERVAL_ADD.finditer(source):
+        expression = match.group("capabilities")
+        capabilities = (
+            CAPABILITY_LITERAL.findall(expression)
+            if expression.startswith("[")
+            else groups.get(expression, [])
+        )
+        start = versions.get(match.group("start"))
+        end_name = match.group("end")
+        end = versions.get(end_name) if end_name else None
+        if start is None or (end_name and end is None):
+            continue
+        for capability in capabilities:
+            intervals[capability] = (start, end)
+    return intervals
+
+
+def stable_version_key(raw: str) -> tuple[int, int, int, int | str]:
+    """Return the ordering key used by stable boundaries in the ledger."""
+    match = STABLE_VERSION.fullmatch(raw)
+    if match is None:
+        raise ValueError(f"not a stable tmux boundary: {raw}")
+    if match.group("micro") is not None:
+        kind = 1
+        suffix: int | str = int(match.group("micro"))
+    elif match.group("patch") is not None:
+        kind = 2
+        patch = match.group("patch")
+        suffix = f"{len(patch):08d}:{patch}"
+    else:
+        kind = 0
+        suffix = 0
+    return int(match.group("major")), int(match.group("minor")), kind, suffix
+
+
+def recorded_intervals(
+    document: dict[str, t.Any],
+) -> dict[str, tuple[str, str | None]]:
+    """Project recorded deltas onto the supported stable version floor."""
+    minimum_key = stable_version_key(MINIMUM_VERSION)
+    intervals = {}
+    for row in t.cast(list[dict[str, t.Any]], document.get("capabilities", [])):
+        introduced = t.cast(str, row.get("introducedIn", "unknown"))
+        supported_from = (
+            MINIMUM_VERSION
+            if introduced == "unknown" or stable_version_key(introduced) < minimum_key
+            else introduced
+        )
+        removed = t.cast(str, row.get("removedIn", "unknown"))
+        intervals[t.cast(str, row["capability"])] = (
+            supported_from,
+            None if removed == "unknown" else removed,
+        )
+    return intervals
 
 
 def referenced_capabilities(root: pathlib.Path) -> dict[str, set[str]]:
@@ -74,7 +185,8 @@ def referenced_capabilities(root: pathlib.Path) -> dict[str, set[str]]:
     references: dict[str, set[str]] = {}
     for path in sorted(root.rglob("*.cs")):
         text = path.read_text(encoding="utf-8")
-        for name in CONTAINS_LITERAL.findall(text) + CAPABILITY_CONST.findall(text):
+        names = CAPABILITY_CALL_LITERAL.findall(text) + CAPABILITY_CONST.findall(text)
+        for name in names:
             references.setdefault(name, set()).add(path.name)
 
     return references
@@ -198,7 +310,7 @@ def validate(
     Parameters
     ----------
     source : str
-        Contents of the capability profile source file.
+        Contents of the capability model source file.
     references : dict[str, set[str]]
         Capability name to the file names that gate on it.
     document : dict[str, typing.Any]
@@ -211,13 +323,20 @@ def validate(
 
     Examples
     --------
-    >>> validate('"a_b"', {}, {"capabilities": [{"capability": "a_b"}]})
+    >>> sample = '''
+    ... private static readonly string[] Base = ["a_b"];
+    ... TmuxVersion minimum = LibTmuxInfo.MinimumTmuxVersion;
+    ... Add(intervals, Base, minimum);
+    ... '''
+    >>> validate(sample, {}, {"capabilities": [{"capability": "a_b"}]})
     []
     >>> validate('"a_b"', {}, {"capabilities": []})
     ['capability is declared but not recorded: a_b']
     """
     declared = declared_capabilities(source)
     recorded = recorded_capabilities(document)
+    model_intervals = declared_intervals(source)
+    delta_intervals = recorded_intervals(document)
     violations = [
         f"capability is declared but not recorded: {name}"
         for name in sorted(declared - recorded)
@@ -230,6 +349,12 @@ def validate(
         f"version gate names an unknown capability: {name} "
         f"({', '.join(sorted(references[name]))})"
         for name in sorted(set(references) - declared)
+    )
+    violations.extend(
+        f"capability interval differs from recorded delta: {name} "
+        f"(model {model_intervals.get(name)}, ledger {delta_intervals[name]})"
+        for name in sorted(recorded & declared)
+        if model_intervals.get(name) != delta_intervals[name]
     )
     return violations
 
@@ -249,7 +374,7 @@ def main() -> int:
     """
     document = json.loads(DELTAS_PATH.read_text(encoding="utf-8"))
     violations = validate(
-        PROFILE_PATH.read_text(encoding="utf-8"),
+        MODEL_PATH.read_text(encoding="utf-8"),
         referenced_capabilities(SOURCE_ROOT),
         document,
     )

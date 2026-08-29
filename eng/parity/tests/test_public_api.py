@@ -124,11 +124,14 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
             "enforce only the minimum; newer untested versions may satisfy them"
         ),
         "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-        "capabilityProfileSelection": (
-            "exact parsed version identity only; no nearest-lower fallback"
+        "capabilitySelection": (
+            "named support intervals apply to every stable release at or above the "
+            "minimum; capabilities without a recorded end remain supported on later "
+            "stable releases"
         ),
-        "unknownCapabilityProfile": (
-            "a version may satisfy the minimum without an approved profile"
+        "unknownCapabilityVersion": (
+            "invalid, below-minimum, development, release-candidate, and next versions "
+            "have unknown capability state"
         ),
     },
 }
@@ -1192,7 +1195,7 @@ def test_rendered_api_exposes_declaration_and_invariant_details() -> None:
     assert "## TmuxVersion semantic contract" in markdown
     assert "`3.2a` inclusive" in markdown
     assert "`3.7b` is informational, not a support ceiling" in markdown
-    assert "Exact capability profiles never use nearest-lower fallback." in markdown
+    assert "Stable releases use named capability intervals." in markdown
     assert "the exact lowercase prefix `tmux `" in markdown
     assert '"nonzeroExit": "TmuxCommandException carrying Result"' in markdown
     assert "exact preserved patch, prerelease, development, vendor, or next" in markdown
@@ -2103,6 +2106,10 @@ def test_tmux_version_semantics_are_canonical_and_ledger_adaptation_is_explicit(
         "suffix projection."
     )
     support = version_type["versionContract"]["support"]
+    assert public_api["supportedTmuxVersions"]["minimum"] == "3.2a"
+    assert public_api["supportedTmuxVersions"]["stableSupport"] == (
+        "every canonical stable release at or above the minimum"
+    )
     required = public_api["supportedTmuxVersions"]["required"]
     assert support["minimum"] == required[0] == "3.2a"
     assert support["maximumTested"] == required[-1] == "3.7b"
@@ -2123,6 +2130,17 @@ def test_tmux_version_semantics_are_canonical_and_ledger_adaptation_is_explicit(
         "P:LibTmux.LibTmuxInfo.MaximumTestedTmuxVersion",
         "approved",
     )
+
+
+def test_validator_rejects_stable_tmux_support_drift() -> None:
+    """Reject an exact-list interpretation of the open-ended support floor."""
+    public_api = load_json(csharp_docs_root() / "public-api.json")
+    ledger = load_json(csharp_docs_root() / "parity" / "parity-ledger.json")
+    public_api["supportedTmuxVersions"]["stableSupport"] = "required versions only"
+
+    violations = api_validator()(public_api, ledger)
+
+    assert "invalid stable tmux support boundary" in violations
 
 
 def test_examples_are_canonical_coherent_and_executable_sources() -> None:

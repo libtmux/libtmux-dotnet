@@ -230,6 +230,7 @@ def render(contract: dict[str, t.Any]) -> str:
     True
     """
     required = ", ".join(contract["supportedTmuxVersions"]["required"])
+    minimum = contract["supportedTmuxVersions"]["minimum"]
     version_type = next(
         entry for entry in contract["types"] if entry["id"] == "T:LibTmux.TmuxVersion"
     )
@@ -240,7 +241,11 @@ def render(contract: dict[str, t.Any]) -> str:
         "> This is a reviewed contract. Production implementation and passing",
         "> evidence are intentionally absent at this boundary.",
         "",
-        "The API targets `net8.0` and `net10.0`. Required tmux compatibility is",
+        (
+            "The API targets `net8.0` and `net10.0`. Stable tmux releases from "
+            f"`{minimum}` onward are supported."
+        ),
+        "The required compatibility matrix covers",
         (
             f"{required}; tmux master is advisory and "
             f"`{contract['supportedTmuxVersions']['advisoryStatus']}`."
@@ -259,7 +264,7 @@ def render(contract: dict[str, t.Any]) -> str:
             "Minimum support is `3.2a` inclusive; `3.7b` is informational, "
             "not a support ceiling."
         ),
-        "Exact capability profiles never use nearest-lower fallback.",
+        "Stable releases use named capability intervals.",
         "The detection line starts with the exact lowercase prefix `tmux `.",
         "The complete parsing, ordering, detection, and support contract follows.",
         "",

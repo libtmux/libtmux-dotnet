@@ -1,8 +1,8 @@
 # LibTmux
 
-> **Alpha.** Ordinary tmux behavior is gated against tmux 3.2a through 3.7b;
-> the API shape is not settled. The [psmux preview](psmux.md) is experimental
-> and query-only.
+> **Alpha.** Stable tmux 3.2a and newer are supported; the required matrix
+> builds 3.2a through 3.7b. The API shape is not settled. The
+> [psmux preview](psmux.md) is experimental and query-only.
 
 A .NET class library for tmux. The three ordinary execution modes reach a real
 tmux server, and the mode is visible where the call starts. The psmux preview

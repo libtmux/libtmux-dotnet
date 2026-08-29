@@ -280,8 +280,8 @@ depends on a login profile or the non-login `wsl.exe --exec` search path.
   raw commands are absent from the public preview.
 - `Server.FromEnvironment()` rejects psmux markers and fake psmux `TMUX` paths;
   it never falls back to an installed `psmux.exe` or fake tmux `-S` routing.
-- Numeric version `3.3.8` has no tmux capability profile. Optional tmux flags
-  remain disabled rather than being inferred from a nearby release.
+- The numeric `3.3.8` banner does not widen the psmux surface. Its separate
+  typed facade and command allowlist expose only the audited query operations.
 
 This is a core one-shot query preview. `LibTmux.Workspace` and the creation
 helpers in `LibTmux.Testing` are unavailable. `LibTmux.Mcp` is also unavailable

@@ -8,7 +8,7 @@
 
 Drive [tmux](https://github.com/tmux/tmux) from .NET. Servers, sessions,
 windows, panes, clients, options, hooks and buffers, typed and asynchronous,
-against every tmux from **3.2a to 3.7b** on **net8.0** and **net10.0**.
+for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 
 > **Alpha.** Releases carry an `-alpha` prerelease tag. The API is not
 > settled, and any release may change or remove exported identifiers without a
@@ -227,7 +227,7 @@ TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```
 
-Every difference between 3.2a and 3.7b is [recorded with the test that proves
+Every measured difference between 3.2a and 3.7b is [recorded with the test that proves
 it](docs/parity/version-deltas.json), and [dotnet-tmux.yml](.github/workflows/dotnet-tmux.yml)
 builds all seven from source on every commit.
 
@@ -296,7 +296,7 @@ never reaches the model's list.
 
 | | |
 |---|---|
-| tmux | 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b |
+| tmux | Stable 3.2a and newer. CI builds 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, and 3.7b; development, release-candidate, and `next-*` versions have unknown capability state |
 | .NET | net8.0, net10.0 |
 | OS | Linux, macOS. The bounded [`Psmux*` native-Windows and WSL query preview](docs/psmux.md) is experimental; its release gate runs both paths on net8.0 and net10.0 |
 | Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. That proof does not cover the other packages, macOS, or native Windows/psmux |

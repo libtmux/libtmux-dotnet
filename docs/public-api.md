@@ -3,7 +3,8 @@
 > This is a reviewed contract. Production implementation and passing
 > evidence are intentionally absent at this boundary.
 
-The API targets `net8.0` and `net10.0`. Required tmux compatibility is
+The API targets `net8.0` and `net10.0`. Stable tmux releases from `3.2a` onward are supported.
+The required compatibility matrix covers
 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b; tmux master is advisory and `unknown`.
 Native Windows tmux execution is unsupported. IDs, snapshots, local query
 evaluation, JSON, and pure test helpers remain portable.
@@ -16,7 +17,7 @@ zero-argument methods.
 ## TmuxVersion semantic contract
 
 Minimum support is `3.2a` inclusive; `3.7b` is informational, not a support ceiling.
-Exact capability profiles never use nearest-lower fallback.
+Stable releases use named capability intervals.
 The detection line starts with the exact lowercase prefix `tmux `.
 The complete parsing, ordering, detection, and support contract follows.
 
@@ -114,8 +115,8 @@ The complete parsing, ordering, detection, and support contract follows.
     "maximumTestedSemantics": "informational; not a support ceiling",
     "minimumChecks": "enforce only the minimum; newer untested versions may satisfy them",
     "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-    "capabilityProfileSelection": "exact parsed version identity only; no nearest-lower fallback",
-    "unknownCapabilityProfile": "a version may satisfy the minimum without an approved profile"
+    "capabilitySelection": "named support intervals apply to every stable release at or above the minimum; capabilities without a recorded end remain supported on later stable releases",
+    "unknownCapabilityVersion": "invalid, below-minimum, development, release-candidate, and next versions have unknown capability state"
   }
 }
 ```

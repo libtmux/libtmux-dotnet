@@ -4,6 +4,9 @@
 
 Accepted as the production implementation contract.
 
+ADR 0005 supersedes this decision's exact capability-profile selection rule
+and closed stable-version support boundary.
+
 This decision approves names, signatures, ownership, package placement, and
 parity destinations. It does not claim that production code or behavioral
 evidence exists. Every parity row remains `implementationStatus=not_started`

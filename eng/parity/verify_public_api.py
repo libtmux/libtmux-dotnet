@@ -168,11 +168,14 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
             "enforce only the minimum; newer untested versions may satisfy them"
         ),
         "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-        "capabilityProfileSelection": (
-            "exact parsed version identity only; no nearest-lower fallback"
+        "capabilitySelection": (
+            "named support intervals apply to every stable release at or above the "
+            "minimum; capabilities without a recorded end remain supported on later "
+            "stable releases"
         ),
-        "unknownCapabilityProfile": (
-            "a version may satisfy the minimum without an approved profile"
+        "unknownCapabilityVersion": (
+            "invalid, below-minimum, development, release-candidate, and next versions "
+            "have unknown capability state"
         ),
     },
 }
@@ -431,6 +434,12 @@ def validate_header(contract: dict[str, t.Any], violations: list[str]) -> None:
     if contract.get("supportedTargetFrameworks") != ["net8.0", "net10.0"]:
         violations.append("invalid target framework boundary")
     versions = t.cast(dict[str, t.Any], contract.get("supportedTmuxVersions", {}))
+    if (
+        versions.get("minimum") != "3.2a"
+        or versions.get("stableSupport")
+        != "every canonical stable release at or above the minimum"
+    ):
+        violations.append("invalid stable tmux support boundary")
     if versions.get("required") != [
         "3.2a",
         "3.3a",
