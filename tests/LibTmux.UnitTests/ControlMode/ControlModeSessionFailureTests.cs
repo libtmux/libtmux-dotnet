@@ -66,7 +66,7 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(
             process,
             writeLock,
-            TimeSpan.FromMilliseconds(25));
+            TimeSpan.FromMilliseconds(250));
 
         await session.WaitForReadyAsync(token);
         Task<IReadOnlyList<string>> send = session.SendAsync(
@@ -115,7 +115,7 @@ public sealed class ControlModeSessionFailureTests
         var process = new StalledWriteProcess();
         var session = new ControlModeSession(
             process,
-            exitBudget: TimeSpan.FromMilliseconds(25),
+            disposalBudget: TimeSpan.FromMilliseconds(250),
             limits: new ControlModeLimits(maxPendingCommands: 2));
         await session.WaitForReadyAsync(token);
 

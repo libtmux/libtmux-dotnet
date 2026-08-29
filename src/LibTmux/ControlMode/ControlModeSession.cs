@@ -19,9 +19,10 @@ internal sealed class ControlModeSession : IControlModeSession
 {
     private readonly IControlModeProcess _process;
     private readonly ServerGeneration? _generation;
-    private readonly TimeSpan _exitBudget;
+    private readonly TimeSpan _disposalBudget;
     private readonly ControlModeLimits _limits;
     private readonly Func<string> _sentinelFactory;
+    private readonly TimeProvider _timeProvider;
     /// <summary>How many unread events are held before the oldest are dropped.</summary>
     /// <remarks>
     /// A pane can outpace any reader, and a caller may never read
@@ -44,21 +45,21 @@ internal sealed class ControlModeSession : IControlModeSession
     private Task? _disposeTask;
     private int _stopRequested;
 
-    /// <summary>How long disposal waits for the client to exit before killing it.</summary>
+    /// <summary>How long disposal awaits cleanup work.</summary>
     /// <remarks>
-    /// Closing stdin asks tmux to leave. A client that does not answer -- wedged,
-    /// stopped, or waiting on something -- would otherwise hang the caller's
-    /// disposal forever, and disposal is the one operation that has to finish.
+    /// Process state, close, kill, and dispose calls are synchronous. This
+    /// bounds the waits they begin; it cannot preempt a synchronous process API.
     /// </remarks>
-    private static readonly TimeSpan DefaultExitBudget = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DefaultDisposalBudget = TimeSpan.FromSeconds(5);
 
     internal ControlModeSession(
         IControlModeProcess process,
         SemaphoreSlim? writeLock = null,
-        TimeSpan? exitBudget = null,
+        TimeSpan? disposalBudget = null,
         ServerGeneration? generation = null,
         Func<string>? sentinelFactory = null,
-        ControlModeLimits? limits = null)
+        ControlModeLimits? limits = null,
+        TimeProvider? timeProvider = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
         _generation = generation;
@@ -67,11 +68,12 @@ internal sealed class ControlModeSession : IControlModeSession
             _limits.MaxPendingCommands,
             _limits.MaxPendingCommands);
         _writeLock = writeLock ?? new SemaphoreSlim(1, 1);
-        _exitBudget = exitBudget ?? DefaultExitBudget;
+        _disposalBudget = disposalBudget ?? DefaultDisposalBudget;
         _sentinelFactory = sentinelFactory ?? CreateSentinel;
-        if (_exitBudget <= TimeSpan.Zero)
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        if (_disposalBudget <= TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(exitBudget));
+            throw new ArgumentOutOfRangeException(nameof(disposalBudget));
         }
 
         _pump = Task.Run(PumpAsync);
@@ -344,227 +346,12 @@ internal sealed class ControlModeSession : IControlModeSession
         await disposal.ConfigureAwait(false);
     }
 
-    private async Task DisposeCoreAsync()
-    {
-        var cleanupFailures = new List<Exception>();
-        bool writeLockHeld = false;
-        try
-        {
-            writeLockHeld = await _writeLock.WaitAsync(_exitBudget).ConfigureAwait(false);
-            if (!writeLockHeld)
-            {
-                await StopProcessAsync(cleanupFailures, forceStop: true).ConfigureAwait(false);
-                writeLockHeld = await _writeLock.WaitAsync(_exitBudget).ConfigureAwait(false);
-                if (!writeLockHeld)
-                {
-                    cleanupFailures.Add(new TimeoutException(
-                        "The active control-mode write did not stop after its client was killed."));
-                }
-            }
-            else
-            {
-                await StopProcessAsync(cleanupFailures, forceStop: false).ConfigureAwait(false);
-            }
-
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-        }
-        finally
-        {
-            if (writeLockHeld)
-            {
-                try
-                {
-                    _writeLock.Release();
-                }
-                catch (Exception error)
-                {
-                    cleanupFailures.Add(error);
-                }
-            }
-        }
-
-        Exception? pumpFailure = null;
-        try
-        {
-            await _pump.WaitAsync(_exitBudget).ConfigureAwait(false);
-        }
-        catch (Exception error)
-        {
-            pumpFailure = error;
-        }
-
-        using (var errorPumpBudget = new CancellationTokenSource(_exitBudget))
-        {
-            try
-            {
-                await _process.StopErrorPumpAsync(errorPumpBudget.Token).ConfigureAwait(false);
-            }
-            catch (Exception error)
-            {
-                cleanupFailures.Add(error);
-            }
-        }
-
-        try
-        {
-            _process.Dispose();
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-        }
-
-        try
-        {
-            if (writeLockHeld)
-            {
-                _writeLock.Dispose();
-            }
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-        }
-
-        ThrowDisposalFailures(pumpFailure, cleanupFailures);
-    }
-
-    private async Task StopProcessAsync(
-        List<Exception> cleanupFailures,
-        bool forceStop)
-    {
-        bool hasExited;
-        try
-        {
-            hasExited = _process.HasExited;
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-            hasExited = false;
-        }
-
-        if (hasExited)
-        {
-            return;
-        }
-
-        if (!forceStop)
-        {
-            try
-            {
-                _process.CloseInput();
-            }
-            catch (InvalidOperationException) when (ProcessHasExited())
-            {
-                return;
-            }
-            catch (Exception error)
-            {
-                cleanupFailures.Add(error);
-            }
-
-            using var budget = new CancellationTokenSource(_exitBudget);
-            try
-            {
-                await _process.WaitForExitAsync(budget.Token).ConfigureAwait(false);
-                return;
-            }
-            catch (OperationCanceledException) when (budget.IsCancellationRequested)
-            {
-                forceStop = true;
-            }
-            catch (InvalidOperationException) when (ProcessHasExited())
-            {
-                return;
-            }
-            catch (Exception error)
-            {
-                cleanupFailures.Add(error);
-                forceStop = true;
-            }
-        }
-
-        if (!forceStop)
-        {
-            return;
-        }
-
-        // Kills only the client, not its process tree: its server may still be
-        // serving other clients.
-        try
-        {
-            if (!ProcessHasExited())
-            {
-                _process.Kill();
-            }
-        }
-        catch (InvalidOperationException) when (ProcessHasExited())
-        {
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-        }
-
-        using var forceBudget = new CancellationTokenSource(_exitBudget);
-        try
-        {
-            await _process.WaitForExitAsync(forceBudget.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (forceBudget.IsCancellationRequested)
-        {
-            cleanupFailures.Add(new TimeoutException(
-                "The control-mode client did not exit after it was killed."));
-        }
-        catch (InvalidOperationException) when (ProcessHasExited())
-        {
-        }
-        catch (Exception error)
-        {
-            cleanupFailures.Add(error);
-        }
-    }
-
-    private bool ProcessHasExited()
-    {
-        try
-        {
-            return _process.HasExited;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static void ThrowDisposalFailures(
-        Exception? pumpFailure,
-        List<Exception> cleanupFailures)
-    {
-        if (pumpFailure is not null)
-        {
-            if (cleanupFailures.Count == 0)
-            {
-                ExceptionDispatchInfo.Capture(pumpFailure).Throw();
-            }
-
-            throw new AggregateException([pumpFailure, .. cleanupFailures]);
-        }
-
-        if (cleanupFailures.Count == 1)
-        {
-            ExceptionDispatchInfo.Capture(cleanupFailures[0]).Throw();
-        }
-
-        if (cleanupFailures.Count > 1)
-        {
-            throw new AggregateException(cleanupFailures);
-        }
-    }
+    private Task DisposeCoreAsync() => new ControlModeDisposer(
+        _process,
+        _writeLock,
+        _pump,
+        _disposalBudget,
+        _timeProvider).DisposeAsync();
 
     private void ThrowIfStopping() =>
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopRequested) != 0, this);
