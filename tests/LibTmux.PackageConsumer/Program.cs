@@ -3,6 +3,7 @@ using System.Text;
 using LibTmux.Query;
 using LibTmux.Query.Json;
 using LibTmux.Testing;
+using LibTmux.Workspace;
 
 namespace LibTmux.PackageConsumer;
 
@@ -21,6 +22,22 @@ internal static class Program
         bool queryRoundTrips = QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
         Console.WriteLine($"query-json {queryRoundTrips}");
         if (!queryRoundTrips)
+        {
+            return 1;
+        }
+
+        WorkspaceFile workspace = WorkspaceFile.Parse(
+            """
+            session_name: package
+            windows:
+              - window_name: main
+                panes:
+                  - shell_command: echo package
+            """);
+        bool workspaceParses = workspace.SessionName == "package"
+            && workspace.Windows is [{ Panes: [{ ShellCommands: ["echo package"] }] }];
+        Console.WriteLine($"workspace-parse {workspaceParses}");
+        if (!workspaceParses)
         {
             return 1;
         }

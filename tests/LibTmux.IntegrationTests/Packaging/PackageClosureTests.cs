@@ -101,6 +101,7 @@ public sealed class PackageClosureTests
 
             Assert.Contains("captured True", output, StringComparison.Ordinal);
             Assert.Contains("query-json True", output, StringComparison.Ordinal);
+            Assert.Contains("workspace-parse True", output, StringComparison.Ordinal);
         }
     }
 
