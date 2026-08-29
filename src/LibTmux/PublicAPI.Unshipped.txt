@@ -1320,7 +1320,7 @@ LibTmux.WindowRotationDirection.Up = 0 -> LibTmux.WindowRotationDirection
 abstract LibTmux.Query.QueryConstant.<Clone>$() -> LibTmux.Query.QueryConstant!
 abstract LibTmux.Query.QueryNode.<Clone>$() -> LibTmux.Query.QueryNode!
 abstract LibTmux.TmuxEvent.<Clone>$() -> LibTmux.TmuxEvent!
-const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux.query" -> string!
+const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
 const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
 override LibTmux.AttachSessionRequest.Equals(object? obj) -> bool
 override LibTmux.AttachSessionRequest.GetHashCode() -> int

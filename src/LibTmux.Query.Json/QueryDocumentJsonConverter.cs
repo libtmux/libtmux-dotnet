@@ -123,22 +123,22 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
 
     private static string Wire(QueryComparison comparison) => comparison switch
     {
-        QueryComparison.Equal => "eq",
-        QueryComparison.NotEqual => "ne",
-        QueryComparison.LessThan => "lt",
-        QueryComparison.LessThanOrEqual => "le",
-        QueryComparison.GreaterThan => "gt",
-        QueryComparison.GreaterThanOrEqual => "ge",
+        QueryComparison.Equal => "equal",
+        QueryComparison.NotEqual => "notEqual",
+        QueryComparison.LessThan => "lessThan",
+        QueryComparison.LessThanOrEqual => "lessThanOrEqual",
+        QueryComparison.GreaterThan => "greaterThan",
+        QueryComparison.GreaterThanOrEqual => "greaterThanOrEqual",
         _ => throw new JsonException("Query document names an unknown comparison."),
     };
 
     private static string Wire(QueryStringOperation operation) => operation switch
     {
-        QueryStringOperation.EqualsOrdinal => "equals",
-        QueryStringOperation.EqualsOrdinalIgnoreCase => "equalsIgnoreCase",
-        QueryStringOperation.StartsWithOrdinal => "startsWith",
-        QueryStringOperation.EndsWithOrdinal => "endsWith",
-        QueryStringOperation.ContainsOrdinal => "contains",
+        QueryStringOperation.EqualsOrdinal => "stringEqualOrdinal",
+        QueryStringOperation.EqualsOrdinalIgnoreCase => "stringEqualOrdinalIgnoreCase",
+        QueryStringOperation.StartsWithOrdinal => "startsWithOrdinal",
+        QueryStringOperation.EndsWithOrdinal => "endsWithOrdinal",
+        QueryStringOperation.ContainsOrdinal => "containsOrdinal",
         _ => throw new JsonException("Query document names an unknown string operation."),
     };
 
@@ -186,7 +186,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 WritePair(writer, comparison.Left, comparison.Right, depth);
                 break;
             case StringNode text:
-                writer.WriteString("kind", "string");
+                writer.WriteString("kind", "comparison");
                 writer.WriteString("operator", Wire(text.Operator));
                 WritePair(writer, text.Left, text.Right, depth);
                 break;
@@ -206,10 +206,11 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
             case FieldNode field:
                 writer.WriteString("kind", "field");
                 writer.WriteString("target", Wire(field.Target));
-                WriteBoundedString(writer, "name", field.WireName, "Field wire name");
+                WriteBoundedString(writer, "wireName", field.WireName, "Field wire name");
                 break;
             case ConstantNode constant:
                 writer.WriteString("kind", "constant");
+                writer.WritePropertyName("value");
                 WriteConstant(writer, constant.Value);
                 break;
             default:
@@ -224,11 +225,11 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryJsonWireRules.ValidateRegex(regex, _limits);
 
         writer.WriteString("kind", "regex");
+        writer.WritePropertyName("input");
+        WriteNode(writer, regex.Input, depth + 1);
         writer.WriteString("dialect", regex.Dialect);
         writer.WriteString("pattern", regex.Pattern);
         writer.WriteNumber("semanticOptions", (int)regex.SemanticOptions);
-        writer.WritePropertyName("input");
-        WriteNode(writer, regex.Input, depth + 1);
     }
 
     private void WriteOperands(
@@ -262,42 +263,44 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
             throw new JsonException("Query document contains a null constant.");
         }
 
+        writer.WriteStartObject();
         switch (constant)
         {
             case NullConstant:
-                writer.WriteString("type", "null");
-                writer.WriteNull("value");
+                writer.WriteString("kind", "null");
                 break;
             case BooleanConstant boolean:
-                writer.WriteString("type", "boolean");
+                writer.WriteString("kind", "boolean");
                 writer.WriteBoolean("value", boolean.Value);
                 break;
             case Int64Constant number:
-                writer.WriteString("type", "int64");
+                writer.WriteString("kind", "int64");
                 writer.WriteNumber("value", number.Value);
                 break;
             case StringConstant text:
-                writer.WriteString("type", "string");
+                writer.WriteString("kind", "string");
                 WriteBoundedString(writer, "value", text.Value, "String value");
                 break;
             case InstantConstant instant:
-                writer.WriteString("type", "instant");
-                writer.WriteNumber("value", instant.UnixSeconds);
+                writer.WriteString("kind", "instant");
+                writer.WriteNumber("unixSeconds", instant.UnixSeconds);
                 break;
             case EnumConstant member:
-                writer.WriteString("type", "enum");
-                WriteBoundedString(writer, "enumType", member.Type, "Enum type");
-                WriteBoundedString(writer, "value", member.Value, "Enum value");
+                writer.WriteString("kind", "enum");
+                WriteBoundedString(writer, "type", member.Type, "Enum type");
+                WriteBoundedString(writer, "token", member.Value, "Enum value");
                 break;
             case TypedIdConstant id:
-                writer.WriteString("type", "typedId");
-                writer.WriteString("target", Wire(id.Target));
+                writer.WriteString("kind", "typedId");
+                writer.WriteString("type", Wire(id.Target));
                 WriteBoundedString(writer, "value", id.Value, "Typed ID value");
                 break;
             default:
                 throw new JsonException(
                     $"Constant '{constant.GetType().Name}' has no v1 wire form.");
         }
+
+        writer.WriteEndObject();
     }
 
     private void WriteBoundedString(
@@ -350,14 +353,7 @@ internal sealed class QueryDocumentJsonReader
             "and" => new AndNode([.. ReadOperands(element, depth)]),
             "or" => new OrNode([.. ReadOperands(element, depth)]),
             "not" => new NotNode(ReadNode(element.GetProperty("operand"), depth + 1)),
-            "comparison" => new ComparisonNode(
-                ReadComparison(element.GetProperty("operator")),
-                ReadNode(element.GetProperty("left"), depth + 1),
-                ReadNode(element.GetProperty("right"), depth + 1)),
-            "string" => new StringNode(
-                ReadStringOperation(element.GetProperty("operator")),
-                ReadNode(element.GetProperty("left"), depth + 1),
-                ReadNode(element.GetProperty("right"), depth + 1)),
+            "comparison" => ReadComparisonNode(element, depth),
             "regex" => new RegexNode(
                 ReadNode(element.GetProperty("input"), depth + 1),
                 ReadDialect(element.GetProperty("dialect")),
@@ -369,8 +365,8 @@ internal sealed class QueryDocumentJsonReader
                 ReadNode(element.GetProperty("predicate"), depth + 1)),
             "field" => new FieldNode(
                 ReadTarget(element.GetProperty("target")),
-                ReadBoundedString(element.GetProperty("name"), "Field wire name")),
-            "constant" => new ConstantNode(ReadConstant(element)),
+                ReadBoundedString(element.GetProperty("wireName"), "Field wire name")),
+            "constant" => new ConstantNode(ReadConstant(element.GetProperty("value"))),
             _ => throw new JsonException("Query document names an unknown node kind."),
         };
     }
@@ -430,28 +426,34 @@ internal sealed class QueryDocumentJsonReader
             : throw new JsonException("String value exceeds the maximum length.");
     }
 
-    private static QueryComparison ReadComparison(JsonElement element) =>
-        element.GetString() switch
+    private QueryNode ReadComparisonNode(JsonElement element, int depth)
+    {
+        string? operation = element.GetProperty("operator").GetString();
+        QueryNode left = ReadNode(element.GetProperty("left"), depth + 1);
+        QueryNode right = ReadNode(element.GetProperty("right"), depth + 1);
+        return operation switch
         {
-            "eq" => QueryComparison.Equal,
-            "ne" => QueryComparison.NotEqual,
-            "lt" => QueryComparison.LessThan,
-            "le" => QueryComparison.LessThanOrEqual,
-            "gt" => QueryComparison.GreaterThan,
-            "ge" => QueryComparison.GreaterThanOrEqual,
+            "equal" => new ComparisonNode(QueryComparison.Equal, left, right),
+            "notEqual" => new ComparisonNode(QueryComparison.NotEqual, left, right),
+            "lessThan" => new ComparisonNode(QueryComparison.LessThan, left, right),
+            "lessThanOrEqual" =>
+                new ComparisonNode(QueryComparison.LessThanOrEqual, left, right),
+            "greaterThan" => new ComparisonNode(QueryComparison.GreaterThan, left, right),
+            "greaterThanOrEqual" =>
+                new ComparisonNode(QueryComparison.GreaterThanOrEqual, left, right),
+            "stringEqualOrdinal" =>
+                new StringNode(QueryStringOperation.EqualsOrdinal, left, right),
+            "stringEqualOrdinalIgnoreCase" =>
+                new StringNode(QueryStringOperation.EqualsOrdinalIgnoreCase, left, right),
+            "startsWithOrdinal" =>
+                new StringNode(QueryStringOperation.StartsWithOrdinal, left, right),
+            "endsWithOrdinal" =>
+                new StringNode(QueryStringOperation.EndsWithOrdinal, left, right),
+            "containsOrdinal" =>
+                new StringNode(QueryStringOperation.ContainsOrdinal, left, right),
             _ => throw new JsonException("Query document names an unknown comparison."),
         };
-
-    private static QueryStringOperation ReadStringOperation(JsonElement element) =>
-        element.GetString() switch
-        {
-            "equals" => QueryStringOperation.EqualsOrdinal,
-            "equalsIgnoreCase" => QueryStringOperation.EqualsOrdinalIgnoreCase,
-            "startsWith" => QueryStringOperation.StartsWithOrdinal,
-            "endsWith" => QueryStringOperation.EndsWithOrdinal,
-            "contains" => QueryStringOperation.ContainsOrdinal,
-            _ => throw new JsonException("Query document names an unknown string operation."),
-        };
+    }
 
     private static QueryQuantifier ReadQuantifier(JsonElement element) =>
         element.GetString() switch
@@ -462,18 +464,18 @@ internal sealed class QueryDocumentJsonReader
         };
 
     private QueryConstant ReadConstant(JsonElement element) =>
-        element.GetProperty("type").GetString() switch
+        element.GetProperty("kind").GetString() switch
         {
             "null" => new NullConstant(),
             "boolean" => new BooleanConstant(element.GetProperty("value").GetBoolean()),
             "int64" => new Int64Constant(element.GetProperty("value").GetInt64()),
             "string" => new StringConstant(ReadBoundedString(element.GetProperty("value"))),
-            "instant" => new InstantConstant(element.GetProperty("value").GetInt64()),
+            "instant" => new InstantConstant(element.GetProperty("unixSeconds").GetInt64()),
             "enum" => new EnumConstant(
-                ReadBoundedString(element.GetProperty("enumType"), "Enum type"),
-                ReadBoundedString(element.GetProperty("value"), "Enum value")),
+                ReadBoundedString(element.GetProperty("type"), "Enum type"),
+                ReadBoundedString(element.GetProperty("token"), "Enum value")),
             "typedId" => new TypedIdConstant(
-                ReadTarget(element.GetProperty("target")),
+                ReadTarget(element.GetProperty("type")),
                 ReadBoundedString(element.GetProperty("value"), "Typed ID value")),
             _ => throw new JsonException("Query document names an unknown constant type."),
         };

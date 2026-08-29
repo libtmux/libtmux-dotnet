@@ -11,13 +11,16 @@ namespace LibTmux.UnitTests.Query;
 /// </remarks>
 public sealed class QueryJsonTrustBoundaryTests
 {
-    private static string Document(string predicate, string schema = "libtmux.query", int version = 1) =>
+    private static string Document(
+        string predicate,
+        string schema = QueryDocument.CurrentSchema,
+        int version = 1) =>
         $$"""
         {"schema":"{{schema}}","version":{{version}},"target":"session","predicate":{{predicate}}}
         """;
 
     private const string TrivialPredicate =
-        """{"kind":"constant","type":"boolean","value":true}""";
+        """{"kind":"constant","value":{"kind":"boolean","value":true}}""";
 
     [Fact]
     public void A_document_naming_another_schema_is_refused()
@@ -43,7 +46,8 @@ public sealed class QueryJsonTrustBoundaryTests
     public void A_string_longer_than_the_limit_is_refused_on_the_way_in()
     {
         string oversized = new('a', QueryJsonLimits.V1.MaximumStringLength + 1);
-        string json = Document($$"""{"kind":"constant","type":"string","value":"{{oversized}}"}""");
+        string json = Document(
+            $$"""{"kind":"constant","value":{"kind":"string","value":"{{oversized}}" } }""");
 
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
@@ -54,7 +58,7 @@ public sealed class QueryJsonTrustBoundaryTests
         string oversized = new('a', QueryJsonLimits.V1.MaximumPatternLength + 1);
         string json = Document(
             $$"""
-            {"kind":"regex","input":{"kind":"field","target":"session","name":"session_name"},
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
              "dialect":"dotnet","pattern":"{{oversized}}","semanticOptions":0}
             """);
 
@@ -66,7 +70,7 @@ public sealed class QueryJsonTrustBoundaryTests
     {
         string json = Document(
             """
-            {"kind":"regex","input":{"kind":"field","target":"session","name":"session_name"},
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
              "dialect":"pcre","pattern":"^a","semanticOptions":0}
             """);
 
@@ -80,7 +84,7 @@ public sealed class QueryJsonTrustBoundaryTests
         // RegexOptions.NonBacktracking, which this library's translation never emits.
         string json = Document(
             """
-            {"kind":"regex","input":{"kind":"field","target":"session","name":"session_name"},
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
              "dialect":"dotnet","pattern":"^a","semanticOptions":1024}
             """);
 
@@ -93,22 +97,22 @@ public sealed class QueryJsonTrustBoundaryTests
         string json = Document(
             """
             {"kind":"quantifier","quantifier":"sometimes",
-             "relation":{"kind":"field","target":"session","name":"session_windows"},
-             "predicate":{"kind":"constant","type":"boolean","value":true}}
+             "relation":{"kind":"field","target":"session","wireName":"session_windows"},
+             "predicate":{"kind":"constant","value":{"kind":"boolean","value":true}}}
             """);
 
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
 
     [Theory]
-    [InlineData("string", "\"value\":null")]
-    [InlineData("enum", "\"enumType\":null,\"value\":\"Ready\"")]
-    [InlineData("enum", "\"enumType\":\"State\",\"value\":null")]
-    [InlineData("typedId", "\"target\":\"session\",\"value\":null")]
-    public void Null_constant_text_is_refused(string type, string members)
+    [InlineData("\"kind\":\"string\",\"value\":null")]
+    [InlineData("\"kind\":\"enum\",\"type\":null,\"token\":\"Ready\"")]
+    [InlineData("\"kind\":\"enum\",\"type\":\"State\",\"token\":null")]
+    [InlineData("\"kind\":\"typedId\",\"type\":\"session\",\"value\":null")]
+    public void Null_constant_text_is_refused(string members)
     {
         string json = Document(
-            $$"""{"kind":"constant","type":"{{type}}",{{members}}}""");
+            $$"""{"kind":"constant","value":{ {{members}} } }""");
 
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
@@ -118,7 +122,7 @@ public sealed class QueryJsonTrustBoundaryTests
     {
         string json = Document(
             """
-            {"kind":"regex","input":{"kind":"field","target":"session","name":"session_name"},
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
              "dialect":null,"pattern":"^a","semanticOptions":0}
             """);
 

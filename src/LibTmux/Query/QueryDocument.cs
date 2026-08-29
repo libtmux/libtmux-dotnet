@@ -17,7 +17,7 @@ public sealed record QueryDocument(
     QueryNode Predicate)
 {
     /// <summary>The current wire schema identifier.</summary>
-    public const string CurrentSchema = "libtmux.query";
+    public const string CurrentSchema = "libtmux-query";
 
     /// <summary>The current wire schema version.</summary>
     public const int CurrentVersion = 1;

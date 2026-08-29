@@ -54,6 +54,20 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
+    public void The_wire_matches_the_accepted_version_one_golden()
+    {
+        const string expected =
+            """
+            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"comparison","operator":"containsOrdinal","left":{"kind":"field","target":"session","wireName":"session_name"},"right":{"kind":"constant","value":{"kind":"string","value":"dev"}}}}
+            """;
+        QueryDocument document =
+            QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
+
+        Assert.Equal(expected, QueryJson.Serialize(document));
+        Assert.Equal(document, QueryJson.Deserialize(expected));
+    }
+
+    [Fact]
     public void Limits_may_tighten_the_frozen_ceilings_but_never_widen_them()
     {
         QueryDocument document =
@@ -84,7 +98,7 @@ public sealed class QueryJsonTests
     public void An_unknown_node_kind_is_refused_rather_than_guessed()
     {
         const string json =
-            """{"schema":"libtmux.query","version":1,"target":"session","predicate":{"kind":"telepathy"}}""";
+            """{"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"telepathy"}}""";
 
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
