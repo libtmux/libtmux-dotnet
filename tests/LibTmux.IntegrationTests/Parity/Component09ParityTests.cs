@@ -50,14 +50,14 @@ public sealed class Component09ParityTests
         QueryDocument document =
             QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
         IReadOnlyList<Session> sessions = await server.GetSessionsAsync(token);
-        Func<IReadOnlyDictionary<string, string?>, bool> predicate =
-            document.Compile<IReadOnlyDictionary<string, string?>>();
+        Func<Session, bool> predicate = document.Compile<Session>();
         Assert.NotNull(predicate);
 
         return document.Target == QueryTarget.Session
             && document.Schema == QueryDocument.CurrentSchema
             && document.Version == QueryDocument.CurrentVersion
             && sessions.Count == 1
-            && sessions[0].Snapshot?["session_name"] == "devbox";
+            && sessions[0].Snapshot?["session_name"] == "devbox"
+            && predicate(sessions[0]);
     }
 }
