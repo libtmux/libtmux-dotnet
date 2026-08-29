@@ -6,6 +6,10 @@ namespace LibTmux.Internal;
 /// a home directory to it: the call fails and tmux silently falls back to its
 /// own default, leaving the pane somewhere the caller never asked for. Only a
 /// shell expands the tilde, and there is no shell in this path.
+/// <para>
+/// tmux also expands the value as a format, in the spawn path every command
+/// that takes <c>-c</c> shares, so a <c>#</c> in it does not reach chdir.
+/// </para>
 /// </remarks>
 internal static class StartDirectory
 {

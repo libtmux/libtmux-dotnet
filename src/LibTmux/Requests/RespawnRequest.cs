@@ -36,6 +36,10 @@ public sealed record RespawnRequest
     public string? Command { get; }
 
     /// <summary>Gets the working directory to respawn in.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it changes directory, so a <c>#</c>
+    /// in it does not survive verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets the environment entries set on the respawned target.</summary>

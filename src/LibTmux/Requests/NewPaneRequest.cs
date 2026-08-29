@@ -79,6 +79,10 @@ public sealed record NewPaneRequest
     public string? Target { get; }
 
     /// <summary>Gets the working directory for the new pane.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it changes directory, so a <c>#</c>
+    /// in it does not survive verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets whether the new pane becomes active.</summary>

@@ -69,6 +69,10 @@ public sealed record NewSessionRequest
     public bool Attach { get; }
 
     /// <summary>Gets the working directory for the first pane.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it changes directory, so a <c>#</c>
+    /// in it does not survive verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets the name of the first window.</summary>

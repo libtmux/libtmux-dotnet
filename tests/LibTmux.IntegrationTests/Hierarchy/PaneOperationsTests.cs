@@ -557,6 +557,15 @@ public sealed class PaneOperationsTests
 
         Assert.Equal(pane.Id.ToString(), titled.Title);
         Assert.Equal($"x{pane.Id}", renamed.Name);
+
+        // The start directory goes the same way, in the spawn path every
+        // command taking -c shares rather than in any one of them.
+        Pane spawned = await pane.SplitAsync(
+            new SplitPaneRequest(startDirectory: "/tmp/#{session_name}-absent"),
+            token);
+        Assert.NotEqual(
+            "/tmp/#{session_name}-absent",
+            await FormatAsync(spawned, "#{pane_start_path}", token));
     }
 
     [UnixFact]
