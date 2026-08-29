@@ -1,4 +1,4 @@
-# ADR 0003: Generated closed query catalog
+# ADR 0003: Closed query catalog
 
 ## Status
 
@@ -15,6 +15,15 @@ remains the explicit native escape hatch and makes no equivalence guarantee.
 
 The remote-planning results and graft list below are historical bakeoff evidence,
 not unimplemented production requirements.
+
+The production catalog is checked-in code rather than a private analyzer
+project. The imported generator had become a post-initialization emitter over a
+hard-coded table and retained none of the bakeoff contender's `LTQG001`–`LTQG008`
+integrity diagnostics. Keeping that extra build project therefore added an
+indirection without the property that selected it. One immutable field table
+now owns target, value kind, relation, CLR property, and bound accessors. A
+unit contract compares those entries with the shipped JSON Schema, and the
+package NativeAOT smoke exercises the table.
 
 ## Context
 
@@ -51,10 +60,9 @@ not metadata-free execution.
 
 ## Decision
 
-Use a source-generated closed field catalog with one immutable canonical query
-AST shared by expression translation, direct local interpretation, and JSON.
-The production generator and emitted catalog are internal implementation
-details; public API does not expose contender or generator vocabulary.
+Use a closed field catalog with one immutable canonical query AST shared by
+expression translation, direct local interpretation, and JSON. The catalog is
+an internal implementation detail; public API does not expose its vocabulary.
 
 Public query entry points do not require a catalog or capability object. Query
 translation and interpretation are independent of the connected tmux version.
@@ -152,8 +160,8 @@ not thresholds.
 The production implementation retains the parts that serve local portable
 queries:
 
-- An internal generator and generated catalog over the approved production
-  snapshots, with the exact closed manifest retained as a compile-time test.
+- One internal immutable catalog over the approved production snapshots, with
+  its field manifest checked against the shipped schema.
 - One public immutable query-document contract shared with the optional JSON
   package, without public contender or source-generator vocabulary.
 - Structural equality and hashing for the full public AST, including
@@ -164,8 +172,6 @@ queries:
   quantifiers, including incomplete-snapshot errors before enumeration.
 - Python parity dispositions for the complete QueryList inventory while keeping
   BCL cardinality and the narrow `name__contains` parser.
-- A build-private analyzer deployment or a separately validated analyzer
-  package with tested compiler compatibility and transitivity.
 - Shipping trimming analysis, Public API baselines, package validation,
   platform annotations, and supported-platform AOT tests.
 - Trimming annotations and AOT cases for the retained `MemberInfo`, public-
@@ -174,7 +180,7 @@ queries:
 ## Rejected risks
 
 - Runtime attribute discovery as the production schema authority.
-- A manually duplicated static table as the production schema authority.
+- Independent hand-maintained catalog and schema tables without a drift gate.
 - `IQueryable`, silent client evaluation, or compilation of the caller's
   original expression as a fallback.
 - Culture-sensitive string translation or regex evaluation.
@@ -202,8 +208,6 @@ queries:
 ## Remaining unknowns
 
 - macOS behavior for NativeAOT publication.
-- Analyzer NuGet layout, transitivity, compiler compatibility, and package
-  validation for the production generator.
 - Shipping trimming, Public API, and platform-annotation results.
 - Allocation and local-matching behavior on large captured topologies.
 - Final public names and exhaustive Python inventory dispositions, which belong

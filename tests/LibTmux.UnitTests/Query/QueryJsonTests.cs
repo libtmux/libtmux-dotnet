@@ -111,6 +111,55 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
+    public void The_schema_field_manifest_matches_the_runtime_catalog()
+    {
+        using Stream stream = typeof(QueryJsonTests).Assembly
+            .GetManifestResourceStream("LibTmux.UnitTests.QuerySchema.json")
+            ?? throw new InvalidOperationException("Missing embedded query schema.");
+        using JsonDocument schema = JsonDocument.Parse(stream);
+        JsonElement definitions = schema.RootElement.GetProperty("$defs");
+
+        Assert.Equal(
+            QueryFieldCatalog.WireNames.Order(StringComparer.Ordinal),
+            DirectEnumValues(definitions.GetProperty("field"), "wireName"));
+        AssertKind(definitions, "booleanField", QueryValueKind.Boolean);
+        AssertKind(definitions, "stringField", QueryValueKind.String);
+        AssertKind(definitions, "int64Field", QueryValueKind.Int64);
+        Assert.Equal(
+            QueryFieldCatalog.WireNames.Where(
+                    name => QueryFieldCatalog.TryGetKind(name, out QueryValueKind actual)
+                        && actual == QueryValueKind.TypedId)
+                .Order(StringComparer.Ordinal),
+            ConstFieldValues(
+                definitions,
+                "sessionIdField",
+                "windowIdField",
+                "paneIdField",
+                "clientIdField"));
+        Assert.Equal(
+            QueryFieldCatalog.WireNames.Where(QueryFieldCatalog.IsRelation)
+                .Order(StringComparer.Ordinal),
+            ConstrainedEnumValues(definitions.GetProperty("relationField"), "wireName"));
+
+        JsonElement targetCases = definitions.GetProperty("field")
+            .GetProperty("allOf")[0]
+            .GetProperty("oneOf");
+        foreach (JsonElement targetCase in targetCases.EnumerateArray())
+        {
+            JsonElement properties = targetCase.GetProperty("properties");
+            QueryTarget target = Enum.Parse<QueryTarget>(
+                properties.GetProperty("target").GetProperty("const").GetString()!,
+                ignoreCase: true);
+            Assert.Equal(
+                QueryFieldCatalog.WireNames.Where(
+                        name => QueryFieldCatalog.TryGetTarget(name, out QueryTarget actual)
+                            && actual == target)
+                    .Order(StringComparer.Ordinal),
+                DirectEnumValues(targetCase, "wireName"));
+        }
+    }
+
+    [Fact]
     public void Limits_may_tighten_the_frozen_ceilings_but_never_widen_them()
     {
         QueryDocument document =
@@ -257,4 +306,44 @@ public sealed class QueryJsonTests
             QueryDocument.CurrentVersion,
             target,
             predicate);
+
+    private static void AssertKind(
+        JsonElement definitions,
+        string definition,
+        QueryValueKind kind) =>
+        Assert.Equal(
+            QueryFieldCatalog.WireNames.Where(
+                    name => QueryFieldCatalog.TryGetKind(name, out QueryValueKind actual)
+                        && actual == kind)
+                .Order(StringComparer.Ordinal),
+            ConstrainedEnumValues(definitions.GetProperty(definition), "wireName"));
+
+    private static string[] ConstrainedEnumValues(
+        JsonElement definition,
+        string property) =>
+        DirectEnumValues(definition.GetProperty("allOf")[1], property);
+
+    private static string[] ConstFieldValues(
+        JsonElement definitions,
+        params string[] definitionNames) =>
+    [
+        .. definitionNames.Select(
+                name => definitions.GetProperty(name)
+                    .GetProperty("allOf")[1]
+                    .GetProperty("properties")
+                    .GetProperty("wireName")
+                    .GetProperty("const")
+                    .GetString()!)
+            .Order(StringComparer.Ordinal),
+    ];
+
+    private static string[] DirectEnumValues(JsonElement definition, string property) =>
+    [
+        .. definition.GetProperty("properties")
+            .GetProperty(property)
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(static value => value.GetString()!)
+            .Order(StringComparer.Ordinal),
+    ];
 }

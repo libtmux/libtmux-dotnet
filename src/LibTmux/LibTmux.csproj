@@ -51,10 +51,5 @@
     <InternalsVisibleTo Include="LibTmux.Mcp" />
     <InternalsVisibleTo Include="LibTmux.Query.Json" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <!-- Analyzer reference: the generator runs at compile time and must not
-         become a runtime dependency of the shipped library. -->
-    <ProjectReference Include="..\LibTmux.Generators\LibTmux.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/LibTmux.Generators/LibTmux.Generators.csproj" />
     <Project Path="src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
     <Project Path="src/LibTmux/LibTmux.csproj" />
     <Project Path="src/LibTmux.Workspace/LibTmux.Workspace.csproj" />

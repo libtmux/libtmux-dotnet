@@ -28,6 +28,7 @@
     <EmbeddedResource Include="../../src/LibTmux/Window.cs" Condition="Exists('$(MSBuildProjectDirectory)/../../src/LibTmux/Window.cs')" LogicalName="LibTmux.UnitTests.EntitySources.Window.cs" />
     <EmbeddedResource Include="../../src/LibTmux/Pane.cs" Condition="Exists('$(MSBuildProjectDirectory)/../../src/LibTmux/Pane.cs')" LogicalName="LibTmux.UnitTests.EntitySources.Pane.cs" />
     <EmbeddedResource Include="../../src/LibTmux/Client.cs" Condition="Exists('$(MSBuildProjectDirectory)/../../src/LibTmux/Client.cs')" LogicalName="LibTmux.UnitTests.EntitySources.Client.cs" />
+    <EmbeddedResource Include="../../src/LibTmux.Query.Json/libtmux-query-v1.schema.json" LogicalName="LibTmux.UnitTests.QuerySchema.json" />
     <EmbeddedResource Include="../../docs/decisions/evidence/0003/aot/goldens/*.json" LogicalName="LibTmux.UnitTests.QueryGoldens.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

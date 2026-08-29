@@ -18,7 +18,7 @@ and `evidenceStatus=none` until its production component passes its full gate.
 
 The Python public inventory contains 626 source-grounded rows. Decisions 0001,
 0002, and 0003 select the raw-byte process transport, immutable hierarchy, and
-generated closed query catalog. A production port still needs one idiomatic
+closed query catalog. A production port still needs one idiomatic
 .NET surface rather than a transliteration of Python implementation details.
 
 The canonical contract is `docs/public-api.json`.

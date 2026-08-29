@@ -1333,7 +1333,7 @@ def validate(contract: dict[str, t.Any], ledger: dict[str, t.Any]) -> list[str]:
 
 
 def validate_repository() -> list[str]:
-    """Validate repository policy coupled to the approved generated catalog.
+    """Validate repository policy coupled to the approved API contract.
 
     Returns
     -------
