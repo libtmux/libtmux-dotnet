@@ -5,13 +5,13 @@ using LibTmux.IntegrationTests.Transport;
 namespace LibTmux.IntegrationTests.Query;
 
 [UnsupportedOSPlatform("windows")]
-public sealed class QueryPlanningTests
+public sealed class NativeFilterSearchTests
 {
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task A_tmux_side_filter_and_a_local_predicate_agree()
+    public async Task A_native_filter_can_match_a_local_predicate()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
@@ -27,8 +27,8 @@ public sealed class QueryPlanningTests
             .Where(session => session.Snapshot?["session_name"]?.StartsWith("dev", StringComparison.Ordinal) == true)
             .ToList();
 
-        // The same question answered on either side of the wire must give the
-        // same objects; that equivalence is what makes pushdown safe.
+        // This one supported expression agrees; raw filters make no general
+        // equivalence guarantee with the typed query vocabulary.
         Assert.Single(pushedDown);
         Assert.Single(local);
         Assert.Equal(local[0].Id, pushedDown[0].Id);

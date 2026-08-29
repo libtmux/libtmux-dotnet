@@ -108,8 +108,9 @@ You write these as the properties they are — `Session.Name`,
 `Client.IsControlClient` — and the wire carries the tmux spelling.
 
 A field outside it throws `UnsupportedQueryExpressionException` at translation
-rather than falling back to filtering in memory, so a document that exists is
-one tmux can answer.
+rather than falling back. The document is interpreted locally or by an
+application that deliberately accepts this wire contract; LibTmux does not
+turn it into a native tmux filter.
 
 ## Related packages
 

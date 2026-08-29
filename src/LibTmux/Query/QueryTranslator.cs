@@ -238,8 +238,7 @@ internal static class QueryTranslator
             && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)
                 ? mapped
                 : ToWireName(member.Name);
-        // The catalog is closed: a field it does not carry cannot be put on the
-        // wire, so translating it would produce a document tmux cannot answer.
+        // The catalog is closed: a field it does not carry has no wire form.
         if (!QueryFieldCatalog.TryGetTarget(wireName, out QueryTarget target))
         {
             throw new UnsupportedQueryExpressionException(

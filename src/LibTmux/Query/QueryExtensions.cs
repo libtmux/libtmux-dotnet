@@ -5,9 +5,9 @@ namespace LibTmux.Query;
 
 /// <summary>Translates, compiles, and applies declarative query predicates.</summary>
 /// <remarks>
-/// One expression surface serves both sides: the same predicate translates to
-/// the wire document and compiles to an in-memory delegate, so a filter cannot
-/// mean one thing locally and another on the wire.
+/// The same predicate translates to the portable document and compiles to an
+/// in-memory delegate, so its stored form and local interpretation share one
+/// meaning.
 /// </remarks>
 public static class QueryExtensions
 {

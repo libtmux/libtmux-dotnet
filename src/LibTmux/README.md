@@ -216,9 +216,9 @@ QueryDocument document = QueryExtensions.Translate<Session>(
         && session.Attached);
 ```
 
-You write C# and tmux receives tmux. The catalog carries the pair for all
-twelve queryable fields — `Session.Name` is `session_name`,
-`Client.IsControlClient` is `client_control` — and it is closed:
+The document carries stable wire names: `Session.Name` is `session_name` and
+`Client.IsControlClient` is `client_control`. The catalog is closed over twelve
+queryable fields:
 
 | Session | Window | Pane | Client |
 |---|---|---|---|
@@ -233,7 +233,9 @@ internal sealed record PaneRow(string PaneId, string PaneCommand);
 ```
 
 A field outside the catalog throws `UnsupportedQueryExpressionException` rather
-than falling back, so an expression that translates is one tmux can answer.
+than falling back. Typed queries evaluate locally over captured objects and are
+never assembled into tmux's executable format language. `UnsafeTmuxFilter` is
+the separate opt-in for native tmux `-f` behavior.
 
 Put it on the wire with
 [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json).
