@@ -299,6 +299,29 @@ def test_ledger_regeneration_preserves_only_source_bound_approval() -> None:
     assert "componentId" not in reset
 
 
+def test_ledger_generation_emits_maximum_version_adaptation() -> None:
+    """Generate the reviewed semantic mapping for Python's version ceiling."""
+    generator = load_generator()
+    inventory = {
+        "symbols": [
+            {
+                "id": "libtmux.common:TMUX_MAX_VERSION",
+                "kind": "constant",
+                "module": "libtmux.common",
+                "qualifiedName": "TMUX_MAX_VERSION",
+                "sourceUrl": "https://example.invalid/pinned",
+            }
+        ]
+    }
+
+    row = generator["build_ledger"](inventory)["rows"][0]
+
+    assert row["behavior"] == (
+        "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
+        "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
+    )
+
+
 def test_ledger_regeneration_moves_only_canonical_window_and_pane_lookup() -> None:
     """Move lookup materialization to C4 without erasing unrelated evidence."""
     generator = load_generator()
