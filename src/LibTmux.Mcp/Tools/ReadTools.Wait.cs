@@ -194,56 +194,6 @@ public sealed partial class ReadTools
         }
     }
 
-    /// <summary>Waits on a tmux wait-for channel.</summary>
-    /// <param name="channel">The channel name.</param>
-    /// <param name="timeoutSeconds">How long to wait, before the server's ceiling.</param>
-    /// <param name="socketName">The tmux socket, or null for the default.</param>
-    /// <param name="cancellationToken">Stops waiting.</param>
-    /// <returns>What happened.</returns>
-    /// <remarks>
-    /// tmux's own rendezvous, exposed for a shell command a caller composed
-    /// themselves. <c>tmux_run</c> uses this internally, so reach for this only
-    /// when the command's shape does not fit that tool.
-    /// </remarks>
-    [McpServerTool(Name = "tmux_wait_for_channel", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
-    [Description(
-        "Block until something signals a tmux wait-for channel with "
-        + "'tmux wait-for -S <channel>'. Use when you composed a shell command that "
-        + "signals it. For an ordinary command whose completion you want, tmux_run "
-        + "already does this and also reports the exit status.")]
-    public async Task<ActionResult> WaitForChannelAsync(
-        [Description("The channel name to wait on, at most 4096 UTF-8 bytes.")] string channel,
-        [Description("Seconds to wait. Lowered to the server's ceiling.")]
-        double? timeoutSeconds = null,
-        [Description("The tmux socket to read. Omit for the default server.")]
-        string? socketName = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
-        ValidateChannel(channel, _policy.MaxBytes);
-        Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        TimeSpan budget = _policy.EffectiveTimeout(
-            timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
-
-        using CancellationTokenSource expiry = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken);
-        expiry.CancelAfter(budget);
-
-        try
-        {
-            await server.WaitForAsync(
-                    new WaitForRequest(channel, TmuxWaitMode.Wait),
-                    expiry.Token)
-                .ConfigureAwait(false);
-            return new ActionResult($"Channel '{channel}' was signalled.");
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return new ActionResult(
-                $"Channel '{channel}' was not signalled within "
-                + $"{budget.TotalSeconds:0.#}s. Nothing was changed; call again to keep waiting.");
-        }
-    }
 
     /// <summary>Tells the client a wait is still running.</summary>
     /// <param name="progress">Where to report, or null when the client asked for none.</param>
@@ -334,31 +284,6 @@ public sealed partial class ReadTools
             + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
-    internal static void ValidateChannel(string channel, int resultMaxBytes)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(resultMaxBytes);
-        if (channel.Length > MaximumChannelBytes
-            || Encoding.UTF8.GetByteCount(channel) > MaximumChannelBytes)
-        {
-            throw new McpException(
-                $"A wait channel may use at most {MaximumChannelBytes} UTF-8 bytes.");
-        }
-
-        ActionResult success = new($"Channel '{channel}' was signalled.");
-        ActionResult timeout = new(
-            $"Channel '{channel}' was not signalled within "
-            + $"{600d:0.#}s. Nothing was changed; call again to keep waiting.");
-        if (Utf8JsonBudget.GetStructuredToolResultByteCount(success, ToolJson.Options)
-                > resultMaxBytes
-            || Utf8JsonBudget.GetStructuredToolResultByteCount(timeout, ToolJson.Options)
-                > resultMaxBytes)
-        {
-            throw new McpException(
-                "The wait channel cannot fit in the configured result byte ceiling. "
-                + $"Use a shorter channel or raise {ServerPolicy.MaxBytesVariable}.");
-        }
-    }
 
     internal static string? Match(
         Regex[] patterns,
@@ -424,5 +349,4 @@ public sealed partial class ReadTools
     private const int MaximumWaitPatterns = 32;
     private const int MaximumWaitPatternBytes = 4_096;
     private const int MaximumWaitPatternBytesTotal = 16_384;
-    private const int MaximumChannelBytes = 4_096;
 }

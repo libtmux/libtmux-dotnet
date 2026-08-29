@@ -16,7 +16,7 @@ public sealed class WaitInputBudgetTests
             ["ready\\s+now"],
             ["error|failed"],
             resultMaxBytes: 4_000);
-        ReadTools.ValidateChannel("build-ready", resultMaxBytes: 4_000);
+        WriteTools.ValidateChannel("build-ready", resultMaxBytes: 4_000);
     }
 
     [Fact]
@@ -67,15 +67,15 @@ public sealed class WaitInputBudgetTests
         var server = new Server(connection, generation, "tmux 3.7");
         using var accessor = new TmuxConnectionAccessor(server);
         await using var activity = new PaneActivityHub();
-        var tools = new ReadTools(
-            accessor,
-            new ServerPolicy { MaxBytes = 4_000 },
-            activity);
+        var policy = new ServerPolicy { MaxBytes = 4_000 };
+        await using var jobs = new JobStore();
+        var tools = new ReadTools(accessor, policy, activity);
+        var writes = new WriteTools(accessor, policy, activity, jobs);
 
         _ = await Assert.ThrowsAsync<McpException>(() => tools.WaitForTextAsync(
             patterns: [new string('x', 4_097)],
             cancellationToken: TestContext.Current.CancellationToken));
-        _ = await Assert.ThrowsAsync<McpException>(() => tools.WaitForChannelAsync(
+        _ = await Assert.ThrowsAsync<McpException>(() => writes.WaitForChannelAsync(
             new string('x', 4_097),
             cancellationToken: TestContext.Current.CancellationToken));
 
