@@ -431,8 +431,9 @@ public sealed class PaneOperationsTests
         RecordingLogger logger = new();
         Server server = await ConnectAsync(raw, token, logger);
         Pane pane = await FirstPaneAsync(server, token);
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "new_pane_command");
 
         if (supported)
         {
@@ -464,8 +465,9 @@ public sealed class PaneOperationsTests
 
         // tmux 3.7 alone dereferences a null window name here and crashes the
         // whole server, so that version always gets a placeholder name.
-        bool workaround = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .RequiresBreakPane37Workaround;
+        bool workaround = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "break_pane_3_7_workaround");
 
         Pane named = await pane.SplitAsync(cancellationToken: token);
         Assert.Equal("wanted", (await named.BreakAsync("wanted", cancellationToken: token)).Name);
@@ -490,8 +492,7 @@ public sealed class PaneOperationsTests
         RecordingLogger logger = new();
         Server server = await ConnectAsync(raw, token, logger);
         Pane pane = await FirstPaneAsync(server, token);
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains(capability);
+        bool supported = TmuxCapabilities.IsSupported(server.Version!.Value, capability);
 
         await operation(pane, token);
 

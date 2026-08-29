@@ -64,8 +64,8 @@ public sealed class VersionParityTests
     public async Task AttachmentAccounting()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        Assert.Contains("attachment_accounting", profile.Capabilities);
+        TmuxVersion version = await GetVersionAsync(context);
+        Assert.True(TmuxCapabilities.IsSupported(version, "attachment_accounting"));
 
         RawTmuxResult before = await ExecuteAsync(
             context,
@@ -101,8 +101,8 @@ public sealed class VersionParityTests
     public async Task ByteLengthFraming()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        Assert.Contains("byte_length_framing", profile.Capabilities);
+        TmuxVersion version = await GetVersionAsync(context);
+        Assert.True(TmuxCapabilities.IsSupported(version, "byte_length_framing"));
 
         RawTmuxResult result = await ExecuteAsync(
             context,
@@ -116,8 +116,8 @@ public sealed class VersionParityTests
     public async Task ControlNotifications()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        Assert.Contains("control_notifications", profile.Capabilities);
+        TmuxVersion version = await GetVersionAsync(context);
+        Assert.True(TmuxCapabilities.IsSupported(version, "control_notifications"));
         await using ControlModeClientScope client = await ControlModeClientScope.StartAsync(
             context,
             TestContext.Current.CancellationToken);
@@ -161,8 +161,8 @@ public sealed class VersionParityTests
     public async Task FormatFieldsAndOperators()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        Assert.Contains("format_fields_and_operators", profile.Capabilities);
+        TmuxVersion version = await GetVersionAsync(context);
+        Assert.True(TmuxCapabilities.IsSupported(version, "format_fields_and_operators"));
 
         RawTmuxResult result = await ExecuteAsync(
             context,
@@ -180,8 +180,8 @@ public sealed class VersionParityTests
     public async Task OptionDollarDoubleEscape()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        bool doubled = profile.Capabilities.Contains("option_dollar_double_escape");
+        TmuxVersion version = await GetVersionAsync(context);
+        bool doubled = TmuxCapabilities.IsSupported(version, "option_dollar_double_escape");
 
         RawTmuxResult stored = await ExecuteAsync(
             context,
@@ -200,8 +200,8 @@ public sealed class VersionParityTests
     public async Task SemicolonGrouping()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        Assert.Contains("semicolon_grouping", profile.Capabilities);
+        TmuxVersion version = await GetVersionAsync(context);
+        Assert.True(TmuxCapabilities.IsSupported(version, "semicolon_grouping"));
 
         RawTmuxResult grouped = await ExecuteAsync(
             context,
@@ -219,10 +219,13 @@ public sealed class VersionParityTests
     public async Task BreakPane37Workaround()
     {
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
+        TmuxVersion version = await GetVersionAsync(context);
+        bool workaround = TmuxCapabilities.IsSupported(
+            version,
+            "break_pane_3_7_workaround");
         string sourcePane = await SplitPaneAsync(context, []);
         List<string> arguments = ["break-pane", "-d", "-P", "-F", "#{window_name}"];
-        if (profile.RequiresBreakPane37Workaround)
+        if (workaround)
         {
             arguments.AddRange(["-n", "libtmux-transition"]);
         }
@@ -234,7 +237,7 @@ public sealed class VersionParityTests
         Assert.False(string.IsNullOrWhiteSpace(result.StandardOutputLines[0]));
         Assert.NotEqual("libtmux-transition", result.StandardOutputLines[0]);
 
-        await WriteTransitionRecordAsync(profile);
+        await WriteTransitionRecordAsync(version, workaround);
     }
 
     [UnixFact]
@@ -347,10 +350,10 @@ public sealed class VersionParityTests
         Assert.False(SyntaxSupportsFlag("example [-ab] [-t=client]", "-c"));
         Assert.True(SyntaxSupportsFlag("command-prompt [-1CbeFiklN]", "-F"));
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
+        TmuxVersion version = await GetVersionAsync(context);
         foreach (Gate gate in Gates)
         {
-            await AssertCommandSurfaceAsync(context, profile, gate);
+            await AssertCommandSurfaceAsync(context, version, gate);
         }
     }
 
@@ -362,9 +365,9 @@ public sealed class VersionParityTests
                 capability,
                 StringComparison.Ordinal));
         await using RawTmuxTestContext context = await StartAsync();
-        TmuxCapabilityProfile profile = await GetProfileAsync(context);
-        await AssertCommandSurfaceAsync(context, profile, gate);
-        if (profile.Capabilities.Contains(capability))
+        TmuxVersion version = await GetVersionAsync(context);
+        await AssertCommandSurfaceAsync(context, version, gate);
+        if (TmuxCapabilities.IsSupported(version, capability))
         {
             await ExerciseSupportedBehaviorAsync(context, capability);
         }
@@ -372,7 +375,7 @@ public sealed class VersionParityTests
 
     private static async Task AssertCommandSurfaceAsync(
         RawTmuxTestContext context,
-        TmuxCapabilityProfile profile,
+        TmuxVersion version,
         Gate gate)
     {
         RawTmuxResult syntax = await ExecuteAsync(
@@ -419,7 +422,7 @@ public sealed class VersionParityTests
             Assert.True(
                 HasSingleNonemptyLine(syntax)
                 && SyntaxSupportsFlag(syntax.StandardOutputLines[0], "-l"),
-                $"tmux {profile.Version} must expose the historical refresh-client -l surface.");
+                $"tmux {version} must expose the historical refresh-client -l surface.");
             RawTmuxResult getClipboard = await ExecuteAsync(
                 context,
                 ["show-options", "-s", "-v", "get-clipboard"]);
@@ -438,10 +441,10 @@ public sealed class VersionParityTests
             gate.Capability,
             "break_pane_3_7_workaround",
             StringComparison.Ordinal)
-            || profile.Capabilities.Contains(gate.Capability);
+            || TmuxCapabilities.IsSupported(version, gate.Capability);
         Assert.True(
             expected == isPresent,
-            $"tmux {profile.Version} capability '{gate.Capability}' expected surface "
+            $"tmux {version} capability '{gate.Capability}' expected surface "
             + $"presence {expected}, observed {isPresent}: {syntax.StandardOutputText}");
     }
 
@@ -1642,7 +1645,7 @@ public sealed class VersionParityTests
     private static Task<RawTmuxTestContext> StartAsync() =>
         RawTmuxTestContext.StartAsync(TestContext.Current.CancellationToken);
 
-    private static async Task<TmuxCapabilityProfile> GetProfileAsync(
+    private static async Task<TmuxVersion> GetVersionAsync(
         RawTmuxTestContext context)
     {
         TmuxVersion version = await TmuxVersion.DetectAsync(
@@ -1658,7 +1661,7 @@ public sealed class VersionParityTests
             context,
             ["display-message", "-p", "#{version}"]);
         Assert.Equal([version.Raw], serverVersion.StandardOutputLines);
-        return TmuxCapabilities.GetRequired(version);
+        return version;
     }
 
     private static async Task<string?> ShowOptionAsync(
@@ -1758,7 +1761,9 @@ public sealed class VersionParityTests
     private static string TargetPane(RawTmuxTestContext context) =>
         $"{context.SessionName}:0.0";
 
-    private static async Task WriteTransitionRecordAsync(TmuxCapabilityProfile profile)
+    private static async Task WriteTransitionRecordAsync(
+        TmuxVersion version,
+        bool workaround)
     {
         if (!string.Equals(
             Environment.GetEnvironmentVariable("LIBTMUX_BREAK_PANE_TRANSITION_PROOF"),
@@ -1768,20 +1773,20 @@ public sealed class VersionParityTests
             return;
         }
 
-        Assert.Contains(profile.Version.Raw, TransitionVersions);
+        Assert.Contains(version.Raw, TransitionVersions);
         string framework = RequiredEnvironment("LIBTMUX_TEST_FRAMEWORK");
         Assert.Contains(framework, TransitionFrameworks);
         string sourceCommit = RequiredEnvironment("LIBTMUX_TMUX_SOURCE_COMMIT");
         Assert.Matches("^[0-9a-f]{40}$", sourceCommit);
         string transcriptDirectory = RequiredEnvironment("LIBTMUX_PROTOCOL_TRANSCRIPT_DIR");
-        string workaround = profile.RequiresBreakPane37Workaround ? "applied" : "omitted";
+        string workaroundState = workaround ? "applied" : "omitted";
         string record = string.Join(
             ' ',
             "event=break-pane-transition",
             $"framework={framework}",
             $"tmux-source-commit={sourceCommit}",
-            $"tmux-version={profile.Version.Raw}",
-            $"workaround={workaround}",
+            $"tmux-version={version.Raw}",
+            $"workaround={workaroundState}",
             "outcome=passed");
         Directory.CreateDirectory(transcriptDirectory);
         await File.AppendAllTextAsync(

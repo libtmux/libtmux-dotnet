@@ -149,8 +149,9 @@ public sealed class ClientAdministrationTests
             token);
         Client client = await WaitForClientAsync(server, token);
 
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("refresh_client_clipboard_query");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "refresh_client_clipboard_query");
 
         await server.RefreshClientAsync(client.Name, requestClipboard: true, cancellationToken: token);
 

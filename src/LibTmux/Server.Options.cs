@@ -22,6 +22,5 @@ public sealed partial class Server
 
     private static bool DoubleEscapesDollar(Server? owner) =>
         owner?.Version is TmuxVersion version
-        && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-        && profile.Capabilities.Contains("option_dollar_double_escape");
+        && TmuxCapabilities.IsSupported(version, "option_dollar_double_escape");
 }

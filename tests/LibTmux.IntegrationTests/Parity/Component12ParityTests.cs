@@ -206,8 +206,7 @@ public sealed class Component12ParityTests
         Pane pane,
         CancellationToken token)
     {
-        if (!TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command"))
+        if (!TmuxCapabilities.IsSupported(server.Version!.Value, "new_pane_command"))
         {
             // The command does not exist before 3.7, so a typed refusal is the
             // whole behaviour on those lanes.

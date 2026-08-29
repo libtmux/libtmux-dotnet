@@ -810,8 +810,7 @@ public sealed partial class Server
 
     private bool Supports(string capability) =>
         Version is TmuxVersion version
-        && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-        && profile.Capabilities.Contains(capability);
+        && TmuxCapabilities.IsSupported(version, capability);
 
     private bool SupportsMenuStyles() =>
         RequiresCapability(ServerUtilities.DisplayMenuStylesCapability, LogMenuStyles);

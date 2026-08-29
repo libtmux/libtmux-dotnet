@@ -591,9 +591,9 @@ public sealed class TmuxChainTests
         Assert.Contains("Build", command.Arguments);
         Assert.Contains("chained", command.Arguments);
 
-        bool carriesMouse = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("display_menu_mouse");
+        bool carriesMouse = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "display_menu_mouse");
 
         Assert.Equal(carriesMouse, command.Arguments.Contains("-M"));
     }
@@ -619,9 +619,9 @@ public sealed class TmuxChainTests
         Assert.Equal("display-popup", command.Name);
         Assert.Contains("40", command.Arguments);
 
-        bool carriesOptions = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("display_popup_3_3_options");
+        bool carriesOptions = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "display_popup_3_3_options");
 
         // The close mode maps to a flag every supported tmux carries; what
         // 3.3 added is the titling and styling, so that is what tracks the
@@ -737,9 +737,9 @@ public sealed class TmuxChainTests
         Assert.Equal("confirm-before", command.Name);
         Assert.Contains("sure?", command.Arguments);
 
-        bool carriesKeys = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("confirm_before_acceptance");
+        bool carriesKeys = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "confirm_before_acceptance");
 
         Assert.Equal(carriesKeys, command.Arguments.Contains("-c"));
     }
@@ -752,9 +752,9 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        bool carriesTypes = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("command_prompt_background");
+        bool carriesTypes = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "command_prompt_background");
 
         CommandPromptRequest typed = new("display-message %%", type: PromptType.Command);
 
@@ -854,9 +854,9 @@ public sealed class TmuxChainTests
 
         Assert.Equal("choose-tree", command.Name);
 
-        bool carriesTime = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("choose_tree_sort_time");
+        bool carriesTime = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "choose_tree_sort_time");
 
         Assert.Equal(carriesTime, command.Arguments.Contains("time"));
 
@@ -882,9 +882,9 @@ public sealed class TmuxChainTests
 
         Assert.Contains("ltlist", listed.StandardOutputLines);
 
-        bool carriesAccess = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("server_access_command");
+        bool carriesAccess = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "server_access_command");
 
         ServerAccessRequest access = new(list: true);
 
@@ -997,9 +997,9 @@ public sealed class TmuxChainTests
         Assert.Equal("attach-session", attach.Name);
         Assert.Contains("-d", attach.Arguments);
 
-        bool carriesFloats = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command");
+        bool carriesFloats = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "new_pane_command");
 
         NewPaneRequest floating = new(width: 20, height: 5);
 

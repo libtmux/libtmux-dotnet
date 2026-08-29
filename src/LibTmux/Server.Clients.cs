@@ -141,8 +141,7 @@ public sealed partial class Server
     private bool SupportsClipboardQuery()
     {
         if (Version is TmuxVersion version
-            && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-            && profile.Capabilities.Contains(ClipboardQueryCapability))
+            && TmuxCapabilities.IsSupported(version, ClipboardQueryCapability))
         {
             return true;
         }

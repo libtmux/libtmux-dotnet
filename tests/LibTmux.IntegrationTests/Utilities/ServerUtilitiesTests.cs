@@ -519,7 +519,7 @@ public sealed class ServerUtilitiesTests
     }
 
     private static bool Supports(Server server, string capability) =>
-        TmuxCapabilities.GetRequired(server.Version!.Value).Capabilities.Contains(capability);
+        TmuxCapabilities.IsSupported(server.Version!.Value, capability);
 
     private static async Task ProvesWholeCommandGateAsync(
         string capability,

@@ -604,8 +604,7 @@ public sealed partial class Pane
         // tmux 3.7 dereferences a null window name here and takes the whole
         // server with it, so that one version always gets a name: the caller's
         // if there is one, otherwise a placeholder that is renamed away after.
-        bool needsPlaceholder = Supports(owner, out TmuxCapabilityProfile? profile)
-            && profile.RequiresBreakPane37Workaround;
+        bool needsPlaceholder = Supports(owner, "break_pane_3_7_workaround");
         List<string> arguments = ["break-pane", "-P", "-F", "#{window_id}"];
         if (detach)
         {
@@ -1242,21 +1241,8 @@ public sealed partial class Pane
     }
 
     private static bool Supports(Server owner, string capability) =>
-        Supports(owner, out TmuxCapabilityProfile? profile)
-        && profile.Capabilities.Contains(capability);
-
-    private static bool Supports(Server owner, out TmuxCapabilityProfile profile)
-    {
-        if (owner.Version is TmuxVersion version
-            && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? found))
-        {
-            profile = found;
-            return true;
-        }
-
-        profile = null!;
-        return false;
-    }
+        owner.Version is TmuxVersion version
+        && TmuxCapabilities.IsSupported(version, capability);
 
     private static string? SortOrder(ChooseTreeSort? sort) => sort switch
     {

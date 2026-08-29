@@ -911,8 +911,7 @@ public sealed partial class Window
 
     private static bool Supports(Server owner, string capability) =>
         owner.Version is TmuxVersion version
-        && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-        && profile.Capabilities.Contains(capability);
+        && TmuxCapabilities.IsSupported(version, capability);
 
     [LoggerMessage(
         EventId = 2,

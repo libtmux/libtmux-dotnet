@@ -444,8 +444,7 @@ public sealed partial class Session
     {
         Server owner = RequireOwner("group");
         if (owner.Version is TmuxVersion version
-            && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-            && profile.Capabilities.Contains(GroupKillCapability))
+            && TmuxCapabilities.IsSupported(version, GroupKillCapability))
         {
             return true;
         }
