@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -255,8 +254,14 @@ internal static class QueryTranslator
         SessionId id => new TypedIdConstant(QueryTarget.Session, id.ToString()),
         WindowId id => new TypedIdConstant(QueryTarget.Window, id.ToString()),
         PaneId id => new TypedIdConstant(QueryTarget.Pane, id.ToString()),
-        _ when value is IConvertible convertible => new Int64Constant(
-            convertible.ToInt64(CultureInfo.InvariantCulture)),
+        sbyte number => new Int64Constant(number),
+        byte number => new Int64Constant(number),
+        short number => new Int64Constant(number),
+        ushort number => new Int64Constant(number),
+        int number => new Int64Constant(number),
+        uint number => new Int64Constant(number),
+        long number => new Int64Constant(number),
+        ulong number when number <= long.MaxValue => new Int64Constant((long)number),
         _ => throw new UnsupportedQueryExpressionException(
             $"Constant of type '{declared.Name}' has no wire form."),
     };

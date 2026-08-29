@@ -11,6 +11,10 @@ public sealed class QuerySemanticsTests
 
     private sealed record SessionCountRow(string SessionName, long SessionWindows);
 
+    private sealed record SessionIntCountRow(string SessionName, int SessionWindows);
+
+    private sealed record SessionDoubleCountRow(string SessionName, double SessionWindows);
+
     private sealed record WindowCountRow(string WindowName, long WindowPanes);
 
     [Fact]
@@ -149,6 +153,23 @@ public sealed class QuerySemanticsTests
 
         Assert.True(sessions.Compile<SessionCountRow>()(new SessionCountRow("dev", 2)));
         Assert.True(panes.Compile<WindowCountRow>()(new WindowCountRow("main", 2)));
+    }
+
+    [Fact]
+    public void Integer_projections_compare_as_wire_int64_values()
+    {
+        QueryDocument document = QueryExtensions.Translate<SessionIntCountRow>(
+            row => row.SessionWindows > 1);
+
+        Assert.True(document.Compile<SessionIntCountRow>()(new SessionIntCountRow("dev", 2)));
+    }
+
+    [Fact]
+    public void Integer_wire_fields_reject_floating_point_semantics()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<SessionDoubleCountRow>(
+                row => row.SessionWindows > 1.5));
     }
 
     [Fact]

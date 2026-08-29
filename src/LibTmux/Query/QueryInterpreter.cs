@@ -91,7 +91,11 @@ internal static class QueryInterpreter
             return comparison.Operator == QueryComparison.Equal ? equal : !equal;
         }
 
-        int order = Comparer<object>.Default.Compare(left, right);
+        int order = comparison.Left is FieldNode field
+            && QueryFieldCatalog.TryGetKind(field.WireName, out QueryValueKind kind)
+            && kind == QueryValueKind.Int64
+                ? ReadInt64(field, left).CompareTo(ReadInt64(field, right))
+                : Comparer<object>.Default.Compare(left, right);
         return comparison.Operator switch
         {
             QueryComparison.Equal => order == 0,
@@ -103,6 +107,20 @@ internal static class QueryInterpreter
             _ => false,
         };
     }
+
+    private static long ReadInt64(FieldNode field, object value) => value switch
+    {
+        sbyte number => number,
+        byte number => number,
+        short number => number,
+        ushort number => number,
+        int number => number,
+        uint number => number,
+        long number => number,
+        ulong number when number <= long.MaxValue => (long)number,
+        _ => throw new UnsupportedQueryExpressionException(
+            $"Field '{field.WireName}' did not produce an integer value."),
+    };
 
     private static bool CompareText(StringNode text, object element)
     {
