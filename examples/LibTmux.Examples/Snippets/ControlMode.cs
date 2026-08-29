@@ -13,7 +13,7 @@ public static class ControlMode
         #region WatchForWindowAdd
         await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-        await control.SendAsync("new-window -d -n build", ct);
+        await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
         await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
         {
@@ -33,7 +33,7 @@ public static class ControlMode
         #region NoticeDroppedEvents
         await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-        await control.SendAsync("new-window -d -n build", ct);
+        await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
         await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
         {

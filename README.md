@@ -93,7 +93,9 @@ Console.WriteLine(built.Name);
 ```csharp run
 // Control mode: one client, held open, streaming what tmux does.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-IReadOnlyList<string> reply = await control.SendAsync("new-window -d -n build", ct);
+IReadOnlyList<string> reply = await control.SendAsync(
+    TmuxCommand.Create("new-window", "-d", "-n", "build"),
+    ct);
 ```
 
 ```csharp run

@@ -28,9 +28,7 @@ public interface IControlModeSession : IAsyncDisposable
     public bool IsRunning { get; }
 
     /// <summary>Runs one command on this client and reads what it answered.</summary>
-    /// <param name="command">
-    /// The command line, exactly as it would be typed at tmux's command prompt.
-    /// </param>
+    /// <param name="command">The typed command to run.</param>
     /// <param name="cancellationToken">Stops waiting for the answer.</param>
     /// <returns>The lines tmux printed, empty when it printed nothing.</returns>
     /// <remarks>
@@ -39,9 +37,14 @@ public interface IControlModeSession : IAsyncDisposable
     /// else's. Cancelling stops the wait, not the command; tmux has already
     /// been told.
     /// </remarks>
-    /// <exception cref="TmuxCommandException">tmux reported the command failed.</exception>
+    /// <exception cref="ControlModeCommandException">
+    /// Tmux reported the command failed.
+    /// </exception>
+    /// <exception cref="StaleServerGenerationException">
+    /// The command targets a different tmux server generation.
+    /// </exception>
     /// <exception cref="InvalidOperationException">The client is no longer running.</exception>
     public Task<IReadOnlyList<string>> SendAsync(
-        string command,
+        TmuxCommand command,
         CancellationToken cancellationToken = default);
 }

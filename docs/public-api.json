@@ -3065,6 +3065,26 @@
       "summary": "A live tmux control client reporting what tmux does until disposed."
     },
     {
+      "id": "T:LibTmux.ControlModeCommandException",
+      "namespace": "LibTmux",
+      "name": "ControlModeCommandException",
+      "kind": "class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "LibTmuxException",
+      "interfaces": [],
+      "ownership": "reference",
+      "state": [
+        "Command",
+        "OutputLines",
+        "ErrorLines"
+      ],
+      "summary": "Reports a command rejected by a live tmux control client."
+    },
+    {
       "id": "T:LibTmux.TmuxEvent",
       "namespace": "LibTmux",
       "name": "TmuxEvent",
@@ -24940,6 +24960,16 @@
       "portable": true
     },
     {
+      "id": "T:LibTmux.ControlModeCommandException",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "ControlModeCommandException",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "sealed class LibTmux.ControlModeCommandException",
+      "portable": true
+    },
+    {
       "id": "T:LibTmux.TmuxEvent",
       "declaringType": "T:LibTmux.TmuxEvent",
       "name": "TmuxEvent",
@@ -25048,7 +25078,7 @@
       "summary": "Gets whether the client is still running."
     },
     {
-      "id": "M:LibTmux.IControlModeSession.SendAsync(string,System.Threading.CancellationToken)",
+      "id": "M:LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)",
       "declaringType": "T:LibTmux.IControlModeSession",
       "name": "SendAsync",
       "kind": "method",
@@ -25059,16 +25089,94 @@
       "parameters": [
         {
           "name": "command",
-          "type": "string"
+          "type": "TmuxCommand"
         },
         {
           "name": "cancellationToken",
           "type": "System.Threading.CancellationToken"
         }
       ],
-      "signature": "Task<IReadOnlyList<string>> SendAsync(string command, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default)",
       "portable": true,
       "summary": "Runs one command on this client and reads what it answered."
+    },
+    {
+      "id": "M:LibTmux.ControlModeCommandException.#ctor(string,TmuxCommand,System.Collections.Generic.IReadOnlyList{string},System.Collections.Generic.IReadOnlyList{string},Exception?)",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "ControlModeCommandException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "command",
+          "type": "TmuxCommand"
+        },
+        {
+          "name": "outputLines",
+          "type": "IReadOnlyList<string>"
+        },
+        {
+          "name": "errorLines",
+          "type": "IReadOnlyList<string>"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "ControlModeCommandException(string message, TmuxCommand command, IReadOnlyList<string> outputLines, IReadOnlyList<string> errorLines, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Initializes a control-mode command exception."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.Command",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "Command",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.ControlModeCommandException.Command { get; }",
+      "portable": true,
+      "summary": "Gets the command tmux rejected."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.OutputLines",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "OutputLines",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "IReadOnlyList<string>",
+      "parameters": [],
+      "signature": "IReadOnlyList<string> LibTmux.ControlModeCommandException.OutputLines { get; }",
+      "portable": true,
+      "summary": "Gets output produced before tmux rejected the command."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.ErrorLines",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "ErrorLines",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "IReadOnlyList<string>",
+      "parameters": [],
+      "signature": "IReadOnlyList<string> LibTmux.ControlModeCommandException.ErrorLines { get; }",
+      "portable": true,
+      "summary": "Gets the error lines tmux reported."
     },
     {
       "id": "M:LibTmux.TmuxOutputEvent.#ctor(string,string)",

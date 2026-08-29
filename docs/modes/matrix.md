@@ -23,7 +23,7 @@ Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "buil
 
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 ```
 
 ```csharp

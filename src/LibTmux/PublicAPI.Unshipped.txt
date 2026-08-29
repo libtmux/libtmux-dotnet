@@ -115,6 +115,11 @@ LibTmux.ConfirmBeforeRequest.DefaultYes.get -> bool
 LibTmux.ConfirmBeforeRequest.Equals(LibTmux.ConfirmBeforeRequest? other) -> bool
 LibTmux.ConfirmBeforeRequest.Prompt.get -> string?
 LibTmux.ConfirmBeforeRequest.TargetClient.get -> string?
+LibTmux.ControlModeCommandException
+LibTmux.ControlModeCommandException.Command.get -> LibTmux.TmuxCommand!
+LibTmux.ControlModeCommandException.ControlModeCommandException(string! message, LibTmux.TmuxCommand! command, System.Collections.Generic.IReadOnlyList<string!>! outputLines, System.Collections.Generic.IReadOnlyList<string!>! errorLines, System.Exception? innerException = null) -> void
+LibTmux.ControlModeCommandException.ErrorLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.ControlModeCommandException.OutputLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.CopyModeRequest
 LibTmux.CopyModeRequest.<Clone>$() -> LibTmux.CopyModeRequest!
 LibTmux.CopyModeRequest.Cancel.get -> bool
@@ -216,7 +221,7 @@ LibTmux.HookRequest.Scope.get -> LibTmux.OptionScope?
 LibTmux.IControlModeSession
 LibTmux.IControlModeSession.Events.get -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent!>!
 LibTmux.IControlModeSession.IsRunning.get -> bool
-LibTmux.IControlModeSession.SendAsync(string! command, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
+LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand! command, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.IfShellRequest
 LibTmux.IfShellRequest.<Clone>$() -> LibTmux.IfShellRequest!
 LibTmux.IfShellRequest.Background.get -> bool

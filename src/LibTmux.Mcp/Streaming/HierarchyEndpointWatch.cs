@@ -376,7 +376,9 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
                 .ConfigureAwait(false);
             starting = session;
             await session
-                .SendAsync("refresh-client -f ignore-size,no-output", cancellationToken)
+                .SendAsync(
+                    TmuxCommand.Create("refresh-client", "-f", "ignore-size,no-output"),
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             WatchRun run = new(session);

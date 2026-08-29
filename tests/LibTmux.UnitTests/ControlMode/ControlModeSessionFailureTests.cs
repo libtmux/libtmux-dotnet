@@ -70,7 +70,7 @@ public sealed class ControlModeSessionFailureTests
 
         await session.WaitForReadyAsync(token);
         Task<IReadOnlyList<string>> send = session.SendAsync(
-            "display-message -p stuck",
+            TmuxCommand.Create("display-message", "-p", "stuck"),
             token);
         await process.WriteStarted.Task.WaitAsync(token);
 
@@ -101,7 +101,9 @@ public sealed class ControlModeSessionFailureTests
 
         Assert.False(session.IsRunning);
         await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => session.SendAsync("display-message -p too-late", token));
+            () => session.SendAsync(
+                TmuxCommand.Create("display-message", "-p", "too-late"),
+                token));
         await session.DisposeAsync();
         Assert.True(process.DisposeCalled);
     }
@@ -121,7 +123,9 @@ public sealed class ControlModeSessionFailureTests
 
         Assert.False(session.IsRunning);
         await Assert.ThrowsAsync<ObjectDisposedException>(
-            () => session.SendAsync("display-message -p too-late", token));
+            () => session.SendAsync(
+                TmuxCommand.Create("display-message", "-p", "too-late"),
+                token));
         IOException disposalFailure = await Assert.ThrowsAsync<IOException>(
             () => session.DisposeAsync().AsTask());
         Assert.Same(pumpFailure, disposalFailure);
@@ -136,14 +140,15 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(process);
 
         await session.WaitForReadyAsync(token);
+        TmuxCommand command = TmuxCommand.Create("display-message", "-p", "racing");
         InvalidOperationException terminalFailure =
             await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await session.SendAsync("display-message -p racing", token)
+                await session.SendAsync(command, token)
                     .WaitAsync(TimeSpan.FromSeconds(2), token));
 
         Assert.Contains("exited before", terminalFailure.Message, StringComparison.Ordinal);
         Assert.False(session.IsRunning);
-        Assert.Equal(["display-message -p racing"], process.WriteAttempts);
+        Assert.Equal([ControlModeCommandRenderer.Render(command)], process.WriteAttempts);
         await session.DisposeAsync();
         Assert.True(process.DisposeCalled);
     }
@@ -173,12 +178,10 @@ public sealed class ControlModeSessionFailureTests
         TruncatedBlockProcess process = TruncatedBlockProcess.ForAttachError();
         var session = new ControlModeSession(process);
 
-        TmuxCommandException error = await Assert.ThrowsAsync<TmuxCommandException>(
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => session.WaitForReadyAsync(token));
 
         Assert.Equal("can't find pane: missing", error.Message);
-        Assert.Equal(1, error.Result.ExitCode);
-        Assert.Equal(["can't find pane: missing"], error.Result.StandardErrorLines);
         await session.DisposeAsync();
         Assert.True(process.DisposeCalled);
     }
@@ -191,8 +194,10 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(process);
 
         await session.WaitForReadyAsync(token);
-        Task<IReadOnlyList<string>> first = session.SendAsync("first", token);
-        Task<IReadOnlyList<string>> second = session.SendAsync("second", token);
+        TmuxCommand firstCommand = TmuxCommand.Create("first");
+        TmuxCommand secondCommand = TmuxCommand.Create("second");
+        Task<IReadOnlyList<string>> first = session.SendAsync(firstCommand, token);
+        Task<IReadOnlyList<string>> second = session.SendAsync(secondCommand, token);
         await process.TwoCommandsDispatched.Task.WaitAsync(token);
 
         process.EndCommandBlockEarly();
@@ -207,7 +212,12 @@ public sealed class ControlModeSessionFailureTests
 
         Assert.Same(firstFailure, secondFailure);
         Assert.Same(firstFailure, disposalFailure);
-        Assert.Equal(["first", "second"], process.WriteAttempts);
+        Assert.Equal(
+            [
+                ControlModeCommandRenderer.Render(firstCommand),
+                ControlModeCommandRenderer.Render(secondCommand),
+            ],
+            process.WriteAttempts);
         Assert.True(process.DisposeCalled);
     }
 
@@ -221,7 +231,9 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(process);
 
         await session.WaitForReadyAsync(token);
-        IReadOnlyList<string> reply = await session.SendAsync("display-message -p reply", token);
+        IReadOnlyList<string> reply = await session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "reply"),
+            token);
         await session.DisposeAsync();
 
         var observed = new List<TmuxEvent>();
@@ -262,19 +274,22 @@ public sealed class ControlModeSessionFailureTests
         var dispatchFailure = new IOException($"{failurePoint} failed");
         var process = new AmbiguousDispatchProcess(failurePoint, dispatchFailure);
         var session = new ControlModeSession(process);
-        const string PendingCommand = "display-message -p pending";
-        const string AmbiguousCommand = "display-message -p ambiguous";
-        const string NextCommand = "display-message -p next";
+        TmuxCommand pendingCommand = TmuxCommand.Create("display-message", "-p", "pending");
+        TmuxCommand ambiguousCommand = TmuxCommand.Create("display-message", "-p", "ambiguous");
+        TmuxCommand nextCommand = TmuxCommand.Create("display-message", "-p", "next");
+        string pendingLine = ControlModeCommandRenderer.Render(pendingCommand);
+        string ambiguousLine = ControlModeCommandRenderer.Render(ambiguousCommand);
+        string nextLine = ControlModeCommandRenderer.Render(nextCommand);
 
         try
         {
             await session.WaitForReadyAsync(token);
-            Task<IReadOnlyList<string>> pending = session.SendAsync(PendingCommand, token);
+            Task<IReadOnlyList<string>> pending = session.SendAsync(pendingCommand, token);
             await process.FirstDispatchCompleted.Task.WaitAsync(token);
 
-            Task<IReadOnlyList<string>> ambiguous = session.SendAsync(AmbiguousCommand, token);
+            Task<IReadOnlyList<string>> ambiguous = session.SendAsync(ambiguousCommand, token);
             await process.FailureEntered.Task.WaitAsync(token);
-            Task<IReadOnlyList<string>> next = session.SendAsync(NextCommand, token);
+            Task<IReadOnlyList<string>> next = session.SendAsync(nextCommand, token);
 
             process.ReleaseFailure();
 
@@ -286,12 +301,12 @@ public sealed class ControlModeSessionFailureTests
 
             Assert.Same(dispatchFailure, pendingError.InnerException);
             Assert.Same(dispatchFailure, ambiguousError);
-            Assert.Equal([PendingCommand, AmbiguousCommand], process.WriteAttempts);
-            Assert.DoesNotContain(NextCommand, process.WriteAttempts);
+            Assert.Equal([pendingLine, ambiguousLine], process.WriteAttempts);
+            Assert.DoesNotContain(nextLine, process.WriteAttempts);
             Assert.Equal(
                 failurePoint == DispatchFailurePoint.PartialWrite
-                    ? AmbiguousCommand[..8]
-                    : AmbiguousCommand,
+                    ? ambiguousLine[..8]
+                    : ambiguousLine,
                 process.AmbiguousAcceptedText);
             Assert.True(process.InputClosed);
             Assert.True(process.DisposeCalled);
@@ -317,6 +332,24 @@ public sealed class ControlModeSessionFailureTests
         await foreach (TmuxEvent _ in events.WithCancellation(cancellationToken))
         {
         }
+    }
+
+    private static string FirstPromptLine(ReadOnlyMemory<char> input)
+    {
+        ReadOnlySpan<char> characters = input.Span;
+        int separator = characters.IndexOf('\n');
+        return separator < 0
+            ? characters.ToString()
+            : characters[..separator].ToString();
+    }
+
+    private static string RequestFence(ReadOnlyMemory<char> input)
+    {
+        ReadOnlySpan<char> characters = input.Span;
+        int separator = characters.LastIndexOf('\n');
+        return separator < 0
+            ? string.Empty
+            : characters[(separator + 1)..].ToString();
     }
 
     private sealed class TruncatedBlockProcess : IControlModeProcess
@@ -376,7 +409,7 @@ public sealed class ControlModeSessionFailureTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            WriteAttempts.Add(command.ToString());
+            WriteAttempts.Add(FirstPromptLine(command));
             return Task.CompletedTask;
         }
 
@@ -439,6 +472,7 @@ public sealed class ControlModeSessionFailureTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly int _notificationCount;
         private int _hasExited;
+        private string _sentinel = string.Empty;
 
         internal BurstOutputProcess(int notificationCount)
         {
@@ -456,6 +490,7 @@ public sealed class ControlModeSessionFailureTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            _sentinel = RequestFence(command);
             return Task.CompletedTask;
         }
 
@@ -474,6 +509,7 @@ public sealed class ControlModeSessionFailureTests
                     "%burst " + index.ToString(CultureInfo.InvariantCulture));
             }
 
+            QueueFence();
             _output.Writer.TryWrite("%exit done");
             CompleteOutput();
             return Task.CompletedTask;
@@ -502,9 +538,16 @@ public sealed class ControlModeSessionFailureTests
 
         private void QueueReply()
         {
-            _output.Writer.TryWrite("%begin 2 2 0");
+            _output.Writer.TryWrite("%begin 2 2 1");
             _output.Writer.TryWrite("reply-ok");
-            _output.Writer.TryWrite("%end 2 2 0");
+            _output.Writer.TryWrite("%end 2 2 1");
+        }
+
+        private void QueueFence()
+        {
+            _output.Writer.TryWrite("%begin 2 3 1");
+            _output.Writer.TryWrite($"parse error: unknown command: {_sentinel}");
+            _output.Writer.TryWrite("%error 2 3 1");
         }
 
         private void CompleteOutput()
@@ -598,7 +641,7 @@ public sealed class ControlModeSessionFailureTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            WriteAttempts.Add(command.ToString());
+            WriteAttempts.Add(FirstPromptLine(command));
             return Task.CompletedTask;
         }
 
@@ -762,7 +805,7 @@ public sealed class ControlModeSessionFailureTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string text = command.ToString();
+            string text = FirstPromptLine(command);
             WriteAttempts.Add(text);
             int call = Interlocked.Increment(ref _writeCalls);
             if (call != 2 || _failurePoint != DispatchFailurePoint.PartialWrite)

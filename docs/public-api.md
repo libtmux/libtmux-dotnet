@@ -437,6 +437,7 @@ internal static class Program
 | `T:LibTmux.WindowResizeMode` | enum | `public` | None | `Enum` | value | Defines WindowResizeMode values. | `LibTmux` |
 | `T:LibTmux.WindowRotationDirection` | enum | `public` | None | `Enum` | value | Defines WindowRotationDirection values. | `LibTmux` |
 | `T:LibTmux.IControlModeSession` | interface | `public` | `System.IAsyncDisposable` | `None` | reference | A live tmux control client reporting what tmux does until disposed. | `LibTmux` |
+| `T:LibTmux.ControlModeCommandException` | class | `public, sealed` | None | `LibTmuxException` | reference | Reports a command rejected by a live tmux control client. State: Command, OutputLines, ErrorLines. | `LibTmux` |
 | `T:LibTmux.TmuxEvent` | record | `public, abstract` | None | `object` | value | One thing a tmux control client reported without being asked. | `LibTmux` |
 | `T:LibTmux.TmuxEventsDroppedEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | A loss marker emitted when the bounded control-event buffer overflows. | `LibTmux` |
 | `T:LibTmux.TmuxOutputEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | Bytes a pane wrote, with tmux's escaping decoded. | `LibTmux` |
@@ -589,6 +590,15 @@ internal static class Program
 | `P:LibTmux.ConfirmBeforeRequest.Prompt` | `string? LibTmux.ConfirmBeforeRequest.Prompt { get; }` | Public | No | Portable | Gets Prompt. |
 | `P:LibTmux.ConfirmBeforeRequest.TargetClient` | `string? LibTmux.ConfirmBeforeRequest.TargetClient { get; }` | Public | No | Portable | Gets TargetClient. |
 
+### `T:LibTmux.ControlModeCommandException`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ControlModeCommandException.#ctor(string,TmuxCommand,System.Collections.Generic.IReadOnlyList{string},System.Collections.Generic.IReadOnlyList{string},Exception?)` | `ControlModeCommandException(string message, TmuxCommand command, IReadOnlyList<string> outputLines, IReadOnlyList<string> errorLines, Exception? innerException = null)` | Public | No | Portable | Initializes a control-mode command exception. |
+| `P:LibTmux.ControlModeCommandException.Command` | `TmuxCommand LibTmux.ControlModeCommandException.Command { get; }` | Public | No | Portable | Gets the command tmux rejected. |
+| `P:LibTmux.ControlModeCommandException.ErrorLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.ErrorLines { get; }` | Public | No | Portable | Gets the error lines tmux reported. |
+| `P:LibTmux.ControlModeCommandException.OutputLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.OutputLines { get; }` | Public | No | Portable | Gets output produced before tmux rejected the command. |
+
 ### `T:LibTmux.CopyModeRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -707,7 +717,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.IControlModeSession.SendAsync(string,System.Threading.CancellationToken)` | `Task<IReadOnlyList<string>> SendAsync(string command, CancellationToken cancellationToken = default)` | Public | No | Portable | Runs one command on this client and reads what it answered. |
+| `M:LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)` | `Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default)` | Public | No | Portable | Runs one command on this client and reads what it answered. |
 | `P:LibTmux.IControlModeSession.Events` | `IAsyncEnumerable<TmuxEvent> LibTmux.IControlModeSession.Events { get; }` | Public | No | Portable | Reads what tmux reports for as long as the client runs. |
 | `P:LibTmux.IControlModeSession.IsRunning` | `bool LibTmux.IControlModeSession.IsRunning { get; }` | Public | No | Portable | Gets whether the client is still running. |
 

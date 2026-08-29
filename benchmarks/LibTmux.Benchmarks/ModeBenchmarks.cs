@@ -75,7 +75,7 @@ public class ModeBenchmarks
     {
         for (int index = 0; index < Commands; index++)
         {
-            await _control.SendAsync("display-message -p bench");
+            await _control.SendAsync(TmuxCommand.Create("display-message", "-p", "bench"));
         }
     }
 }

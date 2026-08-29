@@ -323,6 +323,7 @@ COMPONENT_FILES: dict[int, tuple[str, ...]] = {
 COMPONENT_API_TYPES: dict[int, tuple[str, ...]] = {
     1: (
         "T:LibTmux.Client",
+        "T:LibTmux.ControlModeCommandException",
         "T:LibTmux.IControlModeSession",
         "T:LibTmux.Internal.TmuxCommandDispatcher",
         "T:LibTmux.Internal.TmuxCommandFailure",

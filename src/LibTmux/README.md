@@ -89,7 +89,9 @@ Window built = await session.CreateWindowAsync(new NewWindowRequest(name: "build
 ```csharp run
 // One client, held open, streaming what tmux does on its own.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-IReadOnlyList<string> reply = await control.SendAsync("list-windows", ct);
+IReadOnlyList<string> reply = await control.SendAsync(
+    TmuxCommand.Create("list-windows"),
+    ct);
 ```
 
 ```csharp run

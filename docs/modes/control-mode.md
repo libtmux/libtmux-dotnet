@@ -8,7 +8,7 @@ producing output, windows appearing, sessions changing.
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
 await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 {
@@ -59,7 +59,7 @@ The marker arrives in sequence, where the discarded events would have been:
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
 await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 {

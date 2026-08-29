@@ -324,7 +324,9 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
                 // A listening client must ignore size or it can shrink the session's windows.
                 // The flag is available throughout the supported tmux range.
-                await starting.SendAsync("refresh-client -f ignore-size", cancellationToken)
+                await starting.SendAsync(
+                    TmuxCommand.Create("refresh-client", "-f", "ignore-size"),
+                    cancellationToken)
                     .ConfigureAwait(false);
 
                 WatchRun run = new(starting);

@@ -32,7 +32,8 @@ public sealed partial class Server
         // Attaching needs a session to attach to, and a server with none exits
         // the moment it is started. Discovering first turns "no server" into
         // the ordinary connection error rather than a client that dies at once.
-        await ConnectAsync(cancellationToken).ConfigureAwait(false);
+        Server live = await RediscoverCurrentGenerationAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (connection.IsPsmux)
         {
             throw new NotSupportedException(
@@ -43,6 +44,7 @@ public sealed partial class Server
             connection.Options.TmuxBinaryPath,
             connection.PrefixArguments,
             target,
+            live.Generation!.Value,
             startInfo => TmuxConnection.ApplyChildEnvironment(
                 startInfo,
                 connection.Options.ChildEnvironment));

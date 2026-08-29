@@ -26,12 +26,14 @@ public sealed class ControlModeSessionTests
         // that block to the first caller would answer every command with the
         // previous one's output, so the first command has to get its own.
         IReadOnlyList<string> panes = await control.SendAsync(
-            "list-panes -F '#{pane_id}'",
+            TmuxCommand.Create("list-panes", "-F", "#{pane_id}"),
             token);
 
         Assert.Equal(["%0"], panes);
 
-        IReadOnlyList<string> sessions = await control.SendAsync("list-sessions", token);
+        IReadOnlyList<string> sessions = await control.SendAsync(
+            TmuxCommand.Create("list-sessions"),
+            token);
         Assert.Single(sessions);
     }
 
@@ -49,14 +51,16 @@ public sealed class ControlModeSessionTests
         // with one too. Ending the block at the first such line would truncate
         // this answer and leave the rest to be read as notifications.
         IReadOnlyList<string> reported = await control.SendAsync(
-            "display-message -p '#{pane_id}'",
+            TmuxCommand.Create("display-message", "-p", "#{pane_id}"),
             token);
 
         Assert.Equal(["%0"], reported);
 
         // The stream is still in step: a command after the ambiguous one is
         // answered with its own output rather than the leftovers.
-        Assert.Equal(["ok"], await control.SendAsync("display-message -p 'ok'", token));
+        Assert.Equal(
+            ["ok"],
+            await control.SendAsync(TmuxCommand.Create("display-message", "-p", "ok"), token));
     }
 
     [UnixFact]
@@ -69,15 +73,124 @@ public sealed class ControlModeSessionTests
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
 
-        await Assert.ThrowsAsync<TmuxCommandException>(
-            () => control.SendAsync("no-such-tmux-command", token));
+        await Assert.ThrowsAsync<ControlModeCommandException>(
+            () => control.SendAsync(TmuxCommand.Create("no-such-tmux-command"), token));
 
         // The client survives a rejected command, so the session is still
         // usable rather than needing to be torn down and reopened.
         Assert.True(control.IsRunning);
         Assert.Equal(["still-here"], await control.SendAsync(
-            "display-message -p 'still-here'",
+            TmuxCommand.Create("display-message", "-p", "still-here"),
             token));
+    }
+
+    [UnixFact]
+    public async Task A_command_alias_cannot_move_a_reply_to_the_next_caller()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        RawTmuxResult configured = await raw.ExecuteAsync(
+            [
+                "set-option",
+                "-s",
+                "command-alias[200]",
+                "libtmux-expand=display-message -p one; display-message -p two",
+            ],
+            token);
+        Assert.Equal(0, configured.ExitCode);
+        Server server = await ConnectAsync(raw, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+
+        Task<IReadOnlyList<string>> expanded = control.SendAsync(
+            TmuxCommand.Create("libtmux-expand"),
+            token);
+        Task<IReadOnlyList<string>> following = control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "following"),
+            token);
+
+        Assert.Equal(["one", "two"], await expanded);
+        Assert.Equal(["following"], await following);
+    }
+
+    [UnixFact]
+    public async Task Typed_arguments_are_literal_tmux_arguments()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+        const string Value = "space ' ; $HOME \\ π";
+
+        IReadOnlyList<string> output = await control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", Value),
+            token);
+
+        Assert.Equal([Value], output);
+    }
+
+    [UnixFact]
+    public async Task Hook_blocks_do_not_replace_command_output()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        RawTmuxResult configured = await raw.ExecuteAsync(
+            [
+                "set-hook",
+                "-g",
+                "after-list-panes",
+                "display-message -p hook-output",
+            ],
+            token);
+        Assert.Equal(0, configured.ExitCode);
+        Server server = await ConnectAsync(raw, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+
+        IReadOnlyList<string> panes = await control.SendAsync(
+            TmuxCommand.Create("list-panes", "-F", "#{pane_id}"),
+            token);
+
+        Assert.Equal(["%0"], panes);
+        Assert.Equal(
+            ["aligned"],
+            await control.SendAsync(
+                TmuxCommand.Create("display-message", "-p", "aligned"),
+                token));
+    }
+
+    [UnixFact]
+    public async Task Cancellation_keeps_later_callers_behind_the_request_fence()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+        string channel = $"control-{Guid.NewGuid():N}";
+        using var callerCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+        Task<IReadOnlyList<string>> blocked = control.SendAsync(
+            TmuxCommand.Create("wait-for", channel),
+            callerCancellation.Token);
+        await Task.Delay(TimeSpan.FromMilliseconds(50), token);
+        callerCancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await blocked);
+
+        Task<IReadOnlyList<string>> following = control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "after-wait"),
+            token);
+        await Task.Delay(TimeSpan.FromMilliseconds(50), token);
+        Assert.False(following.IsCompleted);
+
+        RawTmuxResult signal = await raw.ExecuteAsync(["wait-for", "-S", channel], token);
+        Assert.Equal(0, signal.ExitCode);
+        Assert.Equal(["after-wait"], await following);
     }
 
     [UnixFact]
@@ -90,7 +203,14 @@ public sealed class ControlModeSessionTests
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
 
-        await control.SendAsync("send-keys -t %0 'echo libtmux-control-marker' Enter", token);
+        await control.SendAsync(
+            TmuxCommand.Create(
+                "send-keys",
+                "-t",
+                "%0",
+                "echo libtmux-control-marker",
+                "Enter"),
+            token);
 
         // tmux escapes the payload the way it escapes an option value, so a
         // reader that passed it through would report the literal escape
@@ -124,7 +244,7 @@ public sealed class ControlModeSessionTests
         Server server = await ConnectAsync(raw, token);
         IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
 
-        await control.SendAsync("kill-server", token);
+        await control.SendAsync(TmuxCommand.Create("kill-server"), token);
 
         List<TmuxEvent> observed = [];
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);

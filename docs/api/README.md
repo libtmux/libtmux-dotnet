@@ -22,6 +22,7 @@ modes differ.
 | `LibTmux.ClientAttachment` | What one client is looking at. |
 | `LibTmux.CommandPromptRequest` | Describes one command-prompt invocation. |
 | `LibTmux.ConfirmBeforeRequest` | Describes one confirm-before invocation. |
+| `LibTmux.ControlModeCommandException` | Reports a command rejected by a live tmux control client. |
 | `LibTmux.CopyModeRequest` | Describes one copy-mode invocation. |
 | `LibTmux.DisplayMenuRequest` | Describes one display-menu invocation. |
 | `LibTmux.DisplayMessageRequest` | Describes one display-message invocation. |
@@ -189,6 +190,7 @@ modes differ.
 | `LibTmux.ClientAttachment.#ctor(LibTmux.Session,LibTmux.Window,LibTmux.Pane)` | What one client is looking at. |
 | `LibTmux.CommandPromptRequest.#ctor(System.String,System.String,System.String,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Nullable{LibTmux.PromptType},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a command prompt. |
 | `LibTmux.ConfirmBeforeRequest.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,System.Boolean,System.String)` | Initializes a confirmation. |
+| `LibTmux.ControlModeCommandException.#ctor(System.String,LibTmux.TmuxCommand,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a control-mode command exception. |
 | `LibTmux.CopyModeRequest.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.String)` | Initializes a copy-mode request. |
 | `LibTmux.DisplayMenuRequest.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.TmuxMenuItem},System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.Boolean,System.Boolean)` | Initializes a menu. |
 | `LibTmux.DisplayMessageRequest.#ctor(System.String,System.Boolean,System.String,System.Boolean,System.Boolean,System.Boolean,System.String,System.Nullable{System.TimeSpan},System.Boolean,System.Boolean)` | Initializes a display-message request. |
@@ -197,7 +199,7 @@ modes differ.
 | `LibTmux.GetOptionRequest.#ctor(System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request for one option. |
 | `LibTmux.GetOptionsRequest.#ctor(System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request for every option in a scope. |
 | `LibTmux.HookRequest.#ctor(System.String,System.Nullable{LibTmux.OptionScope},System.Boolean)` | Initializes a request naming one hook. |
-| `LibTmux.IControlModeSession.SendAsync(System.String,System.Threading.CancellationToken)` | Runs one command on this client and reads what it answered. |
+| `LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)` | Runs one command on this client and reads what it answered. |
 | `LibTmux.IfShellRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.String)` | Initializes a conditional command. |
 | `LibTmux.IncompleteSnapshotException.#ctor(System.String,LibTmux.SnapshotDepth)` | Initializes the exception for one uncaptured relation. |
 | `LibTmux.LibTmuxException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes a LibTmux exception that knows whether tmux ran the command. |
@@ -495,7 +497,7 @@ modes differ.
 | `LibTmux.TmuxChaining.ToRunCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | Returns running a hook as one tmux command. |
 | `LibTmux.TmuxChaining.ToUnsetCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | Returns removing a hook as one tmux command. |
 | `LibTmux.TmuxCleanupException.#ctor(System.String,System.OperationCanceledException,System.Int32,System.Exception)` | Initializes a cleanup exception. |
-| `LibTmux.TmuxCommand.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | One tmux command and the arguments it carries. |
+| `LibTmux.TmuxCommand.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a tmux command. |
 | `LibTmux.TmuxCommand.Create(System.String,System.String[])` | Creates a command from its name and arguments. |
 | `LibTmux.TmuxCommand.ToArguments` | Returns this command the way tmux receives it. |
 | `LibTmux.TmuxCommandException.#ctor(System.String,LibTmux.TmuxCommandResult,System.Exception)` | Initializes a command exception. |
@@ -661,6 +663,9 @@ modes differ.
 | `LibTmux.ConfirmBeforeRequest.DefaultYes` | Gets whether pressing enter confirms rather than cancels. |
 | `LibTmux.ConfirmBeforeRequest.Prompt` | Gets the question shown, or null for tmux's own wording. |
 | `LibTmux.ConfirmBeforeRequest.TargetClient` | Gets the client to ask, or null for the caller's own. |
+| `LibTmux.ControlModeCommandException.Command` | Gets the command tmux rejected. |
+| `LibTmux.ControlModeCommandException.ErrorLines` | Gets the error lines tmux reported. |
+| `LibTmux.ControlModeCommandException.OutputLines` | Gets output produced before tmux rejected the command. |
 | `LibTmux.CopyModeRequest.Cancel` | Gets whether copy mode is left instead of entered. |
 | `LibTmux.CopyModeRequest.ExitOnBottom` | Gets whether reaching the bottom leaves copy mode. |
 | `LibTmux.CopyModeRequest.MouseDrag` | Gets whether the mode is entered for a mouse drag. |
@@ -1045,8 +1050,8 @@ modes differ.
 | `LibTmux.TmuxCleanupException.CleanupFailure` | Gets the cleanup failure. |
 | `LibTmux.TmuxCleanupException.ClientProcessId` | Gets the disposable client process identifier. |
 | `LibTmux.TmuxCleanupException.OriginalCancellation` | Gets the original cancellation. |
-| `LibTmux.TmuxCommand.Arguments` | Its arguments, separated as tmux will receive them. |
-| `LibTmux.TmuxCommand.Name` | The tmux command name, such as new-window. |
+| `LibTmux.TmuxCommand.Arguments` | Gets the arguments, separated as tmux will receive them. |
+| `LibTmux.TmuxCommand.Name` | Gets the tmux command name. |
 | `LibTmux.TmuxCommandException.Result` | Gets the inspectable command result. |
 | `LibTmux.TmuxCommandNotFoundException.TmuxBinaryPath` | Gets the configured tmux executable path. |
 | `LibTmux.TmuxCommandResult.Arguments` | Gets the logical tmux arguments. |
