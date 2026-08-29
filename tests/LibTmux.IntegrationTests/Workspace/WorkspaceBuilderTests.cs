@@ -144,6 +144,78 @@ public sealed class WorkspaceBuilderTests
     }
 
     [UnixFact]
+    public async Task First_pane_directory_controls_window_creation()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporaryServerScope scope = await factory.CreateServerAsync(
+            HarnessOptions(),
+            token);
+
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: libtmux-pane-directory
+            start_directory: /tmp
+            windows:
+              - panes:
+                  - start_directory: /usr
+                    shell_command: pwd
+                  - start_directory: /etc
+                    shell_command: pwd
+            """);
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+            .BuildAsync(workspace, token);
+        IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
+
+        IReadOnlyList<string> first = await TmuxWait.UntilAsync(
+            cancellation => panes[0].CaptureAsync(cancellationToken: cancellation),
+            lines => lines.Contains("/usr", StringComparer.Ordinal),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromMilliseconds(20),
+            token);
+        IReadOnlyList<string> second = await TmuxWait.UntilAsync(
+            cancellation => panes[1].CaptureAsync(cancellationToken: cancellation),
+            lines => lines.Contains("/etc", StringComparer.Ordinal),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromMilliseconds(20),
+            token);
+
+        Assert.Contains("/usr", first);
+        Assert.Contains("/etc", second);
+    }
+
+    [UnixFact]
+    public async Task Last_focused_window_and_pane_win()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporaryServerScope scope = await factory.CreateServerAsync(
+            HarnessOptions(),
+            token);
+
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: libtmux-last-focus
+            windows:
+              - window_name: first
+                focus: true
+                panes:
+                  -
+              - window_name: second
+                focus: true
+                panes:
+                  - focus: true
+                  - focus: true
+            """);
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+            .BuildAsync(workspace, token);
+        Session session = await result.Session.RefreshAsync(token);
+        Window window = await result.Windows[1].RefreshAsync(token);
+        IReadOnlyList<Pane> panes = await window.GetPanesAsync(token);
+
+        Assert.Equal(result.Windows[1].Id, session.ActiveWindow.Id);
+        Assert.Equal(panes[1].Id, window.ActivePane.Id);
+    }
+
+    [UnixFact]
     public void A_file_that_is_not_a_workspace_is_refused()
     {
         Assert.Throws<WorkspaceFormatException>(() => WorkspaceFile.Parse("- just\n- a\n- list\n"));

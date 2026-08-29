@@ -54,7 +54,7 @@ public sealed class WorkspaceBuilder
                 new NewSessionRequest(
                     name: workspace.SessionName,
                     windowName: first.WindowName,
-                    startDirectory: first.StartDirectory ?? workspace.StartDirectory),
+                    startDirectory: StartDirectoryFor(first, workspace)),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -72,7 +72,7 @@ public sealed class WorkspaceBuilder
             Window window = await session.CreateWindowAsync(
                     new NewWindowRequest(
                         name: described.WindowName,
-                        startDirectory: described.StartDirectory ?? workspace.StartDirectory),
+                        startDirectory: StartDirectoryFor(described, workspace)),
                     cancellationToken)
                 .ConfigureAwait(false);
             windows.Add(
@@ -85,6 +85,13 @@ public sealed class WorkspaceBuilder
         await SelectFocusedAsync(workspace, windows, cancellationToken).ConfigureAwait(false);
         return new WorkspaceResult(session, windows, unsupported);
     }
+
+    private static string? StartDirectoryFor(
+        WorkspaceWindow window,
+        WorkspaceFile workspace) =>
+        (window.Panes.Count == 0 ? null : window.Panes[0].StartDirectory)
+        ?? window.StartDirectory
+        ?? workspace.StartDirectory;
 
     private static async Task ApplyOptionsAsync(
         TmuxOptions options,
@@ -103,7 +110,7 @@ public sealed class WorkspaceBuilder
         List<Window> windows,
         CancellationToken cancellationToken)
     {
-        for (int index = 0; index < workspace.Windows.Count; index++)
+        for (int index = workspace.Windows.Count - 1; index >= 0; index--)
         {
             if (!workspace.Windows[index].Focus)
             {
@@ -172,7 +179,7 @@ public sealed class WorkspaceBuilder
         await ApplyOptionsAsync(window.Options, described.Options, cancellationToken)
             .ConfigureAwait(false);
 
-        for (int index = 0; index < described.Panes.Count; index++)
+        for (int index = described.Panes.Count - 1; index >= 0; index--)
         {
             if (!described.Panes[index].Focus)
             {
