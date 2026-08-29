@@ -249,6 +249,10 @@ documents they are generated from. Adding a public member without recording it
 fails `render_api_reference.py --check` and nothing before it, so run the whole
 list rather than the first few.
 
+`render_api_reference.py` reads the XML documentation the compiler emitted, so
+build before running it. Against stale output it reports a difference that is
+not there.
+
 `sync_snippets.py --check` is the one that catches a hand-edited example. It
 compares each published block against the region it was quoted from and fails
 on any difference, so bring a change across rather than typing it into the
