@@ -10,6 +10,11 @@ namespace LibTmux.IntegrationTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilderTests
 {
+
+    // The library's ten-second default is ample for one shell on an idle
+    // machine. These run beside other suites and a build, where a shell can
+    // take longer to draw its first prompt than the subject under test needs.
+    private static readonly TimeSpan Readiness = TimeSpan.FromSeconds(60);
     private const string Yaml = """
         session_name: libtmux-workspace
         start_directory: /tmp
@@ -134,7 +139,7 @@ public sealed class WorkspaceBuilderTests
                   - echo hello
             """);
 
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
             .BuildAsync(workspace, token);
 
         // The session is still built, and the caller is told what was asked
@@ -160,7 +165,7 @@ public sealed class WorkspaceBuilderTests
               - panes:
                   - shell_command: 'printf "ready\n"; read value; printf "got=<%s>\n" "$value"'
             """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
             .BuildAsync(workspace, token);
         Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
 
@@ -345,7 +350,7 @@ public sealed class WorkspaceBuilderTests
                   - start_directory: /etc
                     shell_command: pwd
             """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
             .BuildAsync(workspace, token);
         IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
@@ -388,7 +393,7 @@ public sealed class WorkspaceBuilderTests
                   - focus: true
                   - focus: true
             """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
             .BuildAsync(workspace, token);
         Session session = await result.Session.RefreshAsync(token);
         Window window = await result.Windows[1].RefreshAsync(token);
