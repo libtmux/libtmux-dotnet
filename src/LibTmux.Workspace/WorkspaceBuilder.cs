@@ -168,11 +168,12 @@ public sealed class WorkspaceBuilder
                         cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (TmuxWindowException failure)
+            catch (LibTmuxException failure) when (
+                failure is TmuxWindowException or TmuxCommandException)
             {
                 unsupported.Add(
-                    $"window '{described.WindowName}' asks for layout "
-                    + $"'{described.Layout}', which this tmux does not have: {failure.Message}");
+                    $"window '{described.WindowName}' layout '{described.Layout}' "
+                    + $"was rejected: {failure.Message}");
             }
         }
 

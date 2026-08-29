@@ -95,7 +95,7 @@ public sealed class WorkspaceBuilderTests
             session_name: libtmux-unsupported
             windows:
               - window_name: only
-                layout: not-a-layout
+                layout: "0000,not-a-layout"
                 panes:
                   - echo hello
             """);
@@ -108,7 +108,7 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal("libtmux-unsupported", result.Session.Name);
         Assert.Contains(
             result.Unsupported,
-            message => message.Contains("not-a-layout", StringComparison.Ordinal));
+            message => message.Contains("0000,not-a-layout", StringComparison.Ordinal));
     }
 
     [UnixFact]
