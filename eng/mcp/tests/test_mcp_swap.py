@@ -29,6 +29,12 @@ import tomlkit
 
 _SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "mcp_swap.py"
 
+# The script imports its siblings from its own directory, so a test loading it
+# by path has to put that directory where Python will look.
+sys.path.insert(0, str(_SCRIPT.parent))
+
+import jsonc  # noqa: E402
+
 _spec = importlib.util.spec_from_file_location("mcp_swap", _SCRIPT)
 assert _spec and _spec.loader
 mcp_swap = importlib.util.module_from_spec(_spec)
@@ -3120,7 +3126,7 @@ def test_opencode_swap_preserves_jsonc_comments(
     assert "// header comment" in text
     assert "/* a block comment" in text
     assert "spanning lines */" in text
-    doc = mcp_swap._jsonc_loads(text)
+    doc = jsonc.loads(text)
     assert doc["model"] == "openrouter/x"
     assert doc["mcp"]["other"]["command"] == ["echo", "keep"]
     assert doc["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
@@ -3151,7 +3157,7 @@ def test_opencode_comment_inside_the_replaced_entry_survives(
     assert _swap_opencode(fake_repo) == 0
     text = info.config_path.read_text()
     assert "// Pinned deliberately; this rationale must outlive the swap." in text
-    entry = mcp_swap._jsonc_loads(text)["mcp"]["tmux"]
+    entry = jsonc.loads(text)["mcp"]["tmux"]
     assert entry["command"][0].endswith("LibTmux.Mcp")
     assert entry["environment"] == _runtime_env(fake_repo) | {"KEEP": "me"}
 
@@ -3202,7 +3208,7 @@ def test_opencode_seeds_schema_into_an_empty_config(
     """Seeding an empty file writes ``$schema`` alongside the server entry."""
     info = _opencode_config(fake_home, "")
     assert _swap_opencode(fake_repo) == 0
-    doc = mcp_swap._jsonc_loads(info.config_path.read_text())
+    doc = jsonc.loads(info.config_path.read_text())
     assert doc["$schema"] == mcp_swap.OPENCODE_SCHEMA_URL
     assert doc["mcp"]["tmux"]["type"] == "local"
 
@@ -3223,7 +3229,7 @@ def test_opencode_symlinked_config_swap_updates_target_not_link(
     assert info.config_path.readlink() == target
     text = target.read_text()
     assert "// linked" in text
-    assert mcp_swap._jsonc_loads(text)["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
+    assert jsonc.loads(text)["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
 
 
 def test_pi_config_with_comments_is_readable(
@@ -3247,7 +3253,7 @@ def test_pi_config_with_comments_is_readable(
     assert mcp_swap.cmd_use_local(args) == 0
     text = info.config_path.read_text()
     assert "// the adapter allows comments" in text
-    servers = mcp_swap._jsonc_loads(text)["mcpServers"]
+    servers = jsonc.loads(text)["mcpServers"]
     assert servers["keep"]["command"] == "echo"
     assert servers["tmux"]["command"] == str(
         mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
@@ -3360,7 +3366,7 @@ def test_jsonc_values_match_stdlib_json(
         expected = json.loads(body)
     except json.JSONDecodeError:
         pytest.skip("comment or trailing comma — stdlib cannot parse it")
-    assert mcp_swap._jsonc_loads(body) == expected
+    assert jsonc.loads(body) == expected
 
 
 def test_jsonc_config_is_not_written_through_the_toml_writer(
@@ -3378,7 +3384,7 @@ def test_jsonc_config_is_not_written_through_the_toml_writer(
     )
     text = out.decode()
     assert text.lstrip().startswith("{")
-    assert mcp_swap._jsonc_loads(text)["mcp"]["x"]["type"] == "local"
+    assert jsonc.loads(text)["mcp"]["x"]["type"] == "local"
 
 
 class JsoncDeletionCase(t.NamedTuple):
@@ -3447,7 +3453,7 @@ def test_jsonc_merge_removing_a_member_takes_exactly_one_comma(
     inside a comment passes for the separator.
     """
     assert test_id
-    assert mcp_swap._jsonc_merge(body, data, ensure_ascii=False) == expected
+    assert jsonc.merge(body, data, ensure_ascii=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -3462,10 +3468,10 @@ def test_jsonc_merge_escapes_an_inserted_key(name: str) -> None:
     spinning while holding the swap lock and then failing.
     """
     src = '{\n  "mcp": {}\n}\n'
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"][name] = {"type": "local"}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out)["mcp"][name] == {"type": "local"}
+    out = jsonc.merge(src, data, ensure_ascii=False)
+    assert jsonc.loads(out)["mcp"][name] == {"type": "local"}
 
 
 def test_jsonc_merge_removing_a_middle_member_stays_parseable() -> None:
@@ -3475,10 +3481,10 @@ def test_jsonc_merge_removing_a_middle_member_stays_parseable() -> None:
         '      "enabled": true,\n      "timeout": 5000,\n'
         '      "command": ["uvx", "old"]\n    }\n  }\n}\n'
     )
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"]["tmux"] = {"type": "local", "command": ["uv", "run", "x"]}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out) == data
+    out = jsonc.merge(src, data, ensure_ascii=False)
+    assert jsonc.loads(out) == data
 
 
 def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() -> None:
@@ -3489,9 +3495,9 @@ def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() ->
     whole interior and take the comment with it.
     """
     src = '{\n  "mcp": {\n    // why there are no servers yet\n  }\n}\n'
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"]["tmux"] = {"type": "local", "command": ["uv"]}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
+    out = jsonc.merge(src, data, ensure_ascii=False)
     assert out == (
         '{\n  "mcp": {\n    // why there are no servers yet\n'
         '    "tmux": {\n      "type": "local",\n      "command": [\n'
@@ -3502,9 +3508,9 @@ def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() ->
 def test_jsonc_merge_inserting_into_a_comment_only_document_keeps_the_comment() -> None:
     """The same splice at the root, where there is no enclosing member."""
     src = "{\n  // root rationale\n}\n"
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"] = {}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
+    out = jsonc.merge(src, data, ensure_ascii=False)
     assert out == '{\n  // root rationale\n  "mcp": {}\n}\n'
 
 
@@ -3514,10 +3520,10 @@ def test_jsonc_merge_inserting_into_a_comment_only_document_keeps_the_comment() 
 )
 def test_jsonc_merge_inserting_into_an_empty_object_is_unchanged(body: str) -> None:
     """A genuinely empty interior still collapses to the old splice point."""
-    data = mcp_swap._jsonc_loads(body)
+    data = jsonc.loads(body)
     data.setdefault("mcp", {})["tmux"] = {"type": "local"}
-    out = mcp_swap._jsonc_merge(body, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out)["mcp"]["tmux"] == {"type": "local"}
+    out = jsonc.merge(body, data, ensure_ascii=False)
+    assert jsonc.loads(out)["mcp"]["tmux"] == {"type": "local"}
     assert out.rstrip().endswith("}")
 
 
@@ -3529,7 +3535,7 @@ def test_jsonc_comment_blanking_preserves_offsets() -> None:
     would land in the wrong place.
     """
     src = '{\n  // note\n  "a": 1, /* x */\n  "b": "//not a comment"\n}\n'
-    blanked = mcp_swap._jsonc_blank_comments(src)
+    blanked = jsonc.blank_comments(src)
     assert len(blanked) == len(src)
     assert "//not a comment" in blanked
     assert "note" not in blanked
