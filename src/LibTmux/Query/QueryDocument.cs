@@ -46,6 +46,8 @@ public sealed record QueryDocument(
             Depth(comparison.Right, target)),
         StringNode text => Deepest(Depth(text.Left, target), Depth(text.Right, target)),
         RegexNode regex => Depth(regex.Input, target),
+        FieldNode field when QueryFieldCatalog.IsRelation(field.WireName) =>
+            RelationDepth(field.WireName),
         FieldNode field => Base(field.Target),
         _ => Base(target),
     };

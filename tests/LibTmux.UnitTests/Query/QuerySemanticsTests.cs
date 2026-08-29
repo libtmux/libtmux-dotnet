@@ -160,6 +160,18 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void Scalar_relation_fields_require_their_capture_depth()
+    {
+        QueryDocument sessions = QueryExtensions.Translate<SessionCountRow>(
+            row => row.SessionWindows > 1);
+        QueryDocument panes = QueryExtensions.Translate<WindowCountRow>(
+            row => row.WindowPanes == 2);
+
+        Assert.Equal(SnapshotDepth.Windows, sessions.RequiredSnapshotDepth);
+        Assert.Equal(SnapshotDepth.Panes, panes.RequiredSnapshotDepth);
+    }
+
+    [Fact]
     public void Integer_projections_compare_as_wire_int64_values()
     {
         QueryDocument document = QueryExtensions.Translate<SessionIntCountRow>(
