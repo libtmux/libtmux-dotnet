@@ -17,17 +17,39 @@ internal static class QueryInterpreter
 
     [RequiresUnreferencedCode(TrimmingMessage)]
     internal static Func<T, bool> Compile<T>(QueryDocument document) =>
-        Compile<T>(document, out _);
+        Compile<T>(document, out _, check: null);
 
     [RequiresUnreferencedCode(TrimmingMessage)]
     internal static Func<T, bool> Compile<T>(
         QueryDocument document,
-        out QueryBindingMetrics metrics)
+        CancellationToken cancellationToken) =>
+        Compile<T>(
+            document,
+            out _,
+            cancellationToken.CanBeCanceled
+                ? cancellationToken.ThrowIfCancellationRequested
+                : null);
+
+    [RequiresUnreferencedCode(TrimmingMessage)]
+    internal static Func<T, bool> Compile<T>(
+        QueryDocument document,
+        out QueryBindingMetrics metrics) =>
+        Compile<T>(document, out metrics, check: null);
+
+    [RequiresUnreferencedCode(TrimmingMessage)]
+    private static Func<T, bool> Compile<T>(
+        QueryDocument document,
+        out QueryBindingMetrics metrics,
+        Action? check)
     {
         ArgumentNullException.ThrowIfNull(document);
         QueryValidationResult validation = QueryDocumentValidator.Validate(document);
         QueryPlanBindings bindings = new(validation);
-        Func<object, bool> predicate = BindPredicate(document.Predicate, typeof(T), bindings);
+        Func<object, bool> predicate = BindPredicate(
+            document.Predicate,
+            typeof(T),
+            bindings,
+            check);
         metrics = bindings.Metrics;
         return element => predicate(element!);
     }
@@ -35,38 +57,52 @@ internal static class QueryInterpreter
     private static Func<object, bool> BindPredicate(
         QueryNode node,
         Type elementType,
-        QueryPlanBindings bindings) => node switch
+        QueryPlanBindings bindings,
+        Action? check)
+    {
+        Func<object, bool> predicate = node switch
         {
-            AndNode and => BindAnd(and, elementType, bindings),
-            OrNode or => BindOr(or, elementType, bindings),
-            NotNode not => BindNot(not, elementType, bindings),
+            AndNode and => BindAnd(and, elementType, bindings, check),
+            OrNode or => BindOr(or, elementType, bindings, check),
+            NotNode not => BindNot(not, elementType, bindings, check),
             ComparisonNode comparison => BindComparison(comparison, elementType, bindings),
             StringNode text => BindText(text, elementType, bindings),
             RegexNode regex => BindRegex(regex, elementType, bindings),
-            QuantifierNode quantifier => BindQuantifier(quantifier, elementType, bindings),
+            QuantifierNode quantifier => BindQuantifier(quantifier, elementType, bindings, check),
             FieldNode field => BindBoolean(field, elementType, bindings),
             ConstantNode { Value: BooleanConstant boolean } => _ => boolean.Value,
             _ => throw new UnsupportedQueryExpressionException(
                 $"Node '{node.GetType().Name}' has no interpretation."),
         };
 
+        return check is null
+            ? predicate
+            : element =>
+            {
+                check();
+                return predicate(element);
+            };
+    }
+
     private static Func<object, bool> BindAnd(
         AndNode and,
         Type elementType,
-        QueryPlanBindings bindings)
+        QueryPlanBindings bindings,
+        Action? check)
     {
         Func<object, bool>[] operands =
-            [.. and.Operands.Select(operand => BindPredicate(operand, elementType, bindings))];
+            [.. and.Operands.Select(operand => BindPredicate(operand, elementType, bindings, check))];
         return element => AllOperands(operands, element);
     }
 
     private static Func<object, bool> BindOr(
         OrNode or,
         Type elementType,
-        QueryPlanBindings bindings)
+        QueryPlanBindings bindings,
+        Action? check)
     {
         Func<object, bool>[] operands =
-            [.. or.Operands.Select(operand => BindPredicate(operand, elementType, bindings))];
+            [.. or.Operands.Select(operand => BindPredicate(operand, elementType, bindings, check))];
         return element => AnyOperand(operands, element);
     }
 
@@ -99,9 +135,10 @@ internal static class QueryInterpreter
     private static Func<object, bool> BindNot(
         NotNode not,
         Type elementType,
-        QueryPlanBindings bindings)
+        QueryPlanBindings bindings,
+        Action? check)
     {
-        Func<object, bool> operand = BindPredicate(not.Operand, elementType, bindings);
+        Func<object, bool> operand = BindPredicate(not.Operand, elementType, bindings, check);
         return element => !operand(element);
     }
 
@@ -237,7 +274,8 @@ internal static class QueryInterpreter
     private static Func<object, bool> BindQuantifier(
         QuantifierNode quantifier,
         Type elementType,
-        QueryPlanBindings bindings)
+        QueryPlanBindings bindings,
+        Action? check)
     {
         QueryFieldAccessor relation = bindings.Field(
             quantifier.Relation,
@@ -249,7 +287,8 @@ internal static class QueryInterpreter
         Func<object, bool> predicate = BindPredicate(
             quantifier.Predicate,
             childType,
-            bindings);
+            bindings,
+            check);
 
         return quantifier.Quantifier == QueryQuantifier.Any
             ? element => Any(relation.Read(element), predicate)

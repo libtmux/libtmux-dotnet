@@ -8821,6 +8821,40 @@
       "summary": "Evaluates one canonical query document against an explicit snapshot."
     },
     {
+      "id": "M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,QueryDocument,CancellationToken)",
+      "declaringType": "T:LibTmux.Query.QueryExtensions",
+      "name": "Matching",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [
+        "T"
+      ],
+      "returnType": "IReadOnlyList<T>",
+      "parameters": [
+        {
+          "name": "source",
+          "type": "IEnumerable<T>",
+          "modifier": "this"
+        },
+        {
+          "name": "document",
+          "type": "QueryDocument"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken"
+        }
+      ],
+      "signature": "IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, QueryDocument document, CancellationToken cancellationToken)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Evaluates one canonical query document with cooperative cancellation."
+    },
+    {
       "id": "M:LibTmux.Query.QueryExtensions.Translate``1(Expression<Func<T,bool>>)",
       "declaringType": "T:LibTmux.Query.QueryExtensions",
       "name": "Translate",

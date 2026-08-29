@@ -78,8 +78,12 @@ The same document filters what you already hold, wherever it was written:
 string received = QueryJson.Serialize(QueryExtensions.Translate<Session>(
     session => session.Name.StartsWith("build", StringComparison.Ordinal)));
 
+using var queryBudget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+queryBudget.CancelAfter(TimeSpan.FromSeconds(1));
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
-IReadOnlyList<Session> matched = sessions.Matching(QueryJson.Deserialize(received));
+IReadOnlyList<Session> matched = sessions.Matching(
+    QueryJson.Deserialize(received),
+    queryBudget.Token);
 
 Console.WriteLine(matched.Count);
 ```
@@ -93,6 +97,10 @@ in the package as `libtmux-query-v1.schema.json`.
 
 Evaluating the result with `Compile` or `Matching` resolves public properties
 by name. Those methods warn trimmed callers to preserve that metadata.
+For a document received from another trust boundary, use the cancellable
+`Matching` overload with a deadline. It checks between source elements and
+predicate nodes; a regex already running still has its separate one-second
+match ceiling.
 
 ```csharp run
 Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLimits.V1.MaximumNodes}");

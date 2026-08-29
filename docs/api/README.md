@@ -284,6 +284,7 @@ modes differ.
 | `LibTmux.Query.QueryEdgeParser.ParseNameContains(LibTmux.Query.QueryTarget,System.String)` | Parses a name__contains lookup into a query document. |
 | ```LibTmux.Query.QueryExtensions.Compile``1(LibTmux.Query.QueryDocument)``` | Compiles a document into an in-memory predicate. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument)``` | Filters a snapshot with an already translated document. |
+| ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument,System.Threading.CancellationToken)``` | Filters a snapshot with a cancellable translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Filters a snapshot with a declarative predicate. |
 | ```LibTmux.Query.QueryExtensions.Translate``1(System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Translates an expression into a wire document. |
 | `LibTmux.Query.RegexNode.#ctor(LibTmux.Query.QueryNode,System.String,System.String,System.Text.RegularExpressions.RegexOptions)` | A constant-pattern regular expression match. |

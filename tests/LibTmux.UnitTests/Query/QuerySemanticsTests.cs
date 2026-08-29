@@ -17,6 +17,34 @@ public sealed class QuerySemanticsTests
 
     private sealed record NullableRow(string? SessionName);
 
+    private sealed class CancellingRow(CancellationTokenSource cancellation)
+    {
+        public string SessionName
+        {
+            get
+            {
+                cancellation.Cancel();
+                return "dev";
+            }
+        }
+
+        public bool SessionAttached => cancellation.IsCancellationRequested
+            ? throw new InvalidOperationException("Evaluation continued after cancellation.")
+            : true;
+    }
+
+    private sealed class TimedRegexRow(CancellationTokenSource cancellation)
+    {
+        public string SessionName
+        {
+            get
+            {
+                cancellation.CancelAfter(TimeSpan.FromMilliseconds(10));
+                return new string('a', 10_000);
+            }
+        }
+    }
+
     private sealed record PaneIdRow(string PaneId);
 
     private sealed record WindowCountRow(string WindowName, long WindowPanes);
@@ -137,6 +165,43 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void Matching_stops_between_predicate_nodes()
+    {
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        var row = new CancellingRow(cancellation);
+        QueryDocument document = QueryExtensions.Translate<CancellingRow>(
+            candidate => candidate.SessionName == "dev" && candidate.SessionAttached);
+
+        OperationCanceledException failure = Assert.Throws<OperationCanceledException>(
+            () => new[] { row }.Matching(document, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, failure.CancellationToken);
+    }
+
+    [Fact]
+    public void Matching_reports_cancellation_when_a_regex_timeout_wins_the_race()
+    {
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new RegexNode(
+                new FieldNode(QueryTarget.Session, "session_name"),
+                QueryRegexSemantics.Dialect,
+                "^(a+)+z$",
+                RegexOptions.CultureInvariant));
+
+        OperationCanceledException failure = Assert.Throws<OperationCanceledException>(
+            () => new[] { new TimedRegexRow(cancellation) }
+                .Matching(document, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, failure.CancellationToken);
+    }
+
+    [Fact]
     public void Translation_refuses_a_field_outside_the_closed_catalog()
     {
         // A field the catalog does not carry cannot be put on the wire, so
@@ -242,7 +307,7 @@ public sealed class QuerySemanticsTests
                 .Where(method => method.Name is "Compile" or "Matching"),
         ];
 
-        Assert.Equal(3, evaluationMethods.Length);
+        Assert.Equal(4, evaluationMethods.Length);
         Assert.All(
             evaluationMethods,
             method => Assert.NotNull(

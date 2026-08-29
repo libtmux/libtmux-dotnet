@@ -1740,6 +1740,7 @@ static LibTmux.Query.QueryDocument.operator ==(LibTmux.Query.QueryDocument? left
 static LibTmux.Query.QueryEdgeParser.ParseNameContains(LibTmux.Query.QueryTarget target, string! value) -> LibTmux.Query.QueryDocument!
 static LibTmux.Query.QueryExtensions.Compile<T>(this LibTmux.Query.QueryDocument! document) -> System.Func<T, bool>!
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, LibTmux.Query.QueryDocument! document) -> System.Collections.Generic.IReadOnlyList<T>!
+static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, LibTmux.Query.QueryDocument! document, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Translate<T>(System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> LibTmux.Query.QueryDocument!
 static LibTmux.Query.QueryNode.operator !=(LibTmux.Query.QueryNode? left, LibTmux.Query.QueryNode? right) -> bool
