@@ -16,7 +16,7 @@ public sealed class CompositeMutationDispatchTests
         Window window = CreateWindow((request, _) =>
         {
             string[] arguments = [.. request.LogicalArguments];
-            if (arguments.Contains("list-windows", StringComparer.Ordinal))
+            if (ActualCommand(arguments) == ProjectionRead)
             {
                 throw NotDispatched(arguments, "refresh was not dispatched");
             }
@@ -192,9 +192,9 @@ public sealed class CompositeMutationDispatchTests
                     request,
                     $"{Generation.ProcessId}:{Generation.StartTime}\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
-                "list-sessions" => throw NotDispatched(
+                ProjectionRead => throw NotDispatched(
                     arguments,
-                    "session listing was not dispatched"),
+                    "session read was not dispatched"),
                 _ => Task.FromResult(Success(request)),
             };
         });
@@ -212,7 +212,7 @@ public sealed class CompositeMutationDispatchTests
                 "new-session",
                 "display-message",
                 "-V",
-                "list-sessions",
+                ProjectionRead,
             ],
             commands.ToArray());
     }
@@ -479,12 +479,22 @@ public sealed class CompositeMutationDispatchTests
         string message) =>
         new(message, arguments, TmuxDispatchState.NotDispatched);
 
-    private static string ActualCommand(string[] arguments) =>
-        arguments.Contains("if-shell", StringComparer.Ordinal)
+    // display-message serves three purposes: probing the generation, expanding
+    // a format, and reading one entity. Only the read carries a framed template.
+    private const string ProjectionRead = "read-one";
+
+    private static string ActualCommand(string[] arguments)
+    {
+        string command = arguments.Contains("if-shell", StringComparer.Ordinal)
             ? arguments.Last(static argument => argument is
                 "display-message" or "list-sessions" or "list-windows" or "list-panes"
                 or "new-window")
             : arguments[0];
+        return command == "display-message"
+            && arguments[^1].Contains(FormatProjection.RowSeparator, StringComparison.Ordinal)
+                ? ProjectionRead
+                : command;
+    }
 
     private static TmuxCommandResult Success(
         TmuxCommandRequest request,
@@ -536,7 +546,7 @@ public sealed class CompositeMutationDispatchTests
                     request,
                     $"{discovered.ProcessId}:{discovered.StartTime}\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
-                "list-sessions" => Task.FromResult(Success(
+                ProjectionRead => Task.FromResult(Success(
                     request,
                     SessionListing(discovered, "$2", "created"),
                     discovered)),

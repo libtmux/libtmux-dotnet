@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 
+using LibTmux.Internal;
+
 namespace LibTmux;
 
 // Raw tmux filters bypass the closed field catalog; malformed filters yield no

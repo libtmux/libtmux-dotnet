@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 
+using LibTmux.Internal;
+
 namespace LibTmux;
 
 public sealed partial class Pane
@@ -43,16 +45,21 @@ public sealed partial class Pane
     [UnsupportedOSPlatform("windows")]
     public async Task<Pane> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        // Listing by -t fails loudly on a pane that is already gone, which
-        // would report a command failure where the pane is simply missing.
         Server owner = Server;
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader
-            .ListAsync(owner, "list-panes", ["-a"], cancellationToken)
-            .ConfigureAwait(false);
-        return rows.Select(row => RelationReader.ToPane(owner, row))
-                .FirstOrDefault(pane => pane.Id == _id)
+        IReadOnlyDictionary<string, string?> row = await RelationReader
+            .FindAsync(
+                owner,
+                "list-panes",
+                "pane_id",
+                _id.ToString(),
+                RelationReader.CapturedSession(_snapshot) is SessionId session
+                    ? TmuxTarget.In(session, _id)
+                    : null,
+                cancellationToken)
+            .ConfigureAwait(false)
             ?? throw new TmuxObjectNotFoundException(
                 $"tmux no longer has pane '{_id}'.",
                 _id.ToString());
+        return RelationReader.ToPane(owner, row);
     }
 }

@@ -524,6 +524,23 @@ public sealed class PaneOperationsTests
                 logger: logger),
             token);
 
+    [UnixFact]
+    public async Task Killed_pane_is_a_raising_tombstone()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Pane survivor = await FirstPaneAsync(raw, token);
+        Pane doomed = await survivor.SplitAsync(new SplitPaneRequest(), token);
+
+        await doomed.KillAsync(cancellationToken: token);
+
+        // A session-scoped target answers with that session's current pane once
+        // the pane it names is gone, so refresh has to say the pane is missing
+        // rather than hand back the survivor.
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => doomed.RefreshAsync(token));
+    }
+
     private static async Task<Pane> FirstPaneAsync(
         RawTmuxTestContext raw,
         CancellationToken token) =>

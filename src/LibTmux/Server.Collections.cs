@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 
+using LibTmux.Internal;
+
 namespace LibTmux;
 
 // Session listings preserve historical any-failure leniency; window and pane

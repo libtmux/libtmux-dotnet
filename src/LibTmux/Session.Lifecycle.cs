@@ -45,17 +45,20 @@ public sealed partial class Session
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        // A refresh that cannot reach the server must say so, not report the
-        // session as gone, so this uses the throwing listing path.
         Server owner = RequireOwner("refresh");
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader
-            .ListAsync(owner, "list-sessions", [], cancellationToken)
-            .ConfigureAwait(false);
-        IEnumerable<Session> sessions = rows.Select(row => RelationReader.ToSession(owner, row));
-        return sessions.FirstOrDefault(session => session.Id == _id)
+        IReadOnlyDictionary<string, string?> row = await RelationReader
+            .FindAsync(
+                owner,
+                "list-sessions",
+                "session_id",
+                _id.ToString(),
+                inSession: null,
+                cancellationToken)
+            .ConfigureAwait(false)
             ?? throw new TmuxObjectNotFoundException(
                 $"tmux no longer has session '{_id}'.",
                 _id.ToString());
+        return RelationReader.ToSession(owner, row);
     }
 
     /// <summary>Renames this session.</summary>

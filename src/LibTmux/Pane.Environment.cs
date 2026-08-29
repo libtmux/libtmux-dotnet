@@ -32,20 +32,18 @@ public sealed partial class Pane
         // Materialize rather than resolve by identifier: callers reach for
         // Session and Window straight off this pane, and those relations are
         // served from the captured snapshot.
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-            await RelationReader.ListAsync(server, "list-panes", ["-a"], cancellationToken)
-                .ConfigureAwait(false);
-        string wanted = id.ToString();
-        foreach (IReadOnlyDictionary<string, string?> row in rows)
-        {
-            if (row.TryGetValue("pane_id", out string? candidate) && candidate == wanted)
-            {
-                return RelationReader.ToPane(server, row);
-            }
-        }
-
-        throw new TmuxObjectNotFoundException(
-            $"tmux no longer has pane '{wanted}'.",
-            wanted);
+        IReadOnlyDictionary<string, string?> row = await RelationReader
+            .FindAsync(
+                server,
+                "list-panes",
+                "pane_id",
+                id.ToString(),
+                inSession: null,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new TmuxObjectNotFoundException(
+                $"tmux no longer has pane '{id}'.",
+                id.ToString());
+        return RelationReader.ToPane(server, row);
     }
 }

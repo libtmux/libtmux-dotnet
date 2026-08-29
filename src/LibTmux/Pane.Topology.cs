@@ -577,18 +577,20 @@ public sealed partial class Pane
                     : throw new InvalidDataException("tmux reported no new pane identifier."));
 
         Server owner = sequence.Observe(() => Server);
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await sequence
-            .ObserveAsync(() => RelationReader.ListAsync(
+        IReadOnlyDictionary<string, string?>? row = await sequence
+            .ObserveAsync(() => RelationReader.FindAsync(
                 owner,
                 "list-panes",
-                ["-a"],
+                "pane_id",
+                created.ToString(),
+                inSession: null,
                 cancellationToken))
             .ConfigureAwait(false);
         return sequence.Observe(() =>
-            rows.Select(row => RelationReader.ToPane(owner, row))
-                    .FirstOrDefault(pane => pane.Id == created)
-                ?? throw new TmuxObjectNotFoundException(
+            row is null
+                ? throw new TmuxObjectNotFoundException(
                     $"tmux did not report the created pane '{created}'.",
-                    created.ToString()));
+                    created.ToString())
+                : RelationReader.ToPane(owner, row));
     }
 }

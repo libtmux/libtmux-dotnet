@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 
+using LibTmux.Internal;
+
 namespace LibTmux;
 
 // Provides captured window state and refresh.
@@ -58,22 +60,22 @@ public sealed partial class Window
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        // Listing by -t would return the whole session and would fail loudly on
-        // a window that is already gone, so the whole server is listed and the
-        // row is selected here. A linked window yields one row per session.
         Server owner = RequireOwner("refresh");
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader
-            .ListAsync(owner, "list-windows", ["-a"], cancellationToken)
-            .ConfigureAwait(false);
-        IReadOnlyList<Window> windows = [.. rows
-            .Select(row => RelationReader.ToWindow(owner, row))
-            .Where(window => window.Id == _id)];
-        string? session = ReadSnapshot("session_id");
-        return windows.FirstOrDefault(window => window.ReadSnapshot("session_id") == session)
-            ?? (windows.Count > 0 ? windows[0] : null)
+        IReadOnlyDictionary<string, string?> row = await RelationReader
+            .FindAsync(
+                owner,
+                "list-windows",
+                "window_id",
+                _id.ToString(),
+                RelationReader.CapturedSession(_snapshot) is SessionId session
+                    ? TmuxTarget.In(session, _id)
+                    : null,
+                cancellationToken)
+            .ConfigureAwait(false)
             ?? throw new TmuxObjectNotFoundException(
                 $"tmux no longer has window '{_id}'.",
                 _id.ToString());
+        return RelationReader.ToWindow(owner, row);
     }
 
     private int ReadCapturedInt(string wireName, string relation) =>
