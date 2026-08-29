@@ -112,6 +112,22 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
+    public void A_document_at_the_maximum_logical_depth_round_trips()
+    {
+        QueryNode predicate = True;
+        for (int depth = 1; depth < QueryJsonLimits.V1.MaximumDepth; depth++)
+        {
+            predicate = new NotNode(predicate);
+        }
+
+        QueryDocument document = Document(predicate);
+
+        Assert.Equal(document, QueryJson.Deserialize(QueryJson.Serialize(document)));
+        Assert.Throws<JsonException>(
+            () => QueryJson.Serialize(Document(new NotNode(predicate))));
+    }
+
+    [Fact]
     public void An_unknown_node_kind_is_refused_rather_than_guessed()
     {
         const string json =

@@ -100,10 +100,11 @@ public static class QueryJson
 
         using JsonDocument parsed = JsonDocument.Parse(
             json,
-            new JsonDocumentOptions { MaxDepth = bounds.MaximumDepth });
+            new JsonDocumentOptions { MaxDepth = ParserDepth(bounds.MaximumDepth) });
         try
         {
             JsonElement root = parsed.RootElement;
+            QueryJsonWireRules.ValidateEnvelope(root);
 
             // Schema and version must be checked before anything else is read, or
             // a v2 payload gets silently parsed under v1 rules.
@@ -139,4 +140,6 @@ public static class QueryJson
             throw new JsonException("Query document does not match the v1 wire form.", exception);
         }
     }
+
+    private static int ParserDepth(int queryDepth) => (queryDepth * 2) + 4;
 }

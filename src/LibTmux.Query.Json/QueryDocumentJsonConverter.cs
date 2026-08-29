@@ -6,6 +6,83 @@ namespace LibTmux.Query.Json;
 
 internal static class QueryJsonWireRules
 {
+    private static readonly string[] EnvelopeProperties =
+        ["schema", "version", "target", "predicate"];
+    private static readonly string[] FieldProperties = ["kind", "target", "wireName"];
+    private static readonly string[] ConstantNodeProperties = ["kind", "value"];
+    private static readonly string[] OperandsProperties = ["kind", "operands"];
+    private static readonly string[] NotProperties = ["kind", "operand"];
+    private static readonly string[] ComparisonProperties =
+        ["kind", "operator", "left", "right"];
+    private static readonly string[] QuantifierProperties =
+        ["kind", "quantifier", "relation", "predicate"];
+    private static readonly string[] RegexProperties =
+        ["kind", "input", "dialect", "pattern", "semanticOptions"];
+    private static readonly string[] KindProperties = ["kind"];
+    private static readonly string[] ValueProperties = ["kind", "value"];
+    private static readonly string[] TypedIdProperties = ["kind", "type", "value"];
+    private static readonly string[] EnumProperties = ["kind", "type", "token"];
+    private static readonly string[] InstantProperties = ["kind", "unixSeconds"];
+
+    internal static void ValidateEnvelope(JsonElement element) =>
+        ValidateProperties(element, EnvelopeProperties, "query envelope");
+
+    internal static void ValidateNode(JsonElement element, string? kind)
+    {
+        string[]? allowed = kind switch
+        {
+            "field" => FieldProperties,
+            "constant" => ConstantNodeProperties,
+            "and" or "or" => OperandsProperties,
+            "not" => NotProperties,
+            "comparison" => ComparisonProperties,
+            "quantifier" => QuantifierProperties,
+            "regex" => RegexProperties,
+            _ => null,
+        };
+        if (allowed is not null)
+        {
+            ValidateProperties(element, allowed, $"{kind} node");
+        }
+    }
+
+    internal static void ValidateConstant(JsonElement element, string? kind)
+    {
+        string[]? allowed = kind switch
+        {
+            "null" => KindProperties,
+            "boolean" or "int64" or "string" => ValueProperties,
+            "typedId" => TypedIdProperties,
+            "enum" => EnumProperties,
+            "instant" => InstantProperties,
+            _ => null,
+        };
+        if (allowed is not null)
+        {
+            ValidateProperties(element, allowed, $"{kind} constant");
+        }
+    }
+
+    private static void ValidateProperties(
+        JsonElement element,
+        IReadOnlyList<string> allowed,
+        string description)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (!allowed.Contains(property.Name, StringComparer.Ordinal))
+            {
+                throw new JsonException($"Unknown member in {description}.");
+            }
+
+            if (!seen.Add(property.Name))
+            {
+                throw new JsonException($"Duplicate member in {description}.");
+            }
+        }
+    }
+
     internal static int ScalarLength(string? value, string description)
     {
         if (value is null)
@@ -342,7 +419,9 @@ internal sealed class QueryDocumentJsonReader
             throw new JsonException("Query document exceeds the maximum node count.");
         }
 
-        return element.GetProperty("kind").GetString() switch
+        string? kind = element.GetProperty("kind").GetString();
+        QueryJsonWireRules.ValidateNode(element, kind);
+        return kind switch
         {
             "and" => new AndNode([.. ReadOperands(element, depth)]),
             "or" => new OrNode([.. ReadOperands(element, depth)]),
@@ -457,8 +536,11 @@ internal sealed class QueryDocumentJsonReader
             _ => throw new JsonException("Query document names an unknown quantifier."),
         };
 
-    private QueryConstant ReadConstant(JsonElement element) =>
-        element.GetProperty("kind").GetString() switch
+    private QueryConstant ReadConstant(JsonElement element)
+    {
+        string? kind = element.GetProperty("kind").GetString();
+        QueryJsonWireRules.ValidateConstant(element, kind);
+        return kind switch
         {
             "null" => new NullConstant(),
             "boolean" => new BooleanConstant(element.GetProperty("value").GetBoolean()),
@@ -473,6 +555,7 @@ internal sealed class QueryDocumentJsonReader
                 ReadBoundedString(element.GetProperty("value"), "Typed ID value")),
             _ => throw new JsonException("Query document names an unknown constant type."),
         };
+    }
 
     private IEnumerable<QueryNode> ReadOperands(JsonElement element, int depth)
     {

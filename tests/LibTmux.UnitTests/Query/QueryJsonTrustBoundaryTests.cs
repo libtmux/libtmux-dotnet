@@ -149,6 +149,27 @@ public sealed class QueryJsonTrustBoundaryTests
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
 
+    [Theory]
+    [InlineData(
+        "{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true},\"extra\":false}")]
+    [InlineData(
+        "{\"kind\":\"constant\",\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true}}")]
+    [InlineData(
+        "{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true,\"extra\":false}}")]
+    public void Unknown_or_duplicate_node_members_are_refused(string predicate) =>
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(Document(predicate)));
+
+    [Fact]
+    public void An_unknown_envelope_member_is_refused()
+    {
+        const string json =
+            """
+            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"constant","value":{"kind":"boolean","value":true}},"extra":false}
+            """;
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
     [Fact]
     public void A_field_outside_the_catalog_cannot_be_read_from_an_element()
     {
