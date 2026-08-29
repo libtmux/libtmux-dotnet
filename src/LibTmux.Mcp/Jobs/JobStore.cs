@@ -24,9 +24,13 @@ namespace LibTmux.Mcp;
 /// if this server is restarted the command carries on, and only the handle is
 /// lost.
 /// </para>
+/// <para>
+/// The store is asynchronous all the way down, disposal included. Whatever
+/// owns one disposes it with <c>await using</c>.
+/// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed class JobStore : IDisposable, IAsyncDisposable
+public sealed class JobStore : IAsyncDisposable
 {
     internal const int Capacity = 100;
     internal const string RecoveryJobIdDataKey = "LibTmux.Mcp.JobId";
@@ -46,9 +50,12 @@ public sealed class JobStore : IDisposable, IAsyncDisposable
     public JobStore(ILogger? logger = null) => _logger = logger;
 
     /// <inheritdoc />
-    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
-
-    /// <inheritdoc />
+    /// <remarks>
+    /// Shutting down waits for tmux watchers to finish, so there is no
+    /// synchronous disposal to offer: blocking on that wait is what deadlocks
+    /// a caller holding a single-threaded context. A container holding this
+    /// has to be disposed with <c>DisposeAsync</c>.
+    /// </remarks>
     public ValueTask DisposeAsync()
     {
         lock (_gate)
