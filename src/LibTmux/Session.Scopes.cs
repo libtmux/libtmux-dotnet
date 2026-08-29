@@ -13,7 +13,8 @@ public sealed partial class Session
         _commandDispatcher,
         OptionScope.Session,
         _id.ToString(),
-        TmuxOptions.DoubleEscapesDollar(_owner));
+        TmuxOptions.DoubleEscapesDollar(_owner),
+        _generation);
 
     private TmuxHooks? _hooks;
 
@@ -22,7 +23,8 @@ public sealed partial class Session
     public TmuxHooks Hooks => _hooks ??= new TmuxHooks(
         _commandDispatcher,
         OptionScope.Session,
-        _id.ToString());
+        _id.ToString(),
+        _generation);
 
     private TmuxEnvironment? _environment;
 

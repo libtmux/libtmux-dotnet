@@ -21,7 +21,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        return Command([.. options.BuildSetArguments(request)]);
+        return Command([.. options.BuildSetArguments(request)]) with
+        {
+            RequiredGeneration = options.Generation,
+        };
     }
 
     /// <summary>Runs an option request on its own.</summary>
@@ -53,7 +56,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        return Command([.. options.BuildUnsetArguments(request)]);
+        return Command([.. options.BuildUnsetArguments(request)]) with
+        {
+            RequiredGeneration = options.Generation,
+        };
     }
 
     /// <summary>Runs an unset request on its own.</summary>
@@ -91,7 +97,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        return Command([.. options.BuildGetArguments(request)]);
+        return Command([.. options.BuildGetArguments(request)]) with
+        {
+            RequiredGeneration = options.Generation,
+        };
     }
 
     /// <summary>Runs a named option read on its own.</summary>
@@ -127,7 +136,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(options);
-        return Command([.. options.BuildGetAllArguments(request)]);
+        return Command([.. options.BuildGetAllArguments(request)]) with
+        {
+            RequiredGeneration = options.Generation,
+        };
     }
 
     /// <summary>Runs a whole-scope option read on its own.</summary>

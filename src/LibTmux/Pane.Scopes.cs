@@ -13,7 +13,8 @@ public sealed partial class Pane
         _commandDispatcher,
         OptionScope.Pane,
         _id.ToString(),
-        TmuxOptions.DoubleEscapesDollar(_owner));
+        TmuxOptions.DoubleEscapesDollar(_owner),
+        _generation);
 
     private TmuxHooks? _hooks;
 
@@ -22,5 +23,6 @@ public sealed partial class Pane
     public TmuxHooks Hooks => _hooks ??= new TmuxHooks(
         _commandDispatcher,
         OptionScope.Pane,
-        _id.ToString());
+        _id.ToString(),
+        _generation);
 }

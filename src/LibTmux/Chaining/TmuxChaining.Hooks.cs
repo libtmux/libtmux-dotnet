@@ -15,7 +15,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(hooks);
-        return Command([.. hooks.BuildSetArguments(request)]);
+        return Command([.. hooks.BuildSetArguments(request)]) with
+        {
+            RequiredGeneration = hooks.Generation,
+        };
     }
 
     /// <summary>Runs a hook request on its own.</summary>
@@ -52,7 +55,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(hooks);
-        return Command([.. hooks.BuildListArguments(request)]);
+        return Command([.. hooks.BuildListArguments(request)]) with
+        {
+            RequiredGeneration = hooks.Generation,
+        };
     }
 
     /// <summary>Runs a hook listing on its own.</summary>
@@ -89,7 +95,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(hooks);
-        return Command([.. hooks.BuildRunArguments(request)]);
+        return Command([.. hooks.BuildRunArguments(request)]) with
+        {
+            RequiredGeneration = hooks.Generation,
+        };
     }
 
     /// <summary>Returns removing a hook as one tmux command.</summary>
@@ -102,7 +111,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(hooks);
-        return Command([.. hooks.BuildUnsetArguments(request)]);
+        return Command([.. hooks.BuildUnsetArguments(request)]) with
+        {
+            RequiredGeneration = hooks.Generation,
+        };
     }
 
     /// <summary>Runs a hook on its own.</summary>
@@ -141,7 +153,14 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(hooks);
-        return [.. hooks.BuildSetAllArguments(request).Select(arguments => Command([.. arguments]))];
+        return
+        [
+            .. hooks.BuildSetAllArguments(request)
+                .Select(arguments => Command([.. arguments]) with
+                {
+                    RequiredGeneration = hooks.Generation,
+                }),
+        ];
     }
 
     /// <summary>Runs a multi-entry hook request in one invocation.</summary>

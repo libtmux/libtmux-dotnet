@@ -52,6 +52,9 @@ public sealed class ChainGenerationTests
             new SelectPaneRequest().ToCommand(pane),
             new SelectLayoutRequest("tiled").ToCommand(window),
             new NewWindowRequest(name: "stale").ToCommand(session),
+            new SetOptionRequest("@stale", "1").ToCommand(pane.Options),
+            new SetHookRequest("after-new-window", "display-message x")
+                .ToCommand(session.Hooks),
         ];
 
         foreach (TmuxCommand command in stale)

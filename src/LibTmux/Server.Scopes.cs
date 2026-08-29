@@ -17,7 +17,8 @@ public sealed partial class Server
         _commandDispatcher,
         OptionScope.Server,
         null,
-        TmuxOptions.DoubleEscapesDollar(this));
+        TmuxOptions.DoubleEscapesDollar(this),
+        Generation);
 
     private TmuxHooks? _hooks;
 
@@ -30,7 +31,8 @@ public sealed partial class Server
     public TmuxHooks Hooks => _hooks ??= new TmuxHooks(
         _commandDispatcher,
         OptionScope.Server,
-        null);
+        null,
+        Generation);
 
     private TmuxEnvironment? _environment;
 

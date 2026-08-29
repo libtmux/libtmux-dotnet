@@ -27,14 +27,23 @@ public sealed class TmuxOptions
         TmuxCommandDispatcher dispatcher,
         OptionScope scope,
         string? target,
-        bool doubleEscapedDollar = false)
+        bool doubleEscapedDollar = false,
+        ServerGeneration? generation = null)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         _dispatcher = dispatcher;
         _target = target;
         _doubleEscapedDollar = doubleEscapedDollar;
         Scope = scope;
+        Generation = generation;
     }
+
+    /// <summary>Gets the server generation this table was reached through.</summary>
+    /// <remarks>
+    /// A batched option command carries the target as plain text, so it needs
+    /// the generation for the same reason a batched pane command does.
+    /// </remarks>
+    internal ServerGeneration? Generation { get; }
 
     /// <summary>Gets the scope these options are read and written in by default.</summary>
     public OptionScope Scope { get; }
