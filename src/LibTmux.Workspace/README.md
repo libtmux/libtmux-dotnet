@@ -59,22 +59,28 @@ Reading one off disk is the same call:
 WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText("session.yaml"));
 ```
 
-## What the result tells you
+`start_directory` values are passed to tmux unchanged. Relative paths are not
+rebased to the directory containing `session.yaml`.
 
-`BuildAsync` returns what it built rather than throwing away a session because
-one pane's command was wrong, so a partial build is something you can inspect
-and report instead of a stack trace.
+## Failure behavior
 
-A document that describes no session is a `WorkspaceFormatException` — that one
-is not partial, it is unusable.
+`BuildAsync` returns the session and windows it created. Its `Unsupported` list
+contains only layouts that tmux rejected; those windows remain usable.
+
+Other tmux failures throw and can leave a partially built session. The builder
+is not transactional. A missing session name or empty window list raises
+`WorkspaceFormatException` before creating anything.
 
 ## What is in scope
 
-This reads the workspace shape tmuxp writes: session name, start directory,
-windows, panes, layouts, options, and the commands to send.
+This reads a closed tmuxp subset: session name, start directory, scalar
+options, windows, panes, layouts, focus, and scalar or ordered
+`shell_command` values. Duplicate or unknown keys, wrong value shapes,
+multiple YAML documents, and inputs over 1 MiB raise
+`WorkspaceFormatException` instead of being ignored.
 
 It is **not** a tmuxp runtime. Plugins, before/after hooks, and tmuxp's own
-configuration search path are out of scope — if you need those, run tmuxp.
+configuration search path are rejected — if you need those, run tmuxp.
 
 ## Related packages
 
