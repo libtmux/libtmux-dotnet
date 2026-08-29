@@ -27,7 +27,9 @@ public sealed class WorkspaceBuilderTests
                 focus: true
           - window_name: shell
             panes:
-              - echo bare-pane
+              - shell_command:
+                  - echo command-one
+                  - echo command-two
         """;
 
     [UnixFact]
@@ -55,7 +57,7 @@ public sealed class WorkspaceBuilderTests
                     token))
                 .Value.Raw);
 
-        // A pane written as a bare string is a pane running that command.
+        // Command lists run in order in the same pane.
         IReadOnlyList<Pane> editor = await result.Windows[0].GetPanesAsync(token);
         IReadOnlyList<Pane> shell = await result.Windows[1].GetPanesAsync(token);
         Assert.Equal(2, editor.Count);
@@ -65,11 +67,15 @@ public sealed class WorkspaceBuilderTests
             async cancellation => string.Join(
                 '\n',
                 await shell[0].CaptureAsync(cancellationToken: cancellation)),
-            captured => captured.Contains("bare-pane", StringComparison.Ordinal),
+            captured => captured.Contains("command-two", StringComparison.Ordinal),
             TimeSpan.FromSeconds(10),
             TimeSpan.FromMilliseconds(20),
             token);
-        Assert.Contains("bare-pane", text, StringComparison.Ordinal);
+        Assert.Contains("command-one", text, StringComparison.Ordinal);
+        Assert.Contains("command-two", text, StringComparison.Ordinal);
+        Assert.True(
+            text.IndexOf("command-one", StringComparison.Ordinal)
+                < text.IndexOf("command-two", StringComparison.Ordinal));
 
         // The file asks for nothing tmux alone cannot do, so nothing is
         // reported as unsupported.
@@ -103,6 +109,38 @@ public sealed class WorkspaceBuilderTests
         Assert.Contains(
             result.Unsupported,
             message => message.Contains("not-a-layout", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
+    public async Task Each_workspace_command_receives_one_enter()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporaryServerScope scope = await factory.CreateServerAsync(
+            HarnessOptions(),
+            token);
+
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: libtmux-single-enter
+            windows:
+              - panes:
+                  - shell_command: 'printf "ready\n"; read value; printf "got=<%s>\n" "$value"'
+            """);
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+            .BuildAsync(workspace, token);
+        Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
+
+        bool receivedBlankLine = await TmuxWait.UntilAsync(
+            async cancellation => string.Join(
+                    '\n',
+                    await pane.CaptureAsync(cancellationToken: cancellation))
+                .Contains("got=<>", StringComparison.Ordinal),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(20),
+            throwOnTimeout: false,
+            token);
+
+        Assert.False(receivedBlankLine);
     }
 
     [UnixFact]

@@ -2,22 +2,16 @@ using System.Runtime.Versioning;
 
 namespace LibTmux.Workspace;
 
-/// <summary>What building a workspace produced, and what it could not honour.</summary>
+/// <summary>Describes a built workspace and any layout tmux rejected.</summary>
 /// <param name="Session">The session that was built.</param>
 /// <param name="Windows">The windows, in the order the file listed them.</param>
-/// <param name="Unsupported">What the file asked for that tmux alone cannot do.</param>
+/// <param name="Unsupported">The layouts tmux rejected after creating their windows.</param>
 public sealed record WorkspaceResult(
     Session Session,
     IReadOnlyList<Window> Windows,
     IReadOnlyList<string> Unsupported);
 
 /// <summary>Builds a tmux session from a tmuxp workspace file.</summary>
-/// <remarks>
-/// tmuxp plugins and before-script hooks run through Python tooling this
-/// library does not have, so an unsupported key is silently dropped by the
-/// YAML reader (WorkspaceFile.Parse ignores unmatched properties) rather than
-/// surfaced in WorkspaceResult.Unsupported.
-/// </remarks>
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilder
 {
@@ -94,7 +88,7 @@ public sealed class WorkspaceBuilder
 
     private static async Task ApplyOptionsAsync(
         TmuxOptions options,
-        Dictionary<string, string> described,
+        IReadOnlyDictionary<string, string> described,
         CancellationToken cancellationToken)
     {
         foreach ((string name, string value) in described)
@@ -147,11 +141,10 @@ public sealed class WorkspaceBuilder
                         cancellationToken)
                     .ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(pane.ShellCommand))
+            foreach (string command in pane.ShellCommands)
             {
-                await target.SendTextAsync(pane.ShellCommand, cancellationToken: cancellationToken)
+                await target.SendTextAsync(command, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                await target.EnterAsync(cancellationToken).ConfigureAwait(false);
             }
 
             current = target;
@@ -179,9 +172,13 @@ public sealed class WorkspaceBuilder
         await ApplyOptionsAsync(window.Options, described.Options, cancellationToken)
             .ConfigureAwait(false);
 
-        foreach (WorkspacePane focused in described.Panes.Where(pane => pane.Focus))
+        for (int index = 0; index < described.Panes.Count; index++)
         {
-            int index = described.Panes.IndexOf(focused);
+            if (!described.Panes[index].Focus)
+            {
+                continue;
+            }
+
             IReadOnlyList<Pane> made = await window.GetPanesAsync(cancellationToken)
                 .ConfigureAwait(false);
             if (index < made.Count)
