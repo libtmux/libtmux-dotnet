@@ -99,6 +99,17 @@ public sealed class ServerGenerationTests
         Assert.NotEqual(expected, actual);
         Assert.Equal(firstServer, successorServer);
 
+        // The stale handle can still resolve the identifier, because the
+        // replacement reuses it. It must not answer with a handle that names
+        // the new server's session while reporting the old server as its owner.
+        StaleServerGenerationException lookup =
+            await Assert.ThrowsAsync<StaleServerGenerationException>(
+                () => firstServer.GetSessionAsync(
+                    new SessionId(0),
+                    TestContext.Current.CancellationToken));
+        Assert.Equal(expected, lookup.Expected);
+        Assert.Equal(actual, lookup.Actual);
+
         StaleServerGenerationException error =
             await Assert.ThrowsAsync<StaleServerGenerationException>(
                 () => staleSession.ExecuteCommandAsync(

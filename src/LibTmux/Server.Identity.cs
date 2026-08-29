@@ -93,6 +93,26 @@ public sealed partial class Server
         return materialized;
     }
 
+    /// <summary>Rejects a lookup answered by a server this handle is not on.</summary>
+    /// <remarks>
+    /// The identifier is resolved against the running daemon while the handle
+    /// carries the generation it was discovered at. A replacement server hands
+    /// out the same identifiers, so a handle built from both would name the new
+    /// server's object while reporting the old server as its owner.
+    /// </remarks>
+    private void RequireOwnedGeneration(ServerGeneration observed)
+    {
+        ServerGeneration expected = _generation
+            ?? throw new InvalidOperationException("The server has no live generation.");
+        if (observed != expected)
+        {
+            throw new StaleServerGenerationException(
+                "The tmux server generation changed before the lookup answered.",
+                expected,
+                observed);
+        }
+    }
+
     /// <summary>Gets one session by its typed identifier.</summary>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> GetSessionAsync(
@@ -108,9 +128,8 @@ public sealed partial class Server
             throw new TmuxObjectNotFoundException($"Session {id} was not found.", id.ToString());
         }
 
-        Session? materialized = null;
-        MaterializeSession(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Session(this, connection, identity.Value.Generation, identity.Value.Id);
+        RequireOwnedGeneration(identity.Value.Generation);
+        return new Session(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
     /// <summary>Gets one window by its typed identifier.</summary>
@@ -128,9 +147,8 @@ public sealed partial class Server
             throw new TmuxObjectNotFoundException($"Window {id} was not found.", id.ToString());
         }
 
-        Window? materialized = null;
-        MaterializeWindow(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Window(this, connection, identity.Value.Generation, identity.Value.Id);
+        RequireOwnedGeneration(identity.Value.Generation);
+        return new Window(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
     /// <summary>Gets one pane by its typed identifier.</summary>
@@ -148,28 +166,9 @@ public sealed partial class Server
             throw new TmuxObjectNotFoundException($"Pane {id} was not found.", id.ToString());
         }
 
-        Pane? materialized = null;
-        MaterializePane(connection, identity.Value.Generation, identity.Value.Id, ref materialized);
-        return materialized ?? new Pane(this, connection, identity.Value.Generation, identity.Value.Id);
+        RequireOwnedGeneration(identity.Value.Generation);
+        return new Pane(this, connection, identity.Value.Generation, identity.Value.Id);
     }
-
-    partial void MaterializeSession(
-        TmuxConnection connection,
-        ServerGeneration generation,
-        SessionId id,
-        ref Session? result);
-
-    partial void MaterializeWindow(
-        TmuxConnection connection,
-        ServerGeneration generation,
-        WindowId id,
-        ref Window? result);
-
-    partial void MaterializePane(
-        TmuxConnection connection,
-        ServerGeneration generation,
-        PaneId id,
-        ref Pane? result);
 
     /// <inheritdoc />
     public override bool Equals(object? obj)
