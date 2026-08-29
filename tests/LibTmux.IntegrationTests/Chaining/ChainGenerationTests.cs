@@ -42,13 +42,23 @@ public sealed class ChainGenerationTests
         // instant, and how far apart they are depends on the machine.
         Server second = await ConnectWhenReadyAsync(raw, token);
 
-        // The chain runs on the new server but from a pane handle read
-        // through the old one -- the shape a stale-handle bug takes.
-        TmuxChain chain = second.Chain()
-            .Then(new SendKeysRequest("echo stale").ToCommand(pane));
+        // The chain runs on the new server but from handles read through the
+        // old one -- the shape a stale-handle bug takes. Every command built
+        // from an entity carries that entity's target as plain text, so each
+        // has to be refused rather than only the one this started with.
+        TmuxCommand[] stale =
+        [
+            new SendKeysRequest("echo stale").ToCommand(pane),
+            new SelectPaneRequest().ToCommand(pane),
+            new SelectLayoutRequest("tiled").ToCommand(window),
+            new NewWindowRequest(name: "stale").ToCommand(session),
+        ];
 
-        await Assert.ThrowsAsync<StaleServerGenerationException>(
-            () => chain.ExecuteAsync(token));
+        foreach (TmuxCommand command in stale)
+        {
+            await Assert.ThrowsAsync<StaleServerGenerationException>(
+                () => second.Chain().Then(command).ExecuteAsync(token));
+        }
     }
 
     [UnixFact]

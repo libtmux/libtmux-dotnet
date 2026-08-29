@@ -24,7 +24,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(session);
-        return Command([.. Session.BuildAttachArguments(request, session.Id.ToString())]);
+        return Command([.. Session.BuildAttachArguments(request, session.Id.ToString())]) with
+        {
+            RequiredGeneration = session.Generation,
+        };
     }
 
     /// <summary>Runs an attach request on its own.</summary>

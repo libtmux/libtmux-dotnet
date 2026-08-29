@@ -32,7 +32,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildSelectPaneArguments(request)]);
+        return Command([.. pane.BuildSelectPaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a pane-selection request on its own.</summary>
@@ -61,7 +64,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildResizePaneArguments(request)]);
+        return Command([.. pane.BuildResizePaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a pane-resize request on its own.</summary>
@@ -90,7 +96,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildFindWindowArguments(request)]);
+        return Command([.. pane.BuildFindWindowArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a window-search request on its own.</summary>
@@ -119,7 +128,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildSwapPaneArguments(request)]);
+        return Command([.. pane.BuildSwapPaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a pane-swap request on its own.</summary>
@@ -148,7 +160,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildPipePaneArguments(request)]);
+        return Command([.. pane.BuildPipePaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a pane-piping request on its own.</summary>
@@ -182,7 +197,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildCaptureArguments(["-p"], request)]);
+        return Command([.. pane.BuildCaptureArguments(["-p"], request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a capture request on its own.</summary>
@@ -215,7 +233,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildPasteBufferArguments(request)]);
+        return Command([.. pane.BuildPasteBufferArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a paste request on its own.</summary>
@@ -248,7 +269,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildDisplayPopupArguments(request)]);
+        return Command([.. pane.BuildDisplayPopupArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a popup request on its own.</summary>
@@ -281,7 +305,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildCopyModeArguments(request)]);
+        return Command([.. pane.BuildCopyModeArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a copy-mode request on its own.</summary>
@@ -310,7 +337,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildRespawnPaneArguments(request)]);
+        return Command([.. pane.BuildRespawnPaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a respawn request on its own.</summary>
@@ -343,7 +373,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildChooseTreeArguments(request)]);
+        return Command([.. pane.BuildChooseTreeArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a chooser request on its own.</summary>
@@ -372,7 +405,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildRehomeArguments("move-pane", request)]);
+        return Command([.. pane.BuildRehomeArguments("move-pane", request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a pane-move request on its own.</summary>
@@ -407,7 +443,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildSplitArguments(request)]);
+        return Command([.. pane.BuildSplitArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a split request on its own.</summary>
@@ -441,7 +480,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(pane);
-        return Command([.. pane.BuildNewPaneArguments(request)]);
+        return Command([.. pane.BuildNewPaneArguments(request)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 
     /// <summary>Runs a floating-pane request on its own.</summary>

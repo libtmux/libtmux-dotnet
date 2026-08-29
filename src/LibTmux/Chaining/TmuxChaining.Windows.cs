@@ -35,7 +35,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(window);
-        return Command([.. window.BuildSelectLayoutArguments(request)]);
+        return Command([.. window.BuildSelectLayoutArguments(request)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 
     /// <summary>Runs a layout request on its own.</summary>
@@ -67,7 +70,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(window);
-        return Command([.. window.BuildResizeWindowArguments(request)]);
+        return Command([.. window.BuildResizeWindowArguments(request)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 
     /// <summary>Runs a window-resize request on its own.</summary>
@@ -104,7 +110,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(window);
-        return Command([.. window.BuildLinkWindowArguments(request)]);
+        return Command([.. window.BuildLinkWindowArguments(request)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 
     /// <summary>Runs a link request on its own.</summary>
@@ -133,7 +142,10 @@ public static partial class TmuxChaining
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(window);
-        return Command([.. window.BuildMoveWindowArguments(request)]);
+        return Command([.. window.BuildMoveWindowArguments(request)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 
     /// <summary>Runs a window-move request on its own.</summary>
