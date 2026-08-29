@@ -88,6 +88,52 @@ public sealed class QueryJsonTrustBoundaryTests
     }
 
     [Fact]
+    public void An_unknown_quantifier_is_refused_rather_than_treated_as_all()
+    {
+        string json = Document(
+            """
+            {"kind":"quantifier","quantifier":"sometimes",
+             "relation":{"kind":"field","target":"session","name":"session_windows"},
+             "predicate":{"kind":"constant","type":"boolean","value":true}}
+            """);
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Theory]
+    [InlineData("string", "\"value\":null")]
+    [InlineData("enum", "\"enumType\":null,\"value\":\"Ready\"")]
+    [InlineData("enum", "\"enumType\":\"State\",\"value\":null")]
+    [InlineData("typedId", "\"target\":\"session\",\"value\":null")]
+    public void Null_constant_text_is_refused(string type, string members)
+    {
+        string json = Document(
+            $$"""{"kind":"constant","type":"{{type}}",{{members}}}""");
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
+    public void A_null_regex_dialect_is_refused()
+    {
+        string json = Document(
+            """
+            {"kind":"regex","input":{"kind":"field","target":"session","name":"session_name"},
+             "dialect":null,"pattern":"^a","semanticOptions":0}
+            """);
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
+    public void A_structurally_malformed_document_reports_a_json_error()
+    {
+        string json = Document("{}");
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
     public void A_field_outside_the_catalog_cannot_be_read_from_an_element()
     {
         // A FieldNode is forgeable, so the interpreter can't trust one came from

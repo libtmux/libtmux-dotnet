@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using LibTmux.Query;
 using LibTmux.Query.Json;
 
@@ -7,6 +8,12 @@ namespace LibTmux.UnitTests.Query;
 public sealed class QueryJsonTests
 {
     private sealed record Row(string SessionName, long SessionWindows);
+
+    private static readonly FieldNode SessionName =
+        new(QueryTarget.Session, "session_name");
+
+    private static readonly ConstantNode True =
+        new(new BooleanConstant(true));
 
     public static TheoryData<string, QueryDocument> Goldens =>
         new()
@@ -81,4 +88,100 @@ public sealed class QueryJsonTests
 
         Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
     }
+
+    [Fact]
+    public void Supplementary_unicode_round_trips_as_one_string_value()
+    {
+        QueryDocument document =
+            QueryEdgeParser.ParseNameContains(QueryTarget.Session, "build-\U0001F680");
+
+        string json = QueryJson.Serialize(document);
+
+        Assert.Equal(document, QueryJson.Deserialize(json));
+    }
+
+    public static TheoryData<string, QueryDocument> InvalidWriterDocuments =>
+        new()
+        {
+            {
+                "target",
+                Document(True, target: (QueryTarget)99)
+            },
+            {
+                "comparison",
+                Document(new ComparisonNode((QueryComparison)99, True, True))
+            },
+            {
+                "string operation",
+                Document(new StringNode((QueryStringOperation)99, SessionName, True))
+            },
+            {
+                "quantifier",
+                Document(new QuantifierNode(
+                    (QueryQuantifier)99,
+                    new FieldNode(QueryTarget.Session, "session_windows"),
+                    True))
+            },
+            {
+                "regex options",
+                Document(new RegexNode(
+                    SessionName,
+                    "dotnet",
+                    "^build",
+                    RegexOptions.NonBacktracking))
+            },
+            {
+                "regex dialect",
+                Document(new RegexNode(SessionName, "pcre", "^build", RegexOptions.None))
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(InvalidWriterDocuments))]
+    public void Serialization_refuses_values_with_no_version_one_wire_form(
+        string name,
+        QueryDocument document)
+    {
+        Assert.NotEmpty(name);
+
+        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+    }
+
+    [Theory]
+    [InlineData("someone.else", QueryDocument.CurrentVersion)]
+    [InlineData(QueryDocument.CurrentSchema, QueryDocument.CurrentVersion + 1)]
+    public void Serialization_refuses_a_document_from_another_contract(
+        string schema,
+        int version)
+    {
+        QueryDocument document = new(schema, version, QueryTarget.Session, True);
+
+        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+    }
+
+    [Fact]
+    public void Serialization_enforces_the_version_one_encoded_size_limit()
+    {
+        string value = new('a', QueryJsonLimits.V1.MaximumStringLength);
+        QueryNode[] operands =
+        [
+            .. Enumerable.Range(0, 64).Select(
+                _ => new StringNode(
+                    QueryStringOperation.ContainsOrdinal,
+                    SessionName,
+                    new ConstantNode(new StringConstant(value)))),
+        ];
+        QueryDocument document = Document(new OrNode(operands));
+
+        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+    }
+
+    private static QueryDocument Document(
+        QueryNode predicate,
+        QueryTarget target = QueryTarget.Session) =>
+        new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            target,
+            predicate);
 }
