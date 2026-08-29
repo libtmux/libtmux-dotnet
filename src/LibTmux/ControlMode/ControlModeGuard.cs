@@ -21,6 +21,11 @@ internal readonly record struct ControlModeGuard(
         && Number == begin.Number
         && Flags == begin.Flags;
 
+    internal static bool HasReservedName(string line) =>
+        HasName(line, "%begin")
+        || HasName(line, "%end")
+        || HasName(line, "%error");
+
     internal static bool TryParse(string line, out ControlModeGuard guard)
     {
         string[] fields = line.Split(' ');
@@ -58,4 +63,8 @@ internal readonly record struct ControlModeGuard(
         guard = new ControlModeGuard(kind.Value, timestamp, number, flags);
         return true;
     }
+
+    private static bool HasName(string line, string name) =>
+        line.StartsWith(name, StringComparison.Ordinal)
+        && (line.Length == name.Length || char.IsWhiteSpace(line[name.Length]));
 }

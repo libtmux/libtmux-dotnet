@@ -364,17 +364,22 @@ internal sealed class ControlModeSession : IControlModeSession
         {
             while (await _process.ReadLineAsync().ConfigureAwait(false) is string line)
             {
-                if (line.StartsWith("%begin ", StringComparison.Ordinal))
+                if (ControlModeGuard.TryParse(line, out ControlModeGuard guard))
                 {
-                    if (!ControlModeGuard.TryParse(line, out ControlModeGuard begin)
-                        || begin.Kind != ControlModeGuardKind.Begin)
+                    if (guard.Kind != ControlModeGuardKind.Begin)
                     {
                         throw new InvalidDataException(
-                            "The tmux control client sent a malformed block guard.");
+                            "The tmux control client sent a block guard outside a block.");
                     }
 
-                    await ReadBlockAsync(begin).ConfigureAwait(false);
+                    await ReadBlockAsync(guard).ConfigureAwait(false);
                     continue;
+                }
+
+                if (ControlModeGuard.HasReservedName(line))
+                {
+                    throw new InvalidDataException(
+                        "The tmux control client sent a malformed block guard.");
                 }
 
                 if (!line.StartsWith('%'))

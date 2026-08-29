@@ -64,6 +64,26 @@ public sealed class ControlModeSessionTests
     }
 
     [UnixFact]
+    public async Task A_guard_looking_line_inside_a_block_is_data()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+
+        IReadOnlyList<string> reported = await control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "%%end 9 9 1"),
+            token);
+
+        Assert.Equal(["%end 9 9 1"], reported);
+        Assert.Equal(
+            ["ok"],
+            await control.SendAsync(TmuxCommand.Create("display-message", "-p", "ok"), token));
+    }
+
+    [UnixFact]
     public async Task A_failing_command_faults_only_its_own_caller()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

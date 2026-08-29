@@ -310,6 +310,62 @@ public sealed class ControlModeCorrelationTests
         Assert.Empty(error.ErrorLines);
     }
 
+    [Theory]
+    [InlineData("%begin")]
+    [InlineData("%begin malformed")]
+    [InlineData("%end 2 2 0")]
+    [InlineData("%error 2 2 1")]
+    public async Task A_reserved_guard_outside_a_block_fails_the_session(string line)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+
+        process.EmitProtocolLine(line);
+
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => session.DisposeAsync().AsTask());
+        Assert.Contains("block guard", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Guard_looking_output_inside_a_block_remains_data()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const string Sentinel = "libtmux-control-guard-data";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            sentinelFactory: () => Sentinel);
+        await session.WaitForReadyAsync(token);
+
+        Task<IReadOnlyList<string>> send = session.SendAsync(
+            TmuxCommand.Create("guard-looking-output"),
+            token);
+        await process.WritesObserved.Task.WaitAsync(token);
+        process.EmitBlock(
+            number: 10,
+            flags: 1,
+            failed: false,
+            "%begin 9 9 1",
+            "%begin 2 10 1",
+            "%end 9 9 1",
+            "%begin malformed",
+            "%error 9 9 1");
+        process.EmitFence(number: 11, Sentinel);
+
+        Assert.Equal(
+            [
+                "%begin 9 9 1",
+                "%begin 2 10 1",
+                "%end 9 9 1",
+                "%begin malformed",
+                "%error 9 9 1",
+            ],
+            await send);
+    }
+
     [Fact]
     public async Task A_stale_command_is_rejected_before_dispatch()
     {
@@ -478,6 +534,8 @@ public sealed class ControlModeCorrelationTests
                 $"parse error: unknown command: {sentinel}");
 
         internal void EmitNotification(string name) => _output.Writer.TryWrite($"%{name}");
+
+        internal void EmitProtocolLine(string line) => _output.Writer.TryWrite(line);
 
         private void Stop(string exit)
         {
