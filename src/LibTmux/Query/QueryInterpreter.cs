@@ -43,7 +43,7 @@ internal static class QueryInterpreter
         Action? check)
     {
         ArgumentNullException.ThrowIfNull(document);
-        QueryValidationResult validation = QueryDocumentValidator.Validate(document);
+        QueryValidationResult validation = QueryDocumentValidator.Validate(document, check);
         QueryPlanBindings bindings = new(validation);
         Func<object, bool> predicate = BindPredicate(
             document.Predicate,

@@ -27,7 +27,17 @@ public sealed record QueryDocument(
     /// A quantifier over a relation cannot be answered by a shallower capture,
     /// so the depth is derived from the predicate rather than assumed.
     /// </remarks>
-    public SnapshotDepth RequiredSnapshotDepth => Depth(Predicate, Target);
+    /// <exception cref="UnsupportedQueryExpressionException">
+    /// The predicate is malformed or exceeds the version-one structural limits.
+    /// </exception>
+    public SnapshotDepth RequiredSnapshotDepth
+    {
+        get
+        {
+            QueryDocumentStructuralGuard.Validate(Predicate);
+            return Depth(Predicate, Target);
+        }
+    }
 
     private static SnapshotDepth Depth(QueryNode node, QueryTarget target) => node switch
     {

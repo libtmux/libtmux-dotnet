@@ -4,7 +4,7 @@ namespace LibTmux.Query;
 
 internal static class QueryDocumentValidator
 {
-    internal static QueryValidationResult Validate(QueryDocument document)
+    internal static QueryValidationResult Validate(QueryDocument document, Action? check = null)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (!string.Equals(
@@ -17,6 +17,7 @@ internal static class QueryDocumentValidator
         }
 
         _ = Target(document.Target);
+        QueryDocumentStructuralGuard.Validate(document.Predicate, check);
         QueryValidationResult result = new();
         ValidatePredicate(document.Predicate, document.Target, result);
         return result;

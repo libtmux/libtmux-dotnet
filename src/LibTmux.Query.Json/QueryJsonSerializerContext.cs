@@ -23,8 +23,8 @@ public sealed record QueryJsonLimits(
 {
     /// <summary>The frozen v1 ceilings.</summary>
     public static QueryJsonLimits V1 { get; } = new(
-        MaximumDepth: 32,
-        MaximumNodes: 512,
+        MaximumDepth: QueryDocumentStructuralGuard.MaximumDepth,
+        MaximumNodes: QueryDocumentStructuralGuard.MaximumNodeOccurrences,
         MaximumStringLength: 4096,
         MaximumPatternLength: QueryRegexSemantics.MaximumPatternLength,
         MaximumUtf8Bytes: 262144);
