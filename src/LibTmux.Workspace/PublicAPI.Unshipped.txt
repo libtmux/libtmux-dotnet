@@ -1,7 +1,11 @@
 #nullable enable
+LibTmux.Workspace.PaneReadiness
+LibTmux.Workspace.PaneReadiness.Always = 1 -> LibTmux.Workspace.PaneReadiness
+LibTmux.Workspace.PaneReadiness.Auto = 0 -> LibTmux.Workspace.PaneReadiness
+LibTmux.Workspace.PaneReadiness.Never = 2 -> LibTmux.Workspace.PaneReadiness
 LibTmux.Workspace.WorkspaceBuilder
 LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
-LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? shellReadyTimeout = null) -> void
+LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? readinessTimeout = null, LibTmux.Workspace.PaneReadiness paneReadiness = LibTmux.Workspace.PaneReadiness.Auto) -> void
 LibTmux.Workspace.WorkspaceFile
 LibTmux.Workspace.WorkspaceFile.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceFile.SessionName.get -> string?

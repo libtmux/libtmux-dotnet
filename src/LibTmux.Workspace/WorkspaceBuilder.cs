@@ -6,28 +6,43 @@ namespace LibTmux.Workspace;
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilder
 {
-    private static readonly TimeSpan DefaultShellReadyTimeout = TimeSpan.FromSeconds(10);
+    private const string BootstrapWindowName = "libtmux-bootstrap";
+    private static readonly TimeSpan DefaultReadinessTimeout = TimeSpan.FromSeconds(10);
     private readonly Server _server;
-    private readonly TimeSpan _shellReadyTimeout;
+    private readonly PaneReadiness _paneReadiness;
+    private readonly TimeSpan _readinessTimeout;
 
     /// <summary>Initializes a builder against one server.</summary>
     /// <param name="server">The server the session is built on.</param>
-    /// <param name="shellReadyTimeout">
-    /// How long a pane may take to acknowledge shell input, or null for ten seconds.
+    /// <param name="readinessTimeout">
+    /// How long a pane may take to reach a prompt-like state, or null for ten seconds.
     /// </param>
-    public WorkspaceBuilder(Server server, TimeSpan? shellReadyTimeout = null)
+    /// <param name="paneReadiness">Which default-shell panes wait for readiness.</param>
+    public WorkspaceBuilder(
+        Server server,
+        TimeSpan? readinessTimeout = null,
+        PaneReadiness paneReadiness = PaneReadiness.Auto)
     {
         ArgumentNullException.ThrowIfNull(server);
-        if (shellReadyTimeout is TimeSpan timeout && timeout <= TimeSpan.Zero)
+        if (readinessTimeout is TimeSpan timeout && timeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(shellReadyTimeout),
-                shellReadyTimeout,
-                "A shell needs time to become ready.");
+                nameof(readinessTimeout),
+                readinessTimeout,
+                "A readiness timeout must be positive.");
+        }
+
+        if (!Enum.IsDefined(paneReadiness))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(paneReadiness),
+                paneReadiness,
+                "The pane-readiness policy is not defined.");
         }
 
         _server = server;
-        _shellReadyTimeout = shellReadyTimeout ?? DefaultShellReadyTimeout;
+        _readinessTimeout = readinessTimeout ?? DefaultReadinessTimeout;
+        _paneReadiness = paneReadiness;
     }
 
     /// <summary>Builds a session from a workspace.</summary>
@@ -36,8 +51,13 @@ public sealed class WorkspaceBuilder
     /// <returns>What was built, and what could not be.</returns>
     /// <exception cref="WorkspaceFormatException">The workspace describes no session.</exception>
     /// <exception cref="TmuxWaitTimeoutException">
-    /// A pane did not acknowledge shell input before its readiness timeout.
+    /// A pane did not reach a prompt-like state before its readiness timeout.
     /// </exception>
+    /// <remarks>
+    /// Readiness is inferred from the pane's current command and cursor position.
+    /// Startup output can resemble a prompt, and a prompt left at the origin can
+    /// time out; the builder never writes a readiness probe to the pane.
+    /// </remarks>
     public async Task<WorkspaceResult> BuildAsync(
         WorkspaceFile workspace,
         CancellationToken cancellationToken = default)
@@ -55,25 +75,61 @@ public sealed class WorkspaceBuilder
 
         List<string> unsupported = [];
 
-        // tmux makes a session with one window, so the file's first window is
-        // that one rather than an extra.
+        // tmux creates the first pane before session options exist. This
+        // bootstrap keeps the session alive until the described first window
+        // can be spawned under those options.
         WorkspaceWindow first = workspace.Windows[0];
         Session session = await _server.CreateSessionAsync(
                 new NewSessionRequest(
                     name: workspace.SessionName,
-                    windowName: first.WindowName,
-                    startDirectory: StartDirectoryFor(first, workspace)),
+                    windowName: BootstrapWindowName,
+                    startDirectory: StartDirectoryFor(first, workspace),
+                    command: "/bin/sh"),
                 cancellationToken)
             .ConfigureAwait(false);
 
         await ApplyOptionsAsync(session.Options, workspace.Options, cancellationToken)
             .ConfigureAwait(false);
 
-        List<Window> windows = [];
-        IReadOnlyList<Window> existing = await session.GetWindowsAsync(cancellationToken)
+        IReadOnlyList<Window> bootstrapWindows = await session.GetWindowsAsync(cancellationToken)
             .ConfigureAwait(false);
-        windows.Add(await FillAsync(existing[0], first, workspace, unsupported, cancellationToken)
-            .ConfigureAwait(false));
+        Window bootstrap = bootstrapWindows.Count == 1
+            ? bootstrapWindows[0]
+            : throw new InvalidDataException(
+                "tmux did not report exactly one bootstrap window.");
+        string firstIndex = await ReadOptionAsync(
+                session.Options,
+                "base-index",
+                false,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string? expectedShellCommand = await ResolveReadinessShellAsync(
+                session,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Window firstWindow = await session.CreateWindowAsync(
+                new NewWindowRequest(
+                    name: first.WindowName,
+                    startDirectory: StartDirectoryFor(first, workspace),
+                    index: firstIndex,
+                    killExisting: true),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (firstWindow.Index != bootstrap.Index)
+        {
+            await bootstrap.KillAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
+        List<Window> windows = [];
+        windows.Add(
+            await FillAsync(
+                    firstWindow,
+                    first,
+                    workspace,
+                    unsupported,
+                    expectedShellCommand,
+                    cancellationToken)
+                .ConfigureAwait(false));
 
         foreach (WorkspaceWindow described in workspace.Windows.Skip(1))
         {
@@ -84,14 +140,23 @@ public sealed class WorkspaceBuilder
                     cancellationToken)
                 .ConfigureAwait(false);
             windows.Add(
-                await FillAsync(window, described, workspace, unsupported, cancellationToken)
+                await FillAsync(
+                        window,
+                        described,
+                        workspace,
+                        unsupported,
+                        expectedShellCommand,
+                        cancellationToken)
                     .ConfigureAwait(false));
         }
 
         // Selecting last means the file's focus wins over the side effects of
         // building, which leave whatever was made most recently selected.
         await SelectFocusedAsync(workspace, windows, cancellationToken).ConfigureAwait(false);
-        return new WorkspaceResult(session, windows, unsupported);
+        return new WorkspaceResult(
+            await session.RefreshAsync(cancellationToken).ConfigureAwait(false),
+            windows,
+            unsupported);
     }
 
     private static string? StartDirectoryFor(
@@ -111,6 +176,58 @@ public sealed class WorkspaceBuilder
             await options.SetAsync(new SetOptionRequest(name, value), cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    private async Task<string?> ResolveReadinessShellAsync(
+        Session session,
+        CancellationToken cancellationToken)
+    {
+        if (_paneReadiness == PaneReadiness.Never)
+        {
+            return null;
+        }
+
+        string defaultCommand = await ReadOptionAsync(
+                session.Options,
+                "default-command",
+                true,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (defaultCommand.Length > 0)
+        {
+            return null;
+        }
+
+        string defaultShell = await ReadOptionAsync(
+                session.Options,
+                "default-shell",
+                false,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return PaneReadinessWaiter.SelectShell(_paneReadiness, defaultCommand, defaultShell);
+    }
+
+    private static async Task<string> ReadOptionAsync(
+        TmuxOptions options,
+        string name,
+        bool allowEmpty,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<TmuxOption> reported = await options.GetAsync(
+                new GetOptionRequest(name, includeInherited: true),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (reported.Count != 1)
+        {
+            throw new InvalidDataException(
+                $"tmux did not report exactly one value for '{name}'.");
+        }
+
+        return reported[0].Value.Raw
+            ?? (allowEmpty
+                ? ""
+                : throw new InvalidDataException(
+                    $"tmux reported no value for '{name}'."));
     }
 
     private static async Task SelectFocusedAsync(
@@ -136,6 +253,7 @@ public sealed class WorkspaceBuilder
         WorkspaceWindow described,
         WorkspaceFile workspace,
         List<string> unsupported,
+        string? expectedShellCommand,
         CancellationToken cancellationToken)
     {
         string? directory = described.StartDirectory ?? workspace.StartDirectory;
@@ -156,9 +274,14 @@ public sealed class WorkspaceBuilder
                         cancellationToken)
                     .ConfigureAwait(false);
 
-            if (pane.ShellCommands.Count > 0)
+            if (expectedShellCommand is not null && pane.ShellCommands.Count > 0)
             {
-                await WaitForShellAsync(target, cancellationToken).ConfigureAwait(false);
+                await PaneReadinessWaiter.WaitAsync(
+                        target,
+                        expectedShellCommand,
+                        _readinessTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             foreach (string command in pane.ShellCommands)
@@ -213,43 +336,4 @@ public sealed class WorkspaceBuilder
 
         return await window.RefreshAsync(cancellationToken).ConfigureAwait(false);
     }
-
-    private async Task WaitForShellAsync(
-        Pane pane,
-        CancellationToken cancellationToken)
-    {
-        string channel = $"libtmux-workspace-ready-{Guid.NewGuid():N}";
-        string binary = ShellQuote(pane.Server.ConnectionOptions.TmuxBinaryPath);
-        string signal = $"{binary} wait-for -S {channel}";
-        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken);
-        timeout.CancelAfter(_shellReadyTimeout);
-
-        try
-        {
-            await pane.SendKeysAsync(
-                    new SendKeysRequest(
-                        text: signal,
-                        suppressHistory: true,
-                        literal: true),
-                    timeout.Token)
-                .ConfigureAwait(false);
-            await pane.Server.WaitForAsync(
-                    new WaitForRequest(channel, TmuxWaitMode.Wait),
-                    timeout.Token)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException failure) when (
-            timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-        {
-            throw new TmuxWaitTimeoutException(
-                $"Pane {pane.Id} did not accept shell input within "
-                + $"{_shellReadyTimeout.TotalSeconds:0.###} seconds.",
-                _shellReadyTimeout,
-                failure);
-        }
-    }
-
-    private static string ShellQuote(string value) =>
-        $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
 }
