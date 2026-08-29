@@ -374,6 +374,18 @@ public sealed class ControlModeSessionTests
                     {{ShellQuote(raw.TmuxBinaryPath)}} \
                         -S {{ShellQuote(raw.SocketPath)}} \
                         kill-server
+                    # kill-server returns before the daemon has finished, and
+                    # the daemon unlinks the socket as it goes. Starting the
+                    # successor first would hand it a socket the old server
+                    # then removes.
+                    settle=0
+                    while [ "$settle" -lt 200 ] \
+                        && {{ShellQuote(raw.TmuxBinaryPath)}} \
+                            -S {{ShellQuote(raw.SocketPath)}} \
+                            list-sessions >/dev/null 2>&1; do
+                        sleep 0.02
+                        settle=$((settle + 1))
+                    done
                     {{ShellQuote(raw.TmuxBinaryPath)}} \
                         -S {{ShellQuote(raw.SocketPath)}} \
                         -f /dev/null \
