@@ -285,6 +285,18 @@ bytes change with each commit. CI combines a clean package cache with
 `tests/NuGet.config` source mapping so it cannot substitute a stale or public
 package.
 
+A local machine has neither. The version never changes between packs, so a
+restore prefers whatever `0.0.0-alpha.9` the global cache already holds and the
+freshly packed bytes are ignored. Evict them before running either gate:
+
+```console
+$ rm -rf ~/.nuget/packages/libtmux{,.query.json,.workspace}/0.0.0-alpha.9
+```
+
+Skipping that runs last week's library against this week's dependants, which
+surfaces as a `TypeLoadException` naming an internal type rather than as
+anything that looks like a stale package.
+
 Adding a platform means adding its identifier to `LibTmux.AotSmoke` and adding
 the matching standalone restore and publish to the workflow.
 
