@@ -6,7 +6,7 @@ Accepted; implementation complete. The production plan and its phase validator
 were transient execution scaffolding and were removed after closure. The
 canonical API and parity documents retain the durable contract.
 
-ADR 0005 supersedes this decision's exact capability-profile selection rule
+ADR 0006 supersedes this decision's exact capability-profile selection rule
 and closed stable-version support boundary.
 
 This decision approves names, signatures, ownership, package placement, and

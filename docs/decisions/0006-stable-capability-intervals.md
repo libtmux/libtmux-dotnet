@@ -1,4 +1,4 @@
-# ADR 0005: Stable capability intervals
+# ADR 0006: Stable capability intervals
 
 ## Status
 
