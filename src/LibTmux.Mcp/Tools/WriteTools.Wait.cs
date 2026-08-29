@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Text;
 using ModelContextProtocol;
@@ -46,7 +47,8 @@ public sealed partial class WriteTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
-        await using TmuxWaitChannel wait = server.OpenWaitChannel(channel);
+        TmuxWaitChannel wait = server.OpenWaitChannel(channel);
+        await using ConfiguredAsyncDisposable _ = wait.ConfigureAwait(false);
         if (!await wait.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
         {
             // Withdraw before answering. A signal landing as the attempt ended

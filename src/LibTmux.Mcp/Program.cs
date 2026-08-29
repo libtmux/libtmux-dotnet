@@ -44,6 +44,9 @@ internal static class Program
             logging.SetMinimumLevel(LogLevel.Warning);
         });
 
+        // The library configures every await away from a caller's context. This
+        // is the entry point rather than the library: there is no context here
+        // to return to, so these say nothing about it.
         await using ServiceProvider provider = BuildProvider(services, args);
         ILoggerFactory logging = provider.GetRequiredService<ILoggerFactory>();
 

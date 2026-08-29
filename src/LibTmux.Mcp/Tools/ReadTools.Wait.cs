@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -73,8 +74,9 @@ public sealed partial class ReadTools
 
         // The lease turns this from a poll into a sleep: tmux reports the
         // pane's output as it happens, and the loop below wakes on it.
-        await using IAsyncDisposable lease = await _activity.WatchAsync(pane, cancellationToken)
+        IAsyncDisposable lease = await _activity.WatchAsync(pane, cancellationToken)
             .ConfigureAwait(false);
+        await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
 
         PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using ModelContextProtocol;
@@ -317,7 +318,8 @@ public sealed partial class WriteTools
         // A command signals its channel once. Cancelling a waiting client to
         // enforce the budget leaves tmux holding the registration, and that
         // registration takes the signal instead of the next caller.
-        await using TmuxWaitChannel wait = server.OpenWaitChannel(channel);
+        TmuxWaitChannel wait = server.OpenWaitChannel(channel);
+        await using ConfiguredAsyncDisposable _ = wait.ConfigureAwait(false);
         if (!await wait.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
         {
             await wait.DisposeAsync().ConfigureAwait(false);

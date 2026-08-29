@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
 namespace LibTmux.Internal;
@@ -60,13 +61,14 @@ internal static class PsmuxBinaryTrust
         byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         try
         {
-            await using var stream = new FileStream(
+            var stream = new FileStream(
                 path,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
                 BufferSize,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await using ConfiguredAsyncDisposable _ = stream.ConfigureAwait(false);
             using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var commit = new MarkerMatcher(CommitMarker);
             var date = new MarkerMatcher(BuildDateMarker);
