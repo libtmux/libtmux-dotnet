@@ -33,7 +33,9 @@ _SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "mcp_swap.py"
 # by path has to put that directory where Python will look.
 sys.path.insert(0, str(_SCRIPT.parent))
 
+import build  # noqa: E402
 import jsonc  # noqa: E402
+import xdg  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location("mcp_swap", _SCRIPT)
 assert _spec and _spec.loader
@@ -148,7 +150,7 @@ def fake_repo(
         "  </PropertyGroup>\n"
         "</Project>\n"
     )
-    binary = project / "bin" / "Debug" / mcp_swap.FRAMEWORKS[0] / "LibTmux.Mcp"
+    binary = project / "bin" / "Debug" / build.FRAMEWORKS[0] / "LibTmux.Mcp"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\nexit 0\n")
     binary.chmod(0o755)
@@ -159,7 +161,7 @@ def fake_repo(
     dotnet.parent.mkdir(parents=True, exist_ok=True)
     dotnet.write_text("#!/bin/sh\nexit 0\n")
     dotnet.chmod(0o755)
-    monkeypatch.setattr(mcp_swap, "find_dotnet", lambda: str(dotnet))
+    monkeypatch.setattr(build, "find_dotnet", lambda: str(dotnet))
     return repo
 
 
@@ -176,7 +178,7 @@ def _runtime_env(fake_repo: pathlib.Path) -> dict[str, str]:
     the config, so every entry this script writes carries it.
     """
     del fake_repo
-    return dict(mcp_swap.dotnet_environment())
+    return dict(build.dotnet_environment())
 
 
 def _pinned_json_entry() -> dict[str, t.Any]:
@@ -204,7 +206,7 @@ def test_resolve_repo_meta_strips_mcp_suffix(fake_repo: pathlib.Path) -> None:
     ``--server tmux`` is the override to target the README/serverInfo
     slug for fresh installs.
     """
-    server, entry = mcp_swap.resolve_repo_meta(fake_repo)
+    server, entry = build.resolve_repo_meta(fake_repo)
     assert server == "tmux"
     assert entry == "LibTmux.Mcp"
 
@@ -221,8 +223,8 @@ def test_resolve_repo_meta_falls_back_to_the_project_name(
     # The slug is the shared one whatever the project is called: every
     # libtmux port swaps into the same slot, which is what makes a swap
     # replace rather than accumulate.
-    assert mcp_swap.resolve_repo_meta(repo, "Weather.Mcp") == (
-        mcp_swap.DEFAULT_SERVER,
+    assert build.resolve_repo_meta(repo, "Weather.Mcp") == (
+        build.DEFAULT_SERVER,
         "Weather.Mcp",
     )
 
@@ -249,7 +251,7 @@ def test_json_swap_and_revert_round_trip(
     after = json.loads(info.config_path.read_text())
     entry = after["mcpServers"]["tmux"]
     assert entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert entry["args"] == []
 
@@ -275,7 +277,7 @@ def test_grok_set_get_delete_roundtrip(fake_repo: pathlib.Path) -> None:
     """The Grok CLI reads/writes the TOML ``[mcp_servers]`` table like Codex."""
     config = tomlkit.parse("")
     spec = mcp_swap.McpServerSpec(
-        command=str(mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
+        command=str(build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
     )
     assert mcp_swap.set_server("grok", config, "tmux", spec, fake_repo) == "added"
     assert "mcp_servers" in config
@@ -337,7 +339,7 @@ def test_use_local_preserves_existing_env_when_replacing(
 
     entry = json.loads(info.config_path.read_text())["mcpServers"]["tmux"]
     assert entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert entry["args"] == []
     assert entry["env"] == _runtime_env(fake_repo) | {
@@ -433,7 +435,7 @@ def test_claude_swap_writes_under_repo_abspath_only(
     new_entry = after["projects"][repo_key]["mcpServers"]["tmux"]
     assert new_entry["type"] == "stdio"
     assert new_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert new_entry["args"] == []
 
@@ -470,7 +472,7 @@ def test_claude_user_scope_writes_top_level_mcpServers(
     after = json.loads(info.config_path.read_text())
     new_entry = after["mcpServers"]["tmux"]
     assert new_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert new_entry["args"] == []
     # No projects.<abs> node should have been created — user scope must
@@ -588,7 +590,7 @@ def test_claude_user_and_project_swaps_coexist_independently(
     # Project-level still local.
     proj_entry = after["projects"][str(fake_repo.resolve())]["mcpServers"]["tmux"]
     assert proj_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
 
@@ -794,7 +796,7 @@ def test_non_claude_scope_user_passes_through_to_global_config(
 
     after = json.loads(info.config_path.read_text())
     assert after["mcpServers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
     # State key reflects the normalised scope, not the raw flag value.
@@ -833,7 +835,7 @@ def test_codex_swap_preserves_toml_comments(
     assert "# Top-level comment preserved across swap" in text
     doc = tomlkit.loads(text).unwrap()
     assert doc["mcp_servers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert doc["other"]["keep"] is True
 
@@ -1645,7 +1647,7 @@ def test_status_scope_user_with_only_project_entry_shows_no_entry(
 def _local_entry(repo: pathlib.Path) -> dict[str, t.Any]:
     """Return the JSON entry a default (debug-profile) swap writes."""
     return {
-        "command": str(mcp_swap.profile_binary(repo, "LibTmux.Mcp", "Debug")),
+        "command": str(build.profile_binary(repo, "LibTmux.Mcp", "Debug")),
         "args": [],
     }
 
@@ -2220,7 +2222,7 @@ def test_preflight_accepts_a_server_that_answers_initialize(
     )
     spec = mcp_swap.McpServerSpec(command=sys.executable, args=[str(server)])
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) is None
+    assert build.preflight_spec(spec, timeout=60) is None
 
 
 def test_preflight_reports_stderr_when_the_server_never_answers(
@@ -2234,14 +2236,14 @@ def test_preflight_reports_stderr_when_the_server_never_answers(
     )
     spec = mcp_swap.McpServerSpec(command=sys.executable, args=[str(server)])
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) == "could not resolve ref"
+    assert build.preflight_spec(spec, timeout=60) == "could not resolve ref"
 
 
 def test_preflight_reports_a_command_that_cannot_launch() -> None:
     """A missing binary is named rather than raising."""
     spec = mcp_swap.McpServerSpec(command="mcp-swap-no-such-binary", args=[])
 
-    failure = mcp_swap.preflight_spec(spec, timeout=60)
+    failure = build.preflight_spec(spec, timeout=60)
 
     assert failure is not None
     assert "mcp-swap-no-such-binary" in failure
@@ -2266,7 +2268,7 @@ def test_preflight_passes_spec_env_to_the_process(tmp_path: pathlib.Path) -> Non
         command=sys.executable, args=[str(server)], env={"MCP_SWAP_PROBE": "1"}
     )
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) is None
+    assert build.preflight_spec(spec, timeout=60) is None
 
 
 # ---------------------------------------------------------------------------
@@ -2904,7 +2906,7 @@ def test_symlinked_config_swap_and_revert_round_trip(
     assert info.config_path.is_symlink()
     assert backup.parent == info.config_path.parent
     assert json.loads(target.read_text())["mcpServers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
     assert mcp_swap.cmd_revert(parser.parse_args(["revert", "--cli", "cursor"])) == 0
@@ -2984,7 +2986,7 @@ def test_relative_xdg_config_home_is_ignored(
     from any other directory reported the backup missing for good.
     """
     monkeypatch.setenv("XDG_CONFIG_HOME", raw)
-    assert mcp_swap._xdg_config_home() == pathlib.Path.home() / ".config"
+    assert xdg.config_home() == pathlib.Path.home() / ".config"
 
 
 def test_absolute_xdg_config_home_is_honoured(
@@ -2992,7 +2994,7 @@ def test_absolute_xdg_config_home_is_honoured(
 ) -> None:
     """Opencode resolves XDG the way its own loader does."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert mcp_swap._xdg_config_home() == tmp_path
+    assert xdg.config_home() == tmp_path
 
 
 def test_opencode_and_pi_registered() -> None:
@@ -3024,7 +3026,7 @@ def test_new_cli_set_get_delete_roundtrip(cli: str, fake_repo: pathlib.Path) -> 
     """
     config: dict[str, t.Any] = {}
     spec = mcp_swap.McpServerSpec(
-        command=str(mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
+        command=str(build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
     )
     assert mcp_swap.set_server(cli, config, "tmux", spec, fake_repo) == "added"
     assert mcp_swap.CLIS[cli].container[0] in config
@@ -3256,7 +3258,7 @@ def test_pi_config_with_comments_is_readable(
     servers = jsonc.loads(text)["mcpServers"]
     assert servers["keep"]["command"] == "echo"
     assert servers["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
 
