@@ -176,10 +176,11 @@ jobs:
       - name: Engineering tests
         env:
           LIBTMUX_PYTHON_REPOSITORY: ${{ runner.temp }}/python-libtmux
-        # tomlkit is what mcp_swap edits Codex and Grok configs with, so its
-        # tests need it too. There is no Python project file here to declare
-        # it in — the scripts carry their own PEP 723 headers.
-        run: uv run --with pytest --with tomlkit python -m pytest eng --quiet
+        # Naming pytest and tomlkit on the command line resolved whatever
+        # released that morning, so an unrelated release could turn this red.
+        # The runner declares them in its own PEP 723 header and pins them in
+        # the lock beside it; --locked refuses to run against a stale one.
+        run: uv run --locked --script eng/run_tests.py --quiet
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         # A run that failed before packing has nothing to upload, and saying so

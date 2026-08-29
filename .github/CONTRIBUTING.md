@@ -25,7 +25,25 @@ from `global-json-file` and calls `dotnet` directly, so a workflow file never
 carries the prefix.
 
 The validators are Python and run through [uv](https://docs.astral.sh/uv/).
-There is no Python project file — each script carries its own PEP 723 header.
+There is no Python project file — each script carries its own PEP 723 header,
+and a script with dependencies carries a `.lock` beside it so the gate resolves
+the same versions every run:
+
+```console
+$ uv lock --script eng/run_tests.py
+```
+
+Run the engineering tests through that locked runner rather than naming pytest
+on the command line, which resolves whatever released that morning:
+
+```console
+$ uv run --locked --script eng/run_tests.py
+```
+
+Nine of those tests read a pinned revision of the Python library. Point
+`LIBTMUX_PYTHON_REPOSITORY` at a checkout of
+[tmux-python/libtmux](https://github.com/tmux-python/libtmux) that contains it,
+or they fail saying which revision they wanted.
 
 You also need a real `tmux`, version 3.2a or newer. The suite drives one
 rather than mocking it, because this library's job is being right about tmux
