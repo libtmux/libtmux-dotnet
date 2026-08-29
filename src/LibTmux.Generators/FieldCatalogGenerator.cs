@@ -108,11 +108,9 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
         source.AppendLine("    }");
         source.AppendLine();
         source.AppendLine(
-            "    internal static bool TryGetWireName(string owner, string property, "
+            "    internal static bool TryGetWireName(global::System.Type owner, string property, "
             + "out string wireName)");
         source.AppendLine("    {");
-        source.AppendLine("        switch (owner + \".\" + property)");
-        source.AppendLine("        {");
         foreach ((string wireName, string target, _, _, string? property) in Fields)
         {
             if (property is null)
@@ -120,23 +118,23 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
                 continue;
             }
 
-            source.AppendLine($"            case \"{target}.{property}\":");
-            source.AppendLine($"                wireName = \"{wireName}\";");
-            source.AppendLine("                return true;");
+            source.AppendLine(
+                $"        if (owner == typeof(global::LibTmux.{target}) "
+                + $"&& property == \"{property}\")");
+            source.AppendLine("        {");
+            source.AppendLine($"            wireName = \"{wireName}\";");
+            source.AppendLine("            return true;");
+            source.AppendLine("        }");
         }
 
-        source.AppendLine("            default:");
-        source.AppendLine("                wireName = string.Empty;");
-        source.AppendLine("                return false;");
-        source.AppendLine("        }");
+        source.AppendLine("        wireName = string.Empty;");
+        source.AppendLine("        return false;");
         source.AppendLine("    }");
         source.AppendLine();
         source.AppendLine(
-            "    internal static bool TryGetProperty(string owner, string wireName, "
+            "    internal static bool TryGetProperty(global::System.Type owner, string wireName, "
             + "out string property)");
         source.AppendLine("    {");
-        source.AppendLine("        switch (owner + \".\" + wireName)");
-        source.AppendLine("        {");
         foreach ((string wireName, string target, _, _, string? property) in Fields)
         {
             if (property is null)
@@ -144,15 +142,17 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
                 continue;
             }
 
-            source.AppendLine($"            case \"{target}.{wireName}\":");
-            source.AppendLine($"                property = \"{property}\";");
-            source.AppendLine("                return true;");
+            source.AppendLine(
+                $"        if (owner == typeof(global::LibTmux.{target}) "
+                + $"&& wireName == \"{wireName}\")");
+            source.AppendLine("        {");
+            source.AppendLine($"            property = \"{property}\";");
+            source.AppendLine("            return true;");
+            source.AppendLine("        }");
         }
 
-        source.AppendLine("            default:");
-        source.AppendLine("                property = string.Empty;");
-        source.AppendLine("                return false;");
-        source.AppendLine("        }");
+        source.AppendLine("        property = string.Empty;");
+        source.AppendLine("        return false;");
         source.AppendLine("    }");
         source.AppendLine();
         source.AppendLine("    internal static IReadOnlyList<string> WireNames { get; } =");

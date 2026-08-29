@@ -58,6 +58,15 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void A_caller_type_that_shares_an_entity_name_remains_a_projection()
+    {
+        QueryDocument document = QueryExtensions.Translate<Caller.Session>(
+            row => row.SessionName == "dev");
+
+        Assert.True(document.Compile<Caller.Session>()(new Caller.Session("dev")));
+    }
+
+    [Fact]
     public void A_property_outside_the_catalog_still_refuses_to_translate()
     {
         UnsupportedQueryExpressionException error =
@@ -258,6 +267,11 @@ public sealed class QuerySemanticsTests
     private sealed record Child(string WindowName);
 
     private sealed record Parent(IReadOnlyList<Child> SessionWindows);
+
+    private static class Caller
+    {
+        internal sealed record Session(string SessionName);
+    }
 
     [Fact]
     public void And_and_or_nodes_use_ordered_structural_equality_and_hashing()

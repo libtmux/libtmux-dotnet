@@ -231,7 +231,7 @@ internal static class QueryTranslator
         // type is a caller's own row, whose property names are wire names already.
         string wireName =
             member.DeclaringType is { } owner
-            && QueryFieldCatalog.TryGetWireName(owner.Name, member.Name, out string mapped)
+            && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)
                 ? mapped
                 : ToWireName(member.Name);
         // The catalog is closed: a field it does not carry cannot be put on the

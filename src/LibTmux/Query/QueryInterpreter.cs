@@ -165,7 +165,7 @@ internal static class QueryInterpreter
         // holds session_attached under Attached, and a row a caller declared
         // holds it under SessionAttached.
         string property =
-            QueryFieldCatalog.TryGetProperty(type.Name, field.WireName, out string mapped)
+            QueryFieldCatalog.TryGetProperty(type, field.WireName, out string mapped)
                 ? mapped
                 : ToClrName(field.WireName);
 
