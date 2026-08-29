@@ -28,6 +28,10 @@ public sealed record GetOptionRequest
     }
 
     /// <summary>Gets the option to read.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string Name { get; }
 
     /// <summary>Gets the scope to read in, or null for the owner's own.</summary>

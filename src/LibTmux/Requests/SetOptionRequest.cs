@@ -35,6 +35,10 @@ public sealed record SetOptionRequest
     }
 
     /// <summary>Gets the option to set, optionally with an array index.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string Name { get; }
 
     /// <summary>Gets the value to store.</summary>

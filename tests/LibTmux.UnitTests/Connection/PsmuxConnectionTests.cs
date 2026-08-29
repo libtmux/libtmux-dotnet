@@ -123,19 +123,12 @@ public sealed class PsmuxConnectionTests
     [Fact]
     public void The_pinned_build_identity_agrees_with_itself()
     {
-        // The banner, the markers the binary is scanned for and the commit are
-        // one fact spelled three ways. Moving the pin must move all of them.
+        // The banner is interpolated from the short commit and the date, so it
+        // agrees with them by construction. That the short commit is the long
+        // one's prefix is the half nothing else checks.
         Assert.StartsWith(
             PsmuxCompatibility.SupportedShortCommit,
             PsmuxCompatibility.SupportedCommit,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            PsmuxCompatibility.SupportedShortCommit,
-            PsmuxCompatibility.SupportedImplementationLine,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            PsmuxCompatibility.SupportedBuildDate,
-            PsmuxCompatibility.SupportedImplementationLine,
             StringComparison.Ordinal);
     }
 

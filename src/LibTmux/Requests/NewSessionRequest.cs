@@ -76,6 +76,10 @@ public sealed record NewSessionRequest
     public string? StartDirectory { get; }
 
     /// <summary>Gets the name of the first window.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string? WindowName { get; }
 
     /// <summary>Gets the command the first pane runs.</summary>

@@ -32,6 +32,10 @@ public sealed record SetHookRequest
     }
 
     /// <summary>Gets the hook name, optionally with an array index.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string Name { get; }
 
     /// <summary>Gets the tmux command to run when the hook fires.</summary>
