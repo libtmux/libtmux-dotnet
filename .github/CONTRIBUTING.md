@@ -49,6 +49,19 @@ You also need a real `tmux`, version 3.2a or newer. The suite drives one
 rather than mocking it, because this library's job is being right about tmux
 and only tmux can say whether it is.
 
+Name that tmux explicitly when the machine has more than one:
+
+```console
+$ export LIBTMUX_TMUX=/usr/local/bin/tmux
+```
+
+Without it the tests spawn whatever `tmux` their own `PATH` resolves, while a
+command they send into a pane resolves it again through that pane's
+interactive shell. A version-matrix install earlier on the interactive `PATH`
+makes those two different binaries, and a client cannot talk to a server of
+another version. What you see is `tmux_run` timing out with no exit status,
+which reads as a library bug rather than as two tmuxes.
+
 ## Own your tmux socket root
 
 Give this repository a socket root of its own before running anything:
