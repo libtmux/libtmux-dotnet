@@ -4,22 +4,16 @@ from __future__ import annotations
 
 import json
 import pathlib
-import runpy
 import subprocess
-import typing as t
 import zipfile
 
 import pytest
 
-MODULE_PATH = pathlib.Path(__file__).parents[1] / "verify_source_binding.py"
+from eng.evidence import verify_source_binding
+
 EVIDENCE_ROOT = "csharp/docs/parity/evidence/0001"
 FINAL_EVIDENCE_ROOT = "csharp/docs/parity/evidence/final"
 DELTA_PATH = "csharp/docs/parity/version-deltas.json"
-
-
-def namespace() -> dict[str, t.Any]:
-    """Return the loaded verifier namespace."""
-    return runpy.run_path(str(MODULE_PATH))
 
 
 def run_git(repository: pathlib.Path, *arguments: str) -> str:
@@ -70,7 +64,7 @@ def repository(tmp_path: pathlib.Path) -> pathlib.Path:
 
 def precommit(repository: pathlib.Path) -> int:
     """Run the pre-commit binding arguments."""
-    return t.cast(t.Callable[[list[str]], int], namespace()["main"])(
+    return verify_source_binding.main(
         [
             "--evidence",
             str(repository / EVIDENCE_ROOT),
@@ -88,7 +82,7 @@ def precommit(repository: pathlib.Path) -> int:
 
 def postcommit(repository: pathlib.Path) -> int:
     """Run the post-commit binding arguments."""
-    return t.cast(t.Callable[[list[str]], int], namespace()["main"])(
+    return verify_source_binding.main(
         [
             "--evidence",
             str(repository / EVIDENCE_ROOT),
@@ -108,7 +102,7 @@ def postcommit(repository: pathlib.Path) -> int:
 
 def bind_final(repository: pathlib.Path) -> int:
     """Run the binding arguments the closing matrix run is retained under."""
-    return t.cast(t.Callable[[list[str]], int], namespace()["main"])(
+    return verify_source_binding.main(
         [
             "--evidence",
             str(repository / FINAL_EVIDENCE_ROOT),
@@ -269,7 +263,7 @@ def test_final_matrix_matches_the_closing_source_tree(
 
 def test_usage_requires_exactly_one_binding_mode(repository: pathlib.Path) -> None:
     """Reject invocations that request neither or both binding modes."""
-    main = t.cast(t.Callable[[list[str]], int], namespace()["main"])
+    main = verify_source_binding.main
     common = [
         "--evidence",
         str(repository / EVIDENCE_ROOT),
@@ -298,7 +292,7 @@ def test_usage_requires_exactly_one_binding_mode(repository: pathlib.Path) -> No
 
 def test_usage_requires_a_fingerprint_mode(repository: pathlib.Path) -> None:
     """Reject invocations that do not declare how the tree is bound."""
-    main = t.cast(t.Callable[[list[str]], int], namespace()["main"])
+    main = verify_source_binding.main
 
     assert (
         main(
@@ -323,14 +317,14 @@ def test_a_package_naming_its_commit_passes(tmp_path: pathlib.Path) -> None:
         tmp_path, commit="a" * 40, url="https://example.invalid/repo"
     )
 
-    assert namespace()["package_source_binding"](package) == []
+    assert verify_source_binding.package_source_binding(package) == []
 
 
 def test_a_package_without_a_commit_is_reported(tmp_path: pathlib.Path) -> None:
     """A report against a released version needs the source it was built from."""
     package = write_package(tmp_path, commit="", url="https://example.invalid/repo")
 
-    assert namespace()["package_source_binding"](package) == [
+    assert verify_source_binding.package_source_binding(package) == [
         "package names no exact commit: none"
     ]
 
@@ -339,7 +333,7 @@ def test_a_package_without_a_repository_is_reported(tmp_path: pathlib.Path) -> N
     """Naming a commit is no use without saying which repository holds it."""
     package = write_package(tmp_path, commit="b" * 40, url="")
 
-    assert namespace()["package_source_binding"](package) == [
+    assert verify_source_binding.package_source_binding(package) == [
         "package names no repository url"
     ]
 
