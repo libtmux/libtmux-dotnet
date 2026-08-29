@@ -32,6 +32,17 @@ public sealed class WorkspaceBuilderTests
                   - echo command-two
         """;
 
+    [Fact]
+    public void Shell_ready_timeout_must_be_positive()
+    {
+        Server server = Server.Open();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new WorkspaceBuilder(server, TimeSpan.Zero));
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new WorkspaceBuilder(server, TimeSpan.FromTicks(-1)));
+    }
+
     [UnixFact]
     public async Task A_workspace_file_becomes_a_session()
     {
@@ -144,6 +155,63 @@ public sealed class WorkspaceBuilderTests
     }
 
     [UnixFact]
+    public async Task A_shell_that_consumes_the_probe_times_out_before_user_commands()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-timeout").FullName;
+        string received = Path.Combine(directory, "received");
+
+        try
+        {
+            string shell = Path.Combine(directory, "sh");
+            await File.WriteAllTextAsync(
+                shell,
+                $$"""
+                    #!/bin/sh
+                    set -eu
+                    IFS= read -r first
+                    printf '%s\n' "$first" > {{ShellQuote(received)}}
+                    exec /bin/sh
+                    """,
+                token);
+            File.SetUnixFileMode(
+                shell,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            TmuxTestFactory factory = new();
+            await using TemporaryServerScope scope = await factory.CreateServerAsync(
+                HarnessOptions(shell),
+                token);
+            WorkspaceFile workspace = WorkspaceFile.Parse("""
+                session_name: libtmux-shell-timeout
+                windows:
+                  - panes:
+                      - shell_command: echo WORKSPACE_USER_COMMAND
+                """);
+
+            TmuxWaitTimeoutException failure = await Assert.ThrowsAsync<TmuxWaitTimeoutException>(
+                () => new WorkspaceBuilder(scope.Server, TimeSpan.FromSeconds(1))
+                    .BuildAsync(workspace, token));
+
+            Assert.Equal(TimeSpan.FromSeconds(1), failure.Timeout);
+            string firstInput = await File.ReadAllTextAsync(received, token);
+            Assert.Contains("wait-for -S libtmux-workspace-ready-", firstInput, StringComparison.Ordinal);
+            Assert.DoesNotContain("WORKSPACE_USER_COMMAND", firstInput, StringComparison.Ordinal);
+            Server server = await scope.Server.ConnectAsync(token);
+            Session session = Assert.Single(await server.GetSessionsAsync(token));
+            Window window = Assert.Single(await session.GetWindowsAsync(token));
+            Pane pane = Assert.Single(await window.GetPanesAsync(token));
+            string captured = string.Join(
+                '\n',
+                await pane.CaptureAsync(cancellationToken: token));
+            Assert.DoesNotContain("WORKSPACE_USER_COMMAND", captured, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task First_pane_directory_controls_window_creation()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -226,9 +294,15 @@ public sealed class WorkspaceBuilderTests
         Assert.Single(nameless.Windows);
     }
 
-    private static TmuxTestOptions HarnessOptions() =>
+    private static TmuxTestOptions HarnessOptions(string? shell = null) =>
         new(new ServerConnectionOptions(
             tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
             socketName: $"ltw-{Guid.NewGuid():N}"[..20],
-            configurationFile: "/dev/null"));
+            configurationFile: "/dev/null",
+            childEnvironment: shell is null
+                ? null
+                : new Dictionary<string, string?> { ["SHELL"] = shell }));
+
+    private static string ShellQuote(string value) =>
+        $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
 }

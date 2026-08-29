@@ -68,8 +68,12 @@ rebased to the directory containing `session.yaml`.
 contains only layouts that tmux rejected; those windows remain usable.
 
 Other tmux failures throw and can leave a partially built session. The builder
-is not transactional. A missing session name or empty window list raises
-`WorkspaceFormatException` before creating anything.
+is not transactional. Before sending the first workspace command to a pane, it
+waits up to ten seconds for that pane's shell to acknowledge input. Pass a
+different timeout to the `WorkspaceBuilder` constructor when startup needs a
+different budget. An expired wait raises `TmuxWaitTimeoutException` before a
+workspace command reaches that pane. A missing session name or empty window
+list raises `WorkspaceFormatException` before creating anything.
 
 ## What is in scope
 

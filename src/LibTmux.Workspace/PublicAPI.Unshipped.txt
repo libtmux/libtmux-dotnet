@@ -1,7 +1,7 @@
 #nullable enable
 LibTmux.Workspace.WorkspaceBuilder
 LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
-LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server) -> void
+LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? shellReadyTimeout = null) -> void
 LibTmux.Workspace.WorkspaceFile
 LibTmux.Workspace.WorkspaceFile.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceFile.SessionName.get -> string?

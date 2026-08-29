@@ -6,14 +6,28 @@ namespace LibTmux.Workspace;
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilder
 {
+    private static readonly TimeSpan DefaultShellReadyTimeout = TimeSpan.FromSeconds(10);
     private readonly Server _server;
+    private readonly TimeSpan _shellReadyTimeout;
 
     /// <summary>Initializes a builder against one server.</summary>
     /// <param name="server">The server the session is built on.</param>
-    public WorkspaceBuilder(Server server)
+    /// <param name="shellReadyTimeout">
+    /// How long a pane may take to acknowledge shell input, or null for ten seconds.
+    /// </param>
+    public WorkspaceBuilder(Server server, TimeSpan? shellReadyTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(server);
+        if (shellReadyTimeout is TimeSpan timeout && timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(shellReadyTimeout),
+                shellReadyTimeout,
+                "A shell needs time to become ready.");
+        }
+
         _server = server;
+        _shellReadyTimeout = shellReadyTimeout ?? DefaultShellReadyTimeout;
     }
 
     /// <summary>Builds a session from a workspace.</summary>
@@ -21,6 +35,9 @@ public sealed class WorkspaceBuilder
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>What was built, and what could not be.</returns>
     /// <exception cref="WorkspaceFormatException">The workspace describes no session.</exception>
+    /// <exception cref="TmuxWaitTimeoutException">
+    /// A pane did not acknowledge shell input before its readiness timeout.
+    /// </exception>
     public async Task<WorkspaceResult> BuildAsync(
         WorkspaceFile workspace,
         CancellationToken cancellationToken = default)
@@ -114,7 +131,7 @@ public sealed class WorkspaceBuilder
         }
     }
 
-    private static async Task<Window> FillAsync(
+    private async Task<Window> FillAsync(
         Window window,
         WorkspaceWindow described,
         WorkspaceFile workspace,
@@ -138,6 +155,11 @@ public sealed class WorkspaceBuilder
                         new SplitPaneRequest(startDirectory: pane.StartDirectory ?? directory),
                         cancellationToken)
                     .ConfigureAwait(false);
+
+            if (pane.ShellCommands.Count > 0)
+            {
+                await WaitForShellAsync(target, cancellationToken).ConfigureAwait(false);
+            }
 
             foreach (string command in pane.ShellCommands)
             {
@@ -191,4 +213,43 @@ public sealed class WorkspaceBuilder
 
         return await window.RefreshAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    private async Task WaitForShellAsync(
+        Pane pane,
+        CancellationToken cancellationToken)
+    {
+        string channel = $"libtmux-workspace-ready-{Guid.NewGuid():N}";
+        string binary = ShellQuote(pane.Server.ConnectionOptions.TmuxBinaryPath);
+        string signal = $"{binary} wait-for -S {channel}";
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        timeout.CancelAfter(_shellReadyTimeout);
+
+        try
+        {
+            await pane.SendKeysAsync(
+                    new SendKeysRequest(
+                        text: signal,
+                        suppressHistory: true,
+                        literal: true),
+                    timeout.Token)
+                .ConfigureAwait(false);
+            await pane.Server.WaitForAsync(
+                    new WaitForRequest(channel, TmuxWaitMode.Wait),
+                    timeout.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException failure) when (
+            timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TmuxWaitTimeoutException(
+                $"Pane {pane.Id} did not accept shell input within "
+                + $"{_shellReadyTimeout.TotalSeconds:0.###} seconds.",
+                _shellReadyTimeout,
+                failure);
+        }
+    }
+
+    private static string ShellQuote(string value) =>
+        $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
 }
