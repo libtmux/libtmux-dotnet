@@ -73,6 +73,28 @@ public sealed class CompositeMutationDispatchTests
         Assert.Equal("layout was not dispatched", failure.Message);
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0000")]
+    [InlineData("0000x")]
+    [InlineData("0000,")]
+    public async Task Truncated_custom_layouts_are_refused_before_dispatch(string layout)
+    {
+        int dispatches = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            Interlocked.Increment(ref dispatches);
+            return Task.FromResult(Success(request));
+        });
+
+        await Assert.ThrowsAsync<TmuxWindowException>(() =>
+            window.SelectLayoutAsync(
+                new SelectLayoutRequest(layout),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
     [Fact]
     public async Task Reset_second_mutation_failure_is_unknown()
     {

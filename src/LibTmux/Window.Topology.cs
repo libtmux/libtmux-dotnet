@@ -1009,7 +1009,7 @@ public sealed partial class Window
         // A layout tmux dumped begins with a four-digit hexadecimal checksum,
         // and every version parses those. Named layouts are checked against the
         // set the running tmux knows.
-        if (Uri.IsHexDigit(layout[0])
+        if (HasCustomLayoutPrefix(layout)
             || UniversalLayouts.Contains(layout, StringComparer.Ordinal))
         {
             return;
@@ -1027,6 +1027,14 @@ public sealed partial class Window
             $"tmux {owner.RawVersion} does not know the layout '{layout}'.",
             _id);
     }
+
+    private static bool HasCustomLayoutPrefix(string layout) =>
+        layout.Length > 5
+        && layout[4] == ','
+        && char.IsAsciiHexDigit(layout[0])
+        && char.IsAsciiHexDigit(layout[1])
+        && char.IsAsciiHexDigit(layout[2])
+        && char.IsAsciiHexDigit(layout[3]);
 
     private string Target => _id.ToString();
 
