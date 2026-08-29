@@ -134,6 +134,32 @@ public sealed class ControlModeCorrelationTests
     }
 
     [Fact]
+    public async Task An_oversized_newline_request_is_counted_before_it_is_rendered()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const int TokenLength = 256 * 1024;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(
+            process,
+            sentinelFactory: () => "f",
+            limits: new ControlModeLimits(maxRequestBytes: 8));
+        await session.WaitForReadyAsync(token);
+        TmuxCommand command = TmuxCommand.Create(
+            "display-message",
+            new string('\n', TokenLength));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        Task<IReadOnlyList<string>> send = session.SendAsync(command, token);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.ThrowsAsync<ArgumentException>(async () => await send);
+        Assert.True(
+            allocated < TokenLength,
+            $"Rejecting the request allocated {allocated} bytes before returning.");
+        Assert.Empty(process.Writes);
+    }
+
+    [Fact]
     public async Task A_canceled_request_keeps_its_slot_until_its_fence()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

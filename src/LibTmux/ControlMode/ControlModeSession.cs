@@ -147,7 +147,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
         try
         {
-            IReadOnlyList<string> output = await SendRenderedAsync(
+            IReadOnlyList<string> output = await SendCoreAsync(
                     mismatchCommand,
                     renderedProbe,
                     Encoding.UTF8.GetByteCount(renderedProbe),
@@ -175,17 +175,17 @@ internal sealed class ControlModeSession : IControlModeSession
     {
         ArgumentNullException.ThrowIfNull(command);
         ValidateGeneration(command);
-        string renderedCommand = ControlModeCommandRenderer.Render(command);
-        return SendRenderedAsync(
+        // Newlines expand fourfold, so enforce the byte budget before rendering.
+        return SendCoreAsync(
             command,
-            renderedCommand,
+            renderedCommand: null,
             ControlModeCommandRenderer.GetRenderedByteCount(command),
             cancellationToken);
     }
 
-    private Task<IReadOnlyList<string>> SendRenderedAsync(
+    private Task<IReadOnlyList<string>> SendCoreAsync(
         TmuxCommand command,
-        string renderedCommand,
+        string? renderedCommand,
         long renderedByteCount,
         CancellationToken cancellationToken)
     {
@@ -211,7 +211,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
     private async Task<IReadOnlyList<string>> SendAdmittedAsync(
         TmuxCommand command,
-        string renderedCommand,
+        string? renderedCommand,
         long renderedByteCount,
         CancellationToken cancellationToken)
     {
@@ -239,6 +239,7 @@ internal sealed class ControlModeSession : IControlModeSession
                     nameof(command));
             }
 
+            renderedCommand ??= ControlModeCommandRenderer.Render(command);
             var pending = new PendingControlModeCommand(command, sentinel);
             Task<IReadOnlyList<string>> transaction = DispatchAndWaitAsync(
                 renderedCommand,
