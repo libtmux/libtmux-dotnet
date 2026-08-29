@@ -134,6 +134,16 @@
         }
       ]
     },
+    "int64Field": {
+      "allOf": [
+        { "$ref": "#/$defs/field" },
+        {
+          "properties": {
+            "wireName": { "enum": ["session_windows", "window_panes"] }
+          }
+        }
+      ]
+    },
     "relationField": {
       "allOf": [
         { "$ref": "#/$defs/field" },
@@ -340,6 +350,15 @@
         "value": { "$ref": "#/$defs/booleanConstant" }
       }
     },
+    "int64ConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "const": "constant" },
+        "value": { "$ref": "#/$defs/int64Constant" }
+      }
+    },
     "stringConstantNode": {
       "type": "object",
       "additionalProperties": false,
@@ -352,6 +371,12 @@
     "booleanOrNullConstantNode": {
       "oneOf": [
         { "$ref": "#/$defs/booleanConstantNode" },
+        { "$ref": "#/$defs/nullConstantNode" }
+      ]
+    },
+    "int64OrNullConstantNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/int64ConstantNode" },
         { "$ref": "#/$defs/nullConstantNode" }
       ]
     },
@@ -535,6 +560,29 @@
             "operator": { "enum": ["equal", "notEqual"] },
             "left": { "$ref": "#/$defs/stringField" },
             "right": { "$ref": "#/$defs/stringOrNullConstantNode" }
+          }
+        },
+        {
+          "title": "int64 equality",
+          "properties": {
+            "operator": { "enum": ["equal", "notEqual"] },
+            "left": { "$ref": "#/$defs/int64Field" },
+            "right": { "$ref": "#/$defs/int64OrNullConstantNode" }
+          }
+        },
+        {
+          "title": "int64 ordering",
+          "properties": {
+            "operator": {
+              "enum": [
+                "lessThan",
+                "lessThanOrEqual",
+                "greaterThan",
+                "greaterThanOrEqual"
+              ]
+            },
+            "left": { "$ref": "#/$defs/int64Field" },
+            "right": { "$ref": "#/$defs/int64ConstantNode" }
           }
         },
         {

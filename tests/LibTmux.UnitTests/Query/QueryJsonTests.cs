@@ -9,6 +9,8 @@ public sealed class QueryJsonTests
 {
     private sealed record Row(string SessionName, bool SessionAttached);
 
+    private sealed record SessionCountRow(string SessionName, long SessionWindows);
+
     private static readonly FieldNode SessionName =
         new(QueryTarget.Session, "session_name");
 
@@ -31,6 +33,10 @@ public sealed class QueryJsonTests
                 "disjunction",
                 QueryExtensions.Translate<Row>(
                     row => row.SessionName == "a" || row.SessionAttached)
+            },
+            {
+                "numeric-comparison",
+                QueryExtensions.Translate<SessionCountRow>(row => row.SessionWindows > 1)
             },
             { "legacy-name-contains", QueryEdgeParser.ParseNameContains(QueryTarget.Window, "log") },
         };

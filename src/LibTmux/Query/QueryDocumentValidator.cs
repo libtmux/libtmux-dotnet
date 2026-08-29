@@ -138,8 +138,9 @@ internal static class QueryDocumentValidator
         QuantifierNode quantifier,
         QueryTarget expectedTarget)
     {
+        _ = ResolveField(quantifier.Relation, expectedTarget);
         if (quantifier.Quantifier is not QueryQuantifier.Any and not QueryQuantifier.All
-            || ResolveField(quantifier.Relation, expectedTarget) != QueryValueKind.Relation)
+            || !QueryFieldCatalog.IsRelation(quantifier.Relation.WireName))
         {
             throw Unsupported("Quantifier does not name a supported relation.");
         }
@@ -173,7 +174,7 @@ internal static class QueryDocumentValidator
     {
         bool compatible = constant switch
         {
-            NullConstant => kind != QueryValueKind.Relation,
+            NullConstant => true,
             BooleanConstant => kind == QueryValueKind.Boolean,
             Int64Constant => kind == QueryValueKind.Int64,
             StringConstant text =>

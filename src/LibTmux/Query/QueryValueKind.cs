@@ -8,5 +8,4 @@ internal enum QueryValueKind
     TypedId,
     Enum,
     Instant,
-    Relation,
 }

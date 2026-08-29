@@ -7,7 +7,9 @@ public sealed class QuerySemanticsTests
 {
     private sealed record Row(string SessionName, bool SessionAttached);
 
-    private sealed record MismatchedRow(string SessionName, long SessionWindows);
+    private sealed record SessionCountRow(string SessionName, long SessionWindows);
+
+    private sealed record WindowCountRow(string WindowName, long WindowPanes);
 
     [Fact]
     public void An_entity_translates_through_the_name_tmux_uses_for_the_field()
@@ -123,10 +125,15 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
-    public void Translation_refuses_a_projection_that_changes_a_field_kind()
+    public void Relation_fields_keep_their_scalar_tmux_value_in_row_projections()
     {
-        Assert.Throws<UnsupportedQueryExpressionException>(
-            () => QueryExtensions.Translate<MismatchedRow>(row => row.SessionWindows > 1));
+        QueryDocument sessions = QueryExtensions.Translate<SessionCountRow>(
+            row => row.SessionWindows > 1);
+        QueryDocument panes = QueryExtensions.Translate<WindowCountRow>(
+            row => row.WindowPanes == 2);
+
+        Assert.True(sessions.Compile<SessionCountRow>()(new SessionCountRow("dev", 2)));
+        Assert.True(panes.Compile<WindowCountRow>()(new WindowCountRow("main", 2)));
     }
 
     [Fact]
