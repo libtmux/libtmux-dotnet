@@ -166,9 +166,14 @@ internal static class QueryTranslator
             options = parsed;
         }
 
+        if (!QueryRegexSemantics.IsSupported(options))
+        {
+            throw Unsupported(call);
+        }
+
         return new RegexNode(
             TranslateOperand(call.Arguments[0], parameter),
-            "dotnet",
+            QueryRegexSemantics.Dialect,
             (string)pattern!,
             options);
     }

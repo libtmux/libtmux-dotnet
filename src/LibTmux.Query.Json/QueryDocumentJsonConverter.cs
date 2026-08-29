@@ -6,15 +6,6 @@ namespace LibTmux.Query.Json;
 
 internal static class QueryJsonWireRules
 {
-    internal const string RegexDialect = "dotnet";
-
-    internal const RegexOptions AllowedRegexOptions =
-        RegexOptions.None
-        | RegexOptions.IgnoreCase
-        | RegexOptions.Multiline
-        | RegexOptions.Singleline
-        | RegexOptions.CultureInvariant;
-
     internal static int ScalarLength(string? value, string description)
     {
         if (value is null)
@@ -46,7 +37,10 @@ internal static class QueryJsonWireRules
 
     internal static void ValidateRegex(RegexNode regex, QueryJsonLimits limits)
     {
-        if (!string.Equals(regex.Dialect, RegexDialect, StringComparison.Ordinal))
+        if (!string.Equals(
+                regex.Dialect,
+                QueryRegexSemantics.Dialect,
+                StringComparison.Ordinal))
         {
             throw new JsonException($"Regex dialect '{regex.Dialect}' is not supported.");
         }
@@ -56,7 +50,7 @@ internal static class QueryJsonWireRules
             throw new JsonException("Regex pattern exceeds the maximum length.");
         }
 
-        if ((regex.SemanticOptions & ~AllowedRegexOptions) != 0)
+        if (!QueryRegexSemantics.IsSupported(regex.SemanticOptions))
         {
             throw new JsonException("Regex names options this writer does not support.");
         }
@@ -381,7 +375,7 @@ internal sealed class QueryDocumentJsonReader
     {
         string dialect = element.GetString()
             ?? throw new JsonException("Regex names no dialect.");
-        return string.Equals(dialect, QueryJsonWireRules.RegexDialect, StringComparison.Ordinal)
+        return string.Equals(dialect, QueryRegexSemantics.Dialect, StringComparison.Ordinal)
             ? dialect
             : throw new JsonException($"Regex dialect '{dialect}' is not supported.");
     }
@@ -406,7 +400,7 @@ internal sealed class QueryDocumentJsonReader
         JsonElement element)
     {
         var options = (RegexOptions)element.GetInt32();
-        return (options & ~QueryJsonWireRules.AllowedRegexOptions) == 0
+        return QueryRegexSemantics.IsSupported(options)
             ? options
             : throw new JsonException("Regex names options this reader does not support.");
     }

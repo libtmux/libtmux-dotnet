@@ -92,6 +92,18 @@ public sealed class QueryJsonTrustBoundaryTests
     }
 
     [Fact]
+    public void Regex_options_without_culture_invariance_are_refused()
+    {
+        string json = Document(
+            """
+            {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
+             "dialect":"dotnet","pattern":"^a","semanticOptions":0}
+            """);
+
+        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
     public void An_unknown_quantifier_is_refused_rather_than_treated_as_all()
     {
         string json = Document(

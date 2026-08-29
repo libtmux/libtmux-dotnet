@@ -68,6 +68,23 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
+    public void The_wire_matches_the_retained_regex_golden()
+    {
+        const string expected =
+            """
+            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},"dialect":"dotnet","pattern":"^prod-[0-9]+$","semanticOptions":512}}
+            """;
+        QueryDocument document = Document(new RegexNode(
+            SessionName,
+            "dotnet",
+            "^prod-[0-9]+$",
+            RegexOptions.CultureInvariant));
+
+        Assert.Equal(expected, QueryJson.Serialize(document));
+        Assert.Equal(document, QueryJson.Deserialize(expected));
+    }
+
+    [Fact]
     public void Limits_may_tighten_the_frozen_ceilings_but_never_widen_them()
     {
         QueryDocument document =

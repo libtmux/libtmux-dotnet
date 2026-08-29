@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using LibTmux.Query;
 
 namespace LibTmux.UnitTests.Query;
@@ -121,6 +122,25 @@ public sealed class QuerySemanticsTests
     {
         Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryExtensions.Translate<Row>(row => row.SessionName.Trim() == "X"));
+    }
+
+    [Fact]
+    public void Regex_translation_requires_explicit_culture_invariance()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(
+                row => Regex.IsMatch(row.SessionName, "^build", RegexOptions.IgnoreCase)));
+
+        QueryDocument document = QueryExtensions.Translate<Row>(
+            row => Regex.IsMatch(
+                row.SessionName,
+                "^build",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+        RegexNode regex = Assert.IsType<RegexNode>(document.Predicate);
+
+        Assert.Equal(
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            regex.SemanticOptions);
     }
 
     [Fact]

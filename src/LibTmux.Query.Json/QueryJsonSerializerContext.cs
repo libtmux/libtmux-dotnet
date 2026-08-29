@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace LibTmux.Query.Json;
@@ -25,7 +26,7 @@ public sealed record QueryJsonLimits(
         MaximumDepth: 32,
         MaximumNodes: 512,
         MaximumStringLength: 4096,
-        MaximumPatternLength: 1024,
+        MaximumPatternLength: QueryRegexSemantics.MaximumPatternLength,
         MaximumUtf8Bytes: 262144);
 
     internal QueryJsonLimits Clamp()
@@ -66,7 +67,9 @@ public static class QueryJson
     {
         ArgumentNullException.ThrowIfNull(document);
         var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        using (var writer = new Utf8JsonWriter(
+            buffer,
+            new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             new QueryDocumentJsonConverter(QueryJsonLimits.V1)
                 .Write(writer, document, new JsonSerializerOptions());
