@@ -1661,8 +1661,9 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,Exception?)` | `StaleServerGenerationException(string message, ServerGeneration expected, Exception? innerException = null)` | Public | No | Portable | Creates StaleServerGenerationException without a known replacement generation. |
 | `M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,ServerGeneration,Exception?)` | `StaleServerGenerationException(string message, ServerGeneration expected, ServerGeneration actual, Exception? innerException = null)` | Public | No | Portable | Creates StaleServerGenerationException. |
-| `P:LibTmux.StaleServerGenerationException.Actual` | `ServerGeneration LibTmux.StaleServerGenerationException.Actual { get; }` | Public | No | Portable | Gets Actual. |
+| `P:LibTmux.StaleServerGenerationException.Actual` | `ServerGeneration? LibTmux.StaleServerGenerationException.Actual { get; }` | Public | No | Portable | Gets Actual, or null when it could not be observed. |
 | `P:LibTmux.StaleServerGenerationException.Expected` | `ServerGeneration LibTmux.StaleServerGenerationException.Expected { get; }` | Public | No | Portable | Gets Expected. |
 
 ### `T:LibTmux.SwapPaneRequest`

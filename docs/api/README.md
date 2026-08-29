@@ -389,6 +389,7 @@ modes differ.
 | `LibTmux.SetOptionRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one option. |
 | `LibTmux.SplitPaneRequest.#ctor(System.String,System.String,System.Boolean,System.Nullable{LibTmux.PaneDirection},System.Boolean,System.Boolean,System.String,System.String,System.Nullable{System.Int32},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Boolean,System.String,System.String,System.String,System.String,System.Boolean)` | Initializes a pane-split request. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception. |
+| `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.SwapPaneRequest.#ctor(System.String,System.Nullable{LibTmux.PaneSwapDirection},System.Boolean,System.Boolean)` | Initializes a pane-swap request. |
 | `LibTmux.Testing.TestEnvironment.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})` | Initializes a test environment. |
 | `LibTmux.Testing.TestEnvironment.WithVariable(System.String,System.String)` | Answers a copy that also sets one variable. |
@@ -1021,7 +1022,7 @@ modes differ.
 | `LibTmux.SplitPaneRequest.Style` | Gets the pane style. |
 | `LibTmux.SplitPaneRequest.Target` | Gets the pane to split, or null for the active one. |
 | `LibTmux.SplitPaneRequest.Zoom` | Gets whether the new pane is zoomed. |
-| `LibTmux.StaleServerGenerationException.Actual` | Gets the generation currently serving the endpoint. |
+| `LibTmux.StaleServerGenerationException.Actual` | Gets the generation currently serving the endpoint, or when it could not be observed. |
 | `LibTmux.StaleServerGenerationException.Expected` | Gets the generation expected by the stale handle. |
 | `LibTmux.SwapPaneRequest.Detach` | Gets whether the swapped pane is left unselected. |
 | `LibTmux.SwapPaneRequest.Direction` | Gets the neighbour to swap with instead. |

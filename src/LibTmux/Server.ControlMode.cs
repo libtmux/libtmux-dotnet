@@ -21,6 +21,9 @@ public sealed partial class Server
     /// <see cref="IControlModeSession.Events" /> to see the rest.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The handle has no connection.</exception>
+    /// <exception cref="StaleServerGenerationException">
+    /// The endpoint changed servers while the control client was attaching.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IControlModeSession> EnterControlModeAsync(
         string? target = null,
@@ -54,6 +57,7 @@ public sealed partial class Server
         try
         {
             await session.WaitForReadyAsync(cancellationToken).ConfigureAwait(false);
+            await session.VerifyAttachedGenerationAsync(cancellationToken).ConfigureAwait(false);
             return session;
         }
         catch (Exception startupFailure)

@@ -389,6 +389,92 @@ public sealed class ControlModeCorrelationTests
     }
 
     [Fact]
+    public async Task Attached_generation_probe_uses_an_alias_resistant_parser_condition()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var expected = new ServerGeneration(processId: 10, startTime: 20);
+        const string Fence = "libtmux-control-generation-match";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            generation: expected,
+            sentinelFactory: () => Fence);
+        await session.WaitForReadyAsync(token);
+
+        Task probe = session.VerifyAttachedGenerationAsync(token);
+        await process.WritesObserved.Task.WaitAsync(token);
+
+        string[] requestLines = Assert.Single(process.Writes).Split('\n');
+        Assert.Equal(2, requestLines.Length);
+        Assert.StartsWith(
+            "%if \"#{!=:#{pid}:#{start_time},10:20}\" libtmux-generation-",
+            requestLines[0],
+            StringComparison.Ordinal);
+        Assert.EndsWith(" %endif", requestLines[0], StringComparison.Ordinal);
+        Assert.Equal(Fence, requestLines[1]);
+
+        process.EmitFence(number: 10, Fence);
+        await probe;
+    }
+
+    [Fact]
+    public async Task Generation_mismatch_does_not_invent_the_attached_identity()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var expected = new ServerGeneration(processId: 10, startTime: 20);
+        const string Fence = "libtmux-control-generation-mismatch";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            generation: expected,
+            sentinelFactory: () => Fence);
+        await session.WaitForReadyAsync(token);
+
+        Task probe = session.VerifyAttachedGenerationAsync(token);
+        await process.WritesObserved.Task.WaitAsync(token);
+        string condition = Assert.Single(process.Writes).Split('\n')[0];
+        string mismatchMarker = condition.Split(' ')[2];
+        process.EmitBlock(
+            number: 10,
+            flags: 1,
+            failed: true,
+            $"parse error: unknown command: {mismatchMarker}");
+        process.EmitFence(number: 11, Fence);
+
+        StaleServerGenerationException error =
+            await Assert.ThrowsAsync<StaleServerGenerationException>(async () => await probe);
+        Assert.Equal(expected, error.Expected);
+        Assert.Null(error.Actual);
+        ControlModeCommandException cause =
+            Assert.IsType<ControlModeCommandException>(error.InnerException);
+        Assert.Equal(mismatchMarker, cause.Command.Name);
+        Assert.Empty(cause.Command.Arguments);
+    }
+
+    [Fact]
+    public async Task Generation_probe_rejects_unexpected_command_output()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var expected = new ServerGeneration(processId: 10, startTime: 20);
+        const string Fence = "libtmux-control-generation-output";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            generation: expected,
+            sentinelFactory: () => Fence);
+        await session.WaitForReadyAsync(token);
+
+        Task probe = session.VerifyAttachedGenerationAsync(token);
+        await process.WritesObserved.Task.WaitAsync(token);
+        process.EmitBlock(number: 10, flags: 1, failed: false, "unexpected");
+        process.EmitFence(number: 11, Fence);
+
+        InvalidDataException error =
+            await Assert.ThrowsAsync<InvalidDataException>(async () => await probe);
+        Assert.Equal("The generation probe returned unexpected output.", error.Message);
+    }
+
+    [Fact]
     public void Typed_arguments_render_without_a_second_physical_line()
     {
         TmuxCommand command = TmuxCommand.Create(

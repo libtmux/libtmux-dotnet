@@ -6,7 +6,7 @@ namespace LibTmux.Internal;
 
 internal sealed class TmuxConnection
 {
-    private const string GenerationFormat = "#{pid}:#{start_time}";
+    internal const string GenerationFormat = "#{pid}:#{start_time}";
     private readonly Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> _execute;
     private readonly Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
         _executeVersion;

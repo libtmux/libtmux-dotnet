@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
@@ -129,12 +130,65 @@ internal sealed class ControlModeSession : IControlModeSession
     internal Task WaitForReadyAsync(CancellationToken cancellationToken) =>
         _ready.Task.WaitAsync(cancellationToken);
 
+    internal async Task VerifyAttachedGenerationAsync(CancellationToken cancellationToken)
+    {
+        ServerGeneration expected = _generation
+            ?? throw new InvalidOperationException(
+                "The control client has no expected server generation.");
+        string mismatchMarker = CreateGenerationMismatchMarker();
+        string expectedText = expected.ProcessId.ToString(CultureInfo.InvariantCulture)
+            + ':'
+            + expected.StartTime.ToString(CultureInfo.InvariantCulture);
+        // Full command names can be replaced by command-alias. Parser conditions
+        // expand formats first, so only a mismatch exposes this random command.
+        string renderedProbe =
+            $"%if \"#{{!=:{TmuxConnection.GenerationFormat},{expectedText}}}\" {mismatchMarker} %endif";
+        TmuxCommand mismatchCommand = TmuxCommand.Create(mismatchMarker);
+
+        try
+        {
+            IReadOnlyList<string> output = await SendRenderedAsync(
+                    mismatchCommand,
+                    renderedProbe,
+                    Encoding.UTF8.GetByteCount(renderedProbe),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (output.Count != 0)
+            {
+                throw new InvalidDataException(
+                    "The generation probe returned unexpected output.");
+            }
+        }
+        catch (ControlModeCommandException error)
+            when (IsGenerationMismatch(error, mismatchMarker))
+        {
+            throw new StaleServerGenerationException(
+                "The control client attached to a different tmux server generation.",
+                expected,
+                error);
+        }
+    }
+
     public Task<IReadOnlyList<string>> SendAsync(
         TmuxCommand command,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
         ValidateGeneration(command);
+        string renderedCommand = ControlModeCommandRenderer.Render(command);
+        return SendRenderedAsync(
+            command,
+            renderedCommand,
+            ControlModeCommandRenderer.GetRenderedByteCount(command),
+            cancellationToken);
+    }
+
+    private Task<IReadOnlyList<string>> SendRenderedAsync(
+        TmuxCommand command,
+        string renderedCommand,
+        long renderedByteCount,
+        CancellationToken cancellationToken)
+    {
         ThrowIfStopping();
         if (_process.HasExited)
         {
@@ -148,11 +202,17 @@ internal sealed class ControlModeSession : IControlModeSession
                 $"The control-mode session reached its {_limits.MaxPendingCommands}-command pending limit.");
         }
 
-        return SendAdmittedAsync(command, cancellationToken);
+        return SendAdmittedAsync(
+            command,
+            renderedCommand,
+            renderedByteCount,
+            cancellationToken);
     }
 
     private async Task<IReadOnlyList<string>> SendAdmittedAsync(
         TmuxCommand command,
+        string renderedCommand,
+        long renderedByteCount,
         CancellationToken cancellationToken)
     {
         bool transferredSlot = false;
@@ -169,7 +229,7 @@ internal sealed class ControlModeSession : IControlModeSession
                     "The control-mode request fence is invalid.");
             }
 
-            long requestBytes = ControlModeCommandRenderer.GetRenderedByteCount(command)
+            long requestBytes = renderedByteCount
                 + Encoding.UTF8.GetByteCount(sentinel)
                 + 2L;
             if (requestBytes > _limits.MaxRequestBytes)
@@ -181,7 +241,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
             var pending = new PendingControlModeCommand(command, sentinel);
             Task<IReadOnlyList<string>> transaction = DispatchAndWaitAsync(
-                command,
+                renderedCommand,
                 pending,
                 cancellationToken);
             transferredSlot = true;
@@ -200,7 +260,7 @@ internal sealed class ControlModeSession : IControlModeSession
     }
 
     private async Task<IReadOnlyList<string>> DispatchAndWaitAsync(
-        TmuxCommand command,
+        string renderedCommand,
         PendingControlModeCommand pending,
         CancellationToken cancellationToken)
     {
@@ -234,7 +294,8 @@ internal sealed class ControlModeSession : IControlModeSession
 
                 try
                 {
-                    await WriteRequestAsync(command, pending.Sentinel).ConfigureAwait(false);
+                    await WriteRequestAsync(renderedCommand, pending.Sentinel)
+                        .ConfigureAwait(false);
                 }
                 catch (Exception error)
                 {
@@ -278,9 +339,9 @@ internal sealed class ControlModeSession : IControlModeSession
         }
     }
 
-    private async Task WriteRequestAsync(TmuxCommand command, string sentinel)
+    private async Task WriteRequestAsync(string renderedCommand, string sentinel)
     {
-        string framedCommand = $"{ControlModeCommandRenderer.Render(command)}\n{sentinel}";
+        string framedCommand = $"{renderedCommand}\n{sentinel}";
         await _process.WriteLineAsync(framedCommand.AsMemory(), CancellationToken.None)
             .ConfigureAwait(false);
         await _process.FlushAsync(CancellationToken.None).ConfigureAwait(false);
@@ -333,6 +394,19 @@ internal sealed class ControlModeSession : IControlModeSession
 
     private static string CreateSentinel() =>
         $"libtmux-control-{Convert.ToHexString(RandomNumberGenerator.GetBytes(32))}";
+
+    private static string CreateGenerationMismatchMarker() =>
+        $"libtmux-generation-{Convert.ToHexString(RandomNumberGenerator.GetBytes(32))}";
+
+    private static bool IsGenerationMismatch(
+        ControlModeCommandException error,
+        string mismatchMarker) =>
+        error.OutputLines.Count == 0
+        && error.ErrorLines.Count == 1
+        && string.Equals(
+            error.ErrorLines[0],
+            $"parse error: unknown command: {mismatchMarker}",
+            StringComparison.Ordinal);
 
     public async ValueTask DisposeAsync()
     {

@@ -283,6 +283,79 @@ public sealed class ControlModeSessionTests
     }
 
     [UnixFact]
+    public async Task Startup_rejects_a_server_restart_between_discovery_and_attach()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server original = await ConnectAsync(raw, token);
+        ServerGeneration expected = original.Generation
+            ?? throw new InvalidOperationException("The test server was not materialized.");
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-control-generation-{Guid.NewGuid():N}");
+        string wrapper = Path.Combine(directory, "tmux-wrapper");
+        string forgedGenerationAlias =
+            $"display-message=display-message -p {expected.ProcessId}:{expected.StartTime} ; send-keys -l --";
+        Directory.CreateDirectory(directory);
+        Task<IControlModeSession>? startup = null;
+
+        try
+        {
+            string script = $$"""
+                #!/bin/sh
+                set -eu
+                generation_probe=0
+                for argument in "$@"; do
+                    if [ "$argument" = '#{pid}:#{start_time}' ]; then
+                        generation_probe=1
+                    fi
+                done
+                if [ "$generation_probe" = 1 ]; then
+                    {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
+                    {{ShellQuote(raw.TmuxBinaryPath)}} \
+                        -S {{ShellQuote(raw.SocketPath)}} \
+                        kill-server
+                    {{ShellQuote(raw.TmuxBinaryPath)}} \
+                        -S {{ShellQuote(raw.SocketPath)}} \
+                        -f /dev/null \
+                        new-session -d -s successor
+                    {{ShellQuote(raw.TmuxBinaryPath)}} \
+                        -S {{ShellQuote(raw.SocketPath)}} \
+                        set-option -s 'command-alias[200]' \
+                        {{ShellQuote(forgedGenerationAlias)}}
+                    exit 0
+                fi
+                exec {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
+                """;
+            await File.WriteAllTextAsync(wrapper, script, token);
+            File.SetUnixFileMode(
+                wrapper,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await WaitUntilAsync(() => CanExecute(wrapper), token);
+
+            Server server = Server.Open(new ServerConnectionOptions(
+                tmuxBinaryPath: wrapper,
+                socketPath: raw.SocketPath,
+                configurationFile: "/dev/null"));
+            startup = server.EnterControlModeAsync(cancellationToken: token);
+
+            StaleServerGenerationException error =
+                await Assert.ThrowsAsync<StaleServerGenerationException>(async () => await startup);
+            Assert.Equal(expected, error.Expected);
+            Assert.Null(error.Actual);
+        }
+        finally
+        {
+            if (startup?.IsCompletedSuccessfully == true)
+            {
+                await startup.Result.DisposeAsync();
+            }
+
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task A_canceled_attach_is_disposed_before_the_call_returns()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -380,9 +453,7 @@ public sealed class ControlModeSessionTests
                 for argument in "$@"; do
                     if [ "$argument" = "-C" ]; then
                         dd if=/dev/zero bs=65536 count=4 1>&2 2>/dev/null
-                        printf '%%begin 1 1 0\n%%end 1 1 0\n'
-                        while IFS= read -r ignored; do :; done
-                        exit 0
+                        exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                     fi
                 done
                 exec {ShellQuote(raw.TmuxBinaryPath)} "$@"

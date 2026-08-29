@@ -12070,6 +12070,34 @@
       "summary": "Creates SplitPaneRequest."
     },
     {
+      "id": "M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,Exception?)",
+      "declaringType": "T:LibTmux.StaleServerGenerationException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "StaleServerGenerationException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "expected",
+          "type": "ServerGeneration"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "StaleServerGenerationException(string message, ServerGeneration expected, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Creates StaleServerGenerationException without a known replacement generation."
+    },
+    {
       "id": "M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,ServerGeneration,Exception?)",
       "declaringType": "T:LibTmux.StaleServerGenerationException",
       "name": ".ctor",
@@ -21821,11 +21849,11 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "ServerGeneration",
+      "returnType": "ServerGeneration?",
       "parameters": [],
-      "signature": "ServerGeneration LibTmux.StaleServerGenerationException.Actual { get; }",
+      "signature": "ServerGeneration? LibTmux.StaleServerGenerationException.Actual { get; }",
       "portable": true,
-      "summary": "Gets Actual."
+      "summary": "Gets Actual, or null when it could not be observed."
     },
     {
       "id": "P:LibTmux.StaleServerGenerationException.Expected",

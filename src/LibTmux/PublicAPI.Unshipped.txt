@@ -955,8 +955,9 @@ LibTmux.SplitPaneRequest.Style.get -> string?
 LibTmux.SplitPaneRequest.Target.get -> string?
 LibTmux.SplitPaneRequest.Zoom.get -> bool
 LibTmux.StaleServerGenerationException
-LibTmux.StaleServerGenerationException.Actual.get -> LibTmux.ServerGeneration
+LibTmux.StaleServerGenerationException.Actual.get -> LibTmux.ServerGeneration?
 LibTmux.StaleServerGenerationException.Expected.get -> LibTmux.ServerGeneration
+LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! message, LibTmux.ServerGeneration expected, System.Exception? innerException = null) -> void
 LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! message, LibTmux.ServerGeneration expected, LibTmux.ServerGeneration actual, System.Exception? innerException = null) -> void
 LibTmux.SwapPaneRequest
 LibTmux.SwapPaneRequest.<Clone>$() -> LibTmux.SwapPaneRequest!
