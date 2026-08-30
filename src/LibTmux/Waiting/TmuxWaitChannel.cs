@@ -130,7 +130,7 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        if (!_waiter.IsCompleted)
+        if (!_waiter.IsCompletedSuccessfully)
         {
             _withdrew = true;
             try

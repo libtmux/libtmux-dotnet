@@ -9,6 +9,24 @@ namespace LibTmux.UnitTests;
 public sealed class WaitChannelAttributionTests
 {
     [Fact]
+    public async Task Faulted_wait_is_still_withdrawn_during_disposal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var endpoint = new WaitChannelEndpoint();
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("faulted-wait");
+        endpoint.FailWait();
+        _ = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => wait.WaitAsync(TimeSpan.FromSeconds(1), token));
+        endpoint.ReleaseWithdrawal();
+
+        _ = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => wait.DisposeAsync().AsTask());
+
+        Assert.Equal(1, endpoint.SignalCount);
+        Assert.False(endpoint.HasWaiter);
+    }
+
+    [Fact]
     public async Task Concurrent_disposal_waits_for_the_same_withdrawal()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -95,6 +113,34 @@ public sealed class WaitChannelAttributionTests
         internal Server Server { get; }
 
         internal Task WithdrawalStarted => _withdrawalStarted.Task;
+
+        internal int SignalCount => Volatile.Read(ref _signals);
+
+        internal bool HasWaiter
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _waiter is not null;
+                }
+            }
+        }
+
+        internal void FailWait()
+        {
+            lock (_gate)
+            {
+                if (_waiter is null)
+                {
+                    throw new InvalidOperationException("No waiter is registered.");
+                }
+
+                _waiter.TrySetException(new TmuxTransportException(
+                    "The waiting client failed.",
+                    ["wait-for"]));
+            }
+        }
 
         internal void ReleaseWithdrawal() => _releaseWithdrawal.TrySetResult();
 
