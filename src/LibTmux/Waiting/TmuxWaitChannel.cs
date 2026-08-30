@@ -14,10 +14,9 @@ namespace LibTmux;
 /// </para>
 /// <para>
 /// So this never abandons a live waiter. <see cref="WaitAsync" /> returning
-/// false means the signal has not arrived yet, not that waiting stopped: the
-/// registration still stands, and the next attempt sees a signal that landed in
-/// between. Disposing withdraws the waiter deliberately, which is the only safe
-/// way to stop.
+/// false means that attempt expired without observing completion; the
+/// registration remains and may already have received a racing signal.
+/// Disposing withdraws the waiter deliberately.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
