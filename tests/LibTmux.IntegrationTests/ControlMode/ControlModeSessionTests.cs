@@ -399,7 +399,6 @@ public sealed class ControlModeSessionTests
                 exec {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
                 """;
             await WriteExecutableAsync(wrapper, script, token);
-            Assert.True(CanExecute(wrapper));
 
             Server server = Server.Open(new ServerConnectionOptions(
                 tmuxBinaryPath: wrapper,
@@ -453,7 +452,6 @@ public sealed class ControlModeSessionTests
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
-            Assert.True(CanExecute(wrapper));
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions(
@@ -517,7 +515,6 @@ public sealed class ControlModeSessionTests
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
-            Assert.True(CanExecute(wrapper));
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions(
@@ -562,6 +559,7 @@ public sealed class ControlModeSessionTests
                 candidate,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             File.Move(candidate, path);
+            await WaitUntilAsync(() => CanExecute(path), cancellationToken);
         }
         finally
         {
