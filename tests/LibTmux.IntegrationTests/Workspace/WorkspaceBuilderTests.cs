@@ -240,7 +240,7 @@ public sealed class WorkspaceBuilderTests
         try
         {
             // Script-backed shell process names differ by platform. A startup
-            // profile keeps pane_current_command bound to a real /bin/sh.
+            // profile keeps pane_current_command bound to a real /bin/bash.
             (string configuration, string profile, string received) =
                 await WriteStartupProfileAsync(
                 directory,
@@ -438,9 +438,9 @@ public sealed class WorkspaceBuilderTests
             configurationFile: configuration,
             childEnvironment: new Dictionary<string, string?>
             {
-                ["ENV"] = profile,
+                ["BASH_ENV"] = profile,
                 ["HOME"] = home,
-                ["SHELL"] = "/bin/sh",
+                ["SHELL"] = "/bin/bash",
             }));
 
     private static async Task<(string Configuration, string Profile, string Received)>
@@ -449,16 +449,16 @@ public sealed class WorkspaceBuilderTests
             CancellationToken cancellationToken)
     {
         string configuration = Path.Combine(directory, "tmux.conf");
-        string profile = Path.Combine(directory, ".profile");
+        string profile = Path.Combine(directory, ".bash_profile");
         string received = Path.Combine(directory, "received");
         await File.WriteAllTextAsync(
             profile,
-            "unset ENV\nprintf 'startup output\\n'\nIFS= read -r first\n"
+            "unset BASH_ENV\nprintf 'startup output\\n'\nIFS= read -r first\n"
             + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\n",
             cancellationToken);
         await File.WriteAllTextAsync(
             configuration,
-            "set-option -g default-shell /bin/sh\n",
+            "set-option -g default-shell /bin/bash\n",
             cancellationToken);
         return (configuration, profile, received);
     }
