@@ -109,7 +109,6 @@ internal static class Program
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
 
         await scope.Pane.SendTextAsync("echo consumed-from-the-package");
-        await scope.Pane.EnterAsync();
         string text = await TmuxWait.UntilAsync(
             async token => string.Join(
                 '\n',

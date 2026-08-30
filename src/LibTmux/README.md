@@ -27,7 +27,6 @@ Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "test
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
-await pane.EnterAsync();
 ```
 
 To reach one server in particular:
@@ -265,7 +264,6 @@ TmuxTestFactory factory = new();
 await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
-await scope.Pane.EnterAsync();
 ```
 
 Disposing kills the server, so a test that fails part way through leaves

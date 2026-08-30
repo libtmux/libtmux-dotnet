@@ -17,7 +17,6 @@ public static class OneShot
         Pane pane = (await window.GetPanesAsync())[0];
 
         await pane.SendTextAsync("dotnet test");
-        await pane.EnterAsync();
         #endregion
     }
 

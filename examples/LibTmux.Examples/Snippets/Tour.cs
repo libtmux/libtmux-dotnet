@@ -31,7 +31,6 @@ public static class Tour
     public static async Task RunACommand(Pane pane)
     {
         await pane.SendTextAsync("echo the-pane-ran-this");
-        await pane.EnterAsync();
 
         // tmux answers a command once it has accepted it, not once the shell
         // has finished, so the result is waited for rather than assumed.
