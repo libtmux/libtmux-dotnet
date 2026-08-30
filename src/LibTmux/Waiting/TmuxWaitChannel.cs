@@ -14,9 +14,9 @@ namespace LibTmux;
 /// </para>
 /// <para>
 /// So this never abandons a live waiter. <see cref="WaitAsync" /> returning
-/// false means that attempt expired without observing completion; the
-/// registration remains and may already have received a racing signal.
-/// Disposing withdraws the waiter deliberately.
+/// false means that attempt expired without observing completion. The open
+/// wait remains owned and may already have completed from a racing signal.
+/// Disposing ends its lifetime deliberately.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -78,8 +78,8 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 
         // A cancelled caller wins over a waiter that happened to finish in the
         // same moment, so the outcome does not depend on which raced first.
-        // Nothing is lost by that: the waiter is still registered, and only
-        // disposal withdraws it.
+        // The open wait remains owned either way, and a later attempt observes
+        // any completion. Disposal alone ends its lifetime.
         cancellationToken.ThrowIfCancellationRequested();
         if (first != _waiter)
         {
