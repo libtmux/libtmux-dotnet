@@ -420,7 +420,9 @@ public sealed class WorkspaceBuilderTests
         new(new ServerConnectionOptions(
             tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
             socketName: $"ltw-{Guid.NewGuid():N}"[..20],
-            configurationFile: "/dev/null",
+            configurationFile: shell is null
+                ? "/dev/null"
+                : Path.ChangeExtension(shell, ".tmux.conf"),
             childEnvironment: shell is null
                 ? null
                 : new Dictionary<string, string?> { ["SHELL"] = shell }));
@@ -442,6 +444,10 @@ public sealed class WorkspaceBuilderTests
         File.SetUnixFileMode(
             program,
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await File.WriteAllTextAsync(
+            Path.ChangeExtension(program, ".tmux.conf"),
+            $"set-option -g default-shell {ShellQuote(program)}\n",
+            cancellationToken);
         return (program, received);
     }
 
