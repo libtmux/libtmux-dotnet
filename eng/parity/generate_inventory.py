@@ -791,12 +791,14 @@ def version_deltas() -> dict[str, t.Any]:
         "byte_length_framing",
         "control_notifications",
         "format_fields_and_operators",
+        "missing_target_format_safety",
         "option_dollar_double_escape",
         "semicolon_grouping",
     )
     # Most of what the protocol reads is true of every supported tmux, so
     # a capability names its bounds only when it holds for some of them.
     capability_bounds = {
+        "missing_target_format_safety": ("3.3", "unknown"),
         "option_dollar_double_escape": ("3.4", "3.5"),
     }
     capabilities: list[dict[str, t.Any]] = [

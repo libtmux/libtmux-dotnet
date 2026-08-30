@@ -73,6 +73,19 @@ internal sealed class MaterializationQuery
         ArgumentException.ThrowIfNullOrWhiteSpace(listCommand);
         ArgumentException.ThrowIfNullOrWhiteSpace(idWireName);
         ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
+        if (!TmuxCapabilities.IsSupported(
+                _context.TmuxVersion,
+                "missing_target_format_safety"))
+        {
+            return await ReadFromListingAsync(
+                    listCommand,
+                    idWireName,
+                    identifier,
+                    inSession,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (inSession is TmuxTarget scoped)
         {
             IReadOnlyDictionary<string, string?>? row = await ReadAsync(
@@ -95,6 +108,44 @@ internal sealed class MaterializationQuery
                 new TmuxTarget(identifier),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyDictionary<string, string?>?> ReadFromListingAsync(
+        string listCommand,
+        string idWireName,
+        string identifier,
+        TmuxTarget? inSession,
+        CancellationToken cancellationToken)
+    {
+        // tmux 3.2a crashes when a missing target expands a time or pane-colour
+        // callback. Listing first never builds a format tree without an entity.
+        string[] extra = listCommand is "list-windows" or "list-panes" ? ["-a"] : [];
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await FetchAsync(
+                listCommand,
+                extra,
+                cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? first = null;
+        foreach (IReadOnlyDictionary<string, string?> row in rows)
+        {
+            if (!row.TryGetValue(idWireName, out string? id)
+                || !string.Equals(id, identifier, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            first ??= row;
+            if (inSession is not TmuxTarget scoped
+                || scoped.Session is not SessionId session
+                || row.TryGetValue("session_id", out string? rowSession)
+                    && string.Equals(rowSession, session.ToString(), StringComparison.Ordinal))
+            {
+                return row;
+            }
+        }
+
+        return first;
     }
 
     [UnsupportedOSPlatform("windows")]

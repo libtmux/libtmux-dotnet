@@ -31,6 +31,7 @@ PROTOCOL_CAPABILITIES = {
     "byte_length_framing",
     "control_notifications",
     "format_fields_and_operators",
+    "missing_target_format_safety",
     "option_dollar_double_escape",
     "semicolon_grouping",
 }
@@ -100,6 +101,7 @@ VERSION_PARITY_METHODS = {
     "display_popup_3_3_options": "DisplayPopup33Options",
     "display_popup_3_6_key_policy": "DisplayPopup36KeyPolicy",
     "format_fields_and_operators": "FormatFieldsAndOperators",
+    "missing_target_format_safety": "MissingTargetFormatSafety",
     "hook_scope_pane_window_set": "HookScopePaneWindowSet",
     "hook_scope_pane_window_show": "HookScopePaneWindowShow",
     "kill_session_group": "KillSessionGroup",

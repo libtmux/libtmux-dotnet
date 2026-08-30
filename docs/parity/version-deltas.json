@@ -181,6 +181,17 @@
       }
     },
     {
+      "capability": "missing_target_format_safety",
+      "evidenceStatus": "pending",
+      "introducedIn": "3.3",
+      "namedRealServerTest": "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::MissingTargetFormatSafety",
+      "removedIn": "unknown",
+      "tmuxSourceEndpoints": {
+        "3.2a": "https://github.com/tmux/tmux/tree/3.2a",
+        "3.7b": "https://github.com/tmux/tmux/tree/3.7b"
+      }
+    },
+    {
       "capability": "option_dollar_double_escape",
       "evidence": {
         "capabilityCohort": "0001",

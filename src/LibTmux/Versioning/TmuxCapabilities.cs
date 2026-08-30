@@ -28,6 +28,7 @@ internal static class TmuxCapabilities
         "confirm_before_background",
         "display_message_client",
         "display_popup_3_3_options",
+        "missing_target_format_safety",
         "server_access_command",
         "show_prompt_history_command",
     ];

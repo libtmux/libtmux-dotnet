@@ -177,6 +177,37 @@ public sealed class VersionParityTests
     }
 
     [UnixFact]
+    public async Task MissingTargetFormatSafety()
+    {
+        await using RawTmuxTestContext context = await StartAsync();
+        TmuxVersion version = await GetVersionAsync(context);
+        bool safe = TmuxCapabilities.IsSupported(version, "missing_target_format_safety");
+
+        RawTmuxResult result = await ExecuteAsync(
+            context,
+            ["display-message", "-p", "-t", "%99999", "#{pane_bg}"]);
+
+        if (version != TmuxVersion.Parse("3.2a"))
+        {
+            if (version.IsStableRelease)
+            {
+                Assert.True(safe);
+            }
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("\n", result.StandardOutputText);
+            Assert.Empty(result.StandardOutputLines);
+            Assert.Empty(result.StandardErrorLines);
+        }
+        else
+        {
+            Assert.False(safe);
+            Assert.NotEqual(0, result.ExitCode);
+            Assert.Contains("server exited unexpectedly", result.StandardErrorText);
+        }
+    }
+
+    [UnixFact]
     public async Task OptionDollarDoubleEscape()
     {
         await using RawTmuxTestContext context = await StartAsync();
