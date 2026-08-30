@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using ModelContextProtocol;
@@ -314,19 +315,17 @@ public sealed partial class WriteTools
         TimeSpan budget,
         CancellationToken cancellationToken)
     {
-        using CancellationTokenSource expiry = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken);
-        expiry.CancelAfter(budget);
-        try
+        // A command signals its channel once. Cancelling a waiting client to
+        // enforce the budget leaves tmux holding the registration, and that
+        // registration takes the signal instead of the next caller.
+        TmuxWaitChannel wait = server.OpenWaitChannel(channel);
+        await using ConfiguredAsyncDisposable _ = wait.ConfigureAwait(false);
+        if (!await wait.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
         {
-            await server.WaitForAsync(new WaitForRequest(channel, TmuxWaitMode.Wait), expiry.Token)
-                .ConfigureAwait(false);
-            return true;
+            await wait.DisposeAsync().ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
+
+        return wait.Signalled;
     }
 
     internal static async Task<int?> ReadStatusAsync(

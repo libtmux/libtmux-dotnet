@@ -8,25 +8,12 @@ public sealed partial class Pane
 {
     private readonly Server? _owner;
 
-    [UnsupportedOSPlatform("windows")]
-    internal Pane(
-        Server owner,
-        TmuxConnection connection,
-        ServerGeneration generation,
-        PaneId id,
-        IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id, snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        _owner = owner;
-    }
-
     /// <summary>Gets the server that owns this pane.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The pane was resolved by identifier rather than materialized.
-    /// </exception>
-    public Server Server =>
-        _owner ?? throw new IncompleteSnapshotException("server", SnapshotDepth.Server);
+    /// <remarks>
+    /// Every handle reached through a server carries it, whether the handle was
+    /// materialized from a listing or resolved from an identifier.
+    /// </remarks>
+    public Server Server => RequireOwner("server");
 
     /// <summary>Gets the session containing this pane.</summary>
     /// <exception cref="IncompleteSnapshotException">
@@ -42,7 +29,7 @@ public sealed partial class Pane
                 throw new IncompleteSnapshotException("session", SnapshotDepth.Server);
             }
 
-            return new Session(RequireConnection(), _generation, id);
+            return new Session(Server, RequireConnection(), _generation, id);
         }
     }
 
@@ -60,9 +47,12 @@ public sealed partial class Pane
                 throw new IncompleteSnapshotException("window", SnapshotDepth.Server);
             }
 
-            return new Window(RequireConnection(), _generation, id);
+            return new Window(Server, RequireConnection(), _generation, id);
         }
     }
+
+    private Server RequireOwner(string relation) =>
+        _owner ?? throw new IncompleteSnapshotException(relation, SnapshotDepth.Server);
 
     private TmuxConnection RequireConnection() =>
         Server.Connection

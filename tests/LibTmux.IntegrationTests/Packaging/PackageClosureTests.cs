@@ -100,6 +100,8 @@ public sealed class PackageClosureTests
                 [ManagedEntryPoint("tests/LibTmux.PackageConsumer", framework)]);
 
             Assert.Contains("captured True", output, StringComparison.Ordinal);
+            Assert.Contains("query-json True", output, StringComparison.Ordinal);
+            Assert.Contains("workspace-parse True", output, StringComparison.Ordinal);
         }
     }
 
@@ -126,6 +128,8 @@ public sealed class PackageClosureTests
             string output = await RunAsync(NativeEntryPoint(framework), []);
 
             Assert.Contains("buffer  aot", output, StringComparison.Ordinal);
+            Assert.Contains("query-json True", output, StringComparison.Ordinal);
+            Assert.Contains("query-compile True", output, StringComparison.Ordinal);
         }
     }
 

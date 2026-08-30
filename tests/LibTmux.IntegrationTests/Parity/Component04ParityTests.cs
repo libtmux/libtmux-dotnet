@@ -298,7 +298,7 @@ public sealed class Component04ParityTests
             "list-sessions",
             "session_id",
             await FirstIdAsync(query, "list-sessions", "session_id"),
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
         return row is not null
             && Materializer.MaterializeSession(context, row).Id.Value >= 0;
     }
@@ -313,7 +313,7 @@ public sealed class Component04ParityTests
             "list-windows",
             "window_id",
             id,
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
         if (row is null)
         {
             return false;
@@ -336,7 +336,7 @@ public sealed class Component04ParityTests
             "list-panes",
             "pane_id",
             id,
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
         if (row is null)
         {
             return false;

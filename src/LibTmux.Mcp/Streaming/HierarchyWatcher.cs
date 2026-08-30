@@ -32,6 +32,7 @@ public sealed class HierarchyWatcher : IAsyncDisposable
     {
         "session-changed",
         "session-renamed",
+        "session-window-changed",
         "sessions-changed",
         "window-add",
         "window-close",
@@ -42,6 +43,7 @@ public sealed class HierarchyWatcher : IAsyncDisposable
         "unlinked-window-close",
         "pane-mode-changed",
         "client-detached",
+        "client-session-changed",
     };
 
     private readonly object _endpointsGate = new();

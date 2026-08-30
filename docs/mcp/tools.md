@@ -53,7 +53,7 @@ a tool annotated read-only, which a client may use to skip a confirmation.
 | `tmux_split_pane` | mutating |  | Split a pane and return the NEW pane's id. |
 | `tmux_start_job` | mutating |  | Start a shell command in a pane and return a job handle IMMEDIATELY, without waiting. |
 | `tmux_tail_pane` | readonly | yes | Read only what a pane has printed since the last call. |
-| `tmux_wait_for_channel` | readonly | yes | Block until something signals a tmux wait-for channel with 'tmux wait-for -S <channel>'. |
+| `tmux_wait_for_channel` | mutating |  | Block until something signals a tmux wait-for channel with 'tmux wait-for -S <channel>'. |
 | `tmux_wait_for_text` | readonly | yes | Wait until a pane prints something matching one of these patterns, then return. |
 | `tmux_whoami` | readonly | yes | Answer which pane this MCP server is running inside, or null when it is not running in tmux. |
 

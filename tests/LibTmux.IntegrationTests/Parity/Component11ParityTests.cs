@@ -290,8 +290,9 @@ public sealed class Component11ParityTests
         Window window,
         CancellationToken token)
     {
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "new_pane_command");
         if (!supported)
         {
             // The command does not exist before 3.7, so there is nothing to

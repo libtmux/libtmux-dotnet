@@ -8,8 +8,20 @@ internal static class PsmuxCompatibility
         "66cf61354c473b35d4f0c06c57384fc46d61ffdb";
     internal const string SupportedBinarySha256 =
         "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d";
+
+    /// <summary>The abbreviated commit the build stamps into itself.</summary>
+    internal const string SupportedShortCommit = "66cf613";
+
+    /// <summary>The date the build stamps into itself.</summary>
+    internal const string SupportedBuildDate = "2026-08-18";
+
+    /// <summary>What the accepted build reports for its second banner line.</summary>
+    /// <remarks>
+    /// Composed rather than spelled out, so the banner, the markers the binary
+    /// is scanned for, and the commit cannot drift apart when the pin moves.
+    /// </remarks>
     internal const string SupportedImplementationLine =
-        "psmux 3.3.8 (66cf613 2026-08-18)";
+        $"psmux {SupportedVersion} ({SupportedShortCommit} {SupportedBuildDate})";
 
     internal static string ValidateExpectedBinarySha256(string value, string parameterName)
     {

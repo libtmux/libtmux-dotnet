@@ -20,7 +20,7 @@ body:
     attributes:
       label: tmux version
       description: The output of `tmux -V`.
-      placeholder: tmux 3.7b
+      placeholder: tmux 3.7c
     validations:
       required: true
   - type: dropdown

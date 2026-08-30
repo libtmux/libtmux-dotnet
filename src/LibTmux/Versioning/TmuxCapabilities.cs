@@ -1,32 +1,12 @@
 using System.Collections.Frozen;
-using System.Diagnostics.CodeAnalysis;
 
 namespace LibTmux.Internal;
 
-internal sealed record TmuxCapabilityProfile
+internal enum TmuxCapabilityState
 {
-    internal TmuxCapabilityProfile(
-        TmuxVersion version,
-        IReadOnlySet<string> capabilities)
-    {
-        if (!version.IsValid)
-        {
-            throw new ArgumentException(
-                "A capability profile requires a valid tmux version.",
-                nameof(version));
-        }
-
-        ArgumentNullException.ThrowIfNull(capabilities);
-        Version = version;
-        Capabilities = capabilities.ToFrozenSet(StringComparer.Ordinal);
-    }
-
-    internal TmuxVersion Version { get; }
-
-    internal IReadOnlySet<string> Capabilities { get; }
-
-    internal bool RequiresBreakPane37Workaround =>
-        Capabilities.Contains("break_pane_3_7_workaround");
+    Unknown,
+    Unsupported,
+    Supported,
 }
 
 internal static class TmuxCapabilities
@@ -35,7 +15,6 @@ internal static class TmuxCapabilities
     [
         "attachment_accounting",
         "byte_length_framing",
-        "choose_tree_sort_time",
         "control_notifications",
         "format_fields_and_operators",
         "semicolon_grouping",
@@ -49,13 +28,13 @@ internal static class TmuxCapabilities
         "confirm_before_background",
         "display_message_client",
         "display_popup_3_3_options",
+        "missing_target_format_safety",
         "server_access_command",
         "show_prompt_history_command",
     ];
     private static readonly string[] Added34 =
     [
         "capture_pane_trim_trailing",
-        "option_dollar_double_escape",
         "clear_history_hyperlinks",
         "confirm_before_acceptance",
         "display_menu_styles",
@@ -89,79 +68,100 @@ internal static class TmuxCapabilities
         "split_window_appearance",
         "split_window_empty",
     ];
-    private static readonly FrozenDictionary<TmuxVersion, TmuxCapabilityProfile> Profiles =
-        CreateProfiles();
+    private static readonly FrozenDictionary<string, CapabilityInterval> Intervals =
+        CreateIntervals();
 
-    internal static bool TryGetExact(
+    internal static TmuxCapabilityState GetState(
         TmuxVersion version,
-        [NotNullWhen(true)] out TmuxCapabilityProfile? profile)
+        string capability)
     {
-        if (!version.IsValid)
+        ArgumentException.ThrowIfNullOrWhiteSpace(capability);
+        if (!Intervals.TryGetValue(capability, out CapabilityInterval interval))
         {
-            profile = null;
-            return false;
+            throw new KeyNotFoundException($"Unknown tmux capability '{capability}'.");
         }
 
-        return Profiles.TryGetValue(version, out profile);
+        if (!version.IsStableRelease || version < LibTmuxInfo.MinimumTmuxVersion)
+        {
+            return TmuxCapabilityState.Unknown;
+        }
+
+        return interval.Contains(version)
+            ? TmuxCapabilityState.Supported
+            : TmuxCapabilityState.Unsupported;
     }
 
-    internal static TmuxCapabilityProfile GetRequired(TmuxVersion version) =>
-        TryGetExact(version, out TmuxCapabilityProfile? profile)
-            ? profile
-            : throw new NotSupportedException(
-                version.IsValid
-                    ? $"tmux {version} has no approved capability profile."
-                    : "An invalid tmux version has no approved capability profile.");
+    internal static bool IsSupported(TmuxVersion version, string capability) =>
+        GetState(version, capability) is TmuxCapabilityState.Supported;
 
-    private static FrozenDictionary<TmuxVersion, TmuxCapabilityProfile> CreateProfiles()
+    private static FrozenDictionary<string, CapabilityInterval> CreateIntervals()
     {
-        FrozenSet<string> capabilities32 = Freeze(Baseline);
-        FrozenSet<string> capabilities33 = Freeze(capabilities32, Added33);
-        FrozenSet<string> capabilities34 = Freeze(capabilities33, Added34);
-        // tmux 3.4 alone escapes a dollar sign twice when it shows an option
-        // back, so the quirk arrives at 3.4 and is gone again at 3.5.
-        FrozenSet<string> capabilities35 = Without(
-            Freeze(capabilities34, Added35),
-            "option_dollar_double_escape");
-        FrozenSet<string> capabilities36 = Freeze(capabilities35, Added36);
-        // tmux 3.7 dropped the activity-time sort order and rejects it by name.
-        FrozenSet<string> capabilities37a = Without(
-            Freeze(capabilities36, Added37),
-            "choose_tree_sort_time");
-        FrozenSet<string> capabilities37 = Freeze(
-            capabilities37a,
-            ["break_pane_3_7_workaround"]);
+        TmuxVersion minimum = LibTmuxInfo.MinimumTmuxVersion;
+        TmuxVersion version33 = TmuxVersion.Parse("3.3");
+        TmuxVersion version34 = TmuxVersion.Parse("3.4");
+        TmuxVersion version35 = TmuxVersion.Parse("3.5");
+        TmuxVersion version36 = TmuxVersion.Parse("3.6");
+        TmuxVersion version37 = TmuxVersion.Parse("3.7");
+        TmuxVersion version37a = TmuxVersion.Parse("3.7a");
+        var intervals = new Dictionary<string, CapabilityInterval>(StringComparer.Ordinal);
 
-        TmuxCapabilityProfile[] profiles =
-        [
-            Create("3.2a", capabilities32),
-            Create("3.3a", capabilities33),
-            Create("3.4", capabilities34),
-            Create("3.5", capabilities35),
-            Create("3.6", capabilities36),
-            Create("3.7", capabilities37),
-            Create("3.7a", capabilities37a),
-            Create("3.7b", capabilities37a),
-        ];
-        return profiles.ToFrozenDictionary(static profile => profile.Version);
+        Add(intervals, Baseline, minimum);
+        Add(intervals, ["choose_tree_sort_time"], minimum, version37);
+        Add(intervals, Added33, version33);
+        Add(intervals, Added34, version34);
+        Add(intervals, ["option_dollar_double_escape"], version34, version35);
+        Add(intervals, Added35, version35);
+        Add(intervals, Added36, version36);
+        Add(intervals, Added37, version37);
+        Add(intervals, ["break_pane_3_7_workaround"], version37, version37a);
+
+        return intervals.ToFrozenDictionary(StringComparer.Ordinal);
     }
 
-    private static TmuxCapabilityProfile Create(
-        string rawVersion,
-        IReadOnlySet<string> capabilities) =>
-        new(TmuxVersion.Parse(rawVersion), capabilities);
+    private static void Add(
+        IDictionary<string, CapabilityInterval> intervals,
+        IEnumerable<string> capabilities,
+        TmuxVersion supportedFrom,
+        TmuxVersion? unsupportedFrom = null)
+    {
+        var interval = new CapabilityInterval(supportedFrom, unsupportedFrom);
+        foreach (string capability in capabilities)
+        {
+            intervals.Add(capability, interval);
+        }
+    }
 
-    private static FrozenSet<string> Freeze(
-        IEnumerable<string> existing,
-        IEnumerable<string>? additions = null) =>
-        additions is null
-            ? existing.ToFrozenSet(StringComparer.Ordinal)
-            : existing.Concat(additions).ToFrozenSet(StringComparer.Ordinal);
+    private readonly struct CapabilityInterval
+    {
+        internal CapabilityInterval(
+            TmuxVersion supportedFrom,
+            TmuxVersion? unsupportedFrom)
+        {
+            if (!supportedFrom.IsStableRelease)
+            {
+                throw new ArgumentException(
+                    "A capability interval requires a stable starting version.",
+                    nameof(supportedFrom));
+            }
 
-    // Capability sets are additive by default; Without exists so a version
-    // that drops a flag can still say so explicitly.
-    private static FrozenSet<string> Without(
-        IEnumerable<string> existing,
-        params string[] removals) =>
-        existing.Except(removals, StringComparer.Ordinal).ToFrozenSet(StringComparer.Ordinal);
+            if (unsupportedFrom is TmuxVersion end
+                && (!end.IsStableRelease || end <= supportedFrom))
+            {
+                throw new ArgumentException(
+                    "A capability interval must end at a later stable version.",
+                    nameof(unsupportedFrom));
+            }
+
+            SupportedFrom = supportedFrom;
+            UnsupportedFrom = unsupportedFrom;
+        }
+
+        private TmuxVersion SupportedFrom { get; }
+
+        private TmuxVersion? UnsupportedFrom { get; }
+
+        internal bool Contains(TmuxVersion version) =>
+            version >= SupportedFrom
+            && (UnsupportedFrom is not TmuxVersion end || version < end);
+    }
 }

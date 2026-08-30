@@ -1,10 +1,68 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using LibTmux.Query;
 
 namespace LibTmux.UnitTests.Query;
 
 public sealed class QuerySemanticsTests
 {
-    private sealed record Row(string SessionName, long SessionWindows);
+    private sealed record Row(string SessionName, bool SessionAttached);
+
+    private sealed record SessionCountRow(string SessionName, long SessionWindows);
+
+    private sealed record SessionIntCountRow(string SessionName, int SessionWindows);
+
+    private sealed record SessionDoubleCountRow(string SessionName, double SessionWindows);
+
+    private sealed record NullableRow(string? SessionName);
+
+    private sealed class CancellingRow(CancellationTokenSource cancellation)
+    {
+        public string SessionName
+        {
+            get
+            {
+                cancellation.Cancel();
+                return "dev";
+            }
+        }
+
+        public bool SessionAttached => cancellation.IsCancellationRequested
+            ? throw new InvalidOperationException("Evaluation continued after cancellation.")
+            : true;
+    }
+
+    private sealed class TimedRegexRow(CancellationTokenSource cancellation)
+    {
+        public string SessionName
+        {
+            get
+            {
+                cancellation.CancelAfter(TimeSpan.FromMilliseconds(10));
+                return new string('a', 10_000);
+            }
+        }
+    }
+
+    private sealed record PaneIdRow(string PaneId);
+
+    private sealed record WindowCountRow(string WindowName, long WindowPanes);
+
+    [Fact]
+    public void Every_value_kind_has_a_catalog_field()
+    {
+        var catalogKinds = new HashSet<QueryValueKind>();
+        foreach (string wireName in QueryFieldCatalog.WireNames)
+        {
+            Assert.True(QueryFieldCatalog.TryGetKind(wireName, out QueryValueKind kind));
+            catalogKinds.Add(kind);
+        }
+
+        Assert.Equal(
+            Enum.GetValues<QueryValueKind>().Order(),
+            catalogKinds.Order());
+    }
 
     [Fact]
     public void An_entity_translates_through_the_name_tmux_uses_for_the_field()
@@ -14,7 +72,7 @@ public sealed class QuerySemanticsTests
         Assert.Equal(
             "session_name",
             Field(QueryExtensions.Translate<Session>(
-                session => session.Name.StartsWith("build"))));
+                session => session.Name.StartsWith("build", StringComparison.Ordinal))));
         Assert.Equal(
             "session_attached",
             Field(QueryExtensions.Translate<Session>(session => session.Attached)));
@@ -24,7 +82,7 @@ public sealed class QuerySemanticsTests
 
         // The one that a naming rule would never produce.
         Assert.Equal(
-            "client_control",
+            "client_control_mode",
             Field(QueryExtensions.Translate<Client>(client => client.IsControlClient)));
     }
 
@@ -46,7 +104,17 @@ public sealed class QuerySemanticsTests
         // the wire names already. Both spellings reach the same document.
         Assert.Equal(
             "session_name",
-            Field(QueryExtensions.Translate<Row>(row => row.SessionName.StartsWith("dev"))));
+            Field(QueryExtensions.Translate<Row>(
+                row => row.SessionName.StartsWith("dev", StringComparison.Ordinal))));
+    }
+
+    [Fact]
+    public void A_caller_type_that_shares_an_entity_name_remains_a_projection()
+    {
+        QueryDocument document = QueryExtensions.Translate<Caller.Session>(
+            row => row.SessionName == "dev");
+
+        Assert.True(document.Compile<Caller.Session>()(new Caller.Session("dev")));
     }
 
     [Fact]
@@ -71,7 +139,8 @@ public sealed class QuerySemanticsTests
     public void Matching_translates_and_interprets_the_canonical_AST()
     {
         QueryDocument document = QueryExtensions.Translate<Row>(
-            row => row.SessionName.StartsWith("dev") && row.SessionWindows > 1);
+            row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)
+                && row.SessionAttached);
 
         Assert.Equal(QueryDocument.CurrentSchema, document.Schema);
         Assert.Equal(QueryDocument.CurrentVersion, document.Version);
@@ -87,22 +156,64 @@ public sealed class QuerySemanticsTests
         Assert.Equal(
             new ConstantNode(new StringConstant("dev")),
             Assert.IsType<ConstantNode>(prefix.Right));
-        ComparisonNode greater = Assert.IsType<ComparisonNode>(conjunction.Operands[1]);
-        Assert.Equal(QueryComparison.GreaterThan, greater.Operator);
+        ComparisonNode attached = Assert.IsType<ComparisonNode>(conjunction.Operands[1]);
+        Assert.Equal(QueryComparison.Equal, attached.Operator);
+        Assert.Equal(
+            new ConstantNode(new BooleanConstant(true)),
+            Assert.IsType<ConstantNode>(attached.Right));
 
         // The same predicate must mean the same thing in memory as on the wire.
         Func<Row, bool> compiled = document.Compile<Row>();
-        Assert.True(compiled(new Row("devbox", 2)));
-        Assert.False(compiled(new Row("devbox", 1)));
-        Assert.False(compiled(new Row("prod", 4)));
+        Assert.True(compiled(new Row("devbox", true)));
+        Assert.False(compiled(new Row("devbox", false)));
+        Assert.False(compiled(new Row("prod", true)));
 
         IReadOnlyList<Row> matched = new[]
         {
-            new Row("devbox", 2),
-            new Row("prod", 9),
-        }.Matching<Row>(row => row.SessionName.StartsWith("dev") && row.SessionWindows > 1);
+            new Row("devbox", true),
+            new Row("prod", true),
+        }.Matching<Row>(
+            row => row.SessionName.StartsWith("dev", StringComparison.Ordinal)
+                && row.SessionAttached);
         Assert.Single(matched);
         Assert.Equal("devbox", matched[0].SessionName);
+    }
+
+    [Fact]
+    public void Matching_stops_between_predicate_nodes()
+    {
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        var row = new CancellingRow(cancellation);
+        QueryDocument document = QueryExtensions.Translate<CancellingRow>(
+            candidate => candidate.SessionName == "dev" && candidate.SessionAttached);
+
+        OperationCanceledException failure = Assert.Throws<OperationCanceledException>(
+            () => new[] { row }.Matching(document, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, failure.CancellationToken);
+    }
+
+    [Fact]
+    public void Matching_reports_cancellation_when_a_regex_timeout_wins_the_race()
+    {
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new RegexNode(
+                new FieldNode(QueryTarget.Session, "session_name"),
+                QueryRegexSemantics.Dialect,
+                "^(a+)+z$",
+                RegexOptions.CultureInvariant));
+
+        OperationCanceledException failure = Assert.Throws<OperationCanceledException>(
+            () => new[] { new TimedRegexRow(cancellation) }
+                .Matching(document, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, failure.CancellationToken);
     }
 
     [Fact]
@@ -117,10 +228,154 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void Relation_fields_keep_their_scalar_tmux_value_in_row_projections()
+    {
+        QueryDocument sessions = QueryExtensions.Translate<SessionCountRow>(
+            row => row.SessionWindows > 1);
+        QueryDocument panes = QueryExtensions.Translate<WindowCountRow>(
+            row => row.WindowPanes == 2);
+
+        Assert.True(sessions.Compile<SessionCountRow>()(new SessionCountRow("dev", 2)));
+        Assert.True(panes.Compile<WindowCountRow>()(new WindowCountRow("main", 2)));
+    }
+
+    [Fact]
+    public void Scalar_relation_fields_require_their_capture_depth()
+    {
+        QueryDocument sessions = QueryExtensions.Translate<SessionCountRow>(
+            row => row.SessionWindows > 1);
+        QueryDocument panes = QueryExtensions.Translate<WindowCountRow>(
+            row => row.WindowPanes == 2);
+
+        Assert.Equal(SnapshotDepth.Windows, sessions.RequiredSnapshotDepth);
+        Assert.Equal(SnapshotDepth.Panes, panes.RequiredSnapshotDepth);
+    }
+
+    [Fact]
+    public void Integer_projections_compare_as_wire_int64_values()
+    {
+        QueryDocument document = QueryExtensions.Translate<SessionIntCountRow>(
+            row => row.SessionWindows > 1);
+
+        Assert.True(document.Compile<SessionIntCountRow>()(new SessionIntCountRow("dev", 2)));
+    }
+
+    [Fact]
+    public void Integer_wire_fields_reject_floating_point_semantics()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<SessionDoubleCountRow>(
+                row => row.SessionWindows > 1.5));
+    }
+
+    [Fact]
+    public void A_boolean_field_is_a_complete_predicate()
+    {
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new FieldNode(QueryTarget.Session, "session_attached"));
+        Func<Row, bool> predicate = document.Compile<Row>();
+
+        Assert.True(predicate(new Row("build", true)));
+        Assert.False(predicate(new Row("build", false)));
+    }
+
+    [Fact]
+    public void A_typed_id_field_can_be_compared_through_a_string_projection()
+    {
+        QueryDocument document = QueryExtensions.Translate<PaneIdRow>(row => row.PaneId == "%1");
+
+        ComparisonNode comparison = Assert.IsType<ComparisonNode>(document.Predicate);
+        Assert.Equal(
+            new TypedIdConstant(QueryTarget.Pane, "%1"),
+            Assert.IsType<ConstantNode>(comparison.Right).Value);
+        Func<PaneIdRow, bool> predicate = document.Compile<PaneIdRow>();
+        Assert.True(predicate(new PaneIdRow("%1")));
+        Assert.False(predicate(new PaneIdRow("%2")));
+    }
+
+    [Fact]
+    public void A_present_property_can_match_a_null_constant()
+    {
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Session,
+            new ComparisonNode(
+                QueryComparison.Equal,
+                new FieldNode(QueryTarget.Session, "session_name"),
+                new ConstantNode(new NullConstant())));
+        Func<NullableRow, bool> predicate = document.Compile<NullableRow>();
+
+        Assert.True(predicate(new NullableRow(null)));
+        Assert.False(predicate(new NullableRow("build")));
+    }
+
+    [Fact]
+    public void Reflection_based_evaluation_declares_its_trimming_contract()
+    {
+        MethodInfo[] evaluationMethods =
+        [
+            .. typeof(QueryExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name is "Compile" or "Matching"),
+        ];
+
+        Assert.Equal(4, evaluationMethods.Length);
+        Assert.All(
+            evaluationMethods,
+            method => Assert.NotNull(
+                method.GetCustomAttribute<RequiresUnreferencedCodeAttribute>()));
+    }
+
+    [Fact]
     public void Translation_refuses_an_unsupported_node_rather_than_evaluating_it()
     {
         Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryExtensions.Translate<Row>(row => row.SessionName.Trim() == "X"));
+    }
+
+    [Fact]
+    public void String_translation_preserves_the_selected_comparison_semantics()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(row => row.SessionName.StartsWith("dev")));
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(row => row.SessionName.EndsWith("box")));
+
+        QueryDocument contains = QueryExtensions.Translate<Row>(
+            row => row.SessionName.Contains("dev"));
+
+        Assert.Equal(
+            QueryStringOperation.ContainsOrdinal,
+            Assert.IsType<StringNode>(contains.Predicate).Operator);
+    }
+
+    [Fact]
+    public void Regex_translation_requires_explicit_culture_invariance()
+    {
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(
+                row => Regex.IsMatch(row.SessionName, "^build", RegexOptions.IgnoreCase)));
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Row>(
+                row => Regex.IsMatch(
+                    row.SessionName,
+                    "^build",
+                    RegexOptions.CultureInvariant,
+                    TimeSpan.FromSeconds(1))));
+
+        QueryDocument document = QueryExtensions.Translate<Row>(
+            row => Regex.IsMatch(
+                row.SessionName,
+                "^build",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+        RegexNode regex = Assert.IsType<RegexNode>(document.Predicate);
+
+        Assert.Equal(
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            regex.SemanticOptions);
     }
 
     [Fact]
@@ -160,6 +415,11 @@ public sealed class QuerySemanticsTests
     private sealed record Child(string WindowName);
 
     private sealed record Parent(IReadOnlyList<Child> SessionWindows);
+
+    private static class Caller
+    {
+        internal sealed record Session(string SessionName);
+    }
 
     [Fact]
     public void And_and_or_nodes_use_ordered_structural_equality_and_hashing()

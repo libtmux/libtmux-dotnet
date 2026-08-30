@@ -21,6 +21,9 @@ public sealed partial class Server
     /// <see cref="IControlModeSession.Events" /> to see the rest.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The handle has no connection.</exception>
+    /// <exception cref="StaleServerGenerationException">
+    /// The endpoint changed servers while the control client was attaching.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IControlModeSession> EnterControlModeAsync(
         string? target = null,
@@ -32,7 +35,8 @@ public sealed partial class Server
         // Attaching needs a session to attach to, and a server with none exits
         // the moment it is started. Discovering first turns "no server" into
         // the ordinary connection error rather than a client that dies at once.
-        await ConnectAsync(cancellationToken).ConfigureAwait(false);
+        Server live = await RediscoverCurrentGenerationAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (connection.IsPsmux)
         {
             throw new NotSupportedException(
@@ -43,6 +47,7 @@ public sealed partial class Server
             connection.Options.TmuxBinaryPath,
             connection.PrefixArguments,
             target,
+            live.Generation!.Value,
             startInfo => TmuxConnection.ApplyChildEnvironment(
                 startInfo,
                 connection.Options.ChildEnvironment));
@@ -52,6 +57,7 @@ public sealed partial class Server
         try
         {
             await session.WaitForReadyAsync(cancellationToken).ConfigureAwait(false);
+            await session.VerifyAttachedGenerationAsync(cancellationToken).ConfigureAwait(false);
             return session;
         }
         catch (Exception startupFailure)

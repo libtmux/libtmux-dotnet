@@ -13,6 +13,28 @@ public sealed class ClientAdministrationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Control_client_preserves_tmux_control_mode_field()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using ControlModeClientScope attached = await ControlModeClientScope.StartAsync(
+            raw,
+            token);
+
+        Client client = Assert.Single(
+            await server.GetClientsAsync(token),
+            candidate => candidate.Name == attached.ClientName);
+
+        Assert.Equal("1", client.RawFormatFields["client_control_mode"]);
+        Assert.True(client.IsControlClient);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Detached_client_resolves_nullable_attachment()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -149,8 +171,9 @@ public sealed class ClientAdministrationTests
             token);
         Client client = await WaitForClientAsync(server, token);
 
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("refresh_client_clipboard_query");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "refresh_client_clipboard_query");
 
         await server.RefreshClientAsync(client.Name, requestClipboard: true, cancellationToken: token);
 
@@ -188,7 +211,7 @@ public sealed class ClientAdministrationTests
     {
         // Attaching is asynchronous on tmux's side, so the client appears a
         // moment after the process starts.
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<Client> clients = await server.GetClientsAsync(token);
@@ -208,7 +231,7 @@ public sealed class ClientAdministrationTests
         int expected,
         CancellationToken token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         IReadOnlyList<Client> clients = [];
         while (DateTimeOffset.UtcNow < deadline)
         {

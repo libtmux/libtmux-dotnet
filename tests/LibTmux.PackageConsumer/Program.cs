@@ -1,6 +1,9 @@
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Query;
+using LibTmux.Query.Json;
 using LibTmux.Testing;
+using LibTmux.Workspace;
 
 namespace LibTmux.PackageConsumer;
 
@@ -14,6 +17,31 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        QueryDocument query =
+            QueryEdgeParser.ParseNameContains(QueryTarget.Session, "package");
+        bool queryRoundTrips = QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
+        Console.WriteLine($"query-json {queryRoundTrips}");
+        if (!queryRoundTrips)
+        {
+            return 1;
+        }
+
+        WorkspaceFile workspace = WorkspaceFile.Parse(
+            """
+            session_name: package
+            windows:
+              - window_name: main
+                panes:
+                  - shell_command: echo package
+            """);
+        bool workspaceParses = workspace.SessionName == "package"
+            && workspace.Windows is [{ Panes: [{ ShellCommands: ["echo package"] }] }];
+        Console.WriteLine($"workspace-parse {workspaceParses}");
+        if (!workspaceParses)
+        {
+            return 1;
+        }
+
         if (args is ["--psmux"])
         {
             Console.OutputEncoding = new UTF8Encoding(false, true);
@@ -81,7 +109,6 @@ internal static class Program
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
 
         await scope.Pane.SendTextAsync("echo consumed-from-the-package");
-        await scope.Pane.EnterAsync();
         string text = await TmuxWait.UntilAsync(
             async token => string.Join(
                 '\n',

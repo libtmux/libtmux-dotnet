@@ -16,7 +16,7 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
     private readonly Action<bool>? _recoveryOutcomeObserved;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _subscriptionGate = new(1, 1);
-    private readonly Dictionary<object, Subscriber> _subscribers = new(
+    private readonly Dictionary<object, HierarchyEndpointSubscriber> _subscribers = new(
         ReferenceEqualityComparer.Instance);
     private TaskCompletionSource _subscriberAvailable = NewSignal();
     private Func<CancellationToken, Task<IControlModeSession>>? _startSession;
@@ -62,9 +62,13 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
             }
 
             bool hadNoSubscribers = _subscribers.Count == 0;
-            if (!_subscribers.TryGetValue(subscriberKey, out Subscriber? subscriber))
+            if (!_subscribers.TryGetValue(
+                subscriberKey,
+                out HierarchyEndpointSubscriber? subscriber))
             {
-                subscriber = new Subscriber(announce, ReportSubscriberFailure);
+                subscriber = new HierarchyEndpointSubscriber(
+                    announce,
+                    ReportSubscriberFailure);
                 _subscribers.Add(subscriberKey, subscriber);
             }
 
@@ -295,7 +299,7 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
         lock (_gate)
         {
             _retired = true;
-            foreach (Subscriber subscriber in _subscribers.Values)
+            foreach (HierarchyEndpointSubscriber subscriber in _subscribers.Values)
             {
                 subscriber.Retire();
             }
@@ -376,7 +380,9 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
                 .ConfigureAwait(false);
             starting = session;
             await session
-                .SendAsync("refresh-client -f ignore-size,no-output", cancellationToken)
+                .SendAsync(
+                    TmuxCommand.Create("refresh-client", "-f", "ignore-size,no-output"),
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             WatchRun run = new(session);
@@ -710,7 +716,9 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
 
     private bool RemoveReferenceLocked(string uri, object subscriberKey)
     {
-        if (!_subscribers.TryGetValue(subscriberKey, out Subscriber? subscriber)
+        if (!_subscribers.TryGetValue(
+                subscriberKey,
+                out HierarchyEndpointSubscriber? subscriber)
             || !subscriber.Resources.Remove(uri))
         {
             return false;
@@ -734,130 +742,8 @@ internal sealed class HierarchyEndpointWatch : IAsyncDisposable
     private static TaskCompletionSource NewSignal() => new(
         TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private sealed class Subscriber(
-        Func<IReadOnlyList<string>, Task> announce,
-        Action<Exception> reportFailure)
-    {
-        private readonly object _deliveryGate = new();
-        private readonly HashSet<string> _pending = new(StringComparer.Ordinal);
-        private readonly TaskCompletionSource _retirement = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        private bool _delivering;
-        private bool _retired;
-
-        internal Dictionary<string, byte> Resources { get; } = new(StringComparer.Ordinal);
-
-        internal void Enqueue(IReadOnlyList<string> resources)
-        {
-            bool startDelivery = false;
-            lock (_deliveryGate)
-            {
-                if (_retired)
-                {
-                    return;
-                }
-
-                _pending.UnionWith(resources);
-                if (!_delivering)
-                {
-                    _delivering = true;
-                    startDelivery = true;
-                }
-            }
-
-            if (startDelivery)
-            {
-                _ = ObserveDeliveryAsync(Task.Run(DeliverAsync));
-            }
-        }
-
-        internal void RemovePending(string uri)
-        {
-            lock (_deliveryGate)
-            {
-                _pending.Remove(uri);
-            }
-        }
-
-        internal void Retire()
-        {
-            bool cancel;
-            lock (_deliveryGate)
-            {
-                cancel = !_retired;
-                _retired = true;
-                _pending.Clear();
-            }
-
-            if (cancel)
-            {
-                _retirement.TrySetResult();
-            }
-        }
-
-        private async Task DeliverAsync()
-        {
-            while (true)
-            {
-                string[] resources;
-                lock (_deliveryGate)
-                {
-                    if (_retired || _pending.Count == 0)
-                    {
-                        _delivering = false;
-                        return;
-                    }
-
-                    resources = [.. _pending];
-                    _pending.Clear();
-                }
-
-                try
-                {
-                    Task delivery = announce(resources);
-                    if (await Task.WhenAny(delivery, _retirement.Task).ConfigureAwait(false)
-                        != delivery)
-                    {
-                        _ = ObserveDeliveryAsync(delivery);
-                        return;
-                    }
-
-                    await delivery.ConfigureAwait(false);
-                }
-                catch (Exception error)
-                {
-                    Report(error);
-                }
-            }
-        }
-
-        private async Task ObserveDeliveryAsync(Task delivery)
-        {
-            try
-            {
-                await delivery.ConfigureAwait(false);
-            }
-            catch (Exception error)
-            {
-                Report(error);
-            }
-        }
-
-        private void Report(Exception error)
-        {
-            try
-            {
-                reportFailure(error);
-            }
-            catch (Exception)
-            {
-                // A logger cannot be allowed to fault detached delivery.
-            }
-        }
-    }
-
     private sealed record SubscriberNotification(
-        Subscriber Subscriber,
+        HierarchyEndpointSubscriber Subscriber,
         IReadOnlyList<string> Resources);
 
     private sealed class StartTransition(WatchRun? staleRun)

@@ -10,26 +10,20 @@
          library through the package is the whole point. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
-    <!-- A lock file pins a dependency to exact bytes, which is what it is for
-         and what this project cannot have: its one direct dependency is the
-         package this repository just built, so the bytes change with every
-         commit and a checked-in hash is stale as soon as anything is edited.
-         What the graph underneath resolves to is pinned by the library's own
-         lock file, which is where it belongs. -->
+    <!-- A lock file cannot describe this input: the package keeps its version
+         while its bytes change with each commit. An isolated cache and source
+         mapping ensure the consumer restores the package just built. -->
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <RestoreLockedMode>false</RestoreLockedMode>
+
+    <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
+    <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The version comes from the same place the package's does, so bumping
-         the repository's version cannot leave this pointing at a package that
-         is no longer built. The two forms are the same reference: a suffix is
-         only part of a version while there is one. -->
-    <PackageReference Include="LibTmux"
-                      Version="$(VersionPrefix)-$(VersionSuffix)"
-                      Condition="'$(VersionSuffix)' != ''" />
-    <PackageReference Include="LibTmux"
-                      Version="$(VersionPrefix)"
-                      Condition="'$(VersionSuffix)' == ''" />
+    <!-- All references consume the package version this repository builds. -->
+    <PackageReference Include="LibTmux" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Query.Json" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Workspace" Version="$(LibTmuxPackageVersion)" />
   </ItemGroup>
 </Project>

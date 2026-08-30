@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace LibTmux.UnitTests.Packaging;
 
@@ -10,16 +11,6 @@ namespace LibTmux.UnitTests.Packaging;
 /// </remarks>
 public sealed class PublicApiContractTests
 {
-    /// <summary>Types the assembly offers that the approved surface
-    /// deliberately omits; entries may shrink but never grow unnoticed.</summary>
-    private static readonly HashSet<string> UnapprovedTypes = new(StringComparer.Ordinal)
-    {
-        "T:LibTmux.CapturedRelation",
-        "T:LibTmux.ServerSnapshot",
-        "T:LibTmux.SnapshotCollectionExtensions",
-        "T:LibTmux.SnapshotLookup`2",
-    };
-
     [Fact]
     public void Shipped_baselines_match_both_packages()
     {
@@ -32,7 +23,7 @@ public sealed class PublicApiContractTests
         ];
         string[] extra =
         [
-            .. built.Except(approved).Except(UnapprovedTypes).Order(StringComparer.Ordinal),
+            .. built.Except(approved).Order(StringComparer.Ordinal),
         ];
 
         Assert.True(
@@ -48,25 +39,6 @@ public sealed class PublicApiContractTests
     }
 
     [Fact]
-    public void Every_tracked_divergence_is_still_one()
-    {
-        // A list of known problems that has stopped being true is worse than
-        // no list, because it says the drift is understood when it is not.
-        HashSet<string> approved = ReadApprovedTypes();
-        HashSet<string> built = ReadBuiltTypes();
-
-        foreach (string unapproved in UnapprovedTypes)
-        {
-            Assert.True(
-                built.Contains(unapproved),
-                $"{unapproved} is tracked as unapproved but the assembly no longer offers it.");
-            Assert.False(
-                approved.Contains(unapproved),
-                $"{unapproved} is tracked as unapproved but the contract now names it.");
-        }
-    }
-
-    [Fact]
     public void Every_approved_member_exists_in_the_assembly()
     {
         // RS0016 already catches a shipped member missing from the baseline;
@@ -78,6 +50,55 @@ public sealed class PublicApiContractTests
             $"The approved surface names {absent.Length} members the assembly does not declare:"
                 + Environment.NewLine
                 + string.Join(Environment.NewLine, absent));
+    }
+
+    [Fact]
+    public void Every_packable_library_has_a_Roslyn_public_API_baseline()
+    {
+        string repositoryRoot = Directory.GetParent(Path.GetDirectoryName(ContractPath())!)!.FullName;
+        string[] projects =
+        [
+            .. Directory.EnumerateFiles(
+                    Path.Combine(repositoryRoot, "src"),
+                    "*.csproj",
+                    SearchOption.AllDirectories)
+                .Where(IsPackableLibrary)
+                .Order(StringComparer.Ordinal),
+        ];
+
+        Assert.NotEmpty(projects);
+        foreach (string project in projects)
+        {
+            XDocument document = XDocument.Load(project);
+            string[] additionalFiles =
+            [
+                .. document.Descendants("AdditionalFiles")
+                    .Select(element => Path.GetFileName((string?)element.Attribute("Include")))
+                    .OfType<string>(),
+            ];
+            bool hasAnalyzer = document.Descendants("PackageReference").Any(
+                element => string.Equals(
+                    (string?)element.Attribute("Include"),
+                    "Microsoft.CodeAnalysis.PublicApiAnalyzers",
+                    StringComparison.Ordinal));
+
+            Assert.Contains("PublicAPI.Shipped.txt", additionalFiles);
+            Assert.Contains("PublicAPI.Unshipped.txt", additionalFiles);
+            Assert.True(hasAnalyzer, $"{Path.GetFileName(project)} has no public API analyzer.");
+            Assert.True(
+                File.Exists(Path.Combine(Path.GetDirectoryName(project)!, "PublicAPI.Shipped.txt")));
+            Assert.True(
+                File.Exists(Path.Combine(Path.GetDirectoryName(project)!, "PublicAPI.Unshipped.txt")));
+        }
+    }
+
+    private static bool IsPackableLibrary(string project)
+    {
+        XDocument document = XDocument.Load(project);
+        return document.Descendants("IsPackable").Any(
+                element => string.Equals(element.Value, "true", StringComparison.OrdinalIgnoreCase))
+            && !document.Descendants("PackAsTool").Any(
+                element => string.Equals(element.Value, "true", StringComparison.OrdinalIgnoreCase));
     }
 
     private static List<string> AbsentApprovedMembers()

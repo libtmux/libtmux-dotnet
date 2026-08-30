@@ -43,6 +43,12 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
     /// <summary>Gets whether this value contains a parsed tmux version.</summary>
     public bool IsValid { get; }
 
+    internal bool IsStableRelease =>
+        IsValid
+        && _kind is VersionKind.Release
+            or VersionKind.MicroRelease
+            or VersionKind.PatchRelease;
+
     /// <summary>Gets the parsed major version.</summary>
     public int Major { get; }
 

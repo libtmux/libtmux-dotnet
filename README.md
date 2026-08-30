@@ -3,12 +3,12 @@
 [![LibTmux](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=LibTmux)](https://www.nuget.org/packages/LibTmux)
 [![downloads](https://img.shields.io/nuget/dt/LibTmux?logo=nuget&label=downloads)](https://www.nuget.org/packages/LibTmux)
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
-[![tmux 3.2a – 3.7b](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
+[![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Drive [tmux](https://github.com/tmux/tmux) from .NET. Servers, sessions,
 windows, panes, clients, options, hooks and buffers, typed and asynchronous,
-against every tmux from **3.2a to 3.7b** on **net8.0** and **net10.0**.
+for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 
 > **Alpha.** Releases carry an `-alpha` prerelease tag. The API is not
 > settled, and any release may change or remove exported identifiers without a
@@ -24,7 +24,6 @@ Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "test
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
-await pane.EnterAsync();
 ```
 <!-- endsnippet -->
 
@@ -93,7 +92,9 @@ Console.WriteLine(built.Name);
 ```csharp run
 // Control mode: one client, held open, streaming what tmux does.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-IReadOnlyList<string> reply = await control.SendAsync("new-window -d -n build", ct);
+IReadOnlyList<string> reply = await control.SendAsync(
+    TmuxCommand.Create("new-window", "-d", "-n", "build"),
+    ct);
 ```
 
 ```csharp run
@@ -168,7 +169,7 @@ it over the objects you already hold:
 ```csharp run
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
-    session => session.Name.StartsWith("build"));
+    session => session.Name.StartsWith("build", StringComparison.Ordinal));
 ```
 
 The same expression is also a document, which can be written here and answered
@@ -176,18 +177,19 @@ somewhere else:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 
 Console.WriteLine(document.Target);   // Session
 ```
 
-You write C# and tmux receives tmux: `Session.Name` goes on the wire as
-`session_name`, and `Client.IsControlClient` as `client_control`. The catalog
-carries that pair for all twelve queryable fields, and it is closed — a field
-outside it throws `UnsupportedQueryExpressionException` rather than falling
-back, so an expression that translates is one tmux can answer.
-[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md) puts the document on the
-wire.
+The document uses stable wire names: `Session.Name` becomes `session_name`,
+and `Client.IsControlClient` becomes `client_control_mode`. The catalog carries
+that pair for all twelve queryable fields and rejects anything outside it. Typed
+queries evaluate locally over captured objects; they are never assembled into
+tmux's executable format language. [LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)
+puts the document on an application-controlled wire. `UnsafeTmuxFilter` is the
+separate opt-in for callers that deliberately want native tmux `-f` behavior.
 
 ## Options and hooks
 
@@ -225,9 +227,9 @@ TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```
 
-Every difference between 3.2a and 3.7b is [recorded with the test that proves
+Every measured difference between 3.2a and 3.7c is [recorded with the test that proves
 it](docs/parity/version-deltas.json), and [dotnet-tmux.yml](.github/workflows/dotnet-tmux.yml)
-builds all seven from source on every commit.
+builds all eight from source on every commit.
 
 ## Testing your own code
 
@@ -241,7 +243,6 @@ TmuxTestFactory factory = new();
 await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
-await scope.Pane.EnterAsync();
 ```
 
 Disposing kills the server, so a test that fails part way through leaves
@@ -294,10 +295,10 @@ never reaches the model's list.
 
 | | |
 |---|---|
-| tmux | 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b |
+| tmux | Stable 3.2a and newer. CI builds 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c; development, release-candidate, and `next-*` versions have unknown capability state |
 | .NET | net8.0, net10.0 |
 | OS | Linux, macOS. The bounded [`Psmux*` native-Windows and WSL query preview](docs/psmux.md) is experimental; its release gate runs both paths on net8.0 and net10.0 |
-| Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. That proof does not cover the other packages, macOS, or native Windows/psmux |
+| Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties. The proof does not cover the other packages, macOS, or native Windows/psmux |
 
 ## License
 

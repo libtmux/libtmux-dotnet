@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/LibTmux.Generators/LibTmux.Generators.csproj" />
     <Project Path="src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
     <Project Path="src/LibTmux/LibTmux.csproj" />
     <Project Path="src/LibTmux.Workspace/LibTmux.Workspace.csproj" />
@@ -11,7 +10,6 @@
     <Project Path="benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj" />
     <Project Path="tests/LibTmux.ExampleTests/LibTmux.ExampleTests.csproj" />
     <Project Path="tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj" />
     <Project Path="tests/LibTmux.TestChild/LibTmux.TestChild.csproj" />

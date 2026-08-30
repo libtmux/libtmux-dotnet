@@ -11,20 +11,27 @@ public sealed partial class Window
     private readonly IReadOnlyDictionary<string, string?>? _snapshot;
 
     [UnsupportedOSPlatform("windows")]
-    internal Window(TmuxConnection connection, ServerGeneration generation, WindowId id)
+    internal Window(
+        Server owner,
+        TmuxConnection connection,
+        ServerGeneration generation,
+        WindowId id)
         : this(connection.CreateEntityDispatcher(generation), TmuxTarget.From(id).Value)
     {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owner = owner;
         _id = id;
         _generation = generation;
     }
 
     [UnsupportedOSPlatform("windows")]
     internal Window(
+        Server owner,
         TmuxConnection connection,
         ServerGeneration generation,
         WindowId id,
         IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id)
+        : this(owner, connection, generation, id)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         _snapshot = snapshot;

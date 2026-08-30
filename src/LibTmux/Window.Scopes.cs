@@ -1,0 +1,33 @@
+using System.Runtime.Versioning;
+
+namespace LibTmux;
+
+// Reaches the option and hook tables this window scopes.
+public sealed partial class Window
+{
+    private TmuxOptions? _options;
+
+    /// <summary>Gets the options of this window.</summary>
+    /// <remarks>
+    /// tmux once spelled these <c>set-window-option</c> and
+    /// <c>show-window-options</c>. They are the ordinary option commands with
+    /// the window flag, which is what this scope carries.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxOptions Options => _options ??= new TmuxOptions(
+        _commandDispatcher,
+        OptionScope.Window,
+        _id.ToString(),
+        TmuxOptions.DoubleEscapesDollar(_owner),
+        _generation);
+
+    private TmuxHooks? _hooks;
+
+    /// <summary>Gets the hooks of this window.</summary>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxHooks Hooks => _hooks ??= new TmuxHooks(
+        _commandDispatcher,
+        OptionScope.Window,
+        _id.ToString(),
+        _generation);
+}

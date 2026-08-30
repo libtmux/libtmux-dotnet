@@ -23,7 +23,7 @@ public static class Mcp
         Pane pane = session.ActivePane!;
 
         #region RunAndReadExitStatus
-        WriteTools tools = McpTools.Writing(server);
+        await using WriteTools tools = McpTools.Writing(server);
 
         RunResult result = await tools.RunAsync(
             "test -f /etc/hostname && echo present",
@@ -78,7 +78,7 @@ public static class Mcp
             ct);
         Pane pane = session.ActivePane!;
 
-        WriteTools writing = McpTools.Writing(server);
+        await using WriteTools writing = McpTools.Writing(server);
         await writing.RunAsync(
             "seq 1 200",
             pane.Id.ToString(),

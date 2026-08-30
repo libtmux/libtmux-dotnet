@@ -102,7 +102,7 @@ the pause imitates.
 ## Which tmux it drives
 
 Whatever `tmux` resolves to on the path, or the binary `LIBTMUX_TMUX` names.
-The supported range is 3.2a to 3.7b, proven from source on every commit.
+The supported range is 3.2a to 3.7c, proven from source on every commit.
 
 If you install the SDK through a version manager rather than system-wide, an
 agent that spawns this server will not inherit your shell and the launcher will

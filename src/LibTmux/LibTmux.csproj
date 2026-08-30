@@ -6,12 +6,6 @@
     <IsPackable>true</IsPackable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <!-- The ahead-of-time smoke test publishes this graph for a runtime
-         identifier, and restore writes one into every lock file in it. Naming
-         it here is what keeps the checked-in lock files consistent with both
-         restores: the plain one and the published one. -->
-    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
-
     <!-- RS0016 is the rule worth having: it fails the build when the public
          surface grows without being written down. The other three cannot be
          satisfied while multi-targeting, because each framework reports the
@@ -25,8 +19,8 @@
     <PackageTags>tmux;terminal;multiplexer;automation;pty</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- The library reflects over nothing, so a trimmed or ahead-of-time
-         published app keeps everything it needs. -->
+    <!-- The query interpreter declares its reflective property requirement on
+         the public methods that reach it; the rest of the library is static. -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
@@ -55,11 +49,7 @@
     <InternalsVisibleTo Include="LibTmux.UnitTests" />
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
     <InternalsVisibleTo Include="LibTmux.Mcp" />
+    <InternalsVisibleTo Include="LibTmux.Query.Json" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <!-- Analyzer reference: the generator runs at compile time and must not
-         become a runtime dependency of the shipped library. -->
-    <ProjectReference Include="..\LibTmux.Generators\LibTmux.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

@@ -14,6 +14,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from eng.parity import python_source  # noqa: E402
+from eng.parity.verify_public_api import TMUX_MAX_VERSION_ADAPTATION  # noqa: E402
 
 SOURCE_REVISION = python_source.REVISION
 SOURCE_BASE_URL = python_source.BLOB_URL_PREFIX.rstrip("/")
@@ -652,6 +653,9 @@ C4_LOOKUP_SYMBOL_IDS = frozenset(
 C4_PARITY_TEST_PATH = (
     "tests/LibTmux.IntegrationTests/Parity/Component04ParityTests.cs"
 )
+LEDGER_BEHAVIOR_OVERRIDES = {
+    "libtmux.common:TMUX_MAX_VERSION": TMUX_MAX_VERSION_ADAPTATION,
+}
 
 
 def preserve_ledger_reconciliation(
@@ -699,7 +703,10 @@ def build_ledger(
         module = t.cast(str, symbol["module"])
         rows.append(
             {
-                "behavior": f"Preserve {symbol['kind']} {symbol['qualifiedName']}",
+                "behavior": LEDGER_BEHAVIOR_OVERRIDES.get(
+                    symbol["id"],
+                    f"Preserve {symbol['kind']} {symbol['qualifiedName']}",
+                ),
                 "component": component(module),
                 "csharpDestination": (
                     "LibTmux.Internal.Materialization"
@@ -784,12 +791,14 @@ def version_deltas() -> dict[str, t.Any]:
         "byte_length_framing",
         "control_notifications",
         "format_fields_and_operators",
+        "missing_target_format_safety",
         "option_dollar_double_escape",
         "semicolon_grouping",
     )
     # Most of what the protocol reads is true of every supported tmux, so
     # a capability names its bounds only when it holds for some of them.
     capability_bounds = {
+        "missing_target_format_safety": ("3.3", "unknown"),
         "option_dollar_double_escape": ("3.4", "3.5"),
     }
     capabilities: list[dict[str, t.Any]] = [

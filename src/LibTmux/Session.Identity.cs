@@ -11,20 +11,27 @@ public sealed partial class Session
     private readonly IReadOnlyDictionary<string, string?>? _snapshot;
 
     [UnsupportedOSPlatform("windows")]
-    internal Session(TmuxConnection connection, ServerGeneration generation, SessionId id)
+    internal Session(
+        Server owner,
+        TmuxConnection connection,
+        ServerGeneration generation,
+        SessionId id)
         : this(connection.CreateEntityDispatcher(generation), TmuxTarget.From(id).Value)
     {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owner = owner;
         _id = id;
         _generation = generation;
     }
 
     [UnsupportedOSPlatform("windows")]
     internal Session(
+        Server owner,
         TmuxConnection connection,
         ServerGeneration generation,
         SessionId id,
         IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id)
+        : this(owner, connection, generation, id)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         _snapshot = snapshot;

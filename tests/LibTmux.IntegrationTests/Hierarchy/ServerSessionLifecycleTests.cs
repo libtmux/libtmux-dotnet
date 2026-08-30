@@ -267,8 +267,7 @@ public sealed class ServerSessionLifecycleTests
         await RequireRawSuccessAsync(raw, ["new-session", "-d", "-s", "solo"], token);
 
         TmuxVersion version = Assert.NotNull(server.Version);
-        bool supported = TmuxCapabilities.GetRequired(version)
-            .Capabilities.Contains("kill_session_group");
+        bool supported = TmuxCapabilities.IsSupported(version, "kill_session_group");
         Session grouped = (await server.GetSessionsAsync(token))
             .Single(session => session.Name == "grouped");
 

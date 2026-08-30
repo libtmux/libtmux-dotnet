@@ -24,9 +24,13 @@ namespace LibTmux.Mcp;
 /// if this server is restarted the command carries on, and only the handle is
 /// lost.
 /// </para>
+/// <para>
+/// The store is asynchronous all the way down, disposal included. Whatever
+/// owns one disposes it with <c>await using</c>.
+/// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed class JobStore : IDisposable, IAsyncDisposable
+public sealed class JobStore : IAsyncDisposable
 {
     internal const int Capacity = 100;
     internal const string RecoveryJobIdDataKey = "LibTmux.Mcp.JobId";
@@ -46,9 +50,12 @@ public sealed class JobStore : IDisposable, IAsyncDisposable
     public JobStore(ILogger? logger = null) => _logger = logger;
 
     /// <inheritdoc />
-    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
-
-    /// <inheritdoc />
+    /// <remarks>
+    /// Shutting down waits for tmux watchers to finish, so there is no
+    /// synchronous disposal to offer: blocking on that wait is what deadlocks
+    /// a caller holding a single-threaded context. A container holding this
+    /// has to be disposed with <c>DisposeAsync</c>.
+    /// </remarks>
     public ValueTask DisposeAsync()
     {
         lock (_gate)
@@ -359,13 +366,11 @@ public sealed class JobStore : IDisposable, IAsyncDisposable
 
     private async Task WatchAsync(Server server, Pane pane, StoredJob job)
     {
-        Exception? unexpected = null;
+        Exception? failure = null;
         try
         {
-            await server.WaitForAsync(
-                    new WaitForRequest(job.Token.Channel, TmuxWaitMode.Wait),
-                    _shutdown.Token)
-                .ConfigureAwait(false);
+            await using TmuxWaitChannel wait = server.OpenWaitChannel(job.Token.Channel);
+            await wait.WaitUntilSignalledAsync(_shutdown.Token).ConfigureAwait(false);
 
             int? status = await WriteTools
                 .ReadStatusAsync(pane, job.Token, _shutdown.Token)
@@ -376,19 +381,17 @@ public sealed class JobStore : IDisposable, IAsyncDisposable
         {
             // The command belongs to tmux and survives this bookkeeping store.
         }
-        catch (LibTmuxException)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
-            job.TryFinish(JobState.Lost, null);
-        }
-        catch (Exception error)
-        {
-            unexpected = error;
+            // A tmux or transport failure is the likely way to lose a job, so
+            // it is the one that must say why rather than the one that does not.
+            failure = error;
             job.TryFinish(JobState.Lost, null);
         }
 
-        if (_logger is not null && unexpected is not null)
+        if (_logger is not null && failure is not null)
         {
-            Log.JobWatcherFailed(_logger, unexpected, job.JobId, job.PaneId);
+            Log.JobWatcherFailed(_logger, failure, job.JobId, job.PaneId);
         }
 
         if (_logger is not null && job.State != JobState.Running)

@@ -63,13 +63,25 @@ public sealed class TmuxHooks
     private readonly TmuxCommandDispatcher _dispatcher;
     private readonly string? _target;
 
-    internal TmuxHooks(TmuxCommandDispatcher dispatcher, OptionScope scope, string? target)
+    internal TmuxHooks(
+        TmuxCommandDispatcher dispatcher,
+        OptionScope scope,
+        string? target,
+        ServerGeneration? generation = null)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         _dispatcher = dispatcher;
         _target = target;
         Scope = scope;
+        Generation = generation;
     }
+
+    /// <summary>Gets the server generation this table was reached through.</summary>
+    /// <remarks>
+    /// A batched hook command carries the target as plain text, so it needs the
+    /// generation for the same reason a batched pane command does.
+    /// </remarks>
+    internal ServerGeneration? Generation { get; }
 
     /// <summary>Gets the scope these hooks are read and written in by default.</summary>
     public OptionScope Scope { get; }

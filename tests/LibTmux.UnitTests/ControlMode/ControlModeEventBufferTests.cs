@@ -83,5 +83,25 @@ public sealed class ControlModeEventBufferTests
         Assert.False(await reader.MoveNextAsync());
     }
 
+    [Fact]
+    public async Task Cancellation_stops_a_reader_before_it_drains_buffered_events()
+    {
+        using var canceled = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        var buffer = new ControlModeEventBuffer(capacity: 2);
+        Assert.True(buffer.TryWrite(Notification("first")));
+        Assert.True(buffer.TryWrite(Notification("second")));
+
+        await using IAsyncEnumerator<TmuxEvent> reader =
+            buffer.ReadAllAsync(canceled.Token).GetAsyncEnumerator(canceled.Token);
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal("first", Assert.IsType<TmuxNotificationEvent>(reader.Current).Name);
+
+        canceled.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await reader.MoveNextAsync());
+    }
+
     private static TmuxNotificationEvent Notification(string name) => new(name, []);
 }

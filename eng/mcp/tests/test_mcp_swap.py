@@ -29,6 +29,14 @@ import tomlkit
 
 _SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "mcp_swap.py"
 
+# The script imports its siblings from its own directory, so a test loading it
+# by path has to put that directory where Python will look.
+sys.path.insert(0, str(_SCRIPT.parent))
+
+import build  # noqa: E402
+import jsonc  # noqa: E402
+import xdg  # noqa: E402
+
 _spec = importlib.util.spec_from_file_location("mcp_swap", _SCRIPT)
 assert _spec and _spec.loader
 mcp_swap = importlib.util.module_from_spec(_spec)
@@ -142,7 +150,7 @@ def fake_repo(
         "  </PropertyGroup>\n"
         "</Project>\n"
     )
-    binary = project / "bin" / "Debug" / mcp_swap.FRAMEWORKS[0] / "LibTmux.Mcp"
+    binary = project / "bin" / "Debug" / build.FRAMEWORKS[0] / "LibTmux.Mcp"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\nexit 0\n")
     binary.chmod(0o755)
@@ -153,7 +161,7 @@ def fake_repo(
     dotnet.parent.mkdir(parents=True, exist_ok=True)
     dotnet.write_text("#!/bin/sh\nexit 0\n")
     dotnet.chmod(0o755)
-    monkeypatch.setattr(mcp_swap, "find_dotnet", lambda: str(dotnet))
+    monkeypatch.setattr(build, "find_dotnet", lambda: str(dotnet))
     return repo
 
 
@@ -170,7 +178,7 @@ def _runtime_env(fake_repo: pathlib.Path) -> dict[str, str]:
     the config, so every entry this script writes carries it.
     """
     del fake_repo
-    return dict(mcp_swap.dotnet_environment())
+    return dict(build.dotnet_environment())
 
 
 def _pinned_json_entry() -> dict[str, t.Any]:
@@ -198,7 +206,7 @@ def test_resolve_repo_meta_strips_mcp_suffix(fake_repo: pathlib.Path) -> None:
     ``--server tmux`` is the override to target the README/serverInfo
     slug for fresh installs.
     """
-    server, entry = mcp_swap.resolve_repo_meta(fake_repo)
+    server, entry = build.resolve_repo_meta(fake_repo)
     assert server == "tmux"
     assert entry == "LibTmux.Mcp"
 
@@ -215,8 +223,8 @@ def test_resolve_repo_meta_falls_back_to_the_project_name(
     # The slug is the shared one whatever the project is called: every
     # libtmux port swaps into the same slot, which is what makes a swap
     # replace rather than accumulate.
-    assert mcp_swap.resolve_repo_meta(repo, "Weather.Mcp") == (
-        mcp_swap.DEFAULT_SERVER,
+    assert build.resolve_repo_meta(repo, "Weather.Mcp") == (
+        build.DEFAULT_SERVER,
         "Weather.Mcp",
     )
 
@@ -243,7 +251,7 @@ def test_json_swap_and_revert_round_trip(
     after = json.loads(info.config_path.read_text())
     entry = after["mcpServers"]["tmux"]
     assert entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert entry["args"] == []
 
@@ -269,7 +277,7 @@ def test_grok_set_get_delete_roundtrip(fake_repo: pathlib.Path) -> None:
     """The Grok CLI reads/writes the TOML ``[mcp_servers]`` table like Codex."""
     config = tomlkit.parse("")
     spec = mcp_swap.McpServerSpec(
-        command=str(mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
+        command=str(build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
     )
     assert mcp_swap.set_server("grok", config, "tmux", spec, fake_repo) == "added"
     assert "mcp_servers" in config
@@ -331,7 +339,7 @@ def test_use_local_preserves_existing_env_when_replacing(
 
     entry = json.loads(info.config_path.read_text())["mcpServers"]["tmux"]
     assert entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert entry["args"] == []
     assert entry["env"] == _runtime_env(fake_repo) | {
@@ -427,7 +435,7 @@ def test_claude_swap_writes_under_repo_abspath_only(
     new_entry = after["projects"][repo_key]["mcpServers"]["tmux"]
     assert new_entry["type"] == "stdio"
     assert new_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert new_entry["args"] == []
 
@@ -464,7 +472,7 @@ def test_claude_user_scope_writes_top_level_mcpServers(
     after = json.loads(info.config_path.read_text())
     new_entry = after["mcpServers"]["tmux"]
     assert new_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert new_entry["args"] == []
     # No projects.<abs> node should have been created — user scope must
@@ -582,7 +590,7 @@ def test_claude_user_and_project_swaps_coexist_independently(
     # Project-level still local.
     proj_entry = after["projects"][str(fake_repo.resolve())]["mcpServers"]["tmux"]
     assert proj_entry["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
 
@@ -788,7 +796,7 @@ def test_non_claude_scope_user_passes_through_to_global_config(
 
     after = json.loads(info.config_path.read_text())
     assert after["mcpServers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
     # State key reflects the normalised scope, not the raw flag value.
@@ -827,7 +835,7 @@ def test_codex_swap_preserves_toml_comments(
     assert "# Top-level comment preserved across swap" in text
     doc = tomlkit.loads(text).unwrap()
     assert doc["mcp_servers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
     assert doc["other"]["keep"] is True
 
@@ -1639,7 +1647,7 @@ def test_status_scope_user_with_only_project_entry_shows_no_entry(
 def _local_entry(repo: pathlib.Path) -> dict[str, t.Any]:
     """Return the JSON entry a default (debug-profile) swap writes."""
     return {
-        "command": str(mcp_swap.profile_binary(repo, "LibTmux.Mcp", "Debug")),
+        "command": str(build.profile_binary(repo, "LibTmux.Mcp", "Debug")),
         "args": [],
     }
 
@@ -2214,7 +2222,7 @@ def test_preflight_accepts_a_server_that_answers_initialize(
     )
     spec = mcp_swap.McpServerSpec(command=sys.executable, args=[str(server)])
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) is None
+    assert build.preflight_spec(spec, timeout=60) is None
 
 
 def test_preflight_reports_stderr_when_the_server_never_answers(
@@ -2228,14 +2236,14 @@ def test_preflight_reports_stderr_when_the_server_never_answers(
     )
     spec = mcp_swap.McpServerSpec(command=sys.executable, args=[str(server)])
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) == "could not resolve ref"
+    assert build.preflight_spec(spec, timeout=60) == "could not resolve ref"
 
 
 def test_preflight_reports_a_command_that_cannot_launch() -> None:
     """A missing binary is named rather than raising."""
     spec = mcp_swap.McpServerSpec(command="mcp-swap-no-such-binary", args=[])
 
-    failure = mcp_swap.preflight_spec(spec, timeout=60)
+    failure = build.preflight_spec(spec, timeout=60)
 
     assert failure is not None
     assert "mcp-swap-no-such-binary" in failure
@@ -2260,7 +2268,7 @@ def test_preflight_passes_spec_env_to_the_process(tmp_path: pathlib.Path) -> Non
         command=sys.executable, args=[str(server)], env={"MCP_SWAP_PROBE": "1"}
     )
 
-    assert mcp_swap.preflight_spec(spec, timeout=60) is None
+    assert build.preflight_spec(spec, timeout=60) is None
 
 
 # ---------------------------------------------------------------------------
@@ -2898,7 +2906,7 @@ def test_symlinked_config_swap_and_revert_round_trip(
     assert info.config_path.is_symlink()
     assert backup.parent == info.config_path.parent
     assert json.loads(target.read_text())["mcpServers"]["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
     assert mcp_swap.cmd_revert(parser.parse_args(["revert", "--cli", "cursor"])) == 0
@@ -2978,7 +2986,7 @@ def test_relative_xdg_config_home_is_ignored(
     from any other directory reported the backup missing for good.
     """
     monkeypatch.setenv("XDG_CONFIG_HOME", raw)
-    assert mcp_swap._xdg_config_home() == pathlib.Path.home() / ".config"
+    assert xdg.config_home() == pathlib.Path.home() / ".config"
 
 
 def test_absolute_xdg_config_home_is_honoured(
@@ -2986,7 +2994,7 @@ def test_absolute_xdg_config_home_is_honoured(
 ) -> None:
     """Opencode resolves XDG the way its own loader does."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert mcp_swap._xdg_config_home() == tmp_path
+    assert xdg.config_home() == tmp_path
 
 
 def test_opencode_and_pi_registered() -> None:
@@ -3018,7 +3026,7 @@ def test_new_cli_set_get_delete_roundtrip(cli: str, fake_repo: pathlib.Path) -> 
     """
     config: dict[str, t.Any] = {}
     spec = mcp_swap.McpServerSpec(
-        command=str(mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
+        command=str(build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug"))
     )
     assert mcp_swap.set_server(cli, config, "tmux", spec, fake_repo) == "added"
     assert mcp_swap.CLIS[cli].container[0] in config
@@ -3120,7 +3128,7 @@ def test_opencode_swap_preserves_jsonc_comments(
     assert "// header comment" in text
     assert "/* a block comment" in text
     assert "spanning lines */" in text
-    doc = mcp_swap._jsonc_loads(text)
+    doc = jsonc.loads(text)
     assert doc["model"] == "openrouter/x"
     assert doc["mcp"]["other"]["command"] == ["echo", "keep"]
     assert doc["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
@@ -3151,7 +3159,7 @@ def test_opencode_comment_inside_the_replaced_entry_survives(
     assert _swap_opencode(fake_repo) == 0
     text = info.config_path.read_text()
     assert "// Pinned deliberately; this rationale must outlive the swap." in text
-    entry = mcp_swap._jsonc_loads(text)["mcp"]["tmux"]
+    entry = jsonc.loads(text)["mcp"]["tmux"]
     assert entry["command"][0].endswith("LibTmux.Mcp")
     assert entry["environment"] == _runtime_env(fake_repo) | {"KEEP": "me"}
 
@@ -3202,7 +3210,7 @@ def test_opencode_seeds_schema_into_an_empty_config(
     """Seeding an empty file writes ``$schema`` alongside the server entry."""
     info = _opencode_config(fake_home, "")
     assert _swap_opencode(fake_repo) == 0
-    doc = mcp_swap._jsonc_loads(info.config_path.read_text())
+    doc = jsonc.loads(info.config_path.read_text())
     assert doc["$schema"] == mcp_swap.OPENCODE_SCHEMA_URL
     assert doc["mcp"]["tmux"]["type"] == "local"
 
@@ -3223,7 +3231,7 @@ def test_opencode_symlinked_config_swap_updates_target_not_link(
     assert info.config_path.readlink() == target
     text = target.read_text()
     assert "// linked" in text
-    assert mcp_swap._jsonc_loads(text)["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
+    assert jsonc.loads(text)["mcp"]["tmux"]["command"][0].endswith("LibTmux.Mcp")
 
 
 def test_pi_config_with_comments_is_readable(
@@ -3247,10 +3255,10 @@ def test_pi_config_with_comments_is_readable(
     assert mcp_swap.cmd_use_local(args) == 0
     text = info.config_path.read_text()
     assert "// the adapter allows comments" in text
-    servers = mcp_swap._jsonc_loads(text)["mcpServers"]
+    servers = jsonc.loads(text)["mcpServers"]
     assert servers["keep"]["command"] == "echo"
     assert servers["tmux"]["command"] == str(
-        mcp_swap.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
+        build.profile_binary(fake_repo, "LibTmux.Mcp", "Debug")
     )
 
 
@@ -3360,7 +3368,7 @@ def test_jsonc_values_match_stdlib_json(
         expected = json.loads(body)
     except json.JSONDecodeError:
         pytest.skip("comment or trailing comma — stdlib cannot parse it")
-    assert mcp_swap._jsonc_loads(body) == expected
+    assert jsonc.loads(body) == expected
 
 
 def test_jsonc_config_is_not_written_through_the_toml_writer(
@@ -3378,7 +3386,7 @@ def test_jsonc_config_is_not_written_through_the_toml_writer(
     )
     text = out.decode()
     assert text.lstrip().startswith("{")
-    assert mcp_swap._jsonc_loads(text)["mcp"]["x"]["type"] == "local"
+    assert jsonc.loads(text)["mcp"]["x"]["type"] == "local"
 
 
 class JsoncDeletionCase(t.NamedTuple):
@@ -3447,7 +3455,7 @@ def test_jsonc_merge_removing_a_member_takes_exactly_one_comma(
     inside a comment passes for the separator.
     """
     assert test_id
-    assert mcp_swap._jsonc_merge(body, data, ensure_ascii=False) == expected
+    assert jsonc.merge(body, data, ensure_ascii=False) == expected
 
 
 @pytest.mark.parametrize(
@@ -3462,10 +3470,10 @@ def test_jsonc_merge_escapes_an_inserted_key(name: str) -> None:
     spinning while holding the swap lock and then failing.
     """
     src = '{\n  "mcp": {}\n}\n'
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"][name] = {"type": "local"}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out)["mcp"][name] == {"type": "local"}
+    out = jsonc.merge(src, data, ensure_ascii=False)
+    assert jsonc.loads(out)["mcp"][name] == {"type": "local"}
 
 
 def test_jsonc_merge_removing_a_middle_member_stays_parseable() -> None:
@@ -3475,10 +3483,10 @@ def test_jsonc_merge_removing_a_middle_member_stays_parseable() -> None:
         '      "enabled": true,\n      "timeout": 5000,\n'
         '      "command": ["uvx", "old"]\n    }\n  }\n}\n'
     )
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"]["tmux"] = {"type": "local", "command": ["uv", "run", "x"]}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out) == data
+    out = jsonc.merge(src, data, ensure_ascii=False)
+    assert jsonc.loads(out) == data
 
 
 def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() -> None:
@@ -3489,9 +3497,9 @@ def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() ->
     whole interior and take the comment with it.
     """
     src = '{\n  "mcp": {\n    // why there are no servers yet\n  }\n}\n'
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"]["tmux"] = {"type": "local", "command": ["uv"]}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
+    out = jsonc.merge(src, data, ensure_ascii=False)
     assert out == (
         '{\n  "mcp": {\n    // why there are no servers yet\n'
         '    "tmux": {\n      "type": "local",\n      "command": [\n'
@@ -3502,9 +3510,9 @@ def test_jsonc_merge_inserting_into_a_comment_only_object_keeps_the_comment() ->
 def test_jsonc_merge_inserting_into_a_comment_only_document_keeps_the_comment() -> None:
     """The same splice at the root, where there is no enclosing member."""
     src = "{\n  // root rationale\n}\n"
-    data = mcp_swap._jsonc_loads(src)
+    data = jsonc.loads(src)
     data["mcp"] = {}
-    out = mcp_swap._jsonc_merge(src, data, ensure_ascii=False)
+    out = jsonc.merge(src, data, ensure_ascii=False)
     assert out == '{\n  // root rationale\n  "mcp": {}\n}\n'
 
 
@@ -3514,10 +3522,10 @@ def test_jsonc_merge_inserting_into_a_comment_only_document_keeps_the_comment() 
 )
 def test_jsonc_merge_inserting_into_an_empty_object_is_unchanged(body: str) -> None:
     """A genuinely empty interior still collapses to the old splice point."""
-    data = mcp_swap._jsonc_loads(body)
+    data = jsonc.loads(body)
     data.setdefault("mcp", {})["tmux"] = {"type": "local"}
-    out = mcp_swap._jsonc_merge(body, data, ensure_ascii=False)
-    assert mcp_swap._jsonc_loads(out)["mcp"]["tmux"] == {"type": "local"}
+    out = jsonc.merge(body, data, ensure_ascii=False)
+    assert jsonc.loads(out)["mcp"]["tmux"] == {"type": "local"}
     assert out.rstrip().endswith("}")
 
 
@@ -3529,7 +3537,7 @@ def test_jsonc_comment_blanking_preserves_offsets() -> None:
     would land in the wrong place.
     """
     src = '{\n  // note\n  "a": 1, /* x */\n  "b": "//not a comment"\n}\n'
-    blanked = mcp_swap._jsonc_blank_comments(src)
+    blanked = jsonc.blank_comments(src)
     assert len(blanked) == len(src)
     assert "//not a comment" in blanked
     assert "note" not in blanked

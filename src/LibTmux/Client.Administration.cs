@@ -41,7 +41,7 @@ public sealed partial class Client
     public string? Tty => ReadSnapshot("client_tty");
 
     /// <summary>Gets whether the client speaks tmux's control protocol.</summary>
-    public bool IsControlClient => ReadSnapshot("client_control") == "1";
+    public bool IsControlClient => ReadSnapshot("client_control_mode") == "1";
 
     /// <summary>Gets the session the client was attached to when it was read.</summary>
     /// <remarks>

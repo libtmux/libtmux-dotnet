@@ -19,8 +19,11 @@ public sealed partial class Server
     {
         TmuxConnection connection = _connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
-        // Starts with no generation guard: only a command built from an
-        // entity supplies one for the dispatcher to check.
+        // Starts with no generation guard. A command supplies one when it
+        // carries an identifier this library read from a handle -- a pane, a
+        // window, a session, or one of their option and hook tables -- because
+        // tmux gives that identifier to something else after a restart. A
+        // server-wide command names no such identifier and needs none.
         return new TmuxChain(
             connection.ServerDispatcher,
             [],

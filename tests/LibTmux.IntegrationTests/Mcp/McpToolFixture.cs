@@ -77,7 +77,7 @@ internal sealed class McpToolFixture : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Activity.DisposeAsync().ConfigureAwait(false);
-        Jobs.Dispose();
+        await Jobs.DisposeAsync().ConfigureAwait(false);
         Connection.Dispose();
     }
 }

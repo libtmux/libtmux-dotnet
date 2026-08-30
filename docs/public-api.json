@@ -22,6 +22,8 @@
     "net10.0"
   ],
   "supportedTmuxVersions": {
+    "minimum": "3.2a",
+    "stableSupport": "every canonical stable release at or above the minimum",
     "required": [
       "3.2a",
       "3.3a",
@@ -29,7 +31,8 @@
       "3.5",
       "3.6",
       "3.7a",
-      "3.7b"
+      "3.7b",
+      "3.7c"
     ],
     "advisory": "master",
     "advisoryStatus": "unknown"
@@ -585,17 +588,19 @@
       "id": "T:LibTmux.Internal.MaterializationQuery",
       "namespace": "LibTmux.Internal",
       "name": "MaterializationQuery",
-      "kind": "static class",
+      "kind": "sealed class",
       "package": "LibTmux",
       "modifiers": [
         "internal",
-        "static"
+        "sealed"
       ],
       "baseType": "object",
       "interfaces": [],
       "ownership": "value",
-      "state": [],
-      "summary": "Acquires version-gated framed rows for materialization.",
+      "state": [
+        "MaterializationContext"
+      ],
+      "summary": "Reads version-gated framed rows for materialization.",
       "behavior": {
         "requiredUniversalFields": [
           "pid",
@@ -1332,22 +1337,6 @@
       "summary": "A canonical constant query node."
     },
     {
-      "id": "T:LibTmux.Query.EnumConstant",
-      "namespace": "LibTmux.Query",
-      "name": "EnumConstant",
-      "kind": "record",
-      "package": "LibTmux",
-      "modifiers": [
-        "public",
-        "sealed"
-      ],
-      "baseType": "QueryConstant",
-      "interfaces": [],
-      "ownership": "value",
-      "state": [],
-      "summary": "A canonical enum constant."
-    },
-    {
       "id": "T:LibTmux.Query.FieldNode",
       "namespace": "LibTmux.Query",
       "name": "FieldNode",
@@ -1362,22 +1351,6 @@
       "ownership": "value",
       "state": [],
       "summary": "A canonical field query node."
-    },
-    {
-      "id": "T:LibTmux.Query.InstantConstant",
-      "namespace": "LibTmux.Query",
-      "name": "InstantConstant",
-      "kind": "record",
-      "package": "LibTmux",
-      "modifiers": [
-        "public",
-        "sealed"
-      ],
-      "baseType": "QueryConstant",
-      "interfaces": [],
-      "ownership": "value",
-      "state": [],
-      "summary": "A canonical instant constant."
     },
     {
       "id": "T:LibTmux.Query.Int64Constant",
@@ -2708,6 +2681,7 @@
             "3.7": null,
             "3.3.7": "7",
             "3.7b": "b",
+            "3.7c": "c",
             "3.0-rc3": "rc3",
             "3.3a-openbsd": "a-openbsd",
             "next-3.8": "next"
@@ -2747,9 +2721,9 @@
           "exactIdentity": "CompareTo returns zero if and only if equality is true",
           "examples": [
             "next-3.7 < 3.7-dev < 3.7-dev.0 < 3.7-rc1 < 3.7-rc2",
-            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b",
+            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b < 3.7c",
             "3.3 < 3.3.1 < 3.3.10 < 3.3a",
-            "3.7b < next-3.8 < 3.8"
+            "3.7c < next-3.8 < 3.8"
           ],
           "invalidOperands": "CompareTo, <, <=, >, >=, IsAtLeast, and EnsureAtLeast throw InvalidOperationException if either operand is invalid",
           "ensureAtLeastFailure": "a valid value below a valid minimum throws TmuxVersionTooLowException"
@@ -2778,12 +2752,12 @@
         "support": {
           "minimum": "3.2a",
           "minimumInclusive": true,
-          "maximumTested": "3.7b",
+          "maximumTested": "3.7c",
           "maximumTestedSemantics": "informational; not a support ceiling",
           "minimumChecks": "enforce only the minimum; newer untested versions may satisfy them",
-          "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-          "capabilityProfileSelection": "exact parsed version identity only; no nearest-lower fallback",
-          "unknownCapabilityProfile": "a version may satisfy the minimum without an approved profile"
+          "exactVersionIdentity": "3.7, 3.7a, 3.7b, and 3.7c are distinct",
+          "capabilitySelection": "named support intervals apply to every stable release at or above the minimum; capabilities without a recorded end remain supported on later stable releases",
+          "unknownCapabilityVersion": "invalid, below-minimum, development, release-candidate, and next versions have unknown capability state"
         }
       }
     },
@@ -3065,6 +3039,26 @@
       "summary": "A live tmux control client reporting what tmux does until disposed."
     },
     {
+      "id": "T:LibTmux.ControlModeCommandException",
+      "namespace": "LibTmux",
+      "name": "ControlModeCommandException",
+      "kind": "class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "LibTmuxException",
+      "interfaces": [],
+      "ownership": "reference",
+      "state": [
+        "Command",
+        "OutputLines",
+        "ErrorLines"
+      ],
+      "summary": "Reports a command rejected by a live tmux control client."
+    },
+    {
       "id": "T:LibTmux.TmuxEvent",
       "namespace": "LibTmux",
       "name": "TmuxEvent",
@@ -3191,6 +3185,24 @@
       "ownership": "value",
       "state": [],
       "summary": "Turns a request record into a command a chain can carry."
+    },
+    {
+      "id": "T:LibTmux.TmuxWaitChannel",
+      "namespace": "LibTmux",
+      "name": "TmuxWaitChannel",
+      "kind": "class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "object",
+      "interfaces": [
+        "IAsyncDisposable"
+      ],
+      "ownership": "owned",
+      "state": [],
+      "summary": "Holds a tmux wait-for registration across timed attempts."
     }
   ],
   "members": [
@@ -5669,32 +5681,23 @@
       "summary": "Creates materialization context for one owning server."
     },
     {
-      "id": "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)",
+      "id": "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)",
       "declaringType": "T:LibTmux.Internal.MaterializationQuery",
       "name": "FetchAsync",
       "kind": "method",
       "visibility": "internal",
       "package": "LibTmux",
-      "static": true,
+      "static": false,
       "genericParameters": [],
       "returnType": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>>",
       "parameters": [
-        {
-          "name": "context",
-          "type": "MaterializationContext"
-        },
         {
           "name": "listCommand",
           "type": "string"
         },
         {
-          "name": "arguments",
-          "type": "IReadOnlyList<string>?",
-          "default": "null"
-        },
-        {
-          "name": "target",
-          "type": "string?",
+          "name": "extraArguments",
+          "type": "IEnumerable<string>?",
           "default": "null"
         },
         {
@@ -5703,7 +5706,7 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext context, string listCommand, IReadOnlyList<string>? arguments = null, string? target = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(string listCommand, IEnumerable<string>? extraArguments = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
@@ -5712,7 +5715,7 @@
       ],
       "summary": "Acquires and decodes every version-gated row for one logical tmux list command.",
       "behavior": {
-        "projection": "FormatProjection.Create(listCommand, context.Server.Version)",
+        "projection": "FormatProjection.Create(listCommand, context.TmuxVersion)",
         "result": "all decoded rows as copied dictionaries",
         "rawValues": "Utf8BackslashDecoder after byte framing"
       },
@@ -5722,35 +5725,31 @@
       }
     },
     {
-      "id": "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)",
+      "id": "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)",
       "declaringType": "T:LibTmux.Internal.MaterializationQuery",
       "name": "FetchOneAsync",
       "kind": "method",
       "visibility": "internal",
       "package": "LibTmux",
-      "static": true,
+      "static": false,
       "genericParameters": [],
-      "returnType": "Task<IReadOnlyDictionary<string,string?>>",
+      "returnType": "Task<IReadOnlyDictionary<string,string?>?>",
       "parameters": [
-        {
-          "name": "context",
-          "type": "MaterializationContext"
-        },
         {
           "name": "listCommand",
           "type": "string"
         },
         {
-          "name": "targetId",
+          "name": "idWireName",
           "type": "string"
         },
         {
-          "name": "idField",
+          "name": "identifier",
           "type": "string"
         },
         {
-          "name": "arguments",
-          "type": "IReadOnlyList<string>?",
+          "name": "inSession",
+          "type": "TmuxTarget?",
           "default": "null"
         },
         {
@@ -5759,17 +5758,18 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyDictionary<string,string?>> LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext context, string listCommand, string targetId, string idField, IReadOnlyList<string>? arguments = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyDictionary<string,string?>?> LibTmux.Internal.MaterializationQuery.FetchOneAsync(string listCommand, string idWireName, string identifier, TmuxTarget? inSession = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Acquires one canonical tmux target without conflating absence and server failure.",
+      "summary": "Reads one tmux entity without listing the server.",
       "behavior": {
-        "canonicalSession": "resolve session_name before list-windows or list-panes",
-        "missingTarget": "empty successful result throws TmuxObjectNotFoundException",
+        "read": "display-message -p -t target rendering the list command's projection",
+        "scoping": "a session-scoped target is read before the bare identifier",
+        "missingTarget": "a row that does not carry the identifier back returns null",
         "unreachableServer": "tmux or transport failure propagates distinctly"
       },
       "failureMapping": {
@@ -8406,29 +8406,6 @@
       "summary": "Creates ConstantNode."
     },
     {
-      "id": "M:LibTmux.Query.EnumConstant.#ctor(string,string)",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "EnumConstant",
-      "parameters": [
-        {
-          "name": "type",
-          "type": "string"
-        },
-        {
-          "name": "value",
-          "type": "string"
-        }
-      ],
-      "signature": "EnumConstant(string type, string value)",
-      "portable": true,
-      "summary": "Creates EnumConstant."
-    },
-    {
       "id": "M:LibTmux.Query.FieldNode.#ctor(QueryTarget,string)",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": ".ctor",
@@ -8450,25 +8427,6 @@
       "signature": "FieldNode(QueryTarget target, string wireName)",
       "portable": true,
       "summary": "Creates FieldNode."
-    },
-    {
-      "id": "M:LibTmux.Query.InstantConstant.#ctor(long)",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "InstantConstant",
-      "parameters": [
-        {
-          "name": "unixSeconds",
-          "type": "long"
-        }
-      ],
-      "signature": "InstantConstant(long unixSeconds)",
-      "portable": true,
-      "summary": "Creates InstantConstant."
     },
     {
       "id": "M:LibTmux.Query.Int64Constant.#ctor(long)",
@@ -8797,6 +8755,40 @@
       "portable": true,
       "platformAnnotations": [],
       "summary": "Evaluates one canonical query document against an explicit snapshot."
+    },
+    {
+      "id": "M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,QueryDocument,CancellationToken)",
+      "declaringType": "T:LibTmux.Query.QueryExtensions",
+      "name": "Matching",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [
+        "T"
+      ],
+      "returnType": "IReadOnlyList<T>",
+      "parameters": [
+        {
+          "name": "source",
+          "type": "IEnumerable<T>",
+          "modifier": "this"
+        },
+        {
+          "name": "document",
+          "type": "QueryDocument"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken"
+        }
+      ],
+      "signature": "IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, QueryDocument document, CancellationToken cancellationToken)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Evaluates one canonical query document with cooperative cancellation."
     },
     {
       "id": "M:LibTmux.Query.QueryExtensions.Translate``1(Expression<Func<T,bool>>)",
@@ -12048,6 +12040,34 @@
       "signature": "SplitPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, PaneDirection? direction = null, bool fullWindow = false, bool zoom = false, string? command = null, string? size = null, int? percentage = null, IReadOnlyDictionary<string,string>? environment = null, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false)",
       "portable": true,
       "summary": "Creates SplitPaneRequest."
+    },
+    {
+      "id": "M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,Exception?)",
+      "declaringType": "T:LibTmux.StaleServerGenerationException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "StaleServerGenerationException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "expected",
+          "type": "ServerGeneration"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "StaleServerGenerationException(string message, ServerGeneration expected, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Creates StaleServerGenerationException without a known replacement generation."
     },
     {
       "id": "M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,ServerGeneration,Exception?)",
@@ -19610,34 +19630,6 @@
       "summary": "Gets Value."
     },
     {
-      "id": "P:LibTmux.Query.EnumConstant.Type",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "Type",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "string",
-      "parameters": [],
-      "signature": "string LibTmux.Query.EnumConstant.Type { get; }",
-      "portable": true,
-      "summary": "Gets Type."
-    },
-    {
-      "id": "P:LibTmux.Query.EnumConstant.Value",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "Value",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "string",
-      "parameters": [],
-      "signature": "string LibTmux.Query.EnumConstant.Value { get; }",
-      "portable": true,
-      "summary": "Gets Value."
-    },
-    {
       "id": "P:LibTmux.Query.FieldNode.Target",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": "Target",
@@ -19664,20 +19656,6 @@
       "signature": "string LibTmux.Query.FieldNode.WireName { get; }",
       "portable": true,
       "summary": "Gets WireName."
-    },
-    {
-      "id": "P:LibTmux.Query.InstantConstant.UnixSeconds",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": "UnixSeconds",
-      "kind": "property",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "long",
-      "parameters": [],
-      "signature": "long LibTmux.Query.InstantConstant.UnixSeconds { get; }",
-      "portable": true,
-      "summary": "Gets UnixSeconds."
     },
     {
       "id": "P:LibTmux.Query.Int64Constant.Value",
@@ -21801,11 +21779,11 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "ServerGeneration",
+      "returnType": "ServerGeneration?",
       "parameters": [],
-      "signature": "ServerGeneration LibTmux.StaleServerGenerationException.Actual { get; }",
+      "signature": "ServerGeneration? LibTmux.StaleServerGenerationException.Actual { get; }",
       "portable": true,
-      "summary": "Gets Actual."
+      "summary": "Gets Actual, or null when it could not be observed."
     },
     {
       "id": "P:LibTmux.StaleServerGenerationException.Expected",
@@ -23536,7 +23514,7 @@
       "kind": "type",
       "visibility": "internal",
       "package": "LibTmux",
-      "signature": "static class LibTmux.Internal.MaterializationQuery",
+      "signature": "sealed class LibTmux.Internal.MaterializationQuery",
       "portable": true
     },
     {
@@ -23980,16 +23958,6 @@
       "portable": true
     },
     {
-      "id": "T:LibTmux.Query.EnumConstant",
-      "declaringType": "T:LibTmux.Query.EnumConstant",
-      "name": "EnumConstant",
-      "kind": "type",
-      "visibility": "public",
-      "package": "LibTmux",
-      "signature": "record LibTmux.Query.EnumConstant",
-      "portable": true
-    },
-    {
       "id": "T:LibTmux.Query.FieldNode",
       "declaringType": "T:LibTmux.Query.FieldNode",
       "name": "FieldNode",
@@ -23997,16 +23965,6 @@
       "visibility": "public",
       "package": "LibTmux",
       "signature": "record LibTmux.Query.FieldNode",
-      "portable": true
-    },
-    {
-      "id": "T:LibTmux.Query.InstantConstant",
-      "declaringType": "T:LibTmux.Query.InstantConstant",
-      "name": "InstantConstant",
-      "kind": "type",
-      "visibility": "public",
-      "package": "LibTmux",
-      "signature": "record LibTmux.Query.InstantConstant",
       "portable": true
     },
     {
@@ -24940,6 +24898,16 @@
       "portable": true
     },
     {
+      "id": "T:LibTmux.ControlModeCommandException",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "ControlModeCommandException",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "sealed class LibTmux.ControlModeCommandException",
+      "portable": true
+    },
+    {
       "id": "T:LibTmux.TmuxEvent",
       "declaringType": "T:LibTmux.TmuxEvent",
       "name": "TmuxEvent",
@@ -25048,7 +25016,7 @@
       "summary": "Gets whether the client is still running."
     },
     {
-      "id": "M:LibTmux.IControlModeSession.SendAsync(string,System.Threading.CancellationToken)",
+      "id": "M:LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)",
       "declaringType": "T:LibTmux.IControlModeSession",
       "name": "SendAsync",
       "kind": "method",
@@ -25059,16 +25027,94 @@
       "parameters": [
         {
           "name": "command",
-          "type": "string"
+          "type": "TmuxCommand"
         },
         {
           "name": "cancellationToken",
           "type": "System.Threading.CancellationToken"
         }
       ],
-      "signature": "Task<IReadOnlyList<string>> SendAsync(string command, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default)",
       "portable": true,
       "summary": "Runs one command on this client and reads what it answered."
+    },
+    {
+      "id": "M:LibTmux.ControlModeCommandException.#ctor(string,TmuxCommand,System.Collections.Generic.IReadOnlyList{string},System.Collections.Generic.IReadOnlyList{string},Exception?)",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "ControlModeCommandException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "command",
+          "type": "TmuxCommand"
+        },
+        {
+          "name": "outputLines",
+          "type": "IReadOnlyList<string>"
+        },
+        {
+          "name": "errorLines",
+          "type": "IReadOnlyList<string>"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "ControlModeCommandException(string message, TmuxCommand command, IReadOnlyList<string> outputLines, IReadOnlyList<string> errorLines, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Initializes a control-mode command exception."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.Command",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "Command",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.ControlModeCommandException.Command { get; }",
+      "portable": true,
+      "summary": "Gets the command tmux rejected."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.OutputLines",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "OutputLines",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "IReadOnlyList<string>",
+      "parameters": [],
+      "signature": "IReadOnlyList<string> LibTmux.ControlModeCommandException.OutputLines { get; }",
+      "portable": true,
+      "summary": "Gets output produced before tmux rejected the command."
+    },
+    {
+      "id": "P:LibTmux.ControlModeCommandException.ErrorLines",
+      "declaringType": "T:LibTmux.ControlModeCommandException",
+      "name": "ErrorLines",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "IReadOnlyList<string>",
+      "parameters": [],
+      "signature": "IReadOnlyList<string> LibTmux.ControlModeCommandException.ErrorLines { get; }",
+      "portable": true,
+      "summary": "Gets the error lines tmux reported."
     },
     {
       "id": "M:LibTmux.TmuxOutputEvent.#ctor(string,string)",
@@ -25398,6 +25444,25 @@
       "summary": "Adds one command and returns the longer chain."
     },
     {
+      "id": "M:LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})",
+      "declaringType": "T:LibTmux.TmuxChain",
+      "name": "Then",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxChain",
+      "parameters": [
+        {
+          "name": "commands",
+          "type": "IEnumerable<TmuxCommand>"
+        }
+      ],
+      "signature": "TmuxChain Then(IEnumerable<TmuxCommand> commands)",
+      "portable": true,
+      "summary": "Adds every command in order and returns the longer chain."
+    },
+    {
       "id": "M:LibTmux.TmuxChain.Then(string,string[])",
       "declaringType": "T:LibTmux.TmuxChain",
       "name": "Then",
@@ -25483,7 +25548,7 @@
       "summary": "Returns a session request as one tmux command."
     },
     {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,string)",
+      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)",
       "declaringType": "T:LibTmux.TmuxChaining",
       "name": "ToCommand",
       "kind": "method",
@@ -25497,11 +25562,11 @@
           "type": "NewWindowRequest"
         },
         {
-          "name": "target",
-          "type": "string"
+          "name": "session",
+          "type": "Session"
         }
       ],
-      "signature": "static TmuxCommand ToCommand(this NewWindowRequest request, string target)",
+      "signature": "static TmuxCommand ToCommand(this NewWindowRequest request, Session session)",
       "portable": true,
       "summary": "Returns a window request as one tmux command."
     },
@@ -27543,6 +27608,119 @@
       "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SetHooksRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)",
       "portable": true,
       "summary": "Runs a multi-entry hook request in one invocation."
+    },
+    {
+      "id": "M:LibTmux.Server.OpenWaitChannel(String)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "OpenWaitChannel",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxWaitChannel",
+      "parameters": [
+        {
+          "name": "channel",
+          "type": "string"
+        }
+      ],
+      "signature": "TmuxWaitChannel LibTmux.Server.OpenWaitChannel(string channel)",
+      "performsIO": false,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Opens a wait that survives a timed attempt."
+    },
+    {
+      "id": "P:LibTmux.TmuxWaitChannel.Channel",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "Channel",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "string",
+      "parameters": [],
+      "signature": "string LibTmux.TmuxWaitChannel.Channel { get; }",
+      "portable": true,
+      "summary": "Gets the channel being waited on."
+    },
+    {
+      "id": "P:LibTmux.TmuxWaitChannel.Signalled",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "Signalled",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "bool",
+      "parameters": [],
+      "signature": "bool LibTmux.TmuxWaitChannel.Signalled { get; }",
+      "portable": true,
+      "summary": "Gets whether the wait completed before withdrawal began."
+    },
+    {
+      "id": "M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "WaitAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<bool>",
+      "parameters": [
+        {
+          "name": "budget",
+          "type": "TimeSpan"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<bool> LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan budget, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Waits for the signal, giving this attempt a budget."
+    },
+    {
+      "id": "M:LibTmux.TmuxWaitChannel.DisposeAsync()",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "DisposeAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "ValueTask",
+      "parameters": [],
+      "signature": "ValueTask LibTmux.TmuxWaitChannel.DisposeAsync()",
+      "performsIO": false,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Withdraws the waiter from tmux."
+    },
+    {
+      "id": "T:LibTmux.TmuxWaitChannel",
+      "declaringType": "T:LibTmux.TmuxWaitChannel",
+      "name": "TmuxWaitChannel",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "class LibTmux.TmuxWaitChannel",
+      "portable": true
     }
   ]
 }

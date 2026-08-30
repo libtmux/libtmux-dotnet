@@ -1,4 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
+using LibTmux.Query;
+using LibTmux.Query.Json;
 using LibTmux.Testing;
 
 namespace LibTmux.AotSmoke;
@@ -11,6 +14,15 @@ namespace LibTmux.AotSmoke;
 [UnsupportedOSPlatform("windows")]
 internal static class Program
 {
+    private sealed class QueryRow
+    {
+        private readonly string _sessionName;
+
+        internal QueryRow(string sessionName) => _sessionName = sessionName;
+
+        public string SessionName => _sessionName;
+    }
+
     private static async Task<int> Main()
     {
         if (OperatingSystem.IsWindows())
@@ -29,6 +41,12 @@ internal static class Program
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
         {
+            QueryDocument query =
+                QueryEdgeParser.ParseNameContains(QueryTarget.Session, "aot");
+            bool queryRoundTrips =
+                QueryJson.Deserialize(QueryJson.Serialize(query)) == query;
+            bool queryMatches = CompileQuery(query);
+            bool queryTranslates = TranslateQuery();
             Server server = scope.Server;
             Session session = scope.Session;
             Window window = scope.Window;
@@ -45,7 +63,32 @@ internal static class Program
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");
             Console.WriteLine($"option  {option.Value.Raw}");
             Console.WriteLine($"buffer  {buffer}");
-            return option.Value.Boolean == false && buffer == "aot" ? 0 : 1;
+            Console.WriteLine($"query-json {queryRoundTrips}");
+            Console.WriteLine($"query-compile {queryMatches}");
+            Console.WriteLine($"query-translate {queryTranslates}");
+            return option.Value.Boolean == false
+                && buffer == "aot"
+                && queryRoundTrips
+                && queryMatches
+                && queryTranslates
+                ? 0
+                : 1;
         }
+    }
+
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(QueryRow))]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:RequiresUnreferencedCode",
+        Justification = "The dynamic dependency preserves the reflected query row.")]
+    private static bool CompileQuery(QueryDocument query) =>
+        query.Compile<QueryRow>()(new QueryRow("package-aot"));
+
+    private static bool TranslateQuery()
+    {
+        string expected = "aot";
+        QueryDocument query = QueryExtensions.Translate<QueryRow>(
+            row => row.SessionName.Contains(expected));
+        return CompileQuery(query);
     }
 }

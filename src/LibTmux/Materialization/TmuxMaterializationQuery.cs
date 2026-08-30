@@ -3,13 +3,12 @@ using System.Runtime.Versioning;
 namespace LibTmux.Internal;
 
 /// <summary>
-/// Runs one tmux list command and materializes its framed rows.
+/// Runs one tmux read and materializes its framed rows.
 /// </summary>
 /// <remarks>
-/// A single-target lookup asks tmux for the whole listing and selects the row
-/// itself. tmux resolves an ambiguous <c>-t</c> against the caller's current
-/// session, which a library has no business inheriting, so selection happens
-/// here against explicit identifiers instead.
+/// A listing enumerates children; a single-target read asks tmux to resolve
+/// one identifier. Both render the same projection, so a row means the same
+/// thing whichever produced it.
 /// </remarks>
 internal sealed class MaterializationQuery
 {
@@ -33,12 +32,7 @@ internal sealed class MaterializationQuery
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(listCommand);
-        // Reading Generation first rejects an unmaterialized server before a
-        // command is ever dispatched.
-        ServerGeneration generation = _context.Generation;
-        FormatProjection projection = FormatProjection.Create(
-            listCommand,
-            _context.TmuxVersion);
+        FormatProjection projection = CreateProjection(listCommand);
         string[] arguments =
         [
             listCommand,
@@ -47,6 +41,155 @@ internal sealed class MaterializationQuery
             projection.Template,
         ];
 
+        return await ExecuteAsync(listCommand, arguments, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Fetches the row for exactly one tmux entity.</summary>
+    /// <param name="listCommand">The <c>list-*</c> subcommand naming the projection.</param>
+    /// <param name="idWireName">The format token identifying the entity.</param>
+    /// <param name="identifier">The entity's tmux identifier.</param>
+    /// <param name="inSession">The entity scoped to one session, tried first.</param>
+    /// <param name="cancellationToken">Cancels the tmux commands.</param>
+    /// <returns>The row, or null when tmux no longer has the entity.</returns>
+    /// <remarks>
+    /// This costs one command whatever the server holds, where a listing costs
+    /// one row per entity on it. Reading the scoped target first keeps a
+    /// refreshed handle in the session its predecessor was read in; the bare
+    /// identifier still answers when the entity has left that session.
+    /// <para>
+    /// The server's own fields resolve whether or not the target does, so a
+    /// stale generation is rejected before absence is reported.
+    /// </para>
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<IReadOnlyDictionary<string, string?>?> FetchOneAsync(
+        string listCommand,
+        string idWireName,
+        string identifier,
+        TmuxTarget? inSession = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(listCommand);
+        ArgumentException.ThrowIfNullOrWhiteSpace(idWireName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
+        if (!TmuxCapabilities.IsSupported(
+                _context.TmuxVersion,
+                "missing_target_format_safety"))
+        {
+            return await ReadFromListingAsync(
+                    listCommand,
+                    idWireName,
+                    identifier,
+                    inSession,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (inSession is TmuxTarget scoped)
+        {
+            IReadOnlyDictionary<string, string?>? row = await ReadAsync(
+                    listCommand,
+                    idWireName,
+                    identifier,
+                    scoped,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (row is not null)
+            {
+                return row;
+            }
+        }
+
+        return await ReadAsync(
+                listCommand,
+                idWireName,
+                identifier,
+                new TmuxTarget(identifier),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyDictionary<string, string?>?> ReadFromListingAsync(
+        string listCommand,
+        string idWireName,
+        string identifier,
+        TmuxTarget? inSession,
+        CancellationToken cancellationToken)
+    {
+        // tmux 3.2a crashes when a missing target expands a time or pane-colour
+        // callback. Listing first never builds a format tree without an entity.
+        string[] extra = listCommand is "list-windows" or "list-panes" ? ["-a"] : [];
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await FetchAsync(
+                listCommand,
+                extra,
+                cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? first = null;
+        foreach (IReadOnlyDictionary<string, string?> row in rows)
+        {
+            if (!row.TryGetValue(idWireName, out string? id)
+                || !string.Equals(id, identifier, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            first ??= row;
+            if (inSession is not TmuxTarget scoped
+                || scoped.Session is not SessionId session
+                || row.TryGetValue("session_id", out string? rowSession)
+                    && string.Equals(rowSession, session.ToString(), StringComparison.Ordinal))
+            {
+                return row;
+            }
+        }
+
+        return first;
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyDictionary<string, string?>?> ReadAsync(
+        string listCommand,
+        string idWireName,
+        string identifier,
+        TmuxTarget target,
+        CancellationToken cancellationToken)
+    {
+        FormatProjection projection = CreateProjection(listCommand);
+        string[] arguments = ["display-message", "-p", "-t", target.Value, projection.Template];
+
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+            await ExecuteAsync(listCommand, arguments, cancellationToken).ConfigureAwait(false);
+        if (rows.Count != 1)
+        {
+            throw new TmuxTransportException(
+                $"tmux answered a single-target read with {rows.Count} rows.",
+                arguments);
+        }
+
+        // display-message declares its target CMD_FIND_CANFAIL and exits zero on
+        // one it cannot resolve: an unresolvable target leaves every entity
+        // field empty, and one that resolves only in part answers with its
+        // session's current window or pane. The identifier separates both.
+        return rows[0].TryGetValue(idWireName, out string? id)
+            && string.Equals(id, identifier, StringComparison.Ordinal)
+                ? rows[0]
+                : null;
+    }
+
+    private FormatProjection CreateProjection(string listCommand) =>
+        FormatProjection.Create(listCommand, _context.TmuxVersion);
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> ExecuteAsync(
+        string listCommand,
+        string[] arguments,
+        CancellationToken cancellationToken)
+    {
+        // Reading Generation first rejects an unmaterialized server before a
+        // command is ever dispatched.
+        ServerGeneration generation = _context.Generation;
         TmuxConnection connection = _context.Server.Connection
             ?? throw new InvalidOperationException(
                 "The server has no connection; connect before querying.");
@@ -56,7 +199,7 @@ internal sealed class MaterializationQuery
             .ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
-            throw new TmuxCommandException($"{listCommand} failed.", result);
+            throw new TmuxCommandException($"{arguments[0]} failed.", result);
         }
 
         try
@@ -69,44 +212,9 @@ internal sealed class MaterializationQuery
         catch (InvalidDataException error)
         {
             throw new TmuxTransportException(
-                $"tmux returned an undecodable {listCommand} listing.",
+                $"tmux returned an undecodable {listCommand} projection.",
                 arguments,
                 error);
         }
-    }
-
-    /// <summary>Fetches exactly the row whose identifier matches.</summary>
-    /// <param name="listCommand">A tmux <c>list-*</c> subcommand.</param>
-    /// <param name="idWireName">The identifying format token.</param>
-    /// <param name="id">The identifier the row must carry.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>The matching row, or null when tmux has no such target.</returns>
-    [UnsupportedOSPlatform("windows")]
-    internal async Task<IReadOnlyDictionary<string, string?>?> FetchOneAsync(
-        string listCommand,
-        string idWireName,
-        string id,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(idWireName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        // "-a" makes window and pane listings span every session, so lookup
-        // never depends on which session tmux considers current.
-        string[] extra = listCommand is "list-windows" or "list-panes" ? ["-a"] : [];
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-            await FetchAsync(listCommand, extra, cancellationToken).ConfigureAwait(false);
-        foreach (IReadOnlyDictionary<string, string?> row in rows)
-        {
-            if (row.TryGetValue(idWireName, out string? candidate)
-                && string.Equals(candidate, id, StringComparison.Ordinal))
-            {
-                return row;
-            }
-        }
-
-        // A reachable server that lists no matching row is a missing target,
-        // which the caller must distinguish from an unreachable server; an
-        // unreachable server has already thrown from FetchAsync.
-        return null;
     }
 }

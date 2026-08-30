@@ -28,7 +28,8 @@ document that travels:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 
 string wire = QueryJson.Serialize(document);
 QueryDocument parsed = QueryJson.Deserialize(wire);
@@ -41,14 +42,30 @@ Console.WriteLine(parsed == document);
 
 ```json
 {
-  "schema": "libtmux.query",
+  "schema": "libtmux-query",
   "version": 1,
   "target": "session",
   "predicate": {
     "kind": "and",
     "operands": [
-      { "kind": "string", "operator": "startsWith", "field": "session_name", "value": "build" },
-      { "kind": "comparison", "operator": "equal", "field": "session_attached", "value": true }
+      {
+        "kind": "comparison",
+        "operator": "startsWithOrdinal",
+        "left": {
+          "kind": "field",
+          "target": "session",
+          "wireName": "session_name"
+        },
+        "right": {
+          "kind": "constant",
+          "value": { "kind": "string", "value": "build" }
+        }
+      },
+      {
+        "kind": "field",
+        "target": "session",
+        "wireName": "session_attached"
+      }
     ]
   }
 }
@@ -59,20 +76,31 @@ The same document filters what you already hold, wherever it was written:
 ```csharp run
 // However this arrived — an argument, a request body, a stored filter.
 string received = QueryJson.Serialize(QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build")));
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)));
 
+using var queryBudget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+queryBudget.CancelAfter(TimeSpan.FromSeconds(1));
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
-IReadOnlyList<Session> matched = sessions.Matching(QueryJson.Deserialize(received));
+IReadOnlyList<Session> matched = sessions.Matching(
+    QueryJson.Deserialize(received),
+    queryBudget.Token);
 
 Console.WriteLine(matched.Count);
 ```
 
 ## What reading a document costs
 
-Deserializing applies the limits in `QueryJsonLimits.V1` — depth, node count,
-string length — so a document that arrived from somewhere else cannot cost more
-than a document is allowed to. The schema those limits describe ships in the
-package as `libtmux-query-v1.schema.json`.
+Deserializing applies the limits in `QueryJsonLimits.V1`: document size,
+nesting depth, node count, string length, and regex pattern length. A caller
+may tighten those ceilings but cannot widen the v1 contract. The schema ships
+in the package as `libtmux-query-v1.schema.json`.
+
+Evaluating the result with `Compile` or `Matching` resolves public properties
+by name. Those methods warn trimmed callers to preserve that metadata.
+For a document received from another trust boundary, use the cancellable
+`Matching` overload with a deadline. It checks between source elements and
+predicate nodes; a regex already running still has its separate one-second
+match ceiling.
 
 ```csharp run
 Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLimits.V1.MaximumNodes}");
@@ -82,14 +110,15 @@ Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLim
 
 `session_name`, `session_attached`, `session_id`, `session_windows`,
 `window_name`, `window_id`, `window_panes`, `pane_id`, `pane_command`,
-`client_id`, `client_name`, `client_control`.
+`client_id`, `client_name`, `client_control_mode`.
 
 You write these as the properties they are — `Session.Name`,
 `Client.IsControlClient` — and the wire carries the tmux spelling.
 
 A field outside it throws `UnsupportedQueryExpressionException` at translation
-rather than falling back to filtering in memory, so a document that exists is
-one tmux can answer.
+rather than falling back. The document is interpreted locally or by an
+application that deliberately accepts this wire contract; LibTmux does not
+turn it into a native tmux filter.
 
 ## Related packages
 

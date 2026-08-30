@@ -10,19 +10,6 @@ public sealed partial class Session
     private Func<CapturedRelation<Window>>? _windows;
     private CapturedRelation<Pane>? _panes;
 
-    [UnsupportedOSPlatform("windows")]
-    internal Session(
-        Server owner,
-        TmuxConnection connection,
-        ServerGeneration generation,
-        SessionId id,
-        IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id, snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        _owner = owner;
-    }
-
     /// <summary>Gets the active window recorded when this session was read.</summary>
     /// <exception cref="IncompleteSnapshotException">
     /// The session was resolved by identifier rather than materialized.
@@ -37,7 +24,7 @@ public sealed partial class Session
                 throw new IncompleteSnapshotException("active window", SnapshotDepth.Sessions);
             }
 
-            return new Window(RequireConnection(), _generation, id);
+            return new Window(RequireOwner("windows"), RequireConnection(), _generation, id);
         }
     }
 
@@ -55,7 +42,7 @@ public sealed partial class Session
                 throw new IncompleteSnapshotException("active pane", SnapshotDepth.Sessions);
             }
 
-            return new Pane(RequireConnection(), _generation, id);
+            return new Pane(RequireOwner("panes"), RequireConnection(), _generation, id);
         }
     }
 
@@ -156,79 +143,4 @@ public sealed partial class Session
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)
             ? value
             : null;
-}
-
-/// <summary>Reads one live relation and rebuilds owned entity handles.</summary>
-/// <remarks>
-/// Relation reads go through the same projection and materializer as a
-/// snapshot, so a live child carries the same fields a captured one does.
-/// </remarks>
-internal static class RelationReader
-{
-    [UnsupportedOSPlatform("windows")]
-    internal static Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> ListAsync(
-        Server owner,
-        string listCommand,
-        IReadOnlyList<string> extraArguments,
-        CancellationToken cancellationToken)
-    {
-        var context = new MaterializationContext(owner, ParseVersion(owner));
-        return new MaterializationQuery(context)
-            .FetchAsync(listCommand, extraArguments, cancellationToken);
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal static Window ToWindow(Server owner, IReadOnlyDictionary<string, string?> row)
-    {
-        EntityMaterializationState state = Capture(owner, row);
-        return new Window(
-            owner,
-            Connection(owner),
-            state.Generation,
-            state.WindowId ?? throw new InvalidDataException("tmux row carries no window."),
-            state.RawFields);
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal static Pane ToPane(Server owner, IReadOnlyDictionary<string, string?> row)
-    {
-        EntityMaterializationState state = Capture(owner, row);
-        if (!PaneId.TryParse(
-                state.RawFields.TryGetValue("pane_id", out string? text) ? text : null,
-                out PaneId id))
-        {
-            throw new InvalidDataException("tmux row carries no pane.");
-        }
-
-        return new Pane(owner, Connection(owner), state.Generation, id, state.RawFields);
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal static Session ToSession(Server owner, IReadOnlyDictionary<string, string?> row)
-    {
-        EntityMaterializationState state = Capture(owner, row);
-        return new Session(
-            owner,
-            Connection(owner),
-            state.Generation,
-            state.SessionId ?? throw new InvalidDataException("tmux row carries no session."),
-            state.RawFields);
-    }
-
-    private static EntityMaterializationState Capture(
-        Server owner,
-        IReadOnlyDictionary<string, string?> row) =>
-        Materializer.CreateState(new MaterializationContext(owner, ParseVersion(owner)), row);
-
-    private static TmuxConnection Connection(Server owner) =>
-        owner.Connection
-        ?? throw new InvalidOperationException("The server has no connection.");
-
-    private static TmuxVersion ParseVersion(Server owner)
-    {
-        string raw = owner.RawVersion
-            ?? throw new InvalidOperationException("The server reported no tmux version.");
-        return TmuxVersion.Parse(
-            raw.StartsWith("tmux ", StringComparison.Ordinal) ? raw[5..] : raw);
-    }
 }

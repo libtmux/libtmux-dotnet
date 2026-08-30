@@ -519,7 +519,7 @@ public sealed class ServerUtilitiesTests
     }
 
     private static bool Supports(Server server, string capability) =>
-        TmuxCapabilities.GetRequired(server.Version!.Value).Capabilities.Contains(capability);
+        TmuxCapabilities.IsSupported(server.Version!.Value, capability);
 
     private static async Task ProvesWholeCommandGateAsync(
         string capability,
@@ -593,7 +593,7 @@ public sealed class ServerUtilitiesTests
     {
         // A conditional command runs on tmux's own schedule, so the option it
         // sets appears a moment after the call returns.
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string? seen = null;
         while (DateTimeOffset.UtcNow < deadline)
         {

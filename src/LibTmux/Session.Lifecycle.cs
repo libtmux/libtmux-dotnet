@@ -34,9 +34,10 @@ public sealed partial class Session
             : throw new IncompleteSnapshotException("attached", SnapshotDepth.Sessions);
 
     /// <summary>Gets the server that owns this session.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <remarks>
+    /// Every handle reached through a server carries it, whether the handle was
+    /// materialized from a listing or resolved from an identifier.
+    /// </remarks>
     public Server Server => RequireOwner("server");
 
     /// <summary>Re-reads this session from tmux.</summary>
@@ -45,23 +46,30 @@ public sealed partial class Session
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        // A refresh that cannot reach the server must say so, not report the
-        // session as gone, so this uses the throwing listing path.
         Server owner = RequireOwner("refresh");
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader
-            .ListAsync(owner, "list-sessions", [], cancellationToken)
-            .ConfigureAwait(false);
-        IEnumerable<Session> sessions = rows.Select(row => RelationReader.ToSession(owner, row));
-        return sessions.FirstOrDefault(session => session.Id == _id)
+        IReadOnlyDictionary<string, string?> row = await RelationReader
+            .FindAsync(
+                owner,
+                "list-sessions",
+                "session_id",
+                _id.ToString(),
+                inSession: null,
+                cancellationToken)
+            .ConfigureAwait(false)
             ?? throw new TmuxObjectNotFoundException(
                 $"tmux no longer has session '{_id}'.",
                 _id.ToString());
+        return RelationReader.ToSession(owner, row);
     }
 
     /// <summary>Renames this session.</summary>
     /// <param name="name">The new name.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A replacement handle carrying the new name.</returns>
+    /// <remarks>
+    /// tmux expands the name as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> RenameAsync(
         string name,
@@ -444,8 +452,7 @@ public sealed partial class Session
     {
         Server owner = RequireOwner("group");
         if (owner.Version is TmuxVersion version
-            && TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile)
-            && profile.Capabilities.Contains(GroupKillCapability))
+            && TmuxCapabilities.IsSupported(version, GroupKillCapability))
         {
             return true;
         }

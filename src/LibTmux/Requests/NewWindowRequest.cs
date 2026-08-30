@@ -57,9 +57,17 @@ public sealed record NewWindowRequest
     }
 
     /// <summary>Gets the window name.</summary>
+    /// <remarks>
+    /// tmux expands the name as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? Name { get; }
 
     /// <summary>Gets the working directory for the first pane.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it changes directory, so a <c>#</c>
+    /// in it does not survive verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets whether the new window becomes current.</summary>

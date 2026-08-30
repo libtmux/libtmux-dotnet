@@ -9,7 +9,7 @@ namespace LibTmux.UnitTests.Packaging;
 public sealed class WorkflowContractTests
 {
     private static readonly string[] SupportedTmuxVersions =
-        ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"];
+        ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b", "3.7c"];
 
     private static readonly string[] TargetFrameworks = ["net8.0", "net10.0"];
 
@@ -77,6 +77,39 @@ public sealed class WorkflowContractTests
     }
 
     [Fact]
+    public void The_aot_smoke_consumes_the_packages_it_proves()
+    {
+        string project = ReadRepositoryFile(
+            "tests",
+            "LibTmux.AotSmoke",
+            "LibTmux.AotSmoke.csproj");
+        string solution = ReadRepositoryFile("LibTmux.slnx");
+        string workflow = ReadWorkflow("dotnet.yml");
+
+        Assert.Contains("<PackageReference Include=\"LibTmux\"", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ProjectReference", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("tests/LibTmux.AotSmoke", solution, StringComparison.Ordinal);
+
+        int packed = workflow.IndexOf("dotnet pack", StringComparison.Ordinal);
+        int restored = workflow.IndexOf(
+            "dotnet restore tests/LibTmux.AotSmoke",
+            StringComparison.Ordinal);
+        int published = workflow.IndexOf(
+            "dotnet publish tests/LibTmux.AotSmoke",
+            StringComparison.Ordinal);
+        Assert.True(packed < restored && restored < published);
+        Assert.Contains(
+            "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
+            workflow,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "--configfile tests/NuGet.config",
+            workflow[restored..published],
+            StringComparison.Ordinal);
+        Assert.Contains("--no-restore", workflow[published..], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_release_workflow_proves_the_package_before_it_is_permanent()
     {
         string workflow = ReadWorkflow("release.yml");
@@ -111,12 +144,15 @@ public sealed class WorkflowContractTests
         Assert.Contains("-getProperty:Version", workflow, StringComparison.Ordinal);
     }
 
-    private static string ReadWorkflow(string name)
+    private static string ReadWorkflow(string name) =>
+        ReadRepositoryFile(".github", "workflows", name);
+
+    private static string ReadRepositoryFile(params string[] path)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            string candidate = Path.Combine(directory.FullName, ".github", "workflows", name);
+            string candidate = Path.Combine([directory.FullName, .. path]);
             if (File.Exists(candidate))
             {
                 return File.ReadAllText(candidate);
@@ -125,6 +161,6 @@ public sealed class WorkflowContractTests
             directory = directory.Parent;
         }
 
-        throw new FileNotFoundException($"The workflow '{name}' was not found.");
+        throw new FileNotFoundException($"The repository file '{string.Join('/', path)}' was not found.");
     }
 }

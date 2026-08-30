@@ -62,7 +62,7 @@ assistant can run one directly instead of launching a second process:
 using LibTmux;
 using LibTmux.Mcp;
 
-WriteTools tools = McpTools.Writing(server);
+await using WriteTools tools = McpTools.Writing(server);
 
 RunResult result = await tools.RunAsync(
     "test -f /etc/hostname && echo present",

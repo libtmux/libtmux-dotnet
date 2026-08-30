@@ -141,8 +141,11 @@ public sealed class TmuxChainTests
 
         // The one-shot and chained paths build arguments from the same code,
         // so this compares the built command against what the wrapper sends.
-        TmuxCommand command = request.ToCommand(session.Id.ToString());
+        TmuxCommand command = request.ToCommand(session);
 
+        // The session identifier travels into the chain as plain text, so the
+        // command carries the generation that identifier belongs to.
+        Assert.Equal(session.Generation, command.RequiredGeneration);
         Assert.Equal("new-window", command.Name);
         Assert.Contains("typed", command.Arguments);
         Assert.Contains("/tmp", command.Arguments);
@@ -186,7 +189,7 @@ public sealed class TmuxChainTests
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("chained-keys", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -248,7 +251,7 @@ public sealed class TmuxChainTests
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("executed-keys", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -481,7 +484,7 @@ public sealed class TmuxChainTests
         await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
             text => text.Contains("captured-by-chain", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -564,7 +567,7 @@ public sealed class TmuxChainTests
                 '\n',
                 await pane.CaptureAsync(new CapturePaneRequest(joinWrappedLines: true), inner)),
             text => text.Contains("chained-paste", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -591,9 +594,9 @@ public sealed class TmuxChainTests
         Assert.Contains("Build", command.Arguments);
         Assert.Contains("chained", command.Arguments);
 
-        bool carriesMouse = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("display_menu_mouse");
+        bool carriesMouse = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "display_menu_mouse");
 
         Assert.Equal(carriesMouse, command.Arguments.Contains("-M"));
     }
@@ -619,9 +622,9 @@ public sealed class TmuxChainTests
         Assert.Equal("display-popup", command.Name);
         Assert.Contains("40", command.Arguments);
 
-        bool carriesOptions = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("display_popup_3_3_options");
+        bool carriesOptions = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "display_popup_3_3_options");
 
         // The close mode maps to a flag every supported tmux carries; what
         // 3.3 added is the titling and styling, so that is what tracks the
@@ -737,9 +740,9 @@ public sealed class TmuxChainTests
         Assert.Equal("confirm-before", command.Name);
         Assert.Contains("sure?", command.Arguments);
 
-        bool carriesKeys = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("confirm_before_acceptance");
+        bool carriesKeys = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "confirm_before_acceptance");
 
         Assert.Equal(carriesKeys, command.Arguments.Contains("-c"));
     }
@@ -752,9 +755,9 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        bool carriesTypes = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("command_prompt_background");
+        bool carriesTypes = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "command_prompt_background");
 
         CommandPromptRequest typed = new("display-message %%", type: PromptType.Command);
 
@@ -832,7 +835,7 @@ public sealed class TmuxChainTests
                 ["display-message", "-p", "-t", pane.Id.ToString(), "#{pane_current_command}"],
                 inner)).StandardOutputLines[0],
             command => command == "cat",
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
             token);
 
@@ -854,9 +857,9 @@ public sealed class TmuxChainTests
 
         Assert.Equal("choose-tree", command.Name);
 
-        bool carriesTime = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("choose_tree_sort_time");
+        bool carriesTime = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "choose_tree_sort_time");
 
         Assert.Equal(carriesTime, command.Arguments.Contains("time"));
 
@@ -865,6 +868,29 @@ public sealed class TmuxChainTests
         await server.Chain().Then(command).ExecuteAsync(token);
 
         Assert.True(await server.IsAliveAsync(token));
+    }
+
+    [UnixFact]
+    public async Task A_chain_refuses_commands_from_two_servers()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+
+        // At most one of two generations names a running server, so a chain
+        // carrying both cannot be valid however tmux answers it.
+        TmuxCommand here = new NewWindowRequest(name: "here").ToCommand(session);
+        TmuxCommand elsewhere = here with
+        {
+            RequiredGeneration = new ServerGeneration(
+                session.Generation.ProcessId + 1,
+                session.Generation.StartTime),
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => server.Chain().Then(here).Then(elsewhere).ExecuteAsync(token));
     }
 
     [UnixFact]
@@ -882,9 +908,9 @@ public sealed class TmuxChainTests
 
         Assert.Contains("ltlist", listed.StandardOutputLines);
 
-        bool carriesAccess = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("server_access_command");
+        bool carriesAccess = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "server_access_command");
 
         ServerAccessRequest access = new(list: true);
 
@@ -997,9 +1023,9 @@ public sealed class TmuxChainTests
         Assert.Equal("attach-session", attach.Name);
         Assert.Contains("-d", attach.Arguments);
 
-        bool carriesFloats = TmuxCapabilities
-            .GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command");
+        bool carriesFloats = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "new_pane_command");
 
         NewPaneRequest floating = new(width: 20, height: 5);
 
@@ -1066,7 +1092,9 @@ public sealed class TmuxChainTests
 
         Assert.Equal(3, entries.ToCommands(server.Hooks).Count);
 
-        await entries.ExecuteAsync(server.Hooks, server, token);
+        // A request answering several commands joins a chain whole, so the
+        // clear and both entries reach tmux in one invocation.
+        await server.Chain().Then(entries.ToCommands(server.Hooks)).ExecuteAsync(token);
 
         TmuxCommandResult listed = await new ListHooksRequest()
             .ExecuteAsync(server.Hooks, server, token);

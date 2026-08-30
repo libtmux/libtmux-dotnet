@@ -56,6 +56,10 @@ public sealed record NewSessionRequest
     }
 
     /// <summary>Gets the session name, or null to let tmux choose.</summary>
+    /// <remarks>
+    /// tmux expands the name as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? Name { get; }
 
     /// <summary>Gets whether a session of the same name is removed first.</summary>
@@ -65,9 +69,17 @@ public sealed record NewSessionRequest
     public bool Attach { get; }
 
     /// <summary>Gets the working directory for the first pane.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it changes directory, so a <c>#</c>
+    /// in it does not survive verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets the name of the first window.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string? WindowName { get; }
 
     /// <summary>Gets the command the first pane runs.</summary>

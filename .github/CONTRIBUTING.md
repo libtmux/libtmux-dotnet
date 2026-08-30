@@ -25,11 +25,42 @@ from `global-json-file` and calls `dotnet` directly, so a workflow file never
 carries the prefix.
 
 The validators are Python and run through [uv](https://docs.astral.sh/uv/).
-There is no Python project file — each script carries its own PEP 723 header.
+There is no Python project file — each script carries its own PEP 723 header,
+and a script with dependencies carries a `.lock` beside it so the gate resolves
+the same versions every run:
+
+```console
+$ uv lock --script eng/run_tests.py
+```
+
+Run the engineering tests through that locked runner rather than naming pytest
+on the command line, which resolves whatever released that morning:
+
+```console
+$ uv run --locked --script eng/run_tests.py
+```
+
+Nine of those tests read a pinned revision of the Python library. Point
+`LIBTMUX_PYTHON_REPOSITORY` at a checkout of
+[tmux-python/libtmux](https://github.com/tmux-python/libtmux) that contains it,
+or they fail saying which revision they wanted.
 
 You also need a real `tmux`, version 3.2a or newer. The suite drives one
 rather than mocking it, because this library's job is being right about tmux
 and only tmux can say whether it is.
+
+Name that tmux explicitly when the machine has more than one:
+
+```console
+$ export LIBTMUX_TMUX=/usr/local/bin/tmux
+```
+
+Without it the tests spawn whatever `tmux` their own `PATH` resolves, while a
+command they send into a pane resolves it again through that pane's
+interactive shell. A version-matrix install earlier on the interactive `PATH`
+makes those two different binaries, and a client cannot talk to a server of
+another version. What you see is `tmux_run` timing out with no exit status,
+which reads as a library bug rather than as two tmuxes.
 
 ## Own your tmux socket root
 
@@ -142,6 +173,12 @@ $ uv run python eng/parity/inspect_packages.py
 ```
 
 ```console
+$ mise exec -- dotnet restore \
+    tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+    --configfile tests/NuGet.config
+```
+
+```console
 $ mise exec -- dotnet run \
     --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
     --configuration Release \
@@ -150,24 +187,37 @@ $ mise exec -- dotnet run \
 ```
 
 ```console
+$ mise exec -- dotnet restore \
+    tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+    --runtime linux-x64 \
+    --configfile tests/NuGet.config
+```
+
+```console
 $ mise exec -- dotnet publish \
     tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
     --configuration Release \
     --framework net10.0 \
-    --runtime linux-x64
+    --runtime linux-x64 \
+    --no-restore
 ```
 
-`LibTmux.PackageConsumer` is deliberately absent from `LibTmux.slnx`. It exists
-to prove the packaged artifact rather than a project reference, so it restores
-and runs standalone.
+`LibTmux.PackageConsumer` and `LibTmux.AotSmoke` are deliberately absent from
+`LibTmux.slnx`. Both restore the packed artifacts rather than project
+references, so they run only after `dotnet pack`.
 
 ### Validators that read documents, not the build
 
-Five checks run against documents rather than code, which is what makes them
-easy to forget locally:
+Eight checks run against documents rather than code, which is what makes them
+easy to forget locally. They are listed here in the order
+[`dotnet.yml`](workflows/dotnet.yml) runs them:
 
 ```console
 $ uv run python eng/parity/verify_public_api.py
+```
+
+```console
+$ uv run python eng/parity/render_public_api.py --check
 ```
 
 ```console
@@ -179,12 +229,29 @@ $ uv run python eng/parity/verify_workflows.py
 ```
 
 ```console
+$ uv run python eng/parity/verify_tmux_versions.py
+```
+
+```console
+$ uv run python eng/docs/render_api_reference.py --check
+```
+
+```console
 $ uv run python eng/docs/sync_snippets.py --check
 ```
 
 ```console
 $ uv run eng/mcp/dump_tools.py --check
 ```
+
+The two renderers hold `docs/api/README.md` and `docs/public-api.md` to the
+documents they are generated from. Adding a public member without recording it
+fails `render_api_reference.py --check` and nothing before it, so run the whole
+list rather than the first few.
+
+`render_api_reference.py` reads the XML documentation the compiler emitted, so
+build before running it. Against stale output it reports a difference that is
+not there.
 
 `sync_snippets.py --check` is the one that catches a hand-edited example. It
 compares each published block against the region it was quoted from and fails
@@ -208,22 +275,30 @@ The engineering scripts have tests of their own:
 $ uv run --with pytest --with tomlkit python -m pytest eng --quiet
 ```
 
-### NU1004, which is not a dependency problem
+### AOT restore ownership
 
-Publishing ahead of time names a runtime identifier, and restore then writes
-one into the lock file of every project in that graph — including the
-library's, where the section is empty because no package resolves differently.
-That is why `src/LibTmux` and `src/LibTmux.Generators` declare
-`RuntimeIdentifiers`: without it the lock files disagree with the projects and
-the *next* `restore --locked-mode` fails with NU1004, which reads like a
-dependency problem and is not one.
+Only `LibTmux.AotSmoke` names a runtime identifier. The libraries and their
+lock files stay portable because the smoke project consumes their packages
+instead of adding its runtime to their project graph. The smoke project has no
+checked-in lock: its package inputs keep the development version while their
+bytes change with each commit. CI combines a clean package cache with
+`tests/NuGet.config` source mapping so it cannot substitute a stale or public
+package.
 
-Adding a platform to the matrix means adding its identifier there and
-regenerating:
+A local machine has neither. The version never changes between packs, so a
+restore prefers whatever `0.0.0-alpha.9` the global cache already holds and the
+freshly packed bytes are ignored. Evict them before running either gate:
 
 ```console
-$ mise exec -- dotnet restore LibTmux.slnx --force-evaluate
+$ rm -rf ~/.nuget/packages/libtmux{,.query.json,.workspace}/0.0.0-alpha.9
 ```
+
+Skipping that runs last week's library against this week's dependants, which
+surfaces as a `TypeLoadException` naming an internal type rather than as
+anything that looks like a stale package.
+
+Adding a platform means adding its identifier to `LibTmux.AotSmoke` and adding
+the matching standalone restore and publish to the workflow.
 
 ### The other workflows
 
@@ -292,16 +367,26 @@ either of those changes what a user sees on their own screen.
 **A behaviour change needs a test against a real tmux.** This library's job is
 being right about tmux, and only tmux can say whether it is.
 
+**A new tmux version starts in the manifest.**
+[`eng/tmux/versions.json`](../eng/tmux/versions.json) decides which versions
+this repository supports. The workflow matrix, both build scripts, the runtime
+constants and every README repeat that list, and
+`eng/parity/verify_tmux_versions.py` names each one that has not caught up:
+
+```console
+$ uv run python eng/parity/verify_tmux_versions.py
+```
+
 **A version-dependent behaviour needs a row in the ledger.** Anything that
-differs between 3.2a and 3.7b goes through the capability model, and each
+differs between 3.2a and 3.7c goes through the capability model, and each
 difference names the test that proves it in
 [`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json).
 
-**A public API addition needs five edits, and each will tell you.** The Roslyn
-analyzer baseline (`PublicAPI.Unshipped.txt`), the type and its members in
-`docs/public-api.json`, its values if it is an enum, and its owning component
-in `eng/parity/verify_production_plan.py`. They fail independently and by name;
-follow the errors.
+**A public API addition changes both enforced contracts.** Update the Roslyn
+analyzer baseline (`PublicAPI.Unshipped.txt`) and the type and member records in
+`docs/public-api.json`, including explicit enum values. If the addition maps a
+Python symbol, update its row in `docs/parity/parity-ledger.json`. The validators
+report each missing contract independently.
 
 **A documented example is compiled, and a `csharp run` block is executed
 against a live tmux.** `ReadmeExampleTests` compiles every C# block in the
@@ -470,13 +555,17 @@ $ uv run python eng/parity/reconcile_versions.py \
 
 Commit the bundle and the rewritten `version-deltas.json` together, because the
 fingerprint is of the tree that commit produces. A tmux build takes about forty
-seconds here and the matrix runs the suite fourteen times, so budget half an
+seconds here and the matrix runs the suite sixteen times, so budget half an
 hour.
 
 ## Compatibility
 
-tmux **3.2a through 3.7b**, on **net8.0** and **net10.0**, on Linux and macOS.
-Windows is unsupported. The packages are trim- and ahead-of-time-safe.
+Stable tmux **3.2a and newer**, on **net8.0** and **net10.0**. The required
+Linux matrix covers 3.2a through 3.7c; the advisory macOS lane uses the current
+Homebrew tmux. Windows is unsupported. The `LibTmux` core package is trim- and
+ahead-of-time-analyzer gated and has a Linux NativeAOT execution smoke test.
+Optional packages make narrower compatibility claims in their project files
+and package READMEs.
 
 During alpha the public API can change in any release with no deprecation
 period, so a consumer pins an exact version. Widening the supported range means

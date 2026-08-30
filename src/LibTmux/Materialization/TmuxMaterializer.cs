@@ -75,7 +75,7 @@ internal static class Materializer
         EntityMaterializationState state = CreateState(context, fields);
         SessionId id = state.SessionId
             ?? throw new InvalidDataException("tmux row carries no session identifier.");
-        return new Session(RequireConnection(context), state.Generation, id, state.RawFields);
+        return new Session(context.Server, RequireConnection(context), state.Generation, id, state.RawFields);
     }
 
     /// <summary>Materializes one window from framed bytes.</summary>
@@ -100,7 +100,7 @@ internal static class Materializer
         EntityMaterializationState state = CreateState(context, fields);
         WindowId id = state.WindowId
             ?? throw new InvalidDataException("tmux row carries no window identifier.");
-        return new Window(RequireConnection(context), state.Generation, id, state.RawFields);
+        return new Window(context.Server, RequireConnection(context), state.Generation, id, state.RawFields);
     }
 
     /// <summary>Materializes one pane from framed bytes.</summary>
@@ -128,7 +128,7 @@ internal static class Materializer
             throw new InvalidDataException("tmux row carries a malformed pane identifier.");
         }
 
-        return new Pane(RequireConnection(context), state.Generation, id, state.RawFields);
+        return new Pane(context.Server, RequireConnection(context), state.Generation, id, state.RawFields);
     }
 
     /// <summary>Builds the hierarchy state one materialized row carries.</summary>

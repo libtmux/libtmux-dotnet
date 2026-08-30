@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import runpy
+import shutil
 import typing as t
 
 import pytest
@@ -16,7 +18,11 @@ def load_checker() -> dict[str, t.Any]:
     )
 
 
-SUPPORTED_TMUX_VERSIONS: tuple[str, ...] = load_checker()["SUPPORTED_TMUX_VERSIONS"]
+REPOSITORY_ROOT = pathlib.Path(__file__).parents[3]
+MANIFEST = REPOSITORY_ROOT / "eng" / "tmux" / "versions.json"
+SUPPORTED_TMUX_VERSIONS: tuple[str, ...] = tuple(
+    json.loads(MANIFEST.read_text(encoding="utf-8"))["supported"]
+)
 
 
 def verify(root: pathlib.Path) -> list[str]:
@@ -38,8 +44,14 @@ jobs:
       - run: dotnet format --verify-no-changes
       - run: dotnet build --warnaserror
       - run: dotnet pack src/LibTmux/LibTmux.csproj
-      - run: dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj
-      - run: dotnet run --project tests/LibTmux.PackageConsumer
+      - env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
+        run: |
+          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --configfile tests/NuGet.config
+          dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --no-restore
+      - env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
+        run: dotnet run --project tests/LibTmux.PackageConsumer
       - run: dotnet run --project examples/LibTmux.Examples
       - run: dotnet test --project tests/LibTmux.ExampleTests
       - run: uv run python eng/docs/render_api_reference.py --check
@@ -104,6 +116,12 @@ def write(
     (workflows / "dotnet.yml").write_text(build, encoding="utf-8")
     (workflows / "dotnet-tmux.yml").write_text(matrix, encoding="utf-8")
     (workflows / "release.yml").write_text(release, encoding="utf-8")
+
+    # The check measures a root against that root's own version manifest, so a
+    # laid-out repository needs one.
+    manifest = root / "eng" / "tmux" / "versions.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(MANIFEST, manifest)
     return root
 
 
@@ -153,6 +171,8 @@ def test_skipped_integration_tests_are_reported(tmp_path: pathlib.Path) -> None:
         "--locked-mode",
         "--warnaserror",
         "dotnet pack",
+        "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
+        "--configfile tests/NuGet.config",
         "LibTmux.PackageConsumer",
         "LibTmux.ExampleTests",
         "render_api_reference.py --check",
@@ -169,6 +189,18 @@ def test_a_dropped_build_step_is_reported(tmp_path: pathlib.Path, step: str) -> 
     )
 
     assert f"dotnet.yml omits {step}" in verify(root)
+
+
+def test_a_shared_package_consumer_cache_is_reported(tmp_path: pathlib.Path) -> None:
+    """A warm solution cache can hide an incomplete package restore graph."""
+    isolation = "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer"
+    root = write(
+        tmp_path,
+        BUILD.replace(isolation, "NUGET_PACKAGES: shared"),
+        MATRIX.format(versions=every_version()),
+    )
+
+    assert f"dotnet.yml omits {isolation}" in verify(root)
 
 
 def test_a_missing_workflow_is_reported(tmp_path: pathlib.Path) -> None:

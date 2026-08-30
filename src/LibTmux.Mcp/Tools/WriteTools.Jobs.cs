@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -88,9 +89,10 @@ public sealed partial class WriteTools
         if (waitSeconds is double seconds && job.State == JobState.Running)
         {
             TimeSpan budget = _policy.EffectiveTimeout(TimeSpan.FromSeconds(seconds));
-            await using IAsyncDisposable lease = await _activity
+            IAsyncDisposable lease = await _activity
                 .WatchAsync(pane, cancellationToken)
                 .ConfigureAwait(false);
+            await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
             await WaitForFinishAsync(
                     stored,
                     pane,

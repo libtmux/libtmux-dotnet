@@ -50,7 +50,7 @@
         "target": { "$ref": "#/$defs/target" },
         "wireName": {
           "enum": [
-            "client_control",
+            "client_control_mode",
             "client_id",
             "client_name",
             "pane_command",
@@ -99,7 +99,7 @@
               "properties": {
                 "target": { "const": "client" },
                 "wireName": {
-                  "enum": ["client_control", "client_id", "client_name"]
+                  "enum": ["client_control_mode", "client_id", "client_name"]
                 }
               }
             }
@@ -112,7 +112,7 @@
         { "$ref": "#/$defs/field" },
         {
           "properties": {
-            "wireName": { "enum": ["client_control", "session_attached"] }
+            "wireName": { "enum": ["client_control_mode", "session_attached"] }
           }
         }
       ]
@@ -130,6 +130,16 @@
                 "window_name"
               ]
             }
+          }
+        }
+      ]
+    },
+    "int64Field": {
+      "allOf": [
+        { "$ref": "#/$defs/field" },
+        {
+          "properties": {
+            "wireName": { "enum": ["session_windows", "window_panes"] }
           }
         }
       ]
@@ -271,46 +281,13 @@
         }
       }
     },
-    "enumConstant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "type", "token"],
-      "properties": {
-        "kind": { "const": "enum" },
-        "type": {
-          "type": "string",
-          "maxLength": 4096,
-          "pattern": "^[^\\uD800-\\uDFFF]*$"
-        },
-        "token": {
-          "type": "string",
-          "maxLength": 4096,
-          "pattern": "^[^\\uD800-\\uDFFF]*$"
-        }
-      }
-    },
-    "instantConstant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "unixSeconds"],
-      "properties": {
-        "kind": { "const": "instant" },
-        "unixSeconds": {
-          "type": "integer",
-          "minimum": -9223372036854775808,
-          "maximum": 9223372036854775807
-        }
-      }
-    },
     "constant": {
       "oneOf": [
         { "$ref": "#/$defs/nullConstant" },
         { "$ref": "#/$defs/booleanConstant" },
         { "$ref": "#/$defs/int64Constant" },
         { "$ref": "#/$defs/stringConstant" },
-        { "$ref": "#/$defs/typedIdConstant" },
-        { "$ref": "#/$defs/enumConstant" },
-        { "$ref": "#/$defs/instantConstant" }
+        { "$ref": "#/$defs/typedIdConstant" }
       ]
     },
     "constantNode": {
@@ -340,6 +317,15 @@
         "value": { "$ref": "#/$defs/booleanConstant" }
       }
     },
+    "int64ConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "const": "constant" },
+        "value": { "$ref": "#/$defs/int64Constant" }
+      }
+    },
     "stringConstantNode": {
       "type": "object",
       "additionalProperties": false,
@@ -352,6 +338,12 @@
     "booleanOrNullConstantNode": {
       "oneOf": [
         { "$ref": "#/$defs/booleanConstantNode" },
+        { "$ref": "#/$defs/nullConstantNode" }
+      ]
+    },
+    "int64OrNullConstantNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/int64ConstantNode" },
         { "$ref": "#/$defs/nullConstantNode" }
       ]
     },
@@ -538,6 +530,29 @@
           }
         },
         {
+          "title": "int64 equality",
+          "properties": {
+            "operator": { "enum": ["equal", "notEqual"] },
+            "left": { "$ref": "#/$defs/int64Field" },
+            "right": { "$ref": "#/$defs/int64OrNullConstantNode" }
+          }
+        },
+        {
+          "title": "int64 ordering",
+          "properties": {
+            "operator": {
+              "enum": [
+                "lessThan",
+                "lessThanOrEqual",
+                "greaterThan",
+                "greaterThanOrEqual"
+              ]
+            },
+            "left": { "$ref": "#/$defs/int64Field" },
+            "right": { "$ref": "#/$defs/int64ConstantNode" }
+          }
+        },
+        {
           "title": "ordinal string operation",
           "properties": {
             "operator": {
@@ -545,11 +560,8 @@
                 "stringEqualOrdinal",
                 "stringEqualOrdinalIgnoreCase",
                 "startsWithOrdinal",
-                "startsWithOrdinalIgnoreCase",
                 "endsWithOrdinal",
-                "endsWithOrdinalIgnoreCase",
-                "containsOrdinal",
-                "containsOrdinalIgnoreCase"
+                "containsOrdinal"
               ]
             },
             "left": { "$ref": "#/$defs/stringField" },

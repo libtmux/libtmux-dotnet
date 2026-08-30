@@ -37,7 +37,7 @@ rather than dropping to strings:
 
 ```csharp
 await server.Chain()
-    .Then(new NewWindowRequest(name: "build").ToCommand(session.Id.ToString()))
+    .Then(new NewWindowRequest(name: "build").ToCommand(session))
     .Then(new SendKeysRequest("make").ToCommand(pane))
     .ExecuteAsync(ct);
 ```

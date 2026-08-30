@@ -1,8 +1,29 @@
-# ADR 0003: Generated closed query catalog
+# ADR 0003: Closed query catalog
 
 ## Status
 
-Accepted for the first production query surface.
+Accepted for the local query document surface. Automatic native pushdown is
+rejected for production.
+
+The retained bakeoff measured pushdown, but production does not assemble typed
+documents into tmux formats. A native `-f` expression is executable tmux
+format-language input, including shell-job forms. Avoiding a few kilobytes on a
+local pipe does not justify adding an escaping, version-profile, command-budget,
+residual-evaluation, and relation-capture subsystem to that boundary. Typed
+documents therefore evaluate only over captured objects. `UnsafeTmuxFilter`
+remains the explicit native escape hatch and makes no equivalence guarantee.
+
+The remote-planning results and graft list below are historical bakeoff evidence,
+not unimplemented production requirements.
+
+The production catalog is checked-in code rather than a private analyzer
+project. The imported generator had become a post-initialization emitter over a
+hard-coded table and retained none of the bakeoff contender's `LTQG001`–`LTQG008`
+integrity diagnostics. Keeping that extra build project therefore added an
+indirection without the property that selected it. One immutable field table
+now owns target, value kind, relation, CLR property, and bound accessors. A
+unit contract compares those entries with the shipped JSON Schema, and the
+package NativeAOT smoke exercises the table.
 
 ## Context
 
@@ -39,15 +60,12 @@ not metadata-free execution.
 
 ## Decision
 
-Use a source-generated closed field catalog with one immutable canonical query
-AST shared by expression translation, direct local interpretation, JSON, and
-remote planning. The production generator and emitted catalog are internal
-implementation details; public API does not expose contender, generator, or
-planner-infrastructure vocabulary.
+Use a closed field catalog with one immutable canonical query AST shared by
+expression translation, direct local interpretation, and JSON. The catalog is
+an internal implementation detail; public API does not expose its vocabulary.
 
-Public query entry points do not require a catalog or capability object. Explain
-results are immutable read-only data. Version parsing, physical mappings,
-planner profiles, row framing, and raw argv construction remain internal.
+Public query entry points do not require a catalog or capability object. Query
+translation and interpretation are independent of the connected tmux version.
 
 Public query documents have structural value equality and hashing across
 sequence-bearing nodes. Equality does not depend on `ImmutableArray` backing
@@ -68,44 +86,23 @@ produces the same canonical AST.
 Approve schema `libtmux-query`, version 1, and the retained JSON Schema and four
 positive golden documents. The wire grammar is closed, rejects unknown members
 and discriminators, and uses tagged null, Boolean, signed 64-bit integer,
-string, typed-ID, enum, and Unix-seconds instant constants. Custom parser limits
-may tighten but not widen the v1 limits. Regex nodes use the .NET dialect,
-require `CultureInvariant`, reject unsupported option bits and inline
-culture-dependent case behavior, count pattern limits by Unicode scalar, and
-execute with a timeout.
+string, and typed-ID constants. The retained bakeoff schema also listed enum
+and Unix-seconds instant constants, but no catalog field could consume either;
+production removed those phantom definitions without changing the set of valid
+root documents. Custom parser limits may tighten but not widen the v1 limits.
+Regex nodes use the .NET dialect, require `CultureInvariant`, reject unsupported
+option bits and inline culture-dependent case behavior, count pattern limits by
+Unicode scalar, and execute with a timeout.
 
-Remote planning validates the complete document, target command, physical
-fields, tmux version, format recursion, and exact packed command size before
-process start. Disabled mode leaves the complete predicate local. Automatic
-mode pushes only safe materializable work and keeps the rest residual. Required
-mode rejects any residual. Only conjunctions split; emitted conjunction filters
-are balanced. If the combined filter cannot fit the tmux format or command
-protocol, Automatic keeps the entire predicate residual and Required fails
-before dispatch.
+Typed documents are not lowered into native tmux filters. Callers capture or
+list entities, then use `Matching()`; relation predicates declare the snapshot
+depth they need and fail on uncaptured relations. Raw native filters remain a
+separate `UnsafeTmuxFilter` operation with no typed-query equivalence claim.
 
-Boolean fields use zero/nonzero tmux truth. Only typed-ID equality and
-inequality are initially eligible scalar comparisons. Regex, relations,
-ordinal-ignore-case strings, other string operations, and numeric or instant
-comparisons remain residual because their tmux representation or semantics are
-not proven equivalent.
-
-The production query executor owns plan execution and always applies the
-residual predicate after materializing pushdown candidates. It derives the
-required relation depth from the residual AST and either captures that depth or
-fails before evaluation. Safe plan filter strings remain internal. Native tmux
-filters are exposed only through a separately named unsafe operation that makes
-no semantic-equivalence guarantee.
-
-The measured `list-*` projections prove tmux filter behavior, not a production
-row-framing or acquisition-policy design. Production candidate materialization
-uses ADR 0001 byte-length framing and selects the list command from the owning
-Server, Session, or Window acquisition context. It does not parse
-delimiter-joined rows or replace ADR 0002's command-specific list-error
-policies with one global command per query target.
-
-Physical fields, target commands, and protocol limits are internal immutable
-data selected from the exact tmux profile. The production API does not accept
-caller-defined mappings that can change remote query semantics.
+The measured `list-*` projections remain historical evidence about tmux filter
+behavior. Ordinary production listings continue to use ADR 0001 framing and
+ADR 0002 acquisition and error policies; typed queries add no second listing
+path.
 
 ## Matrix observations
 
@@ -160,46 +157,23 @@ not thresholds.
 | Static | 43,072 | 52,880 |
 | Generated | 48,760 | 52,832 |
 
-## Production grafts
+## Production consequences
 
-The production implementation must add the following behavior without copying
-a contender wholesale:
+The production implementation retains the parts that serve local portable
+queries:
 
-- An internal generator and generated catalog over the approved production
-  snapshots, with the exact closed manifest retained as a compile-time test.
-- Catalog-free public query entry points and immutable read-only explain
-  results.
+- One internal immutable catalog over the approved production snapshots, with
+  its field manifest checked against the shipped schema.
 - One public immutable query-document contract shared with the optional JSON
   package, without public contender or source-generator vocabulary.
 - Structural equality and hashing for the full public AST, including
   sequence-bearing Boolean nodes.
-- An internal executor that owns candidate materialization and always applies
-  the residual predicate before returning results.
-- Residual-plan relation-depth requirements that drive capture or fail before
-  local evaluation.
-- A separately named unsafe native-filter operation with no typed-query
-  equivalence claim.
-- ADR 0001 byte-length row framing rather than delimiter parsing for query
-  candidate materialization.
-- Acquisition-scoped Server, Session, and Window list commands that preserve
-  ADR 0002's list-error policies, plus exact physical-field profiles for each
-  supported tmux version.
-- Server-wide filter capability profiles, including Client filter support
-  beginning at 3.4.
-- Internal source-bound physical mappings and protocol profiles with no public
-  widening or remapping constructor.
-- An internal parsed-version capability service rather than caller-authored
-  version strings or source-label aliases.
-- Balanced filter composition and fail-before-dispatch format-depth and packed
-  argv checks using immutable protocol limits.
-- The direct interpreter as the semantic owner, with any dynamic-code fast path
-  differential-tested and optional.
+- The direct interpreter as semantic owner, with one-time binding and no
+  compilation of the caller's original expression.
 - ADR 0002 snapshot-depth and captured-relation behavior for relation
   quantifiers, including incomplete-snapshot errors before enumeration.
 - Python parity dispositions for the complete QueryList inventory while keeping
   BCL cardinality and the narrow `name__contains` parser.
-- A build-private analyzer deployment or a separately validated analyzer
-  package with tested compiler compatibility and transitivity.
 - Shipping trimming analysis, Public API baselines, package validation,
   platform annotations, and supported-platform AOT tests.
 - Trimming annotations and AOT cases for the retained `MemberInfo`, public-
@@ -208,7 +182,7 @@ a contender wholesale:
 ## Rejected risks
 
 - Runtime attribute discovery as the production schema authority.
-- A manually duplicated static table as the production schema authority.
+- Independent hand-maintained catalog and schema tables without a drift gate.
 - `IQueryable`, silent client evaluation, or compilation of the caller's
   original expression as a fallback.
 - Culture-sensitive string translation or regex evaluation.
@@ -222,6 +196,7 @@ a contender wholesale:
 - A public plan shape that lets callers omit residual evaluation.
 - Residual relation evaluation without a declared snapshot-depth requirement.
 - Safe typed queries and raw native filters sharing one execution surface.
+- Automatic lowering of typed documents into tmux's executable format language.
 - Delimiter-joined tmux rows as a production materialization protocol.
 - One global list command per target that erases acquisition scope and list-
   error policy.
@@ -234,16 +209,9 @@ a contender wholesale:
 
 ## Remaining unknowns
 
-- The exact query capability profile for the current tmux development branch.
-- macOS behavior for NativeAOT publication and real-tmux pushdown.
-- Analyzer NuGet layout, transitivity, compiler compatibility, and package
-  validation for the production generator.
+- macOS behavior for NativeAOT publication.
 - Shipping trimming, Public API, and platform-annotation results.
-- Production query execution over the complete approved hierarchy and snapshot
-  materializer rather than bakeoff snapshots.
-- Scoped Session and Window query execution through the production acquisition
-  and list-error policy adapters.
-- Allocation and candidate-materialization behavior on large real topologies.
+- Allocation and local-matching behavior on large captured topologies.
 - Final public names and exhaustive Python inventory dispositions, which belong
   to the public-API approval decision.
 
@@ -255,7 +223,7 @@ not claim the complete tmux command-flag or format-field and operator surface.
 
 Framework-design, Python-parity, and tmux-protocol reviews are recorded in
 `evidence/0003/critic-reviews.md`. Every accepted finding is represented by a
-causal fix, a bounded measured claim, or a required production graft. No review
+causal fix, a bounded measured claim, or a production consequence. No review
 blocks the generated closed-catalog decision.
 
 ## Study-source removal proof
@@ -423,7 +391,7 @@ proof is added.
     "final public names and exhaustive Python inventory dispositions"
   ],
   "capabilities": [
-    "closed sealed-record query AST and seven tagged constant kinds",
+    "closed sealed-record query AST and five tagged constant kinds",
     "pure expression translation with frozen constants and no silent fallback",
     "direct local interpretation and immutable Matching results",
     "version-one canonical JSON schema with bounded parsing and invariant regex semantics",

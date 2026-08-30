@@ -215,8 +215,9 @@ public sealed class WindowTopologyTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await TestHierarchy.RequireFirstWindowAsync(session, token);
 
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("display_message_literal");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "display_message_literal");
 
         IReadOnlyList<string>? literal = await window.DisplayMessageAsync(
             new DisplayMessageRequest("#{window_id}", returnText: true, noExpand: true),

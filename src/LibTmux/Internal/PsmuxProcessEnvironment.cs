@@ -4,6 +4,22 @@ namespace LibTmux.Internal;
 
 internal static class PsmuxProcessEnvironment
 {
+    /// <summary>Reports whether a launch has to carry the data directory into WSL.</summary>
+    /// <remarks>
+    /// A Windows psmux executable started from Linux reads its data directory
+    /// through the interop layer, which does not forward the variable on its own.
+    /// </remarks>
+    internal static bool ForwardsDataDirectoryThroughWsl(ServerConnectionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.PsmuxPreview is not null
+            && !OperatingSystem.IsWindows()
+            && string.Equals(
+                Path.GetExtension(options.TmuxBinaryPath),
+                ".exe",
+                StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static void Apply(
         ProcessStartInfo startInfo,
         IReadOnlyDictionary<string, string?>? childEnvironment,

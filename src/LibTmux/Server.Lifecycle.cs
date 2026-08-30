@@ -170,22 +170,21 @@ public sealed partial class Server
         Server materialized = await sequence
             .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken))
             .ConfigureAwait(false);
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await sequence
-            .ObserveAsync(() => RelationReader.ListAsync(
+        IReadOnlyDictionary<string, string?>? row = await sequence
+            .ObserveAsync(() => RelationReader.FindAsync(
                 materialized,
                 "list-sessions",
-                [],
+                "session_id",
+                sessionId.ToString(),
+                inSession: null,
                 cancellationToken))
             .ConfigureAwait(false);
         return sequence.Observe(() =>
-        {
-            IEnumerable<Session> sessions =
-                rows.Select(row => RelationReader.ToSession(materialized, row));
-            return sessions.FirstOrDefault(session => session.Id == sessionId)
-                ?? throw new TmuxObjectNotFoundException(
+            row is null
+                ? throw new TmuxObjectNotFoundException(
                     $"tmux did not report the created session '{sessionId}'.",
-                    sessionId.ToString());
-        });
+                    sessionId.ToString())
+                : RelationReader.ToSession(materialized, row));
     }
 
     /// <summary>Starts a server and takes ownership of it.</summary>

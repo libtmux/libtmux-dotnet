@@ -23,7 +23,7 @@ Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "buil
 
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 ```
 
 ```csharp
@@ -101,6 +101,6 @@ and for the warmup mistake that once put an impossible number in this table.
 
 ## Version differences
 
-Behavior that differs across tmux 3.2a to 3.7b goes through the capability
-model, and each difference has a row with a real-server proof in
+Known behavior differences from tmux 3.2a onward go through the capability
+model. Each measured difference has a row with a real-server proof in
 [the parity ledger](../parity/version-deltas.json).

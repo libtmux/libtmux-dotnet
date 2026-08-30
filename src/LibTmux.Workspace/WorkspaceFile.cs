@@ -1,150 +1,134 @@
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using System.Collections.ObjectModel;
 
 namespace LibTmux.Workspace;
 
-/// <summary>One pane in a tmuxp workspace file.</summary>
-/// <remarks>
-/// tmuxp lets a pane be written as a bare string, which means the command to
-/// run, or as a mapping when it needs more than that. Both arrive here as this.
-/// </remarks>
+/// <summary>Describes one pane in a supported tmuxp workspace.</summary>
 public sealed class WorkspacePane
 {
-    /// <summary>Gets or sets the shell command the pane starts with.</summary>
-    [YamlMember(Alias = "shell_command")]
-    public string? ShellCommand { get; set; }
+    private readonly ReadOnlyCollection<string> _shellCommands;
 
-    /// <summary>Gets or sets the directory the pane starts in.</summary>
-    [YamlMember(Alias = "start_directory")]
-    public string? StartDirectory { get; set; }
+    /// <summary>Initializes a pane description.</summary>
+    /// <param name="shellCommands">The commands to run, in order.</param>
+    /// <param name="startDirectory">The directory the pane starts in.</param>
+    /// <param name="focus">Whether the pane is left selected.</param>
+    public WorkspacePane(
+        IReadOnlyList<string>? shellCommands = null,
+        string? startDirectory = null,
+        bool focus = false)
+    {
+        _shellCommands = WorkspaceCollections.Copy(shellCommands, nameof(shellCommands));
+        StartDirectory = startDirectory;
+        Focus = focus;
+    }
 
-    /// <summary>Gets or sets whether this pane is the one left selected.</summary>
-    [YamlMember(Alias = "focus")]
-    public bool Focus { get; set; }
+    /// <summary>Gets the commands to run, in order.</summary>
+    public IReadOnlyList<string> ShellCommands => _shellCommands;
+
+    /// <summary>Gets the directory the pane starts in.</summary>
+    public string? StartDirectory { get; }
+
+    /// <summary>Gets whether the pane is left selected.</summary>
+    public bool Focus { get; }
 }
 
-/// <summary>One window in a tmuxp workspace file.</summary>
+/// <summary>Describes one window in a supported tmuxp workspace.</summary>
 public sealed class WorkspaceWindow
 {
-    /// <summary>Gets or sets the window name.</summary>
-    [YamlMember(Alias = "window_name")]
-    public string? WindowName { get; set; }
+    private readonly ReadOnlyDictionary<string, string> _options;
+    private readonly ReadOnlyCollection<WorkspacePane> _panes;
 
-    /// <summary>Gets or sets the directory the window's panes start in.</summary>
-    [YamlMember(Alias = "start_directory")]
-    public string? StartDirectory { get; set; }
+    /// <summary>Initializes a window description.</summary>
+    /// <param name="windowName">The window name.</param>
+    /// <param name="startDirectory">The directory its panes start in.</param>
+    /// <param name="layout">The layout to apply after creating its panes.</param>
+    /// <param name="focus">Whether the window is left selected.</param>
+    /// <param name="options">The window options to set.</param>
+    /// <param name="panes">The panes to create, in order.</param>
+    public WorkspaceWindow(
+        string? windowName = null,
+        string? startDirectory = null,
+        string? layout = null,
+        bool focus = false,
+        IReadOnlyDictionary<string, string>? options = null,
+        IReadOnlyList<WorkspacePane>? panes = null)
+    {
+        WindowName = windowName;
+        StartDirectory = startDirectory;
+        Layout = layout;
+        Focus = focus;
+        _options = WorkspaceCollections.Copy(options, nameof(options));
+        _panes = WorkspaceCollections.Copy(panes, nameof(panes));
+    }
 
-    /// <summary>Gets or sets the layout tmux arranges the panes with.</summary>
-    [YamlMember(Alias = "layout")]
-    public string? Layout { get; set; }
+    /// <summary>Gets the window name.</summary>
+    public string? WindowName { get; }
 
-    /// <summary>Gets or sets whether this window is the one left selected.</summary>
-    [YamlMember(Alias = "focus")]
-    public bool Focus { get; set; }
+    /// <summary>Gets the directory its panes start in.</summary>
+    public string? StartDirectory { get; }
 
-    /// <summary>Gets or sets the window options set once the panes exist.</summary>
-    [YamlMember(Alias = "options")]
-    public Dictionary<string, string> Options { get; set; } = [];
+    /// <summary>Gets the layout to apply after creating its panes.</summary>
+    public string? Layout { get; }
 
-    /// <summary>Gets or sets the panes, in the order they are created.</summary>
-    [YamlMember(Alias = "panes")]
-    public List<WorkspacePane> Panes { get; set; } = [];
+    /// <summary>Gets whether the window is left selected.</summary>
+    public bool Focus { get; }
+
+    /// <summary>Gets the window options to set.</summary>
+    public IReadOnlyDictionary<string, string> Options => _options;
+
+    /// <summary>Gets the panes to create, in order.</summary>
+    public IReadOnlyList<WorkspacePane> Panes => _panes;
 }
 
-/// <summary>A tmuxp workspace file.</summary>
+/// <summary>Describes the supported subset of one tmuxp workspace.</summary>
 /// <remarks>
-/// Only what shapes a session is read: the name, where things start, the
-/// windows, and the options. tmuxp's plugin and hook machinery runs Python and
-/// has no meaning here, so a file using it still builds and what cannot be
-/// honoured is reported rather than ignored.
+/// Parsing rejects keys that require tmuxp's Python hooks or plugins. It does
+/// not execute or silently discard configuration outside this model.
 /// </remarks>
 public sealed class WorkspaceFile
 {
-    /// <summary>Gets or sets the session name.</summary>
-    [YamlMember(Alias = "session_name")]
-    public string? SessionName { get; set; }
+    private readonly ReadOnlyDictionary<string, string> _options;
+    private readonly ReadOnlyCollection<WorkspaceWindow> _windows;
 
-    /// <summary>Gets or sets the directory every window starts in.</summary>
-    [YamlMember(Alias = "start_directory")]
-    public string? StartDirectory { get; set; }
+    /// <summary>Initializes a workspace description.</summary>
+    /// <param name="sessionName">The session name.</param>
+    /// <param name="startDirectory">The directory its windows start in.</param>
+    /// <param name="options">The session options to set.</param>
+    /// <param name="windows">The windows to create, in order.</param>
+    public WorkspaceFile(
+        string? sessionName = null,
+        string? startDirectory = null,
+        IReadOnlyDictionary<string, string>? options = null,
+        IReadOnlyList<WorkspaceWindow>? windows = null)
+    {
+        SessionName = sessionName;
+        StartDirectory = startDirectory;
+        _options = WorkspaceCollections.Copy(options, nameof(options));
+        _windows = WorkspaceCollections.Copy(windows, nameof(windows));
+    }
 
-    /// <summary>Gets or sets the session options set once the session exists.</summary>
-    [YamlMember(Alias = "options")]
-    public Dictionary<string, string> Options { get; set; } = [];
+    /// <summary>Gets the session name.</summary>
+    public string? SessionName { get; }
 
-    /// <summary>Gets or sets the windows, in the order they are created.</summary>
-    [YamlMember(Alias = "windows")]
-    public List<WorkspaceWindow> Windows { get; set; } = [];
+    /// <summary>Gets the directory its windows start in.</summary>
+    public string? StartDirectory { get; }
+
+    /// <summary>Gets the session options to set.</summary>
+    public IReadOnlyDictionary<string, string> Options => _options;
+
+    /// <summary>Gets the windows to create, in order.</summary>
+    public IReadOnlyList<WorkspaceWindow> Windows => _windows;
 
     /// <summary>Reads a workspace from tmuxp YAML.</summary>
-    /// <param name="yaml">The file's contents.</param>
-    /// <returns>The workspace.</returns>
-    /// <exception cref="WorkspaceFormatException">The text is not a workspace.</exception>
+    /// <param name="yaml">The file contents.</param>
+    /// <returns>The parsed workspace.</returns>
+    /// <exception cref="WorkspaceFormatException">
+    /// The input is too large, malformed, contains more than one document, or
+    /// uses a key or value shape outside the supported subset.
+    /// </exception>
     public static WorkspaceFile Parse(string yaml)
     {
         ArgumentNullException.ThrowIfNull(yaml);
-        IDeserializer reader = new DeserializerBuilder()
-            .WithNamingConvention(UnderscoredNamingConvention.Instance)
-            .IgnoreUnmatchedProperties()
-            .Build();
-
-        try
-        {
-            // tmuxp writes a pane as a bare string when the command is all it
-            // needs, so the shape is normalised before it is bound.
-            return reader.Deserialize<WorkspaceFile>(Normalize(yaml))
-                ?? throw new WorkspaceFormatException("The workspace file is empty.");
-        }
-        catch (YamlDotNet.Core.YamlException failure)
-        {
-            throw new WorkspaceFormatException(
-                $"The workspace file could not be read: {failure.Message}",
-                failure);
-        }
-    }
-
-    private static string Normalize(string yaml)
-    {
-        // A pane written as "- vim" means a pane running vim. Rewriting it to
-        // the mapping form is what lets one reader handle both spellings.
-        string[] lines = yaml.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        List<string> rewritten = new(lines.Length);
-        bool inPanes = false;
-        int panesIndent = 0;
-
-        foreach (string line in lines)
-        {
-            string trimmed = line.TrimStart();
-            int indent = line.Length - trimmed.Length;
-
-            if (trimmed.StartsWith("panes:", StringComparison.Ordinal))
-            {
-                inPanes = true;
-                panesIndent = indent;
-                rewritten.Add(line);
-                continue;
-            }
-
-            if (inPanes && trimmed.Length > 0 && indent <= panesIndent
-                && !trimmed.StartsWith("- ", StringComparison.Ordinal))
-            {
-                inPanes = false;
-            }
-
-            if (inPanes
-                && trimmed.StartsWith("- ", StringComparison.Ordinal)
-                && !trimmed.Contains(": ", StringComparison.Ordinal)
-                && !trimmed.EndsWith(':'))
-            {
-                string command = trimmed[2..].Trim();
-                rewritten.Add($"{line[..indent]}- shell_command: {command}");
-                continue;
-            }
-
-            rewritten.Add(line);
-        }
-
-        return string.Join('\n', rewritten);
+        return WorkspaceYamlParser.Parse(yaml);
     }
 }
 
@@ -152,10 +136,50 @@ public sealed class WorkspaceFile
 public sealed class WorkspaceFormatException : LibTmuxException
 {
     /// <summary>Initializes the exception.</summary>
-    /// <param name="message">What is wrong with the file.</param>
-    /// <param name="innerException">The underlying failure, when any.</param>
+    /// <param name="message">The invalid part of the workspace.</param>
+    /// <param name="innerException">The underlying YAML failure, when present.</param>
     public WorkspaceFormatException(string message, Exception? innerException = null)
         : base(message, innerException)
     {
+    }
+}
+
+internal static class WorkspaceCollections
+{
+    public static ReadOnlyCollection<T> Copy<T>(
+        IReadOnlyList<T>? values,
+        string parameterName)
+        where T : class
+    {
+        T[] copy = values is null ? [] : [.. values];
+        if (copy.Any(static value => value is null))
+        {
+            throw new ArgumentException("The collection cannot contain null.", parameterName);
+        }
+
+        return Array.AsReadOnly(copy);
+    }
+
+    public static ReadOnlyDictionary<string, string> Copy(
+        IReadOnlyDictionary<string, string>? values,
+        string parameterName)
+    {
+        Dictionary<string, string> copy = new(StringComparer.Ordinal);
+        if (values is not null)
+        {
+            foreach ((string key, string value) in values)
+            {
+                if (key is null || value is null)
+                {
+                    throw new ArgumentException(
+                        "Option names and values cannot be null.",
+                        parameterName);
+                }
+
+                copy.Add(key, value);
+            }
+        }
+
+        return new ReadOnlyDictionary<string, string>(copy);
     }
 }

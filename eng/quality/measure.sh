@@ -25,7 +25,10 @@ printf '%-38s %s\n' "fuzz cases per run" \
   "$(rg -o 'CasesPerTarget = [0-9_]+' tests/LibTmux.UnitTests/Fuzzing/ParserFuzzTests.cs \
      | rg -o '[0-9_]+' | tail -1 | tr -d '_')"
 printf '%-38s %s/%s\n' "actions pinned to a commit SHA" "$(count_pinned)" "$(count_uses)"
-printf '%-38s %s\n' "document validators" "$(fd 'verify_.*\.py' eng/parity | wc -l | tr -d ' ')"
+# Counted from the workflow rather than from the scripts on disk: the gate is
+# what CI runs, and a script nobody invokes is not a check.
+printf '%-38s %s\n' "document validators" \
+  "$(rg -c 'uv run.*(verify_.*\.py|--check)' .github/workflows/dotnet.yml | tr -d ' ')"
 printf '%-38s %s\n' "decision records" "$(fd -e md . docs/decisions -d 1 | wc -l | tr -d ' ')"
 printf '%-38s %s\n' "recorded benchmark runs" "$(fd -e md . docs/benchmarks/runs 2>/dev/null | wc -l | tr -d ' ')"
 printf '%-38s %s\n' "published packages" \
@@ -34,8 +37,10 @@ printf '%-38s %s\n' "projects suppressing CS1591 (want 0)" \
   "$(rg -l 'CS1591' src/LibTmux/LibTmux.csproj src/LibTmux.Query.Json/LibTmux.Query.Json.csproj 2>/dev/null | wc -l | tr -d ' ')"
 
 missing=0
+# GitHub reads these from the root or from .github, so both count as present.
 for f in README.md LICENSE SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md CHANGELOG.md; do
-  [ -e "$f" ] || { echo "MISSING: $f" >&2; missing=$((missing + 1)); }
+  [ -e "$f" ] || [ -e ".github/$f" ] \
+    || { echo "MISSING: $f" >&2; missing=$((missing + 1)); }
 done
 printf '%-38s %s\n' "standard project files missing" "$missing"
 

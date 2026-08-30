@@ -1,7 +1,6 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace LibTmux.Query;
@@ -12,11 +11,6 @@ namespace LibTmux.Query;
 /// raises <see cref="UnsupportedQueryExpressionException" /> rather than being
 /// left for in-memory evaluation, so one predicate cannot mean two things.
 /// </remarks>
-// Reading a captured value out of an expression means running the code that
-// produced it, and running code an expression describes needs the runtime to
-// generate it. Ahead-of-time publishing cannot, so every caller is told.
-[RequiresDynamicCode(
-    "Translating an expression evaluates its captured values, which needs runtime code generation.")]
 internal static class QueryTranslator
 {
     internal static QueryDocument Translate<T>(Expression<Func<T, bool>> predicate)
@@ -24,11 +18,13 @@ internal static class QueryTranslator
         ArgumentNullException.ThrowIfNull(predicate);
         ParameterExpression parameter = predicate.Parameters[0];
         QueryNode node = TranslateNode(predicate.Body, parameter);
-        return new QueryDocument(
+        QueryDocument document = new(
             QueryDocument.CurrentSchema,
             QueryDocument.CurrentVersion,
             TargetOf(node),
             node);
+        QueryDocumentValidator.Validate(document);
+        return document;
     }
 
     private static QueryNode TranslateNode(Expression body, ParameterExpression parameter) =>
@@ -90,10 +86,20 @@ internal static class QueryTranslator
         QueryNode left = TranslateOperand(binary.Left, parameter);
         QueryNode right = TranslateOperand(binary.Right, parameter);
         if (comparison is QueryComparison.Equal or QueryComparison.NotEqual
-            && StripConvert(binary.Left).Type == typeof(string))
+            && left is FieldNode field
+            && right is ConstantNode constant
+            && QueryFieldCatalog.TryGetKind(field.WireName, out QueryValueKind kind))
         {
-            StringNode equality = new(QueryStringOperation.EqualsOrdinal, left, right);
-            return comparison == QueryComparison.Equal ? equality : new NotNode(equality);
+            if (kind == QueryValueKind.String && constant.Value is StringConstant)
+            {
+                StringNode equality = new(QueryStringOperation.EqualsOrdinal, left, right);
+                return comparison == QueryComparison.Equal ? equality : new NotNode(equality);
+            }
+
+            if (kind == QueryValueKind.TypedId && constant.Value is StringConstant id)
+            {
+                right = new ConstantNode(new TypedIdConstant(field.Target, id.Value));
+            }
         }
 
         return new ComparisonNode(comparison, left, right);
@@ -122,18 +128,23 @@ internal static class QueryTranslator
             "Contains" => QueryStringOperation.ContainsOrdinal,
             _ => throw Unsupported(call),
         };
-        // The wire form is ordinal, so only the overload naming
-        // StringComparison.Ordinal is accepted -- the same one CA1310 asks
-        // callers to write. A culture-sensitive overload has no wire form and
-        // throws instead of silently meaning something else.
-        if (call.Object is null || call.Arguments.Count is not (1 or 2))
+        if (call.Method.DeclaringType != typeof(string) || call.Object is null)
         {
             throw Unsupported(call);
         }
 
-        if (call.Arguments.Count == 2
-            && !(TryConstant(call.Arguments[1], out object? comparison)
-                && comparison is StringComparison.Ordinal))
+        if (call.Arguments.Count == 1)
+        {
+            // Contains(string) is ordinal. The one-argument StartsWith and
+            // EndsWith overloads use the current culture and have no v1 wire form.
+            if (operation != QueryStringOperation.ContainsOrdinal)
+            {
+                throw Unsupported(call);
+            }
+        }
+        else if (call.Arguments.Count != 2
+            || !TryConstant(call.Arguments[1], out object? comparison)
+            || comparison is not StringComparison.Ordinal)
         {
             throw Unsupported(call);
         }
@@ -148,10 +159,11 @@ internal static class QueryTranslator
         MethodCallExpression call,
         ParameterExpression parameter)
     {
-        if (call.Arguments.Count < 2 || !TryConstant(call.Arguments[1], out object? pattern))
+        if (call.Arguments.Count is not (2 or 3)
+            || !TryConstant(call.Arguments[1], out object? pattern))
         {
-            // A non-constant pattern cannot be carried on the wire, and
-            // compiling it locally would diverge from the document.
+            // A non-constant pattern or explicit timeout cannot be carried on
+            // the wire, and dropping either would change the predicate.
             throw Unsupported(call);
         }
 
@@ -166,9 +178,14 @@ internal static class QueryTranslator
             options = parsed;
         }
 
+        if (!QueryRegexSemantics.IsSupported(options))
+        {
+            throw Unsupported(call);
+        }
+
         return new RegexNode(
             TranslateOperand(call.Arguments[0], parameter),
-            "dotnet",
+            QueryRegexSemantics.Dialect,
             (string)pattern!,
             options);
     }
@@ -212,17 +229,14 @@ internal static class QueryTranslator
 
     private static FieldNode FieldFor(MemberInfo member)
     {
-        // What tmux calls a field is not a transformation of what C# calls
-        // it -- Client.IsControlClient is client_control, not
-        // is_control_client. The catalog carries that pairing; an unknown
-        // type is a caller's own row, whose property names are wire names already.
+        // Entity properties use cataloged tmux names. Caller-defined
+        // projections already name their wire fields.
         string wireName =
             member.DeclaringType is { } owner
-            && QueryFieldCatalog.TryGetWireName(owner.Name, member.Name, out string mapped)
+            && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)
                 ? mapped
                 : ToWireName(member.Name);
-        // The catalog is closed: a field it does not carry cannot be put on the
-        // wire, so translating it would produce a document tmux cannot answer.
+        // The catalog is closed: a field it does not carry has no wire form.
         if (!QueryFieldCatalog.TryGetTarget(wireName, out QueryTarget target))
         {
             throw new UnsupportedQueryExpressionException(
@@ -237,13 +251,17 @@ internal static class QueryTranslator
         null => new NullConstant(),
         bool boolean => new BooleanConstant(boolean),
         string text => new StringConstant(text),
-        DateTimeOffset instant => new InstantConstant(instant.ToUnixTimeSeconds()),
-        Enum member => new EnumConstant(declared.Name, member.ToString()),
         SessionId id => new TypedIdConstant(QueryTarget.Session, id.ToString()),
         WindowId id => new TypedIdConstant(QueryTarget.Window, id.ToString()),
         PaneId id => new TypedIdConstant(QueryTarget.Pane, id.ToString()),
-        _ when value is IConvertible convertible => new Int64Constant(
-            convertible.ToInt64(CultureInfo.InvariantCulture)),
+        sbyte number => new Int64Constant(number),
+        byte number => new Int64Constant(number),
+        short number => new Int64Constant(number),
+        ushort number => new Int64Constant(number),
+        int number => new Int64Constant(number),
+        uint number => new Int64Constant(number),
+        long number => new Int64Constant(number),
+        ulong number when number <= long.MaxValue => new Int64Constant((long)number),
         _ => throw new UnsupportedQueryExpressionException(
             $"Constant of type '{declared.Name}' has no wire form."),
     };
@@ -256,18 +274,21 @@ internal static class QueryTranslator
             return true;
         }
 
-        try
+        if (expression is MemberExpression
+            {
+                Expression: ConstantExpression { Value: not null } closure,
+                Member: FieldInfo { IsStatic: false } field,
+            }
+            && field.DeclaringType?.IsDefined(
+                typeof(CompilerGeneratedAttribute),
+                inherit: false) == true)
         {
-            value = Expression.Lambda(Expression.Convert(expression, typeof(object)))
-                .Compile()
-                .DynamicInvoke();
+            value = field.GetValue(closure.Value);
             return true;
         }
-        catch (InvalidOperationException)
-        {
-            value = null;
-            return false;
-        }
+
+        value = null;
+        return false;
     }
 
     private static Expression StripConvert(Expression expression) =>

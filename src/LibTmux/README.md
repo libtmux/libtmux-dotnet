@@ -2,11 +2,11 @@
 
 A typed, async-first [tmux](https://github.com/tmux/tmux) client for .NET.
 Servers, sessions, windows, panes, clients, options, hooks and buffers, against
-every tmux from **3.2a to 3.7b**, on **net8.0** and **net10.0**.
+every tmux from **3.2a to 3.7c**, on **net8.0** and **net10.0**.
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version. The behaviour is proven against all
-> seven supported tmux versions on every commit.
+> eight supported tmux versions on every commit.
 
 ```console
 $ dotnet package add LibTmux --prerelease
@@ -27,7 +27,6 @@ Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "test
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
-await pane.EnterAsync();
 ```
 
 To reach one server in particular:
@@ -89,7 +88,9 @@ Window built = await session.CreateWindowAsync(new NewWindowRequest(name: "build
 ```csharp run
 // One client, held open, streaming what tmux does on its own.
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-IReadOnlyList<string> reply = await control.SendAsync("list-windows", ct);
+IReadOnlyList<string> reply = await control.SendAsync(
+    TmuxCommand.Create("list-windows"),
+    ct);
 ```
 
 ```csharp run
@@ -192,7 +193,8 @@ objects you already hold:
 ```csharp run
 IReadOnlyList<Session> sessions = await server.GetSessionsAsync(ct);
 IReadOnlyList<Session> building = sessions.Matching<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 ```
 
 Relations quantify, and the element type carries its own fields:
@@ -200,7 +202,8 @@ Relations quantify, and the element type carries its own fields:
 ```csharp run
 Server captured = await server.CaptureSnapshotAsync(SnapshotDepth.Windows, ct);
 IReadOnlyList<Session> withBuild = captured.Sessions.Matching<Session>(
-    session => session.Windows.Any(each => each.Name.StartsWith("build")));
+    session => session.Windows.Any(
+        each => each.Name.StartsWith("build", StringComparison.Ordinal)));
 ```
 
 The same expression is also a document, which can be written here and answered
@@ -208,12 +211,13 @@ somewhere else:
 
 ```csharp run
 QueryDocument document = QueryExtensions.Translate<Session>(
-    session => session.Name.StartsWith("build") && session.Attached);
+    session => session.Name.StartsWith("build", StringComparison.Ordinal)
+        && session.Attached);
 ```
 
-You write C# and tmux receives tmux. The catalog carries the pair for all
-twelve queryable fields — `Session.Name` is `session_name`,
-`Client.IsControlClient` is `client_control` — and it is closed:
+The document carries stable wire names: `Session.Name` is `session_name` and
+`Client.IsControlClient` is `client_control_mode`. The catalog is closed over
+twelve queryable fields:
 
 | Session | Window | Pane | Client |
 |---|---|---|---|
@@ -228,7 +232,9 @@ internal sealed record PaneRow(string PaneId, string PaneCommand);
 ```
 
 A field outside the catalog throws `UnsupportedQueryExpressionException` rather
-than falling back, so an expression that translates is one tmux can answer.
+than falling back. Typed queries evaluate locally over captured objects and are
+never assembled into tmux's executable format language. `UnsafeTmuxFilter` is
+the separate opt-in for native tmux `-f` behavior.
 
 Put it on the wire with
 [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json).
@@ -258,7 +264,6 @@ TmuxTestFactory factory = new();
 await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
-await scope.Pane.EnterAsync();
 ```
 
 Disposing kills the server, so a test that fails part way through leaves
@@ -305,9 +310,10 @@ broke, and `Unknown` is the default for exactly that reason. A
 
 | | |
 |---|---|
-| tmux | 3.2a to 3.7b |
+| tmux | 3.2a to 3.7c |
 | .NET | net8.0, net10.0 |
 | OS | Linux and macOS. `Server`, `Session`, `Window` and `Pane` are annotated unsupported on Windows, because their lifecycle, mutation and control-mode contracts need a real tmux |
+| Trimming / NativeAOT | Core APIs are analyzer-gated. Query `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties |
 | Windows preview | `PsmuxServer`, `PsmuxSession`, `PsmuxWindow` and `PsmuxPane` read one [psmux](https://github.com/psmux/psmux) session — its windows, its panes, and pane text — natively or across WSL. They cannot express lifecycle, mutation, chaining, control mode, or raw commands, so a caller gets a compile error where a suppression would have given a silent gap. [The preview contract](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/psmux.md) names the build it accepts and how to provision it |
 
 ## Related packages

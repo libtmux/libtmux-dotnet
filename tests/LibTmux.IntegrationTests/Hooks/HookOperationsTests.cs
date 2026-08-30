@@ -144,8 +144,9 @@ public sealed class HookOperationsTests
         // Every supported tmux carries the window and pane hook scopes, so
         // there is no older spelling to fall back to and nothing to warn about.
         Assert.True(
-            TmuxCapabilities.GetRequired(server.Version!.Value)
-                .Capabilities.Contains("hook_scope_pane_window_set"));
+            TmuxCapabilities.IsSupported(
+                server.Version!.Value,
+                "hook_scope_pane_window_set"));
         Assert.Equal("-w", CommandFlagCatalog.GetHookScopeFlag(OptionScope.Window));
         Assert.Equal("-p", CommandFlagCatalog.GetHookScopeFlag(OptionScope.Pane));
 
@@ -188,8 +189,9 @@ public sealed class HookOperationsTests
         Pane pane = await TestHierarchy.RequireFirstPaneAsync(window, token);
 
         Assert.True(
-            TmuxCapabilities.GetRequired(server.Version!.Value)
-                .Capabilities.Contains("hook_scope_pane_window_show"));
+            TmuxCapabilities.IsSupported(
+                server.Version!.Value,
+                "hook_scope_pane_window_show"));
 
         // Reading a scope that holds nothing is an empty answer, not a failure,
         // on every supported version.

@@ -3,8 +3,9 @@
 > This is a reviewed contract. Production implementation and passing
 > evidence are intentionally absent at this boundary.
 
-The API targets `net8.0` and `net10.0`. Required tmux compatibility is
-3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b; tmux master is advisory and `unknown`.
+The API targets `net8.0` and `net10.0`. Stable tmux releases from `3.2a` onward are supported.
+The required compatibility matrix covers
+3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, 3.7c; tmux master is advisory and `unknown`.
 Native Windows tmux execution is unsupported. IDs, snapshots, local query
 evaluation, JSON, and pure test helpers remain portable.
 
@@ -15,8 +16,8 @@ zero-argument methods.
 
 ## TmuxVersion semantic contract
 
-Minimum support is `3.2a` inclusive; `3.7b` is informational, not a support ceiling.
-Exact capability profiles never use nearest-lower fallback.
+Minimum support is `3.2a` inclusive; `3.7c` is informational, not a support ceiling.
+Stable releases use named capability intervals.
 The detection line starts with the exact lowercase prefix `tmux `.
 The complete parsing, ordering, detection, and support contract follows.
 
@@ -40,6 +41,7 @@ The complete parsing, ordering, detection, and support contract follows.
       "3.7": null,
       "3.3.7": "7",
       "3.7b": "b",
+      "3.7c": "c",
       "3.0-rc3": "rc3",
       "3.3a-openbsd": "a-openbsd",
       "next-3.8": "next"
@@ -79,9 +81,9 @@ The complete parsing, ordering, detection, and support contract follows.
     "exactIdentity": "CompareTo returns zero if and only if equality is true",
     "examples": [
       "next-3.7 < 3.7-dev < 3.7-dev.0 < 3.7-rc1 < 3.7-rc2",
-      "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b",
+      "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b < 3.7c",
       "3.3 < 3.3.1 < 3.3.10 < 3.3a",
-      "3.7b < next-3.8 < 3.8"
+      "3.7c < next-3.8 < 3.8"
     ],
     "invalidOperands": "CompareTo, <, <=, >, >=, IsAtLeast, and EnsureAtLeast throw InvalidOperationException if either operand is invalid",
     "ensureAtLeastFailure": "a valid value below a valid minimum throws TmuxVersionTooLowException"
@@ -110,12 +112,12 @@ The complete parsing, ordering, detection, and support contract follows.
   "support": {
     "minimum": "3.2a",
     "minimumInclusive": true,
-    "maximumTested": "3.7b",
+    "maximumTested": "3.7c",
     "maximumTestedSemantics": "informational; not a support ceiling",
     "minimumChecks": "enforce only the minimum; newer untested versions may satisfy them",
-    "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-    "capabilityProfileSelection": "exact parsed version identity only; no nearest-lower fallback",
-    "unknownCapabilityProfile": "a version may satisfy the minimum without an approved profile"
+    "exactVersionIdentity": "3.7, 3.7a, 3.7b, and 3.7c are distinct",
+    "capabilitySelection": "named support intervals apply to every stable release at or above the minimum; capabilities without a recorded end remain supported on later stable releases",
+    "unknownCapabilityVersion": "invalid, below-minimum, development, release-candidate, and next versions have unknown capability state"
   }
 }
 ```
@@ -340,9 +342,7 @@ internal static class Program
 | `T:LibTmux.Query.BooleanConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical boolean constant. | `LibTmux` |
 | `T:LibTmux.Query.ComparisonNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical comparison query node. | `LibTmux` |
 | `T:LibTmux.Query.ConstantNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical constant query node. | `LibTmux` |
-| `T:LibTmux.Query.EnumConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical enum constant. | `LibTmux` |
 | `T:LibTmux.Query.FieldNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical field query node. | `LibTmux` |
-| `T:LibTmux.Query.InstantConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical instant constant. | `LibTmux` |
 | `T:LibTmux.Query.Int64Constant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical int64 constant. | `LibTmux` |
 | `T:LibTmux.Query.Json.QueryJson` | static class | `public, static` | None | `object` | value | Serializes and parses v1 query documents. | `LibTmux.Query.Json` |
 | `T:LibTmux.Query.Json.QueryJsonLimits` | record | `public, sealed` | None | `object` | value | Tightens the fixed v1 JSON resource ceilings. | `LibTmux.Query.Json` |
@@ -437,6 +437,7 @@ internal static class Program
 | `T:LibTmux.WindowResizeMode` | enum | `public` | None | `Enum` | value | Defines WindowResizeMode values. | `LibTmux` |
 | `T:LibTmux.WindowRotationDirection` | enum | `public` | None | `Enum` | value | Defines WindowRotationDirection values. | `LibTmux` |
 | `T:LibTmux.IControlModeSession` | interface | `public` | `System.IAsyncDisposable` | `None` | reference | A live tmux control client reporting what tmux does until disposed. | `LibTmux` |
+| `T:LibTmux.ControlModeCommandException` | class | `public, sealed` | None | `LibTmuxException` | reference | Reports a command rejected by a live tmux control client. State: Command, OutputLines, ErrorLines. | `LibTmux` |
 | `T:LibTmux.TmuxEvent` | record | `public, abstract` | None | `object` | value | One thing a tmux control client reported without being asked. | `LibTmux` |
 | `T:LibTmux.TmuxEventsDroppedEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | A loss marker emitted when the bounded control-event buffer overflows. | `LibTmux` |
 | `T:LibTmux.TmuxOutputEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | Bytes a pane wrote, with tmux's escaping decoded. | `LibTmux` |
@@ -445,6 +446,7 @@ internal static class Program
 | `T:LibTmux.TmuxCommand` | record | `public, sealed` | None | `object` | value | One tmux command and the arguments it carries. | `LibTmux` |
 | `T:LibTmux.TmuxChain` | class | `public, sealed` | None | `object` | reference | Commands tmux runs together, in one process. | `LibTmux` |
 | `T:LibTmux.TmuxChaining` | class | `public, static` | None | `object` | value | Turns a request record into a command a chain can carry. | `LibTmux` |
+| `T:LibTmux.TmuxWaitChannel` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Holds a tmux wait-for registration across timed attempts. | `LibTmux` |
 
 ## Public members
 
@@ -589,6 +591,15 @@ internal static class Program
 | `P:LibTmux.ConfirmBeforeRequest.Prompt` | `string? LibTmux.ConfirmBeforeRequest.Prompt { get; }` | Public | No | Portable | Gets Prompt. |
 | `P:LibTmux.ConfirmBeforeRequest.TargetClient` | `string? LibTmux.ConfirmBeforeRequest.TargetClient { get; }` | Public | No | Portable | Gets TargetClient. |
 
+### `T:LibTmux.ControlModeCommandException`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ControlModeCommandException.#ctor(string,TmuxCommand,System.Collections.Generic.IReadOnlyList{string},System.Collections.Generic.IReadOnlyList{string},Exception?)` | `ControlModeCommandException(string message, TmuxCommand command, IReadOnlyList<string> outputLines, IReadOnlyList<string> errorLines, Exception? innerException = null)` | Public | No | Portable | Initializes a control-mode command exception. |
+| `P:LibTmux.ControlModeCommandException.Command` | `TmuxCommand LibTmux.ControlModeCommandException.Command { get; }` | Public | No | Portable | Gets the command tmux rejected. |
+| `P:LibTmux.ControlModeCommandException.ErrorLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.ErrorLines { get; }` | Public | No | Portable | Gets the error lines tmux reported. |
+| `P:LibTmux.ControlModeCommandException.OutputLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.OutputLines { get; }` | Public | No | Portable | Gets output produced before tmux rejected the command. |
+
 ### `T:LibTmux.CopyModeRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -707,7 +718,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.IControlModeSession.SendAsync(string,System.Threading.CancellationToken)` | `Task<IReadOnlyList<string>> SendAsync(string command, CancellationToken cancellationToken = default)` | Public | No | Portable | Runs one command on this client and reads what it answered. |
+| `M:LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)` | `Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default)` | Public | No | Portable | Runs one command on this client and reads what it answered. |
 | `P:LibTmux.IControlModeSession.Events` | `IAsyncEnumerable<TmuxEvent> LibTmux.IControlModeSession.Events { get; }` | Public | No | Portable | Reads what tmux reports for as long as the client runs. |
 | `P:LibTmux.IControlModeSession.IsRunning` | `bool LibTmux.IControlModeSession.IsRunning { get; }` | Public | No | Portable | Gets whether the client is still running. |
 
@@ -1126,14 +1137,6 @@ internal static class Program
 | `M:LibTmux.Query.ConstantNode.#ctor(QueryConstant)` | `ConstantNode(QueryConstant value)` | Public | No | Portable | Creates ConstantNode. |
 | `P:LibTmux.Query.ConstantNode.Value` | `QueryConstant LibTmux.Query.ConstantNode.Value { get; }` | Public | No | Portable | Gets Value. |
 
-### `T:LibTmux.Query.EnumConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.EnumConstant.#ctor(string,string)` | `EnumConstant(string type, string value)` | Public | No | Portable | Creates EnumConstant. |
-| `P:LibTmux.Query.EnumConstant.Type` | `string LibTmux.Query.EnumConstant.Type { get; }` | Public | No | Portable | Gets Type. |
-| `P:LibTmux.Query.EnumConstant.Value` | `string LibTmux.Query.EnumConstant.Value { get; }` | Public | No | Portable | Gets Value. |
-
 ### `T:LibTmux.Query.FieldNode`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -1141,13 +1144,6 @@ internal static class Program
 | `M:LibTmux.Query.FieldNode.#ctor(QueryTarget,string)` | `FieldNode(QueryTarget target, string wireName)` | Public | No | Portable | Creates FieldNode. |
 | `P:LibTmux.Query.FieldNode.Target` | `QueryTarget LibTmux.Query.FieldNode.Target { get; }` | Public | No | Portable | Gets Target. |
 | `P:LibTmux.Query.FieldNode.WireName` | `string LibTmux.Query.FieldNode.WireName { get; }` | Public | No | Portable | Gets WireName. |
-
-### `T:LibTmux.Query.InstantConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.InstantConstant.#ctor(long)` | `InstantConstant(long unixSeconds)` | Public | No | Portable | Creates InstantConstant. |
-| `P:LibTmux.Query.InstantConstant.UnixSeconds` | `long LibTmux.Query.InstantConstant.UnixSeconds { get; }` | Public | No | Portable | Gets UnixSeconds. |
 
 ### `T:LibTmux.Query.Int64Constant`
 
@@ -1238,6 +1234,7 @@ internal static class Program
 | ``M:LibTmux.Query.QueryExtensions.Compile``1(QueryDocument)`` | `static Func<T,bool> LibTmux.Query.QueryExtensions.Compile<T>(this QueryDocument document)` | Public | Yes | Portable | Compiles the canonical direct interpreter for a query document. |
 | ``M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,Expression<Func<T,bool>>)`` | `static IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, Expression<Func<T,bool>> predicate)` | Public | Yes | Portable | Translates and evaluates a supported predicate against an explicit snapshot. |
 | ``M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,QueryDocument)`` | `static IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, QueryDocument document)` | Public | Yes | Portable | Evaluates one canonical query document against an explicit snapshot. |
+| ``M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,QueryDocument,CancellationToken)`` | `static IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, QueryDocument document, CancellationToken cancellationToken)` | Public | Yes | Portable | Evaluates one canonical query document with cooperative cancellation. |
 | ``M:LibTmux.Query.QueryExtensions.Translate``1(Expression<Func<T,bool>>)`` | `static QueryDocument LibTmux.Query.QueryExtensions.Translate<T>(Expression<Func<T,bool>> predicate)` | Public | Yes | Portable | Translates a supported expression into the canonical query document. |
 
 ### `T:LibTmux.Query.QueryQuantifier`
@@ -1448,6 +1445,7 @@ internal static class Program
 | `M:LibTmux.Server.LockAsync(CancellationToken)` | `Task LibTmux.Server.LockAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Lock. |
 | `M:LibTmux.Server.LockClientAsync(string?,CancellationToken)` | `Task LibTmux.Server.LockClientAsync(string? targetClient = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs LockClient. |
 | `M:LibTmux.Server.Open(ServerConnectionOptions?)` | `static Server LibTmux.Server.Open(ServerConnectionOptions? options = null)` | Public | Yes | Portable | Opens an unmaterialized connection handle without starting a process. |
+| `M:LibTmux.Server.OpenWaitChannel(String)` | `TmuxWaitChannel LibTmux.Server.OpenWaitChannel(string channel)` | Public | No | `UnsupportedOSPlatform("windows")` | Opens a wait that survives a timed attempt. |
 | `M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)` | `Task LibTmux.Server.RaiseIfDeadAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RaiseIfDead. |
 | `M:LibTmux.Server.RefreshClientAsync(string?,bool,CancellationToken)` | `Task LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RefreshClient. |
 | `M:LibTmux.Server.RunShellAsync(RunShellRequest,CancellationToken)` | `Task<IReadOnlyList<string>?> LibTmux.Server.RunShellAsync(RunShellRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RunShell. |
@@ -1651,8 +1649,9 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,Exception?)` | `StaleServerGenerationException(string message, ServerGeneration expected, Exception? innerException = null)` | Public | No | Portable | Creates StaleServerGenerationException without a known replacement generation. |
 | `M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,ServerGeneration,Exception?)` | `StaleServerGenerationException(string message, ServerGeneration expected, ServerGeneration actual, Exception? innerException = null)` | Public | No | Portable | Creates StaleServerGenerationException. |
-| `P:LibTmux.StaleServerGenerationException.Actual` | `ServerGeneration LibTmux.StaleServerGenerationException.Actual { get; }` | Public | No | Portable | Gets Actual. |
+| `P:LibTmux.StaleServerGenerationException.Actual` | `ServerGeneration? LibTmux.StaleServerGenerationException.Actual { get; }` | Public | No | Portable | Gets Actual, or null when it could not be observed. |
 | `P:LibTmux.StaleServerGenerationException.Expected` | `ServerGeneration LibTmux.StaleServerGenerationException.Expected { get; }` | Public | No | Portable | Gets Expected. |
 
 ### `T:LibTmux.SwapPaneRequest`
@@ -1770,6 +1769,7 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | `Task<TmuxCommandResult> ExecuteAsync(CancellationToken cancellationToken = default)` | Public | No | Portable | Runs every command in one tmux invocation. |
 | `M:LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | `TmuxChain Then(TmuxCommand command)` | Public | No | Portable | Adds one command and returns the longer chain. |
+| `M:LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})` | `TmuxChain Then(IEnumerable<TmuxCommand> commands)` | Public | No | Portable | Adds every command in order and returns the longer chain. |
 | `M:LibTmux.TmuxChain.Then(string,string[])` | `TmuxChain Then(string name, params string[] arguments)` | Public | No | Portable | Adds one command by name and returns the longer chain. |
 | `P:LibTmux.TmuxChain.Commands` | `IReadOnlyList<TmuxCommand> LibTmux.TmuxChain.Commands { get; }` | Public | No | Portable | Gets the commands this chain will run, in order. |
 
@@ -1839,7 +1839,7 @@ internal static class Program
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this MoveWindowRequest request, Window window)` | Public | Yes | Portable | Returns a window-move request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this NewPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a floating-pane request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)` | `static static TmuxCommand ToCommand(this NewSessionRequest request)` | Public | Yes | Portable | Returns a session request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,string)` | `static static TmuxCommand ToCommand(this NewWindowRequest request, string target)` | Public | Yes | Portable | Returns a window request as one tmux command. |
+| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)` | `static static TmuxCommand ToCommand(this NewWindowRequest request, Session session)` | Public | Yes | Portable | Returns a window request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PasteBufferRequest request, Pane pane)` | Public | Yes | Portable | Returns a paste request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PipePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-piping request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this ResizePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-resize request as one tmux command. |
@@ -2132,6 +2132,15 @@ internal static class Program
 | `P:LibTmux.TmuxVersionTooLowException.ActualVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.ActualVersion { get; }` | Public | No | Portable | Gets ActualVersion. |
 | `P:LibTmux.TmuxVersionTooLowException.RequiredVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.RequiredVersion { get; }` | Public | No | Portable | Gets RequiredVersion. |
 
+### `T:LibTmux.TmuxWaitChannel`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxWaitChannel.DisposeAsync()` | `ValueTask LibTmux.TmuxWaitChannel.DisposeAsync()` | Public | No | `UnsupportedOSPlatform("windows")` | Withdraws the waiter from tmux. |
+| `M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)` | `Task<bool> LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan budget, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Waits for the signal, giving this attempt a budget. |
+| `P:LibTmux.TmuxWaitChannel.Channel` | `string LibTmux.TmuxWaitChannel.Channel { get; }` | Public | No | Portable | Gets the channel being waited on. |
+| `P:LibTmux.TmuxWaitChannel.Signalled` | `bool LibTmux.TmuxWaitChannel.Signalled { get; }` | Public | No | Portable | Gets whether the wait completed before withdrawal began. |
+
 ### `T:LibTmux.TmuxWaitMode`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -2313,7 +2322,7 @@ component ownership depend on their exact typed boundaries.
 | `T:LibTmux.Internal.FormatProjection` | record | Defines one version-gated length-prefixed tmux projection. Behavior: {"emittedFieldCounts":{"list-clients":{"3.2a":146,"3.3a-3.6":150,"3.7a+":161},"list-panes":{"3.2a":123,"3.3a-3.6":125,"3.7a+":136},"list-sessions":{"3.2a":123,"3.3a-3.6":125,"3.7a+":136},"list-windows":{"3.2a":123,"3.3a-3.6":125,"3.7a+":136}},"framedFieldCount":"Fields.Count * 2"}. |
 | `T:LibTmux.Internal.SeparatedRowFramer` | static class | Decodes separator-framed tmux fields without delimiter ambiguity. Validation: row := value{projection.Fields.Count}, each value terminated by FormatProjection.RowSeparator; wire names are not sent and values are read positionally from the same projection both ends build; every field is expanded exactly once, because a byte-count prefix would expand it a second time and a field that moved in between would desynchronise the payload; the separator is randomised per process so a caller-controlled name can neither contain nor predict it, and carries no '#' for tmux to expand; tmux LF separates rows and CRLF is accepted; a complete final row may end at EOF; embedded CR and LF remain value data; an empty value maps to null after Utf8BackslashDecoder, with its key present; maxFramedFieldBytes bounds one value; a row that ends before every field is read, a value that never closes, an oversized value, and a row not terminated by a newline each throw InvalidDataException; returned memories are copied. |
 | `T:LibTmux.Internal.MaterializationContext` | class | Carries the owning server while generated rows are materialized. |
-| `T:LibTmux.Internal.MaterializationQuery` | static class | Acquires version-gated framed rows for materialization. Behavior: {"liveAcquisition":"reject unmaterialized MaterializationContext.Server.Generation","mismatch":"StaleServerGenerationException","requiredUniversalFields":["pid","start_time"],"rowValidation":"parse pid/start_time as ServerGeneration and require equality with MaterializationContext.Server.Generation"}. |
+| `T:LibTmux.Internal.MaterializationQuery` | sealed class | Reads version-gated framed rows for materialization. Behavior: {"liveAcquisition":"reject unmaterialized MaterializationContext.Server.Generation","mismatch":"StaleServerGenerationException","requiredUniversalFields":["pid","start_time"],"rowValidation":"parse pid/start_time as ServerGeneration and require equality with MaterializationContext.Server.Generation"}. State: MaterializationContext. |
 | `T:LibTmux.Internal.Materializer` | static class | Materializes generated format projections. Behavior: {"mismatch":"StaleServerGenerationException","requiredUniversalFields":["pid","start_time"],"rowValidation":"parse pid/start_time as ServerGeneration and require equality with MaterializationContext.Server.Generation"}. |
 | `T:LibTmux.Internal.OptionFailure` | static class | Classifies option-command failures. |
 | `T:LibTmux.Internal.OptionParser` | static class | Parses lossless scalar, sparse, and complex option values. |
@@ -2340,8 +2349,8 @@ component ownership depend on their exact typed boundaries.
 | `M:LibTmux.Internal.SeparatedRowFramer.Decode(ReadOnlySpan<byte>)` | `static IReadOnlyList<ReadOnlyMemory<byte>> LibTmux.Internal.SeparatedRowFramer.Decode(ReadOnlySpan<byte> payload)` | Decodes one separator-framed row. |
 | `M:LibTmux.Internal.SeparatedRowFramer.DecodeRows(ReadOnlySpan<byte>,int,int)` | `static IReadOnlyList<IReadOnlyDictionary<string,ReadOnlyMemory<byte>>> LibTmux.Internal.SeparatedRowFramer.DecodeRows(ReadOnlySpan<byte> payload, int expectedFieldCount, int maxFramedFieldBytes)` | Decodes copied raw field values from one or more complete separator-framed rows. Validation: row := value{projection.Fields.Count}, each value terminated by FormatProjection.RowSeparator; wire names are not sent and values are read positionally from the same projection both ends build; every field is expanded exactly once, because a byte-count prefix would expand it a second time and a field that moved in between would desynchronise the payload; the separator is randomised per process so a caller-controlled name can neither contain nor predict it, and carries no '#' for tmux to expand; tmux LF separates rows and CRLF is accepted; a complete final row may end at EOF; embedded CR and LF remain value data; an empty value maps to null after Utf8BackslashDecoder, with its key present; maxFramedFieldBytes bounds one value; a row that ends before every field is read, a value that never closes, an oversized value, and a row not terminated by a newline each throw InvalidDataException; returned memories are copied. |
 | `M:LibTmux.Internal.MaterializationContext.#ctor(Server)` | `MaterializationContext(Server server)` | Creates materialization context for one owning server. |
-| `M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)` | `static Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext context, string listCommand, IReadOnlyList<string>? arguments = null, string? target = null, CancellationToken cancellationToken = default)` | Acquires and decodes every version-gated row for one logical tmux list command. Behavior: {"projection":"FormatProjection.Create(listCommand, context.Server.Version)","rawValues":"Utf8BackslashDecoder after byte framing","result":"all decoded rows as copied dictionaries"}. Failure mapping: {"framing":"TmuxTransportException carrying logical tmux arguments","lowLevel":"InvalidDataException"}. |
-| `M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)` | `static Task<IReadOnlyDictionary<string,string?>> LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext context, string listCommand, string targetId, string idField, IReadOnlyList<string>? arguments = null, CancellationToken cancellationToken = default)` | Acquires one canonical tmux target without conflating absence and server failure. Behavior: {"canonicalSession":"resolve session_name before list-windows or list-panes","missingTarget":"empty successful result throws TmuxObjectNotFoundException","unreachableServer":"tmux or transport failure propagates distinctly"}. Failure mapping: {"framing":"TmuxTransportException carrying logical tmux arguments","lowLevel":"InvalidDataException"}. |
+| `M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)` | `Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>> LibTmux.Internal.MaterializationQuery.FetchAsync(string listCommand, IEnumerable<string>? extraArguments = null, CancellationToken cancellationToken = default)` | Acquires and decodes every version-gated row for one logical tmux list command. Behavior: {"projection":"FormatProjection.Create(listCommand, context.TmuxVersion)","rawValues":"Utf8BackslashDecoder after byte framing","result":"all decoded rows as copied dictionaries"}. Failure mapping: {"framing":"TmuxTransportException carrying logical tmux arguments","lowLevel":"InvalidDataException"}. |
+| `M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)` | `Task<IReadOnlyDictionary<string,string?>?> LibTmux.Internal.MaterializationQuery.FetchOneAsync(string listCommand, string idWireName, string identifier, TmuxTarget? inSession = null, CancellationToken cancellationToken = default)` | Reads one tmux entity without listing the server. Behavior: {"missingTarget":"a row that does not carry the identifier back returns null","read":"display-message -p -t target rendering the list command's projection","scoping":"a session-scoped target is read before the bare identifier","unreachableServer":"tmux or transport failure propagates distinctly"}. Failure mapping: {"framing":"TmuxTransportException carrying logical tmux arguments","lowLevel":"InvalidDataException"}. |
 | `M:LibTmux.Internal.Materializer.MaterializeFormatFields(MaterializationContext,ReadOnlySpan<byte>)` | `static IReadOnlyDictionary<string,string?> LibTmux.Internal.Materializer.MaterializeFormatFields(MaterializationContext context, ReadOnlySpan<byte> payload)` | Materializes lossless format fields with explicit owner context. |
 | `M:LibTmux.Internal.Materializer.MaterializePane(MaterializationContext,IReadOnlyDictionary<string,string?>)` | `static Pane LibTmux.Internal.Materializer.MaterializePane(MaterializationContext context, IReadOnlyDictionary<string,string?> fields)` | Materializes one pane projection dictionary with explicit owner context. |
 | `M:LibTmux.Internal.Materializer.MaterializePane(MaterializationContext,ReadOnlySpan<byte>)` | `static Pane LibTmux.Internal.Materializer.MaterializePane(MaterializationContext context, ReadOnlySpan<byte> payload)` | Materializes one pane projection with explicit owner context. |

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 
 namespace LibTmux.Internal;
 
@@ -12,6 +13,7 @@ internal sealed class ControlModeEventBuffer
     private TaskCompletionSource _changed = NewSignal();
     private long _dropped;
     private long _reported;
+    private ExceptionDispatchInfo? _completionError;
     private bool _completed;
 
     internal ControlModeEventBuffer(int capacity, Action? afterDequeue = null)
@@ -51,7 +53,7 @@ internal sealed class ControlModeEventBuffer
         return true;
     }
 
-    internal void Complete()
+    internal void Complete(Exception? error = null)
     {
         TaskCompletionSource? changed = null;
         lock (_gate)
@@ -59,6 +61,9 @@ internal sealed class ControlModeEventBuffer
             if (!_completed)
             {
                 _completed = true;
+                _completionError = error is null
+                    ? null
+                    : ExceptionDispatchInfo.Capture(error);
                 changed = _changed;
             }
         }
@@ -71,10 +76,12 @@ internal sealed class ControlModeEventBuffer
     {
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             TmuxEvent? item = null;
             Task? wait = null;
             long dropped = 0;
             long totalDropped = 0;
+            ExceptionDispatchInfo? completionError = null;
             bool completed = false;
             lock (_gate)
             {
@@ -89,6 +96,7 @@ internal sealed class ControlModeEventBuffer
                 else if (_completed)
                 {
                     completed = true;
+                    completionError = _completionError;
                 }
                 else
                 {
@@ -98,6 +106,7 @@ internal sealed class ControlModeEventBuffer
 
             if (completed)
             {
+                completionError?.Throw();
                 yield break;
             }
 

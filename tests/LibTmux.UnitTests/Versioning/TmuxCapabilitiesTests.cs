@@ -3,6 +3,8 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Versioning;
 
 public sealed class TmuxCapabilitiesTests
@@ -24,6 +26,7 @@ public sealed class TmuxCapabilitiesTests
     [InlineData("3.7", 3, 7, null)]
     [InlineData("3.3.7", 3, 3, "7")]
     [InlineData("3.7b", 3, 7, "b")]
+    [InlineData("3.7c", 3, 7, "c")]
     [InlineData("3.0-rc3", 3, 0, "rc3")]
     [InlineData("3.3a-openbsd", 3, 3, "a-openbsd")]
     [InlineData("3.7-openbsd", 3, 7, "openbsd")]
@@ -106,8 +109,9 @@ public sealed class TmuxCapabilitiesTests
     [InlineData("3.3.10", "3.3a")]
     [InlineData("3.7a", "3.7a-openbsd")]
     [InlineData("3.7a-openbsd", "3.7b")]
+    [InlineData("3.7b", "3.7c")]
     [InlineData("3.7z", "3.7aa")]
-    [InlineData("3.7b", "next-3.8")]
+    [InlineData("3.7c", "next-3.8")]
     [InlineData("next-3.8", "3.8")]
     [InlineData("3.9", "4.0")]
     public void Ordering_follows_the_frozen_total_order(string olderRaw, string newerRaw)
@@ -160,7 +164,7 @@ public sealed class TmuxCapabilitiesTests
     public void Package_support_metadata_is_inclusive_and_not_a_ceiling()
     {
         Assert.Equal(TmuxVersion.Parse("3.2a"), LibTmuxInfo.MinimumTmuxVersion);
-        Assert.Equal(TmuxVersion.Parse("3.7b"), LibTmuxInfo.MaximumTestedTmuxVersion);
+        Assert.Equal(TmuxVersion.Parse("3.7c"), LibTmuxInfo.MaximumTestedTmuxVersion);
         Assert.NotNull(LibTmuxInfo.Version);
         Assert.True(TmuxVersion.Parse("next-3.8").IsAtLeast(LibTmuxInfo.MinimumTmuxVersion));
     }
@@ -362,99 +366,90 @@ public sealed class TmuxCapabilitiesTests
                 new HashSet<string>()));
     }
 
-    [Fact]
-    public void Capability_profiles_are_exact_and_never_floor_selected()
-    {
-        string[] approved = ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7", "3.7a", "3.7b"];
-        foreach (string raw in approved)
-        {
-            TmuxVersion version = TmuxVersion.Parse(raw);
-            Assert.True(TmuxCapabilities.TryGetExact(version, out TmuxCapabilityProfile? profile));
-            Assert.NotNull(profile);
-            Assert.Equal(version, profile.Version);
-            Assert.Same(profile, TmuxCapabilities.GetRequired(version));
-        }
+    [Theory]
+    [InlineData("3.2a", "attachment_accounting", "Supported")]
+    [InlineData("3.2a", "display_message_client", "Unsupported")]
+    [InlineData("3.2a", "missing_target_format_safety", "Unsupported")]
+    [InlineData("3.3", "display_message_client", "Supported")]
+    [InlineData("3.3", "missing_target_format_safety", "Supported")]
+    [InlineData("3.3a", "capture_pane_trim_trailing", "Unsupported")]
+    [InlineData("3.4", "capture_pane_trim_trailing", "Supported")]
+    [InlineData("3.4", "display_menu_mouse", "Unsupported")]
+    [InlineData("3.5", "display_menu_mouse", "Supported")]
+    [InlineData("3.5", "capture_pane_mode_screen", "Unsupported")]
+    [InlineData("3.6", "capture_pane_mode_screen", "Supported")]
+    [InlineData("3.6", "new_pane_command", "Unsupported")]
+    [InlineData("3.7", "new_pane_command", "Supported")]
+    public void Capability_cohorts_start_at_their_recorded_version(
+        string rawVersion,
+        string capability,
+        string expected) =>
+        Assert.Equal(
+            Enum.Parse<TmuxCapabilityState>(expected),
+            TmuxCapabilities.GetState(TmuxVersion.Parse(rawVersion), capability));
 
-        Assert.False(TmuxCapabilities.TryGetExact(TmuxVersion.Parse("3.3"), out _));
-        Assert.False(TmuxCapabilities.TryGetExact(TmuxVersion.Parse("3.3.7"), out _));
-        Assert.False(TmuxCapabilities.TryGetExact(TmuxVersion.Parse("next-3.8"), out _));
-        Assert.False(TmuxCapabilities.TryGetExact(default, out _));
-        Assert.Throws<NotSupportedException>(
-            () => TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.3")));
-        Assert.Throws<NotSupportedException>(() => TmuxCapabilities.GetRequired(default));
+    [Theory]
+    [InlineData("3.3", "display_message_client")]
+    [InlineData("3.3.7", "display_message_client")]
+    [InlineData("3.7c", "new_pane_command")]
+    [InlineData("4.0", "new_pane_command")]
+    public void Capability_intervals_cover_unlisted_stable_releases(
+        string rawVersion,
+        string capability)
+    {
+        TmuxVersion version = TmuxVersion.Parse(rawVersion);
+
+        Assert.Equal(
+            TmuxCapabilityState.Supported,
+            TmuxCapabilities.GetState(version, capability));
+        Assert.True(TmuxCapabilities.IsSupported(version, capability));
+    }
+
+    [Theory]
+    [InlineData("3.3a", "option_dollar_double_escape", "Unsupported")]
+    [InlineData("3.4", "option_dollar_double_escape", "Supported")]
+    [InlineData("3.4.1", "option_dollar_double_escape", "Supported")]
+    [InlineData("3.5", "option_dollar_double_escape", "Unsupported")]
+    [InlineData("3.6a", "choose_tree_sort_time", "Supported")]
+    [InlineData("3.7", "choose_tree_sort_time", "Unsupported")]
+    [InlineData("3.7", "break_pane_3_7_workaround", "Supported")]
+    [InlineData("3.7a", "break_pane_3_7_workaround", "Unsupported")]
+    [InlineData("3.7c", "break_pane_3_7_workaround", "Unsupported")]
+    public void Capability_intervals_name_both_ends(
+        string rawVersion,
+        string capability,
+        string expected) =>
+        Assert.Equal(
+            Enum.Parse<TmuxCapabilityState>(expected),
+            TmuxCapabilities.GetState(TmuxVersion.Parse(rawVersion), capability));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("3.2")]
+    [InlineData("3.7-dev")]
+    [InlineData("3.7-rc1")]
+    [InlineData("next-3.8")]
+    public void Capability_intervals_preserve_unknown_versions(string? rawVersion)
+    {
+        TmuxVersion version = rawVersion is null ? default : TmuxVersion.Parse(rawVersion);
+
+        Assert.Equal(
+            TmuxCapabilityState.Unknown,
+            TmuxCapabilities.GetState(version, "new_pane_command"));
+        Assert.False(TmuxCapabilities.IsSupported(version, "new_pane_command"));
     }
 
     [Fact]
-    public void Capability_profiles_gate_the_exact_37_workaround()
+    public void Capability_names_are_strict()
     {
-        Assert.Equal(8, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.2a")).Capabilities.Count);
-        Assert.Equal(15, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.3a")).Capabilities.Count);
-        Assert.Equal(23, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.4")).Capabilities.Count);
-        Assert.Equal(24, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.5")).Capabilities.Count);
-        Assert.Equal(29, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.6")).Capabilities.Count);
-        Assert.Equal(39, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.7")).Capabilities.Count);
-        Assert.Equal(38, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.7a")).Capabilities.Count);
-        Assert.Equal(38, TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.7b")).Capabilities.Count);
-
-        // 3.7 gains ten and drops one, so counting alone would read the drop
-        // as a smaller gain and never notice it.
-        foreach (string carries in new[] { "3.2a", "3.3a", "3.4", "3.5", "3.6" })
-        {
-            Assert.Contains(
-                "choose_tree_sort_time",
-                TmuxCapabilities.GetRequired(TmuxVersion.Parse(carries)).Capabilities);
-        }
-
-        // The dollar-escape quirk arrives at 3.4 and is gone at 3.5, so it is
-        // the one capability that both appears and disappears mid-range.
-        Assert.Contains(
-            "option_dollar_double_escape",
-            TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.4")).Capabilities);
-        Assert.DoesNotContain(
-            "option_dollar_double_escape",
-            TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.3a")).Capabilities);
-        Assert.DoesNotContain(
-            "option_dollar_double_escape",
-            TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.5")).Capabilities);
-
-        // tmux 3.2a's usage text advertises display-message's target-client
-        // flag but refuses it at runtime, so the boundary is named, not counted.
-        Assert.DoesNotContain(
-            "display_message_client",
-            TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.2a")).Capabilities);
-        Assert.Contains(
-            "display_message_client",
-            TmuxCapabilities.GetRequired(TmuxVersion.Parse("3.3a")).Capabilities);
-
-        foreach (string dropped in new[] { "3.7", "3.7a", "3.7b" })
-        {
-            Assert.DoesNotContain(
-                "choose_tree_sort_time",
-                TmuxCapabilities.GetRequired(TmuxVersion.Parse(dropped)).Capabilities);
-        }
-
-        Assert.True(TmuxCapabilities.GetRequired(
-            TmuxVersion.Parse("3.7")).RequiresBreakPane37Workaround);
-        Assert.False(TmuxCapabilities.GetRequired(
-            TmuxVersion.Parse("3.7a")).RequiresBreakPane37Workaround);
-        Assert.False(TmuxCapabilities.GetRequired(
-            TmuxVersion.Parse("3.7b")).RequiresBreakPane37Workaround);
-    }
-
-    [Fact]
-    public void Capability_profiles_copy_and_freeze_their_capability_sets()
-    {
-        var source = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "feature" };
-        var profile = new TmuxCapabilityProfile(TmuxVersion.Parse("3.7"), source);
-
-        source.Add("later");
-
-        Assert.True(profile.Capabilities.Contains("feature"));
-        Assert.False(profile.Capabilities.Contains("FEATURE"));
-        Assert.False(profile.Capabilities.Contains("later"));
-        Assert.Throws<ArgumentException>(() => new TmuxCapabilityProfile(default, source));
-        Assert.Throws<ArgumentNullException>(
-            () => new TmuxCapabilityProfile(TmuxVersion.Parse("3.7"), null!));
+        Assert.Throws<KeyNotFoundException>(() =>
+            TmuxCapabilities.GetState(TmuxVersion.Parse("3.7c"), "display_mesage_client"));
+        Assert.Throws<KeyNotFoundException>(() =>
+            TmuxCapabilities.GetState(TmuxVersion.Parse("3.7c"), "DISPLAY_MESSAGE_CLIENT"));
+        Assert.Throws<ArgumentNullException>(() =>
+            TmuxCapabilities.GetState(TmuxVersion.Parse("3.7c"), null!));
+        Assert.Throws<ArgumentException>(() =>
+            TmuxCapabilities.GetState(TmuxVersion.Parse("3.7c"), " "));
     }
 
     [Fact]
@@ -618,14 +613,14 @@ public sealed class TmuxCapabilitiesTests
             });
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
-            static (request, _) => Task.FromResult(
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
                 new TmuxCommandResult(
                     request.LogicalArguments,
                     0,
                     ReadOnlyMemory<byte>.Empty,
                     ReadOnlyMemory<byte>.Empty,
                     [],
-                    [])));
+                    []))));
         return (Server)constructor.Invoke(
             [connection, new ServerGeneration(1, 1), rawVersion]);
     }

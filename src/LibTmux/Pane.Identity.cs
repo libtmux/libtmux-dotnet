@@ -11,20 +11,27 @@ public sealed partial class Pane
     private readonly IReadOnlyDictionary<string, string?>? _snapshot;
 
     [UnsupportedOSPlatform("windows")]
-    internal Pane(TmuxConnection connection, ServerGeneration generation, PaneId id)
+    internal Pane(
+        Server owner,
+        TmuxConnection connection,
+        ServerGeneration generation,
+        PaneId id)
         : this(connection.CreateEntityDispatcher(generation), TmuxTarget.From(id).Value)
     {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owner = owner;
         _id = id;
         _generation = generation;
     }
 
     [UnsupportedOSPlatform("windows")]
     internal Pane(
+        Server owner,
         TmuxConnection connection,
         ServerGeneration generation,
         PaneId id,
         IReadOnlyDictionary<string, string?> snapshot)
-        : this(connection, generation, id)
+        : this(owner, connection, generation, id)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         _snapshot = snapshot;

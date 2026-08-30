@@ -16,6 +16,10 @@ public sealed record HookRequest
     }
 
     /// <summary>Gets the hook name.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before it names anything, so a <c>#</c> in
+    /// it does not survive verbatim.
+    /// </remarks>
     public string Name { get; }
 
     /// <summary>Gets the scope to reach it in, or null for the owner's own.</summary>

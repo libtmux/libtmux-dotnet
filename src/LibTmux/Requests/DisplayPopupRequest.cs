@@ -111,9 +111,17 @@ public sealed record DisplayPopupRequest
     public string? Y { get; }
 
     /// <summary>Gets the working directory for the command.</summary>
+    /// <remarks>
+    /// tmux expands it as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? StartDirectory { get; }
 
     /// <summary>Gets the popup title.</summary>
+    /// <remarks>
+    /// tmux expands it as a format, so a <c>#</c> in it does not survive
+    /// verbatim.
+    /// </remarks>
     public string? Title { get; }
 
     /// <summary>Gets the border line style.</summary>

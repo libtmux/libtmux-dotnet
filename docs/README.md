@@ -1,8 +1,8 @@
 # LibTmux
 
-> **Alpha.** Ordinary tmux behavior is gated against tmux 3.2a through 3.7b;
-> the API shape is not settled. The [psmux preview](psmux.md) is experimental
-> and query-only.
+> **Alpha.** Stable tmux 3.2a and newer are supported; the required matrix
+> builds 3.2a through 3.7c. The API shape is not settled. The
+> [psmux preview](psmux.md) is experimental and query-only.
 
 A .NET class library for tmux. The three ordinary execution modes reach a real
 tmux server, and the mode is visible where the call starts. The psmux preview
@@ -49,8 +49,10 @@ ships separately and carries this repository's version:
 The library's surface and behavior are recorded rather than described,
 and each record has a validator that fails when the code disagrees.
 
-- [Public API](public-api.md) — the approved surface, rendered from
-  `public-api.json`
+- [Public API](public-api.md) — the approved surface of `LibTmux` and
+  `LibTmux.Query.Json`, rendered from `public-api.json`. `LibTmux.Workspace`
+  ships a public surface this contract does not yet record; the analyzer
+  baseline beside its source is what gates it today.
 - [Version deltas](parity/version-deltas.json) — every tmux behavior
   difference the library gates on, each naming the test that proves it
 - [Parity ledger](parity/parity-ledger.json) — where each Python libtmux

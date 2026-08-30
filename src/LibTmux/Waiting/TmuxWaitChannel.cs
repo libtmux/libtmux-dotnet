@@ -1,0 +1,191 @@
+using System.Runtime.Versioning;
+
+namespace LibTmux;
+
+/// <summary>An open wait on a tmux <c>wait-for</c> channel.</summary>
+/// <remarks>
+/// <para>
+/// tmux gives a signal to whoever is registered on the channel and raises the
+/// channel's pending flag only when nobody is. A waiter whose client dies stays
+/// registered — tmux clears waiters when the server exits and at no other time
+/// — so it goes on eating signals that can no longer reach anybody. Killing a
+/// waiting client to enforce a timeout therefore destroys the next signal, and
+/// each timed-out retry leaves another corpse to destroy the one after that.
+/// </para>
+/// <para>
+/// So this never abandons a live waiter. <see cref="WaitAsync" /> returning
+/// false means that attempt expired without observing completion. The open
+/// wait remains owned and may already have completed from a racing signal.
+/// Disposing ends its lifetime deliberately.
+/// </para>
+/// </remarks>
+[UnsupportedOSPlatform("windows")]
+public sealed class TmuxWaitChannel : IAsyncDisposable
+{
+    private readonly object _disposeGate = new();
+    private readonly Server _server;
+    private readonly Task _waiter;
+    private Task? _disposeTask;
+    private int _disposed;
+    private bool _withdrew;
+
+    internal TmuxWaitChannel(Server server, string channel)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        ArgumentException.ThrowIfNullOrWhiteSpace(channel);
+        _server = server;
+        Channel = channel;
+
+        // Deliberately unbound to any caller's token: the waiter outlives every
+        // individual attempt, and only Dispose withdraws it.
+        _waiter = server.WaitForAsync(
+            new WaitForRequest(channel, TmuxWaitMode.Wait),
+            CancellationToken.None);
+    }
+
+    /// <summary>Gets the channel being waited on.</summary>
+    public string Channel { get; }
+
+    /// <summary>Gets whether the wait completed before withdrawal began.</summary>
+    /// <remarks>
+    /// A false value does not prove that no signal arrived. Withdrawing must
+    /// signal the same channel, so tmux cannot attribute a completion that
+    /// races the decision to withdraw.
+    /// </remarks>
+    public bool Signalled => _waiter.IsCompletedSuccessfully && !_withdrew;
+
+    /// <summary>Waits for the signal, giving this attempt a budget.</summary>
+    /// <param name="budget">How long this attempt may take.</param>
+    /// <param name="cancellationToken">Abandons this attempt, not the waiter.</param>
+    /// <returns>True when the channel was signalled, false when the budget ran out.</returns>
+    public async Task<bool> WaitAsync(
+        TimeSpan budget,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(budget.Ticks);
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_waiter.IsCompleted)
+        {
+            await _waiter.ConfigureAwait(false);
+            return true;
+        }
+
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task expiry = Task.Delay(budget, attempt.Token);
+        Task first = await Task.WhenAny(_waiter, expiry).ConfigureAwait(false);
+        await attempt.CancelAsync().ConfigureAwait(false);
+
+        // A cancelled caller wins over a waiter that happened to finish in the
+        // same moment, so the outcome does not depend on which raced first.
+        // The open wait remains owned either way, and a later attempt observes
+        // any completion. Disposal alone ends its lifetime.
+        cancellationToken.ThrowIfCancellationRequested();
+        if (first != _waiter)
+        {
+            return false;
+        }
+
+        await _waiter.ConfigureAwait(false);
+        return true;
+    }
+
+    internal Task WaitUntilSignalledAsync(CancellationToken cancellationToken) =>
+        _waiter.WaitAsync(cancellationToken);
+
+    /// <summary>Withdraws the waiter from tmux.</summary>
+    /// <remarks>
+    /// <para>
+    /// Signalling the channel is how a waiter withdraws: tmux wakes the
+    /// registered waiters and, because the list was not empty, leaves the
+    /// pending flag down. Nothing else can deregister one.
+    /// </para>
+    /// <para>
+    /// A signal landing between the check below and the withdrawal is woken by
+    /// this waiter and then re-raised by the withdrawal itself, because by then
+    /// no waiter is left to take it. That leaves the channel pending rather
+    /// than empty — an extra wake for the next caller, never a lost one. tmux
+    /// cannot say which signal completed this waiter in that race.
+    /// </para>
+    /// <para>
+    /// A signal wakes every waiter on the channel and tmux offers no way to
+    /// deregister one on its own, so withdrawing here also completes any other
+    /// wait open on the same channel. Keep one open wait per channel.
+    /// </para>
+    /// <para>
+    /// A wait that did not dispatch or returned a command failure never
+    /// registered, so disposal does not signal it. Command failures and
+    /// cancellation remain cleanup-only; other failures remain observable.
+    /// </para>
+    /// </remarks>
+    public ValueTask DisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is null)
+            {
+                Interlocked.Exchange(ref _disposed, 1);
+                _disposeTask = DisposeCoreAsync();
+            }
+
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        if (WaitMayRemainRegistered())
+        {
+            _withdrew = true;
+            try
+            {
+                await _server.WaitForAsync(
+                        new WaitForRequest(Channel, TmuxWaitMode.Signal),
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (TmuxCommandException)
+            {
+                // The server is gone, which withdraws every waiter it held.
+            }
+        }
+
+        try
+        {
+            await _waiter.ConfigureAwait(false);
+        }
+        catch (TmuxCommandException)
+        {
+            // Disposal reports nothing; the waiter's outcome stopped mattering.
+        }
+        catch (OperationCanceledException)
+        {
+            // Same: the wait is being withdrawn, not observed.
+        }
+    }
+
+    private bool WaitMayRemainRegistered()
+    {
+        if (!_waiter.IsCompleted)
+        {
+            return true;
+        }
+
+        if (_waiter.IsCompletedSuccessfully)
+        {
+            return false;
+        }
+
+        if (!_waiter.IsFaulted)
+        {
+            return true;
+        }
+
+        Exception failure = _waiter.Exception!.GetBaseException();
+        return failure is not TmuxCommandException
+            && failure is not LibTmuxException
+            {
+                Dispatch: TmuxDispatchState.NotDispatched,
+            };
+    }
+}

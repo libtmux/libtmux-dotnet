@@ -131,7 +131,7 @@ public sealed class MaterializationTests
             "list-panes",
             "pane_id",
             paneId,
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // The pane resolves even though another session exists and tmux has no
         // attached client to make either session "current".
@@ -151,7 +151,7 @@ public sealed class MaterializationTests
             "list-panes",
             "pane_id",
             "%99999",
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
         Assert.Null(missing);
 
         await fixture.RunAsync(["kill-server"], allowFailure: true);

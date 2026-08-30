@@ -59,22 +59,50 @@ Reading one off disk is the same call:
 WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText("session.yaml"));
 ```
 
-## What the result tells you
+`start_directory` values are passed to tmux unchanged. Relative paths are not
+rebased to the directory containing `session.yaml`.
 
-`BuildAsync` returns what it built rather than throwing away a session because
-one pane's command was wrong, so a partial build is something you can inspect
-and report instead of a stack trace.
+## Failure behavior
 
-A document that describes no session is a `WorkspaceFormatException` — that one
-is not partial, it is unusable.
+`BuildAsync` returns the session and windows it created. Its `Unsupported` list
+contains only layouts that tmux rejected; those windows remain usable.
+
+Other tmux failures throw `WorkspaceBuildException`. Its `PartialResult`
+contains the session and windows materialized before failure, or is null when
+none could be read. The builder is not transactional. Before sending workspace
+commands, `PaneReadiness.Auto`, the default, waits only for panes using a zsh
+session `default-shell`.
+`PaneReadiness.Always` waits before commands sent to every default-shell pane;
+`PaneReadiness.Never` sends them immediately. A nonempty session
+`default-command` skips the wait under every policy because that command is not
+treated as an interactive shell.
+
+A wait polls the targeted pane's `pane_current_command`, `cursor_x`, and
+`cursor_y` for up to ten seconds. It sends no keys and creates no `wait-for`
+channel. The result is a prompt heuristic, not an input acknowledgement:
+startup output can move the cursor before a prompt exists, while a prompt left
+at `(0, 0)` times out. Pass a different timeout to the `WorkspaceBuilder`
+constructor when startup needs a different budget. An expired wait raises
+`TmuxWaitTimeoutException` before a workspace command reaches that pane.
+
+tmux starts a session's first pane before session options can be set. The
+builder therefore creates one transient bootstrap window, applies the options,
+creates the described first window under them, and removes the bootstrap.
+tmux hooks can observe that extra window lifecycle. Readiness polling uses
+targeted `display-message` calls, so an `after-display-message` hook can also
+observe each sample. A missing session name or empty window list raises
+`WorkspaceFormatException` before creating anything.
 
 ## What is in scope
 
-This reads the workspace shape tmuxp writes: session name, start directory,
-windows, panes, layouts, options, and the commands to send.
+This reads a closed tmuxp subset: session name, start directory, scalar
+options, windows, panes, layouts, focus, and scalar or ordered
+`shell_command` values. Duplicate or unknown keys, wrong value shapes,
+multiple YAML documents, and inputs over 1 MiB raise
+`WorkspaceFormatException` instead of being ignored.
 
 It is **not** a tmuxp runtime. Plugins, before/after hooks, and tmuxp's own
-configuration search path are out of scope — if you need those, run tmuxp.
+configuration search path are rejected — if you need those, run tmuxp.
 
 ## Related packages
 

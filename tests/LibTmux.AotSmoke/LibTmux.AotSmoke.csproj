@@ -6,16 +6,26 @@
     <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
+    <!-- This project proves the packages produced by this repository, so it
+         must not inherit central versions or a checked-in project graph. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
+    <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
+    <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
+
     <!-- Publishing this ahead of time is the point: the trim and AOT
          analyzers only tell the whole truth when something is actually
          published, and a warning here is a caller's runtime failure. -->
     <PublishAot>true</PublishAot>
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LibTmux\LibTmux.csproj" />
+    <PackageReference Include="LibTmux" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Query.Json" Version="$(LibTmuxPackageVersion)" />
 
     <!-- Real tmux runs here, so this assembly claims a socket root of its own. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"

@@ -17,7 +17,7 @@ public sealed record QueryDocument(
     QueryNode Predicate)
 {
     /// <summary>The current wire schema identifier.</summary>
-    public const string CurrentSchema = "libtmux.query";
+    public const string CurrentSchema = "libtmux-query";
 
     /// <summary>The current wire schema version.</summary>
     public const int CurrentVersion = 1;
@@ -27,7 +27,17 @@ public sealed record QueryDocument(
     /// A quantifier over a relation cannot be answered by a shallower capture,
     /// so the depth is derived from the predicate rather than assumed.
     /// </remarks>
-    public SnapshotDepth RequiredSnapshotDepth => Depth(Predicate, Target);
+    /// <exception cref="UnsupportedQueryExpressionException">
+    /// The predicate is malformed or exceeds the version-one structural limits.
+    /// </exception>
+    public SnapshotDepth RequiredSnapshotDepth
+    {
+        get
+        {
+            _ = QueryDocumentValidator.Validate(this);
+            return Depth(Predicate, Target);
+        }
+    }
 
     private static SnapshotDepth Depth(QueryNode node, QueryTarget target) => node switch
     {
@@ -46,6 +56,8 @@ public sealed record QueryDocument(
             Depth(comparison.Right, target)),
         StringNode text => Deepest(Depth(text.Left, target), Depth(text.Right, target)),
         RegexNode regex => Depth(regex.Input, target),
+        FieldNode field when QueryFieldCatalog.IsRelation(field.WireName) =>
+            RelationDepth(field.WireName),
         FieldNode field => Base(field.Target),
         _ => Base(target),
     };

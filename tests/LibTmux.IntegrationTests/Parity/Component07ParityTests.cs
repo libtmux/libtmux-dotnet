@@ -109,8 +109,8 @@ public sealed class Component07ParityTests
         CancellationToken token)
     {
         IReadOnlyList<Session> sessions = await server.GetSessionsAsync(token);
-        SnapshotLookup<SessionId, Session> byId =
-            sessions.ToLookupByKey(static session => session.Id);
+        Dictionary<SessionId, Session> byId =
+            sessions.ToDictionary(static session => session.Id);
         return byId.Count == sessions.Count
             && byId.TryGetValue(sessions[0].Id, out Session? found)
             && found.Id == sessions[0].Id;

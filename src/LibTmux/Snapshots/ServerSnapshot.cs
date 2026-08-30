@@ -4,82 +4,45 @@ using LibTmux.Internal;
 
 namespace LibTmux;
 
-/// <summary>Holds one point-in-time read of a tmux server's hierarchy.</summary>
-/// <remarks>
-/// Enumerating a snapshot never runs a tmux command. Every level was read
-/// during capture, so traversal is deterministic even while the live server
-/// changes underneath it.
-///
-/// The whole graph is built while capturing, which is why reading any of it
-/// is free and works anywhere. A window knows the sessions it is linked into
-/// and those sessions know their windows, so walking up and back down lands
-/// on the same handles rather than on a second, emptier copy of them.
-/// </remarks>
-public sealed class ServerSnapshot
+// Builds the copy-backed hierarchy graph carried by a materialized Server.
+// Sessions and windows share handles so walking down and back up preserves state.
+internal sealed class ServerSnapshot
 {
     internal ServerSnapshot(
-        Server server,
-        ServerGeneration generation,
         SnapshotDepth depth,
         CapturedRelation<Session> sessions,
         CapturedRelation<Window> windows,
-        CapturedRelation<Pane> panes,
-        IReadOnlyList<SessionWindowEdge> windowEdges)
+        CapturedRelation<Pane> panes)
     {
-        Server = server;
-        Generation = generation;
         Depth = depth;
         Sessions = sessions;
         Windows = windows;
         Panes = panes;
-        WindowEdges = windowEdges;
     }
 
-    /// <summary>Gets the server this snapshot was read from.</summary>
-    public Server Server { get; }
+    internal SnapshotDepth Depth { get; }
 
-    /// <summary>Gets the generation observed during capture.</summary>
-    public ServerGeneration Generation { get; }
+    internal CapturedRelation<Session> Sessions { get; }
 
-    /// <summary>Gets how far down the hierarchy the capture reached.</summary>
-    public SnapshotDepth Depth { get; }
+    internal CapturedRelation<Window> Windows { get; }
 
-    /// <summary>Gets the captured sessions.</summary>
-    public CapturedRelation<Session> Sessions { get; }
+    internal CapturedRelation<Pane> Panes { get; }
 
-    /// <summary>Gets the captured windows, once per session they are linked into.</summary>
-    public CapturedRelation<Window> Windows { get; }
-
-    /// <summary>Gets the captured panes, across every window.</summary>
-    public CapturedRelation<Pane> Panes { get; }
-
-    /// <summary>Gets every session-to-window edge the capture observed.</summary>
-    /// <remarks>
-    /// A window linked into several sessions appears once per session, so the
-    /// edge list is the only place linkage is fully represented.
-    /// </remarks>
-    public IReadOnlyList<SessionWindowEdge> WindowEdges { get; }
-
-    /// <summary>Reads one server hierarchy to the requested depth.</summary>
-    /// <param name="server">A connected server.</param>
-    /// <param name="depth">How far down to read.</param>
-    /// <param name="cancellationToken">Cancels the tmux commands.</param>
-    /// <returns>The captured snapshot.</returns>
     [UnsupportedOSPlatform("windows")]
-    public static async Task<ServerSnapshot> CaptureAsync(
+    internal static async Task<ServerSnapshot> CaptureAsync(
         Server server,
         SnapshotDepth depth = SnapshotDepth.Panes,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(server);
-        ServerGeneration generation = server.Generation
+        _ = server.Generation
             ?? throw new InvalidOperationException(
                 "The server has no live generation; connect before capturing.");
         var context = new MaterializationContext(server, ParseVersion(server));
         var query = new MaterializationQuery(context);
         if (depth == SnapshotDepth.Server)
         {
-            return Empty(server, generation, depth);
+            return Empty(depth);
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows =
@@ -88,16 +51,13 @@ public sealed class ServerSnapshot
         if (depth == SnapshotDepth.Sessions)
         {
             return new ServerSnapshot(
-                server,
-                generation,
                 depth,
                 CapturedRelation.Capture(
                     [.. sessionRows.Select(row => RelationReader.ToSession(server, row))],
                     "sessions",
                     depth),
                 CapturedRelation.Uncaptured<Window>("windows", depth),
-                CapturedRelation.Uncaptured<Pane>("panes", depth),
-                []);
+                CapturedRelation.Uncaptured<Pane>("panes", depth));
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows =
@@ -108,26 +68,19 @@ public sealed class ServerSnapshot
                 ? []
                 : await query.FetchAsync("list-panes", ["-a"], cancellationToken)
                     .ConfigureAwait(false);
-        return Build(server, generation, depth, sessionRows, windowRows, paneRows);
+        return Build(server, depth, sessionRows, windowRows, paneRows);
     }
 
-    private static ServerSnapshot Empty(
-        Server server,
-        ServerGeneration generation,
-        SnapshotDepth depth) =>
+    private static ServerSnapshot Empty(SnapshotDepth depth) =>
         new(
-            server,
-            generation,
             depth,
             CapturedRelation.Uncaptured<Session>("sessions", depth),
             CapturedRelation.Uncaptured<Window>("windows", depth),
-            CapturedRelation.Uncaptured<Pane>("panes", depth),
-            []);
+            CapturedRelation.Uncaptured<Pane>("panes", depth));
 
     [UnsupportedOSPlatform("windows")]
     private static ServerSnapshot Build(
         Server server,
-        ServerGeneration generation,
         SnapshotDepth depth,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows,
@@ -191,13 +144,10 @@ public sealed class ServerSnapshot
         }
 
         return new ServerSnapshot(
-            server,
-            generation,
             depth,
             Relation(sessions, "sessions", depth),
             Relation(windows, "windows", depth),
-            Relation(panes, "panes", depth, depth >= SnapshotDepth.Panes),
-            edges);
+            Relation(panes, "panes", depth, depth >= SnapshotDepth.Panes));
     }
 
     private static CapturedRelation<T> Relation<T>(

@@ -8,7 +8,7 @@ producing output, windows appearing, sessions changing.
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
 await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 {
@@ -59,7 +59,7 @@ The marker arrives in sequence, where the discarded events would have been:
 ```csharp
 await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync("new-window -d -n build", ct);
+await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
 
 await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 {
@@ -81,6 +81,11 @@ await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 
 `SendAsync` is safe to call concurrently: tmux answers in the order it was
 asked, and each caller gets its own answer.
+
+Outstanding calls are bounded. If the session has reached its pending limit,
+`SendAsync` throws `InvalidOperationException` before dispatching another
+command. Cancellation stops that caller's wait, not the command; the session
+discards that answer until tmux finishes the command, preserving later replies.
 
 ## When this is not the right mode
 

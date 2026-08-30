@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace LibTmux.Query.Json;
 
-/// <summary>Reads and writes the stable v1 wire form of a query document.</summary>
+/// <summary>Writes the stable v1 wire form of a query document.</summary>
 /// <remarks>
 /// The wire form is hand-written rather than reflection-derived so the schema
 /// is decoupled from the CLR shape: renaming a record property must not change
@@ -29,6 +29,19 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(value);
+        if (!string.Equals(value.Schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
+        {
+            throw new JsonException(
+                $"Query document names schema '{value.Schema}', which this writer does not know.");
+        }
+
+        if (value.Version != QueryDocument.CurrentVersion)
+        {
+            throw new JsonException(
+                $"Query document is version {value.Version}; this writer understands "
+                + $"{QueryDocument.CurrentVersion}.");
+        }
+
         _nodes = 0;
         writer.WriteStartObject();
         writer.WriteString("schema", value.Schema);
@@ -37,6 +50,17 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         writer.WritePropertyName("predicate");
         WriteNode(writer, value.Predicate, depth: 1);
         writer.WriteEndObject();
+
+        // The bounded walk must run first so semantic validation cannot recurse
+        // beyond the v1 depth or node ceilings.
+        try
+        {
+            QueryDocumentValidator.Validate(value);
+        }
+        catch (UnsupportedQueryExpressionException exception)
+        {
+            throw new JsonException(exception.Message, exception);
+        }
     }
 
     private static string Wire(QueryTarget target) => target switch
@@ -44,30 +68,45 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryTarget.Session => "session",
         QueryTarget.Window => "window",
         QueryTarget.Pane => "pane",
-        _ => "client",
+        QueryTarget.Client => "client",
+        _ => throw new JsonException("Query document names an unknown target."),
     };
 
     private static string Wire(QueryComparison comparison) => comparison switch
     {
-        QueryComparison.Equal => "eq",
-        QueryComparison.NotEqual => "ne",
-        QueryComparison.LessThan => "lt",
-        QueryComparison.LessThanOrEqual => "le",
-        QueryComparison.GreaterThan => "gt",
-        _ => "ge",
+        QueryComparison.Equal => "equal",
+        QueryComparison.NotEqual => "notEqual",
+        QueryComparison.LessThan => "lessThan",
+        QueryComparison.LessThanOrEqual => "lessThanOrEqual",
+        QueryComparison.GreaterThan => "greaterThan",
+        QueryComparison.GreaterThanOrEqual => "greaterThanOrEqual",
+        _ => throw new JsonException("Query document names an unknown comparison."),
     };
 
     private static string Wire(QueryStringOperation operation) => operation switch
     {
-        QueryStringOperation.EqualsOrdinal => "equals",
-        QueryStringOperation.EqualsOrdinalIgnoreCase => "equalsIgnoreCase",
-        QueryStringOperation.StartsWithOrdinal => "startsWith",
-        QueryStringOperation.EndsWithOrdinal => "endsWith",
-        _ => "contains",
+        QueryStringOperation.EqualsOrdinal => "stringEqualOrdinal",
+        QueryStringOperation.EqualsOrdinalIgnoreCase => "stringEqualOrdinalIgnoreCase",
+        QueryStringOperation.StartsWithOrdinal => "startsWithOrdinal",
+        QueryStringOperation.EndsWithOrdinal => "endsWithOrdinal",
+        QueryStringOperation.ContainsOrdinal => "containsOrdinal",
+        _ => throw new JsonException("Query document names an unknown string operation."),
+    };
+
+    private static string Wire(QueryQuantifier quantifier) => quantifier switch
+    {
+        QueryQuantifier.Any => "any",
+        QueryQuantifier.All => "all",
+        _ => throw new JsonException("Query document names an unknown quantifier."),
     };
 
     private void WriteNode(Utf8JsonWriter writer, QueryNode node, int depth)
     {
+        if (node is null)
+        {
+            throw new JsonException("Query document contains a null node.");
+        }
+
         if (depth > _limits.MaximumDepth)
         {
             throw new JsonException("Query document exceeds the maximum nesting depth.");
@@ -98,7 +137,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 WritePair(writer, comparison.Left, comparison.Right, depth);
                 break;
             case StringNode text:
-                writer.WriteString("kind", "string");
+                writer.WriteString("kind", "comparison");
                 writer.WriteString("operator", Wire(text.Operator));
                 WritePair(writer, text.Left, text.Right, depth);
                 break;
@@ -109,7 +148,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 writer.WriteString("kind", "quantifier");
                 writer.WriteString(
                     "quantifier",
-                    quantifier.Quantifier == QueryQuantifier.Any ? "any" : "all");
+                    Wire(quantifier.Quantifier));
                 writer.WritePropertyName("relation");
                 WriteNode(writer, quantifier.Relation, depth + 1);
                 writer.WritePropertyName("predicate");
@@ -118,10 +157,11 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
             case FieldNode field:
                 writer.WriteString("kind", "field");
                 writer.WriteString("target", Wire(field.Target));
-                writer.WriteString("name", field.WireName);
+                WriteBoundedString(writer, "wireName", field.WireName, "Field wire name");
                 break;
             case ConstantNode constant:
                 writer.WriteString("kind", "constant");
+                writer.WritePropertyName("value");
                 WriteConstant(writer, constant.Value);
                 break;
             default:
@@ -133,17 +173,14 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
 
     private void WriteRegex(Utf8JsonWriter writer, RegexNode regex, int depth)
     {
-        if (regex.Pattern.Length > _limits.MaximumPatternLength)
-        {
-            throw new JsonException("Regex pattern exceeds the maximum length.");
-        }
+        QueryJsonWireRules.ValidateRegex(regex, _limits);
 
         writer.WriteString("kind", "regex");
+        writer.WritePropertyName("input");
+        WriteNode(writer, regex.Input, depth + 1);
         writer.WriteString("dialect", regex.Dialect);
         writer.WriteString("pattern", regex.Pattern);
         writer.WriteNumber("semanticOptions", (int)regex.SemanticOptions);
-        writer.WritePropertyName("input");
-        WriteNode(writer, regex.Input, depth + 1);
     }
 
     private void WriteOperands(
@@ -172,231 +209,53 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
 
     private void WriteConstant(Utf8JsonWriter writer, QueryConstant constant)
     {
+        if (constant is null)
+        {
+            throw new JsonException("Query document contains a null constant.");
+        }
+
+        writer.WriteStartObject();
         switch (constant)
         {
             case NullConstant:
-                writer.WriteString("type", "null");
-                writer.WriteNull("value");
+                writer.WriteString("kind", "null");
                 break;
             case BooleanConstant boolean:
-                writer.WriteString("type", "boolean");
+                writer.WriteString("kind", "boolean");
                 writer.WriteBoolean("value", boolean.Value);
                 break;
             case Int64Constant number:
-                writer.WriteString("type", "int64");
+                writer.WriteString("kind", "int64");
                 writer.WriteNumber("value", number.Value);
                 break;
             case StringConstant text:
-                writer.WriteString("type", "string");
-                WriteBoundedString(writer, text.Value);
-                break;
-            case InstantConstant instant:
-                writer.WriteString("type", "instant");
-                writer.WriteNumber("value", instant.UnixSeconds);
-                break;
-            case EnumConstant member:
-                writer.WriteString("type", "enum");
-                writer.WriteString("enumType", member.Type);
-                WriteBoundedString(writer, member.Value);
+                writer.WriteString("kind", "string");
+                WriteBoundedString(writer, "value", text.Value, "String value");
                 break;
             case TypedIdConstant id:
-                writer.WriteString("type", "typedId");
-                writer.WriteString("target", Wire(id.Target));
-                WriteBoundedString(writer, id.Value);
+                writer.WriteString("kind", "typedId");
+                writer.WriteString("type", Wire(id.Target));
+                WriteBoundedString(writer, "value", id.Value, "Typed ID value");
                 break;
             default:
                 throw new JsonException(
                     $"Constant '{constant.GetType().Name}' has no v1 wire form.");
         }
+
+        writer.WriteEndObject();
     }
 
-    private void WriteBoundedString(Utf8JsonWriter writer, string value)
+    private void WriteBoundedString(
+        Utf8JsonWriter writer,
+        string propertyName,
+        string? value,
+        string description)
     {
-        if (value.Length > _limits.MaximumStringLength)
+        if (QueryJsonWireRules.ScalarLength(value, description) > _limits.MaximumStringLength)
         {
             throw new JsonException("String value exceeds the maximum length.");
         }
 
-        // A lone surrogate cannot round-trip through UTF-8, so it must never
-        // reach the wire.
-        foreach (char character in value)
-        {
-            if (char.IsSurrogate(character) && !char.IsSurrogatePair(value, value.IndexOf(character, StringComparison.Ordinal)))
-            {
-                throw new JsonException("String value contains an unpaired surrogate.");
-            }
-        }
-
-        writer.WriteString("value", value);
-    }
-}
-
-/// <summary>Reads the stable v1 wire form back into a query document.</summary>
-internal sealed class QueryDocumentJsonReader
-{
-    private readonly QueryJsonLimits _limits;
-    private int _nodes;
-
-    internal QueryDocumentJsonReader(QueryJsonLimits limits) => _limits = limits;
-
-    internal static QueryTarget ReadTarget(JsonElement element) =>
-        element.GetString() switch
-        {
-            "session" => QueryTarget.Session,
-            "window" => QueryTarget.Window,
-            "pane" => QueryTarget.Pane,
-            "client" => QueryTarget.Client,
-            _ => throw new JsonException("Query document names an unknown target."),
-        };
-
-    internal QueryNode ReadNode(JsonElement element, int depth)
-    {
-        if (depth > _limits.MaximumDepth)
-        {
-            throw new JsonException("Query document exceeds the maximum nesting depth.");
-        }
-
-        if (++_nodes > _limits.MaximumNodes)
-        {
-            throw new JsonException("Query document exceeds the maximum node count.");
-        }
-
-        return element.GetProperty("kind").GetString() switch
-        {
-            "and" => new AndNode([.. ReadOperands(element, depth)]),
-            "or" => new OrNode([.. ReadOperands(element, depth)]),
-            "not" => new NotNode(ReadNode(element.GetProperty("operand"), depth + 1)),
-            "comparison" => new ComparisonNode(
-                ReadComparison(element.GetProperty("operator")),
-                ReadNode(element.GetProperty("left"), depth + 1),
-                ReadNode(element.GetProperty("right"), depth + 1)),
-            "string" => new StringNode(
-                ReadStringOperation(element.GetProperty("operator")),
-                ReadNode(element.GetProperty("left"), depth + 1),
-                ReadNode(element.GetProperty("right"), depth + 1)),
-            "regex" => new RegexNode(
-                ReadNode(element.GetProperty("input"), depth + 1),
-                ReadDialect(element.GetProperty("dialect")),
-                ReadPattern(element.GetProperty("pattern")),
-                ReadRegexOptions(element.GetProperty("semanticOptions"))),
-            "quantifier" => new QuantifierNode(
-                element.GetProperty("quantifier").GetString() == "any"
-                    ? QueryQuantifier.Any
-                    : QueryQuantifier.All,
-                (FieldNode)ReadNode(element.GetProperty("relation"), depth + 1),
-                ReadNode(element.GetProperty("predicate"), depth + 1)),
-            "field" => new FieldNode(
-                ReadTarget(element.GetProperty("target")),
-                element.GetProperty("name").GetString()
-                    ?? throw new JsonException("Field names no wire name.")),
-            "constant" => new ConstantNode(ReadConstant(element)),
-            _ => throw new JsonException("Query document names an unknown node kind."),
-        };
-    }
-
-    /// <summary>Reads a regex dialect, refusing one this library cannot evaluate.</summary>
-    /// <remarks>
-    /// The wire form names a dialect so a future reader can tell .NET patterns
-    /// from someone else's. Accepting an unknown name would mean evaluating a
-    /// pattern under rules it was not written for.
-    /// </remarks>
-    private static string ReadDialect(JsonElement element)
-    {
-        string dialect = element.GetString() ?? "dotnet";
-        return string.Equals(dialect, "dotnet", StringComparison.Ordinal)
-            ? dialect
-            : throw new JsonException($"Regex dialect '{dialect}' is not supported.");
-    }
-
-    /// <summary>Reads a pattern, bounded by the declared limit.</summary>
-    private string ReadPattern(JsonElement element)
-    {
-        string pattern = element.GetString()
-            ?? throw new JsonException("Regex names no pattern.");
-        return pattern.Length <= _limits.MaximumPatternLength
-            ? pattern
-            : throw new JsonException("Regex pattern exceeds the maximum length.");
-    }
-
-    /// <summary>Reads regex options, refusing bits this library does not define.</summary>
-    /// <remarks>
-    /// Arrives as a raw integer, so only the bit combinations the writer can
-    /// produce are accepted; anything else describes behaviour this library never writes.
-    /// </remarks>
-    private static System.Text.RegularExpressions.RegexOptions ReadRegexOptions(
-        JsonElement element)
-    {
-        const System.Text.RegularExpressions.RegexOptions Allowed =
-            System.Text.RegularExpressions.RegexOptions.None
-            | System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            | System.Text.RegularExpressions.RegexOptions.Multiline
-            | System.Text.RegularExpressions.RegexOptions.Singleline
-            | System.Text.RegularExpressions.RegexOptions.CultureInvariant;
-
-        var options = (System.Text.RegularExpressions.RegexOptions)element.GetInt32();
-        return (options & ~Allowed) == 0
-            ? options
-            : throw new JsonException("Regex names options this reader does not support.");
-    }
-
-    /// <summary>Reads a string constant, bounded by the declared limit.</summary>
-    /// <remarks>
-    /// Re-checked here because the writer's own limit does not bound documents
-    /// produced elsewhere, which are exactly the ones this limit exists for.
-    /// </remarks>
-    private string ReadBoundedString(JsonElement element)
-    {
-        string value = element.GetString() ?? string.Empty;
-        return value.Length <= _limits.MaximumStringLength
-            ? value
-            : throw new JsonException("String value exceeds the maximum length.");
-    }
-
-    private static QueryComparison ReadComparison(JsonElement element) =>
-        element.GetString() switch
-        {
-            "eq" => QueryComparison.Equal,
-            "ne" => QueryComparison.NotEqual,
-            "lt" => QueryComparison.LessThan,
-            "le" => QueryComparison.LessThanOrEqual,
-            "gt" => QueryComparison.GreaterThan,
-            "ge" => QueryComparison.GreaterThanOrEqual,
-            _ => throw new JsonException("Query document names an unknown comparison."),
-        };
-
-    private static QueryStringOperation ReadStringOperation(JsonElement element) =>
-        element.GetString() switch
-        {
-            "equals" => QueryStringOperation.EqualsOrdinal,
-            "equalsIgnoreCase" => QueryStringOperation.EqualsOrdinalIgnoreCase,
-            "startsWith" => QueryStringOperation.StartsWithOrdinal,
-            "endsWith" => QueryStringOperation.EndsWithOrdinal,
-            "contains" => QueryStringOperation.ContainsOrdinal,
-            _ => throw new JsonException("Query document names an unknown string operation."),
-        };
-
-    private QueryConstant ReadConstant(JsonElement element) =>
-        element.GetProperty("type").GetString() switch
-        {
-            "null" => new NullConstant(),
-            "boolean" => new BooleanConstant(element.GetProperty("value").GetBoolean()),
-            "int64" => new Int64Constant(element.GetProperty("value").GetInt64()),
-            "string" => new StringConstant(ReadBoundedString(element.GetProperty("value"))),
-            "instant" => new InstantConstant(element.GetProperty("value").GetInt64()),
-            "enum" => new EnumConstant(
-                element.GetProperty("enumType").GetString() ?? string.Empty,
-                element.GetProperty("value").GetString() ?? string.Empty),
-            "typedId" => new TypedIdConstant(
-                ReadTarget(element.GetProperty("target")),
-                element.GetProperty("value").GetString() ?? string.Empty),
-            _ => throw new JsonException("Query document names an unknown constant type."),
-        };
-
-    private IEnumerable<QueryNode> ReadOperands(JsonElement element, int depth)
-    {
-        foreach (JsonElement operand in element.GetProperty("operands").EnumerateArray())
-        {
-            yield return ReadNode(operand, depth + 1);
-        }
+        writer.WriteString(propertyName, value);
     }
 }

@@ -301,6 +301,30 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task Convenience_tools_withdraw_owned_job_waiters_on_shutdown()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            cancellationToken: token);
+        WriteTools tools = McpTools.Writing(scope.Server);
+
+        JobInfo started = await tools.StartJobAsync(
+            "sleep 30",
+            scope.Pane.Id.ToString(),
+            cancellationToken: token);
+        await tools.DisposeAsync().AsTask().WaitAsync(token);
+
+        string channel = $"lt_r_{started.JobId}";
+        await scope.Server.WaitForAsync(
+            new WaitForRequest(channel, TmuxWaitMode.Signal),
+            token);
+        await using TmuxWaitChannel next = scope.Server.OpenWaitChannel(channel);
+
+        Assert.True(await next.WaitAsync(TimeSpan.FromSeconds(1), token));
+    }
+
+    [UnixFact]
     public async Task A_job_handle_nobody_issued_is_refused_with_advice()
     {
         await using McpToolFixture mcp = McpToolFixture.Create();

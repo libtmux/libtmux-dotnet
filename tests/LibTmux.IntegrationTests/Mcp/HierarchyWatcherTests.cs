@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -70,6 +71,99 @@ public sealed class HierarchyWatcherTests
     }
 
     [UnixFact]
+    public async Task Selecting_a_window_reaches_a_subscriber()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        TmuxTestOptions options = new(new ServerConnectionOptions(
+            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: $"ltw-{Guid.NewGuid():N}"[..20],
+            configurationFile: "/dev/null"));
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            options,
+            token);
+        _ = await scope.Session.CreateWindowAsync(
+            new NewWindowRequest(name: "selected", attach: true),
+            token);
+
+        await using HierarchyWatcher watcher = new();
+        TaskCompletionSource<IReadOnlyList<string>> told = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int armed = 0;
+        await watcher.SubscribeAsync(
+            "tmux://hierarchy",
+            changed =>
+            {
+                if (Volatile.Read(ref armed) != 0)
+                {
+                    told.TrySetResult(changed);
+                }
+
+                return Task.CompletedTask;
+            },
+            scope.Session.Server,
+            token);
+        Volatile.Write(ref armed, 1);
+
+        _ = await scope.Window.SelectAsync(token);
+
+        Task finished = await Task.WhenAny(
+            told.Task,
+            Task.Delay(TimeSpan.FromSeconds(20), token));
+        Assert.True(finished == told.Task, "the watcher missed the active-window change");
+        Assert.Contains("tmux://hierarchy", await told.Task);
+    }
+
+    [UnixFact]
+    public async Task Moving_a_client_to_another_session_reaches_a_subscriber()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        TmuxTestOptions options = new(new ServerConnectionOptions(
+            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: $"ltw-{Guid.NewGuid():N}"[..20],
+            configurationFile: "/dev/null"));
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            options,
+            token);
+        Session other = await scope.Session.Server.CreateSessionAsync(
+            new NewSessionRequest(name: "other"),
+            token);
+        await using IControlModeSession moving = await scope.Session.Server.EnterControlModeAsync(
+            scope.Session.Id.ToString(),
+            token);
+
+        await using HierarchyWatcher watcher = new();
+        TaskCompletionSource<IReadOnlyList<string>> told = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int armed = 0;
+        await watcher.SubscribeAsync(
+            "tmux://sessions",
+            changed =>
+            {
+                if (Volatile.Read(ref armed) != 0)
+                {
+                    told.TrySetResult(changed);
+                }
+
+                return Task.CompletedTask;
+            },
+            scope.Session.Server,
+            token);
+        Volatile.Write(ref armed, 1);
+
+        _ = await moving.SendAsync(
+            TmuxCommand.Create("switch-client", "-t", other.Id.ToString()),
+            token);
+
+        Task finished = await Task.WhenAny(
+            told.Task,
+            Task.Delay(TimeSpan.FromSeconds(20), token));
+        Assert.True(finished == told.Task, "the watcher missed the client-session change");
+        Assert.Contains("tmux://sessions", await told.Task);
+    }
+
+    [UnixFact]
     public async Task Dropping_the_last_subscriber_stops_the_control_client()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -99,7 +193,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> clients = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 0,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Empty(clients);
@@ -170,7 +264,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> oneReference = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 1,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Single(oneReference);
@@ -179,7 +273,7 @@ public sealed class HierarchyWatcherTests
         IReadOnlyList<Client> noReferences = await TmuxWait.UntilAsync(
             cancellation => scope.Session.Server.GetClientsAsync(cancellation),
             current => current.Count == 0,
-            TimeSpan.FromSeconds(10),
+            TestBudget.Settle,
             TimeSpan.FromMilliseconds(250),
             token);
         Assert.Empty(noReferences);
@@ -189,6 +283,8 @@ public sealed class HierarchyWatcherTests
     [InlineData("window-add", true)]
     [InlineData("layout-change", true)]
     [InlineData("session-renamed", true)]
+    [InlineData("session-window-changed", true)]
+    [InlineData("client-session-changed", true)]
     [InlineData("output", false)]
     [InlineData("continue", false)]
     // A bell or a byte of pane output is not a change to the hierarchy. Waking

@@ -20,6 +20,16 @@ TRANSITION_TMUX_SOURCE_COMMIT = "a" * 40
 EVALUATED_COMMIT_TREE = "e" * 40
 CAPABILITY_COHORT = "0001"
 CLOSURE_COHORT = "closure"
+REQUIRED_TMUX_VERSIONS = [
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c",
+]
 
 
 def load_reconciler() -> dict[str, t.Any]:
@@ -57,10 +67,7 @@ def matrix_rows(commit: str = "c" * 40) -> list[dict[str, t.Any]]:
             "tmuxSourceCommit": str(index) * 40,
             "tmuxVersion": version,
         }
-        for index, version in enumerate(
-            ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"],
-            start=1,
-        )
+        for index, version in enumerate(REQUIRED_TMUX_VERSIONS, start=1)
         for framework in ["net10.0", "net8.0"]
     ]
 
@@ -131,6 +138,7 @@ def write_fixture(
             "byte_length_framing",
             "control_notifications",
             "format_fields_and_operators",
+            "missing_target_format_safety",
             "option_dollar_double_escape",
             "semicolon_grouping",
         }
@@ -173,7 +181,7 @@ def write_environment(
         "transitionTmuxSourceCommits": {
             "3.7": TRANSITION_TMUX_SOURCE_COMMIT,
         },
-        "tmuxVersions": ["3.2a", "3.3a", "3.4", "3.5", "3.6", "3.7a", "3.7b"],
+        "tmuxVersions": REQUIRED_TMUX_VERSIONS,
     }
     results.with_name("environment.json").write_text(
         json.dumps(environment, indent=2, sort_keys=True) + "\n",
@@ -306,6 +314,7 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "display_popup_3_3_options": "DisplayPopup33Options",
         "display_popup_3_6_key_policy": "DisplayPopup36KeyPolicy",
         "format_fields_and_operators": "FormatFieldsAndOperators",
+        "missing_target_format_safety": "MissingTargetFormatSafety",
         "hook_scope_pane_window_set": "HookScopePaneWindowSet",
         "hook_scope_pane_window_show": "HookScopePaneWindowShow",
         "kill_session_group": "KillSessionGroup",
@@ -366,6 +375,7 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
             "byte_length_framing",
             "control_notifications",
             "format_fields_and_operators",
+            "missing_target_format_safety",
             "option_dollar_double_escape",
             "semicolon_grouping",
         )
@@ -432,11 +442,12 @@ def test_uncommitted_evidence_uses_fingerprinted_worktree_test(
     [
         ({"evaluatedCommit": "f" * 40}, "environment commit differs from matrix"),
         ({"sourceTreeFingerprint": "f" * 64}, "source fingerprint differs"),
+        ({"tmuxVersions": [{}]}, "matrix environment observations are invalid"),
     ],
 )
 def test_reconciliation_rejects_environment_source_drift(
     tmp_path: pathlib.Path,
-    environment_change: dict[str, str],
+    environment_change: dict[str, t.Any],
     error: str,
 ) -> None:
     """Reject matrix metadata that is not bound to its current source tree."""

@@ -8,8 +8,6 @@ internal sealed class TmuxGenerationGuard(
     Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
     Func<string> markerFactory)
 {
-    private const string GenerationFormat = "#{pid}:#{start_time}";
-
     internal async Task<TmuxCommandResult> ExecuteAsync(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
@@ -23,8 +21,14 @@ internal sealed class TmuxGenerationGuard(
             + expected.StartTime.ToString(CultureInfo.InvariantCulture);
         IReadOnlyList<string>[] guarded =
         [
-            ["display-message", "-p", GenerationFormat],
-            ["if-shell", "-F", $"#{{==:{GenerationFormat},{generationText}}}", string.Empty, marker],
+            ["display-message", "-p", TmuxConnection.GenerationFormat],
+            [
+                "if-shell",
+                "-F",
+                $"#{{==:{TmuxConnection.GenerationFormat},{generationText}}}",
+                string.Empty,
+                marker,
+            ],
             .. commands,
         ];
 

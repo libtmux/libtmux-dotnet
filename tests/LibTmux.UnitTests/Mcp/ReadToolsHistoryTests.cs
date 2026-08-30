@@ -4,6 +4,8 @@ using System.Text;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests;
 
 [UnsupportedOSPlatform("windows")]
@@ -153,8 +155,7 @@ public sealed class ReadToolsHistoryTests
         {
             var connection = new TmuxConnection(
                 new ServerConnectionOptions(socketName: "history-test"),
-                ExecuteAsync,
-                implementation: TmuxImplementation.Tmux);
+                FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             Server = server;
             _accessor = new TmuxConnectionAccessor(server);

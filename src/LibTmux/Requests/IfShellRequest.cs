@@ -36,6 +36,10 @@ public sealed record IfShellRequest
     }
 
     /// <summary>Gets the shell command whose success decides.</summary>
+    /// <remarks>
+    /// tmux expands it as a format before running it, so a <c>#</c> in it does
+    /// not survive verbatim.
+    /// </remarks>
     public string ShellCommand { get; }
 
     /// <summary>Gets the tmux command run when it succeeds.</summary>

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace LibTmux.Query.Json;
@@ -22,10 +23,10 @@ public sealed record QueryJsonLimits(
 {
     /// <summary>The frozen v1 ceilings.</summary>
     public static QueryJsonLimits V1 { get; } = new(
-        MaximumDepth: 32,
-        MaximumNodes: 512,
+        MaximumDepth: QueryDocumentStructuralGuard.MaximumDepth,
+        MaximumNodes: QueryDocumentStructuralGuard.MaximumNodeOccurrences,
         MaximumStringLength: 4096,
-        MaximumPatternLength: 1024,
+        MaximumPatternLength: QueryRegexSemantics.MaximumPatternLength,
         MaximumUtf8Bytes: 262144);
 
     internal QueryJsonLimits Clamp()
@@ -36,7 +37,12 @@ public sealed record QueryJsonLimits(
             || MaximumNodes > V1.MaximumNodes
             || MaximumStringLength > V1.MaximumStringLength
             || MaximumPatternLength > V1.MaximumPatternLength
-            || MaximumUtf8Bytes > V1.MaximumUtf8Bytes)
+            || MaximumUtf8Bytes > V1.MaximumUtf8Bytes
+            || MaximumDepth < 0
+            || MaximumNodes < 0
+            || MaximumStringLength < 0
+            || MaximumPatternLength < 0
+            || MaximumUtf8Bytes < 0)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(QueryJsonLimits),
@@ -61,13 +67,21 @@ public static class QueryJson
     {
         ArgumentNullException.ThrowIfNull(document);
         var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        using (var writer = new Utf8JsonWriter(
+            buffer,
+            new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             new QueryDocumentJsonConverter(QueryJsonLimits.V1)
                 .Write(writer, document, new JsonSerializerOptions());
         }
 
-        return Encoding.UTF8.GetString(buffer.ToArray());
+        byte[] encoded = buffer.ToArray();
+        if (encoded.Length > QueryJsonLimits.V1.MaximumUtf8Bytes)
+        {
+            throw new JsonException("Query document exceeds the maximum encoded size.");
+        }
+
+        return Encoding.UTF8.GetString(encoded);
     }
 
     /// <summary>Reads one v1 JSON document.</summary>
@@ -86,32 +100,49 @@ public static class QueryJson
 
         using JsonDocument parsed = JsonDocument.Parse(
             json,
-            new JsonDocumentOptions { MaxDepth = bounds.MaximumDepth });
-        JsonElement root = parsed.RootElement;
-
-        // Schema and version must be checked before anything else is read, or
-        // a v2 payload gets silently parsed under v1 rules.
-        string schema = root.GetProperty("schema").GetString()
-            ?? throw new JsonException("Query document names no schema.");
-        if (!string.Equals(schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
+            new JsonDocumentOptions { MaxDepth = ParserDepth(bounds.MaximumDepth) });
+        try
         {
-            throw new JsonException(
-                $"Query document names schema '{schema}', which this reader does not know.");
-        }
+            JsonElement root = parsed.RootElement;
+            QueryJsonWireRules.ValidateEnvelope(root);
 
-        int version = root.GetProperty("version").GetInt32();
-        if (version != QueryDocument.CurrentVersion)
+            // Schema and version must be checked before anything else is read, or
+            // a v2 payload gets silently parsed under v1 rules.
+            string schema = root.GetProperty("schema").GetString()
+                ?? throw new JsonException("Query document names no schema.");
+            if (!string.Equals(schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
+            {
+                throw new JsonException(
+                    $"Query document names schema '{schema}', which this reader does not know.");
+            }
+
+            int version = root.GetProperty("version").GetInt32();
+            if (version != QueryDocument.CurrentVersion)
+            {
+                throw new JsonException(
+                    $"Query document is version {version}; this reader understands "
+                    + $"{QueryDocument.CurrentVersion}.");
+            }
+
+            var reader = new QueryDocumentJsonReader(bounds);
+            QueryDocument document = new(
+                schema,
+                version,
+                QueryDocumentJsonReader.ReadTarget(root.GetProperty("target")),
+                reader.ReadNode(root.GetProperty("predicate"), depth: 1));
+            QueryDocumentValidator.Validate(document);
+            return document;
+        }
+        catch (Exception exception) when (
+            exception is KeyNotFoundException
+            or InvalidCastException
+            or InvalidOperationException
+            or FormatException
+            or UnsupportedQueryExpressionException)
         {
-            throw new JsonException(
-                $"Query document is version {version}; this reader understands "
-                + $"{QueryDocument.CurrentVersion}.");
+            throw new JsonException("Query document does not match the v1 wire form.", exception);
         }
-
-        var reader = new QueryDocumentJsonReader(bounds);
-        return new QueryDocument(
-            schema,
-            version,
-            QueryDocumentJsonReader.ReadTarget(root.GetProperty("target")),
-            reader.ReadNode(root.GetProperty("predicate"), depth: 1));
     }
+
+    private static int ParserDepth(int queryDepth) => (queryDepth * 2) + 4;
 }

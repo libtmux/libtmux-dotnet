@@ -322,7 +322,7 @@ public sealed class Component13ParityTests
     {
         // Attaching is asynchronous on tmux's side, so the client appears a
         // moment after the process starts.
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<Client> clients = await server.GetClientsAsync(token);
@@ -342,7 +342,7 @@ public sealed class Component13ParityTests
         int expected,
         CancellationToken token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         while (DateTimeOffset.UtcNow < deadline)
         {
             if ((await server.GetClientsAsync(token)).Count == expected)

@@ -16,10 +16,10 @@ def load_verifier() -> dict[str, t.Any]:
 
 
 def checked_in_source() -> str:
-    """Return the checked-in capability profile source."""
+    """Return the checked-in capability interval source."""
     return t.cast(
         pathlib.Path,
-        load_verifier()["PROFILE_PATH"],
+        load_verifier()["MODEL_PATH"],
     ).read_text(encoding="utf-8")
 
 
@@ -30,7 +30,7 @@ def checked_in_document() -> dict[str, t.Any]:
 
 
 def test_checked_in_capability_model_matches_the_recorded_deltas() -> None:
-    """Keep the profiles the library ships and the version matrix in step."""
+    """Keep the intervals the library ships and the version matrix in step."""
     namespace = load_verifier()
     violations = namespace["validate"](
         checked_in_source(),
@@ -71,7 +71,7 @@ def test_recorded_delta_without_a_capability_is_rejected() -> None:
 
 
 def test_gate_naming_an_unknown_capability_is_rejected() -> None:
-    """Reject a gate whose name no profile carries, which can never fire."""
+    """Reject a gate whose name the model does not carry."""
     namespace = load_verifier()
 
     violations = namespace["validate"](
@@ -96,17 +96,32 @@ def test_every_gate_in_the_library_names_a_declared_capability() -> None:
     assert set(references) <= declared
 
 
-def test_the_dollar_escape_gate_is_read_from_the_option_scopes() -> None:
+def test_the_dollar_escape_gate_is_read_from_the_option_table() -> None:
     """Name the gate whose absence from the matrix this check was added for."""
     namespace = load_verifier()
     references = namespace["referenced_capabilities"](namespace["SOURCE_ROOT"])
 
-    assert references["option_dollar_double_escape"] == {
-        "Pane.Options.cs",
-        "Server.Options.cs",
-        "Session.Options.cs",
-        "Window.Options.cs",
-    }
+    assert references["option_dollar_double_escape"] == {"TmuxOptions.cs"}
+
+
+def test_interval_boundary_drift_is_rejected() -> None:
+    """Reject a source boundary that disagrees with the real-server ledger."""
+    namespace = load_verifier()
+    source = checked_in_source().replace(
+        "Add(intervals, Added37, version37);",
+        "Add(intervals, Added37, version36);",
+    )
+
+    violations = namespace["validate"](
+        source,
+        namespace["referenced_capabilities"](namespace["SOURCE_ROOT"]),
+        checked_in_document(),
+    )
+
+    assert (
+        "capability interval differs from recorded delta: new_pane_command "
+        "(model ('3.6', None), ledger ('3.7', None))"
+    ) in violations
 
 
 def test_every_recorded_capability_names_a_proof_that_exists() -> None:

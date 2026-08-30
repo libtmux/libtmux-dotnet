@@ -2,6 +2,8 @@ using System.Runtime.Versioning;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Mcp;
 
 [UnsupportedOSPlatform("windows")]
@@ -89,14 +91,13 @@ public sealed class PaneReaderTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "pane-reader"),
-            static (request, _) => Task.FromResult(new TmuxCommandResult(
+            FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,
                 ReadOnlyMemory<byte>.Empty,
                 ReadOnlyMemory<byte>.Empty,
                 [],
-                [])),
-            implementation: TmuxImplementation.Tmux);
+                []))));
         var server = new Server(connection, new ServerGeneration(17, 9001), "tmux 3.7");
         return new Pane(
             server,

@@ -36,6 +36,10 @@ public sealed class PaneOperationsTests
         Assert.Contains("LITERALPAYLOAD", afterText, StringComparison.Ordinal);
         Assert.DoesNotContain("echo LITERALPAYLOADEnter", afterText, StringComparison.Ordinal);
 
+        await pane.SendTextAsync("Enter", enter: false, token);
+        Assert.Contains("Enter", await ReadPaneAsync(pane, "Enter", token), StringComparison.Ordinal);
+        await pane.SendKeysAsync(new SendKeysRequest("C-u"), token);
+
         // Keeping a line out of shell history is a leading space, not a flag.
         await pane.SendKeysAsync(
             new SendKeysRequest("echo hidden", suppressHistory: true, enter: false),
@@ -431,8 +435,9 @@ public sealed class PaneOperationsTests
         RecordingLogger logger = new();
         Server server = await ConnectAsync(raw, token, logger);
         Pane pane = await FirstPaneAsync(server, token);
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains("new_pane_command");
+        bool supported = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "new_pane_command");
 
         if (supported)
         {
@@ -464,8 +469,9 @@ public sealed class PaneOperationsTests
 
         // tmux 3.7 alone dereferences a null window name here and crashes the
         // whole server, so that version always gets a placeholder name.
-        bool workaround = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .RequiresBreakPane37Workaround;
+        bool workaround = TmuxCapabilities.IsSupported(
+            server.Version!.Value,
+            "break_pane_3_7_workaround");
 
         Pane named = await pane.SplitAsync(cancellationToken: token);
         Assert.Equal("wanted", (await named.BreakAsync("wanted", cancellationToken: token)).Name);
@@ -490,8 +496,7 @@ public sealed class PaneOperationsTests
         RecordingLogger logger = new();
         Server server = await ConnectAsync(raw, token, logger);
         Pane pane = await FirstPaneAsync(server, token);
-        bool supported = TmuxCapabilities.GetRequired(server.Version!.Value)
-            .Capabilities.Contains(capability);
+        bool supported = TmuxCapabilities.IsSupported(server.Version!.Value, capability);
 
         await operation(pane, token);
 
@@ -519,6 +524,67 @@ public sealed class PaneOperationsTests
                 logger: logger),
             token);
 
+    [UnixFact]
+    public async Task A_pane_resolved_by_identifier_reaches_its_option_table()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Pane materialized = await FirstPaneAsync(server, token);
+
+        // A handle resolved by identifier carries no snapshot, so reaching a
+        // scope must not depend on one.
+        Pane resolved = await server.GetPaneAsync(materialized.Id, token);
+
+        await resolved.Hooks.GetAllAsync(cancellationToken: token);
+        await resolved.Options.GetAllAsync(cancellationToken: token);
+    }
+
+    [UnixFact]
+    public async Task A_name_and_a_title_are_expanded_as_formats()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await FirstPaneAsync(server, token);
+
+        // tmux expands the argument of select-pane -T and rename-session before
+        // storing it, so neither survives a '#' verbatim.
+        Pane titled = await pane.SetTitleAsync("#{pane_id}", token);
+        Session renamed = await pane.Session.RenameAsync("x#{pane_id}", token);
+
+        Assert.Equal(pane.Id.ToString(), titled.Title);
+        Assert.Equal($"x{pane.Id}", renamed.Name);
+
+        // The start directory goes the same way, in the spawn path every
+        // command taking -c shares rather than in any one of them.
+        Pane spawned = await pane.SplitAsync(
+            new SplitPaneRequest(startDirectory: "/tmp/#{session_name}-absent"),
+            token);
+        Assert.NotEqual(
+            "/tmp/#{session_name}-absent",
+            await FormatAsync(spawned, "#{pane_start_path}", token));
+    }
+
+    [UnixFact]
+    public async Task Killed_pane_is_a_raising_tombstone()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Pane survivor = await FirstPaneAsync(raw, token);
+        Pane doomed = await survivor.SplitAsync(new SplitPaneRequest(), token);
+
+        await doomed.KillAsync(cancellationToken: token);
+
+        // A session-scoped target answers with that session's current pane once
+        // the pane it names is gone, so refresh has to say the pane is missing
+        // rather than hand back the survivor.
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => doomed.RefreshAsync(token));
+    }
+
     private static async Task<Pane> FirstPaneAsync(
         RawTmuxTestContext raw,
         CancellationToken token) =>
@@ -533,7 +599,7 @@ public sealed class PaneOperationsTests
 
     private static async Task WaitForClearedHistoryAsync(Pane pane, CancellationToken token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string size = string.Empty;
         while (DateTimeOffset.UtcNow < deadline)
         {

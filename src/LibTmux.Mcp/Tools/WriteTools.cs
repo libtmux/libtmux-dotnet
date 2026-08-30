@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Text;
 using ModelContextProtocol.Server;
@@ -9,26 +10,43 @@ namespace LibTmux.Mcp;
 /// Registered only when the operator's tier is <c>mutating</c> or higher.
 /// Tools that remove what they act on live in <see cref="DestructiveTools" />
 /// instead, so raising the tier to allow a split does not also allow a kill.
+/// Resources passed to the public constructor remain owned by the caller.
+/// Instances returned by <see cref="McpTools.Writing(ServerConnectionOptions?, ServerPolicy?, JobStore?)" />
+/// dispose only the resources that factory created.
 /// </remarks>
 [McpServerToolType]
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools
+public sealed partial class WriteTools : IAsyncDisposable
 {
+    private readonly object _lifetimeGate = new();
     private readonly TmuxConnectionAccessor _connection;
     private readonly ServerPolicy _policy;
     private readonly PaneActivityHub _activity;
     private readonly JobStore _jobs;
+    private readonly ResourceOwnership _ownership;
+    private Task? _disposeTask;
 
     /// <summary>Initializes the changing tools.</summary>
     /// <param name="connection">The servers the tools talk to.</param>
     /// <param name="policy">What the tools are allowed to spend.</param>
     /// <param name="activity">Tells a wait when a pane has printed something.</param>
     /// <param name="jobs">Holds commands that outlive the call that started them.</param>
+    /// <remarks>Disposing the tools does not dispose these caller-owned resources.</remarks>
     public WriteTools(
         TmuxConnectionAccessor connection,
         ServerPolicy policy,
         PaneActivityHub activity,
         JobStore jobs)
+        : this(connection, policy, activity, jobs, ResourceOwnership.None)
+    {
+    }
+
+    internal WriteTools(
+        TmuxConnectionAccessor connection,
+        ServerPolicy policy,
+        PaneActivityHub activity,
+        JobStore jobs,
+        ResourceOwnership ownership)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(policy);
@@ -38,10 +56,80 @@ public sealed partial class WriteTools
         _policy = policy;
         _activity = activity;
         _jobs = jobs;
+        _ownership = ownership;
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        lock (_lifetimeGate)
+        {
+            _disposeTask ??= DisposeOwnedAsync();
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeOwnedAsync()
+    {
+        List<Exception> failures = [];
+        if (_ownership.HasFlag(ResourceOwnership.Activity))
+        {
+            try
+            {
+                await _activity.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
+            }
+        }
+
+        if (_ownership.HasFlag(ResourceOwnership.Jobs))
+        {
+            try
+            {
+                await _jobs.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
+            }
+        }
+
+        if (_ownership.HasFlag(ResourceOwnership.Connection))
+        {
+            try
+            {
+                _connection.Dispose();
+            }
+            catch (Exception error)
+            {
+                failures.Add(error);
+            }
+        }
+
+        if (failures.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        }
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException(failures);
+        }
     }
 
     private Task<Server> ServerAsync(string? socketName, CancellationToken cancellationToken) =>
         _connection.GetAsync(socketName, cancellationToken);
+
+    [Flags]
+    internal enum ResourceOwnership
+    {
+        None = 0,
+        Connection = 1,
+        Activity = 2,
+        Jobs = 4,
+    }
 
     /// <summary>Quotes a word so a POSIX shell reads it as exactly that word.</summary>
     /// <param name="value">The word.</param>

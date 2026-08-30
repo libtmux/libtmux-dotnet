@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Connection;
 using ModelContextProtocol;
 
 namespace LibTmux.UnitTests.Mcp;
@@ -466,8 +467,7 @@ public sealed class WriteToolsExecutionSafetyTests
                     new InvalidOperationException("Fake control attach unavailable.")));
             var connection = new TmuxConnection(
                 new ServerConnectionOptions(socketName: "execution-safety"),
-                ExecuteAsync,
-                implementation: TmuxImplementation.Tmux);
+                FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
             ServerPolicy effectivePolicy = policy ?? new ServerPolicy();

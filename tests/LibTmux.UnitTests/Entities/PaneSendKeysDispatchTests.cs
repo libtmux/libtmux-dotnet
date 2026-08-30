@@ -3,12 +3,35 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 
+using LibTmux.UnitTests.Connection;
+
 namespace LibTmux.UnitTests.Entities;
 
 [UnsupportedOSPlatform("windows")]
 public sealed class PaneSendKeysDispatchTests
 {
     private static readonly ServerGeneration Generation = new(91, 901);
+
+    [Fact]
+    public async Task Send_text_uses_literal_mode()
+    {
+        var dispatched = new ConcurrentQueue<string[]>();
+        Pane pane = CreatePane((request, _) =>
+        {
+            dispatched.Enqueue([.. request.LogicalArguments]);
+            return Task.FromResult(Success(request.LogicalArguments));
+        });
+
+        await pane.SendTextAsync(
+            "Enter",
+            enter: false,
+            TestContext.Current.CancellationToken);
+
+        string[] sent = Assert.Single(dispatched);
+        int commandStart = Array.IndexOf(sent, "send-keys");
+        Assert.NotEqual(-1, commandStart);
+        Assert.Equal(["send-keys", "-t", "%1", "-l", "Enter"], sent[commandStart..]);
+    }
 
     [Fact]
     public async Task Enter_not_dispatched_after_text_is_reported_as_unknown()
@@ -125,9 +148,12 @@ public sealed class PaneSendKeysDispatchTests
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions(socketName: "send-keys-dispatch-test"),
-            execute,
-            implementation: TmuxImplementation.Tmux);
-        return new Pane(connection, Generation, new PaneId(1));
+            FakeMultiplexer.AnsweringVersion(execute));
+        return new Pane(
+            new Server(connection, Generation, "tmux 3.7"),
+            connection,
+            Generation,
+            new PaneId(1));
     }
 
     private static TmuxCommandResult Success(IReadOnlyList<string> arguments)

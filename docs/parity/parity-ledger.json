@@ -729,7 +729,7 @@
       "tmuxVersions": "3.2a-3.7b"
     },
     {
-      "behavior": "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to MaximumTestedTmuxVersion 3.7b, the highest required tested version",
+      "behavior": "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to MaximumTestedTmuxVersion 3.7c, the highest required tested version",
       "component": "common",
       "componentId": 3,
       "csharpDestination": "P:LibTmux.LibTmuxInfo.MaximumTestedTmuxVersion",

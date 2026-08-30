@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
 namespace LibTmux.Internal;
@@ -7,6 +8,29 @@ internal static class PsmuxBinaryTrust
 {
     private const int BufferSize = 81920;
     private const long MaximumBinaryBytes = 128L * 1024 * 1024;
+
+    // The hash already proves the bytes are the audited build. These markers
+    // are the second reading of the same fact, kept because the caller reaches
+    // this through an internal method, and read from the pin so they cannot
+    // name a build the rest of the preview does not accept.
+    private static readonly byte[] CommitMarker =
+        System.Text.Encoding.ASCII.GetBytes(PsmuxCompatibility.SupportedShortCommit);
+    private static readonly byte[] BuildDateMarker =
+        System.Text.Encoding.ASCII.GetBytes(PsmuxCompatibility.SupportedBuildDate);
+
+    /// <summary>Verifies the executable when, and only when, the preview is in use.</summary>
+    internal static ValueTask VerifyIfPreviewAsync(
+        ServerConnectionOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.PsmuxPreview is PsmuxPreviewOptions preview
+            ? new ValueTask(VerifyAsync(
+                options.TmuxBinaryPath,
+                preview.ExpectedBinarySha256,
+                cancellationToken))
+            : ValueTask.CompletedTask;
+    }
 
     internal static async Task VerifyAsync(
         string path,
@@ -37,16 +61,17 @@ internal static class PsmuxBinaryTrust
         byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         try
         {
-            await using var stream = new FileStream(
+            var stream = new FileStream(
                 path,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
                 BufferSize,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
+            await using ConfiguredAsyncDisposable _ = stream.ConfigureAwait(false);
             using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var commit = new MarkerMatcher("66cf613"u8);
-            var date = new MarkerMatcher("2026-08-18"u8);
+            var commit = new MarkerMatcher(CommitMarker);
+            var date = new MarkerMatcher(BuildDateMarker);
             long total = 0;
             while (true)
             {

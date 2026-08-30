@@ -84,8 +84,11 @@ jobs:
         # Reaching the library through the package is the point: a missing
         # assembly or a wrong target framework is invisible from inside the
         # repository.
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
         run: |
-          dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj
+          dotnet restore tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+            --configfile tests/NuGet.config
           for framework in net8.0 net10.0; do
             dotnet run \
               --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
@@ -96,16 +99,21 @@ jobs:
 
       - name: Ahead-of-time smoke test
         # Trim and ahead-of-time warnings are only complete once something is
-        # published that way and run. This publishes where the closure tests
-        # below look for it, which is the default location rather than one
-        # this job picked.
+        # published that way and run. The isolated cache and mapped source make
+        # this a test of the packages above rather than the project graph.
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
         run: |
           sudo apt-get install --yes clang zlib1g-dev
+          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+            --runtime linux-x64 \
+            --configfile tests/NuGet.config
           for framework in net8.0 net10.0; do
             dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
               --configuration Release \
               --framework "${framework}" \
-              --runtime linux-x64
+              --runtime linux-x64 \
+              --no-restore
             "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
           done
 
@@ -155,6 +163,7 @@ jobs:
           uv run python eng/parity/render_public_api.py --check
           uv run python eng/parity/verify_capabilities.py
           uv run python eng/parity/verify_workflows.py
+          uv run python eng/parity/verify_tmux_versions.py
           uv run python eng/docs/render_api_reference.py --check
           uv run python eng/docs/sync_snippets.py --check
           uv run eng/mcp/dump_tools.py --check
@@ -168,10 +177,11 @@ jobs:
       - name: Engineering tests
         env:
           LIBTMUX_PYTHON_REPOSITORY: ${{ runner.temp }}/python-libtmux
-        # tomlkit is what mcp_swap edits Codex and Grok configs with, so its
-        # tests need it too. There is no Python project file here to declare
-        # it in — the scripts carry their own PEP 723 headers.
-        run: uv run --with pytest --with tomlkit python -m pytest eng --quiet
+        # Naming pytest and tomlkit on the command line resolved whatever
+        # released that morning, so an unrelated release could turn this red.
+        # The runner declares them in its own PEP 723 header and pins them in
+        # the lock beside it; --locked refuses to run against a stale one.
+        run: uv run --locked --script eng/run_tests.py --quiet
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         # A run that failed before packing has nothing to upload, and saying so
@@ -203,12 +213,8 @@ jobs:
           tmux -V
 
       - name: Restore
-        # Locked mode is off here, and omitting --locked-mode is not enough to
-        # do that: Directory.Build.props turns RestoreLockedMode on whenever CI
-        # is set. The lock files are generated for the Linux runtime identifier
-        # this repository publishes ahead of time, so a macOS restore resolves
-        # osx-arm64 and NU1004s against them -- which is the lock files being
-        # right about Linux, not a dependency problem.
+        # Directory.Build.props enables locked mode in CI. This advisory macOS
+        # lane opts out; the required Linux lanes remain the lock-file gate.
         run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
 
       - name: Build

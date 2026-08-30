@@ -101,6 +101,7 @@ def test_version_deltas_cover_the_required_capabilities() -> None:
         "semicolon_grouping",
         "byte_length_framing",
         "attachment_accounting",
+        "missing_target_format_safety",
         "option_dollar_double_escape",
     } <= capabilities
 

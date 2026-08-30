@@ -112,7 +112,7 @@ public sealed class EnvironmentOperationsTests
             token);
         Pane pane = await TestHierarchy.RequireFirstPaneAsync(window, token);
 
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TestBudget.Settle;
         string text = string.Empty;
         while (DateTimeOffset.UtcNow < deadline)
         {

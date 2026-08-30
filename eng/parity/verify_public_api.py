@@ -13,6 +13,7 @@ DOCUMENT_ROOT = pathlib.Path(__file__).parents[2] / "docs"
 API_PATH = DOCUMENT_ROOT / "public-api.json"
 LEDGER_PATH = DOCUMENT_ROOT / "parity" / "parity-ledger.json"
 PACKAGES_PATH = pathlib.Path(__file__).parents[2] / "Directory.Packages.props"
+SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src"
 PACKAGE_IDS = ["LibTmux", "LibTmux.Query.Json"]
 COMPONENT_IDS = set(range(1, 19))
 ENTITY_IDS = {
@@ -74,6 +75,7 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
             "3.7": None,
             "3.3.7": "7",
             "3.7b": "b",
+            "3.7c": "c",
             "3.0-rc3": "rc3",
             "3.3a-openbsd": "a-openbsd",
             "next-3.8": "next",
@@ -119,9 +121,9 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
         "exactIdentity": "CompareTo returns zero if and only if equality is true",
         "examples": [
             "next-3.7 < 3.7-dev < 3.7-dev.0 < 3.7-rc1 < 3.7-rc2",
-            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b",
+            "3.7-rc2 < 3.7 < 3.7-openbsd < 3.7a < 3.7a-openbsd < 3.7b < 3.7c",
             "3.3 < 3.3.1 < 3.3.10 < 3.3a",
-            "3.7b < next-3.8 < 3.8",
+            "3.7c < next-3.8 < 3.8",
         ],
         "invalidOperands": (
             "CompareTo, <, <=, >, >=, IsAtLeast, and EnsureAtLeast throw "
@@ -162,23 +164,26 @@ TMUX_VERSION_CONTRACT: dict[str, t.Any] = {
     "support": {
         "minimum": "3.2a",
         "minimumInclusive": True,
-        "maximumTested": "3.7b",
+        "maximumTested": "3.7c",
         "maximumTestedSemantics": "informational; not a support ceiling",
         "minimumChecks": (
             "enforce only the minimum; newer untested versions may satisfy them"
         ),
-        "exactVersionIdentity": "3.7, 3.7a, and 3.7b are distinct",
-        "capabilityProfileSelection": (
-            "exact parsed version identity only; no nearest-lower fallback"
+        "exactVersionIdentity": "3.7, 3.7a, 3.7b, and 3.7c are distinct",
+        "capabilitySelection": (
+            "named support intervals apply to every stable release at or above the "
+            "minimum; capabilities without a recorded end remain supported on later "
+            "stable releases"
         ),
-        "unknownCapabilityProfile": (
-            "a version may satisfy the minimum without an approved profile"
+        "unknownCapabilityVersion": (
+            "invalid, below-minimum, development, release-candidate, and next versions "
+            "have unknown capability state"
         ),
     },
 }
 TMUX_MAX_VERSION_ADAPTATION = (
     "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
-    "MaximumTestedTmuxVersion 3.7b, the highest required tested version"
+    "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
 )
 C4_FRAMING_VALIDATION = (
     "row := value{projection.Fields.Count}, each value terminated by "
@@ -431,6 +436,12 @@ def validate_header(contract: dict[str, t.Any], violations: list[str]) -> None:
     if contract.get("supportedTargetFrameworks") != ["net8.0", "net10.0"]:
         violations.append("invalid target framework boundary")
     versions = t.cast(dict[str, t.Any], contract.get("supportedTmuxVersions", {}))
+    if (
+        versions.get("minimum") != "3.2a"
+        or versions.get("stableSupport")
+        != "every canonical stable release at or above the minimum"
+    ):
+        violations.append("invalid stable tmux support boundary")
     if versions.get("required") != [
         "3.2a",
         "3.3a",
@@ -439,6 +450,7 @@ def validate_header(contract: dict[str, t.Any], violations: list[str]) -> None:
         "3.6",
         "3.7a",
         "3.7b",
+        "3.7c",
     ]:
         violations.append("invalid required tmux versions")
     if (
@@ -725,8 +737,8 @@ def validate_c4_materialization_contracts(
             ["internal", "sealed"],
         ),
         "T:LibTmux.Internal.MaterializationQuery": (
-            "static class",
-            ["internal", "static"],
+            "sealed class",
+            ["internal", "sealed"],
         ),
     }
     expected_members = {
@@ -761,34 +773,29 @@ def validate_c4_materialization_contracts(
         ),
         (
             "M:LibTmux.Internal.MaterializationQuery.FetchAsync("
-            "MaterializationContext,string,IReadOnlyList<string>?,string?,"
-            "CancellationToken)"
+            "string,IEnumerable<string>?,CancellationToken)"
         ): (
             "Task<IReadOnlyList<IReadOnlyDictionary<string,string?>>>",
             (
-                ("context", "MaterializationContext", None),
                 ("listCommand", "string", None),
-                ("arguments", "IReadOnlyList<string>?", "null"),
-                ("target", "string?", "null"),
+                ("extraArguments", "IEnumerable<string>?", "null"),
                 ("cancellationToken", "CancellationToken", "default"),
             ),
-            True,
+            False,
         ),
         (
             "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync("
-            "MaterializationContext,string,string,string,IReadOnlyList<string>?,"
-            "CancellationToken)"
+            "string,string,string,TmuxTarget?,CancellationToken)"
         ): (
-            "Task<IReadOnlyDictionary<string,string?>>",
+            "Task<IReadOnlyDictionary<string,string?>?>",
             (
-                ("context", "MaterializationContext", None),
                 ("listCommand", "string", None),
-                ("targetId", "string", None),
-                ("idField", "string", None),
-                ("arguments", "IReadOnlyList<string>?", "null"),
+                ("idWireName", "string", None),
+                ("identifier", "string", None),
+                ("inSession", "TmuxTarget?", "null"),
                 ("cancellationToken", "CancellationToken", "default"),
             ),
-            True,
+            False,
         ),
         (
             "M:LibTmux.Internal.Materializer.MaterializeSession("
@@ -897,8 +904,8 @@ def validate_c4_materialization_contracts(
         violations.append("invalid C4 framing contract")
 
     fetch_ids = (
-        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(MaterializationContext,string,IReadOnlyList<string>?,string?,CancellationToken)",
-        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(MaterializationContext,string,string,string,IReadOnlyList<string>?,CancellationToken)",
+        "M:LibTmux.Internal.MaterializationQuery.FetchAsync(string,IEnumerable<string>?,CancellationToken)",
+        "M:LibTmux.Internal.MaterializationQuery.FetchOneAsync(string,string,string,TmuxTarget?,CancellationToken)",
     )
     if any(
         members.get(member_id, {}).get("failureMapping") != C4_QUERY_FAILURE_MAPPING
@@ -1320,11 +1327,68 @@ def validate(contract: dict[str, t.Any], ledger: dict[str, t.Any]) -> list[str]:
     validate_query(contract, violations)
     validate_examples_and_reachability(contract, violations)
     validate_ledger(contract, ledger, members, violations)
+    violations.extend(validate_visibility(members))
+    return violations
+
+
+def shipped_surface() -> set[str]:
+    """Read the declarations the Roslyn analyzer holds each assembly to.
+
+    Returns
+    -------
+    set[str]
+        One entry per approved declaration, without its return type.
+
+    Examples
+    --------
+    >>> "LibTmux.Pane" in shipped_surface()
+    True
+    """
+    surface: set[str] = set()
+    for path in sorted(SOURCE_ROOT.glob("*/PublicAPI.*.txt")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            entry = line.strip()
+            if entry and not entry.startswith("#"):
+                surface.add(entry.split(" -> ")[0].removeprefix("static "))
+    return surface
+
+
+def validate_visibility(members: dict[str, t.Any]) -> list[str]:
+    """Hold the contract's internal members to being absent from the assembly.
+
+    The analyzer baselines are generated from the built assembly, so a member
+    the contract calls internal and the baseline lists is public in fact. That
+    disagreement is invisible to the analyzer, which never reads the contract,
+    and to the rest of this file, which never reads the assembly.
+
+    Parameters
+    ----------
+    members
+        Contract members keyed by member id.
+
+    Returns
+    -------
+    list[str]
+        One violation per member the contract and the assembly disagree on.
+
+    Examples
+    --------
+    >>> validate_visibility({})
+    []
+    """
+    surface = shipped_surface()
+    violations = []
+    for member_id, member in sorted(members.items()):
+        if member.get("visibility") != "internal":
+            continue
+        declaration = member_id[2:].split("(")[0].replace("`1", "<T>")
+        if any(entry.startswith(declaration) for entry in surface):
+            violations.append(f"contract calls {member_id} internal; the assembly ships it")
     return violations
 
 
 def validate_repository() -> list[str]:
-    """Validate repository policy coupled to the approved generated catalog.
+    """Validate repository policy coupled to the approved API contract.
 
     Returns
     -------

@@ -788,11 +788,11 @@ public sealed class HierarchyWatcherLifecycleTests
         public bool IsRunning => Volatile.Read(ref _running) != 0;
 
         public Task<IReadOnlyList<string>> SendAsync(
-            string command,
+            TmuxCommand command,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Commands.Add(command);
+            Commands.Add(string.Join(' ', command.ToArguments()));
             return Task.FromResult<IReadOnlyList<string>>([]);
         }
 

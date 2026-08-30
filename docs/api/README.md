@@ -22,6 +22,7 @@ modes differ.
 | `LibTmux.ClientAttachment` | What one client is looking at. |
 | `LibTmux.CommandPromptRequest` | Describes one command-prompt invocation. |
 | `LibTmux.ConfirmBeforeRequest` | Describes one confirm-before invocation. |
+| `LibTmux.ControlModeCommandException` | Reports a command rejected by a live tmux control client. |
 | `LibTmux.CopyModeRequest` | Describes one copy-mode invocation. |
 | `LibTmux.DisplayMenuRequest` | Describes one display-menu invocation. |
 | `LibTmux.DisplayMessageRequest` | Describes one display-message invocation. |
@@ -67,9 +68,7 @@ modes differ.
 | `LibTmux.Query.BooleanConstant` | A boolean literal. |
 | `LibTmux.Query.ComparisonNode` | An ordering or equality comparison. |
 | `LibTmux.Query.ConstantNode` | A literal operand. |
-| `LibTmux.Query.EnumConstant` | An enumeration literal, named by type and member. |
 | `LibTmux.Query.FieldNode` | A tmux format field operand. |
-| `LibTmux.Query.InstantConstant` | An instant literal, in whole seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant` | A 64-bit integer literal. |
 | `LibTmux.Query.NotNode` | The negation of one predicate. |
 | `LibTmux.Query.NullConstant` | The absence of a value. |
@@ -155,6 +154,7 @@ modes differ.
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
 | `LibTmux.TmuxVersionTooLowException` | Reports an unsupported tmux version. |
+| `LibTmux.TmuxWaitChannel` | An open wait on a tmux wait-for channel. |
 | `LibTmux.TmuxWaitMode` | What to do with a wait-for channel. |
 | `LibTmux.TmuxWaitTimeoutException` | Reports an expired bounded wait. |
 | `LibTmux.TmuxWindowException` | Thrown when a window operation is refused before tmux sees it. |
@@ -189,6 +189,7 @@ modes differ.
 | `LibTmux.ClientAttachment.#ctor(LibTmux.Session,LibTmux.Window,LibTmux.Pane)` | What one client is looking at. |
 | `LibTmux.CommandPromptRequest.#ctor(System.String,System.String,System.String,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Nullable{LibTmux.PromptType},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a command prompt. |
 | `LibTmux.ConfirmBeforeRequest.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,System.Boolean,System.String)` | Initializes a confirmation. |
+| `LibTmux.ControlModeCommandException.#ctor(System.String,LibTmux.TmuxCommand,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a control-mode command exception. |
 | `LibTmux.CopyModeRequest.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.String)` | Initializes a copy-mode request. |
 | `LibTmux.DisplayMenuRequest.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.TmuxMenuItem},System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.Boolean,System.Boolean)` | Initializes a menu. |
 | `LibTmux.DisplayMessageRequest.#ctor(System.String,System.Boolean,System.String,System.Boolean,System.Boolean,System.Boolean,System.String,System.Nullable{System.TimeSpan},System.Boolean,System.Boolean)` | Initializes a display-message request. |
@@ -197,7 +198,7 @@ modes differ.
 | `LibTmux.GetOptionRequest.#ctor(System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request for one option. |
 | `LibTmux.GetOptionsRequest.#ctor(System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request for every option in a scope. |
 | `LibTmux.HookRequest.#ctor(System.String,System.Nullable{LibTmux.OptionScope},System.Boolean)` | Initializes a request naming one hook. |
-| `LibTmux.IControlModeSession.SendAsync(System.String,System.Threading.CancellationToken)` | Runs one command on this client and reads what it answered. |
+| `LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)` | Runs one command on this client and reads what it answered. |
 | `LibTmux.IfShellRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.String)` | Initializes a conditional command. |
 | `LibTmux.IncompleteSnapshotException.#ctor(System.String,LibTmux.SnapshotDepth)` | Initializes the exception for one uncaptured relation. |
 | `LibTmux.LibTmuxException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes a LibTmux exception that knows whether tmux ran the command. |
@@ -271,9 +272,7 @@ modes differ.
 | `LibTmux.Query.BooleanConstant.#ctor(System.Boolean)` | A boolean literal. |
 | `LibTmux.Query.ComparisonNode.#ctor(LibTmux.Query.QueryComparison,LibTmux.Query.QueryNode,LibTmux.Query.QueryNode)` | An ordering or equality comparison. |
 | `LibTmux.Query.ConstantNode.#ctor(LibTmux.Query.QueryConstant)` | A literal operand. |
-| `LibTmux.Query.EnumConstant.#ctor(System.String,System.String)` | An enumeration literal, named by type and member. |
 | `LibTmux.Query.FieldNode.#ctor(LibTmux.Query.QueryTarget,System.String)` | A tmux format field operand. |
-| `LibTmux.Query.InstantConstant.#ctor(System.Int64)` | An instant literal, in whole seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant.#ctor(System.Int64)` | A 64-bit integer literal. |
 | `LibTmux.Query.NotNode.#ctor(LibTmux.Query.QueryNode)` | The negation of one predicate. |
 | `LibTmux.Query.OrNode.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.Query.QueryNode})` | Initializes a disjunction. |
@@ -282,6 +281,7 @@ modes differ.
 | `LibTmux.Query.QueryEdgeParser.ParseNameContains(LibTmux.Query.QueryTarget,System.String)` | Parses a name__contains lookup into a query document. |
 | ```LibTmux.Query.QueryExtensions.Compile``1(LibTmux.Query.QueryDocument)``` | Compiles a document into an in-memory predicate. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument)``` | Filters a snapshot with an already translated document. |
+| ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument,System.Threading.CancellationToken)``` | Filters a snapshot with a cancellable translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Filters a snapshot with a declarative predicate. |
 | ```LibTmux.Query.QueryExtensions.Translate``1(System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Translates an expression into a wire document. |
 | `LibTmux.Query.RegexNode.#ctor(LibTmux.Query.QueryNode,System.String,System.String,System.Text.RegularExpressions.RegexOptions)` | A constant-pattern regular expression match. |
@@ -338,6 +338,7 @@ modes differ.
 | `LibTmux.Server.LockAsync(System.Threading.CancellationToken)` | Locks every client attached to this server. |
 | `LibTmux.Server.LockClientAsync(System.String,System.Threading.CancellationToken)` | Locks one client. |
 | `LibTmux.Server.Open(LibTmux.ServerConnectionOptions)` | Opens an unmaterialized server connection handle. |
+| `LibTmux.Server.OpenWaitChannel(System.String)` | Opens a wait on a channel that survives a timed attempt. |
 | `LibTmux.Server.RaiseIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.RefreshClientAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Redraws one client. |
 | `LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest,System.Threading.CancellationToken)` | Runs a shell command and reports what it printed. |
@@ -387,6 +388,7 @@ modes differ.
 | `LibTmux.SetOptionRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one option. |
 | `LibTmux.SplitPaneRequest.#ctor(System.String,System.String,System.Boolean,System.Nullable{LibTmux.PaneDirection},System.Boolean,System.Boolean,System.String,System.String,System.Nullable{System.Int32},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Boolean,System.String,System.String,System.String,System.String,System.Boolean)` | Initializes a pane-split request. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception. |
+| `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.SwapPaneRequest.#ctor(System.String,System.Nullable{LibTmux.PaneSwapDirection},System.Boolean,System.Boolean)` | Initializes a pane-swap request. |
 | `LibTmux.Testing.TestEnvironment.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})` | Initializes a test environment. |
 | `LibTmux.Testing.TestEnvironment.WithVariable(System.String,System.String)` | Answers a copy that also sets one variable. |
@@ -410,6 +412,7 @@ modes differ.
 | `LibTmux.TmuxBuffer.#ctor(System.String,System.Int64,System.String)` | Initializes one buffer. |
 | `LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | Runs every command in one tmux invocation. |
 | `LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | Adds one command and returns the longer chain. |
+| `LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})` | Adds every command in order and returns the longer chain. |
 | `LibTmux.TmuxChain.Then(System.String,System.String[])` | Adds one command by name and returns the longer chain. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.AttachSessionRequest,LibTmux.Session,System.Threading.CancellationToken)` | Runs an attach request on its own. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.BindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)` | Runs a key-binding request on its own. |
@@ -473,7 +476,7 @@ modes differ.
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)` | Returns a window-move request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)` | Returns a floating-pane request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)` | Returns a session request as one tmux command. |
-| `LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,System.String)` | Returns a window request as one tmux command. |
+| `LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)` | Returns a window request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
 | `LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)` | Returns a pane-resize request as one tmux command. |
@@ -495,7 +498,7 @@ modes differ.
 | `LibTmux.TmuxChaining.ToRunCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | Returns running a hook as one tmux command. |
 | `LibTmux.TmuxChaining.ToUnsetCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | Returns removing a hook as one tmux command. |
 | `LibTmux.TmuxCleanupException.#ctor(System.String,System.OperationCanceledException,System.Int32,System.Exception)` | Initializes a cleanup exception. |
-| `LibTmux.TmuxCommand.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | One tmux command and the arguments it carries. |
+| `LibTmux.TmuxCommand.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a tmux command. |
 | `LibTmux.TmuxCommand.Create(System.String,System.String[])` | Creates a command from its name and arguments. |
 | `LibTmux.TmuxCommand.ToArguments` | Returns this command the way tmux receives it. |
 | `LibTmux.TmuxCommandException.#ctor(System.String,LibTmux.TmuxCommandResult,System.Exception)` | Initializes a command exception. |
@@ -554,6 +557,8 @@ modes differ.
 | `LibTmux.TmuxVersion.op_LessThan(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is older. |
 | `LibTmux.TmuxVersion.op_LessThanOrEqual(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is at most the right version. |
 | `LibTmux.TmuxVersionTooLowException.#ctor(System.String,LibTmux.TmuxVersion,LibTmux.TmuxVersion,System.Exception)` | Initializes an unsupported-version exception. |
+| `LibTmux.TmuxWaitChannel.DisposeAsync` | Withdraws the waiter from tmux. |
+| `LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)` | Waits for the signal, giving this attempt a budget. |
 | `LibTmux.TmuxWaitTimeoutException.#ctor(System.String,System.TimeSpan,System.Exception)` | Initializes a wait-timeout exception. |
 | `LibTmux.TmuxWindowException.#ctor(System.String,LibTmux.WindowId,System.Exception)` | Initializes the exception for one window. |
 | `LibTmux.UnbindKeyRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean)` | Initializes a request to remove a binding. |
@@ -661,6 +666,9 @@ modes differ.
 | `LibTmux.ConfirmBeforeRequest.DefaultYes` | Gets whether pressing enter confirms rather than cancels. |
 | `LibTmux.ConfirmBeforeRequest.Prompt` | Gets the question shown, or null for tmux's own wording. |
 | `LibTmux.ConfirmBeforeRequest.TargetClient` | Gets the client to ask, or null for the caller's own. |
+| `LibTmux.ControlModeCommandException.Command` | Gets the command tmux rejected. |
+| `LibTmux.ControlModeCommandException.ErrorLines` | Gets the error lines tmux reported. |
+| `LibTmux.ControlModeCommandException.OutputLines` | Gets output produced before tmux rejected the command. |
 | `LibTmux.CopyModeRequest.Cancel` | Gets whether copy mode is left instead of entered. |
 | `LibTmux.CopyModeRequest.ExitOnBottom` | Gets whether reaching the bottom leaves copy mode. |
 | `LibTmux.CopyModeRequest.MouseDrag` | Gets whether the mode is entered for a mouse drag. |
@@ -865,11 +873,8 @@ modes differ.
 | `LibTmux.Query.ComparisonNode.Operator` | The comparison. |
 | `LibTmux.Query.ComparisonNode.Right` | The right operand. |
 | `LibTmux.Query.ConstantNode.Value` | The literal. |
-| `LibTmux.Query.EnumConstant.Type` | The enumeration type name. |
-| `LibTmux.Query.EnumConstant.Value` | The member name. |
 | `LibTmux.Query.FieldNode.Target` | The object that owns the field. |
 | `LibTmux.Query.FieldNode.WireName` | The tmux format token name. |
-| `LibTmux.Query.InstantConstant.UnixSeconds` | Seconds since the Unix epoch. |
 | `LibTmux.Query.Int64Constant.Value` | The literal value. |
 | `LibTmux.Query.NotNode.Operand` | The negated predicate. |
 | `LibTmux.Query.OrNode.Operands` | Gets the ordered operands. |
@@ -1016,7 +1021,7 @@ modes differ.
 | `LibTmux.SplitPaneRequest.Style` | Gets the pane style. |
 | `LibTmux.SplitPaneRequest.Target` | Gets the pane to split, or null for the active one. |
 | `LibTmux.SplitPaneRequest.Zoom` | Gets whether the new pane is zoomed. |
-| `LibTmux.StaleServerGenerationException.Actual` | Gets the generation currently serving the endpoint. |
+| `LibTmux.StaleServerGenerationException.Actual` | Gets the generation currently serving the endpoint, or when it could not be observed. |
 | `LibTmux.StaleServerGenerationException.Expected` | Gets the generation expected by the stale handle. |
 | `LibTmux.SwapPaneRequest.Detach` | Gets whether the swapped pane is left unselected. |
 | `LibTmux.SwapPaneRequest.Direction` | Gets the neighbour to swap with instead. |
@@ -1045,8 +1050,8 @@ modes differ.
 | `LibTmux.TmuxCleanupException.CleanupFailure` | Gets the cleanup failure. |
 | `LibTmux.TmuxCleanupException.ClientProcessId` | Gets the disposable client process identifier. |
 | `LibTmux.TmuxCleanupException.OriginalCancellation` | Gets the original cancellation. |
-| `LibTmux.TmuxCommand.Arguments` | Its arguments, separated as tmux will receive them. |
-| `LibTmux.TmuxCommand.Name` | The tmux command name, such as new-window. |
+| `LibTmux.TmuxCommand.Arguments` | Gets the arguments, separated as tmux will receive them. |
+| `LibTmux.TmuxCommand.Name` | Gets the tmux command name. |
 | `LibTmux.TmuxCommandException.Result` | Gets the inspectable command result. |
 | `LibTmux.TmuxCommandNotFoundException.TmuxBinaryPath` | Gets the configured tmux executable path. |
 | `LibTmux.TmuxCommandResult.Arguments` | Gets the logical tmux arguments. |
@@ -1095,6 +1100,8 @@ modes differ.
 | `LibTmux.TmuxVersion.Suffix` | Gets the exact preserved suffix projection. |
 | `LibTmux.TmuxVersionTooLowException.ActualVersion` | Gets the actual tmux version. |
 | `LibTmux.TmuxVersionTooLowException.RequiredVersion` | Gets the required tmux version. |
+| `LibTmux.TmuxWaitChannel.Channel` | Gets the channel being waited on. |
+| `LibTmux.TmuxWaitChannel.Signalled` | Gets whether the wait completed before withdrawal began. |
 | `LibTmux.TmuxWaitTimeoutException.Timeout` | Gets the expired timeout. |
 | `LibTmux.TmuxWindowException.WindowId` | Gets the window the request named. |
 | `LibTmux.UnbindKeyRequest.All` | Gets whether every binding in the table goes. |

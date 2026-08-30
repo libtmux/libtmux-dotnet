@@ -16,7 +16,7 @@ public sealed class CompositeMutationDispatchTests
         Window window = CreateWindow((request, _) =>
         {
             string[] arguments = [.. request.LogicalArguments];
-            if (arguments.Contains("list-windows", StringComparer.Ordinal))
+            if (ActualCommand(arguments) == ProjectionRead)
             {
                 throw NotDispatched(arguments, "refresh was not dispatched");
             }
@@ -71,6 +71,28 @@ public sealed class CompositeMutationDispatchTests
 
         Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.Equal("layout was not dispatched", failure.Message);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0000")]
+    [InlineData("0000x")]
+    [InlineData("0000,")]
+    public async Task Truncated_custom_layouts_are_refused_before_dispatch(string layout)
+    {
+        int dispatches = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            Interlocked.Increment(ref dispatches);
+            return Task.FromResult(Success(request));
+        });
+
+        await Assert.ThrowsAsync<TmuxWindowException>(() =>
+            window.SelectLayoutAsync(
+                new SelectLayoutRequest(layout),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, Volatile.Read(ref dispatches));
     }
 
     [Fact]
@@ -170,9 +192,9 @@ public sealed class CompositeMutationDispatchTests
                     request,
                     $"{Generation.ProcessId}:{Generation.StartTime}\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
-                "list-sessions" => throw NotDispatched(
+                ProjectionRead => throw NotDispatched(
                     arguments,
-                    "session listing was not dispatched"),
+                    "session read was not dispatched"),
                 _ => Task.FromResult(Success(request)),
             };
         });
@@ -185,12 +207,13 @@ public sealed class CompositeMutationDispatchTests
         AssertPartialFailure(failure, typeof(TmuxTransportException));
         Assert.Equal(
             [
+                // The banner is read once, before the first command reaches tmux.
+                "-V",
                 "has-session",
                 "kill-session",
                 "new-session",
                 "display-message",
-                "-V",
-                "list-sessions",
+                ProjectionRead,
             ],
             commands.ToArray());
     }
@@ -221,6 +244,7 @@ public sealed class CompositeMutationDispatchTests
             string command = ActualCommand(arguments);
             return command switch
             {
+                "-V" => Task.FromResult(Success(request)),
                 "display-message" => Task.FromResult(Success(request, "-team-x\n")),
                 "new-window" => Task.FromResult(Success(request)),
                 "list-windows" => Task.FromResult(Success(
@@ -331,7 +355,9 @@ public sealed class CompositeMutationDispatchTests
     public async Task Exact_missing_environment_result_remains_an_absence_answer()
     {
         Server server = CreateServer((request, _) => Task.FromResult(
-            Failure(request, 1, "unknown variable: MISSING\n")));
+            request.LogicalArguments is ["-V"]
+                ? Success(request)
+                : Failure(request, 1, "unknown variable: MISSING\n")));
 
         TmuxEnvironmentEntry? entry = await server.Environment.GetAsync(
             "MISSING",
@@ -396,7 +422,11 @@ public sealed class CompositeMutationDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
     {
         var connection = CreateConnection(execute);
-        return new Pane(connection, Generation, new PaneId(1));
+        return new Pane(
+            new Server(connection, Generation, "tmux 3.7"),
+            connection,
+            Generation,
+            new PaneId(1));
     }
 
     private static Window CreateWindow(
@@ -449,20 +479,29 @@ public sealed class CompositeMutationDispatchTests
             new ServerConnectionOptions(
                 socketName: "composite-mutation-test",
                 initializeAsync: initializeAsync),
-            execute,
-            implementation: TmuxImplementation.Tmux);
+            execute);
 
     private static TmuxTransportException NotDispatched(
         IReadOnlyList<string> arguments,
         string message) =>
         new(message, arguments, TmuxDispatchState.NotDispatched);
 
-    private static string ActualCommand(string[] arguments) =>
-        arguments.Contains("if-shell", StringComparer.Ordinal)
+    // display-message serves three purposes: probing the generation, expanding
+    // a format, and reading one entity. Only the read carries a framed template.
+    private const string ProjectionRead = "read-one";
+
+    private static string ActualCommand(string[] arguments)
+    {
+        string command = arguments.Contains("if-shell", StringComparer.Ordinal)
             ? arguments.Last(static argument => argument is
                 "display-message" or "list-sessions" or "list-windows" or "list-panes"
                 or "new-window")
             : arguments[0];
+        return command == "display-message"
+            && arguments[^1].Contains(FormatProjection.RowSeparator, StringComparison.Ordinal)
+                ? ProjectionRead
+                : command;
+    }
 
     private static TmuxCommandResult Success(
         TmuxCommandRequest request,
@@ -470,6 +509,14 @@ public sealed class CompositeMutationDispatchTests
         ServerGeneration? generation = null)
     {
         string[] arguments = [.. request.LogicalArguments];
+
+        // Every connection reads the version banner once before its first
+        // command, whatever else a test is scripting.
+        if (arguments is ["-V"])
+        {
+            payload = "tmux 3.7\n";
+        }
+
         bool guarded = arguments.Contains("if-shell", StringComparer.Ordinal);
         ServerGeneration effectiveGeneration = generation ?? Generation;
         string output = guarded
@@ -514,7 +561,7 @@ public sealed class CompositeMutationDispatchTests
                     request,
                     $"{discovered.ProcessId}:{discovered.StartTime}\n")),
                 "-V" => Task.FromResult(Success(request, "tmux 3.7\n")),
-                "list-sessions" => Task.FromResult(Success(
+                ProjectionRead => Task.FromResult(Success(
                     request,
                     SessionListing(discovered, "$2", "created"),
                     discovered)),

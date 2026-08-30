@@ -1084,6 +1084,27 @@ def test_build_version_accepts_only_complete_valid_cache(
     assert f"commit={commit}" in result.stdout
 
 
+def test_build_version_rejects_invalid_worker_limit(tmp_path: pathlib.Path) -> None:
+    """Reject a worker limit that cannot bound make concurrency."""
+    artifacts, _binary, _commit = _cached_tmux_fixture(tmp_path)
+    script = pathlib.Path(__file__).parents[2] / "tmux" / "build-version.sh"
+
+    result = subprocess.run(
+        [str(script), "3.2a"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "LIBTMUX_BUILD_JOBS": "0",
+            "LIBTMUX_TMUX_ARTIFACT_DIRECTORY": str(artifacts),
+        },
+    )
+
+    assert result.returncode == 2
+    assert "LIBTMUX_BUILD_JOBS must be a positive integer" in result.stderr
+
+
 @pytest.mark.parametrize("digest_tool", ["sha256sum", "shasum"])
 def test_build_version_selects_portable_digest_tool(
     tmp_path: pathlib.Path,

@@ -38,17 +38,30 @@ public static class McpTools
     /// <remarks>
     /// Pass the same <paramref name="jobs" /> to every caller that needs to
     /// collect a job somebody else started; a handle is only meaningful to the
-    /// store that issued it.
+    /// store that issued it. Dispose the returned tools asynchronously. The
+    /// factory disposes its connection cache, activity hub, and any job store
+    /// it created; a supplied <paramref name="jobs" /> remains caller-owned.
     /// </remarks>
     public static WriteTools Writing(
         ServerConnectionOptions? options = null,
         ServerPolicy? policy = null,
-        JobStore? jobs = null) =>
-        new(
+        JobStore? jobs = null)
+    {
+        JobStore effectiveJobs = jobs ?? new JobStore();
+        WriteTools.ResourceOwnership ownership = WriteTools.ResourceOwnership.Connection
+            | WriteTools.ResourceOwnership.Activity;
+        if (jobs is null)
+        {
+            ownership |= WriteTools.ResourceOwnership.Jobs;
+        }
+
+        return new WriteTools(
             Accessor(options),
             policy ?? new ServerPolicy(),
             new PaneActivityHub(),
-            jobs ?? new JobStore());
+            effectiveJobs,
+            ownership);
+    }
 
     /// <summary>Builds the tools that remove what they act on.</summary>
     /// <param name="options">How to reach tmux, or null for the ambient server.</param>
@@ -78,15 +91,32 @@ public static class McpTools
     /// <param name="policy">What the tools may spend, or null for the defaults.</param>
     /// <param name="jobs">Where background commands are tracked, or null for a new store.</param>
     /// <returns>The changing tools.</returns>
+    /// <remarks>
+    /// Dispose the returned tools asynchronously. The factory disposes its
+    /// connection cache, activity hub, and any job store it created; the
+    /// supplied <paramref name="server" /> and <paramref name="jobs" /> remain
+    /// caller-owned.
+    /// </remarks>
     public static WriteTools Writing(
         Server server,
         ServerPolicy? policy = null,
-        JobStore? jobs = null) =>
-        new(
+        JobStore? jobs = null)
+    {
+        JobStore effectiveJobs = jobs ?? new JobStore();
+        WriteTools.ResourceOwnership ownership = WriteTools.ResourceOwnership.Connection
+            | WriteTools.ResourceOwnership.Activity;
+        if (jobs is null)
+        {
+            ownership |= WriteTools.ResourceOwnership.Jobs;
+        }
+
+        return new WriteTools(
             new TmuxConnectionAccessor(server),
             policy ?? new ServerPolicy(),
             new PaneActivityHub(),
-            jobs ?? new JobStore());
+            effectiveJobs,
+            ownership);
+    }
 
     private static TmuxConnectionAccessor Accessor(ServerConnectionOptions? options) =>
         new(options, options?.SocketName);
