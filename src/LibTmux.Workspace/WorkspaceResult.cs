@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 
 namespace LibTmux.Workspace;
 
-/// <summary>Describes a built workspace and any layout tmux rejected.</summary>
+/// <summary>Describes workspace state materialized by a build.</summary>
 public sealed record WorkspaceResult
 {
     private Session _session = null!;
@@ -23,7 +23,7 @@ public sealed record WorkspaceResult
         this.Unsupported = Unsupported;
     }
 
-    /// <summary>Gets the session that was built.</summary>
+    /// <summary>Gets the session materialized by the build.</summary>
     public Session Session
     {
         get => _session;
@@ -34,7 +34,7 @@ public sealed record WorkspaceResult
         }
     }
 
-    /// <summary>Gets the windows, in the order the file listed them.</summary>
+    /// <summary>Gets materialized windows in workspace order.</summary>
     public IReadOnlyList<Window> Windows
     {
         get => _windows;

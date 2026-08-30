@@ -67,9 +67,11 @@ rebased to the directory containing `session.yaml`.
 `BuildAsync` returns the session and windows it created. Its `Unsupported` list
 contains only layouts that tmux rejected; those windows remain usable.
 
-Other tmux failures throw and can leave a partially built session. The builder
-is not transactional. Before sending workspace commands, `PaneReadiness.Auto`,
-the default, waits only for panes using a zsh session `default-shell`.
+Other tmux failures throw `WorkspaceBuildException`. Its `PartialResult`
+contains the session and windows materialized before failure, or is null when
+none could be read. The builder is not transactional. Before sending workspace
+commands, `PaneReadiness.Auto`, the default, waits only for panes using a zsh
+session `default-shell`.
 `PaneReadiness.Always` waits before commands sent to every default-shell pane;
 `PaneReadiness.Never` sends them immediately. A nonempty session
 `default-command` skips the wait under every policy because that command is not

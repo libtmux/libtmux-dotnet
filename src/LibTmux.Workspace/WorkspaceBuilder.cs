@@ -50,8 +50,8 @@ public sealed class WorkspaceBuilder
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>What was built, and what could not be.</returns>
     /// <exception cref="WorkspaceFormatException">The workspace describes no session.</exception>
-    /// <exception cref="TmuxWaitTimeoutException">
-    /// A pane did not reach a prompt-like state before its readiness timeout.
+    /// <exception cref="WorkspaceBuildException">
+    /// tmux failed after application began. The exception reports any materialized state.
     /// </exception>
     /// <remarks>
     /// Readiness is inferred from the pane's current command and cursor position.
@@ -73,20 +73,47 @@ public sealed class WorkspaceBuilder
             throw new WorkspaceFormatException("The workspace describes no windows.");
         }
 
+        Session? session = null;
+        List<Window> windows = [];
         List<string> unsupported = [];
+        try
+        {
+            WorkspaceWindow first = workspace.Windows[0];
+            // tmux starts the first pane before session options exist. A
+            // bootstrap keeps the session alive until the real window exists.
+            session = await _server.CreateSessionAsync(
+                    new NewSessionRequest(
+                        name: workspace.SessionName,
+                        windowName: BootstrapWindowName,
+                        startDirectory: StartDirectoryFor(first, workspace),
+                        command: "/bin/sh"),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return await CompleteAsync(
+                    session,
+                    workspace,
+                    windows,
+                    unsupported,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception failure)
+        {
+            WorkspaceResult? partial = session is null
+                ? null
+                : new WorkspaceResult(session, windows, unsupported);
+            throw new WorkspaceBuildException(partial, failure);
+        }
+    }
 
-        // tmux creates the first pane before session options exist. This
-        // bootstrap keeps the session alive until the described first window
-        // can be spawned under those options.
+    private async Task<WorkspaceResult> CompleteAsync(
+        Session session,
+        WorkspaceFile workspace,
+        List<Window> windows,
+        List<string> unsupported,
+        CancellationToken cancellationToken)
+    {
         WorkspaceWindow first = workspace.Windows[0];
-        Session session = await _server.CreateSessionAsync(
-                new NewSessionRequest(
-                    name: workspace.SessionName,
-                    windowName: BootstrapWindowName,
-                    startDirectory: StartDirectoryFor(first, workspace),
-                    command: "/bin/sh"),
-                cancellationToken)
-            .ConfigureAwait(false);
 
         await ApplyOptionsAsync(session.Options, workspace.Options, cancellationToken)
             .ConfigureAwait(false);
@@ -120,16 +147,15 @@ public sealed class WorkspaceBuilder
             await bootstrap.KillAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        List<Window> windows = [];
-        windows.Add(
-            await FillAsync(
-                    firstWindow,
-                    first,
-                    workspace,
-                    unsupported,
-                    expectedShellCommand,
-                    cancellationToken)
-                .ConfigureAwait(false));
+        windows.Add(firstWindow);
+        windows[0] = await FillAsync(
+                firstWindow,
+                first,
+                workspace,
+                unsupported,
+                expectedShellCommand,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         foreach (WorkspaceWindow described in workspace.Windows.Skip(1))
         {
@@ -139,15 +165,15 @@ public sealed class WorkspaceBuilder
                         startDirectory: StartDirectoryFor(described, workspace)),
                     cancellationToken)
                 .ConfigureAwait(false);
-            windows.Add(
-                await FillAsync(
-                        window,
-                        described,
-                        workspace,
-                        unsupported,
-                        expectedShellCommand,
-                        cancellationToken)
-                    .ConfigureAwait(false));
+            windows.Add(window);
+            windows[^1] = await FillAsync(
+                    window,
+                    described,
+                    workspace,
+                    unsupported,
+                    expectedShellCommand,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         // Selecting last means the file's focus wins over the side effects of

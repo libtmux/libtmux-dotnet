@@ -6,6 +6,20 @@ namespace LibTmux.IntegrationTests;
 public sealed class WorkspaceResultTests
 {
     [Fact]
+    public void Build_failure_preserves_the_operation_and_dispatch_state()
+    {
+        var operation = new LibTmuxException(
+            "tmux refused the operation",
+            TmuxDispatchState.NotDispatched);
+
+        var failure = new WorkspaceBuildException(null, operation);
+
+        Assert.Same(operation, failure.InnerException);
+        Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
+        Assert.Null(failure.PartialResult);
+    }
+
+    [Fact]
     public void Collection_initializers_snapshot_their_inputs()
     {
         (Session session, Window window) = Entities();

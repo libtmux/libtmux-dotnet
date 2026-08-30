@@ -207,19 +207,24 @@ public sealed class WorkspaceBuilderTests
                       - shell_command: echo WORKSPACE_USER_COMMAND
                 """);
 
-            TmuxWaitTimeoutException failure = await Assert.ThrowsAsync<TmuxWaitTimeoutException>(
+            WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(
                 () => new WorkspaceBuilder(
                         scope.Server,
                         TimeSpan.FromMilliseconds(250),
                         PaneReadiness.Always)
                     .BuildAsync(workspace, token));
 
-            Assert.Equal(TimeSpan.FromMilliseconds(250), failure.Timeout);
+            TmuxWaitTimeoutException timeout = Assert.IsType<TmuxWaitTimeoutException>(
+                failure.InnerException);
+            Assert.Equal(TimeSpan.FromMilliseconds(250), timeout.Timeout);
             Assert.False(File.Exists(received));
             Server server = await scope.Server.ConnectAsync(token);
             Session session = Assert.Single(await server.GetSessionsAsync(token));
             Window window = Assert.Single(await session.GetWindowsAsync(token));
             Pane pane = Assert.Single(await window.GetPanesAsync(token));
+            WorkspaceResult partial = Assert.IsType<WorkspaceResult>(failure.PartialResult);
+            Assert.Equal(session.Id, partial.Session.Id);
+            Assert.Equal(window.Id, Assert.Single(partial.Windows).Id);
             string captured = string.Join(
                 '\n',
                 await pane.CaptureAsync(cancellationToken: token));

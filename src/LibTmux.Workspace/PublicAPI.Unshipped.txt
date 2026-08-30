@@ -3,6 +3,9 @@ LibTmux.Workspace.PaneReadiness
 LibTmux.Workspace.PaneReadiness.Always = 1 -> LibTmux.Workspace.PaneReadiness
 LibTmux.Workspace.PaneReadiness.Auto = 0 -> LibTmux.Workspace.PaneReadiness
 LibTmux.Workspace.PaneReadiness.Never = 2 -> LibTmux.Workspace.PaneReadiness
+LibTmux.Workspace.WorkspaceBuildException
+LibTmux.Workspace.WorkspaceBuildException.PartialResult.get -> LibTmux.Workspace.WorkspaceResult?
+LibTmux.Workspace.WorkspaceBuildException.WorkspaceBuildException(LibTmux.Workspace.WorkspaceResult? partialResult, System.Exception! failure) -> void
 LibTmux.Workspace.WorkspaceBuilder
 LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
 LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? readinessTimeout = null, LibTmux.Workspace.PaneReadiness paneReadiness = LibTmux.Workspace.PaneReadiness.Auto) -> void
