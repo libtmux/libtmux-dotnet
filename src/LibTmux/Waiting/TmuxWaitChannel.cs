@@ -89,6 +89,9 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
         return true;
     }
 
+    internal Task WaitUntilSignalledAsync(CancellationToken cancellationToken) =>
+        _waiter.WaitAsync(cancellationToken);
+
     /// <summary>Withdraws the waiter from tmux.</summary>
     /// <remarks>
     /// <para>

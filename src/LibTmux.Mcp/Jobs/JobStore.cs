@@ -369,10 +369,8 @@ public sealed class JobStore : IAsyncDisposable
         Exception? failure = null;
         try
         {
-            await server.WaitForAsync(
-                    new WaitForRequest(job.Token.Channel, TmuxWaitMode.Wait),
-                    _shutdown.Token)
-                .ConfigureAwait(false);
+            await using TmuxWaitChannel wait = server.OpenWaitChannel(job.Token.Channel);
+            await wait.WaitUntilSignalledAsync(_shutdown.Token).ConfigureAwait(false);
 
             int? status = await WriteTools
                 .ReadStatusAsync(pane, job.Token, _shutdown.Token)

@@ -254,7 +254,8 @@ public sealed class JobStoreTests
 
             if (arguments.Count > 0 && arguments[0] == "wait-for")
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return await endpoint.WaitForAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             return endpoint.Success(arguments);
@@ -418,7 +419,8 @@ public sealed class JobStoreTests
 
             if (arguments.Count > 0 && arguments[0] == "wait-for")
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return await endpoint.WaitForAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             return endpoint.Success(arguments);
@@ -499,7 +501,8 @@ public sealed class JobStoreTests
 
             if (arguments.Count > 0 && arguments[0] == "wait-for")
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return await endpoint.WaitForAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             return endpoint.Success(arguments);
@@ -560,27 +563,9 @@ public sealed class JobStoreTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         FakeEndpoint endpoint = new("cancel-capacity", new ServerGeneration(757, 7507));
-        var releaseFirstWatcher = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        int watchers = 0;
-        endpoint.Handler = async (arguments, cancellationToken) =>
-        {
-            if (arguments.Count > 0 && arguments[0] == "wait-for")
-            {
-                if (Interlocked.Increment(ref watchers) == 1)
-                {
-                    await releaseFirstWatcher.Task.WaitAsync(cancellationToken);
-                }
-                else
-                {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                }
-            }
-
-            return endpoint.Success(arguments);
-        };
         await using JobStore jobs = new();
         Task? firstWatcher = null;
+        string? firstChannel = null;
 
         for (int index = 0; index < JobStore.Capacity; index++)
         {
@@ -597,6 +582,7 @@ public sealed class JobStoreTests
             Task watcher = Assert.IsAssignableFrom<Task>(
                 jobs.Resolve(started.JobId, null).Watcher);
             firstWatcher ??= watcher;
+            firstChannel ??= $"lt_r_{started.JobId}";
             Assert.False(watcher.IsCompleted);
         }
 
@@ -614,7 +600,9 @@ public sealed class JobStoreTests
         Assert.Equal(JobStore.Capacity, jobs.List().TotalJobs);
         Assert.All(jobs.List().Jobs, job => Assert.Equal(JobState.Cancelled, job.State));
 
-        releaseFirstWatcher.TrySetResult();
+        await endpoint.Server.WaitForAsync(
+            new WaitForRequest(firstChannel!, TmuxWaitMode.Signal),
+            token);
         await Assert.IsAssignableFrom<Task>(firstWatcher).WaitAsync(token);
         _ = await jobs.StartAsync(
             endpoint.Server,
@@ -838,20 +826,81 @@ public sealed class JobStoreTests
     }
 
     [Fact]
-    public async Task Disposal_cancels_then_waits_for_detached_watchers()
+    public async Task Disposal_withdraws_the_tmux_waiter_before_it_finishes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        FakeEndpoint endpoint = new("dispose-withdraw", new ServerGeneration(889, 8809));
+        JobStore jobs = new();
+        try
+        {
+            JobInfo started = await jobs.StartAsync(
+                endpoint.Server,
+                endpoint.Pane,
+                "echo watched",
+                suppressHistory: true,
+                token);
+            string channel = $"lt_r_{started.JobId}";
+            await endpoint.WaitUntilRegisteredAsync(channel, token);
+
+            await jobs.DisposeAsync().AsTask().WaitAsync(token);
+            await endpoint.Server.WaitForAsync(
+                new WaitForRequest(channel, TmuxWaitMode.Signal),
+                token);
+
+            await using TmuxWaitChannel next = endpoint.Server.OpenWaitChannel(channel);
+            Assert.True(await next.WaitAsync(TimeSpan.FromSeconds(1), token));
+        }
+        finally
+        {
+            await jobs.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Convenience_tools_have_async_shutdown_without_taking_a_supplied_store()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        FakeEndpoint endpoint = new("tools-dispose", new ServerGeneration(899, 8909));
+        endpoint.Handler = (arguments, _) => Task.FromResult(endpoint.Success(arguments));
+        await using JobStore jobs = new();
+        WriteTools tools = McpTools.Writing(endpoint.Server, jobs: jobs);
+
+        IAsyncDisposable lifetime = Assert.IsAssignableFrom<IAsyncDisposable>(tools);
+        await lifetime.DisposeAsync();
+        await lifetime.DisposeAsync();
+
+        JobInfo started = await jobs.StartAsync(
+            endpoint.Server,
+            endpoint.Pane,
+            "echo still-open",
+            suppressHistory: true,
+            token);
+        await Assert.IsAssignableFrom<Task>(jobs.Resolve(started.JobId, null).Watcher!)
+            .WaitAsync(token);
+
+        Assert.Equal(JobState.Exited, jobs.Get(started.JobId).State);
+    }
+
+    [Fact]
+    public async Task Disposal_withdraws_then_waits_for_detached_watchers()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         FakeEndpoint endpoint = new("dispose", new ServerGeneration(909, 9009));
-        var cancellationSeen = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var withdrawalSeen = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         endpoint.Handler = async (arguments, cancellationToken) =>
         {
             if (arguments.Count > 0 && arguments[0] == "wait-for")
             {
-                using CancellationTokenRegistration registration = cancellationToken.Register(
-                    () => cancellationSeen.TrySetResult());
-                await release.Task;
-                cancellationToken.ThrowIfCancellationRequested();
+                if (arguments.Contains("-S", StringComparer.Ordinal))
+                {
+                    withdrawalSeen.TrySetResult();
+                    await release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                return await endpoint.WaitForAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             return endpoint.Success(arguments);
@@ -867,7 +916,7 @@ public sealed class JobStoreTests
                 token);
 
             Task disposing = jobs.DisposeAsync().AsTask();
-            await cancellationSeen.Task.WaitAsync(token);
+            await withdrawalSeen.Task.WaitAsync(token);
             Assert.False(disposing.IsCompleted);
 
             release.TrySetResult();
@@ -891,17 +940,21 @@ public sealed class JobStoreTests
                     new InvalidOperationException("watch failed before the next start"))
                 : Task.FromResult(faulting.Success(arguments));
         FakeEndpoint held = new("dispose-held", new ServerGeneration(960, 9510));
-        var cancellationSeen = new TaskCompletionSource(
+        var withdrawalSeen = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         held.Handler = async (arguments, cancellationToken) =>
         {
             if (arguments.Count > 0 && arguments[0] == "wait-for")
             {
-                using CancellationTokenRegistration registration = cancellationToken.Register(
-                    () => cancellationSeen.TrySetResult());
-                await release.Task;
-                cancellationToken.ThrowIfCancellationRequested();
+                if (arguments.Contains("-S", StringComparer.Ordinal))
+                {
+                    withdrawalSeen.TrySetResult();
+                    await release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                return await held.WaitForAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             return held.Success(arguments);
@@ -929,7 +982,7 @@ public sealed class JobStoreTests
                 token);
 
             Task disposing = jobs.DisposeAsync().AsTask();
-            await cancellationSeen.Task.WaitAsync(token);
+            await withdrawalSeen.Task.WaitAsync(token);
             Assert.False(disposing.IsCompleted);
 
             release.TrySetResult();
@@ -1049,6 +1102,12 @@ public sealed class JobStoreTests
     private sealed class FakeEndpoint
     {
         private readonly TmuxConnection _connection;
+        private readonly object _waitGate = new();
+        private readonly Dictionary<string, TaskCompletionSource<TmuxCommandResult>> _waiters =
+            new(StringComparer.Ordinal);
+        private readonly Dictionary<string, TaskCompletionSource> _waitRegistrations =
+            new(StringComparer.Ordinal);
+        private readonly HashSet<string> _pendingSignals = new(StringComparer.Ordinal);
         private int _jobDispatched;
 
         internal FakeEndpoint(string socketName, ServerGeneration generation)
@@ -1137,11 +1196,13 @@ public sealed class JobStoreTests
             {
                 if (arguments.Length > 0 && arguments[0] == "wait-for")
                 {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    result = await WaitForAsync(arguments, cancellationToken)
                         .ConfigureAwait(false);
                 }
-
-                result = Success(arguments);
+                else
+                {
+                    result = Success(arguments);
+                }
             }
 
             if (result.ExitCode == 0 && arguments.Contains("send-keys", StringComparer.Ordinal))
@@ -1150,6 +1211,62 @@ public sealed class JobStoreTests
             }
 
             return result;
+        }
+
+        internal Task<TmuxCommandResult> WaitForAsync(
+            IReadOnlyList<string> arguments,
+            CancellationToken cancellationToken)
+        {
+            string channel = arguments[^1];
+            lock (_waitGate)
+            {
+                if (arguments.Contains("-S", StringComparer.Ordinal))
+                {
+                    if (_waiters.Remove(
+                            channel,
+                            out TaskCompletionSource<TmuxCommandResult>? registeredWaiter))
+                    {
+                        registeredWaiter.TrySetResult(Success(arguments));
+                    }
+                    else
+                    {
+                        _pendingSignals.Add(channel);
+                    }
+
+                    return Task.FromResult(Success(arguments));
+                }
+
+                if (_pendingSignals.Remove(channel))
+                {
+                    return Task.FromResult(Success(arguments));
+                }
+
+                var newWaiter = new TaskCompletionSource<TmuxCommandResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiters.Add(channel, newWaiter);
+                if (_waitRegistrations.Remove(channel, out TaskCompletionSource? registered))
+                {
+                    registered.TrySetResult();
+                }
+
+                return newWaiter.Task.WaitAsync(cancellationToken);
+            }
+        }
+
+        internal Task WaitUntilRegisteredAsync(string channel, CancellationToken cancellationToken)
+        {
+            lock (_waitGate)
+            {
+                if (_waiters.ContainsKey(channel))
+                {
+                    return Task.CompletedTask;
+                }
+
+                var registered = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _waitRegistrations.Add(channel, registered);
+                return registered.Task.WaitAsync(cancellationToken);
+            }
         }
 
         private static bool IsGuarded(IReadOnlyList<string> arguments) =>

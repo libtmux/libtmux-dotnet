@@ -8,6 +8,26 @@ namespace LibTmux.UnitTests.Mcp;
 public sealed class PaneActivityHubLifecycleTests
 {
     [Fact]
+    public async Task Write_tools_leave_a_supplied_activity_hub_alive()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new();
+        await using JobStore jobs = new();
+        using var accessor = new TmuxConnectionAccessor(Server.Open(
+            new ServerConnectionOptions(socketName: "supplied-tools")));
+        var tools = new WriteTools(accessor, new ServerPolicy(), hub, jobs);
+
+        await Assert.IsAssignableFrom<IAsyncDisposable>(tools).DisposeAsync();
+
+        FakeControlModeSession session = new();
+        await using IAsyncDisposable lease = await hub.WatchAsync(
+            "$1",
+            _ => Task.FromResult<IControlModeSession>(session),
+            token);
+        Assert.True(hub.IsStreaming);
+    }
+
+    [Fact]
     public async Task A_later_watch_restarts_after_the_control_stream_ends()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
