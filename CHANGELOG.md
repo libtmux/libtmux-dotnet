@@ -8,6 +8,120 @@ Versions follow [Semantic Versioning](https://semver.org). During alpha the
 public API can change in any release with no deprecation period — pin an exact
 version.
 
+## [Unreleased]
+
+### Added
+
+- `TmuxChain.Then(IEnumerable<TmuxCommand>)` accepts a sequence without
+  requiring callers to unroll multi-command requests. (#18)
+
+- `Server.OpenWaitChannel` returns a `TmuxWaitChannel` whose open wait
+  survives repeated timed attempts and is withdrawn on disposal. `WaitAsync`
+  returning `false` means the attempt expired without observing attributable
+  completion; a racing signal may already have completed the wait. Concurrent
+  disposal joins the same cleanup. (#18)
+
+- `WorkspaceBuilder` accepts a readiness timeout and `PaneReadiness.Auto`,
+  `Always`, or `Never`, so callers choose whether pane commands wait for a
+  prompt-like state. (#18)
+
+- tmux 3.7c joins the supported matrix on both target frameworks. Stable
+  releases inside supported intervals no longer lose capabilities solely
+  because their exact patch version is absent from the catalog. (#18)
+
+### Changed
+
+- **`IControlModeSession.SendAsync` now takes a `TmuxCommand` instead of a
+  command-line string.** Construct or use a typed command; its arguments are
+  copied and NUL is rejected. tmux refusals now throw
+  `ControlModeCommandException` with the command, output, and error lines.
+  (#18)
+
+- **`LibTmux.Query.Json` now reads and writes the canonical `libtmux-query` v1
+  shape shipped in its schema.** Regenerate or migrate documents emitted by
+  earlier alpha builds before upgrading; unknown or duplicate members and
+  invalid fields or operators now fail at the boundary. (#18)
+
+- **The workspace model is immutable, and `WorkspacePane.ShellCommand` becomes
+  `ShellCommands`.** Construct `WorkspaceFile`, `WorkspaceWindow`, and
+  `WorkspacePane` instead of setting properties; supplied collections are
+  copied. `WorkspaceResult` freezes and compares collection contents. (#18)
+
+- **`WorkspaceFile.Parse` now rejects unknown or duplicate keys, unsupported
+  tmuxp hooks and plugins, wrong value shapes, multiple documents, and
+  oversized input instead of ignoring them.** Use the documented closed subset
+  or run tmuxp for its Python features. (#18)
+
+- **`NewWindowRequest.ToCommand` now takes the owning `Session` instead of a
+  target string.** Pass the session so the command carries its server
+  generation. (#18)
+
+- **`JobStore` no longer implements `IDisposable`.** Dispose it with
+  `await using` or `DisposeAsync`; containers that own one must also dispose
+  asynchronously. (#18)
+
+- **`ServerSnapshot`, the non-generic `CapturedRelation` factories,
+  `SnapshotLookup`, `SnapshotCollectionExtensions`, `EnumConstant`,
+  `InstantConstant`, and `LibTmux.Internal.TmuxCommandContext` are no longer
+  public.** Use relations on materialized handles and LINQ `ToDictionary`; the
+  removed query constants and internal context had no supported evaluation or
+  construction path. (#18)
+
+- `Pane.RefreshAsync`, `Window.RefreshAsync`, `Session.RefreshAsync`,
+  environment resolution, and server identifier lookups read only the
+  requested entity instead of listing its whole hierarchy level. Linked
+  windows and panes remain scoped to the session that produced them. (#18)
+
+- **`tmux_wait_for_channel` moves from `readonly` to `mutating` and is marked
+  destructive.** A readonly MCP server no longer advertises it because
+  consuming a pending signal changes shared tmux state. (#18)
+
+- **`StaleServerGenerationException.Actual` is nullable.** Null-check it; a
+  replacement generation cannot always be observed safely. (#18)
+
+### Fixed
+
+- Control-mode callers keep their own replies across concurrent commands,
+  aliases, hooks, cancellation, and disposal. Malformed or truncated streams
+  and pump failures now fault callers; request, output, pending-work, and
+  disposal bounds prevent unbounded retention. (#18)
+
+- Query evaluation preserves integer, null, typed-ID, relation-count, overload,
+  and invariant-regex semantics. Cancellable matching and fail-closed
+  structural limits apply before recursion, and trimmed or AOT consumers
+  retain required metadata. (#18)
+
+- Identifier and relation lookups return handles with their owning `Server`, so
+  their relations, options, and hooks work. A restarted endpoint is refused
+  rather than rebound to a reused object identifier. (#18)
+
+- Commands built from `Pane`, `Window`, `Session`, `TmuxOptions`, or
+  `TmuxHooks` retain their originating server generation and are refused after
+  a restart instead of acting on reused identifiers. (#18)
+
+- `tmux_wait_for_channel` and `tmux_run` withdraw timed-out registrations, so
+  retries no longer leave waiters that consume future signals. A signal racing
+  withdrawal remains pending and is reported as unattributable. Failures that
+  never registered preserve their original error without seeding a signal for
+  the next caller. (#18)
+
+- MCP shutdown asynchronously disposes factory-owned activity and job
+  resources, withdraws waits held by unfinished jobs, and leaves caller-owned
+  resources untouched. (#18)
+
+- MCP hierarchy subscriptions invalidate on active-window and client-session
+  changes, so existing subscribers receive the changed payload. (#18)
+
+- Workspace building preserves scalar and ordered pane commands, uses the first
+  pane's directory, lets the last focus flag win, reports rejected layouts,
+  and waits for readiness without injecting probe text into pane input. (#18)
+
+- `Pane.SendTextAsync` always sends literal text, so key-like words are not
+  interpreted as tmux key actions. (#18)
+
+- `Window.SelectLayoutAsync` rejects malformed custom layout prefixes before
+  dispatch instead of handing them to older tmux parsers. (#18)
+
 ## [0.0.0-alpha.9] — 2026-08-22
 
 ### Added
@@ -324,6 +438,7 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.9...HEAD
 [0.0.0-alpha.9]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.9
 [0.0.0-alpha.8]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.8
 [0.0.0-alpha.7]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.7
