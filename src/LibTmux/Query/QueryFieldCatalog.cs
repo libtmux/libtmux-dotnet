@@ -8,7 +8,7 @@ internal static class QueryFieldCatalog
     private static readonly FieldDefinition[] Fields =
     [
         new(
-            "client_control",
+            "client_control_mode",
             QueryTarget.Client,
             QueryValueKind.Boolean,
             typeof(Client),

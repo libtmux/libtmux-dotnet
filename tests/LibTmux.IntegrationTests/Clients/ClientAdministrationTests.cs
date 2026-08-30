@@ -13,6 +13,28 @@ public sealed class ClientAdministrationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Control_client_preserves_tmux_control_mode_field()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using ControlModeClientScope attached = await ControlModeClientScope.StartAsync(
+            raw,
+            token);
+
+        Client client = Assert.Single(
+            await server.GetClientsAsync(token),
+            candidate => candidate.Name == attached.ClientName);
+
+        Assert.Equal("1", client.RawFormatFields["client_control_mode"]);
+        Assert.True(client.IsControlClient);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Detached_client_resolves_nullable_attachment()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

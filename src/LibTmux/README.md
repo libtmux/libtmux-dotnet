@@ -217,8 +217,8 @@ QueryDocument document = QueryExtensions.Translate<Session>(
 ```
 
 The document carries stable wire names: `Session.Name` is `session_name` and
-`Client.IsControlClient` is `client_control`. The catalog is closed over twelve
-queryable fields:
+`Client.IsControlClient` is `client_control_mode`. The catalog is closed over
+twelve queryable fields:
 
 | Session | Window | Pane | Client |
 |---|---|---|---|

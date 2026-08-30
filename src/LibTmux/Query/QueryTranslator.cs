@@ -229,10 +229,8 @@ internal static class QueryTranslator
 
     private static FieldNode FieldFor(MemberInfo member)
     {
-        // What tmux calls a field is not a transformation of what C# calls
-        // it -- Client.IsControlClient is client_control, not
-        // is_control_client. The catalog carries that pairing; an unknown
-        // type is a caller's own row, whose property names are wire names already.
+        // Entity properties use cataloged tmux names. Caller-defined
+        // projections already name their wire fields.
         string wireName =
             member.DeclaringType is { } owner
             && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)

@@ -185,8 +185,8 @@ Console.WriteLine(document.Target);   // Session
 ```
 
 The document uses stable wire names: `Session.Name` becomes `session_name`,
-and `Client.IsControlClient` becomes `client_control`. The catalog carries that
-pair for all twelve queryable fields and rejects anything outside it. Typed
+and `Client.IsControlClient` becomes `client_control_mode`. The catalog carries
+that pair for all twelve queryable fields and rejects anything outside it. Typed
 queries evaluate locally over captured objects; they are never assembled into
 tmux's executable format language. [LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)
 puts the document on an application-controlled wire. `UnsafeTmuxFilter` is the
