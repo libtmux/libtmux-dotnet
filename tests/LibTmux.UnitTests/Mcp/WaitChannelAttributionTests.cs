@@ -9,6 +9,29 @@ namespace LibTmux.UnitTests;
 public sealed class WaitChannelAttributionTests
 {
     [Fact]
+    public async Task Concurrent_disposal_waits_for_the_same_withdrawal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var endpoint = new WaitChannelEndpoint();
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("concurrent-disposal");
+
+        Task first = wait.DisposeAsync().AsTask();
+        await endpoint.WithdrawalStarted.WaitAsync(token);
+        Task second = wait.DisposeAsync().AsTask();
+        try
+        {
+            Assert.Same(first, second);
+            Assert.False(second.IsCompleted);
+        }
+        finally
+        {
+            endpoint.ReleaseWithdrawal();
+        }
+
+        await Task.WhenAll(first, second).WaitAsync(token);
+    }
+
+    [Fact]
     public async Task A_signal_racing_withdrawal_is_not_attributed_and_stays_pending()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

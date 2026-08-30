@@ -23,8 +23,10 @@ namespace LibTmux;
 [UnsupportedOSPlatform("windows")]
 public sealed class TmuxWaitChannel : IAsyncDisposable
 {
+    private readonly object _disposeGate = new();
     private readonly Server _server;
     private readonly Task _waiter;
+    private Task? _disposeTask;
     private int _disposed;
     private bool _withdrew;
 
@@ -112,13 +114,22 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// wait open on the same channel. Keep one open wait per channel.
     /// </para>
     /// </remarks>
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        lock (_disposeGate)
         {
-            return;
-        }
+            if (_disposeTask is null)
+            {
+                Interlocked.Exchange(ref _disposed, 1);
+                _disposeTask = DisposeCoreAsync();
+            }
 
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
         if (!_waiter.IsCompleted)
         {
             _withdrew = true;
