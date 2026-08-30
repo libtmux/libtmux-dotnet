@@ -213,7 +213,7 @@ QueryDocument document = QueryExtensions.Translate<Session>(
 
 You write C# and tmux receives tmux. The catalog carries the pair for all
 twelve queryable fields — `Session.Name` is `session_name`,
-`Client.IsControlClient` is `client_control` — and it is closed:
+`Client.IsControlClient` is `client_control_mode` — and it is closed:
 
 | Session | Window | Pane | Client |
 |---|---|---|---|

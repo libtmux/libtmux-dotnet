@@ -82,7 +82,7 @@ Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLim
 
 `session_name`, `session_attached`, `session_id`, `session_windows`,
 `window_name`, `window_id`, `window_panes`, `pane_id`, `pane_command`,
-`client_id`, `client_name`, `client_control`.
+`client_id`, `client_name`, `client_control_mode`.
 
 You write these as the properties they are — `Session.Name`,
 `Client.IsControlClient` — and the wire carries the tmux spelling.

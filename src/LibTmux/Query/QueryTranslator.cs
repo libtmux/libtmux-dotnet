@@ -213,7 +213,7 @@ internal static class QueryTranslator
     private static FieldNode FieldFor(MemberInfo member)
     {
         // What tmux calls a field is not a transformation of what C# calls
-        // it -- Client.IsControlClient is client_control, not
+        // it -- Client.IsControlClient is client_control_mode, not
         // is_control_client. The catalog carries that pairing; an unknown
         // type is a caller's own row, whose property names are wire names already.
         string wireName =

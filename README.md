@@ -182,7 +182,7 @@ Console.WriteLine(document.Target);   // Session
 ```
 
 You write C# and tmux receives tmux: `Session.Name` goes on the wire as
-`session_name`, and `Client.IsControlClient` as `client_control`. The catalog
+`session_name`, and `Client.IsControlClient` as `client_control_mode`. The catalog
 carries that pair for all twelve queryable fields, and it is closed — a field
 outside it throws `UnsupportedQueryExpressionException` rather than falling
 back, so an expression that translates is one tmux can answer.

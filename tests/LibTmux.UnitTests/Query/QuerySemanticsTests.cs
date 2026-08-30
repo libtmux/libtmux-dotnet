@@ -24,7 +24,7 @@ public sealed class QuerySemanticsTests
 
         // The one that a naming rule would never produce.
         Assert.Equal(
-            "client_control",
+            "client_control_mode",
             Field(QueryExtensions.Translate<Client>(client => client.IsControlClient)));
     }
 

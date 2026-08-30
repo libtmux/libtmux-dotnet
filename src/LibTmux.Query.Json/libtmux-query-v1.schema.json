@@ -50,7 +50,7 @@
         "target": { "$ref": "#/$defs/target" },
         "wireName": {
           "enum": [
-            "client_control",
+            "client_control_mode",
             "client_id",
             "client_name",
             "pane_command",
@@ -99,7 +99,7 @@
               "properties": {
                 "target": { "const": "client" },
                 "wireName": {
-                  "enum": ["client_control", "client_id", "client_name"]
+                  "enum": ["client_control_mode", "client_id", "client_name"]
                 }
               }
             }
@@ -112,7 +112,7 @@
         { "$ref": "#/$defs/field" },
         {
           "properties": {
-            "wireName": { "enum": ["client_control", "session_attached"] }
+            "wireName": { "enum": ["client_control_mode", "session_attached"] }
           }
         }
       ]

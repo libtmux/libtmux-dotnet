@@ -16,13 +16,13 @@ public sealed class FieldCatalogGenerator : IIncrementalGenerator
     /// <summary>The closed catalog, and where each field lives on its entity.</summary>
     /// <remarks>
     /// Wire name and property are declared explicitly because the mapping is
-    /// not systematic (<c>client_control</c> → <c>IsControlClient</c>, and two
+    /// not systematic (<c>client_control_mode</c> → <c>IsControlClient</c>, and two
     /// fields have no property at all).
     /// </remarks>
     private static readonly (string WireName, string Target, bool Relation, string? Property)[]
         Fields =
     {
-        ("client_control", "Client", false, "IsControlClient"),
+        ("client_control_mode", "Client", false, "IsControlClient"),
         ("client_id", "Client", false, null),
         ("client_name", "Client", false, "Name"),
         ("pane_command", "Pane", false, null),

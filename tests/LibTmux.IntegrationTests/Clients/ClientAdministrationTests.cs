@@ -76,6 +76,29 @@ public sealed class ClientAdministrationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Control_client_reads_back_as_one()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+
+        await using ControlModeClientScope control = await ControlModeClientScope.StartAsync(
+            raw,
+            token);
+
+        // The only assertion in the suite a broken read cannot satisfy: every
+        // other client test attaches a terminal, for which false is the right
+        // answer whether or not the field resolves.
+        Client client = await WaitForClientAsync(server, token);
+        Assert.Equal(control.ClientName, client.Name);
+        Assert.True(client.IsControlClient);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Attach_switch_detach_lock_and_suspend_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
