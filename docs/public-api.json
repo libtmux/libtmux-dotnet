@@ -27660,7 +27660,7 @@
       "parameters": [],
       "signature": "bool LibTmux.TmuxWaitChannel.Signalled { get; }",
       "portable": true,
-      "summary": "Gets whether something really signalled the channel."
+      "summary": "Gets whether the wait completed before withdrawal began."
     },
     {
       "id": "M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)",

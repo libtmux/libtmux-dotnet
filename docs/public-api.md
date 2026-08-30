@@ -2139,7 +2139,7 @@ internal static class Program
 | `M:LibTmux.TmuxWaitChannel.DisposeAsync()` | `ValueTask LibTmux.TmuxWaitChannel.DisposeAsync()` | Public | No | `UnsupportedOSPlatform("windows")` | Withdraws the waiter from tmux. |
 | `M:LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan,CancellationToken)` | `Task<bool> LibTmux.TmuxWaitChannel.WaitAsync(TimeSpan budget, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Waits for the signal, giving this attempt a budget. |
 | `P:LibTmux.TmuxWaitChannel.Channel` | `string LibTmux.TmuxWaitChannel.Channel { get; }` | Public | No | Portable | Gets the channel being waited on. |
-| `P:LibTmux.TmuxWaitChannel.Signalled` | `bool LibTmux.TmuxWaitChannel.Signalled { get; }` | Public | No | Portable | Gets whether something really signalled the channel. |
+| `P:LibTmux.TmuxWaitChannel.Signalled` | `bool LibTmux.TmuxWaitChannel.Signalled { get; }` | Public | No | Portable | Gets whether the wait completed before withdrawal began. |
 
 ### `T:LibTmux.TmuxWaitMode`
 

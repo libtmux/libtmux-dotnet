@@ -1101,7 +1101,7 @@ modes differ.
 | `LibTmux.TmuxVersionTooLowException.ActualVersion` | Gets the actual tmux version. |
 | `LibTmux.TmuxVersionTooLowException.RequiredVersion` | Gets the required tmux version. |
 | `LibTmux.TmuxWaitChannel.Channel` | Gets the channel being waited on. |
-| `LibTmux.TmuxWaitChannel.Signalled` | Gets whether something really signalled the channel. |
+| `LibTmux.TmuxWaitChannel.Signalled` | Gets whether the wait completed before withdrawal began. |
 | `LibTmux.TmuxWaitTimeoutException.Timeout` | Gets the expired timeout. |
 | `LibTmux.TmuxWindowException.WindowId` | Gets the window the request named. |
 | `LibTmux.UnbindKeyRequest.All` | Gets whether every binding in the table goes. |

@@ -51,9 +51,8 @@ public sealed partial class WriteTools
         await using ConfiguredAsyncDisposable _ = wait.ConfigureAwait(false);
         if (!await wait.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
         {
-            // Withdraw before answering. A signal landing as the attempt ended
-            // was taken by this waiter, and only withdrawing settles whether
-            // that happened.
+            // Withdraw before answering so a racing signal stays pending for
+            // the next caller even though tmux cannot attribute the race.
             await wait.DisposeAsync().ConfigureAwait(false);
         }
 
@@ -64,8 +63,9 @@ public sealed partial class WriteTools
 
     /// <summary>Says a wait ran out without claiming the channel is untouched.</summary>
     private static string NotSignalled(string channel, TimeSpan budget) =>
-        $"Channel '{channel}' was not signalled within {budget.TotalSeconds:0.#}s. "
-        + "The wait was withdrawn, so a signal arriving now still counts; call again.";
+        $"No signal was observed on channel '{channel}' within {budget.TotalSeconds:0.#}s. "
+        + "The wait was withdrawn, and tmux cannot tell whether a signal raced that "
+        + "withdrawal. Any resulting pending signal remains for the next caller.";
 
     internal static void ValidateChannel(string channel, int resultMaxBytes)
     {

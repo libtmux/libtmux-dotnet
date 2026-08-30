@@ -45,10 +45,11 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// <summary>Gets the channel being waited on.</summary>
     public string Channel { get; }
 
-    /// <summary>Gets whether something really signalled the channel.</summary>
+    /// <summary>Gets whether the wait completed before withdrawal began.</summary>
     /// <remarks>
-    /// Withdrawing signals the channel too, so finishing is not the same as
-    /// having been signalled: this stays false for a wait that was withdrawn.
+    /// A false value does not prove that no signal arrived. Withdrawing must
+    /// signal the same channel, so tmux cannot attribute a completion that
+    /// races the decision to withdraw.
     /// </remarks>
     public bool Signalled => _waiter.IsCompletedSuccessfully && !_withdrew;
 
@@ -99,7 +100,8 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// A signal landing between the check below and the withdrawal is woken by
     /// this waiter and then re-raised by the withdrawal itself, because by then
     /// no waiter is left to take it. That leaves the channel pending rather
-    /// than empty — an extra wake for the next caller, never a lost one.
+    /// than empty — an extra wake for the next caller, never a lost one. tmux
+    /// cannot say which signal completed this waiter in that race.
     /// </para>
     /// <para>
     /// A signal wakes every waiter on the channel and tmux offers no way to
