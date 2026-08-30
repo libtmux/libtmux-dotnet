@@ -239,14 +239,15 @@ public sealed class WorkspaceBuilderTests
 
         try
         {
-            (string shell, string received) = await WriteReceiverAsync(
+            // Script-backed shell process names differ by platform. A startup
+            // profile keeps pane_current_command bound to a real /bin/sh.
+            (string configuration, string profile, string received) =
+                await WriteStartupProfileAsync(
                 directory,
-                "sh",
-                writeStartup: true,
                 token);
             TmuxTestFactory factory = new();
             await using TemporaryServerScope scope = await factory.CreateServerAsync(
-                HarnessOptions(shell),
+                StartupProfileHarnessOptions(configuration, profile, directory),
                 token);
             WorkspaceFile workspace = WorkspaceFile.Parse("""
                 session_name: libtmux-shell-false-positive
@@ -426,6 +427,41 @@ public sealed class WorkspaceBuilderTests
             childEnvironment: shell is null
                 ? null
                 : new Dictionary<string, string?> { ["SHELL"] = shell }));
+
+    private static TmuxTestOptions StartupProfileHarnessOptions(
+        string configuration,
+        string profile,
+        string home) =>
+        new(new ServerConnectionOptions(
+            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: $"ltw-{Guid.NewGuid():N}"[..20],
+            configurationFile: configuration,
+            childEnvironment: new Dictionary<string, string?>
+            {
+                ["ENV"] = profile,
+                ["HOME"] = home,
+                ["SHELL"] = "/bin/sh",
+            }));
+
+    private static async Task<(string Configuration, string Profile, string Received)>
+        WriteStartupProfileAsync(
+            string directory,
+            CancellationToken cancellationToken)
+    {
+        string configuration = Path.Combine(directory, "tmux.conf");
+        string profile = Path.Combine(directory, ".profile");
+        string received = Path.Combine(directory, "received");
+        await File.WriteAllTextAsync(
+            profile,
+            "unset ENV\nprintf 'startup output\\n'\nIFS= read -r first\n"
+            + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\n",
+            cancellationToken);
+        await File.WriteAllTextAsync(
+            configuration,
+            "set-option -g default-shell /bin/sh\n",
+            cancellationToken);
+        return (configuration, profile, received);
+    }
 
     private static async Task<(string Program, string Received)> WriteReceiverAsync(
         string directory,
