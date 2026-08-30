@@ -47,6 +47,11 @@ version.
   `WorkspacePane` instead of setting properties; supplied collections are
   copied. `WorkspaceResult` freezes and compares collection contents. (#18)
 
+- **`WorkspaceBuildException.PartialResult` exposes the session, windows, and
+  panes created before workspace application failed.** Workspace builds are
+  nontransactional; inspect the partial result for targeted cleanup or retry.
+  (#18)
+
 - **`WorkspaceFile.Parse` now rejects unknown or duplicate keys, unsupported
   tmuxp hooks and plugins, wrong value shapes, multiple documents, and
   oversized input instead of ignoring them.** Use the documented closed subset
@@ -80,6 +85,10 @@ version.
   replacement generation cannot always be observed safely. (#18)
 
 ### Fixed
+
+- **`Client.IsControlClient` and the `client.isControlClient` query field use
+  tmux's `client_control_mode` value.** Control-mode clients are no longer
+  reported as ordinary clients. (#18)
 
 - Control-mode callers keep their own replies across concurrent commands,
   aliases, hooks, cancellation, and disposal. Malformed or truncated streams
