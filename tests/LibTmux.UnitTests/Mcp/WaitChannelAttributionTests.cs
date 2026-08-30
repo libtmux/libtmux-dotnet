@@ -14,16 +14,66 @@ public sealed class WaitChannelAttributionTests
         CancellationToken token = TestContext.Current.CancellationToken;
         var endpoint = new WaitChannelEndpoint();
         TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("faulted-wait");
-        endpoint.FailWait();
-        _ = await Assert.ThrowsAsync<TmuxTransportException>(
+        var failure = new TmuxTransportException(
+            "The waiting client failed.",
+            ["wait-for"]);
+        endpoint.FailWait(failure, registrationRemains: true);
+        TmuxTransportException observed = await Assert.ThrowsAsync<TmuxTransportException>(
             () => wait.WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Same(failure, observed);
         endpoint.ReleaseWithdrawal();
 
-        _ = await Assert.ThrowsAsync<TmuxTransportException>(
+        TmuxTransportException disposalFailure = await Assert.ThrowsAsync<TmuxTransportException>(
             () => wait.DisposeAsync().AsTask());
 
+        Assert.Same(failure, disposalFailure);
         Assert.Equal(1, endpoint.SignalCount);
         Assert.False(endpoint.HasWaiter);
+    }
+
+    [Fact]
+    public async Task Not_dispatched_failure_does_not_seed_the_next_wait()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var endpoint = new WaitChannelEndpoint();
+        const string channel = "not-dispatched";
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel(channel);
+        var failure = new TmuxTransportException(
+            "The waiting client did not start.",
+            ["wait-for"],
+            TmuxDispatchState.NotDispatched);
+        endpoint.FailWait(failure, registrationRemains: false);
+        TmuxTransportException observed = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => wait.WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Same(failure, observed);
+        endpoint.ReleaseWithdrawal();
+
+        TmuxTransportException disposalFailure = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => wait.DisposeAsync().AsTask());
+
+        Assert.Same(failure, disposalFailure);
+        await AssertNoPendingSignalAsync(endpoint.Server, channel, token);
+    }
+
+    [Fact]
+    public async Task Command_failure_does_not_seed_the_next_wait_or_escape_disposal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var endpoint = new WaitChannelEndpoint();
+        const string channel = "command-failure";
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel(channel);
+        var failure = new TmuxCommandException(
+            "tmux refused the wait.",
+            WaitChannelEndpoint.Failure(["wait-for", channel]));
+        endpoint.FailWait(failure, registrationRemains: false);
+        TmuxCommandException observed = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => wait.WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Same(failure, observed);
+        endpoint.ReleaseWithdrawal();
+
+        await wait.DisposeAsync();
+
+        await AssertNoPendingSignalAsync(endpoint.Server, channel, token);
     }
 
     [Fact]
@@ -91,6 +141,17 @@ public sealed class WaitChannelAttributionTests
         Assert.Equal("Channel 'attribution-race' was signalled.", next.Changed);
     }
 
+    private static async Task AssertNoPendingSignalAsync(
+        Server server,
+        string channel,
+        CancellationToken cancellationToken)
+    {
+        await using TmuxWaitChannel next = server.OpenWaitChannel(channel);
+        Assert.False(await next.WaitAsync(
+            TimeSpan.FromMilliseconds(10),
+            cancellationToken));
+    }
+
     private sealed class WaitChannelEndpoint
     {
         private readonly object _gate = new();
@@ -127,19 +188,20 @@ public sealed class WaitChannelAttributionTests
             }
         }
 
-        internal void FailWait()
+        internal void FailWait(Exception failure, bool registrationRemains)
         {
+            TaskCompletionSource<TmuxCommandResult> waiter;
             lock (_gate)
             {
-                if (_waiter is null)
+                waiter = _waiter
+                    ?? throw new InvalidOperationException("No waiter is registered.");
+                if (!registrationRemains)
                 {
-                    throw new InvalidOperationException("No waiter is registered.");
+                    _waiter = null;
                 }
-
-                _waiter.TrySetException(new TmuxTransportException(
-                    "The waiting client failed.",
-                    ["wait-for"]));
             }
+
+            waiter.TrySetException(failure);
         }
 
         internal void ReleaseWithdrawal() => _releaseWithdrawal.TrySetResult();
@@ -211,5 +273,13 @@ public sealed class WaitChannelAttributionTests
             ReadOnlyMemory<byte>.Empty,
             [],
             []);
+
+        internal static TmuxCommandResult Failure(IReadOnlyList<string> arguments) => new(
+            arguments,
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["wait failed"]);
     }
 }

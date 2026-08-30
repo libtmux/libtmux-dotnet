@@ -113,6 +113,11 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// deregister one on its own, so withdrawing here also completes any other
     /// wait open on the same channel. Keep one open wait per channel.
     /// </para>
+    /// <para>
+    /// A wait that did not dispatch or returned a command failure never
+    /// registered, so disposal does not signal it. Command failures and
+    /// cancellation remain cleanup-only; other failures remain observable.
+    /// </para>
     /// </remarks>
     public ValueTask DisposeAsync()
     {
@@ -130,7 +135,7 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        if (!_waiter.IsCompletedSuccessfully)
+        if (WaitMayRemainRegistered())
         {
             _withdrew = true;
             try
@@ -158,5 +163,30 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
         {
             // Same: the wait is being withdrawn, not observed.
         }
+    }
+
+    private bool WaitMayRemainRegistered()
+    {
+        if (!_waiter.IsCompleted)
+        {
+            return true;
+        }
+
+        if (_waiter.IsCompletedSuccessfully)
+        {
+            return false;
+        }
+
+        if (!_waiter.IsFaulted)
+        {
+            return true;
+        }
+
+        Exception failure = _waiter.Exception!.GetBaseException();
+        return failure is not TmuxCommandException
+            && failure is not LibTmuxException
+            {
+                Dispatch: TmuxDispatchState.NotDispatched,
+            };
     }
 }
