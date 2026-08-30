@@ -398,11 +398,8 @@ public sealed class ControlModeSessionTests
                 fi
                 exec {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
                 """;
-            await File.WriteAllTextAsync(wrapper, script, token);
-            File.SetUnixFileMode(
-                wrapper,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            await WaitUntilAsync(() => CanExecute(wrapper), token);
+            await WriteExecutableAsync(wrapper, script, token);
+            Assert.True(CanExecute(wrapper));
 
             Server server = Server.Open(new ServerConnectionOptions(
                 tmuxBinaryPath: wrapper,
@@ -452,24 +449,11 @@ public sealed class ControlModeSessionTests
                 done
                 exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                 """;
-            await File.WriteAllTextAsync(
+            await WriteExecutableAsync(
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
-            File.SetUnixFileMode(
-                wrapper,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-
-            // Linux refuses to exec a file while any process holds a write
-            // descriptor for it. Process.Start forks, and the child keeps every
-            // inherited descriptor until it execs, so a sibling test starting a
-            // process while this wrapper is being written makes the first exec
-            // fail with ETXTBSY though the wrapper itself is correct. That
-            // descriptor goes when the child execs, so wait for the wrapper to
-            // run rather than racing it.
-            await WaitUntilAsync(
-                () => CanExecute(wrapper),
-                TestContext.Current.CancellationToken);
+            Assert.True(CanExecute(wrapper));
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions(
@@ -529,16 +513,11 @@ public sealed class ControlModeSessionTests
                 done
                 exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                 """;
-            await File.WriteAllTextAsync(
+            await WriteExecutableAsync(
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
-            File.SetUnixFileMode(
-                wrapper,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            await WaitUntilAsync(
-                () => CanExecute(wrapper),
-                TestContext.Current.CancellationToken);
+            Assert.True(CanExecute(wrapper));
 
             Server server = await Server.ConnectAsync(
                 new ServerConnectionOptions(
@@ -569,6 +548,26 @@ public sealed class ControlModeSessionTests
                 socketPath: raw.SocketPath,
                 configurationFile: "/dev/null"),
             token);
+
+    private static async Task WriteExecutableAsync(
+        string path,
+        string contents,
+        CancellationToken cancellationToken)
+    {
+        string candidate = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await File.WriteAllTextAsync(candidate, contents, cancellationToken);
+            File.SetUnixFileMode(
+                candidate,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.Move(candidate, path);
+        }
+        finally
+        {
+            File.Delete(candidate);
+        }
+    }
 
     // errno 26. Process.Start surfaces it as the native error code on Linux.
     private const int TextFileBusy = 26;
