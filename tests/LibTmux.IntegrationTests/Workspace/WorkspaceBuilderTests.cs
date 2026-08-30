@@ -257,7 +257,7 @@ public sealed class WorkspaceBuilderTests
 
             _ = await new WorkspaceBuilder(
                     scope.Server,
-                    TimeSpan.FromSeconds(2),
+                    Readiness,
                     PaneReadiness.Always)
                 .BuildAsync(workspace, token);
 
@@ -266,7 +266,7 @@ public sealed class WorkspaceBuilderTests
                     ? await File.ReadAllTextAsync(received, cancellation)
                     : "",
                 input => input.Length > 0,
-                TimeSpan.FromSeconds(2),
+                TestBudget.Settle,
                 TimeSpan.FromMilliseconds(20),
                 token);
             Assert.Equal("WORKSPACE_USER_COMMAND\n", firstInput);
