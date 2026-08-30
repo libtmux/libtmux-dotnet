@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "rejected": [
+    "absolute-paths",
+    "emails",
+    "environment-values",
+    "executable-paths",
+    "hostnames",
+    "socket-names",
+    "temporary-directories",
+    "terminal-device-names",
+    "tokens",
+    "usernames"
+  ]
+}
