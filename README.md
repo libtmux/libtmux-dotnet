@@ -14,7 +14,7 @@ for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 > settled, and any release may change or remove exported identifiers without a
 > deprecation period. Pin an exact version. Not recommended for production.
 
-<!-- snippet: ConnectAndBuild usings: LibTmux -->
+<!-- snippet: ConnectAndBuild+BuildHierarchy usings: LibTmux -->
 ```csharp
 using LibTmux;
 
