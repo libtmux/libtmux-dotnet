@@ -560,6 +560,7 @@ modes differ.
 | `LibTmux.TmuxWaitChannel.DisposeAsync` | Withdraws the waiter from tmux. |
 | `LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)` | Waits for the signal, giving this attempt a budget. |
 | `LibTmux.TmuxWaitTimeoutException.#ctor(System.String,System.TimeSpan,System.Exception)` | Initializes a wait-timeout exception. |
+| `LibTmux.TmuxWindowException.#ctor(System.String,LibTmux.WindowId,LibTmux.TmuxDispatchState,System.Exception)` | Initializes the exception for one window, stating whether tmux ran. |
 | `LibTmux.TmuxWindowException.#ctor(System.String,LibTmux.WindowId,System.Exception)` | Initializes the exception for one window. |
 | `LibTmux.UnbindKeyRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean)` | Initializes a request to remove a binding. |
 | `LibTmux.UnsafeTmuxFilter.#ctor(System.String)` | A tmux filter expression passed through without translation. |

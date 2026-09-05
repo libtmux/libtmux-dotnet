@@ -1190,6 +1190,7 @@ LibTmux.TmuxWaitTimeoutException.Timeout.get -> System.TimeSpan
 LibTmux.TmuxWaitTimeoutException.TmuxWaitTimeoutException(string! message, System.TimeSpan timeout, System.Exception? innerException = null) -> void
 LibTmux.TmuxWindowException
 LibTmux.TmuxWindowException.TmuxWindowException(string! message, LibTmux.WindowId windowId, System.Exception? innerException = null) -> void
+LibTmux.TmuxWindowException.TmuxWindowException(string! message, LibTmux.WindowId windowId, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
 LibTmux.TmuxWindowException.WindowId.get -> LibTmux.WindowId
 LibTmux.UnbindKeyRequest
 LibTmux.UnbindKeyRequest.<Clone>$() -> LibTmux.UnbindKeyRequest!

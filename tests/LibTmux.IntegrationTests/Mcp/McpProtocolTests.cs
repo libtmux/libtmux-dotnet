@@ -814,6 +814,16 @@ public sealed class McpProtocolTests
         string refusedNull = Assert.IsType<TextContentBlock>(Assert.Single(nulled.Content)).Text;
         Assert.DoesNotContain("This is unexpected", refusedNull, StringComparison.Ordinal);
         Assert.DoesNotContain("(Parameter", refusedNull, StringComparison.Ordinal);
+
+        // A layout is checked before anything is sent, so the refusal cannot
+        // have changed tmux and must not tell the caller it might have.
+        CallToolResult layout = await harness.Client.CallToolAsync(
+            "select_layout",
+            new Dictionary<string, object?> { ["layout"] = "not-a-real-layout" },
+            cancellationToken: token);
+        string refusedLayout = Assert.IsType<TextContentBlock>(Assert.Single(layout.Content)).Text;
+        Assert.Contains("not-a-real-layout", refusedLayout, StringComparison.Ordinal);
+        Assert.DoesNotContain("may have acted", refusedLayout, StringComparison.Ordinal);
     }
 
     private static JsonElement Structured(CallToolResult result) =>

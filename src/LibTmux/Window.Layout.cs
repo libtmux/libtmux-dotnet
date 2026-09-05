@@ -151,7 +151,10 @@ public sealed partial class Window
     {
         if (layout.Length == 0)
         {
-            throw new TmuxWindowException("A layout name cannot be empty.", _id);
+            throw new TmuxWindowException(
+                "A layout name cannot be empty.",
+                _id,
+                TmuxDispatchState.NotDispatched);
         }
 
         // A layout tmux dumped begins with a four-digit hexadecimal checksum,
@@ -173,7 +176,8 @@ public sealed partial class Window
 
         throw new TmuxWindowException(
             $"{owner.RawVersion} does not know the layout '{layout}'.",
-            _id);
+            _id,
+            TmuxDispatchState.NotDispatched);
     }
 
     private static bool HasCustomLayoutPrefix(string layout) =>

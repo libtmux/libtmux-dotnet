@@ -14547,6 +14547,38 @@
       "summary": "Creates TmuxWindowException."
     },
     {
+      "id": "M:LibTmux.TmuxWindowException.#ctor(string,WindowId,TmuxDispatchState,Exception?)",
+      "declaringType": "T:LibTmux.TmuxWindowException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxWindowException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "windowId",
+          "type": "WindowId"
+        },
+        {
+          "name": "dispatch",
+          "type": "TmuxDispatchState"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "TmuxWindowException(string message, WindowId windowId, TmuxDispatchState dispatch, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Creates TmuxWindowException."
+    },
+    {
       "id": "M:LibTmux.UnbindKeyRequest.#ctor(string?,string?,bool,bool)",
       "declaringType": "T:LibTmux.UnbindKeyRequest",
       "name": ".ctor",
