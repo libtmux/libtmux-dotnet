@@ -64,10 +64,12 @@ version.
 - The server instructions describe budget truncation and scrollback loss
   separately, because `droppedLines` reads 0 when scrollback discarded output.
 
-- **MCP input refuses pane modes before mutation.** `send_keys`, each
-  `send_keys_batch` operation, and `run_shell_command` refuse when any actual
-  recipient expanded by `synchronize-panes` is modal. `paste_text` refuses
-  only when its named target is modal because buffer paste does not fan out.
+- **MCP input refuses pane modes before mutation.** The named source is always
+  checked: an effective source `pane_synchronized` value of `0` targets only
+  that source, while `1` expands to the configured effective-on cohort from the
+  inherited window setting and pane overrides. A modal cohort member refuses
+  that input operation before mutation. `paste_text` remains target-only because
+  buffer paste does not fan out.
 
 - **A failure reads the same whether it was called directly or inside
   `call_read_tools_batch`.** The batch dispatches its inner operations itself
@@ -124,7 +126,8 @@ version.
   validation facts rather than public metadata.
 
 - `set_synchronize_panes` reports that it amplifies subsequent input, and
-  `send_keys` and `send_keys_batch` report the resolved pane target set.
+  `send_keys` and `send_keys_batch` report preflight source or cohort membership,
+  not actual delivery.
 
 - Read batches retain every executed row while rolling back the newest nested
   payloads needed to keep the complete response within 1,000,000 bytes.
