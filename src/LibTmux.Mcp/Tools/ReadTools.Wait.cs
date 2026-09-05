@@ -39,9 +39,12 @@ internal sealed partial class ReadTools
         [Description("The pane id, such as %1. Omit for the active pane.")]
         string? paneId = null,
         [Description(
-            "Regular expressions to wait for. Omit or pass an empty list to return as "
-            + "soon as the pane prints anything new. Across both pattern lists: at most "
-            + "32 entries and 16384 UTF-8 bytes; each entry is at most 4096 bytes.")]
+            "Regular expressions to wait for. Only output arriving AFTER this call "
+            + "counts — text already on screen never matches, so a pattern visible in "
+            + "the returned tail can still time out. Omit or pass an empty list to "
+            + "return as soon as the pane prints anything new. Across both pattern "
+            + "lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at most "
+            + "4096 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "

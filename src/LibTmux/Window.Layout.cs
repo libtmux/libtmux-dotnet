@@ -172,7 +172,7 @@ public sealed partial class Window
         }
 
         throw new TmuxWindowException(
-            $"tmux {owner.RawVersion} does not know the layout '{layout}'.",
+            $"{owner.RawVersion} does not know the layout '{layout}'.",
             _id);
     }
 
