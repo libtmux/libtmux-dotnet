@@ -777,6 +777,33 @@ public sealed class McpProtocolTests
         Assert.Contains("list_panes", message, StringComparison.Ordinal);
         Assert.DoesNotContain("This is unexpected", message, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", message, StringComparison.Ordinal);
+
+        // The batch dispatches inner operations directly, so the same failure
+        // used to read differently depending on how it was called.
+        CallToolResult batched = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            new Dictionary<string, object?>
+            {
+                ["operations"] = new object[]
+                {
+                    new { tool = "capture_pane", arguments = new { paneId = "%999" } },
+                },
+                ["onError"] = "continue",
+            },
+            cancellationToken: token);
+        string inner = Structured(batched).GetProperty("results")[0]
+            .GetProperty("error").GetString()!;
+        Assert.Equal(message["capture_pane failed. ".Length..], inner);
+
+        // .NET argument validation is a refusal too, and the parameter name it
+        // appends names nothing the caller wrote.
+        CallToolResult invalid = await harness.Client.CallToolAsync(
+            "create_session",
+            new Dictionary<string, object?> { ["name"] = "a:b" },
+            cancellationToken: token);
+        string rejected = Assert.IsType<TextContentBlock>(Assert.Single(invalid.Content)).Text;
+        Assert.DoesNotContain("This is unexpected", rejected, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Parameter", rejected, StringComparison.Ordinal);
     }
 
     private static JsonElement Structured(CallToolResult result) =>

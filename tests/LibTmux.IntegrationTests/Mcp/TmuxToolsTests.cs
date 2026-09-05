@@ -551,13 +551,13 @@ public sealed class TmuxToolsTests
             scope.Session.Id.ToString(),
             startDirectory: "/nonexistent-libtmux-probe",
             cancellationToken: token);
-        Assert.Contains("not the /nonexistent-libtmux-probe asked for", missing.Changed, StringComparison.Ordinal);
+        Assert.Contains("It started in ", missing.Changed, StringComparison.Ordinal);
 
         ActionResult honoured = await mcp.Write.CreateWindowAsync(
             scope.Session.Id.ToString(),
             startDirectory: "/tmp",
             cancellationToken: token);
         Assert.Equal("Created window ", honoured.Changed[..15]);
-        Assert.DoesNotContain("asked for", honoured.Changed, StringComparison.Ordinal);
+        Assert.DoesNotContain("It started in", honoured.Changed, StringComparison.Ordinal);
     }
 }

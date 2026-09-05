@@ -185,7 +185,9 @@ internal sealed class CapabilityTools
 
     public Task<WaitResult> WaitForTextAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        [Description("Regular expressions that end the wait successfully.")]
+        [Description(
+            "Regular expressions that end the wait successfully. Only output arriving "
+            + "after this call counts; text already on screen never matches.")]
         IReadOnlyList<string>? patterns = null,
         [Description("Regular expressions that stop the wait.")]
         IReadOnlyList<string>? stopPatterns = null,
@@ -323,7 +325,11 @@ internal sealed class CapabilityTools
             catch (Exception error)
             {
                 string name = operation?.Tool ?? string.Empty;
-                string message = BoundError(error.Message);
+
+                // The same wording a direct call gets. Every batch-eligible
+                // tool only observes, so none of them earns the mutation
+                // warning the filter would add on top.
+                string message = BoundError(ToolFailureFilter.AdviceFor(error));
                 results.Add(new ReadToolCallResult(
                     index,
                     name,

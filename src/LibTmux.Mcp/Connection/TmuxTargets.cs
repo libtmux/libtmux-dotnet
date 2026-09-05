@@ -417,9 +417,13 @@ internal static class TmuxTargets
         string asked = requested.Length > 1 ? requested.TrimEnd('/') : requested;
         string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
             .ConfigureAwait(false);
+        // Stated as where it landed rather than as a rejection: the two paths
+        // come from different sides of a symlink often enough that claiming
+        // tmux refused the request would sometimes be the wrong story.
         return actual is null || string.Equals(actual, asked, StringComparison.Ordinal)
             ? string.Empty
-            : $" tmux started it in {actual}, not the {asked} asked for.";
+            : $" It started in {actual}; tmux does not refuse a start directory "
+                + "it cannot use.";
     }
 
     /// <summary>Reads a tmux format field for one pane as a number.</summary>

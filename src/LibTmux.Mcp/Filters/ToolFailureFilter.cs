@@ -68,39 +68,10 @@ internal static class ToolFailureFilter
                     + "Call get_server_info to see what is running now.");
             }
         }
-        catch (TmuxVersionTooLowException error)
+        catch (OperationCanceledException error)
+            when (error is TmuxOperationCanceledException { CommandMayHaveExecuted: true })
         {
-            return Failure(
-                logger,
-                tool,
-                error,
-                mayModify,
-                "This tmux is too old for that operation. "
-                + "Call get_server_info to see which version is running.");
-        }
-        catch (TmuxObjectNotFoundException error)
-        {
-            return Failure(
-                logger,
-                tool,
-                error,
-                mayModify,
-                "That session, window or pane no longer exists. "
-                + "Call list_sessions, list_windows, or list_panes to see what does.");
-        }
-        catch (TmuxCommandException error)
-        {
-            // tmux's own message is the most specific thing anybody has.
-            return Failure(
-                logger,
-                tool,
-                error,
-                mayModify,
-                $"tmux refused the command: {error.Message}");
-        }
-        catch (TmuxOperationCanceledException error) when (error.CommandMayHaveExecuted)
-        {
-            return Failure(logger, tool, error, mayModify, error.Message);
+            return Failure(logger, tool, error, mayModify, AdviceFor(error));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -113,31 +84,70 @@ internal static class ToolFailureFilter
                 + "was started is still running in its pane. Do not retry until you "
                 + "have read the pane, so you do not start it twice.");
         }
-        catch (LibTmuxException error)
-        {
-            return Failure(logger, tool, error, mayModify, error.Message);
-        }
-        catch (McpException error)
-        {
-            // A refusal this server wrote already names the cause and the cure.
-            // Sending it through the backstop appended "this is unexpected" and
-            // told the caller to go read a log, contradicting the sentence
-            // immediately before it.
-            return Failure(logger, tool, error, mayModify, error.Message);
-        }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            // The backstop for anything unhandled; see the class remarks.
-            return Failure(
-                logger,
-                tool,
-                error,
-                mayModify,
-                $"{error.Message} This is unexpected — check the server's log on "
-                + "standard error before retrying, because retrying unchanged will "
-                + "most likely fail the same way.");
+            return Failure(logger, tool, error, mayModify, AdviceFor(error));
         }
     };
+
+    /// <summary>Answers what to tell a caller about one failure.</summary>
+    /// <param name="error">What went wrong.</param>
+    /// <returns>The sentence naming the cause and what to do instead.</returns>
+    /// <remarks>
+    /// Shared with the read batch, which dispatches its inner operations
+    /// directly and so never passes through this filter. Without one source
+    /// the same failure read differently depending on whether it was called
+    /// alone or inside a batch, and the batch's wording was the better one.
+    /// </remarks>
+    internal static string AdviceFor(Exception error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return error switch
+        {
+            TmuxVersionTooLowException => "This tmux is too old for that operation. "
+                + "Call get_server_info to see which version is running.",
+            TmuxObjectNotFoundException => "That session, window or pane no longer exists. "
+                + "Call list_sessions, list_windows, or list_panes to see what does.",
+
+            // tmux's own message is the most specific thing anybody has.
+            TmuxCommandException => $"tmux refused the command: {error.Message}",
+
+            // A refusal this server wrote already names the cause and the cure,
+            // and the backstop below would tell the caller to go read a log
+            // instead, contradicting the sentence immediately before it.
+            McpException or LibTmuxException => error.Message,
+
+            // Argument validation is a refusal too. A null argument is not: it
+            // means an invariant inside this server broke, which is exactly
+            // what the backstop below is for.
+            ArgumentException argument when argument is not ArgumentNullException =>
+                WithoutParameterName(argument),
+            _ => $"{error.Message} This is unexpected — check the server's log on "
+                + "standard error before retrying, because retrying unchanged will "
+                + "most likely fail the same way.",
+        };
+    }
+
+    /// <summary>Drops the parameter name .NET appends to an argument failure.</summary>
+    /// <param name="error">The refusal.</param>
+    /// <returns>The sentence without the trailing plumbing.</returns>
+    /// <remarks>
+    /// <see cref="ArgumentException.Message" /> ends with " (Parameter 'x')",
+    /// naming a .NET parameter the caller never wrote. The tool's own argument
+    /// is named in the schema, so the suffix adds nothing a caller can act on.
+    /// </remarks>
+    private static string WithoutParameterName(ArgumentException error)
+    {
+        if (error.ParamName is not string name)
+        {
+            return error.Message;
+        }
+
+        int marker = error.Message.IndexOf(
+            $" (Parameter '{name}')",
+            StringComparison.Ordinal);
+        return marker < 0 ? error.Message : error.Message[..marker];
+    }
 
     private static CallToolResult Failure(
         ILogger logger,
