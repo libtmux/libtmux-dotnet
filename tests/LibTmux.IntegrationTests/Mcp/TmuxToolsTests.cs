@@ -561,4 +561,116 @@ public sealed class TmuxToolsTests
         Assert.Equal("Created window ", honoured.Changed[..15]);
         Assert.DoesNotContain("It started in", honoured.Changed, StringComparison.Ordinal);
     }
+
+    [UnixFact]
+    public async Task Every_declared_format_literalization_is_proven_to_bite()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+
+        const string Injection = "INJ#{session_name}END";
+        string root = Path.Combine(Path.GetTempPath(), $"ltm-fmt-{Guid.NewGuid():N}"[..24]);
+        string literalDirectory = Path.Combine(root, Injection);
+        Directory.CreateDirectory(literalDirectory);
+
+        async Task<string?> ReadAsync(string target, string format) =>
+            (await server.ExecuteCommandAsync(
+                ["display-message", "-p", "-t", target, format],
+                token)).StandardOutputLines[0];
+
+        // A pane that starts in a directory whose NAME contains a format is the
+        // decisive proof: tmux can only chdir there if the request was never
+        // expanded. An expanded one silently lands in HOME instead.
+        async Task StartsInLiteralDirectoryAsync(Func<string, Task<ActionResult>> spawn)
+        {
+            ActionResult spawned = await spawn(literalDirectory);
+            Assert.Equal(
+                literalDirectory,
+                await ReadAsync(spawned.PaneId!, "#{pane_current_path}"));
+        }
+
+        Dictionary<(string Tool, string Field), Func<Task>> proofs = new()
+        {
+            [("rename_session", "name")] = async () =>
+            {
+                await mcp.Capabilities.RenameSessionAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Session.Id.ToString(), "#{session_name}"));
+            },
+            [("rename_window", "name")] = async () =>
+            {
+                await mcp.Capabilities.RenameWindowAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Window.Id.ToString(), "#{window_name}"));
+            },
+            [("set_pane_title", "title")] = async () =>
+            {
+                await mcp.Capabilities.SetPaneTitleAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Pane.Id.ToString(), "#{pane_title}"));
+            },
+            [("create_session", "name")] = async () =>
+            {
+                ActionResult made = await mcp.Capabilities.CreateSessionAsync(
+                    $"{Injection}-s", cancellationToken: token);
+                Assert.Equal($"{Injection}-s", await ReadAsync(made.SessionId!, "#{session_name}"));
+            },
+            [("create_window", "name")] = async () =>
+            {
+                ActionResult made = await mcp.Capabilities.CreateWindowAsync(
+                    scope.Session.Id.ToString(), $"{Injection}-w", cancellationToken: token);
+                Assert.Equal($"{Injection}-w", await ReadAsync(made.WindowId!, "#{window_name}"));
+            },
+            [("create_session", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.CreateSessionAsync(
+                    null, directory, cancellationToken: token)),
+            [("create_window", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.CreateWindowAsync(
+                    scope.Session.Id.ToString(), null, directory, cancellationToken: token)),
+            [("split_window", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.SplitWindowAsync(
+                    scope.Pane.Id.ToString(), startDirectory: directory, cancellationToken: token)),
+            [("respawn_pane", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                async directory =>
+                {
+                    ActionResult host = await mcp.Capabilities.SplitWindowAsync(
+                        scope.Pane.Id.ToString(), cancellationToken: token);
+                    return await mcp.Capabilities.RespawnPaneAsync(
+                        host.PaneId, directory, killExistingProcess: true, cancellationToken: token);
+                }),
+            [("get_tmux_variables", "names")] = async () =>
+            {
+                // Validated rather than escaped: a name that is not a variable
+                // name never reaches a format string at all.
+                McpException refused = await Assert.ThrowsAsync<McpException>(
+                    () => mcp.Capabilities.GetTmuxVariablesAsync(
+                        [Injection], cancellationToken: token));
+                Assert.Contains("session_name", refused.Message, StringComparison.Ordinal);
+            },
+        };
+
+        try
+        {
+            // The capability model is the source of truth: a field that declares
+            // a literalization without a proof here fails rather than shipping
+            // an injection defence nobody ever exercised.
+            Assert.Equal(
+                CapabilityRegistry.Manifest
+                    .SelectMany(tool => tool.InputLiteralization.Keys
+                        .Select(field => $"{tool.Name}.{field}"))
+                    .Order(StringComparer.Ordinal),
+                proofs.Keys.Select(key => $"{key.Tool}.{key.Field}").Order(StringComparer.Ordinal));
+
+            foreach (Func<Task> proof in proofs.Values)
+            {
+                await proof();
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
