@@ -347,6 +347,25 @@ internal sealed partial class WriteTools
             // carried Enter as a separate key; a buffer has to hold it.
             "\n");
 
+        // Clear whatever is already typed at the prompt first. This does touch
+        // a human's line editor, and the alternative is worse: the payload is
+        // pasted unbracketed so the shell reads it as typing, so it lands
+        // AFTER their text and the shell reads "echo LEFTOVER(" — the subshell
+        // paren parses as a glob qualifier, the command never runs, and the
+        // call burns its whole budget. Running a command already types a whole
+        // line into that pane; clearing a partial one first is less invasive
+        // than appending to it. A pasted 0x15 is not read as kill-line, so
+        // this goes through tmux's key path, and that path fans out to a
+        // synchronized cohort — hence the skip, which is why the clear can
+        // never reach a pane the caller did not name.
+        if (!SynchronizesInput(pane))
+        {
+            await pane.SendKeysAsync(
+                    new SendKeysRequest(text: "C-u", enter: false, literal: false),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         // Through a buffer rather than as keys. tmux fans send-keys out to the
         // synchronized cohort (window.c:1381), so a tool promising one exit
         // status could not keep that promise while synchronize-panes was on,
@@ -390,6 +409,10 @@ internal sealed partial class WriteTools
             }
         }
     }
+
+    private static bool SynchronizesInput(Pane pane) =>
+        pane.RawFormatFields.TryGetValue("pane_synchronized", out string? value)
+        && string.Equals(value, "1", StringComparison.Ordinal);
 
     internal static void ValidateRunCommand(string command, int maximumBytes)
     {
