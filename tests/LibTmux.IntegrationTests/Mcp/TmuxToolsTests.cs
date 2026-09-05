@@ -13,6 +13,44 @@ namespace LibTmux.IntegrationTests;
 public sealed class TmuxToolsTests
 {
     [UnixFact]
+    public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string session = scope.Session.Id.ToString();
+        ActionResult extra = await mcp.Capabilities.CreateWindowAsync(
+            session, cancellationToken: token);
+        int before = (await mcp.Read.ListWindowsAsync(session, cancellationToken: token)).Count;
+
+        // A caller that mangles an id into "" used to destroy the ACTIVE window
+        // rather than be told the id was empty.
+        McpException empty = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.KillWindowAsync(string.Empty, token));
+        Assert.Contains("empty windowId", empty.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            before,
+            (await mcp.Read.ListWindowsAsync(session, cancellationToken: token)).Count);
+
+        McpException blank = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.RenameWindowAsync("renamed", "   ", token));
+        Assert.Contains("list_windows", blank.Message, StringComparison.Ordinal);
+
+        // Omission still means the current one, which is the behaviour the
+        // empty string was being mistaken for.
+        ActionResult renamed = await mcp.Capabilities.RenameWindowAsync(
+            "still-works", cancellationToken: token);
+        Assert.StartsWith("Renamed window", renamed.Changed, StringComparison.Ordinal);
+
+        ActionResult killed = await mcp.Capabilities.KillWindowAsync(
+            extra.WindowId!, token);
+        Assert.Contains(extra.WindowId!, killed.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
     public async Task Every_settable_option_is_one_this_tmux_refuses_a_command_for()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

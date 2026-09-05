@@ -33,10 +33,12 @@ internal static class TmuxTargets
         string? paneId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(paneId))
+        if (paneId is null)
         {
             return await ActivePaneAsync(server, cancellationToken).ConfigureAwait(false);
         }
+
+        RequireNonEmpty(paneId, "paneId", "%1", "list_panes");
 
         string trimmed = paneId.Trim();
         if (!PaneId.TryParse(trimmed, out PaneId parsed))
@@ -78,11 +80,13 @@ internal static class TmuxTargets
         string? windowId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(windowId))
+        if (windowId is null)
         {
             Pane active = await ActivePaneAsync(server, cancellationToken).ConfigureAwait(false);
             return active.Window;
         }
+
+        RequireNonEmpty(windowId, "windowId", "@1", "list_windows");
 
         string trimmed = windowId.Trim();
         if (!WindowId.TryParse(trimmed, out WindowId parsed))
@@ -132,10 +136,12 @@ internal static class TmuxTargets
                 "No tmux sessions are running. Call create_session to start one.");
         }
 
-        if (string.IsNullOrWhiteSpace(session))
+        if (session is null)
         {
             return sessions[0];
         }
+
+        RequireNonEmpty(session, "session", "$1 or its name", "list_sessions");
 
         string trimmed = session.Trim();
         foreach (Session candidate in sessions)
@@ -431,6 +437,19 @@ internal static class TmuxTargets
             ? string.Empty
             : $" It started in {actual}; tmux does not refuse a start directory "
                 + "it cannot use.";
+    }
+
+    // An empty string is a caller's bug, not an omission, and every resolver
+    // used to read it as "whatever is current". That turned a mangled id into
+    // a call against the active object, including for the tools that delete.
+    private static void RequireNonEmpty(string value, string parameter, string shape, string listing)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new McpException(
+                $"An empty {parameter} is not a target. Omit {parameter} for the current "
+                + $"one, or name it like {shape}. Call {listing} to see what exists.");
+        }
     }
 
     /// <summary>Resolves the option table one scope names.</summary>
