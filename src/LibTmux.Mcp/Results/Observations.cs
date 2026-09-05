@@ -92,6 +92,27 @@ public sealed record WaitResult(
     double ElapsedSeconds,
     double EffectiveTimeoutSeconds);
 
+/// <summary>What happened while waiting on a tmux wait-for channel.</summary>
+/// <param name="Changed">What happened, in plain words.</param>
+/// <param name="Channel">The channel that was waited on.</param>
+/// <param name="Signalled">
+/// Whether the channel was signalled. False means this attempt expired; tmux
+/// cannot say whether a signal raced the withdrawal, so it does not prove the
+/// channel was never signalled.
+/// </param>
+/// <param name="ElapsedSeconds">How long the wait ran.</param>
+/// <param name="EffectiveTimeoutSeconds">
+/// The timeout actually used. An over-large request is lowered to the server's
+/// ceiling rather than refused, so read this instead of assuming the value
+/// asked for was honoured.
+/// </param>
+public sealed record ChannelWaitResult(
+    string Changed,
+    string Channel,
+    bool Signalled,
+    double ElapsedSeconds,
+    double EffectiveTimeoutSeconds);
+
 /// <summary>What a command did.</summary>
 /// <param name="PaneId">The pane it ran in.</param>
 /// <param name="ExitStatus">

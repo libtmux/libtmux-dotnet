@@ -112,7 +112,7 @@ public sealed class WaitChannelAttributionTests
             new ServerPolicy(),
             activity);
 
-        Task<ActionResult> timingOut = tools.WaitForChannelAsync(
+        Task<ChannelWaitResult> timingOut = tools.WaitForChannelAsync(
             "attribution-race",
             timeoutSeconds: 0.01,
             cancellationToken: token);
@@ -129,14 +129,18 @@ public sealed class WaitChannelAttributionTests
             endpoint.ReleaseWithdrawal();
         }
 
-        ActionResult raced = await timingOut.WaitAsync(token);
+        ChannelWaitResult raced = await timingOut.WaitAsync(token);
         Assert.Contains("cannot tell whether a signal raced", raced.Changed, StringComparison.Ordinal);
 
-        ActionResult next = await tools.WaitForChannelAsync(
+        // Telling a timeout from a signal must not need substring matching.
+        Assert.False(raced.Signalled);
+
+        ChannelWaitResult next = await tools.WaitForChannelAsync(
             "attribution-race",
             timeoutSeconds: 1,
             cancellationToken: token);
         Assert.Equal("Channel 'attribution-race' was signalled.", next.Changed);
+        Assert.True(next.Signalled);
     }
 
     private static async Task AssertNoPendingSignalAsync(

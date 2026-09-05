@@ -259,8 +259,11 @@ Console.WriteLine($"{lineCount} new lines");
 <!-- endsnippet -->
 
 The byte ceiling covers serialized tool and resource results, including text,
-structured content, and metadata. Content tools truncate within it and report
-the loss; a result that still cannot fit is replaced by a small error that says
+structured content, and metadata. A result reports `droppedBytes` in pane text
+instead, which is the unit the pane measures in — for CJK or emoji the budget
+figure can be several times larger, because JSON escaping expands the text and
+the payload carries it twice. Content tools truncate within it and report the
+loss; a result that still cannot fit is replaced by a small error that says
 how to narrow the call or raise the ceiling. Oversized resource reads fail with
 the same guidance. `search_panes` caps its pattern at 999 UTF-8 bytes, uses a
 non-backtracking engine with a one-second match timeout, and examines at most

@@ -646,7 +646,7 @@ internal sealed class CapabilityTools
         return new ActionResult($"Set the title of {titled.Id}.", PaneId: titled.Id.ToString());
     }
 
-    public Task<ActionResult> WaitForChannelAsync(
+    public Task<ChannelWaitResult> WaitForChannelAsync(
         [Description("The tmux wait-for channel.")] string channel,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
         CancellationToken cancellationToken = default) =>

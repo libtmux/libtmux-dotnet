@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
@@ -31,7 +32,7 @@ internal sealed partial class WriteTools
         + "'tmux wait-for -S <channel>'. Use when you composed a shell command that "
         + "signals it. For an ordinary command whose completion you want, run_shell_command "
         + "already does this and also reports the exit status.")]
-    public async Task<ActionResult> WaitForChannelAsync(
+    public async Task<ChannelWaitResult> WaitForChannelAsync(
         [Description("The channel name to wait on, at most 4096 UTF-8 bytes.")] string channel,
         [Description("Seconds to wait. Lowered to the server's ceiling.")]
         double? timeoutSeconds = null,
@@ -45,6 +46,7 @@ internal sealed partial class WriteTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
+        Stopwatch elapsed = Stopwatch.StartNew();
         TmuxWaitChannel wait = server.OpenWaitChannel(channel);
         await using ConfiguredAsyncDisposable _ = wait.ConfigureAwait(false);
         if (!await wait.WaitAsync(budget, cancellationToken).ConfigureAwait(false))
@@ -54,9 +56,16 @@ internal sealed partial class WriteTools
             await wait.DisposeAsync().ConfigureAwait(false);
         }
 
-        return wait.Signalled
-            ? new ActionResult($"Channel '{channel}' was signalled.")
-            : new ActionResult(NotSignalled(channel, budget));
+        elapsed.Stop();
+        bool signalled = wait.Signalled;
+        return new ChannelWaitResult(
+            signalled
+                ? $"Channel '{channel}' was signalled."
+                : NotSignalled(channel, budget),
+            channel,
+            signalled,
+            Math.Round(elapsed.Elapsed.TotalSeconds, 3),
+            budget.TotalSeconds);
     }
 
     /// <summary>Says a wait ran out without claiming the channel is untouched.</summary>

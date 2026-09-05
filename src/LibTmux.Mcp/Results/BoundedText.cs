@@ -6,7 +6,12 @@ namespace LibTmux.Mcp;
 /// <param name="Lines">The text that fits, oldest first.</param>
 /// <param name="Truncated">Whether anything was dropped to make it fit.</param>
 /// <param name="DroppedLines">How many complete lines were dropped from the start.</param>
-/// <param name="DroppedBytes">The exact number of UTF-8 bytes dropped from the start.</param>
+/// <param name="DroppedBytes">
+/// The exact number of UTF-8 bytes of PANE TEXT dropped from the start. This is
+/// not the unit the byte budget is spent in: that bounds the whole serialized
+/// result, where the same text is escaped as JSON and carried twice, so for
+/// wide characters it can be several times larger than the number here.
+/// </param>
 /// <remarks>
 /// Dropping is always from the oldest end. A terminal's newest line is the one
 /// that says what happened, so a budget that discarded it would answer the
