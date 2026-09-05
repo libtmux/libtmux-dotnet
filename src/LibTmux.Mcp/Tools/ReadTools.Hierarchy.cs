@@ -32,7 +32,7 @@ internal sealed partial class ReadTools
 
         return new TmuxServerInfo(
             SocketName: server.ConnectionOptions.SocketName ?? _connection.DefaultSocketName,
-            Version: sessions.Count == 0 ? null : server.Version?.ToString(),
+            Version: server.Version?.ToString(),
             SessionCount: sessions.Count,
             WindowCount: windows.Count,
             PaneCount: panes.Count,

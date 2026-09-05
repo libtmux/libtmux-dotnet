@@ -440,6 +440,12 @@ public sealed class TmuxToolsTests
             Assert.Equal(0, info.WindowCount);
             Assert.Equal(0, info.PaneCount);
 
+            // "Is anything running, and what am I talking to?" is the question
+            // asked against an empty server, so the half that stays knowable
+            // has to survive the zero counts.
+            Assert.NotNull(info.Version);
+            Assert.NotNull(info.SocketName);
+
             Assert.Empty(await mcp.Read.ListSessionsAsync(cancellationToken: token));
             Assert.Empty(await mcp.Read.ListWindowsAsync(cancellationToken: token));
             Assert.Empty(await mcp.Read.ListPanesAsync(cancellationToken: token));
