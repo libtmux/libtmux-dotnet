@@ -803,13 +803,14 @@ internal sealed class CapabilityTools
                             "send_keys_batch",
                             cancellationToken)
                         .ConfigureAwait(false);
-                _ = await _write.SendKeysAsync(
+                _ = await WriteTools.SendKeysToPaneAsync(
+                        pane,
                         operation.Keys,
-                        pane.Id.ToString(),
                         operation.Enter,
                         operation.Literal,
                         operation.SuppressHistory,
-                        cancellationToken: cancellationToken)
+                        "send_keys_batch",
+                        cancellationToken)
                     .ConfigureAwait(false);
                 if (operation.DelayMilliseconds is int delay and > 0)
                 {

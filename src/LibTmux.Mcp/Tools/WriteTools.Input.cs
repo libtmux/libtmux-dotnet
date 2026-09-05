@@ -60,8 +60,27 @@ internal sealed partial class WriteTools
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        RefuseHumanOwnedMode(pane, "send_keys");
+        return await SendKeysToPaneAsync(
+                pane,
+                keys,
+                enter,
+                literal,
+                suppressHistory,
+                "send_keys",
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 
+    internal static async Task<ActionResult> SendKeysToPaneAsync(
+        Pane pane,
+        string keys,
+        bool enter,
+        bool literal,
+        bool suppressHistory,
+        string toolName,
+        CancellationToken cancellationToken)
+    {
+        RefuseHumanOwnedMode(pane, toolName);
         await pane.SendKeysAsync(
                 new SendKeysRequest(
                     text: keys,
