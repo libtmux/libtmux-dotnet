@@ -170,8 +170,9 @@ public sealed record ActionResult(
 /// <param name="Changed">What was sent, in plain words.</param>
 /// <param name="PaneId">The pane named by the caller after active-pane resolution.</param>
 /// <param name="TargetPaneIds">
-/// Every synchronized input cohort member (effective synchronize-panes is on);
-/// configured membership does not prove delivery.
+/// The named source when its effective pane_synchronized value is 0. Only when
+/// it is 1, every configured effective-on cohort member; membership does not
+/// prove delivery.
 /// </param>
 public sealed record PaneInputResult(
     string Changed,

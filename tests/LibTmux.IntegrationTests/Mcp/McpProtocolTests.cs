@@ -323,6 +323,11 @@ public sealed class McpProtocolTests
             "synchronized input cohort",
             tools.Single(tool => tool.Name == "set_synchronize_panes").Description,
             StringComparison.Ordinal);
+        JsonElement synchronizeEnabled = tools.Single(tool => tool.Name == "set_synchronize_panes")
+            .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("enabled");
+        string synchronizeEnabledDescription = synchronizeEnabled.GetProperty("description").GetString()!;
+        Assert.Contains("inherited", synchronizeEnabledDescription, StringComparison.Ordinal);
+        Assert.Contains("overrides", synchronizeEnabledDescription, StringComparison.Ordinal);
         Assert.All(
             rows.EnumerateArray().Where(row => row.GetProperty("name").GetString()
                 != "set_synchronize_panes"),

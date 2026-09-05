@@ -11,6 +11,26 @@ namespace LibTmux.UnitTests.Mcp;
 [UnsupportedOSPlatform("windows")]
 public sealed class WriteToolsExecutionSafetyTests
 {
+    [Theory]
+    [InlineData("0", false)]
+    [InlineData("1", true)]
+    public void Pane_synchronization_parser_accepts_canonical_values(string raw, bool expected) =>
+        Assert.Equal(expected, ParsePaneSynchronization(raw));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("00")]
+    [InlineData("on")]
+    [InlineData("2")]
+    public void Pane_synchronization_parser_rejects_noncanonical_values(string? raw)
+    {
+        McpException failure = Assert.Throws<McpException>(
+            () => CapabilityTools.ParsePaneSynchronization(raw, "%test-pane"));
+        Assert.Contains("%test-pane", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("0 or 1", failure.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Batch_rejects_every_invalid_shape_before_query_or_mutation()
     {
@@ -46,6 +66,9 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Empty(fixture.Commands);
         Assert.Equal(0, fixture.SuccessfulSends);
     }
+
+    private static bool ParsePaneSynchronization(string raw) =>
+        CapabilityTools.ParsePaneSynchronization(raw, "%test-pane");
 
     [Fact]
     public async Task Batch_second_step_not_dispatched_reports_one_prior_mutation_as_unknown()
@@ -654,6 +677,7 @@ public sealed class WriteToolsExecutionSafetyTests
             "pane_width" => "80",
             "pane_height" => "24",
             "pane_active" => "1",
+            "pane_in_mode" => "0",
             _ => string.Empty,
         };
 

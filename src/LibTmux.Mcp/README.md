@@ -116,8 +116,9 @@ before any tool runs.
 `set_synchronize_panes` is the only operation that amplifies future input:
 after it is enabled, the synchronized input cohort is the panes in that window
 whose effective `synchronize-panes` setting is on. Pane overrides can include
-or exclude panes. `send_keys` and `send_keys_batch` report configured cohort
-membership, not actual delivery.
+or exclude panes. When the named source's effective `pane_synchronized` value
+is `0`, `send_keys` and `send_keys_batch` report only that source; when it is
+`1`, they report configured effective-on cohort membership, not actual delivery.
 
 ## Which pane am I in?
 

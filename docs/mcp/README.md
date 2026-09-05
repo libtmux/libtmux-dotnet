@@ -58,8 +58,10 @@ only new output through its authenticated cursor.
 Pane modes belong to attached humans. `snapshot_pane` reports mode state, and
 ordinary capture still reads the underlying pane text; the MCP never enters,
 drives, or exits a mode. `send_keys`, `send_keys_batch`, and `run_shell_command`
-refuse any modal member of the synchronized input cohort: panes in the window
-whose effective `synchronize-panes` setting is on, including pane overrides.
+always refuse a modal named target. When the source's effective
+`pane_synchronized` value is `1` and input expands, they also refuse modal peers
+in the synchronized input cohort: panes in the window whose effective
+`synchronize-panes` setting is on, including pane overrides.
 `paste_text` checks only its named target because buffer paste does not fan
 out. Wait for the human-owned mode to end before retrying.
 

@@ -842,7 +842,7 @@ internal sealed class CapabilityTools
         _write.PasteTextAsync(text, paneId, bracketed, cancellationToken: cancellationToken);
 
     public async Task<ActionResult> SetSynchronizePanesAsync(
-        [Description("Whether input is sent to every pane in the window.")] bool enabled,
+        [Description("Whether to set this window's inherited synchronize-panes default. Pane overrides can still include or exclude individual panes.")] bool enabled,
         [Description("A window id. Omit for the active window.")] string? windowId = null,
         CancellationToken cancellationToken = default)
     {
@@ -961,21 +961,23 @@ internal sealed class CapabilityTools
                 .ToArray());
     }
 
-    private static bool SynchronizesInput(Pane pane)
-    {
-        return pane.RawFormatFields.TryGetValue("pane_synchronized", out string? synchronized)
-            ? synchronized switch
-            {
-                "1" => true,
-                "0" => false,
-                _ => throw InvalidSynchronizationState(pane),
-            }
-            : throw InvalidSynchronizationState(pane);
-    }
+    private static bool SynchronizesInput(Pane pane) =>
+        ParsePaneSynchronization(
+            pane.RawFormatFields.TryGetValue("pane_synchronized", out string? synchronized)
+                ? synchronized
+                : null,
+            pane.Id.ToString());
 
-    private static McpException InvalidSynchronizationState(Pane pane) =>
+    internal static bool ParsePaneSynchronization(string? raw, string paneId) => raw switch
+    {
+        "1" => true,
+        "0" => false,
+        _ => throw InvalidSynchronizationState(paneId),
+    };
+
+    private static McpException InvalidSynchronizationState(string paneId) =>
         new(
-            $"Could not determine whether {pane.Id} has synchronize-panes enabled. "
+            $"Could not determine whether {paneId} has synchronize-panes enabled. "
             + "Do not send input until its effective setting is 0 or 1.");
 
     private async Task<object?> DispatchReadAsync(
