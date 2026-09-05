@@ -272,7 +272,32 @@ internal static class TmuxTargets
             : null;
     }
 
-    /// <summary>Answers the caller's pane id when it sits on a known socket.</summary>
+    /// <summary>Answers where the caller's own pane lives when it is not here.</summary>
+    /// <param name="server">The server this session drives.</param>
+    /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <returns>The caller's socket path, or null when it is this one or unknown.</returns>
+    /// <remarks>
+    /// A bare null caller pane reads as "could not determine". On the default
+    /// dedicated socket the truth is stronger: the caller's terminal is on
+    /// another server, so no listing from this one can ever contain it.
+    /// </remarks>
+    internal static async Task<string?> ForeignCallerSocketAsync(
+        Server server,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        if (CallerSocketPath() is not string caller)
+        {
+            return null;
+        }
+
+        string? pinned = await SocketPathAsync(server, cancellationToken).ConfigureAwait(false);
+        return pinned is not null && string.Equals(pinned, caller, StringComparison.Ordinal)
+            ? null
+            : caller;
+    }
+
+    /// <summary>Answers the caller's pane id when it sits on a known socket.</summary>    /// <summary>Answers the caller's pane id when it sits on a known socket.</summary>
     /// <param name="pinnedSocketPath">The socket this server drives, or null when unresolved.</param>
     /// <returns>The pane id, or null when it belongs to a different server.</returns>
     /// <remarks>

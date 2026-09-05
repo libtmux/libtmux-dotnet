@@ -44,7 +44,7 @@ public sealed class ToolResponseBudgetFilterTests
     public void Mutation_advice_is_separated_from_tmux_own_wording()
     {
         TmuxCommandResult chained = new(
-            ["display-message", "-p", "x", ";", "kill-window", ";", "move-window"],
+            ["kill-window", "-t", "@1", ";", "move-window", "-t", "@2"],
             1,
             ReadOnlyMemory<byte>.Empty,
             ReadOnlyMemory<byte>.Empty,
@@ -76,11 +76,10 @@ public sealed class ToolResponseBudgetFilterTests
             "tmux refused the command: set-option failed: unknown value: 1");
         Assert.DoesNotContain("may have acted", refusal, StringComparison.Ordinal);
 
-        // A guarded single command is a chain too. tmux stops at the failure,
-        // so a chain whose first command it refused has mutated nothing, and
-        // the guard's own two links only read.
+        // The shape a real dispatch produces: one command, no separator. This
+        // is the vector the wire sends, and the earlier synthetic one was not.
         TmuxCommandResult guarded = new(
-            ["display-message", "-p", "x", ";", "if-shell", "-F", "y", "", "m", ";", "set-option"],
+            ["set-option", "-t", "$0", "base-index", "notanumber"],
             1,
             ReadOnlyMemory<byte>.Empty,
             ReadOnlyMemory<byte>.Empty,

@@ -155,10 +155,17 @@ public sealed record SessionInfo(
 /// <param name="WindowCount">How many windows, across every session.</param>
 /// <param name="PaneCount">How many panes, across every window.</param>
 /// <param name="CallerPaneId">The pane this server runs in, when it runs in one.</param>
+/// <param name="CallerPaneSocket">
+/// The socket the caller's own pane lives on, when that is not this server's.
+/// A null <c>CallerPaneId</c> beside a value here means the caller's terminal
+/// is on a different tmux server and no listing from this one can contain it —
+/// which is the default arrangement, not a failure to determine anything.
+/// </param>
 public sealed record TmuxServerInfo(
     string? SocketName,
     string? Version,
     int SessionCount,
     int WindowCount,
     int PaneCount,
-    string? CallerPaneId);
+    string? CallerPaneId,
+    string? CallerPaneSocket);

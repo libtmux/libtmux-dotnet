@@ -972,6 +972,17 @@ public sealed class McpProtocolTests
         string refusedValue = Assert.IsType<TextContentBlock>(Assert.Single(badValue.Content)).Text;
         Assert.Contains("notanumber", refusedValue, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", refusedValue, StringComparison.Ordinal);
+
+        // tmux validates a name before it renames anything (cmd-rename-session.c
+        // check_name), and this is the plain TmuxCommandException path the
+        // set_option case above does not exercise.
+        CallToolResult badName = await harness.Client.CallToolAsync(
+            "rename_session",
+            new Dictionary<string, object?> { ["name"] = "bad\nname" },
+            cancellationToken: token);
+        string refusedName = Assert.IsType<TextContentBlock>(Assert.Single(badName.Content)).Text;
+        Assert.Contains("invalid session name", refusedName, StringComparison.Ordinal);
+        Assert.DoesNotContain("may have acted", refusedName, StringComparison.Ordinal);
     }
 
     private static readonly string[] NeverArrives = ["TEXT_THAT_NEVER_ARRIVES"];

@@ -318,33 +318,14 @@ internal static class ToolFailureFilter
 
     // tmux refusing one command is evidence that it did not run it, and the
     // warning contradicted tmux's own sentence. A chain is the exception, but
-    // only past its second command: tmux stops at the failure, so a chain whose
-    // first command it refused has mutated nothing either. The generation guard
-    // prepends a read and an if-shell to every chain, and neither changes tmux.
+    // only past its first command: tmux stops at the failure, so a chain whose
+    // first command it refused has mutated nothing either.
     //
-    // Every dispatch is guarded, so this runs on every refusal — but every tool
-    // sends one command, so only the false result is reachable from the wire
-    // and the true one is proven by a unit test alone. A tool that dispatches
-    // `Chain().Then(a).Then(b)` makes it reachable, and wants a wire case.
-    private static bool ChainMayHavePartlyRun(TmuxCommandException error)
-    {
-        int commands = 0;
-        bool leading = true;
-        foreach (string[] link in Links(error.Result.Arguments))
-        {
-            if (leading
-                && link.Length > 0
-                && link[0] is "display-message" or "if-shell")
-            {
-                continue;
-            }
-
-            leading = false;
-            commands++;
-        }
-
-        return commands > 1;
-    }
+    // The vector here is the caller's own commands — the generation guard's two
+    // preamble links never reach it — so more than one link means more than one
+    // command was dispatched.
+    private static bool ChainMayHavePartlyRun(TmuxCommandException error) =>
+        Links(error.Result.Arguments).Skip(1).Any();
 
     private static IEnumerable<string[]> Links(IReadOnlyList<string> arguments)
     {

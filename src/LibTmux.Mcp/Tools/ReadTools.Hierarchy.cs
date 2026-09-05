@@ -38,6 +38,9 @@ internal sealed partial class ReadTools
             PaneCount: panes.Count,
             CallerPaneId: await TmuxTargets
                 .VerifiedCallerPaneIdAsync(server, cancellationToken)
+                .ConfigureAwait(false),
+            CallerPaneSocket: await TmuxTargets
+                .ForeignCallerSocketAsync(server, cancellationToken)
                 .ConfigureAwait(false));
     }
 
@@ -100,7 +103,7 @@ internal sealed partial class ReadTools
     /// <returns>The panes.</returns>
     [Description(
         "List tmux panes, optionally within one session or window. Filter for "
-        + "isCaller=true to answer 'which pane am I in?'. This reads sizes and "
+        + "isCaller=true to answer 'which pane am I in?', which finds one only when this server drives the caller's own socket — get_server_info says whose socket that is. This reads sizes and "
         + "running commands, not terminal text — for that use search_panes.")]
     public async Task<IReadOnlyList<PaneInfo>> ListPanesAsync(
         [Description("A session id such as $0, or its name. Omit for every session.")]

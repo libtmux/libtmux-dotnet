@@ -170,6 +170,28 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_wait_streams_from_tmux_rather_than_falling_back_to_polling()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // The streaming design rests on tmux pushing pane output to a control
+        // client. When one cannot start, waiting falls back to a 60ms poll and
+        // nothing reports the difference — and every other test of this hub
+        // injects a fake session, so only this one says the real client starts.
+        Assert.False(mcp.Activity.IsStreaming);
+        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, token);
+        Assert.True(mcp.Activity.IsStreaming);
+
+        await lease.DisposeAsync();
+        Assert.False(mcp.Activity.IsStreaming);
+    }
+
+    [UnixFact]
     public async Task A_read_sees_the_options_a_server_was_actually_configured_with()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -733,6 +755,8 @@ public sealed class TmuxToolsTests
             System.Environment.SetEnvironmentVariable("TMUX", $"{socketPath},1,0");
             Assert.True((await mcp.Read.ListPanesAsync(cancellationToken: token))
                 .Single(each => each.PaneId == pane).IsCaller);
+            Assert.Null((await mcp.Read.ServerInfoAsync(cancellationToken: token))
+                .CallerPaneSocket);
 
             // tmux numbers panes per server, so the same id on another socket
             // is an unrelated pane. Believing it would mark a scratch pane as
@@ -743,6 +767,11 @@ public sealed class TmuxToolsTests
 
             TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
             Assert.Null(info.CallerPaneId);
+
+            // A bare null reads as "could not determine". Naming the socket the
+            // caller is actually on says the stronger and more useful thing:
+            // no listing from this server can ever contain that pane.
+            Assert.Equal("/tmp/tmux-1000/not-this-one", info.CallerPaneSocket);
         }
         finally
         {
