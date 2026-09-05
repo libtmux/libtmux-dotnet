@@ -131,6 +131,11 @@ is `0`, `send_keys` and `send_keys_batch` report only that source; when it is
 baseline or payload when `synchronize-panes` would make the cohort larger, so
 its status and output remain singular.
 
+Input preflights are observations, not atomic tmux transactions: mode or
+synchronization state can change after a check. Returned pane IDs describe
+configured membership at that observation. They do not prove which panes
+received input or that delivery succeeded.
+
 ## Which pane am I in?
 
 When the client that launched this server was itself inside tmux, the server

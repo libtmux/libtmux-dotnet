@@ -69,6 +69,11 @@ out. Wait for the human-owned mode to end before retrying.
 its baseline or payload when `synchronize-panes` would make the cohort larger,
 so its status and output remain singular.
 
+Input preflights are observations, not atomic tmux transactions: mode or
+synchronization state can change after a check. Returned pane IDs describe
+configured membership at that observation. They do not prove which panes
+received input or that delivery succeeded.
+
 A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
 start `wait_for_text` or `wait_for_channel` as a task and collect the result
 later. It is offered, never required, so a client without it keeps the blocking
