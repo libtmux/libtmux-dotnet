@@ -181,6 +181,23 @@ record_result() {
         >> "${results_file}"
 }
 
+# A failing run's output is the most valuable thing it produces: the test that
+# failed, its assertion, and the actual against the expected. Reading two
+# integers out of it and deleting it leaves a status and a count, which say
+# that something failed but never what — and a single occurrence that nobody
+# can name costs more reruns than it would have cost to keep the file.
+keep_failure_output() {
+    local output_file="$1"
+    local version="$2"
+    local framework="$3"
+    local dir="${candidate:+${candidate}/failures}"
+    dir="${dir:-${TMPDIR:-/tmp}/libtmux-matrix-failures}"
+    mkdir -p -- "${dir}"
+    local kept="${dir}/${version}-${framework}.log"
+    mv -- "${output_file}" "${kept}"
+    printf 'kept failing output at %s\n' "${kept}" >&2
+}
+
 run_one() {
     local version="$1"
     local framework="$2"
@@ -215,7 +232,11 @@ run_one() {
     if [[ ${test_status} -ne 0 || -z "${test_count}" || "${test_count}" -eq 0 || -z "${skipped}" || "${skipped}" -ne 0 ]]; then
         status=failed
     fi
-    rm -f -- "${output_file}"
+    if [[ "${status}" == passed ]]; then
+        rm -f -- "${output_file}"
+    else
+        keep_failure_output "${output_file}" "${version}" "${framework}"
+    fi
     record_result "${version}" "${framework}" "${status}" "${advisory}" "${source_commit}" "${test_count:-0}"
     if [[ "${status}" != passed && "${advisory}" == false ]]; then
         return 1
@@ -296,11 +317,12 @@ run_transition_one() {
     test_count="$(sed -nE 's/^[[:space:]]*total:[[:space:]]*([0-9]+).*/\1/p' "${output_file}" | tail -1)"
     local skipped
     skipped="$(sed -nE 's/^[[:space:]]*skipped:[[:space:]]*([0-9]+).*/\1/p' "${output_file}" | tail -1)"
-    rm -f -- "${output_file}"
     if [[ ${test_status} -ne 0 || "${test_count}" != 1 || "${skipped}" != 0 ]]; then
+        keep_failure_output "${output_file}" "${version}" "${framework}"
         echo "break-pane transition failed for tmux ${version} on ${framework}" >&2
         return 1
     fi
+    rm -f -- "${output_file}"
 }
 
 for version in "${REQUIRED_VERSIONS[@]}"; do
