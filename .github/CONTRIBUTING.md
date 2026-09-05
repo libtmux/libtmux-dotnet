@@ -179,11 +179,11 @@ $ mise exec -- dotnet restore \
 ```
 
 ```console
-$ mise exec -- dotnet run \
+$ for f in net8.0 net10.0; do mise exec -- dotnet run \
     --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
     --configuration Release \
-    --framework net8.0 \
-    --no-restore
+    --framework "$f" \
+    --no-restore; done
 ```
 
 ```console
@@ -194,13 +194,18 @@ $ mise exec -- dotnet restore \
 ```
 
 ```console
-$ mise exec -- dotnet publish \
+$ for f in net8.0 net10.0; do mise exec -- dotnet publish \
     tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
     --configuration Release \
-    --framework net10.0 \
+    --framework "$f" \
     --runtime linux-x64 \
-    --no-restore
+    --no-restore; done
 ```
+
+Both loop over the frameworks because `Packed_consumers_execute_on_both_frameworks`
+and `Trimmed_native_aot_executes_on_both_frameworks` read the output of each.
+Building only one leaves those two failing, which reads like the unpacked-tree
+state above but is not it.
 
 `LibTmux.PackageConsumer` and `LibTmux.AotSmoke` are deliberately absent from
 `LibTmux.slnx`. Both restore the packed artifacts rather than project
