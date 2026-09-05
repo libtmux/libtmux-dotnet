@@ -121,16 +121,17 @@ public sealed record WindowInfo(
 /// <param name="Name">The session name.</param>
 /// <param name="Attached">Whether a client is attached to it.</param>
 /// <param name="WindowCount">How many windows it holds.</param>
-/// <param name="Width">Columns.</param>
-/// <param name="Height">Rows.</param>
+/// <remarks>
+/// There is no session size. tmux removed the session_width and
+/// session_height formats in 2.9, so on every supported version those
+/// fields could only ever answer null.
+/// </remarks>
 [UnsupportedOSPlatform("windows")]
 public sealed record SessionInfo(
     string SessionId,
     string Name,
     bool Attached,
-    int? WindowCount,
-    int? Width,
-    int? Height)
+    int? WindowCount)
 {
     /// <summary>Describes a session the library has already materialized.</summary>
     /// <param name="session">The session to describe.</param>
@@ -143,9 +144,7 @@ public sealed record SessionInfo(
             SessionId: session.Id.ToString(),
             Name: session.Name,
             Attached: session.Attached,
-            WindowCount: FormatFields.Number(fields, "session_windows"),
-            Width: FormatFields.Number(fields, "session_width"),
-            Height: FormatFields.Number(fields, "session_height"));
+            WindowCount: FormatFields.Number(fields, "session_windows"));
     }
 }
 
