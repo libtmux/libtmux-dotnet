@@ -833,6 +833,39 @@ public sealed class McpProtocolTests
         Assert.DoesNotContain("may have acted", refusedLayout, StringComparison.Ordinal);
     }
 
+    private static readonly string[] NeverArrives = ["TEXT_THAT_NEVER_ARRIVES"];
+
+    [UnixFact]
+    public async Task A_call_that_waits_does_not_hold_up_another()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+        _ = await harness.Client.CallToolAsync(
+            "create_session",
+            new Dictionary<string, object?> { ["name"] = "concurrency-probe" },
+            cancellationToken: token);
+
+        Task<CallToolResult> waiting = harness.Client.CallToolAsync(
+            "wait_for_text",
+            new Dictionary<string, object?>
+            {
+                ["patterns"] = NeverArrives,
+                ["timeoutSeconds"] = 5,
+            },
+            cancellationToken: token).AsTask();
+
+        CallToolResult listed = await harness.Client.CallToolAsync(
+            "list_sessions",
+            cancellationToken: token);
+
+        // The instructions tell a model to wait rather than poll, so a wait
+        // that held the connection would make that advice cost it every other
+        // call for up to the ceiling.
+        Assert.False(listed.IsError ?? false);
+        Assert.False(waiting.IsCompleted);
+        _ = await waiting;
+    }
+
     private static JsonElement Structured(CallToolResult result) =>
         Assert.IsType<JsonElement>(result.StructuredContent);
 
