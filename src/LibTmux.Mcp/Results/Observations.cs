@@ -131,6 +131,12 @@ public sealed record ChannelWaitResult(
 /// The command runs in a subshell, so a <c>cd</c> or an <c>export</c> in it
 /// does not survive into the next call.
 /// </remarks>
+/// <param name="Started">
+/// Whether the command was seen to begin. A timeout with this false means the
+/// payload never ran at all — something other than an idle shell was reading
+/// the pane's input — so the usual "it may still be running" does not apply
+/// and the pane is worth looking at before anything is retried.
+/// </param>
 public sealed record RunResult(
     string PaneId,
     int? ExitStatus,
@@ -139,7 +145,8 @@ public sealed record RunResult(
     double ElapsedSeconds,
     double EffectiveTimeoutSeconds,
     bool LinesMissed = false,
-    bool AnchorLost = false);
+    bool AnchorLost = false,
+    bool Started = true);
 
 /// <summary>One pane whose text matched a search.</summary>
 /// <param name="PaneId">The pane that matched.</param>

@@ -186,10 +186,24 @@ internal sealed class CapabilityTools
             throw new McpException("A pane position cannot be negative.");
         }
 
+        // windowId is required here but reaches list_panes, where it is a
+        // filter and empty means every window. Every window then holds a pane
+        // at index 0, and picking the single one threw a LINQ message onto the
+        // unexpected-failure backstop.
+        if (string.IsNullOrWhiteSpace(windowId))
+        {
+            throw new McpException(
+                "An empty windowId is not a target. Name it like @1, and call "
+                + "list_windows to see what exists.");
+        }
+
         IReadOnlyList<PaneInfo> panes = await _read
             .ListPanesAsync(windowId: windowId, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        return panes.SingleOrDefault(pane => pane.Index == position);
+
+        // First, not single: this tool promises to answer nothing rather than
+        // to fail, so it must not throw on a listing it did not expect.
+        return panes.FirstOrDefault(pane => pane.Index == position);
     }
 
     public Task<WaitResult> WaitForTextAsync(

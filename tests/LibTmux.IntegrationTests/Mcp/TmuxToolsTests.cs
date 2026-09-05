@@ -100,6 +100,15 @@ public sealed class TmuxToolsTests
 
         // The pane-input tools resolve their own source pane, so the guard on
         // the shared resolver missed exactly the three that type into a shell.
+        // find_pane_by_position takes its window as a required id and passes it
+        // to a listing where empty means every window, so every window's pane
+        // at index 0 matched and the pick threw onto the backstop.
+        McpException everyWindow = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.FindPaneByPositionAsync(string.Empty, 0, token));
+        Assert.Contains("list_windows", everyWindow.Message, StringComparison.Ordinal);
+        Assert.Null(await mcp.Capabilities.FindPaneByPositionAsync(
+            scope.Window.Id.ToString(), 99, token));
+
         McpException typed = await Assert.ThrowsAsync<McpException>(
             () => mcp.Capabilities.SendKeysAsync("echo no", string.Empty, cancellationToken: token));
         Assert.Contains("empty paneId", typed.Message, StringComparison.Ordinal);

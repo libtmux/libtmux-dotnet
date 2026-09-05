@@ -203,6 +203,16 @@ internal sealed partial class WriteTools
                     cancellationToken))
                 .ConfigureAwait(false);
 
+            // The marker is printed by the payload itself, so its absence means
+            // the shell never ran it — a pane held by something other than an
+            // idle shell, or a line editor this server could not clear. Saying
+            // so beats the timeout's usual "it may still be running".
+            // An exact line, not a line containing it: the shell echoes the
+            // printf that prints the marker, and a program like cat echoes the
+            // whole payload back, so "contains" is true without anything
+            // having run. Only the print produces a line that IS the marker.
+            bool started = read.Lines.Any(line =>
+                string.Equals(line.Trim(), token.BeginMarker, StringComparison.Ordinal));
             string id = pane.Id.ToString();
             double elapsedSeconds = Math.Round(elapsed.Elapsed.TotalSeconds, 3);
             return sequence.Observe(() => StructuredTextResultBudget.Fit(
@@ -219,7 +229,8 @@ internal sealed partial class WriteTools
                     elapsedSeconds,
                     budget.TotalSeconds,
                     read.LinesMissed,
-                    read.AnchorLost),
+                    read.AnchorLost,
+                    started),
                 "command result"));
         }
         finally
