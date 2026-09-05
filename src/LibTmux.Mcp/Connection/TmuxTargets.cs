@@ -393,6 +393,35 @@ internal static class TmuxTargets
         return lines is { Count: > 0 } ? lines[0] : null;
     }
 
+    /// <summary>Names where a spawn landed when tmux ignored the directory asked for.</summary>
+    /// <param name="pane">The pane that was spawned, or null when none is known.</param>
+    /// <param name="requested">The start directory the caller asked for.</param>
+    /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <returns>A sentence to append, or an empty string when there is nothing to say.</returns>
+    /// <remarks>
+    /// tmux does not refuse a start directory it cannot enter. It tries the
+    /// requested path, then HOME, then <c>/</c>, and reports success either
+    /// way, so an unqualified "created" leaves every command the caller runs
+    /// afterwards executing somewhere they never chose.
+    /// </remarks>
+    internal static async Task<string> StartDirectoryNoteAsync(
+        Pane? pane,
+        string? requested,
+        CancellationToken cancellationToken)
+    {
+        if (pane is null || string.IsNullOrWhiteSpace(requested))
+        {
+            return string.Empty;
+        }
+
+        string asked = requested.Length > 1 ? requested.TrimEnd('/') : requested;
+        string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
+            .ConfigureAwait(false);
+        return actual is null || string.Equals(actual, asked, StringComparison.Ordinal)
+            ? string.Empty
+            : $" tmux started it in {actual}, not the {asked} asked for.";
+    }
+
     /// <summary>Reads a tmux format field for one pane as a number.</summary>
     /// <param name="pane">The pane to ask about.</param>
     /// <param name="format">The format string, such as <c>#{history_size}</c>.</param>

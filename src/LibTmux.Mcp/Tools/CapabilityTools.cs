@@ -712,7 +712,10 @@ internal sealed class CapabilityTools
                     killExistingProcess: killExistingProcess),
                 cancellationToken)
             .ConfigureAwait(false);
-        return new ActionResult($"Respawned {pane.Id}.", PaneId: pane.Id.ToString());
+        string landed = await TmuxTargets
+            .StartDirectoryNoteAsync(pane, startDirectory, cancellationToken)
+            .ConfigureAwait(false);
+        return new ActionResult($"Respawned {pane.Id}.{landed}", PaneId: pane.Id.ToString());
     }
 
     public Task<RunResult> RunShellCommandAsync(

@@ -41,8 +41,11 @@ internal sealed partial class WriteTools
                 .ConfigureAwait(false);
 
             Pane? active = session.ActivePane;
+            string landed = await TmuxTargets
+                .StartDirectoryNoteAsync(active, startDirectory, cancellationToken)
+                .ConfigureAwait(false);
             return new ActionResult(
-                $"Created session {session.Id}.",
+                $"Created session {session.Id}.{landed}",
                 PaneId: active?.Id.ToString(),
                 WindowId: session.ActiveWindow?.Id.ToString(),
                 SessionId: session.Id.ToString());
@@ -79,8 +82,11 @@ internal sealed partial class WriteTools
                 cancellationToken)
             .ConfigureAwait(false);
 
+        string landed = await TmuxTargets
+            .StartDirectoryNoteAsync(window.ActivePane, startDirectory, cancellationToken)
+            .ConfigureAwait(false);
         return new ActionResult(
-            $"Created window {window.Id} in {owner.Id}.",
+            $"Created window {window.Id} in {owner.Id}.{landed}",
             PaneId: window.ActivePane?.Id.ToString(),
             WindowId: window.Id.ToString(),
             SessionId: owner.Id.ToString());
@@ -119,8 +125,11 @@ internal sealed partial class WriteTools
                 cancellationToken)
             .ConfigureAwait(false);
 
+        string landed = await TmuxTargets
+            .StartDirectoryNoteAsync(created, startDirectory, cancellationToken)
+            .ConfigureAwait(false);
         return new ActionResult(
-            $"Split {pane.Id}; the new pane is {created.Id}.",
+            $"Split {pane.Id}; the new pane is {created.Id}.{landed}",
             PaneId: created.Id.ToString(),
             WindowId: created.Window.Id.ToString(),
             SessionId: created.Session.Id.ToString());

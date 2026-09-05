@@ -534,4 +534,30 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
         Assert.Contains("Moved window", moved.Changed, StringComparison.Ordinal);
     }
+
+    [UnixFact]
+    public async Task A_spawn_says_where_it_landed_when_tmux_ignored_the_directory()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // tmux does not refuse a directory it cannot enter; it falls back to
+        // HOME and reports success, so the caller has to be told.
+        ActionResult missing = await mcp.Write.CreateWindowAsync(
+            scope.Session.Id.ToString(),
+            startDirectory: "/nonexistent-libtmux-probe",
+            cancellationToken: token);
+        Assert.Contains("not the /nonexistent-libtmux-probe asked for", missing.Changed, StringComparison.Ordinal);
+
+        ActionResult honoured = await mcp.Write.CreateWindowAsync(
+            scope.Session.Id.ToString(),
+            startDirectory: "/tmp",
+            cancellationToken: token);
+        Assert.Equal("Created window ", honoured.Changed[..15]);
+        Assert.DoesNotContain("asked for", honoured.Changed, StringComparison.Ordinal);
+    }
 }
