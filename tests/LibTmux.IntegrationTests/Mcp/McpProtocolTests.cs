@@ -341,8 +341,8 @@ public sealed class McpProtocolTests
             tools.Single(tool => tool.Name == "set_synchronize_panes").Description,
             StringComparison.Ordinal);
         string runDescription = tools.Single(tool => tool.Name == "run_shell_command").Description;
-        Assert.Contains("one configured effective pane", runDescription, StringComparison.Ordinal);
-        Assert.Contains("cohort larger", runDescription, StringComparison.Ordinal);
+        Assert.Contains("only the pane you name", runDescription, StringComparison.Ordinal);
+        Assert.Contains("send_keys", runDescription, StringComparison.Ordinal);
         Assert.Contains("singular", runDescription, StringComparison.Ordinal);
         JsonElement synchronizeEnabled = tools.Single(tool => tool.Name == "set_synchronize_panes")
             .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("enabled");
@@ -856,6 +856,29 @@ public sealed class McpProtocolTests
         Assert.Contains(
             "has the wrong JSON type",
             JsonSerializer.Serialize(Structured(batched), ToolJson.Options),
+            StringComparison.Ordinal);
+
+        // An integer beyond Int32 is schema-valid without a bound, so it used
+        // to reach the SDK's binder and answer in System.Text.Json's words.
+        CallToolResult huge = await harness.Client.CallToolAsync(
+            "capture_pane",
+            new Dictionary<string, object?> { ["maxLines"] = 1_000_000_000_000L },
+            cancellationToken: token);
+        Assert.True(huge.IsError ?? false);
+        string hugeText = Assert.IsType<TextContentBlock>(Assert.Single(huge.Content)).Text;
+        Assert.Contains("outside the allowed range", hugeText, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.", hugeText, StringComparison.Ordinal);
+
+        // A malformed operations array named an internal type for the same
+        // reason: nothing in the outer schema constrained its items.
+        CallToolResult shapes = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            new Dictionary<string, object?> { ["operations"] = new object[] { 1, 2 } },
+            cancellationToken: token);
+        Assert.True(shapes.IsError ?? false);
+        Assert.DoesNotContain(
+            "LibTmux.Mcp",
+            Assert.IsType<TextContentBlock>(Assert.Single(shapes.Content)).Text,
             StringComparison.Ordinal);
 
         // A declared argument of the declared type still runs.

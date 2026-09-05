@@ -675,7 +675,12 @@ internal sealed class CapabilityTools
     }
 
     public async Task<ActionResult> SetOptionAsync(
-        [Description("The option name, from this tool's enumerated list.")] string name,
+        [Description(
+            "The option name, from this tool's enumerated list. tmux's string and "
+            + "command options are absent because their values are formats and "
+            + "commands, so setting one would run code; read any option with "
+            + "show_option.")]
+        string name,
         [Description("The value: a whole number, a word such as on, or a colour.")] string value,
         [Description("Server, Session, Window, or Pane.")] OptionScope scope = OptionScope.Session,
         [Description("The pane whose scope is written.")] string? paneId = null,
@@ -683,7 +688,7 @@ internal sealed class CapabilityTools
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
-        InertOptions.Require(name, value);
+        InertOptions.Require(name, value, _registry.ByName.ContainsKey);
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         TmuxOptions options = await TmuxTargets
             .OptionsAsync(server, scope, paneId, cancellationToken)
@@ -786,7 +791,6 @@ internal sealed class CapabilityTools
             paneId,
             "run_shell_command",
             cancellationToken).ConfigureAwait(false);
-        RequireSingularRunOutcome(initial);
         return await _write.RunWithDispatchPreflightAsync(
                 command, initial.Pane, timeoutSeconds, maxLines, suppressHistory,
                 socketName: null,
@@ -797,7 +801,6 @@ internal sealed class CapabilityTools
                         initial.Pane.Id.ToString(),
                         "run_shell_command",
                         token).ConfigureAwait(false);
-                    RequireSingularRunOutcome(final);
                     return final.Pane;
                 },
                 cancellationToken: cancellationToken)
@@ -1097,20 +1100,6 @@ internal sealed class CapabilityTools
                 + $"{string.Join(", ", others)}, which "
                 + (others.Length == 1 ? "synchronizes" : "synchronize")
                 + " input with it.";
-    }
-
-    private static void RequireSingularRunOutcome(PaneInputPreflight preflight)
-    {
-        if (preflight.TargetPaneIds.Count == 1)
-        {
-            return;
-        }
-
-        throw new McpException(
-            "run_shell_command requires a singular input outcome, but the configured "
-            + $"synchronized input cohort is {string.Join(", ", preflight.TargetPaneIds)}. "
-            + "Use a pane whose synchronized input cohort contains only its named source, "
-            + "then retry.");
     }
 
     // A pane whose fd is closed or whose input is off receives nothing, and

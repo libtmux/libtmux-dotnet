@@ -300,12 +300,54 @@ internal sealed partial class WriteTools
             " \"$__lt\"; ",
             scheduleCleanupCommand,
             "; ",
-            signalCommand);
+            signalCommand,
 
-        await pane.SendKeysAsync(
-                new SendKeysRequest(text: payload, enter: true, literal: true),
-                cancellationToken)
-            .ConfigureAwait(false);
+            // The submitting newline is part of the payload here. send-keys
+            // carried Enter as a separate key; a buffer has to hold it.
+            "\n");
+
+        // Through a buffer rather than as keys. tmux fans send-keys out to the
+        // synchronized cohort (window.c:1381), so a tool promising one exit
+        // status could not keep that promise while synchronize-panes was on,
+        // and no check-then-send closes the window between them. paste-buffer
+        // writes straight to this pane's event (cmd-paste-buffer.c:53) and
+        // never reaches window_pane_paste, so the outcome is singular by
+        // construction. Not bracketed: a bracketed paste tells the shell the
+        // newline was pasted rather than typed, and nothing would run.
+        string buffer = $"libtmux_run_{Guid.NewGuid():N}"[..24];
+        bool bufferMayExist = false;
+        try
+        {
+            try
+            {
+                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                bufferMayExist = true;
+            }
+            catch (TmuxOperationCanceledException error)
+            {
+                bufferMayExist = error.CommandMayHaveExecuted;
+                throw;
+            }
+            catch (LibTmuxException error)
+            {
+                bufferMayExist = error.Dispatch != TmuxDispatchState.NotDispatched;
+                throw;
+            }
+
+            await pane.PasteBufferAsync(
+                    new PasteBufferRequest(name: buffer, deleteAfter: true, bracketed: false),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            bufferMayExist = false;
+        }
+        finally
+        {
+            if (bufferMayExist)
+            {
+                _ = await CleanupPasteBufferAsync(server, buffer, null).ConfigureAwait(false);
+            }
+        }
     }
 
     internal static void ValidateRunCommand(string command, int maximumBytes)

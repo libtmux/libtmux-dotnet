@@ -34,6 +34,21 @@ public sealed class TmuxToolsTests
         Assert.Contains(second.PaneId!, all.TargetPaneIds);
         Assert.Contains(third.PaneId!, all.TargetPaneIds);
 
+        // send_keys fans out; a run does not. Its payload travels through a
+        // buffer, which tmux writes straight to the named pane, so the exit
+        // status it reports is one pane's even with the cohort at three.
+        RunResult scoped = await mcp.Capabilities.RunShellCommandAsync(
+            "echo cohort-marker-7f3", first, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, scoped.ExitStatus);
+        foreach (string peer in new[] { second.PaneId!, third.PaneId! })
+        {
+            CaptureResult seen = await mcp.Read.CapturePaneAsync(
+                peer, cancellationToken: token);
+            Assert.DoesNotContain(
+                seen.Content.Lines,
+                line => line.Contains("cohort-marker-7f3", StringComparison.Ordinal));
+        }
+
         // A zoomed window hides its other panes, and window.c skips every pane
         // that is not visible, so the cohort collapses to the zoomed one.
         Server server = scope.Server;
@@ -189,6 +204,26 @@ public sealed class TmuxToolsTests
         McpException owned = await Assert.ThrowsAsync<McpException>(
             () => mcp.Capabilities.SetOptionAsync("mouse", "on", cancellationToken: token));
         Assert.Contains("set_mouse_enabled", owned.Message, StringComparison.Ordinal);
+
+        // Excluding tmux's string and command types stops a value carrying
+        // code and is blind to a flag tmux acts on itself: these three end
+        // sessions or the server, so they answer to the teardown gate.
+        McpException lethal = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync(
+                "exit-unattached", "on", OptionScope.Server, cancellationToken: token));
+        Assert.Contains("end the server", lethal.Message, StringComparison.Ordinal);
+
+        await using McpToolFixture managed = McpToolFixture.Create(
+            registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
+        McpException gated = await Assert.ThrowsAsync<McpException>(
+            () => managed.Capabilities.SetOptionAsync(
+                "destroy-unattached", "off", OptionScope.Session, cancellationToken: token));
+        Assert.Contains("kill_session", gated.Message, StringComparison.Ordinal);
+
+        // The gate reads the name, so the harmless value still proves it opens.
+        ActionResult allowed = await mcp.Capabilities.SetOptionAsync(
+            "destroy-unattached", "off", OptionScope.Session, cancellationToken: token);
+        Assert.Contains("destroy-unattached", allowed.Changed, StringComparison.Ordinal);
     }
 
     [UnixFact]

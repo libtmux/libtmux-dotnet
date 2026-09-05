@@ -95,7 +95,7 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task Capability_run_refuses_a_configured_cohort_before_baseline()
+    public async Task Capability_run_reaches_one_pane_from_inside_a_cohort()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using var fixture = new ToolFixture
@@ -103,41 +103,20 @@ public sealed class WriteToolsExecutionSafetyTests
             PaneListings =
             [
                 [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "0")],
-            ],
-        };
-
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
-            fixture.Capabilities.RunShellCommandAsync(
-                "echo must-not-send", "%1", cancellationToken: token));
-
-        Assert.Contains("%2", failure.Message, StringComparison.Ordinal);
-        Assert.Contains("singular", failure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, fixture.StateSampleCount);
-        Assert.Equal(0, fixture.SuccessfulSends);
-        Assert.Equal(1, fixture.PaneListingCount);
-    }
-
-    [Fact]
-    public async Task Capability_run_refuses_a_cohort_that_expands_after_baseline()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using var fixture = new ToolFixture
-        {
-            PaneListings =
-            [
-                [new PaneListingRow("%1", "0", "0"), new PaneListingRow("%2", "1", "0")],
                 [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "0")],
             ],
         };
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
-            fixture.Capabilities.RunShellCommandAsync(
-                "echo must-not-send", "%1", cancellationToken: token));
+        // The payload travels through a buffer, which tmux does not fan out,
+        // so a synchronized cohort no longer costs the caller the tool. The
+        // dispatch-time listing still happens: the source has to be re-read
+        // for the mode and liveness checks even though the cohort cannot
+        // change the outcome.
+        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
+            "echo one-pane", "%1", cancellationToken: token);
 
-        Assert.Contains("%2", failure.Message, StringComparison.Ordinal);
-        Assert.Contains("singular", failure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.True(fixture.StateSampleCount > 0);
-        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal("%1", result.PaneId);
+        Assert.Equal(1, fixture.SuccessfulSends);
         Assert.Equal(2, fixture.PaneListingCount);
     }
 
@@ -519,7 +498,11 @@ public sealed class WriteToolsExecutionSafetyTests
 
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
         Assert.Contains("do not retry", failure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(2, fixture.SuccessfulSends);
+
+        // One dispatch, not two. Sending keys put the text and its Enter in
+        // separate commands, which is why "the text was sent but Enter failed"
+        // is a state this library has to describe; a buffer carries both.
+        Assert.Equal(1, fixture.SuccessfulSends);
         Assert.Contains(fixture.Commands, IsStatusUnset);
     }
 
@@ -564,8 +547,11 @@ public sealed class WriteToolsExecutionSafetyTests
         && arguments.Contains("-u", StringComparer.Ordinal)
         && arguments.Any(static argument => argument.StartsWith("@lt_s_", StringComparison.Ordinal));
 
+    // The run delivers through a buffer and send_keys through keys, so a
+    // payload reaching a pane is either.
     private static bool IsSendKeys(string[] arguments) =>
-        arguments.Contains("send-keys", StringComparer.Ordinal);
+        arguments.Contains("send-keys", StringComparer.Ordinal)
+        || arguments.Contains("paste-buffer", StringComparer.Ordinal);
 
     private sealed record StateSample(
         int HistorySize,
@@ -702,7 +688,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 }
             }
 
-            if (arguments.Contains("send-keys", StringComparer.Ordinal))
+            if (IsSendKeys(arguments))
             {
                 SendAttempts++;
                 if (AmbiguousSendAttempt == SendAttempts)

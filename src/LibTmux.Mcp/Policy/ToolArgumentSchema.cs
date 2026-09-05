@@ -84,7 +84,14 @@ internal static class ToolArgumentSchema
             || schema.TryGetProperty("enum", out JsonElement choices)
             && !choices.EnumerateArray().Any(choice => JsonEquals(value, choice)))
         {
-            throw Invalid(toolName, path, "is not an allowed value");
+            // Carry the field's own description. Validating here runs before
+            // the handler, so without it a tool that explains why its list is
+            // what it is loses that explanation to a generic sentence.
+            string reason = schema.TryGetProperty("description", out JsonElement described)
+                && described.GetString() is { Length: > 0 } text
+                ? $"is not an allowed value. {text}"
+                : "is not an allowed value";
+            throw Invalid(toolName, path, reason);
         }
 
         if (value.ValueKind == JsonValueKind.String)

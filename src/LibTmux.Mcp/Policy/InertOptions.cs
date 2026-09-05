@@ -22,20 +22,19 @@ internal static partial class InertOptions
         "clock-mode-style", "copy-mode-line-numbers", "cursor-colour", "cursor-style",
         "destroy-unattached", "detach-on-destroy", "display-panes-active-colour",
         "display-panes-colour", "display-panes-time", "display-time", "escape-time",
-        "exit-empty", "exit-unattached", "extended-keys", "extended-keys-format",
-        "focus-events", "focus-follows-mouse", "get-clipboard", "initial-repeat-time",
-        "input-buffer-size", "lock-after-time", "menu-border-lines", "message-limit",
-        "message-line", "mode-keys", "monitor-activity", "monitor-bell", "monitor-silence",
-        "pane-base-index", "pane-border-indicators", "pane-border-lines",
-        "pane-border-status", "pane-scrollbars", "pane-scrollbars-position",
-        "popup-border-lines", "prefix-timeout", "prompt-command-cursor-style",
-        "prompt-cursor-colour", "prompt-cursor-style", "prompt-history-limit",
-        "remain-on-exit", "renumber-windows", "repeat-time", "scroll-on-clear",
-        "set-clipboard", "set-titles", "silence-action", "status", "status-bg", "status-fg",
-        "status-interval", "status-justify", "status-keys", "status-left-length",
-        "status-position", "status-right-length", "tiled-layout-max-columns",
-        "variation-selector-always-wide", "visual-activity", "visual-bell",
-        "visual-silence", "window-size", "wrap-search", "xterm-keys",
+        "extended-keys", "extended-keys-format", "focus-events", "focus-follows-mouse",
+        "get-clipboard", "initial-repeat-time", "input-buffer-size", "lock-after-time",
+        "menu-border-lines", "message-limit", "message-line", "mode-keys",
+        "monitor-activity", "monitor-bell", "monitor-silence", "pane-base-index",
+        "pane-border-indicators", "pane-border-lines", "pane-border-status",
+        "pane-scrollbars", "pane-scrollbars-position", "popup-border-lines",
+        "prefix-timeout", "prompt-command-cursor-style", "prompt-cursor-colour",
+        "prompt-cursor-style", "prompt-history-limit", "remain-on-exit", "renumber-windows",
+        "repeat-time", "scroll-on-clear", "set-clipboard", "set-titles", "silence-action",
+        "status", "status-bg", "status-fg", "status-interval", "status-justify",
+        "status-keys", "status-left-length", "status-position", "status-right-length",
+        "tiled-layout-max-columns", "variation-selector-always-wide", "visual-activity",
+        "visual-bell", "visual-silence", "window-size", "wrap-search", "xterm-keys",
     ],
         StringComparer.Ordinal);
 
@@ -47,14 +46,46 @@ internal static partial class InertOptions
             ["synchronize-panes"] = "set_synchronize_panes",
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The three inert options that end sessions or the server. Excluding
+    /// tmux's string and command types keeps a value from carrying code, and
+    /// that filter is blind to this: these are flags, and tmux acts on them
+    /// itself — server.c:281 and :284 exit the server, server-fn.c:493
+    /// destroys every unattached session. So they answer to the teardown gate
+    /// rather than to the toolset this tool sits in.
+    /// </summary>
+    private static readonly FrozenDictionary<string, string> Teardown =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["destroy-unattached"] = "kill_session",
+        }.ToFrozenDictionary(StringComparer.Ordinal);
+
+    // No tool here can end the tmux server, so nothing here may arm tmux to
+    // end it. These two are absent from the enum for that reason rather than
+    // for the code-execution reason every other absent option has.
+    private static readonly FrozenSet<string> ServerLethal = FrozenSet.ToFrozenSet(
+        ["exit-empty", "exit-unattached"],
+        StringComparer.Ordinal);
+
     /// <summary>Refuses a name or value outside what an inert option accepts.</summary>
     /// <param name="name">The option name a caller asked for.</param>
     /// <param name="value">The value a caller asked for.</param>
-    internal static void Require(string name, string value)
+    /// <param name="published">Answers whether one named tool is published here.</param>
+    internal static void Require(string name, string value, Func<string, bool> published)
     {
+        ArgumentNullException.ThrowIfNull(published);
         if (Dedicated.TryGetValue(name, out string? tool))
         {
             throw new McpException($"Use {tool} to set {name}.");
+        }
+
+        if (ServerLethal.Contains(name))
+        {
+            throw new McpException(
+                $"Setting {name} would let tmux exit the whole server on its own, "
+                + "ending every session on it. No tool here can end the server, so "
+                + "none may arm it to end itself. Put it in your tmux config file if "
+                + "you want it.");
         }
 
         if (!Names.Contains(name))
@@ -64,6 +95,14 @@ internal static partial class InertOptions
                 + "types as flag, number, choice or colour; its string and command options "
                 + "hold formats and commands, so setting them would run code. Read any "
                 + "option with show_option.");
+        }
+
+        if (Teardown.TryGetValue(name, out string? gate) && !published(gate))
+        {
+            throw new McpException(
+                $"Setting {name} would let tmux destroy sessions on its own, which "
+                + $"needs {gate}. Enable the teardown toolset, or read the option "
+                + "with show_option.");
         }
 
         if (!InertValue().IsMatch(value))
