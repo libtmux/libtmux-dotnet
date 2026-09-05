@@ -63,6 +63,18 @@ version.
 - The server instructions describe budget truncation and scrollback loss
   separately, because `droppedLines` reads 0 when scrollback discarded output.
 
+- **A failure reads the same whether it was called directly or inside
+  `call_read_tools_batch`.** The batch dispatches its inner operations itself
+  and never passed through the failure filter, so the same failure carried
+  advice one way and a raw message the other. Argument validation is treated
+  as the refusal it is, without the `(Parameter 'x')` suffix .NET appends.
+
+- **Tool descriptions carry the guidance that tells overlapping tools apart.**
+  Descriptions are built from the capability model, so the text written as
+  `[Description]` on `ReadTools` and `WriteTools` was never advertised;
+  `send_keys` reached clients as "Send keys." `send_keys`, `run_shell_command`
+  and `wait_for_text` now ship their disambiguating guidance.
+
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
   alongside the negatives tmux already refused, an unknown layout is no longer
