@@ -499,11 +499,10 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
         Assert.Contains("do not retry", failure.Message, StringComparison.OrdinalIgnoreCase);
 
-        // Two: the key that clears whatever was typed at the prompt, then the
-        // payload. The payload itself is one dispatch — sending keys put the
-        // text and its Enter in separate commands, which is why "the text was
-        // sent but Enter failed" is a state this library has to describe.
-        Assert.Equal(2, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.SuccessfulSends);
+        Assert.DoesNotContain(
+            fixture.Commands,
+            arguments => arguments.Contains("send-keys", StringComparer.Ordinal));
         Assert.Contains(fixture.Commands, IsStatusUnset);
     }
 

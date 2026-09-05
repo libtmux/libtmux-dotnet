@@ -313,22 +313,6 @@ internal sealed partial class WriteTools
             // carried Enter as a separate key; a buffer has to hold it.
             "\n");
 
-        // Clear whatever is already typed at the prompt. A caller's own
-        // send_keys with enter false, or a human sharing the pane, leaves the
-        // line editor holding text, and the payload lands after it: the shell
-        // then reads "echo LEFTOVER(" and parses the subshell paren as a glob
-        // qualifier, so the command never runs and the wait burns its whole
-        // budget. A pasted 0x15 is not read as kill-line — measured — and
-        // tmux's key path is, but that path fans out to a synchronized cohort,
-        // so it is only taken when the pane is alone.
-        if (!SynchronizesInput(pane))
-        {
-            await pane.SendKeysAsync(
-                    new SendKeysRequest(text: "C-u", enter: false, literal: false),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
         // Through a buffer rather than as keys. tmux fans send-keys out to the
         // synchronized cohort (window.c:1381), so a tool promising one exit
         // status could not keep that promise while synchronize-panes was on,
@@ -372,10 +356,6 @@ internal sealed partial class WriteTools
             }
         }
     }
-
-    private static bool SynchronizesInput(Pane pane) =>
-        pane.RawFormatFields.TryGetValue("pane_synchronized", out string? value)
-        && string.Equals(value, "1", StringComparison.Ordinal);
 
     internal static void ValidateRunCommand(string command, int maximumBytes)
     {
