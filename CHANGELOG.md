@@ -13,9 +13,10 @@ version.
 ### Added
 
 - `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
-  one immutable capability registry. Every tool and the static
-  `tmux://capabilities` resource expose matching process-reach, effect, output,
-  trust, input-literalization, and annotation metadata.
+  one immutable capability registry. Every tool carries conservative protocol
+  annotations. Its `_meta` capability object and the static
+  `tmux://capabilities` resource carry matching non-protocol metadata for
+  process reach, tmux effects, output classes, trust, and input literalization.
 
 - `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
   effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
@@ -94,10 +95,12 @@ version.
 - **Capability rows say only what the protocol cannot.** They carried the
   title, description, annotations and both schemas that a client already has
   from `tools/list` and joins to by name. `tmux://capabilities` drops from
-  67,667 to 13,873 bytes and `tools/list` from 132,914 to 75,516. The
-  duplicated output schema was also wrong: `structuredContent` is an object,
-  so a tool answering a list has its array wrapped as `{"result": ...}`, and
-  six rows described the bare array the server never sends.
+  67,667 to 14,451 UTF-8 bytes of resource text with all four toolsets
+  selected, and the raw JSON-RPC `tools/list` response drops from 132,914 to
+  72,665 bytes. The duplicated output schema was also wrong:
+  `structuredContent` is an object, so a tool answering a list has its array
+  wrapped as `{"result": ...}`, and six rows described the bare array the
+  server never sends.
 
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
