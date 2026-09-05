@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
@@ -33,6 +34,23 @@ internal static class Program
             return 1;
         }
 
+        try
+        {
+            return await ServeAsync().ConfigureAwait(false);
+        }
+        catch (McpException error)
+        {
+            // A misconfigured environment is a message, not a crash. Letting it
+            // escape ended the process with SIGABRT and a .NET stack trace
+            // carrying absolute source paths, which reads as a broken server
+            // rather than as a variable to correct.
+            await Console.Error.WriteLineAsync(error.Message).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    private static async Task<int> ServeAsync()
+    {
         ServiceCollection services = new();
         services.AddLogging(logging =>
         {

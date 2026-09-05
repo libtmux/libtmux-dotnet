@@ -247,7 +247,17 @@ internal sealed class CapabilityRegistry
                         definition,
                         definition.NestedAuthority.Where(nested =>
                             selection.Includes(ByManifestName[nested])))
-                    : definition),
+                    : definition)
+
+                // A batch with nothing to reach declares minItems 1 over an
+                // items schema nothing satisfies, so it is published and
+                // provably uncallable. Publishing it spends a client's context
+                // to offer it a tool that can only refuse.
+                .Where(definition => definition.NestedAuthority.Count > 0
+                    || !string.Equals(
+                        definition.Name,
+                        "call_read_tools_batch",
+                        StringComparison.Ordinal)),
         ];
         HashSet<string> dispatchNames = visible.Select(definition => definition.Name)
             .Concat(visible.SelectMany(definition => definition.NestedAuthority))

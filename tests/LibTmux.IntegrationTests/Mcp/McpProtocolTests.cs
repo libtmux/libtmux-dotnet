@@ -641,22 +641,15 @@ public sealed class McpProtocolTests
             StringComparison.Ordinal);
 
         // Naming only the batch grants only the batch. Its authority is trimmed
-        // by the whole selection, so nesting can never widen what was selected.
+        // by the whole selection, so nesting can never widen what was selected
+        // — and with nothing left to reach it is not published at all, rather
+        // than offered as a tool that can only refuse.
         CapabilityRegistry zeroAuthority = CapabilityRegistry.Select(new CapabilitySelection(
             ImmutableHashSet<Toolset>.Empty,
             ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
             ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
-        JsonElement zeroCalls = Assert.Single(zeroAuthority.Tools).ProtocolTool.InputSchema
-            .GetProperty("properties").GetProperty("operations");
-        Assert.Equal(JsonValueKind.False, zeroCalls.GetProperty("items").ValueKind);
-        ToolDefinition zeroBatch = Assert.Single(zeroAuthority.Definitions);
-        Assert.Empty(zeroBatch.NestedAuthority);
-        Assert.Equal(Effect.Observe, Assert.Single(zeroBatch.Effects));
-        Assert.Empty(zeroBatch.OutputClasses);
-        Assert.StartsWith(
-            "Inspect tmux metadata;",
-            zeroBatch.Description,
-            StringComparison.Ordinal);
+        Assert.Empty(zeroAuthority.Definitions);
+        Assert.Empty(zeroAuthority.Tools);
 
         selectedEnvironment[CapabilitySelection.ToolsVariable] = "not_a_tool";
         Assert.Throws<McpException>(() => CapabilitySelection.FromEnvironment(

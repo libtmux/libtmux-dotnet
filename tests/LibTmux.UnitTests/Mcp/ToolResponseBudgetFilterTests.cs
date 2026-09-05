@@ -43,24 +43,38 @@ public sealed class ToolResponseBudgetFilterTests
     [Fact]
     public void Mutation_advice_is_separated_from_tmux_own_wording()
     {
-        TmuxCommandResult result = new(
-            ["move-window"],
+        TmuxCommandResult chained = new(
+            ["kill-window", ";", "move-window"],
             1,
             ReadOnlyMemory<byte>.Empty,
             ReadOnlyMemory<byte>.Empty,
             [],
             ["index in use: 0"]);
-        TmuxCommandException error = new("move-window failed: index in use: 0", result);
-
         string advice = ToolFailureFilter.ActionableAdvice(
             "move_window",
-            error,
+            new TmuxCommandException("move-window failed: index in use: 0", chained),
             mayModify: true,
             "tmux refused the command: move-window failed: index in use: 0");
 
         // tmux ends its refusals without punctuation, so the warning ran into
         // them: "index in use: 0 tmux may have acted before the failure."
         Assert.Contains("in use: 0. tmux may have acted", advice, StringComparison.Ordinal);
+
+        // One command tmux refused is one command tmux did not run, and the
+        // warning contradicted tmux's own sentence.
+        TmuxCommandResult single = new(
+            ["set-option"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["unknown value: 1"]);
+        string refusal = ToolFailureFilter.ActionableAdvice(
+            "set_option",
+            new TmuxCommandException("set-option failed: unknown value: 1", single),
+            mayModify: true,
+            "tmux refused the command: set-option failed: unknown value: 1");
+        Assert.DoesNotContain("may have acted", refusal, StringComparison.Ordinal);
     }
 
     [Fact]

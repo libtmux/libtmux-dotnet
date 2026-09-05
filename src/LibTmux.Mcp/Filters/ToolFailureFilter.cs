@@ -282,8 +282,15 @@ internal static class ToolFailureFilter
         bool mayHaveActed = error is TmuxOperationCanceledException cancellation
                 && cancellation.CommandMayHaveExecuted
             || error is LibTmuxException tmux
-                && tmux.Dispatch != TmuxDispatchState.NotDispatched;
-        if (!mayModify || !mayHaveActed)
+                && tmux.Dispatch != TmuxDispatchState.NotDispatched
+                && (tmux is not TmuxCommandException refused
+                    || ChainMayHavePartlyRun(refused));
+
+        // The advice may already carry this warning, and saying it twice reads
+        // as two different failures rather than one.
+        if (!mayModify
+            || !mayHaveActed
+            || advice.Contains("do not retry", StringComparison.OrdinalIgnoreCase))
         {
             return advice;
         }
@@ -298,6 +305,13 @@ internal static class ToolFailureFilter
             + " tmux may have acted before the failure. Do not retry this operation."
             + " Inspect tmux state first.";
     }
+
+    // tmux refusing one command is evidence that it did not run it, and the
+    // warning contradicted tmux's own sentence. A chain is the exception:
+    // links before the failing one already ran.
+    private static bool ChainMayHavePartlyRun(TmuxCommandException error) =>
+        error.Result.Arguments.Any(static argument =>
+            string.Equals(argument, ";", StringComparison.Ordinal));
 
     private static bool TryPasteCleanup(Exception? error, out string? buffer)
     {
