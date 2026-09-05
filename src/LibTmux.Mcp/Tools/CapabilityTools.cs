@@ -935,29 +935,48 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<TmuxOption> synchronization = await pane.Window.Options.GetAsync(
-                new GetOptionRequest("synchronize-panes", quiet: true),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (synchronization.Count == 0 || synchronization[^1].Value.Boolean != true)
-        {
-            WriteTools.RefuseHumanOwnedMode(pane, toolName);
-            return (pane, [pane.Id.ToString()]);
-        }
-
         IReadOnlyList<Pane> panes = await pane.Window.GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
-        foreach (Pane recipient in panes)
+        Pane[] sources = [.. panes.Where(candidate => candidate.Id == pane.Id)];
+        if (sources.Length != 1)
+        {
+            throw new McpException(
+                $"Could not resolve {pane.Id} in its fresh pane listing. Do not send input; "
+                + "inspect the window and retry.");
+        }
+
+        Pane source = sources[0];
+        Pane[] cohort = SynchronizesInput(source)
+            ? [.. panes.Where(SynchronizesInput)]
+            : [source];
+        foreach (Pane recipient in cohort)
         {
             WriteTools.RefuseHumanOwnedMode(recipient, toolName);
         }
 
         return (
-            pane,
-            panes.Select(candidate => candidate.Id.ToString())
+            source,
+            cohort.Select(candidate => candidate.Id.ToString())
                 .Order(StringComparer.Ordinal)
                 .ToArray());
     }
+
+    private static bool SynchronizesInput(Pane pane)
+    {
+        return pane.RawFormatFields.TryGetValue("pane_synchronized", out string? synchronized)
+            ? synchronized switch
+            {
+                "1" => true,
+                "0" => false,
+                _ => throw InvalidSynchronizationState(pane),
+            }
+            : throw InvalidSynchronizationState(pane);
+    }
+
+    private static McpException InvalidSynchronizationState(Pane pane) =>
+        new(
+            $"Could not determine whether {pane.Id} has synchronize-panes enabled. "
+            + "Do not send input until its effective setting is 0 or 1.");
 
     private async Task<object?> DispatchReadAsync(
         string name,

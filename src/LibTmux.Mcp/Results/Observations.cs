@@ -170,7 +170,8 @@ public sealed record ActionResult(
 /// <param name="Changed">What was sent, in plain words.</param>
 /// <param name="PaneId">The pane named by the caller after active-pane resolution.</param>
 /// <param name="TargetPaneIds">
-/// Every pane that received the input when synchronize-panes expanded the target.
+/// Every synchronized input cohort member (effective synchronize-panes is on);
+/// configured membership does not prove delivery.
 /// </param>
 public sealed record PaneInputResult(
     string Changed,

@@ -58,9 +58,10 @@ only new output through its authenticated cursor.
 Pane modes belong to attached humans. `snapshot_pane` reports mode state, and
 ordinary capture still reads the underlying pane text; the MCP never enters,
 drives, or exits a mode. `send_keys`, `send_keys_batch`, and `run_shell_command`
-refuse any modal synchronized recipient. `paste_text` checks only its named
-target because buffer paste does not fan out. Wait for the human to leave
-instead of cancelling the mode.
+refuse any modal member of the synchronized input cohort: panes in the window
+whose effective `synchronize-panes` setting is on, including pane overrides.
+`paste_text` checks only its named target because buffer paste does not fan
+out. Wait for the human-owned mode to end before retrying.
 
 A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
 start `wait_for_text` or `wait_for_channel` as a task and collect the result

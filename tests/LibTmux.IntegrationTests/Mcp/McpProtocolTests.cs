@@ -320,7 +320,7 @@ public sealed class McpProtocolTests
             ["configured-command", "process-environment", "terminal-content", "tmux-metadata"]);
         Assert.True(synchronize.GetProperty("amplifiesFutureInput").GetBoolean());
         Assert.Contains(
-            "subsequent input is copied to every pane",
+            "synchronized input cohort",
             tools.Single(tool => tool.Name == "set_synchronize_panes").Description,
             StringComparison.Ordinal);
         Assert.All(

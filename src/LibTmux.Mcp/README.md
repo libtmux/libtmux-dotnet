@@ -114,9 +114,10 @@ A serialized request ID may use at most 524,288 bytes; a larger ID is rejected
 before any tool runs.
 
 `set_synchronize_panes` is the only operation that amplifies future input:
-after it is enabled, subsequent input to one pane is copied to every pane in
-that window. `send_keys` and `send_keys_batch` therefore report the resolved
-pane target set.
+after it is enabled, the synchronized input cohort is the panes in that window
+whose effective `synchronize-panes` setting is on. Pane overrides can include
+or exclude panes. `send_keys` and `send_keys_batch` report configured cohort
+membership, not actual delivery.
 
 ## Which pane am I in?
 
