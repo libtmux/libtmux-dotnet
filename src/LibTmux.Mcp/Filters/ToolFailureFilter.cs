@@ -321,6 +321,11 @@ internal static class ToolFailureFilter
     // only past its second command: tmux stops at the failure, so a chain whose
     // first command it refused has mutated nothing either. The generation guard
     // prepends a read and an if-shell to every chain, and neither changes tmux.
+    //
+    // Every dispatch is guarded, so this runs on every refusal — but every tool
+    // sends one command, so only the false result is reachable from the wire
+    // and the true one is proven by a unit test alone. A tool that dispatches
+    // `Chain().Then(a).Then(b)` makes it reachable, and wants a wire case.
     private static bool ChainMayHavePartlyRun(TmuxCommandException error)
     {
         int commands = 0;
