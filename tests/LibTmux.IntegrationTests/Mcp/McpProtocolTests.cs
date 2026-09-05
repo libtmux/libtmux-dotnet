@@ -323,6 +323,10 @@ public sealed class McpProtocolTests
             "synchronized input cohort",
             tools.Single(tool => tool.Name == "set_synchronize_panes").Description,
             StringComparison.Ordinal);
+        string runDescription = tools.Single(tool => tool.Name == "run_shell_command").Description;
+        Assert.Contains("one configured effective pane", runDescription, StringComparison.Ordinal);
+        Assert.Contains("cohort larger", runDescription, StringComparison.Ordinal);
+        Assert.Contains("singular", runDescription, StringComparison.Ordinal);
         JsonElement synchronizeEnabled = tools.Single(tool => tool.Name == "set_synchronize_panes")
             .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("enabled");
         string synchronizeEnabledDescription = synchronizeEnabled.GetProperty("description").GetString()!;

@@ -96,6 +96,14 @@ omit teardown unless it is selected explicitly. Exclusions always win.
 On shutdown, the server removes only a dedicated daemon whose launch marker
 still matches this process; it leaves existing or replaced daemons running.
 
+Toolsets and tool filters shape the advertised and callable interface; they
+are not authorization. Whole-call MCP annotations are client consent and
+presentation metadata, not enforcement.
+
+The selected socket limits addressable tmux objects, not operating-system
+authority: it provides no sandbox or confinement for filesystem, process,
+network, or credentials. Execute tools run with the tmux user's authority.
+
 Unknown toolsets, tool names, empty comma-separated tokens, and simultaneous
 socket name/path settings stop startup. An empty or relative
 `LIBTMUX_TMUX_CONFIG` also stops startup. `LIBTMUX_SAFETY` is retired and its
@@ -119,6 +127,9 @@ whose effective `synchronize-panes` setting is on. Pane overrides can include
 or exclude panes. When the named source's effective `pane_synchronized` value
 is `0`, `send_keys` and `send_keys_batch` report only that source; when it is
 `1`, they report configured effective-on cohort membership, not actual delivery.
+`run_shell_command` requires one configured effective pane and refuses before
+baseline or payload when `synchronize-panes` would make the cohort larger, so
+its status and output remain singular.
 
 ## Which pane am I in?
 

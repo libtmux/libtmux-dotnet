@@ -65,6 +65,10 @@ in the synchronized input cohort: panes in the window whose effective
 `paste_text` checks only its named target because buffer paste does not fan
 out. Wait for the human-owned mode to end before retrying.
 
+`run_shell_command` requires one configured effective pane. It refuses before
+its baseline or payload when `synchronize-panes` would make the cohort larger,
+so its status and output remain singular.
+
 A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
 start `wait_for_text` or `wait_for_channel` as a task and collect the result
 later. It is offered, never required, so a client without it keeps the blocking
@@ -291,6 +295,10 @@ interior empty tokens are startup errors.
 names and malformed lists stop startup before the server opens tmux.
 `LIBTMUX_SAFETY` is retired; its presence is a fatal migration error.
 
+Toolsets and tool filters shape the advertised and callable interface; they
+are not authorization. Whole-call MCP annotations are client consent and
+presentation metadata, not enforcement.
+
 The process pins one endpoint before registration. `LIBTMUX_SOCKET` supplies a
 socket name, `LIBTMUX_SOCKET_PATH` supplies an absolute socket path, and the two
 are mutually exclusive. `LIBTMUX_TMUX_CONFIG` is an explicit absolute config
@@ -301,6 +309,10 @@ path-pinned, and user-configured endpoints omit teardown unless it is selected
 by toolset or exact tool name.
 On shutdown, the MCP process removes only a dedicated daemon whose launch
 marker still matches; it leaves existing or replaced daemons running.
+
+The selected socket limits addressable tmux objects, not operating-system
+authority: it provides no sandbox or confinement for filesystem, process,
+network, or credentials. Execute tools run with the tmux user's authority.
 
 Selecting `call_read_tools_batch` alone retains its 16 declared inspect
 operations for nested dispatch without advertising them separately. Each
