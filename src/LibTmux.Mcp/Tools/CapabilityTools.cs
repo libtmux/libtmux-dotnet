@@ -127,7 +127,10 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        return PaneInfo.From(pane, TmuxTargets.CallerPaneId());
+        return PaneInfo.From(
+            pane,
+            await TmuxTargets.VerifiedCallerPaneIdAsync(server, cancellationToken)
+                .ConfigureAwait(false));
     }
 
     public Task<CaptureResult> CapturePaneAsync(

@@ -455,4 +455,48 @@ public sealed class TmuxToolsTests
             await setup.ExecuteCommandAsync(["kill-server"], token);
         }
     }
+
+    [UnixFact]
+    public async Task The_caller_pane_is_only_recognised_on_its_own_socket()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        TmuxCommandResult where = await server.ExecuteCommandAsync(
+            ["display-message", "-p", "#{socket_path}"],
+            token);
+        string socketPath = where.StandardOutputLines[0];
+
+        string? priorServer = System.Environment.GetEnvironmentVariable("TMUX");
+        string? priorPane = System.Environment.GetEnvironmentVariable("TMUX_PANE");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("TMUX_PANE", pane);
+
+            System.Environment.SetEnvironmentVariable("TMUX", $"{socketPath},1,0");
+            Assert.True((await mcp.Read.ListPanesAsync(cancellationToken: token))
+                .Single(each => each.PaneId == pane).IsCaller);
+
+            // tmux numbers panes per server, so the same id on another socket
+            // is an unrelated pane. Believing it would mark a scratch pane as
+            // the terminal the conversation runs through.
+            System.Environment.SetEnvironmentVariable("TMUX", "/tmp/tmux-1000/not-this-one,1,0");
+            Assert.False((await mcp.Read.ListPanesAsync(cancellationToken: token))
+                .Single(each => each.PaneId == pane).IsCaller);
+
+            TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+            Assert.Null(info.CallerPaneId);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("TMUX", priorServer);
+            System.Environment.SetEnvironmentVariable("TMUX_PANE", priorPane);
+        }
+    }
 }

@@ -38,7 +38,10 @@ internal sealed partial class ReadTools
         PaneRead read = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);
 
-        PaneInfo paneInfo = PaneInfo.From(pane, TmuxTargets.CallerPaneId());
+        PaneInfo paneInfo = PaneInfo.From(
+            pane,
+            await TmuxTargets.VerifiedCallerPaneIdAsync(server, cancellationToken)
+                .ConfigureAwait(false));
         int? cursorX = await TmuxTargets.DisplayNumberAsync(
                 pane,
                 "#{cursor_x}",

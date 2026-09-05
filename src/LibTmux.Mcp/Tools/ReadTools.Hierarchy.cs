@@ -36,7 +36,9 @@ internal sealed partial class ReadTools
             SessionCount: sessions.Count,
             WindowCount: windows.Count,
             PaneCount: panes.Count,
-            CallerPaneId: TmuxTargets.CallerPaneId());
+            CallerPaneId: await TmuxTargets
+                .VerifiedCallerPaneIdAsync(server, cancellationToken)
+                .ConfigureAwait(false));
     }
 
     /// <summary>Lists the sessions.</summary>
@@ -110,7 +112,9 @@ internal sealed partial class ReadTools
         CancellationToken cancellationToken = default)
     {
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        string? caller = TmuxTargets.CallerPaneId();
+        string? caller = await TmuxTargets
+            .VerifiedCallerPaneIdAsync(server, cancellationToken)
+            .ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(windowId))
         {

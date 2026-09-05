@@ -82,7 +82,7 @@ internal static class Program
             services,
             policy,
             resolved.ConnectionOptions,
-            TmuxTargets.CallerPaneId(),
+            TmuxTargets.CallerPaneIdOn(resolved.Disclosure.ResolvedSocketPath),
             resolved.Selection,
             resolved.Disclosure);
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using ModelContextProtocol;
 
@@ -164,7 +165,8 @@ internal static class TmuxTargets
         Server server,
         CancellationToken cancellationToken)
     {
-        if (CallerPaneId() is not string id
+        if (await VerifiedCallerPaneIdAsync(server, cancellationToken).ConfigureAwait(false)
+                is not string id
             || !PaneId.TryParse(id, out PaneId parsed)
             || !server.IsMaterialized)
         {
@@ -229,6 +231,130 @@ internal static class TmuxTargets
         }
 
         return panes[0];
+    }
+
+    /// <summary>Answers the caller's pane, but only on the server that holds it.</summary>
+    /// <param name="server">The server being driven.</param>
+    /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <returns>The pane id, or null when the caller's pane is not on this server.</returns>
+    /// <remarks>
+    /// <c>TMUX_PANE</c> alone cannot answer this. tmux numbers panes per
+    /// server, so <c>%1</c> in the terminal this conversation runs through and
+    /// <c>%1</c> on the socket being driven are different panes whenever those
+    /// are different servers — which is the ordinary case, because the server
+    /// pins a dedicated socket by default. Believing the bare id marks an
+    /// unrelated pane as the caller's own, protecting a scratch pane while
+    /// leaving the real terminal unguarded.
+    /// <c>TMUX</c> carries the socket path tmux exported into the pane, so
+    /// comparing that against the socket actually being driven is what makes
+    /// the id mean anything.
+    /// </remarks>
+    internal static async Task<string?> VerifiedCallerPaneIdAsync(
+        Server server,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        if (CallerPaneId() is not string id || CallerSocketPath() is not string caller)
+        {
+            return null;
+        }
+
+        string? pinned = await SocketPathAsync(server, cancellationToken).ConfigureAwait(false);
+        return pinned is not null && string.Equals(pinned, caller, StringComparison.Ordinal)
+            ? id
+            : null;
+    }
+
+    /// <summary>Answers the caller's pane id when it sits on a known socket.</summary>
+    /// <param name="pinnedSocketPath">The socket this server drives, or null when unresolved.</param>
+    /// <returns>The pane id, or null when it belongs to a different server.</returns>
+    /// <remarks>
+    /// The startup form of <see cref="VerifiedCallerPaneIdAsync" />, for the
+    /// point where the socket path is already known and no server handle
+    /// exists yet. An unresolved socket leaves the pane foreign, because an
+    /// unverifiable claim about which terminal a model is talking through is
+    /// worse than no claim.
+    /// </remarks>
+    internal static string? CallerPaneIdOn(string? pinnedSocketPath)
+    {
+        if (string.IsNullOrWhiteSpace(pinnedSocketPath)
+            || CallerPaneId() is not string id
+            || CallerSocketPath() is not string caller)
+        {
+            return null;
+        }
+
+        return string.Equals(Path.GetFullPath(pinnedSocketPath), caller, StringComparison.Ordinal)
+            ? id
+            : null;
+    }
+
+    /// <summary>Answers the socket path tmux exported into the caller's pane.</summary>
+    /// <returns>The path, or null when this process is not running in a pane.</returns>
+    /// <remarks>
+    /// tmux writes <c>TMUX</c> as "socket-path,server-pid,session-id". Only the
+    /// path is read: the pid and session id are frozen when the pane was
+    /// spawned and go stale as soon as its window moves.
+    /// </remarks>
+    internal static string? CallerSocketPath()
+    {
+        string? value = System.Environment.GetEnvironmentVariable("TMUX");
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        int separator = value.IndexOf(',', StringComparison.Ordinal);
+        string path = separator < 0 ? value : value[..separator];
+        return string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
+    }
+
+    private static readonly ConditionalWeakTable<Server, StrongBox<string?>> SocketPaths = new();
+
+    /// <summary>Answers which socket a server is listening on, asking it once.</summary>
+    /// <remarks>
+    /// A connection made by name knows the name tmux was given, not the path
+    /// tmux built from it, so the server itself is the only source. The path
+    /// cannot change while a server runs, so it is remembered per handle. A
+    /// server that will not answer is left unidentified, which keeps the
+    /// caller's pane foreign rather than assuming it is ours.
+    /// </remarks>
+    private static async Task<string?> SocketPathAsync(
+        Server server,
+        CancellationToken cancellationToken)
+    {
+        if (SocketPaths.TryGetValue(server, out StrongBox<string?>? remembered))
+        {
+            return remembered.Value;
+        }
+
+        string? path = null;
+        if (server.ConnectionOptions.SocketPath is string configured)
+        {
+            path = Path.GetFullPath(configured);
+        }
+        else if (server.IsMaterialized)
+        {
+            try
+            {
+                TmuxCommandResult result = await server.ExecuteCommandAsync(
+                        ["display-message", "-p", "#{socket_path}"],
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (result.ExitCode == 0 && result.StandardOutputLines.Count == 1
+                    && !string.IsNullOrWhiteSpace(result.StandardOutputLines[0]))
+                {
+                    path = Path.GetFullPath(result.StandardOutputLines[0]);
+                }
+            }
+            catch (LibTmuxException)
+            {
+                // Unidentified is the safe answer; see the remarks.
+            }
+        }
+
+        SocketPaths.AddOrUpdate(server, new StrongBox<string?>(path));
+        return path;
     }
 
     /// <summary>Answers the identifier of the pane this process runs inside.</summary>
