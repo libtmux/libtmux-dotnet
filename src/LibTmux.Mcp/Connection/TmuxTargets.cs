@@ -456,6 +456,13 @@ internal static class TmuxTargets
         // directory genuinely named with '##' is not reported as a fallback.
         string literal = Path.TrimEndingDirectorySeparator(
             Path.GetFullPath(requested.Replace("##", "#", StringComparison.Ordinal)));
+        // pane_current_path, deliberately, even though it can be read part way
+        // through a respawn's chdir. pane_start_path looks like the
+        // race-free answer and is not an answer at all: it reports what tmux
+        // was ASKED for, so a start directory tmux ignored still reads back as
+        // the one requested and the fallback this note exists to disclose
+        // disappears. Measured — a spawn into /definitely/does/not/exist
+        // reports that path as its start and /home/d as its current.
         string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
             .ConfigureAwait(false);
         // Stated as where it landed rather than as a rejection: the two paths

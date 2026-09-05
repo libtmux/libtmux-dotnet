@@ -1010,9 +1010,19 @@ public sealed class TmuxToolsTests
         async Task StartsInLiteralDirectoryAsync(Func<string, Task<ActionResult>> spawn)
         {
             ActionResult spawned = await spawn(literalDirectory);
+
+            // Settled, not sampled. pane_current_path follows the process, and
+            // a respawn under load is read part way through its chdir — the
+            // answer is then an ancestor of the target, which looks exactly
+            // like the fallback this proof exists to rule out.
             Assert.Equal(
                 literalDirectory,
-                await ReadAsync(spawned.PaneId!, "#{pane_current_path}"));
+                await TmuxWait.UntilAsync(
+                    cancellation => ReadAsync(spawned.PaneId!, "#{pane_current_path}"),
+                    path => path == literalDirectory,
+                    TestBudget.Settle,
+                    TimeSpan.FromMilliseconds(20),
+                    token));
         }
 
         Dictionary<(string Tool, string Field), Func<Task>> proofs = new()
