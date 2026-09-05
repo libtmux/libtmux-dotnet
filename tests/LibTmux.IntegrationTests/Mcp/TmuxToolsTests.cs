@@ -673,4 +673,38 @@ public sealed class TmuxToolsTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [UnixFact]
+    public async Task A_capture_never_carries_raw_terminal_control_bytes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        await mcp.Write.RunAsync(
+            @"printf 'ESCPROBE_\033[31mRED\033[0m_END\n'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            pane,
+            includeHistory: true,
+            cancellationToken: token);
+
+        // Pane text reaches a model's context. A capture that preserved escape
+        // sequences would let anything running in a pane write terminal
+        // control codes straight into it.
+        Assert.Contains(
+            captured.Content.Lines,
+            line => line.Contains("ESCPROBE_", StringComparison.Ordinal)
+                && line.Contains("RED", StringComparison.Ordinal));
+        Assert.All(
+            captured.Content.Lines,
+            line => Assert.DoesNotContain('\u001b', line));
+    }
 }
