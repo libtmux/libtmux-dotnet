@@ -14,6 +14,9 @@ internal sealed record McpStartup(
 {
     internal const string SocketVariable = "LIBTMUX_SOCKET";
     internal const string SocketPathVariable = "LIBTMUX_SOCKET_PATH";
+
+    /// <summary>The library's own socket selector, which this server does not read.</summary>
+    internal const string LibrarySocketNameVariable = "LIBTMUX_SOCKET_NAME";
     internal const string ConfigurationVariable = "LIBTMUX_TMUX_CONFIG";
     private const string TmuxBinaryVariable = "LIBTMUX_TMUX";
     private const string TmuxTemporaryDirectoryVariable = "TMUX_TMPDIR";
@@ -38,6 +41,7 @@ internal sealed record McpStartup(
             CapabilitySelection.ExcludeToolsVariable,
             SocketVariable,
             SocketPathVariable,
+            LibrarySocketNameVariable,
             ConfigurationVariable,
             TmuxBinaryVariable,
             TmuxTemporaryDirectoryVariable,
@@ -61,6 +65,22 @@ internal sealed record McpStartup(
         {
             throw new McpException(
                 $"{SocketVariable} and {SocketPathVariable} are mutually exclusive.");
+        }
+
+        // The library selects a socket with LIBTMUX_SOCKET_NAME and this server
+        // does not, so setting only that one silently lands on the dedicated
+        // socket while the caller believes it is somewhere else. Socket
+        // selection is frozen at startup and the capability model treats it as
+        // a boundary, so refusing beats ignoring: a probe that thought it was
+        // isolated read and wrote another server's sessions for hours.
+        if (socketName is null
+            && socketPath is null
+            && NonBlank(Read(LibrarySocketNameVariable), LibrarySocketNameVariable) is not null)
+        {
+            throw new McpException(
+                $"{LibrarySocketNameVariable} selects a socket for the libtmux library, "
+                + $"not for this server. Use {SocketVariable} for a socket name, or "
+                + $"{SocketPathVariable} for an absolute path.");
         }
 
         bool dedicated = socketName is null && socketPath is null;

@@ -31,7 +31,15 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
 
         return new TmuxServerInfo(
-            SocketName: server.ConnectionOptions.SocketName ?? _connection.DefaultSocketName,
+            // A path-selected socket has no name of its own, and answering null
+            // from the tool whose job is to say which socket you are on is the
+            // one thing a caller cannot work around. tmux names such a socket
+            // by its file, so that is the honest answer.
+            SocketName: server.ConnectionOptions.SocketName
+                ?? _connection.DefaultSocketName
+                ?? (server.ConnectionOptions.SocketPath is string path
+                    ? Path.GetFileName(path)
+                    : null),
             Version: server.Version?.ToString(),
             SessionCount: sessions.Count,
             WindowCount: windows.Count,
