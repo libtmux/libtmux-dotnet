@@ -80,8 +80,13 @@ internal sealed partial class WriteTools
         string toolName,
         CancellationToken cancellationToken)
     {
-        RefuseHumanOwnedMode(pane, toolName);
-        await pane.SendKeysAsync(
+        Pane fresh = await TmuxTargets.PaneAsync(
+                pane.Server,
+                pane.Id.ToString(),
+                cancellationToken)
+            .ConfigureAwait(false);
+        RefuseHumanOwnedMode(fresh, toolName);
+        await fresh.SendKeysAsync(
                 new SendKeysRequest(
                     text: keys,
                     enter: enter,
@@ -91,9 +96,9 @@ internal sealed partial class WriteTools
             .ConfigureAwait(false);
 
         return new ActionResult(
-            $"Sent {keys.Length} characters to {pane.Id}. "
+            $"Sent {keys.Length} characters to {fresh.Id}. "
             + "Read the pane, or use wait_for_text, to see what they did.",
-            PaneId: pane.Id.ToString());
+            PaneId: fresh.Id.ToString());
     }
 
     /// <summary>Sends several keystrokes in order.</summary>
@@ -319,7 +324,8 @@ internal sealed partial class WriteTools
         {
             throw new McpException(
                 $"{toolName} refuses input to {pane.Id} because its pane mode is human-owned. "
-                + "Exit copy mode or wait for the person to finish before retrying.");
+                + "Use capture_pane or snapshot_pane to observe it, then wait for the mode "
+                + "to end before retrying.");
         }
     }
 

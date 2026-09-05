@@ -931,7 +931,14 @@ public sealed class TmuxToolsTests
 
             PaneInputOperationResult refusal = Assert.Single(batch.Results);
             Assert.False(refusal.Success);
+            Assert.Contains("send_keys_batch", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains(paneId, refusal.Error, StringComparison.Ordinal);
             Assert.Contains("human-owned", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("capture_pane", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("snapshot_pane", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("wait", refusal.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("exit", refusal.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("cancel", refusal.Error, StringComparison.OrdinalIgnoreCase);
             Pane fresh = await FreshPaneAsync(scope.Pane, token);
             Assert.Equal("1", fresh.RawFormatFields["pane_in_mode"]);
             await AssertMarkerAbsentAsync(mcp, paneId, marker, token);
@@ -1033,6 +1040,49 @@ public sealed class TmuxToolsTests
         finally
         {
             await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Batch_dispatch_rechecks_a_pane_that_enters_mode_after_preflight()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string paneId = scope.Pane.Id.ToString();
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane preflight = await TmuxTargets.PaneAsync(server, paneId, token);
+        Assert.Equal("0", preflight.RawFormatFields["pane_in_mode"]);
+
+        await scope.Pane.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(
+                () => WriteTools.SendKeysToPaneAsync(
+                    preflight,
+                    "echo stale-snapshot-marker",
+                    enter: true,
+                    literal: true,
+                    suppressHistory: false,
+                    toolName: "send_keys_batch",
+                    cancellationToken: token));
+
+            Assert.Contains("send_keys_batch", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains(paneId, refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("human-owned", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("capture_pane", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("snapshot_pane", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("wait", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("exit", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("cancel", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            await AssertMarkerAbsentAsync(mcp, paneId, "stale-snapshot-marker", token);
+        }
+        finally
+        {
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
         }
     }
 
