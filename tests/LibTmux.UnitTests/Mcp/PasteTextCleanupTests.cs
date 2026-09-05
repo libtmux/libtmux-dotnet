@@ -273,6 +273,7 @@ public sealed class PasteTextCleanupTests
             "pane_width" => "80",
             "pane_height" => "24",
             "pane_active" => "1",
+            "pane_in_mode" => "0",
             _ => string.Empty,
         };
 

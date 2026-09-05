@@ -85,8 +85,28 @@ internal sealed partial class WriteTools
                 pane.Id.ToString(),
                 cancellationToken)
             .ConfigureAwait(false);
-        RefuseHumanOwnedMode(fresh, toolName);
-        await fresh.SendKeysAsync(
+        return await SendKeysToPreflightedPaneAsync(
+                fresh,
+                keys,
+                enter,
+                literal,
+                suppressHistory,
+                toolName,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal static async Task<ActionResult> SendKeysToPreflightedPaneAsync(
+        Pane pane,
+        string keys,
+        bool enter,
+        bool literal,
+        bool suppressHistory,
+        string toolName,
+        CancellationToken cancellationToken)
+    {
+        RefuseHumanOwnedMode(pane, toolName);
+        await pane.SendKeysAsync(
                 new SendKeysRequest(
                     text: keys,
                     enter: enter,
@@ -96,9 +116,9 @@ internal sealed partial class WriteTools
             .ConfigureAwait(false);
 
         return new ActionResult(
-            $"Sent {keys.Length} characters to {fresh.Id}. "
+            $"Sent {keys.Length} characters to {pane.Id}. "
             + "Read the pane, or use wait_for_text, to see what they did.",
-            PaneId: fresh.Id.ToString());
+            PaneId: pane.Id.ToString());
     }
 
     /// <summary>Sends several keystrokes in order.</summary>

@@ -41,7 +41,7 @@ internal sealed partial class WriteTools
         + "captured before dispatch; check linesMissed and anchorLost. If it may "
         + "outlast the timeout, run it through a client-managed MCP task. A timed-out "
         + "command MAY STILL BE RUNNING; inspect it and do not retry it.")]
-    public async Task<RunResult> RunAsync(
+    public Task<RunResult> RunAsync(
         [Description(
             "The shell command to run, at most LIBTMUX_MCP_MAX_BYTES UTF-8 bytes. "
             + "Put longer scripts in a file and run that file.")]
@@ -62,14 +62,72 @@ internal sealed partial class WriteTools
         [Description("The tmux socket to use. Omit for the default server.")]
         string? socketName = null,
         IProgress<ProgressNotificationValue>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RunAsyncCore(
+            command,
+            paneId,
+            timeoutSeconds,
+            maxLines,
+            suppressHistory,
+            socketName,
+            progress,
+            dispatchPreflight: null,
+            initialPane: null,
+            cancellationToken);
+
+    internal Task<RunResult> RunWithDispatchPreflightAsync(
+        string command,
+        Pane pane,
+        double? timeoutSeconds,
+        int? maxLines,
+        bool suppressHistory,
+        string? socketName,
+        IProgress<ProgressNotificationValue>? progress,
+        Func<CancellationToken, Task<Pane>> dispatchPreflight,
+        CancellationToken cancellationToken) =>
+        RunAsyncCore(
+            command,
+            paneId: null,
+            timeoutSeconds,
+            maxLines,
+            suppressHistory,
+            socketName,
+            progress,
+            dispatchPreflight,
+            pane,
+            cancellationToken);
+
+    private async Task<RunResult> RunAsyncCore(
+        string command,
+        string? paneId,
+        double? timeoutSeconds,
+        int? maxLines,
+        bool suppressHistory,
+        string? socketName,
+        IProgress<ProgressNotificationValue>? progress,
+        Func<CancellationToken, Task<Pane>>? dispatchPreflight,
+        Pane? initialPane,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ValidateRunCommand(command, _policy.MaxBytes);
-        Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-            .ConfigureAwait(false);
-        RefuseHumanOwnedMode(pane, "run_shell_command");
+        Server server;
+        Pane pane;
+        if (initialPane is null)
+        {
+            server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
+            pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            server = initialPane.Server;
+            pane = initialPane;
+        }
+        if (dispatchPreflight is null)
+        {
+            RefuseHumanOwnedMode(pane, "run_shell_command");
+        }
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
         PaneRead baselineRead = await PaneReader
@@ -90,6 +148,11 @@ internal sealed partial class WriteTools
         {
             try
             {
+                if (dispatchPreflight is not null)
+                {
+                    pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
+                }
+
                 await sequence.MutateAsync(
                         () => SendRunPayloadAsync(
                             server,

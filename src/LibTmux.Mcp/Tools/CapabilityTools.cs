@@ -53,6 +53,10 @@ internal sealed record PaneInputBatchResult(
     int? StoppedAt,
     string OnError);
 
+internal sealed record PaneInputPreflight(
+    Pane Pane,
+    IReadOnlyList<string> TargetPaneIds);
+
 [UnsupportedOSPlatform("windows")]
 internal sealed class CapabilityTools
 {
@@ -731,13 +735,25 @@ internal sealed class CapabilityTools
         bool suppressHistory = false,
         CancellationToken cancellationToken = default)
     {
-        (Pane pane, _) = await ResolvePaneInputTargetsAsync(
+        PaneInputPreflight initial = await PreflightPaneInputDispatchAsync(
             paneId,
             "run_shell_command",
             cancellationToken).ConfigureAwait(false);
-        return await _write.RunAsync(
-                command, pane.Id.ToString(), timeoutSeconds, maxLines, suppressHistory,
-                progress: null, cancellationToken: cancellationToken)
+        RequireSingularRunOutcome(initial);
+        return await _write.RunWithDispatchPreflightAsync(
+                command, initial.Pane, timeoutSeconds, maxLines, suppressHistory,
+                socketName: null,
+                progress: null,
+                dispatchPreflight: async token =>
+                {
+                    PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                        initial.Pane.Id.ToString(),
+                        "run_shell_command",
+                        token).ConfigureAwait(false);
+                    RequireSingularRunOutcome(final);
+                    return final.Pane;
+                },
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -750,14 +766,21 @@ internal sealed class CapabilityTools
         bool suppressHistory = false,
         CancellationToken cancellationToken = default)
     {
-        (Pane pane, IReadOnlyList<string> targetPaneIds) =
-            await ResolvePaneInputTargetsAsync(paneId, "send_keys", cancellationToken)
-                .ConfigureAwait(false);
-        ActionResult result = await _write.SendKeysAsync(
-                keys, pane.Id.ToString(), enter, literal, suppressHistory,
-                cancellationToken: cancellationToken)
+        PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                paneId,
+                "send_keys",
+                cancellationToken)
             .ConfigureAwait(false);
-        return new PaneInputResult(result.Changed, pane.Id.ToString(), targetPaneIds);
+        ActionResult result = await WriteTools.SendKeysToPreflightedPaneAsync(
+                final.Pane,
+                keys,
+                enter,
+                literal,
+                suppressHistory,
+                "send_keys",
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new PaneInputResult(result.Changed, final.Pane.Id.ToString(), final.TargetPaneIds);
     }
 
     public async Task<PaneInputBatchResult> SendKeysBatchAsync(
@@ -787,14 +810,13 @@ internal sealed class CapabilityTools
             PaneInputOperation operation = operations[index];
             try
             {
-                (Pane pane, IReadOnlyList<string> targetPaneIds) =
-                    await ResolvePaneInputTargetsAsync(
-                            operation.PaneId,
-                            "send_keys_batch",
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                _ = await WriteTools.SendKeysToPaneAsync(
-                        pane,
+                PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                        operation.PaneId,
+                        "send_keys_batch",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                _ = await WriteTools.SendKeysToPreflightedPaneAsync(
+                        final.Pane,
                         operation.Keys,
                         operation.Enter,
                         operation.Literal,
@@ -808,7 +830,7 @@ internal sealed class CapabilityTools
                 }
 
                 results.Add(new PaneInputOperationResult(
-                    index, pane.Id.ToString(), true, null, targetPaneIds));
+                    index, final.Pane.Id.ToString(), true, null, final.TargetPaneIds));
             }
             catch (OperationCanceledException)
             {
@@ -926,39 +948,83 @@ internal sealed class CapabilityTools
     private Task<Server> ServerAsync(CancellationToken cancellationToken) =>
         _connection.GetAsync(cancellationToken: cancellationToken);
 
-    private async Task<(Pane Pane, IReadOnlyList<string> TargetPaneIds)>
-        ResolvePaneInputTargetsAsync(
+    private async Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
             string? paneId,
             string toolName,
             CancellationToken cancellationToken)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
-        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
+        string requestedPaneId = await ResolvePaneInputIdAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Pane> panes = await pane.Window.GetPanesAsync(cancellationToken)
-            .ConfigureAwait(false);
-        Pane[] sources = [.. panes.Where(candidate => candidate.Id == pane.Id)];
+        IReadOnlyList<Pane> panes = await server.GetPanesAsync(cancellationToken).ConfigureAwait(false);
+        return ResolvePaneInputTargets(panes, requestedPaneId, toolName);
+    }
+
+    private static async Task<string> ResolvePaneInputIdAsync(
+        Server server,
+        string? paneId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(paneId))
+        {
+            Pane active = await TmuxTargets.PaneAsync(server, null, cancellationToken)
+                .ConfigureAwait(false);
+            return active.Id.ToString();
+        }
+
+        string trimmed = paneId.Trim();
+        if (!PaneId.TryParse(trimmed, out PaneId parsed))
+        {
+            throw new McpException(
+                $"'{trimmed}' is not a pane id. A pane id looks like %1. "
+                + "Call list_panes to see what exists.");
+        }
+
+        return parsed.ToString();
+    }
+
+    private static PaneInputPreflight ResolvePaneInputTargets(
+        IReadOnlyList<Pane> panes,
+        string paneId,
+        string toolName)
+    {
+        Pane[] sources = [.. panes.Where(candidate => candidate.Id.ToString() == paneId)];
         if (sources.Length != 1)
         {
             throw new McpException(
-                $"Could not resolve {pane.Id} in its fresh pane listing. Do not send input; "
+                $"Could not resolve {paneId} in its fresh pane listing. Do not send input; "
                 + "inspect the window and retry.");
         }
 
         Pane source = sources[0];
+        Pane[] windowPanes = [.. panes.Where(candidate => candidate.Window.Id == source.Window.Id)];
         Pane[] cohort = SynchronizesInput(source)
-            ? [.. panes.Where(SynchronizesInput)]
+            ? [.. windowPanes.Where(SynchronizesInput)]
             : [source];
         foreach (Pane recipient in cohort)
         {
             WriteTools.RefuseHumanOwnedMode(recipient, toolName);
         }
 
-        return (
+        return new PaneInputPreflight(
             source,
             cohort.Select(candidate => candidate.Id.ToString())
                 .Order(StringComparer.Ordinal)
                 .ToArray());
+    }
+
+    private static void RequireSingularRunOutcome(PaneInputPreflight preflight)
+    {
+        if (preflight.TargetPaneIds.Count == 1)
+        {
+            return;
+        }
+
+        throw new McpException(
+            "run_shell_command requires a singular input outcome, but the configured "
+            + $"synchronized input cohort is {string.Join(", ", preflight.TargetPaneIds)}. "
+            + "Use a pane whose synchronized input cohort contains only its named source, "
+            + "then retry.");
     }
 
     private static bool SynchronizesInput(Pane pane) =>

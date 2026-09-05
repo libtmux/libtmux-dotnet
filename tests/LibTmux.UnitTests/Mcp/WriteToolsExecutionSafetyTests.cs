@@ -32,6 +32,116 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Capability_send_refuses_a_modal_peer_with_one_preflight()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "1")],
+            ],
+        };
+
+        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "echo must-not-send", "%1", cancellationToken: token));
+
+        Assert.Contains("%2", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_batch_refuses_a_modal_peer_with_one_preflight()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "1")],
+            ],
+        };
+
+        PaneInputBatchResult batch = await fixture.Capabilities.SendKeysBatchAsync(
+            [new PaneInputOperation("echo must-not-send", "%1", Enter: true)],
+            cancellationToken: token);
+
+        PaneInputOperationResult refusal = Assert.Single(batch.Results);
+        Assert.False(refusal.Success);
+        Assert.Contains("%2", refusal.Error, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_send_returns_membership_from_final_preflight()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "0")],
+            ],
+        };
+
+        PaneInputResult sent = await fixture.Capabilities.SendKeysAsync(
+            "echo changed", "%1", cancellationToken: token);
+
+        Assert.Equal(["%1", "%2"], sent.TargetPaneIds);
+        Assert.Equal(1, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_run_refuses_a_configured_cohort_before_baseline()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "0")],
+            ],
+        };
+
+        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo must-not-send", "%1", cancellationToken: token));
+
+        Assert.Contains("%2", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("singular", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.StateSampleCount);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_run_refuses_a_cohort_that_expands_after_baseline()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0"), new PaneListingRow("%2", "1", "0")],
+                [new PaneListingRow("%1", "1", "0"), new PaneListingRow("%2", "1", "0")],
+            ],
+        };
+
+        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo must-not-send", "%1", cancellationToken: token));
+
+        Assert.Contains("%2", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("singular", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.True(fixture.StateSampleCount > 0);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(2, fixture.PaneListingCount);
+    }
+
+    [Fact]
     public async Task Batch_rejects_every_invalid_shape_before_query_or_mutation()
     {
         await using var fixture = new ToolFixture(
@@ -147,6 +257,33 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Contains("'run-shell' '-b' '-d' '90'", payload, StringComparison.Ordinal);
         Assert.DoesNotContain("sleep ", payload, StringComparison.Ordinal);
         Assert.Contains(fixture.Commands, IsStatusUnset);
+    }
+
+    [Fact]
+    public async Task Run_honors_an_explicit_nonactive_pane_target()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0"), new PaneListingRow("%2", "0", "0")],
+            ],
+        };
+
+        RunResult result = await fixture.Tools.RunAsync(
+            "echo target two",
+            paneId: "%2",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("%2", result.PaneId);
+        Assert.Contains(fixture.Commands, arguments =>
+            IsSendKeys(arguments) && arguments.Contains("%2", StringComparer.Ordinal));
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("capture-pane", StringComparer.Ordinal)
+            && arguments.Contains("%2", StringComparer.Ordinal));
+        Assert.DoesNotContain(fixture.Commands, arguments =>
+            (IsSendKeys(arguments) || arguments.Contains("capture-pane", StringComparer.Ordinal))
+            && arguments.Contains("%1", StringComparer.Ordinal));
     }
 
     [Fact]
@@ -436,6 +573,8 @@ public sealed class WriteToolsExecutionSafetyTests
         int PaneHeight,
         int CursorY);
 
+    private sealed record PaneListingRow(string Id, string Synchronized, string InMode);
+
     private sealed class ToolFixture : IAsyncDisposable
     {
         private static readonly ServerGeneration Generation = new(121, 1201);
@@ -444,6 +583,7 @@ public sealed class WriteToolsExecutionSafetyTests
         private readonly PaneActivityHub _activity;
         private readonly object _stateGate = new();
         private int _captureCount;
+        private int _paneListingCount;
         private int _runStarted;
         private int _stateSampleCount;
         private int _stateVersion;
@@ -465,6 +605,12 @@ public sealed class WriteToolsExecutionSafetyTests
                 effectivePolicy,
                 _activity);
             Reads = new ReadTools(_accessor, effectivePolicy, _activity);
+            Capabilities = new CapabilityTools(
+                Reads,
+                Tools,
+                _accessor,
+                CapabilityRegistry.All(),
+                effectivePolicy);
         }
 
         internal IReadOnlyList<string> AfterLines { get; init; } = ["fresh output"];
@@ -507,6 +653,12 @@ public sealed class WriteToolsExecutionSafetyTests
         internal bool StatusUnsetTokenWasCancelled { get; private set; }
 
         internal int? UnknownSendAttempt { get; init; }
+
+        internal CapabilityTools Capabilities { get; }
+
+        internal IReadOnlyList<IReadOnlyList<PaneListingRow>>? PaneListings { get; init; }
+
+        internal int PaneListingCount => Volatile.Read(ref _paneListingCount);
 
         internal WriteTools Tools { get; }
 
@@ -656,28 +808,33 @@ public sealed class WriteToolsExecutionSafetyTests
             && arguments[0] == "display-message"
             && arguments[2] == "#{pid}:#{start_time}";
 
-        private static string PaneListing()
+        private string PaneListing()
         {
             FormatProjection projection = FormatProjection.Create(
                 "list-panes",
                 TmuxVersion.Parse("3.7"));
-            return string.Concat(projection.Fields.Select(
-                static field => FieldValue(field.WireName) + FormatProjection.RowSeparator)) + "\n";
+            int index = Interlocked.Increment(ref _paneListingCount) - 1;
+            IReadOnlyList<PaneListingRow> panes = PaneListings is { Count: > 0 } sequence
+                ? sequence[Math.Min(index, sequence.Count - 1)]
+                : [new PaneListingRow("%1", "0", "0")];
+            return string.Concat(panes.Select(pane => string.Concat(projection.Fields.Select(
+                field => FieldValue(field.WireName, pane) + FormatProjection.RowSeparator)) + "\n"));
         }
 
-        private static string FieldValue(string field) => field switch
+        private static string FieldValue(string field, PaneListingRow pane) => field switch
         {
             "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "start_time" => Generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => "$1",
             "window_id" => "@1",
-            "pane_id" => "%1",
+            "pane_id" => pane.Id,
             "pane_pid" => "4242",
             "pane_width" => "80",
             "pane_height" => "24",
-            "pane_active" => "1",
-            "pane_in_mode" => "0",
+            "pane_active" => pane.Id == "%1" ? "1" : "0",
+            "pane_in_mode" => pane.InMode,
+            "pane_synchronized" => pane.Synchronized,
             _ => string.Empty,
         };
 
