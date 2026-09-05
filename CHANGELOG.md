@@ -91,6 +91,14 @@ version.
   of "Unknown tool", and `select_layout` no longer warns that tmux may have
   acted when it refused a layout name before sending anything.
 
+- **Capability rows say only what the protocol cannot.** They carried the
+  title, description, annotations and both schemas that a client already has
+  from `tools/list` and joins to by name. `tmux://capabilities` drops from
+  67,667 to 13,873 bytes and `tools/list` from 132,914 to 75,516. The
+  duplicated output schema was also wrong: `structuredContent` is an object,
+  so a tool answering a list has its array wrapped as `{"result": ...}`, and
+  six rows described the bare array the server never sends.
+
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
   alongside the negatives tmux already refused, an unknown layout is no longer
