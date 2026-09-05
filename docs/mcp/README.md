@@ -51,14 +51,16 @@ cover the cases, and the server's instructions steer between them:
 | Read several facts together | `call_read_tools_batch` | Runs up to 16 declared inspect calls serially |
 
 Read visible text and scrollback with `capture_pane`. Use `snapshot_pane` when
-content, cursor, size, and running command must describe the same instant;
-`search_panes` to locate matching text; and `capture_since` to follow only new
-output through its authenticated cursor.
+content, cursor, size, and running command should return together in one
+response; `search_panes` to locate matching text; and `capture_since` to follow
+only new output through its authenticated cursor.
 
 Pane modes belong to attached humans. `snapshot_pane` reports mode state, and
 ordinary capture still reads the underlying pane text; the MCP never enters,
-drives, or exits a mode. Input refuses modal targets, including synchronized
-recipients; wait for the human to leave instead of cancelling the mode.
+drives, or exits a mode. `send_keys`, `send_keys_batch`, and `run_shell_command`
+refuse any modal synchronized recipient. `paste_text` checks only its named
+target because buffer paste does not fan out. Wait for the human to leave
+instead of cancelling the mode.
 
 A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
 start `wait_for_text` or `wait_for_channel` as a task and collect the result
