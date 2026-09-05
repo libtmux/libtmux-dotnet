@@ -499,4 +499,33 @@ public sealed class TmuxToolsTests
             System.Environment.SetEnvironmentVariable("TMUX_PANE", priorPane);
         }
     }
+
+    [UnixFact]
+    public async Task Replacing_a_window_answers_to_the_teardown_gate()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create(
+            registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // move-window -k kills whatever holds the destination index, so the
+        // default toolset could destroy a window without kill_window.
+        McpException refused = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.MoveWindowAsync(
+                scope.Window.Id.ToString(),
+                destination: "0",
+                replaceExisting: true,
+                cancellationToken: token));
+        Assert.Contains("kill_window", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("teardown", refused.Message, StringComparison.Ordinal);
+
+        // The move itself stays available without teardown.
+        ActionResult moved = await mcp.Capabilities.MoveWindowAsync(
+            scope.Window.Id.ToString(),
+            cancellationToken: token);
+        Assert.Contains("Moved window", moved.Changed, StringComparison.Ordinal);
+    }
 }

@@ -548,9 +548,23 @@ internal sealed class CapabilityTools
         [Description("The destination window index, or empty for the next free index.")]
         string destination = "",
         [Description("The destination session id or name.")] string? session = null,
-        [Description("Replace a window already at that index.")] bool replaceExisting = false,
+        [Description(
+            "Kill the window already at that index and take its place. Needs the same "
+            + "authority as kill_window, because that is what it does to it.")]
+        bool replaceExisting = false,
         CancellationToken cancellationToken = default)
     {
+        // tmux move-window -k kills whatever holds the destination index. That
+        // is a teardown, so it answers to the teardown gate rather than to the
+        // toolset this tool happens to sit in.
+        if (replaceExisting && !_registry.ByName.ContainsKey("kill_window"))
+        {
+            throw new McpException(
+                "replaceExisting would kill the window already at that index, which "
+                + "needs kill_window and the teardown toolset. Move to a free index by "
+                + "leaving destination empty, or enable teardown.");
+        }
+
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
@@ -558,7 +572,11 @@ internal sealed class CapabilityTools
                 new MoveWindowRequest(destination, session, replaceExisting: replaceExisting),
                 cancellationToken)
             .ConfigureAwait(false);
-        return new ActionResult($"Moved window {moved.Id}.", WindowId: moved.Id.ToString());
+        return new ActionResult(
+            replaceExisting
+                ? $"Moved window {moved.Id}, killing whatever held that index."
+                : $"Moved window {moved.Id}.",
+            WindowId: moved.Id.ToString());
     }
 
     public async Task<ActionResult> SwapPaneAsync(

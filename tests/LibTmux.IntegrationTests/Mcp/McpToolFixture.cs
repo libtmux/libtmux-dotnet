@@ -42,7 +42,9 @@ internal sealed class McpToolFixture : IAsyncDisposable
 
     internal CapabilityTools Capabilities { get; }
 
-    internal static McpToolFixture Create(ServerPolicy? policy = null)
+    internal static McpToolFixture Create(
+        ServerPolicy? policy = null,
+        CapabilityRegistry? registry = null)
     {
         TmuxTestOptions options = new(new ServerConnectionOptions(
             tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
@@ -70,7 +72,7 @@ internal sealed class McpToolFixture : IAsyncDisposable
                 read,
                 write,
                 connection,
-                CapabilityRegistry.All(),
+                registry ?? CapabilityRegistry.All(),
                 effective));
     }
 

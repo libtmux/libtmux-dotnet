@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
@@ -296,18 +297,10 @@ internal static class TmuxTargets
     /// path is read: the pid and session id are frozen when the pane was
     /// spawned and go stale as soon as its window moves.
     /// </remarks>
-    internal static string? CallerSocketPath()
-    {
-        string? value = System.Environment.GetEnvironmentVariable("TMUX");
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        int separator = value.IndexOf(',', StringComparison.Ordinal);
-        string path = separator < 0 ? value : value[..separator];
-        return string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
-    }
+    internal static string? CallerSocketPath() =>
+        TmuxEnvironmentVariables.TryRead(null, out TmuxServerLocation? entry)
+            ? Path.GetFullPath(entry.SocketPath)
+            : null;
 
     private static readonly ConditionalWeakTable<Server, StrongBox<string?>> SocketPaths = new();
 
