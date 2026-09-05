@@ -150,8 +150,7 @@ public sealed class McpProtocolTests
             "wait_for_text", "get_tmux_variables", "show_option", "show_environment",
             "show_hooks", "call_read_tools_batch", "rename_session", "rename_window",
             "select_window", "select_pane", "select_layout", "resize_window",
-            "resize_pane", "move_window", "swap_pane", "break_pane", "join_pane",
-            "set_option", "set_pane_title",
+            "resize_pane", "move_window", "swap_pane", "set_pane_title",
             "wait_for_channel", "signal_channel", "set_mouse_enabled", "set_history_limit",
             "create_session", "create_window", "split_window", "respawn_pane",
             "run_shell_command", "send_keys", "send_keys_batch", "paste_text",
@@ -223,7 +222,7 @@ public sealed class McpProtocolTests
         using JsonDocument document = JsonDocument.Parse(content.Text);
         Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.True(document.RootElement.GetProperty("frozen").GetBoolean());
-        Assert.Equal(48, document.RootElement.GetProperty("toolCount").GetInt32());
+        Assert.Equal(45, document.RootElement.GetProperty("toolCount").GetInt32());
         Assert.Equal(0, document.RootElement.GetProperty("hostCommandTools").GetInt32());
         Assert.Equal(
             "interface-shaping-not-authorization",
@@ -262,7 +261,7 @@ public sealed class McpProtocolTests
         JsonElement rows = document.RootElement.GetProperty("tools");
         Assert.Equal(18, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "inspect"));
-        Assert.Equal(17, rows.EnumerateArray().Count(row =>
+        Assert.Equal(14, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "manage"));
         Assert.Equal(9, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "execute"));
@@ -957,26 +956,8 @@ public sealed class McpProtocolTests
         Assert.Contains("not-a-real-layout", refusedLayout, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", refusedLayout, StringComparison.Ordinal);
 
-        // A value tmux refuses reaches tmux, so this is the same claim through
-        // a real dispatch: every command goes out behind a generation guard,
-        // which makes it a chain, and a chain refused at its first command has
-        // still mutated nothing.
-        CallToolResult badValue = await harness.Client.CallToolAsync(
-            "set_option",
-            new Dictionary<string, object?>
-            {
-                ["name"] = "base-index",
-                ["value"] = "notanumber",
-                ["scope"] = "Session",
-            },
-            cancellationToken: token);
-        string refusedValue = Assert.IsType<TextContentBlock>(Assert.Single(badValue.Content)).Text;
-        Assert.Contains("notanumber", refusedValue, StringComparison.Ordinal);
-        Assert.DoesNotContain("may have acted", refusedValue, StringComparison.Ordinal);
-
         // tmux validates a name before it renames anything (cmd-rename-session.c
-        // check_name), and this is the plain TmuxCommandException path the
-        // set_option case above does not exercise.
+        // check_name), exercising the plain TmuxCommandException path.
         CallToolResult badName = await harness.Client.CallToolAsync(
             "rename_session",
             new Dictionary<string, object?> { ["name"] = "bad\nname" },
