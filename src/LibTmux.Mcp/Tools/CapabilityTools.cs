@@ -650,7 +650,8 @@ internal sealed class CapabilityTools
 
     public async Task<ActionResult> SetHistoryLimitAsync(
         [Description("The scrollback line limit.")] int lines,
-        [Description("A window id. Omit for the active window.")] string? windowId = null,
+        [Description("A session id such as $0, or its name. Omit for the first session.")]
+        string? session = null,
         CancellationToken cancellationToken = default)
     {
         if (lines <= 0)
@@ -658,14 +659,18 @@ internal sealed class CapabilityTools
             throw new McpException("The history limit must be positive.");
         }
 
+        // tmux keeps history-limit at session scope, so there is no narrowing
+        // to one window: every pane in the session answers to this.
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
-        Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
+        Session owner = await TmuxTargets.SessionAsync(server, session, cancellationToken)
             .ConfigureAwait(false);
-        _ = await window.Options.SetAsync(
+        _ = await owner.Options.SetAsync(
                 new SetOptionRequest("history-limit", lines.ToString(CultureInfo.InvariantCulture)),
                 cancellationToken)
             .ConfigureAwait(false);
-        return new ActionResult($"Set the history limit of {window.Id} to {lines}.", WindowId: window.Id.ToString());
+        return new ActionResult(
+            $"Set the history limit of every window in {owner.Id} to {lines}.",
+            SessionId: owner.Id.ToString());
     }
 
     public Task<ActionResult> CreateSessionAsync(
