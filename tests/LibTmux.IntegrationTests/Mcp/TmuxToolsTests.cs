@@ -830,4 +830,61 @@ public sealed class TmuxToolsTests
         await Refuses(() => mcp.Capabilities.WaitForChannelAsync(
             Filler(4097), cancellationToken: token));
     }
+
+    [UnixFact]
+    public async Task Every_enumerated_parameter_value_is_answerable()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        // Driven off the enums themselves, so a value added later is swept
+        // without anybody remembering to add it here.
+        foreach (OptionScope level in Enum.GetValues<OptionScope>())
+        {
+            Assert.NotNull(await mcp.Capabilities.ShowOptionAsync(
+                "history-limit", level, pane, cancellationToken: token));
+            Assert.NotNull(await mcp.Capabilities.ShowHooksAsync(
+                level, pane, cancellationToken: token));
+        }
+
+        HashSet<string> made = [];
+        foreach (PaneDirection direction in Enum.GetValues<PaneDirection>())
+        {
+            ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+                pane, direction, cancellationToken: token);
+            Assert.True(made.Add(split.PaneId!), $"{direction} reused a pane id");
+        }
+
+        foreach (bool history in (bool[])[false, true])
+        {
+            foreach (bool joined in (bool[])[false, true])
+            {
+                CaptureResult read = await mcp.Read.CapturePaneAsync(
+                    pane,
+                    includeHistory: history,
+                    joinWrappedLines: joined,
+                    cancellationToken: token);
+                Assert.Equal(pane, read.PaneId);
+            }
+        }
+
+        foreach (bool enter in (bool[])[false, true])
+        {
+            foreach (bool literal in (bool[])[false, true])
+            {
+                PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(
+                    literal ? "x" : "Escape",
+                    pane,
+                    enter: enter,
+                    literal: literal,
+                    cancellationToken: token);
+                Assert.Contains(pane, sent.Changed, StringComparison.Ordinal);
+            }
+        }
+    }
 }
