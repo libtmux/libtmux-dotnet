@@ -264,8 +264,12 @@ the loss; a result that still cannot fit is replaced by a small error that says
 how to narrow the call or raise the ceiling. Oversized resource reads fail with
 the same guidance. `search_panes` caps its pattern at 999 UTF-8 bytes, uses a
 non-backtracking engine with a one-second match timeout, and examines at most
-8 MiB of candidate pane text. Pane waits accept at most 32 patterns, 999 bytes
-each and 16384 bytes together; channel names share the 4096-byte input bound.
+8 MiB of candidate pane text. That engine matches in linear time, so patterns
+are .NET syntax minus the constructs that need backtracking: lookarounds,
+backreferences and atomic groups are refused, and character classes,
+quantifiers, alternation, anchors and named groups all work. Pane waits accept
+at most 32 patterns, 999 bytes each and 16384 bytes together; channel names
+share the 4096-byte input bound.
 
 To offer these beside your own tools rather than as a separate process:
 

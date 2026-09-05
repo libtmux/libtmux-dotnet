@@ -824,6 +824,24 @@ public sealed class McpProtocolTests
             Assert.IsType<TextContentBlock>(Assert.Single(coerced.Content)).Text,
             StringComparison.Ordinal);
 
+        // A dispatching tool's operations stay opaque, because a oneOf over
+        // every alternative can only report that none matched. The rest of its
+        // object still has to hold: `onErrors` used to be dropped, silently
+        // reverting the batch to stop-on-first-failure.
+        CallToolResult typo = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            new Dictionary<string, object?>
+            {
+                ["operations"] = new object[] { new { tool = "list_sessions", arguments = new { } } },
+                ["onErrors"] = "continue",
+            },
+            cancellationToken: token);
+        Assert.True(typo.IsError ?? false);
+        Assert.Contains(
+            "arguments.onErrors",
+            Assert.IsType<TextContentBlock>(Assert.Single(typo.Content)).Text,
+            StringComparison.Ordinal);
+
         // Both paths refuse the same input for the same stated reason.
         CallToolResult batched = await harness.Client.CallToolAsync(
             "call_read_tools_batch",

@@ -201,6 +201,10 @@ internal sealed class CapabilityRegistry
             definition => definition.Name,
             definition => definition.InputSchema,
             StringComparer.Ordinal);
+        OuterSchemas = dispatch.ToFrozenDictionary(
+            definition => definition.Name,
+            OuterSchema,
+            StringComparer.Ordinal);
         ValidateRegistrationParity(Definitions, Tools);
     }
 
@@ -213,6 +217,15 @@ internal sealed class CapabilityRegistry
     internal FrozenDictionary<string, ToolDefinition> DispatchByName { get; }
 
     internal FrozenDictionary<string, JsonElement> DispatchSchemas { get; }
+
+    /// <summary>
+    /// The same schemas with a dispatching tool's operations left opaque. That
+    /// array is a oneOf over every alternative, so validating it can only
+    /// report that none matched, while the dispatcher names the field. The
+    /// rest of the object still has to hold: a typo in `onError` used to be
+    /// dropped, which silently reverted the batch to stop-on-first-failure.
+    /// </summary>
+    internal FrozenDictionary<string, JsonElement> OuterSchemas { get; }
 
     internal FrozenDictionary<string, ToolDefinition> ByName =>
         Definitions.ToFrozenDictionary(definition => definition.Name, StringComparer.Ordinal);
@@ -246,6 +259,18 @@ internal sealed class CapabilityRegistry
             .Where(definition => dispatchNames.Contains(definition.Name))
             .Select(definition => visibleByName.GetValueOrDefault(definition.Name, definition));
         return new CapabilityRegistry(selection, visible, dispatch);
+    }
+
+    private static JsonElement OuterSchema(ToolDefinition definition)
+    {
+        if (definition.NestedAuthority.Count == 0)
+        {
+            return definition.InputSchema;
+        }
+
+        JsonObject schema = JsonNode.Parse(definition.InputSchema.GetRawText())!.AsObject();
+        schema["properties"]!.AsObject()["operations"] = JsonValue.Create(true);
+        return JsonSerializer.SerializeToElement(schema, ToolJson.Options);
     }
 
     private static ImmutableArray<ToolDefinition> BuildManifest()

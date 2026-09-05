@@ -48,7 +48,7 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(read.Lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new PaneSnapshot(
                 paneInfo,
@@ -105,7 +105,7 @@ internal sealed partial class ReadTools
         string id = pane.Id.ToString();
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new CaptureResult(id, content),
             "pane capture");
@@ -151,7 +151,7 @@ internal sealed partial class ReadTools
         string nextCursor = TailCursor.Build(pane, read.State, read.CursorRows).Encode();
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new TailResult(
                 id,
@@ -256,6 +256,21 @@ internal sealed partial class ReadTools
         return budget.Build(panesSearched, truncated);
     }
 
+    // A line count below one asked for nothing and got an empty result marked
+    // truncated, which reads as "tmux dropped your output" rather than as a
+    // bad argument.
+    private static int ResolveMaxLines(int? requested, ServerPolicy policy)
+    {
+        if (requested is int lines && lines < 1)
+        {
+            throw new McpException(
+                $"maxLines must be at least 1; {lines} asks for no output at all. "
+                + $"Omit it for the server default of {policy.MaxLines} lines.");
+        }
+
+        return requested ?? policy.MaxLines;
+    }
+
     /// <summary>Compiles a caller's pattern, refusing one that cannot be run safely.</summary>
     /// <remarks>
     /// The timeout is the point. A pattern a model wrote can backtrack for
@@ -270,10 +285,18 @@ internal sealed partial class ReadTools
         {
             return new Regex(pattern, options, TimeSpan.FromSeconds(1));
         }
-        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        catch (NotSupportedException)
+        {
+            // The .NET enum name told the caller nothing they could act on.
+            throw new McpException(
+                $"'{pattern}' uses a construct this server cannot match in linear time. "
+                + "Lookarounds, backreferences and atomic groups are refused; character "
+                + "classes, quantifiers, alternation, anchors and named groups all work.");
+        }
+        catch (ArgumentException error)
         {
             throw new McpException(
-                $"'{pattern}' is not a supported bounded regular expression: {error.Message}");
+                $"'{pattern}' is not a valid regular expression: {error.Message}");
         }
     }
 

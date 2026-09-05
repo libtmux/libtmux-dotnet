@@ -204,7 +204,16 @@ public sealed class SearchResultBudgetTests
         McpException error = Assert.Throws<McpException>(() =>
             ReadTools.CompilePattern("(x)\\1", ignoreCase: false));
 
-        Assert.Contains("bounded regular expression", error.Message, StringComparison.Ordinal);
+        // The constraint, not the .NET enum that enforces it: a caller can act
+        // on "backreferences are refused" and cannot act on RegexOptions.
+        Assert.Contains("backreferences", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("NonBacktracking", error.Message, StringComparison.Ordinal);
+
+        // A pattern that is simply malformed keeps the parser's own reason,
+        // which is the most specific thing anybody has.
+        McpException malformed = Assert.Throws<McpException>(() =>
+            ReadTools.CompilePattern("[unterminated", ignoreCase: false));
+        Assert.Contains("not a valid regular expression", malformed.Message, StringComparison.Ordinal);
     }
 
     [Fact]

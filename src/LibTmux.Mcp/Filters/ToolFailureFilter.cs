@@ -81,7 +81,11 @@ internal static class ToolFailureFilter
                 tool,
                 error,
                 mayModify,
-                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool), tool));
+                AdviceFor(
+                    error,
+                    ToolMetadata.Declaration(request.Services, tool),
+                    tool,
+                    request.Services?.GetService<CapabilityRegistry>()?.Selection));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -101,7 +105,11 @@ internal static class ToolFailureFilter
                 tool,
                 error,
                 mayModify,
-                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool), tool));
+                AdviceFor(
+                    error,
+                    ToolMetadata.Declaration(request.Services, tool),
+                    tool,
+                    request.Services?.GetService<CapabilityRegistry>()?.Selection));
         }
     };
 
@@ -109,6 +117,7 @@ internal static class ToolFailureFilter
     /// <param name="error">What went wrong.</param>
     /// <param name="declaration">What this server declared about the tool, when known.</param>
     /// <param name="tool">The tool named by the call, when known.</param>
+    /// <param name="selection">What this server selected, when known.</param>
     /// <returns>The sentence naming the cause and what to do instead.</returns>
     /// <remarks>
     /// Shared with the read batch, which dispatches its inner operations
@@ -119,7 +128,8 @@ internal static class ToolFailureFilter
     internal static string AdviceFor(
         Exception error,
         ToolDefinition? declaration = null,
-        string? tool = null)
+        string? tool = null,
+        CapabilitySelection? selection = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return error switch
@@ -128,9 +138,8 @@ internal static class ToolFailureFilter
             // difference is the whole point of the toolset gates. Saying
             // "unknown" invites a caller to conclude the server cannot do it.
             _ when declaration is null && WasNotSelected(tool) =>
-                $"'{tool}' was not selected for this server. Its toolset is not "
-                + "enabled, so it is unavailable in this conversation. Read "
-                + "tmux://capabilities for the tools that are.",
+                $"'{tool}' was not selected for this server{ExclusionCause(tool, selection)}. "
+                + "Read tmux://capabilities for the tools that are.",
             TmuxVersionTooLowException => "This tmux is too old for that operation. "
                 + "Call get_server_info to see which version is running.",
             TmuxObjectNotFoundException => "That session, window or pane no longer exists. "
@@ -164,22 +173,35 @@ internal static class ToolFailureFilter
     {
         if (request.Params?.Arguments is not { } arguments
             || request.Services?.GetService<CapabilityRegistry>() is not { } registry
-            || !registry.DispatchByName.TryGetValue(tool, out ToolDefinition? definition)
-            || !registry.DispatchSchemas.TryGetValue(tool, out JsonElement schema))
-        {
-            return;
-        }
-
-        // A tool that dispatches to others validates each operation against
-        // the schema of the tool it names, which says which field was wrong.
-        // Its own schema is a oneOf over every alternative, and that can only
-        // report that none of them matched.
-        if (definition.NestedAuthority.Count > 0)
+            || !registry.OuterSchemas.TryGetValue(tool, out JsonElement schema))
         {
             return;
         }
 
         ToolArgumentSchema.Validate(tool, arguments, schema, "arguments");
+    }
+
+    // Selection has three knobs and the refusal used to name one of them, so
+    // a tool excluded by name was reported as a disabled toolset — which the
+    // capabilities resource, read in the same session, contradicted.
+    private static string ExclusionCause(string? tool, CapabilitySelection? selection)
+    {
+        if (tool is null || selection is null)
+        {
+            return string.Empty;
+        }
+
+        if (selection.ExcludedNames.Contains(tool))
+        {
+            return $": {CapabilitySelection.ExcludeToolsVariable} names it";
+        }
+
+        ToolDefinition? definition = CapabilityRegistry.Manifest
+            .FirstOrDefault(candidate => string.Equals(
+                candidate.Name, tool, StringComparison.Ordinal));
+        return definition is not null && !selection.Toolsets.Contains(definition.Toolset)
+            ? $": its {definition.Toolset.ToString().ToLowerInvariant()} toolset is not enabled"
+            : string.Empty;
     }
 
     /// <summary>Answers whether a tool exists but was left out of this server.</summary>

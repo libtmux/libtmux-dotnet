@@ -63,8 +63,10 @@ internal sealed class CapabilityTools
     internal const int MaximumBatchResponseBytes = 1_000_000;
     private const int JsonLineTerminatorBytes = 1;
 
+    // \A and \z, not ^ and $: '$' also matches before a trailing newline, so
+    // the anchored-looking pattern accepted "pane_id\n" into a tmux format.
     private static readonly Regex VariableName = new(
-        "^[A-Za-z][A-Za-z0-9_]*$",
+        @"\A[A-Za-z][A-Za-z0-9_]{0,63}\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
     private readonly ReadTools _read;
@@ -161,7 +163,10 @@ internal sealed class CapabilityTools
         _read.SnapshotPaneAsync(paneId, maxLines, cancellationToken: cancellationToken);
 
     public Task<SearchResult> SearchPanesAsync(
-        [Description("A .NET regular expression, at most 999 UTF-8 bytes.")] string pattern,
+        [Description(
+            "A linear-time regular expression, at most 999 UTF-8 bytes. .NET syntax "
+            + "without lookarounds, backreferences or atomic groups.")]
+        string pattern,
         [Description("A session id or name. Omit for every session.")] string? session = null,
         [Description("Search scrollback too.")] bool includeHistory = false,
         [Description("Ignore case.")] bool ignoreCase = true,
@@ -190,14 +195,16 @@ internal sealed class CapabilityTools
     public Task<WaitResult> WaitForTextAsync(
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description(
-            "Regular expressions that end the wait successfully. Only output arriving "
-            + "after this call counts; text already on screen never matches. Across both "
-            + "pattern lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at "
-            + "most 999 UTF-8 bytes.")]
+            "Linear-time regular expressions that end the wait successfully: .NET "
+            + "syntax without lookarounds, backreferences or atomic groups. Only output "
+            + "arriving after this call counts; text already on screen never matches. "
+            + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
+            + "entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
-            "Regular expressions that stop the wait. Across both pattern lists: at most "
-            + "32 entries and 16384 UTF-8 bytes; each entry is at most 999 UTF-8 bytes.")]
+            "Linear-time regular expressions that stop the wait, in the same subset as "
+            + "patterns. Across both pattern lists: at most 32 entries and 16384 UTF-8 "
+            + "bytes; each entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? stopPatterns = null,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
@@ -207,7 +214,9 @@ internal sealed class CapabilityTools
             progress: null, cancellationToken: cancellationToken);
 
     public async Task<IReadOnlyDictionary<string, string?>> GetTmuxVariablesAsync(
-        [Description("Variable names such as session_name, without #{...}.")]
+        [Description(
+            "Variable names such as session_name, without #{...}. Between 1 and 64 "
+            + "names, each at most 64 letters, digits and underscores.")]
         IReadOnlyList<string> names,
         [Description("A pane id used as the lookup context.")] string? paneId = null,
         CancellationToken cancellationToken = default)
@@ -227,7 +236,8 @@ internal sealed class CapabilityTools
             if (string.IsNullOrWhiteSpace(name) || !VariableName.IsMatch(name))
             {
                 throw new McpException(
-                    $"'{name}' is not a tmux variable name. Use letters, digits, and underscores.");
+                    $"'{name}' is not a tmux variable name. Use letters, digits and "
+                    + "underscores, starting with a letter, at most 64 characters.");
             }
 
             result[name] = await TmuxTargets
@@ -341,7 +351,8 @@ internal sealed class CapabilityTools
                 string message = BoundError(ToolFailureFilter.AdviceFor(
                     error,
                     name.Length == 0 ? null : dispatch.GetValueOrDefault(name),
-                    name.Length == 0 ? null : name));
+                    name.Length == 0 ? null : name,
+                    _registry.Selection));
                 results.Add(new ReadToolCallResult(
                     index,
                     name,
@@ -578,9 +589,9 @@ internal sealed class CapabilityTools
         if (replaceExisting && !_registry.ByName.ContainsKey("kill_window"))
         {
             throw new McpException(
-                "replaceExisting would kill the window already at that index, which "
-                + "needs kill_window and the teardown toolset. Move to a free index by "
-                + "leaving destination empty, or enable teardown.");
+                "replaceExisting would kill the window already at that index, so it "
+                + "needs kill_window, which the teardown toolset provides. Move to a "
+                + "free index by leaving destination empty, or enable kill_window.");
         }
 
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
@@ -607,8 +618,15 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        _ = await TmuxTargets.PaneAsync(server, targetPaneId, cancellationToken)
+        Pane target = await TmuxTargets.PaneAsync(server, targetPaneId, cancellationToken)
             .ConfigureAwait(false);
+        if (pane.Id == target.Id)
+        {
+            throw new McpException(
+                $"Swapping {pane.Id} with itself would change nothing. Name two "
+                + "different panes, or call list_panes to see what exists.");
+        }
+
         await pane.SwapAsync(new SwapPaneRequest(targetPaneId, detach: detach, keepZoom: keepZoom), cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Swapped pane {pane.Id} with {targetPaneId}.", PaneId: pane.Id.ToString());
