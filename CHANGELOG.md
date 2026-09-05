@@ -71,9 +71,16 @@ version.
 
 - **Tool descriptions carry the guidance that tells overlapping tools apart.**
   Descriptions are built from the capability model, so the text written as
-  `[Description]` on `ReadTools` and `WriteTools` was never advertised;
-  `send_keys` reached clients as "Send keys." `send_keys`, `run_shell_command`
-  and `wait_for_text` now ship their disambiguating guidance.
+  `[Description]` on `ReadTools` and `WriteTools` was never advertised — the
+  registered handlers are the `CapabilityTools` methods. Forty-two of
+  forty-seven tools shipped `"<opener> <Title>."`; `send_keys` reached clients
+  as "Send keys." Twenty-seven descriptions now ship, including the sentences
+  routing a caller between `send_keys` and `run_shell_command`, and between
+  the list tools and `search_panes`.
+
+- A null arriving for a declared input field is answered as bad input rather
+  than as an unexpected internal failure, and `wait_for_text` states that text
+  already on screen never matches.
 
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
