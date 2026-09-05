@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Runtime.Versioning;
@@ -502,5 +503,44 @@ public sealed class PaneTextTests
         Assert.Contains("never matches", tools["wait_for_text"].Description, StringComparison.Ordinal);
         Assert.Contains("search_panes", tools["list_panes"].Description, StringComparison.Ordinal);
         Assert.Contains("capture_since", tools["capture_pane"].Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Every_toolset_selection_yields_exactly_the_tools_it_names()
+    {
+        Toolset[] all = Enum.GetValues<Toolset>();
+        ImmutableHashSet<string> none = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
+
+        // All sixteen subsets, because the gates are the security boundary and
+        // a hole in one combination is a hole a client can select into.
+        for (int mask = 0; mask < 1 << 4; mask++)
+        {
+            ImmutableHashSet<Toolset> chosen =
+                [.. all.Where((_, index) => (mask & (1 << index)) != 0)];
+            CapabilityRegistry registry = CapabilityRegistry.Select(
+                new CapabilitySelection(chosen, none, none));
+
+            Assert.Equal(
+                CapabilityRegistry.Manifest
+                    .Where(tool => chosen.Contains(tool.Toolset))
+                    .Select(tool => tool.Name)
+                    .Order(StringComparer.Ordinal),
+                registry.Definitions.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+
+            // Nothing a selected tool can reach may be absent from dispatch:
+            // a batch that names a tool nobody can call is a gate with a hole.
+            Assert.All(
+                registry.Definitions.SelectMany(tool => tool.NestedAuthority),
+                nested => Assert.True(registry.DispatchByName.ContainsKey(nested)));
+
+            // Teardown is the deletion gate, so nothing outside it may delete.
+            if (!chosen.Contains(Toolset.Teardown))
+            {
+                Assert.DoesNotContain(
+                    registry.Definitions,
+                    tool => tool.Toolset == Toolset.Teardown);
+            }
+        }
     }
 }

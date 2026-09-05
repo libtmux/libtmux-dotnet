@@ -707,4 +707,46 @@ public sealed class TmuxToolsTests
             captured.Content.Lines,
             line => Assert.DoesNotContain('\u001b', line));
     }
+
+    [UnixFact]
+    public async Task A_read_batch_holds_its_declared_bounds_and_its_declared_tools()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        ReadToolCall Listing() => new("list_sessions", null);
+        Task<ReadToolBatchResult> RunAsync(int count) =>
+            mcp.Capabilities.CallReadToolsBatchAsync(
+                [.. Enumerable.Range(0, count).Select(_ => Listing())],
+                cancellationToken: token);
+
+        // Both sides of both bounds, because an off-by-one here either refuses
+        // a legal batch or accepts an unbounded one.
+        await Assert.ThrowsAsync<McpException>(() => RunAsync(0));
+        Assert.Equal(1, (await RunAsync(1)).Succeeded);
+        Assert.Equal(16, (await RunAsync(16)).Succeeded);
+        await Assert.ThrowsAsync<McpException>(() => RunAsync(17));
+
+        // Every tool the batch declares it can nest must actually dispatch.
+        // A name in that set that the dispatcher rejects is a surface that
+        // advertises more than it can do.
+        ToolDefinition batch = CapabilityRegistry.All().ByName["call_read_tools_batch"];
+        ReadToolBatchResult every = await mcp.Capabilities.CallReadToolsBatchAsync(
+            [.. batch.NestedAuthority.Order(StringComparer.Ordinal)
+                .Select(name => new ReadToolCall(name, null))],
+            onError: "continue",
+            cancellationToken: token);
+
+        Assert.Equal(batch.NestedAuthority.Count, every.Results.Count);
+        Assert.All(
+            every.Results,
+            result => Assert.DoesNotContain(
+                "not an enabled batch-eligible inspect tool",
+                result.Error ?? string.Empty,
+                StringComparison.Ordinal));
+    }
 }
