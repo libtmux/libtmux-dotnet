@@ -308,10 +308,11 @@ internal sealed class CapabilityTools
 
                 IReadOnlyDictionary<string, JsonElement> arguments =
                     operation.Arguments ?? new Dictionary<string, JsonElement>();
-                ValidateBatchArguments(
+                ToolArgumentSchema.Validate(
                     operation.Tool,
                     arguments,
-                    _registry.DispatchSchemas[operation.Tool]);
+                    _registry.DispatchSchemas[operation.Tool],
+                    "batch arguments");
 
                 object? value = await DispatchReadAsync(operation.Tool, arguments, cancellationToken)
                     .ConfigureAwait(false);
@@ -994,14 +995,24 @@ internal sealed class CapabilityTools
         string? paneId,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(paneId))
+        if (paneId is null)
         {
             Pane active = await TmuxTargets.PaneAsync(server, null, cancellationToken)
                 .ConfigureAwait(false);
             return active.Id.ToString();
         }
 
+        // The pane-input tools resolve their source here rather than through
+        // TmuxTargets, so the guard there did not cover them — and these are
+        // the three that type into a terminal.
         string trimmed = paneId.Trim();
+        if (trimmed.Length == 0)
+        {
+            throw new McpException(
+                "An empty paneId is not a target. Omit paneId for the active pane, "
+                + "or name it like %1. Call list_panes to see what exists.");
+        }
+
         if (!PaneId.TryParse(trimmed, out PaneId parsed))
         {
             throw new McpException(
@@ -1065,7 +1076,9 @@ internal sealed class CapabilityTools
         return others.Length == 0
             ? changed
             : $"{changed.TrimEnd('.')}, and tmux delivered the same input to "
-                + $"{string.Join(", ", others)}, which synchronize input with it.";
+                + $"{string.Join(", ", others)}, which "
+                + (others.Length == 1 ? "synchronizes" : "synchronize")
+                + " input with it.";
     }
 
     private static void RequireSingularRunOutcome(PaneInputPreflight preflight)
@@ -1191,248 +1204,6 @@ internal sealed class CapabilityTools
             throw new McpException($"Batch argument '{name}' has the wrong type: {error.Message}");
         }
     }
-
-    private static void ValidateBatchArguments(
-        string toolName,
-        IReadOnlyDictionary<string, JsonElement> arguments,
-        JsonElement schema)
-    {
-        JsonElement value = JsonSerializer.SerializeToElement(arguments, ToolJson.Options);
-        ValidateBatchValue(toolName, "arguments", value, schema, schema);
-    }
-
-    private static void ValidateBatchValue(
-        string toolName,
-        string path,
-        JsonElement value,
-        JsonElement schema,
-        JsonElement root)
-    {
-        if (schema.ValueKind == JsonValueKind.False)
-        {
-            throw InvalidBatchValue(toolName, path, "is not allowed");
-        }
-
-        if (schema.ValueKind == JsonValueKind.True)
-        {
-            return;
-        }
-
-        if (schema.TryGetProperty("$ref", out JsonElement reference))
-        {
-            ValidateBatchValue(
-                toolName,
-                path,
-                value,
-                ResolveReference(root, reference.GetString()!),
-                root);
-            return;
-        }
-
-        foreach (string keyword in new[] { "allOf", "anyOf", "oneOf" })
-        {
-            if (!schema.TryGetProperty(keyword, out JsonElement alternatives))
-            {
-                continue;
-            }
-
-            int matches = alternatives.EnumerateArray().Count(alternative =>
-                BatchValueMatches(toolName, path, value, alternative, root));
-            bool accepted = keyword switch
-            {
-                "allOf" => matches == alternatives.GetArrayLength(),
-                "oneOf" => matches == 1,
-                _ => matches > 0,
-            };
-            if (!accepted)
-            {
-                throw InvalidBatchValue(toolName, path, $"does not satisfy {keyword}");
-            }
-        }
-
-        if (schema.TryGetProperty("type", out JsonElement type)
-            && !TypeMatches(value, type))
-        {
-            throw InvalidBatchValue(toolName, path, "has the wrong JSON type");
-        }
-
-        if (schema.TryGetProperty("const", out JsonElement constant)
-            && !JsonEquals(value, constant)
-            || schema.TryGetProperty("enum", out JsonElement choices)
-            && !choices.EnumerateArray().Any(choice => JsonEquals(value, choice)))
-        {
-            throw InvalidBatchValue(toolName, path, "is not an allowed value");
-        }
-
-        if (value.ValueKind == JsonValueKind.String)
-        {
-            int length = value.GetString()!.Length;
-            if (schema.TryGetProperty("minLength", out JsonElement minimum)
-                && length < minimum.GetInt32()
-                || schema.TryGetProperty("maxLength", out JsonElement maximum)
-                && length > maximum.GetInt32())
-            {
-                throw InvalidBatchValue(toolName, path, "has an invalid length");
-            }
-        }
-
-        if (value.ValueKind == JsonValueKind.Number)
-        {
-            double number = value.GetDouble();
-            if (schema.TryGetProperty("minimum", out JsonElement minimum)
-                && number < minimum.GetDouble()
-                || schema.TryGetProperty("maximum", out JsonElement maximum)
-                && number > maximum.GetDouble()
-                || schema.TryGetProperty("exclusiveMinimum", out JsonElement exclusiveMinimum)
-                && number <= exclusiveMinimum.GetDouble()
-                || schema.TryGetProperty("exclusiveMaximum", out JsonElement exclusiveMaximum)
-                && number >= exclusiveMaximum.GetDouble())
-            {
-                throw InvalidBatchValue(toolName, path, "is outside the allowed range");
-            }
-        }
-
-        if (value.ValueKind == JsonValueKind.Array)
-        {
-            int length = value.GetArrayLength();
-            if (schema.TryGetProperty("minItems", out JsonElement minimum)
-                && length < minimum.GetInt32()
-                || schema.TryGetProperty("maxItems", out JsonElement maximum)
-                && length > maximum.GetInt32())
-            {
-                throw InvalidBatchValue(toolName, path, "has an invalid item count");
-            }
-
-            if (schema.TryGetProperty("items", out JsonElement items))
-            {
-                int index = 0;
-                foreach (JsonElement item in value.EnumerateArray())
-                {
-                    ValidateBatchValue(toolName, $"{path}[{index}]", item, items, root);
-                    index++;
-                }
-            }
-        }
-
-        if (value.ValueKind == JsonValueKind.Object)
-        {
-            JsonElement properties = schema.TryGetProperty(
-                "properties",
-                out JsonElement declared)
-                ? declared
-                : default;
-            if (schema.TryGetProperty("required", out JsonElement required))
-            {
-                foreach (JsonElement requiredName in required.EnumerateArray())
-                {
-                    string name = requiredName.GetString()!;
-                    if (!value.TryGetProperty(name, out _))
-                    {
-                        throw InvalidBatchValue(
-                            toolName,
-                            $"{path}.{name}",
-                            "is required");
-                    }
-                }
-            }
-
-            foreach (JsonProperty property in value.EnumerateObject())
-            {
-                if (properties.ValueKind == JsonValueKind.Object
-                    && properties.TryGetProperty(property.Name, out JsonElement child))
-                {
-                    ValidateBatchValue(
-                        toolName,
-                        $"{path}.{property.Name}",
-                        property.Value,
-                        child,
-                        root);
-                }
-                else if (schema.TryGetProperty(
-                    "additionalProperties",
-                    out JsonElement additional)
-                    && additional.ValueKind == JsonValueKind.False)
-                {
-                    throw InvalidBatchValue(
-                        toolName,
-                        $"{path}.{property.Name}",
-                        "is not a declared property");
-                }
-                else if (additional.ValueKind is JsonValueKind.Object
-                    or JsonValueKind.True
-                    or JsonValueKind.False)
-                {
-                    ValidateBatchValue(
-                        toolName,
-                        $"{path}.{property.Name}",
-                        property.Value,
-                        additional,
-                        root);
-                }
-            }
-        }
-    }
-
-    private static bool BatchValueMatches(
-        string toolName,
-        string path,
-        JsonElement value,
-        JsonElement schema,
-        JsonElement root)
-    {
-        try
-        {
-            ValidateBatchValue(toolName, path, value, schema, root);
-            return true;
-        }
-        catch (McpException)
-        {
-            return false;
-        }
-    }
-
-    private static JsonElement ResolveReference(JsonElement root, string reference)
-    {
-        if (!reference.StartsWith("#/", StringComparison.Ordinal))
-        {
-            throw new McpException($"Unsupported nested schema reference '{reference}'.");
-        }
-
-        JsonElement current = root;
-        foreach (string encoded in reference[2..].Split('/'))
-        {
-            string segment = encoded.Replace("~1", "/", StringComparison.Ordinal)
-                .Replace("~0", "~", StringComparison.Ordinal);
-            current = current.GetProperty(segment);
-        }
-
-        return current;
-    }
-
-    private static bool TypeMatches(JsonElement value, JsonElement type) =>
-        type.ValueKind == JsonValueKind.Array
-            ? type.EnumerateArray().Any(candidate => MatchesType(value, candidate.GetString()))
-            : MatchesType(value, type.GetString());
-
-    private static bool JsonEquals(JsonElement left, JsonElement right) =>
-        string.Equals(left.GetRawText(), right.GetRawText(), StringComparison.Ordinal);
-
-    private static bool MatchesType(JsonElement value, string? type) => type switch
-    {
-        "null" => value.ValueKind == JsonValueKind.Null,
-        "string" => value.ValueKind == JsonValueKind.String,
-        "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
-        "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
-        "number" => value.ValueKind == JsonValueKind.Number,
-        "array" => value.ValueKind == JsonValueKind.Array,
-        "object" => value.ValueKind == JsonValueKind.Object,
-        _ => true,
-    };
-
-    private static McpException InvalidBatchValue(
-        string toolName,
-        string path,
-        string reason) => new($"Batch {path} for '{toolName}' {reason}.");
 
     private static string? LiteralTmuxFormat(string? value) =>
         value?.Replace("#", "##", StringComparison.Ordinal);

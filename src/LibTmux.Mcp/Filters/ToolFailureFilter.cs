@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,6 +45,10 @@ internal static class ToolFailureFilter
             ?? NullLogger.Instance;
         try
         {
+            // Before the SDK binds. Its binder coerces where it can and drops
+            // what the schema does not declare, so a call that named an
+            // argument this tool never had used to run as if it had not.
+            RequireDeclaredArguments(request, tool);
             return await next(request, cancellationToken).ConfigureAwait(false);
         }
         catch (StaleServerGenerationException)
@@ -151,6 +156,30 @@ internal static class ToolFailureFilter
                 + "standard error before retrying, because retrying unchanged will "
                 + "most likely fail the same way.",
         };
+    }
+
+    private static void RequireDeclaredArguments(
+        RequestContext<CallToolRequestParams> request,
+        string tool)
+    {
+        if (request.Params?.Arguments is not { } arguments
+            || request.Services?.GetService<CapabilityRegistry>() is not { } registry
+            || !registry.DispatchByName.TryGetValue(tool, out ToolDefinition? definition)
+            || !registry.DispatchSchemas.TryGetValue(tool, out JsonElement schema))
+        {
+            return;
+        }
+
+        // A tool that dispatches to others validates each operation against
+        // the schema of the tool it names, which says which field was wrong.
+        // Its own schema is a oneOf over every alternative, and that can only
+        // report that none of them matched.
+        if (definition.NestedAuthority.Count > 0)
+        {
+            return;
+        }
+
+        ToolArgumentSchema.Validate(tool, arguments, schema, "arguments");
     }
 
     /// <summary>Answers whether a tool exists but was left out of this server.</summary>

@@ -792,6 +792,65 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
+    public async Task A_direct_call_is_held_to_the_schema_a_batch_call_is()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+        _ = await harness.Client.CallToolAsync(
+            "create_session",
+            new Dictionary<string, object?> { ["name"] = "schema-probe" },
+            cancellationToken: token);
+
+        // Every schema declares additionalProperties false, and the SDK's
+        // binder dropped what it did not recognize. A caller who misspells an
+        // argument then reads a success for a call that ignored it.
+        CallToolResult undeclared = await harness.Client.CallToolAsync(
+            "list_panes",
+            new Dictionary<string, object?> { ["sessionName"] = "schema-probe" },
+            cancellationToken: token);
+        Assert.True(undeclared.IsError ?? false);
+        Assert.Contains(
+            "is not a declared property",
+            Assert.IsType<TextContentBlock>(Assert.Single(undeclared.Content)).Text,
+            StringComparison.Ordinal);
+
+        CallToolResult coerced = await harness.Client.CallToolAsync(
+            "capture_pane",
+            new Dictionary<string, object?> { ["maxLines"] = "5" },
+            cancellationToken: token);
+        Assert.True(coerced.IsError ?? false);
+        Assert.Contains(
+            "has the wrong JSON type",
+            Assert.IsType<TextContentBlock>(Assert.Single(coerced.Content)).Text,
+            StringComparison.Ordinal);
+
+        // Both paths refuse the same input for the same stated reason.
+        CallToolResult batched = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            new Dictionary<string, object?>
+            {
+                ["operations"] = new object[]
+                {
+                    new { tool = "capture_pane", arguments = new { maxLines = "5" } },
+                },
+            },
+            cancellationToken: token);
+        Assert.Contains(
+            "has the wrong JSON type",
+            JsonSerializer.Serialize(Structured(batched), ToolJson.Options),
+            StringComparison.Ordinal);
+
+        // A declared argument of the declared type still runs.
+        CallToolResult accepted = await harness.Client.CallToolAsync(
+            "list_panes",
+            new Dictionary<string, object?> { ["session"] = "schema-probe" },
+            cancellationToken: token);
+        Assert.False(
+            accepted.IsError ?? false,
+            JsonSerializer.Serialize(accepted, ToolJson.Options));
+    }
+
+    [UnixFact]
     public async Task A_refusal_this_server_wrote_is_not_called_unexpected()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

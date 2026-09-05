@@ -83,6 +83,16 @@ public sealed class TmuxToolsTests
             () => mcp.Capabilities.RenameWindowAsync("renamed", "   ", token));
         Assert.Contains("list_windows", blank.Message, StringComparison.Ordinal);
 
+        // The pane-input tools resolve their own source pane, so the guard on
+        // the shared resolver missed exactly the three that type into a shell.
+        McpException typed = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SendKeysAsync("echo no", string.Empty, cancellationToken: token));
+        Assert.Contains("empty paneId", typed.Message, StringComparison.Ordinal);
+        McpException ran = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.RunShellCommandAsync(
+                "echo no", "   ", timeoutSeconds: 20, cancellationToken: token));
+        Assert.Contains("list_panes", ran.Message, StringComparison.Ordinal);
+
         // Omission still means the current one, which is the behaviour the
         // empty string was being mistaken for.
         ActionResult renamed = await mcp.Capabilities.RenameWindowAsync(
