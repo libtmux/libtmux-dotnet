@@ -418,6 +418,12 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
         Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("lt_r_", StringComparison.Ordinal));
         Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("@lt_s_", StringComparison.Ordinal));
+
+        // The begin marker is spelled in halves in the payload, so the shell
+        // echoes a five-digit form as well as the ten-digit one the command
+        // prints. A scrubber anchored to the full length leaves the half on
+        // screen, where every later read of the pane shows it.
+        Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("lt_b_", StringComparison.Ordinal));
     }
 
     [UnixFact]

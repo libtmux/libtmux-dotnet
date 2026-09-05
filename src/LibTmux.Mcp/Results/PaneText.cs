@@ -128,8 +128,10 @@ internal static partial class PaneText
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
     /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
-    /// so that ordinary text mentioning the prefix survives.
+    /// so that ordinary text mentioning the prefix survives. The begin marker
+    /// is spelled in halves in the payload, so the echo carries a five-digit
+    /// form as well as the ten-digit one it prints.
     /// </remarks>
-    [GeneratedRegex(@"@?lt_[rsb]_[0-9a-f]{10}", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"@?lt_[rsb]_[0-9a-f]{5,10}", RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
 }
