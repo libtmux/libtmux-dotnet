@@ -341,6 +341,43 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_pane_can_be_promoted_to_its_own_window_and_brought_back()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string first = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        string moved = split.PaneId!;
+
+        // Splitting then promoting is the workflow the surface had no path
+        // for: a pane that turned out to matter could not leave the window it
+        // was split from.
+        ActionResult broken = await mcp.Capabilities.BreakPaneAsync(
+            moved, cancellationToken: token);
+        Assert.NotEqual(scope.Window.Id.ToString(), broken.WindowId);
+        PaneInfo promoted = await mcp.Capabilities.GetPaneInfoAsync(moved, token);
+        Assert.Equal(broken.WindowId, promoted.WindowId);
+
+        // The pane keeps its identity across the move, which is what makes it
+        // safe to promote something already running.
+        ActionResult joined = await mcp.Capabilities.JoinPaneAsync(
+            moved, first, cancellationToken: token);
+        Assert.Equal(scope.Window.Id.ToString(), joined.WindowId);
+        Assert.Equal(
+            scope.Window.Id.ToString(),
+            (await mcp.Capabilities.GetPaneInfoAsync(moved, token)).WindowId);
+
+        McpException itself = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.JoinPaneAsync(moved, moved, cancellationToken: token));
+        Assert.Contains("itself", itself.Message, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
     public async Task A_run_reports_what_the_command_printed_and_not_the_command()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

@@ -622,6 +622,60 @@ internal sealed class CapabilityTools
             WindowId: moved.Id.ToString());
     }
 
+    public async Task<ActionResult> BreakPaneAsync(
+        [Description("The pane to move into a window of its own.")] string paneId,
+        [Description("Leave the new window unselected.")] bool detach = true,
+        CancellationToken cancellationToken = default)
+    {
+        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
+        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
+            .ConfigureAwait(false);
+
+        // No name parameter: tmux does not expand a format in break-pane's -n,
+        // but the library renames afterwards on the versions that need a
+        // placeholder, and rename-window does expand — so the same argument
+        // would need escaping on some versions and not others. rename_window
+        // already gets that right, and it takes the id this returns.
+        Window created = await pane
+            .BreakAsync(null, detach, cancellationToken)
+            .ConfigureAwait(false);
+        return new ActionResult(
+            $"Moved {pane.Id} into new window {created.Id}.",
+            PaneId: pane.Id.ToString(),
+            WindowId: created.Id.ToString());
+    }
+
+    public async Task<ActionResult> JoinPaneAsync(
+        [Description("The pane to move.")] string paneId,
+        [Description("The pane to place it beside, which names the destination window.")]
+        string targetPaneId,
+        [Description("Below, Above, Left, or Right of the target.")]
+        PaneDirection direction = PaneDirection.Below,
+        [Description("Leave the moved pane unselected.")] bool detach = false,
+        CancellationToken cancellationToken = default)
+    {
+        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
+        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
+            .ConfigureAwait(false);
+        Pane target = await TmuxTargets.PaneAsync(server, targetPaneId, cancellationToken)
+            .ConfigureAwait(false);
+        if (pane.Id == target.Id)
+        {
+            throw new McpException(
+                $"Joining {pane.Id} to itself would change nothing. Name the pane it "
+                + "should sit beside, or call list_panes to see what exists.");
+        }
+
+        await pane.JoinAsync(
+                new MovePaneRequest(target.Id.ToString(), direction, detach: detach),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new ActionResult(
+            $"Moved {pane.Id} into {target.Window.Id} beside {target.Id}.",
+            PaneId: pane.Id.ToString(),
+            WindowId: target.Window.Id.ToString());
+    }
+
     public async Task<ActionResult> SwapPaneAsync(
         [Description("The pane id to swap.")] string paneId,
         [Description("The other pane id.")] string targetPaneId,
