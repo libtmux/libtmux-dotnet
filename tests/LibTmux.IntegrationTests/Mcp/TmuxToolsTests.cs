@@ -703,9 +703,39 @@ public sealed class TmuxToolsTests
             captured.Content.Lines,
             line => line.Contains("ESCPROBE_", StringComparison.Ordinal)
                 && line.Contains("RED", StringComparison.Ordinal));
-        Assert.All(
-            captured.Content.Lines,
-            line => Assert.DoesNotContain('\u001b', line));
+        void HasNoControlBytes(IReadOnlyList<string> lines) =>
+            Assert.All(lines, line => Assert.DoesNotContain('\u001b', line));
+
+        HasNoControlBytes(captured.Content.Lines);
+
+        // capture_pane builds its own request; snapshot_pane and capture_since
+        // go through PaneReader, which builds a second one. Two constructions
+        // of the same defence can drift, so both are pinned here.
+        PaneSnapshot snapshot = await mcp.Read.SnapshotPaneAsync(
+            pane,
+            cancellationToken: token);
+        HasNoControlBytes(snapshot.Content.Lines);
+
+        TailResult baseline = await mcp.Read.TailPaneAsync(pane, cancellationToken: token);
+        HasNoControlBytes(baseline.Content.Lines);
+
+        await mcp.Write.RunAsync(
+            @"printf 'DELTAPROBE_\033[35mMAG\033[0m_END\n'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        TailResult delta = await mcp.Read.TailPaneAsync(
+            pane,
+            baseline.Cursor,
+            cancellationToken: token);
+
+        // A delta returning nothing would also contain no control bytes, so
+        // the new text has to be present for this to mean anything.
+        Assert.Contains(
+            delta.Content.Lines,
+            line => line.Contains("DELTAPROBE_", StringComparison.Ordinal)
+                && line.Contains("MAG", StringComparison.Ordinal));
+        HasNoControlBytes(delta.Content.Lines);
     }
 
     [UnixFact]
