@@ -175,6 +175,9 @@ internal sealed class CapabilityRegistry
 {
     private static readonly ImmutableArray<ToolDefinition> AllDefinitions = BuildManifest();
 
+    private static readonly FrozenDictionary<string, ToolDefinition> ByManifestName =
+        AllDefinitions.ToFrozenDictionary(definition => definition.Name, StringComparer.Ordinal);
+
     private CapabilityRegistry(
         CapabilitySelection selection,
         IEnumerable<ToolDefinition> definitions,
@@ -229,8 +232,8 @@ internal sealed class CapabilityRegistry
                 string.Equals(definition.Name, "call_read_tools_batch", StringComparison.Ordinal)
                     ? ShapeReadBatch(
                         definition,
-                        definition.NestedAuthority
-                            .Except(selection.ExcludedNames, StringComparer.Ordinal))
+                        definition.NestedAuthority.Where(nested =>
+                            selection.Includes(ByManifestName[nested])))
                     : definition),
         ];
         HashSet<string> dispatchNames = visible.Select(definition => definition.Name)

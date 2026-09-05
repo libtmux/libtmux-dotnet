@@ -534,6 +534,19 @@ public sealed class PaneTextTests
                 registry.Definitions.SelectMany(tool => tool.NestedAuthority),
                 nested => Assert.True(registry.DispatchByName.ContainsKey(nested)));
 
+            // Naming the batch by hand must not smuggle in the inspect tools
+            // the toolsets left out: nesting may never widen a selection.
+            CapabilityRegistry named = CapabilityRegistry.Select(
+                new CapabilitySelection(
+                    chosen,
+                    ["call_read_tools_batch"],
+                    none));
+            ImmutableHashSet<string> reachable =
+                [.. named.Definitions.Select(tool => tool.Name)];
+            Assert.All(
+                named.Definitions.SelectMany(tool => tool.NestedAuthority),
+                nested => Assert.Contains(nested, reachable));
+
             // Teardown is the deletion gate, so nothing outside it may delete.
             if (!chosen.Contains(Toolset.Teardown))
             {
