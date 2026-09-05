@@ -419,4 +419,40 @@ public sealed class TmuxToolsTests
         Assert.True(withheld.HasValue);
         Assert.True(withheld.Withheld);
     }
+
+    [UnixFact]
+    public async Task An_empty_but_running_server_answers_zero_rather_than_refusing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        Server setup = Server.Open(mcp.Options.ConnectionOptions);
+        try
+        {
+            // The state between the last kill and the next create. tmux reaps a
+            // server that holds nothing, so exit-empty off is what holds it in
+            // the state a caller reaches by closing their last session.
+            await setup.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
+            await setup.ExecuteCommandAsync(["set-option", "-s", "exit-empty", "off"], token);
+            await setup.ExecuteCommandAsync(["kill-session", "-t", "seed"], token);
+
+            TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+            Assert.Equal(0, info.SessionCount);
+            Assert.Equal(0, info.WindowCount);
+            Assert.Equal(0, info.PaneCount);
+
+            Assert.Empty(await mcp.Read.ListSessionsAsync(cancellationToken: token));
+            Assert.Empty(await mcp.Read.ListWindowsAsync(cancellationToken: token));
+            Assert.Empty(await mcp.Read.ListPanesAsync(cancellationToken: token));
+
+            // tmux refuses a server-wide listing here with "no current target",
+            // which must not reach a caller as a raw command failure.
+            McpException absent = await Assert.ThrowsAsync<McpException>(
+                () => mcp.Read.CapturePaneAsync(cancellationToken: token));
+            Assert.Contains("create_session", absent.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await setup.ExecuteCommandAsync(["kill-server"], token);
+        }
+    }
 }

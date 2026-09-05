@@ -50,7 +50,10 @@ internal static class TmuxTargets
         // that knows its own identity and nothing else, so reading its options
         // or its server throws; listing materializes the relations the tools
         // actually use, and still costs one tmux call.
-        foreach (Pane candidate in await server.GetPanesAsync(cancellationToken).ConfigureAwait(false))
+        IReadOnlyList<Pane> panes = await TmuxAvailability
+            .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
+            .ConfigureAwait(false);
+        foreach (Pane candidate in panes)
         {
             if (candidate.Id == parsed)
             {
@@ -88,8 +91,10 @@ internal static class TmuxTargets
         }
 
         RaiseIfAbsent(server);
-        foreach (Window candidate in await server.GetWindowsAsync(cancellationToken)
-            .ConfigureAwait(false))
+        IReadOnlyList<Window> windows = await TmuxAvailability
+            .OrEmptyAsync(server, () => server.GetWindowsAsync(cancellationToken))
+            .ConfigureAwait(false);
+        foreach (Window candidate in windows)
         {
             if (candidate.Id == parsed)
             {

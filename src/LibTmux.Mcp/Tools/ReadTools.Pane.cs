@@ -196,7 +196,9 @@ internal sealed partial class ReadTools
 
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<Pane> panes = string.IsNullOrWhiteSpace(session)
-            ? await server.GetPanesAsync(cancellationToken).ConfigureAwait(false)
+            ? await TmuxAvailability
+                .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
+                .ConfigureAwait(false)
             : await (await TmuxTargets.SessionAsync(server, session, cancellationToken)
                     .ConfigureAwait(false))
                 .GetPanesAsync(cancellationToken)
