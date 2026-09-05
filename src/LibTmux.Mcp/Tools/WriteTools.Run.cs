@@ -69,6 +69,7 @@ internal sealed partial class WriteTools
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
+        RefuseHumanOwnedMode(pane, "run_shell_command");
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
         PaneRead baselineRead = await PaneReader

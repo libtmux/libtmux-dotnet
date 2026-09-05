@@ -887,4 +887,171 @@ public sealed class TmuxToolsTests
             }
         }
     }
+
+    [UnixFact]
+    public async Task Modal_panes_refuse_input_without_reaching_the_workload()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string paneId = scope.Pane.Id.ToString();
+        string marker = $"modal-input-{Guid.NewGuid():N}";
+
+        await scope.Pane.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            List<(string Tool, Exception? Error)> refusals = [];
+            foreach ((string tool, Func<Task> call) in new (string, Func<Task>)[]
+            {
+                ("send_keys", async () => _ = await mcp.Capabilities.SendKeysAsync(
+                    $"echo {marker}-send", paneId, enter: true, cancellationToken: token)),
+                ("paste_text", async () => _ = await mcp.Capabilities.PasteTextAsync(
+                    $"echo {marker}-paste\n", paneId, bracketed: false, cancellationToken: token)),
+                ("run_shell_command", async () => _ = await mcp.Capabilities.RunShellCommandAsync(
+                    $"echo {marker}-run", paneId, timeoutSeconds: 0.2, cancellationToken: token)),
+            })
+            {
+                refusals.Add((tool, await Record.ExceptionAsync(call)));
+            }
+
+            PaneInputBatchResult batch = await mcp.Capabilities.SendKeysBatchAsync(
+                [new PaneInputOperation($"echo {marker}-batch", paneId, Enter: true)],
+                cancellationToken: token);
+
+            foreach ((string tool, Exception? error) in refusals)
+            {
+                McpException refused = Assert.IsType<McpException>(error);
+                Assert.Contains(tool, refused.Message, StringComparison.Ordinal);
+                Assert.Contains(paneId, refused.Message, StringComparison.Ordinal);
+                Assert.Contains("human-owned", refused.Message, StringComparison.Ordinal);
+            }
+
+            PaneInputOperationResult refusal = Assert.Single(batch.Results);
+            Assert.False(refusal.Success);
+            Assert.Contains("human-owned", refusal.Error, StringComparison.Ordinal);
+            Pane fresh = await FreshPaneAsync(scope.Pane, token);
+            Assert.Equal("1", fresh.RawFormatFields["pane_in_mode"]);
+            await AssertMarkerAbsentAsync(mcp, paneId, marker, token);
+        }
+        finally
+        {
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Synchronized_input_refuses_when_a_sibling_is_human_owned()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string target = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
+        string sibling = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
+        string marker = $"synchronized-modal-{Guid.NewGuid():N}";
+
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            true,
+            scope.Window.Id.ToString(),
+            token);
+        await modal.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            List<(string Tool, Exception? Error)> refusals = [];
+            foreach ((string tool, Func<Task> call) in new (string, Func<Task>)[]
+            {
+                ("send_keys", async () => _ = await mcp.Capabilities.SendKeysAsync(
+                    $"echo {marker}-send", target, enter: true, cancellationToken: token)),
+                ("run_shell_command", async () => _ = await mcp.Capabilities.RunShellCommandAsync(
+                    $"echo {marker}-run", target, timeoutSeconds: 0.2, cancellationToken: token)),
+            })
+            {
+                refusals.Add((tool, await Record.ExceptionAsync(call)));
+            }
+
+            foreach ((string tool, Exception? error) in refusals)
+            {
+                McpException refused = Assert.IsType<McpException>(error);
+                Assert.Contains(tool, refused.Message, StringComparison.Ordinal);
+                Assert.Contains(sibling, refused.Message, StringComparison.Ordinal);
+                Assert.Contains("human-owned", refused.Message, StringComparison.Ordinal);
+            }
+
+            await AssertMarkerAbsentAsync(mcp, target, marker, token);
+            await AssertMarkerAbsentAsync(mcp, sibling, marker, token);
+        }
+        finally
+        {
+            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Paste_text_remains_target_only_when_a_synchronized_sibling_is_human_owned()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string target = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
+        string sibling = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
+        string marker = $"target-only-paste-{Guid.NewGuid():N}";
+
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            true,
+            scope.Window.Id.ToString(),
+            token);
+        await modal.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            _ = await mcp.Capabilities.PasteTextAsync(
+                $"echo {marker}\n",
+                target,
+                bracketed: false,
+                cancellationToken: token);
+
+            CaptureResult captured = await mcp.Read.CapturePaneAsync(
+                target,
+                includeHistory: true,
+                cancellationToken: token);
+            Assert.Contains(captured.Content.Lines, line => line.Contains(marker, StringComparison.Ordinal));
+            await AssertMarkerAbsentAsync(mcp, sibling, marker, token);
+        }
+        finally
+        {
+            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    private static async Task<Pane> FreshPaneAsync(Pane pane, CancellationToken cancellationToken) =>
+        (await pane.Window.GetPanesAsync(cancellationToken).ConfigureAwait(false))
+            .Single(candidate => candidate.Id == pane.Id);
+
+    private static async Task AssertMarkerAbsentAsync(
+        McpToolFixture mcp,
+        string paneId,
+        string marker,
+        CancellationToken cancellationToken)
+    {
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            paneId,
+            includeHistory: true,
+            cancellationToken: cancellationToken);
+        Assert.DoesNotContain(
+            captured.Content.Lines,
+            line => line.Contains(marker, StringComparison.Ordinal));
+    }
 }

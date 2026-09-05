@@ -732,17 +732,24 @@ internal sealed class CapabilityTools
         return new ActionResult($"Respawned {pane.Id}.{landed}", PaneId: pane.Id.ToString());
     }
 
-    public Task<RunResult> RunShellCommandAsync(
+    public async Task<RunResult> RunShellCommandAsync(
         [Description("The shell command.")] string command,
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
         [Description("Maximum returned lines.")] int? maxLines = null,
         [Description("Keep the command out of shell history on a best-effort basis.")]
         bool suppressHistory = false,
-        CancellationToken cancellationToken = default) =>
-        _write.RunAsync(
-            command, paneId, timeoutSeconds, maxLines, suppressHistory,
-            progress: null, cancellationToken: cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        (Pane pane, _) = await ResolvePaneInputTargetsAsync(
+            paneId,
+            "run_shell_command",
+            cancellationToken).ConfigureAwait(false);
+        return await _write.RunAsync(
+                command, pane.Id.ToString(), timeoutSeconds, maxLines, suppressHistory,
+                progress: null, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public async Task<PaneInputResult> SendKeysAsync(
         [Description("Text or a tmux key name.")] string keys,
@@ -754,7 +761,8 @@ internal sealed class CapabilityTools
         CancellationToken cancellationToken = default)
     {
         (Pane pane, IReadOnlyList<string> targetPaneIds) =
-            await ResolvePaneInputTargetsAsync(paneId, cancellationToken).ConfigureAwait(false);
+            await ResolvePaneInputTargetsAsync(paneId, "send_keys", cancellationToken)
+                .ConfigureAwait(false);
         ActionResult result = await _write.SendKeysAsync(
                 keys, pane.Id.ToString(), enter, literal, suppressHistory,
                 cancellationToken: cancellationToken)
@@ -790,7 +798,10 @@ internal sealed class CapabilityTools
             try
             {
                 (Pane pane, IReadOnlyList<string> targetPaneIds) =
-                    await ResolvePaneInputTargetsAsync(operation.PaneId, cancellationToken)
+                    await ResolvePaneInputTargetsAsync(
+                            operation.PaneId,
+                            "send_keys_batch",
+                            cancellationToken)
                         .ConfigureAwait(false);
                 _ = await _write.SendKeysAsync(
                         operation.Keys,
@@ -925,7 +936,10 @@ internal sealed class CapabilityTools
         _connection.GetAsync(cancellationToken: cancellationToken);
 
     private async Task<(Pane Pane, IReadOnlyList<string> TargetPaneIds)>
-        ResolvePaneInputTargetsAsync(string? paneId, CancellationToken cancellationToken)
+        ResolvePaneInputTargetsAsync(
+            string? paneId,
+            string toolName,
+            CancellationToken cancellationToken)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
@@ -936,11 +950,17 @@ internal sealed class CapabilityTools
             .ConfigureAwait(false);
         if (synchronization.Count == 0 || synchronization[^1].Value.Boolean != true)
         {
+            WriteTools.RefuseHumanOwnedMode(pane, toolName);
             return (pane, [pane.Id.ToString()]);
         }
 
         IReadOnlyList<Pane> panes = await pane.Window.GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
+        foreach (Pane recipient in panes)
+        {
+            WriteTools.RefuseHumanOwnedMode(recipient, toolName);
+        }
+
         return (
             pane,
             panes.Select(candidate => candidate.Id.ToString())

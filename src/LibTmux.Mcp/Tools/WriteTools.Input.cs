@@ -60,6 +60,7 @@ internal sealed partial class WriteTools
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
+        RefuseHumanOwnedMode(pane, "send_keys");
 
         await pane.SendKeysAsync(
                 new SendKeysRequest(
@@ -111,6 +112,9 @@ internal sealed partial class WriteTools
         for (int index = 0; index < steps.Count; index++)
         {
             KeyStep step = steps[index];
+            pane = await TmuxTargets.PaneAsync(server, pane.Id.ToString(), cancellationToken)
+                .ConfigureAwait(false);
+            RefuseHumanOwnedMode(pane, "send_keys_batch");
             await MutateAsync(
                     sequence,
                     () => pane.SendKeysAsync(
@@ -228,6 +232,7 @@ internal sealed partial class WriteTools
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
+        RefuseHumanOwnedMode(pane, "paste_text");
 
         string buffer = $"libtmux_mcp_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
@@ -285,6 +290,18 @@ internal sealed partial class WriteTools
         return new ActionResult(
             $"Pasted {text.Length} characters into {pane.Id}.",
             PaneId: pane.Id.ToString());
+    }
+
+    internal static void RefuseHumanOwnedMode(Pane pane, string toolName)
+    {
+        bool acceptsInput = pane.RawFormatFields.TryGetValue(
+            "pane_in_mode", out string? value) && value == "0";
+        if (!acceptsInput)
+        {
+            throw new McpException(
+                $"{toolName} refuses input to {pane.Id} because its pane mode is human-owned. "
+                + "Exit copy mode or wait for the person to finish before retrying.");
+        }
     }
 
     private static async Task<Exception?> CleanupPasteBufferAsync(
