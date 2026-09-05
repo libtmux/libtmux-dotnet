@@ -82,6 +82,15 @@ version.
   than as an unexpected internal failure, and `wait_for_text` states that text
   already on screen never matches.
 
+- Thirty-eight of forty-seven tools now describe what they are for, including
+  that `respawn_pane` reruns a pane's original command and that
+  `killExistingProcess` destroys a running one, and that input tools do not
+  reach a pane's program while it is in copy mode.
+
+- Calling a tool whose toolset is not enabled says it was not selected instead
+  of "Unknown tool", and `select_layout` no longer warns that tmux may have
+  acted when it refused a layout name before sending anything.
+
 - `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
   and `session_height` formats in 2.9. A zero resize extent is refused
   alongside the negatives tmux already refused, an unknown layout is no longer
