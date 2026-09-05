@@ -91,7 +91,7 @@ internal static class ToolResponseBudgetFilter
         int maxBytes)
     {
         string tool = request.Params?.Name ?? "a tmux tool";
-        return ToolMetadata.MayModify(request, tool)
+        return ToolMetadata.MayModify(request.Services, tool)
             ? $"The tool failed, and its detailed error exceeded this server's "
                 + $"{maxBytes} UTF-8 byte limit. tmux may have acted. Do not retry; "
                 + "inspect tmux state first."

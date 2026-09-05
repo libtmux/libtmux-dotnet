@@ -466,4 +466,24 @@ public sealed class PaneTextTests
 
         Assert.Same(lines, PaneText.Scrub(lines, paneWidth: 80));
     }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Only_an_observing_tool_escapes_the_mutation_warning()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton(CapabilityRegistry.All());
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        // Every tool advertises readOnlyHint false on purpose, so the failure
+        // advice has to read the declared effects instead.
+        Assert.False(ToolMetadata.MayModify(provider, "list_sessions"));
+        Assert.False(ToolMetadata.MayModify(provider, "get_pane_info"));
+        Assert.True(ToolMetadata.MayModify(provider, "send_keys"));
+        Assert.True(ToolMetadata.MayModify(provider, "kill_session"));
+
+        // A name nothing declares earns the cautious advice.
+        Assert.True(ToolMetadata.MayModify(provider, "not_a_tool"));
+        Assert.True(ToolMetadata.MayModify(null, "list_sessions"));
+    }
 }

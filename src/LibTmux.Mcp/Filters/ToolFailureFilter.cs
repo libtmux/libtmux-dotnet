@@ -37,7 +37,7 @@ internal static class ToolFailureFilter
         next => async (request, cancellationToken) =>
     {
         string tool = request.Params?.Name ?? "a tmux tool";
-        bool mayModify = ToolMetadata.MayModify(request, tool);
+        bool mayModify = ToolMetadata.MayModify(request.Services, tool);
         ILogger logger = request.Services?.GetService<ILoggerFactory>()
                 ?.CreateLogger(nameof(ToolFailureFilter))
             ?? NullLogger.Instance;
