@@ -259,7 +259,20 @@ internal sealed partial class WriteTools
         internal string StatusOption => $"@lt_s_{Id}";
 
         /// <summary>Gets the line the command's own output begins after.</summary>
+        /// <remarks>
+        /// Never written into the payload whole: it is assembled there from two
+        /// halves, so no substring or whitespace split of what was pasted can
+        /// manufacture it. Only running the payload prints it. A pane held by
+        /// awk printing its last field otherwise re-emitted the marker as a
+        /// line of its own, and a run that never started reported that it had.
+        /// </remarks>
         internal string BeginMarker => $"lt_b_{Id}";
+
+        /// <summary>Gets the marker's first half, as the payload spells it.</summary>
+        internal string BeginHead => $"lt_b_{Id[..5]}";
+
+        /// <summary>Gets the marker's second half, as the payload spells it.</summary>
+        internal string BeginTail => Id[5..];
 
         /// <summary>Mints a token nothing else is using.</summary>
         /// <returns>The token.</returns>
@@ -309,9 +322,11 @@ internal sealed partial class WriteTools
         // separates the shell's echoed payload from the command's output.
         string payload = string.Concat(
             suppressHistory ? " " : string.Empty,
-            "(\nprintf '%s\\n' ",
-            token.BeginMarker,
-            "\n",
+            "(\nprintf '%s%s\\n' '",
+            token.BeginHead,
+            "' '",
+            token.BeginTail,
+            "'\n",
             command.TrimEnd(),
             "\n); __lt=$?; ",
             statusCommand,

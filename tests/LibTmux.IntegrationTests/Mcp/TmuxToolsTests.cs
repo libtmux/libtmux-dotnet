@@ -375,6 +375,18 @@ public sealed class TmuxToolsTests
         Assert.Equal(0, silent.ExitStatus);
         Assert.Empty(silent.Output.Lines);
 
+        // A pane held by something that re-emits its input cannot be made to
+        // look like a run that started. awk printing the last field of every
+        // line turned the payload's own echo into a bare marker line, so the
+        // marker is assembled from halves the payload never spells together.
+        ActionResult held = await mcp.Capabilities.SplitWindowAsync(
+            pane, cancellationToken: token);
+        await mcp.Write.SendKeysAsync(
+            "awk '{print $NF}'", held.PaneId, enter: true, cancellationToken: token);
+        RunResult never = await mcp.Write.RunAsync(
+            "echo x", held.PaneId, timeoutSeconds: 4, cancellationToken: token);
+        Assert.True(never.TimedOut);
+        Assert.False(never.Started);
     }
 
     [UnixFact]
