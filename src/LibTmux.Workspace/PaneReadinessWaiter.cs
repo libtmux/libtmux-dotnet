@@ -37,6 +37,8 @@ internal static class PaneReadinessWaiter
             cancellationToken);
         timeout.CancelAfter(timeoutInterval);
 
+        string? last = null;
+        int polls = 0;
         try
         {
             while (true)
@@ -45,6 +47,8 @@ internal static class PaneReadinessWaiter
                         new DisplayMessageRequest(returnText: true, format: Format),
                         timeout.Token)
                     .ConfigureAwait(false);
+                polls++;
+                last = sample is { Count: 1 } ? sample[0] : null;
                 if (IsReady(sample, expectedShellCommand))
                 {
                     return;
@@ -56,9 +60,15 @@ internal static class PaneReadinessWaiter
         catch (OperationCanceledException failure) when (
             timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
+            // What it last saw, and how often it managed to look. A timeout
+            // that says neither cannot distinguish a shell that never reached
+            // a prompt from a poll that barely ran.
             throw new TmuxWaitTimeoutException(
                 $"Pane {pane.Id} did not reach a prompt-like state within "
-                + $"{timeoutInterval.TotalSeconds:0.###} seconds.",
+                + $"{timeoutInterval.TotalSeconds:0.###} seconds. Waiting for "
+                + $"'{expectedShellCommand}' with the cursor off the origin; "
+                + $"{polls} polls, last saw "
+                + $"'{last?.Replace('\t', '|') ?? "nothing"}'.",
                 timeoutInterval,
                 failure);
         }
