@@ -79,11 +79,57 @@ internal static partial class PaneText
         return kept ?? lines;
     }
 
+    /// <summary>Drops everything a run printed before its command's own output.</summary>
+    /// <param name="lines">The captured rows, oldest first.</param>
+    /// <param name="marker">The marker the run printed before the command.</param>
+    /// <param name="paneWidth">The pane's width, or zero when rows are joined.</param>
+    /// <returns>The rows after the marker, or all of them when it is not there.</returns>
+    /// <remarks>
+    /// The marker appears twice: once in the shell's echo of what was pasted,
+    /// and once where the shell printed it. The second is the boundary, so the
+    /// search takes the last. When neither is present the marker scrolled out
+    /// of the pane's history, and dropping everything would hide real output.
+    /// </remarks>
+    internal static IReadOnlyList<string> AfterBeginMarker(
+        IReadOnlyList<string> lines,
+        string marker,
+        int paneWidth)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker);
+
+        int begin = -1;
+        StringBuilder logical = new();
+        int start = 0;
+        while (start < lines.Count)
+        {
+            int end = start;
+            logical.Clear();
+            logical.Append(lines[start]);
+            while (paneWidth > 0
+                && end + 1 < lines.Count
+                && lines[end].Length == paneWidth)
+            {
+                end++;
+                logical.Append(lines[end]);
+            }
+
+            if (logical.ToString().Contains(marker, StringComparison.Ordinal))
+            {
+                begin = end;
+            }
+
+            start = end + 1;
+        }
+
+        return begin < 0 ? lines : [.. lines.Skip(begin + 1)];
+    }
+
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
     /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
     /// so that ordinary text mentioning the prefix survives.
     /// </remarks>
-    [GeneratedRegex(@"@?lt_[rs]_[0-9a-f]{10}", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"@?lt_[rsb]_[0-9a-f]{10}", RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
 }

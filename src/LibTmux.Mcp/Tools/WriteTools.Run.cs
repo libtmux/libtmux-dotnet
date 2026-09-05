@@ -206,7 +206,9 @@ internal sealed partial class WriteTools
             string id = pane.Id.ToString();
             double elapsedSeconds = Math.Round(elapsed.Elapsed.TotalSeconds, 3);
             return sequence.Observe(() => StructuredTextResultBudget.Fit(
-                PaneText.Scrub(read.Lines, pane.Width),
+                PaneText.Scrub(
+                    PaneText.AfterBeginMarker(read.Lines, token.BeginMarker, pane.Width),
+                    pane.Width),
                 maxLines ?? _policy.MaxLines,
                 _policy.MaxBytes,
                 content => new RunResult(
@@ -244,6 +246,9 @@ internal sealed partial class WriteTools
 
         /// <summary>Gets the pane option this run leaves its exit status in.</summary>
         internal string StatusOption => $"@lt_s_{Id}";
+
+        /// <summary>Gets the line the command's own output begins after.</summary>
+        internal string BeginMarker => $"lt_b_{Id}";
 
         /// <summary>Mints a token nothing else is using.</summary>
         /// <returns>The token.</returns>
@@ -289,11 +294,13 @@ internal sealed partial class WriteTools
             cleanupDelay,
             unsetStatusCommand);
 
-        // The subshell isolates command syntax from status capture and rendezvous;
-        // otherwise a trailing operator can swallow both and leave the wait hanging.
+        // The subshell isolates user syntax from the rendezvous. The marker
+        // separates the shell's echoed payload from the command's output.
         string payload = string.Concat(
             suppressHistory ? " " : string.Empty,
-            "(\n",
+            "(\nprintf '%s\\n' ",
+            token.BeginMarker,
+            "\n",
             command.TrimEnd(),
             "\n); __lt=$?; ",
             statusCommand,

@@ -332,6 +332,43 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_run_reports_what_the_command_printed_and_not_the_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        // A shell echoes what is pasted into it, and a multi-line command
+        // echoes as several lines carrying none of this server's markers, so
+        // the caller read its own command back as output — prompt, subshell
+        // paren and continuation lines included.
+        RunResult many = await mcp.Write.RunAsync(
+            "for i in 1 2 3\ndo\n  echo \"line $i\"\ndone",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Equal(0, many.ExitStatus);
+        Assert.Equal(
+            ["line 1", "line 2", "line 3"],
+            many.Output.Lines.Where(line => line.StartsWith("line ", StringComparison.Ordinal)));
+        Assert.DoesNotContain(
+            many.Output.Lines,
+            line => line.Contains("for i in", StringComparison.Ordinal));
+
+        // A command that prints nothing answers nothing, rather than two lines
+        // a caller cannot tell from output.
+        RunResult silent = await mcp.Write.RunAsync(
+            "true", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, silent.ExitStatus);
+        Assert.Empty(silent.Output.Lines);
+
+    }
+
+    [UnixFact]
     public async Task A_run_leaves_none_of_its_own_bookkeeping_on_screen()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
