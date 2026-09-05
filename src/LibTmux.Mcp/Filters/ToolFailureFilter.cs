@@ -71,7 +71,12 @@ internal static class ToolFailureFilter
         catch (OperationCanceledException error)
             when (error is TmuxOperationCanceledException { CommandMayHaveExecuted: true })
         {
-            return Failure(logger, tool, error, mayModify, AdviceFor(error));
+            return Failure(
+                logger,
+                tool,
+                error,
+                mayModify,
+                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool)));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -86,12 +91,18 @@ internal static class ToolFailureFilter
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            return Failure(logger, tool, error, mayModify, AdviceFor(error));
+            return Failure(
+                logger,
+                tool,
+                error,
+                mayModify,
+                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool)));
         }
     };
 
     /// <summary>Answers what to tell a caller about one failure.</summary>
     /// <param name="error">What went wrong.</param>
+    /// <param name="declaration">What this server declared about the tool, when known.</param>
     /// <returns>The sentence naming the cause and what to do instead.</returns>
     /// <remarks>
     /// Shared with the read batch, which dispatches its inner operations
@@ -99,7 +110,7 @@ internal static class ToolFailureFilter
     /// the same failure read differently depending on whether it was called
     /// alone or inside a batch, and the batch's wording was the better one.
     /// </remarks>
-    internal static string AdviceFor(Exception error)
+    internal static string AdviceFor(Exception error, ToolDefinition? declaration = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return error switch
@@ -117,9 +128,12 @@ internal static class ToolFailureFilter
             // instead, contradicting the sentence immediately before it.
             McpException or LibTmuxException => error.Message,
 
-            // Argument validation is a refusal too. A null argument is not: it
-            // means an invariant inside this server broke, which is exactly
-            // what the backstop below is for.
+            // Argument validation is a refusal. So is a null arriving for a
+            // field the caller was invited to send — that is bad input, not a
+            // broken invariant, and the declared schema is what tells the two
+            // apart. A null anywhere else stays on the backstop below.
+            ArgumentNullException nulled when Declares(declaration, nulled.ParamName) =>
+                WithoutParameterName(nulled),
             ArgumentException argument when argument is not ArgumentNullException =>
                 WithoutParameterName(argument),
             _ => $"{error.Message} This is unexpected — check the server's log on "
@@ -127,6 +141,13 @@ internal static class ToolFailureFilter
                 + "most likely fail the same way.",
         };
     }
+
+    /// <summary>Answers whether a name is one the caller was invited to send.</summary>
+    /// <param name="declaration">What this server declared about the tool.</param>
+    /// <param name="parameter">The parameter a null arrived for.</param>
+    /// <returns><see langword="true" /> when the name is a declared input field.</returns>
+    private static bool Declares(ToolDefinition? declaration, string? parameter) =>
+        parameter is not null && declaration?.InputSinks.ContainsKey(parameter) == true;
 
     /// <summary>Drops the parameter name .NET appends to an argument failure.</summary>
     /// <param name="error">The refusal.</param>

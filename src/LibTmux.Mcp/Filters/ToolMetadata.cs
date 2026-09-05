@@ -8,6 +8,16 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal static class ToolMetadata
 {
+    /// <summary>Finds what this server declared about one tool.</summary>
+    /// <param name="services">The services the call was answered with.</param>
+    /// <param name="tool">The tool named by the call.</param>
+    /// <returns>The declaration, or null for a tool this server did not declare.</returns>
+    internal static ToolDefinition? Declaration(IServiceProvider? services, string tool) =>
+        services?.GetService<CapabilityRegistry>() is CapabilityRegistry registry
+            && registry.DispatchByName.TryGetValue(tool, out ToolDefinition? definition)
+                ? definition
+                : null;
+
     /// <summary>Answers whether a tool could have changed tmux before it failed.</summary>
     /// <param name="services">The services the call was answered with.</param>
     /// <param name="tool">The tool named by the call.</param>
@@ -25,9 +35,7 @@ internal static class ToolMetadata
     /// </remarks>
     internal static bool MayModify(IServiceProvider? services, string tool)
     {
-        CapabilityRegistry? registry = services?.GetService<CapabilityRegistry>();
-        if (registry is not null
-            && registry.DispatchByName.TryGetValue(tool, out ToolDefinition? definition))
+        if (Declaration(services, tool) is ToolDefinition definition)
         {
             return !definition.Effects.SetEquals([Effect.Observe]);
         }

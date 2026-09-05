@@ -553,9 +553,10 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
         Assert.Contains("It started in ", missing.Changed, StringComparison.Ordinal);
 
+        // The same directory spelled with . and .. segments is still honoured.
         ActionResult honoured = await mcp.Write.CreateWindowAsync(
             scope.Session.Id.ToString(),
-            startDirectory: "/tmp",
+            startDirectory: "/tmp/../tmp/./",
             cancellationToken: token);
         Assert.Equal("Created window ", honoured.Changed[..15]);
         Assert.DoesNotContain("It started in", honoured.Changed, StringComparison.Ordinal);

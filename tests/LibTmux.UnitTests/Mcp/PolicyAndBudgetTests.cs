@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
@@ -485,5 +486,21 @@ public sealed class PaneTextTests
         // A name nothing declares earns the cautious advice.
         Assert.True(ToolMetadata.MayModify(provider, "not_a_tool"));
         Assert.True(ToolMetadata.MayModify(null, "list_sessions"));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Overlapping_tools_advertise_which_one_to_reach_for()
+    {
+        FrozenDictionary<string, ToolDefinition> tools = CapabilityRegistry.All().ByName;
+
+        // A description is where a model learns which of two tools it wants.
+        // These were written on the helper classes, which are not the
+        // registered handlers, so none of them ever reached a client.
+        Assert.Contains("run_shell_command", tools["send_keys"].Description, StringComparison.Ordinal);
+        Assert.Contains("run_shell_command", tools["wait_for_text"].Description, StringComparison.Ordinal);
+        Assert.Contains("never matches", tools["wait_for_text"].Description, StringComparison.Ordinal);
+        Assert.Contains("search_panes", tools["list_panes"].Description, StringComparison.Ordinal);
+        Assert.Contains("capture_since", tools["capture_pane"].Description, StringComparison.Ordinal);
     }
 }

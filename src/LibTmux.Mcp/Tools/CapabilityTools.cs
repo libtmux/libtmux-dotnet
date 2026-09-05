@@ -329,7 +329,9 @@ internal sealed class CapabilityTools
                 // The same wording a direct call gets. Every batch-eligible
                 // tool only observes, so none of them earns the mutation
                 // warning the filter would add on top.
-                string message = BoundError(ToolFailureFilter.AdviceFor(error));
+                string message = BoundError(ToolFailureFilter.AdviceFor(
+                    error,
+                    name.Length == 0 ? null : dispatch.GetValueOrDefault(name)));
                 results.Add(new ReadToolCallResult(
                     index,
                     name,

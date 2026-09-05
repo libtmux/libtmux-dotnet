@@ -804,6 +804,16 @@ public sealed class McpProtocolTests
         string rejected = Assert.IsType<TextContentBlock>(Assert.Single(invalid.Content)).Text;
         Assert.DoesNotContain("This is unexpected", rejected, StringComparison.Ordinal);
         Assert.DoesNotContain("(Parameter", rejected, StringComparison.Ordinal);
+
+        // A null arriving for a field the schema invites is bad input, not a
+        // broken invariant inside this server.
+        CallToolResult nulled = await harness.Client.CallToolAsync(
+            "send_keys",
+            new Dictionary<string, object?> { ["keys"] = null },
+            cancellationToken: token);
+        string refusedNull = Assert.IsType<TextContentBlock>(Assert.Single(nulled.Content)).Text;
+        Assert.DoesNotContain("This is unexpected", refusedNull, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Parameter", refusedNull, StringComparison.Ordinal);
     }
 
     private static JsonElement Structured(CallToolResult result) =>

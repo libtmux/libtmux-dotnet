@@ -414,13 +414,20 @@ internal static class TmuxTargets
             return string.Empty;
         }
 
-        string asked = requested.Length > 1 ? requested.TrimEnd('/') : requested;
+        // Normalised, so a request that only spells the same directory
+        // differently — a trailing slash, a . or a .. segment — is recognised
+        // as honoured rather than reported as a fallback.
+        string asked = Path.TrimEndingDirectorySeparator(Path.GetFullPath(requested));
         string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
             .ConfigureAwait(false);
         // Stated as where it landed rather than as a rejection: the two paths
         // come from different sides of a symlink often enough that claiming
         // tmux refused the request would sometimes be the wrong story.
-        return actual is null || string.Equals(actual, asked, StringComparison.Ordinal)
+        return actual is null
+            || string.Equals(
+                Path.TrimEndingDirectorySeparator(actual),
+                asked,
+                StringComparison.Ordinal)
             ? string.Empty
             : $" It started in {actual}; tmux does not refuse a start directory "
                 + "it cannot use.";
