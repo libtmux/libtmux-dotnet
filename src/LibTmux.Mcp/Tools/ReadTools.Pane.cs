@@ -234,6 +234,12 @@ internal sealed partial class ReadTools
             }
 
             panesSearched++;
+
+            // The same rows a capture would answer with. Searching the raw
+            // ones made this server's own bookkeeping findable through the
+            // tool the instructions name first for reading a pane, while the
+            // other two read paths hid it.
+            lines = PaneText.Scrub(lines, pane.Width);
             int visibleTop = lines.Count - pane.Height;
             SearchPaneBudgetOutcome outcome = AddSearchMatches(
                 budget,

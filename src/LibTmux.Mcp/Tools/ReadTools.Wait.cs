@@ -111,9 +111,13 @@ internal sealed partial class ReadTools
                 .ConfigureAwait(false);
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
-            if (read.Lines.Count > 0)
+            // Matched against the rows the caller receives. Matching raw rows
+            // let a concurrent run's payload echo satisfy a wait, and then the
+            // scrubbed tail did not contain the line that matched.
+            IReadOnlyList<string> visible = PaneText.Scrub(read.Lines, pane.Width);
+            if (visible.Count > 0)
             {
-                if (Match(stops, read.Lines, matchingWork, cancellationToken) is string stopped)
+                if (Match(stops, visible, matchingWork, cancellationToken) is string stopped)
                 {
                     return await FinishAsync(
                             pane,
@@ -139,7 +143,7 @@ internal sealed partial class ReadTools
                         .ConfigureAwait(false);
                 }
 
-                if (Match(wanted, read.Lines, matchingWork, cancellationToken) is string hit)
+                if (Match(wanted, visible, matchingWork, cancellationToken) is string hit)
                 {
                     return await FinishAsync(
                             pane,

@@ -129,9 +129,21 @@ internal static partial class PaneText
     /// <remarks>
     /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
     /// so that ordinary text mentioning the prefix survives. The begin marker
-    /// is spelled in halves in the payload, so the echo carries a five-digit
-    /// form as well as the ten-digit one it prints.
+    /// is spelled in halves in the payload, so the echo carries no ten-digit
+    /// form — but it always carries the two quoted halves adjacent, which is
+    /// a shape a caller's own output does not have. Matching that rather than
+    /// widening the digit count keeps a line like <c>lt_b_abcde</c> in a
+    /// user's build log, which a five-digit minimum would have deleted.
+    /// <para>
+    /// The status assignment is matched too, because rejoining wrapped rows
+    /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
+    /// row is not always exactly the pane's width and the join stops early.
+    /// That left the payload's tail row — the one naming set-option and
+    /// wait-for — orphaned from the marker below it, on every read path.
+    /// </para>
     /// </remarks>
-    [GeneratedRegex(@"@?lt_[rsb]_[0-9a-f]{5,10}", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(
+        @"@?lt_[rsb]_[0-9a-f]{10}|'lt_b_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
+        RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
 }

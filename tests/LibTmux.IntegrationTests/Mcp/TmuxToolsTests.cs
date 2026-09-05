@@ -424,6 +424,17 @@ public sealed class TmuxToolsTests
         // prints. A scrubber anchored to the full length leaves the half on
         // screen, where every later read of the pane shows it.
         Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("lt_b_", StringComparison.Ordinal));
+
+        // And the price of catching it is not a caller's own text. Lowering
+        // the digit minimum would have deleted this line from the output and
+        // from every later read, reporting no loss in any of the three fields
+        // that exist to report one.
+        RunResult lookalike = await mcp.Write.RunAsync(
+            "echo 'ref=lt_b_abcde note=matters'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Contains("ref=lt_b_abcde note=matters", lookalike.Output.Lines);
     }
 
     [UnixFact]
