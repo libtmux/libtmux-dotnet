@@ -208,12 +208,13 @@ internal sealed partial class WriteTools
             // idle shell, or a line editor this server could not clear. Saying
             // so beats the timeout's usual "it may still be running".
             // A row that BEGINS with the marker, not one equal to it and not
-            // one merely containing it. Equality broke on a widen: tmux
-            // reflows, so the marker row written at 60 columns is merged with
-            // what follows into one 200-column row, and a still-running
-            // command was reported as never started — which inverts the retry
-            // advice. Containment would take the shell's echo of the printf
-            // that prints it, or a pane occupant re-emitting that echo.
+            // one merely containing it. Containment would take the shell's
+            // echo of the printf that prints the marker, or a pane occupant
+            // re-emitting that echo, which is the forging the split marker
+            // exists to stop. StartsWith costs nothing over equality and
+            // tolerates a reflow appending to the marker's row — no fixture
+            // has been found that produces one, so treat that as robustness
+            // rather than as a fix for a reproduced defect.
             bool started = read.Lines.Any(line =>
                 line.TrimStart().StartsWith(token.BeginMarker, StringComparison.Ordinal));
             string id = pane.Id.ToString();
