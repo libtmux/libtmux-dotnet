@@ -2162,6 +2162,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.TmuxWindowException.#ctor(string,WindowId,Exception?)` | `TmuxWindowException(string message, WindowId windowId, Exception? innerException = null)` | Public | No | Portable | Creates TmuxWindowException. |
+| `M:LibTmux.TmuxWindowException.#ctor(string,WindowId,TmuxDispatchState,Exception?)` | `TmuxWindowException(string message, WindowId windowId, TmuxDispatchState dispatch, Exception? innerException = null)` | Public | No | Portable | Creates TmuxWindowException. |
 | `P:LibTmux.TmuxWindowException.WindowId` | `WindowId LibTmux.TmuxWindowException.WindowId { get; }` | Public | No | Portable | Gets WindowId. |
 
 ### `T:LibTmux.UnbindKeyRequest`
