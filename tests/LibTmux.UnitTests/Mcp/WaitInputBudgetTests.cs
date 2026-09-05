@@ -21,10 +21,30 @@ public sealed class WaitInputBudgetTests
     }
 
     [Fact]
+    public void Regex_pattern_byte_bound_is_portable()
+    {
+        string boundary = new('a', 999);
+        string oversized = new('\u00e9', 500);
+
+        ReadTools.ValidateWaitPatterns([boundary], null, 128_000);
+        ReadTools.ValidateSearchPatternBudget(boundary, 128_000);
+        _ = ReadTools.CompilePattern(boundary, ignoreCase: false);
+        _ = ReadTools.CompilePattern(boundary, ignoreCase: true);
+
+        McpException wait = Assert.Throws<McpException>(() =>
+            ReadTools.ValidateWaitPatterns([oversized], null, 128_000));
+        McpException search = Assert.Throws<McpException>(() =>
+            ReadTools.ValidateSearchPatternBudget(oversized, 128_000));
+
+        Assert.Contains("999 UTF-8 bytes", wait.Message, StringComparison.Ordinal);
+        Assert.Contains("limit is 999", search.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Pattern_count_and_total_bytes_are_bounded()
     {
         string[] tooMany = Enumerable.Range(0, 33).Select(index => $"p{index}").ToArray();
-        string[] tooLarge = Enumerable.Repeat(new string('x', 4_096), 5).ToArray();
+        string[] tooLarge = Enumerable.Repeat(new string('x', 999), 17).ToArray();
 
         McpException count = Assert.Throws<McpException>(() =>
             ReadTools.ValidateWaitPatterns(tooMany, null, 4_000));
@@ -72,7 +92,7 @@ public sealed class WaitInputBudgetTests
         var writes = new WriteTools(accessor, policy, activity);
 
         _ = await Assert.ThrowsAsync<McpException>(() => tools.WaitForTextAsync(
-            patterns: [new string('x', 4_097)],
+            patterns: [new string('x', 1_000)],
             cancellationToken: TestContext.Current.CancellationToken));
         _ = await Assert.ThrowsAsync<McpException>(() => writes.WaitForChannelAsync(
             new string('x', 4_097),

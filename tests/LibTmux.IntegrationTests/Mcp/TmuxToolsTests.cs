@@ -801,10 +801,12 @@ public sealed class TmuxToolsTests
 
         await Wait([.. Enumerable.Repeat("zz", 32)]);
         await Refuses(() => Wait([.. Enumerable.Repeat("zz", 33)]));
-        await Wait([Filler(4096)]);
-        await Refuses(() => Wait([Filler(4097)]));
-        await Wait([.. Enumerable.Repeat(Filler(4096), 4)]);
-        await Refuses(() => Wait([.. Enumerable.Repeat(Filler(4096), 4), "z"]));
+        await Wait([Filler(999)]);
+        await Refuses(() => Wait([Filler(1000)]));
+        string[] totalPatternBoundary =
+            [.. Enumerable.Repeat(Filler(999), 16), Filler(400)];
+        await Wait(totalPatternBoundary);
+        await Refuses(() => Wait([.. totalPatternBoundary, "z"]));
 
         Task Variables(int count) => mcp.Capabilities.GetTmuxVariablesAsync(
             [.. Enumerable.Repeat("session_name", count)], pane, cancellationToken: token);
@@ -823,9 +825,9 @@ public sealed class TmuxToolsTests
         await Refuses(() => Keys(65, 0));
         await Refuses(() => Keys(1, 2001));
 
-        await mcp.Capabilities.SearchPanesAsync(Filler(4096), cancellationToken: token);
+        await mcp.Capabilities.SearchPanesAsync(Filler(999), cancellationToken: token);
         await Refuses(() => mcp.Capabilities.SearchPanesAsync(
-            Filler(4097), cancellationToken: token));
+            Filler(1000), cancellationToken: token));
 
         await Refuses(() => mcp.Capabilities.WaitForChannelAsync(
             Filler(4097), cancellationToken: token));

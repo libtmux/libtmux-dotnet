@@ -7,6 +7,10 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal sealed partial class ReadTools
 {
+    // .NET 8 caps a non-backtracking automaton at 1000 nodes. A literal uses
+    // one node per character plus its root, so 999 UTF-8 bytes are portable.
+    private const int MaximumRegexPatternBytes = 999;
+
     private readonly TmuxConnectionAccessor _connection;
     private readonly ServerPolicy _policy;
     private readonly PaneActivityHub _activity;

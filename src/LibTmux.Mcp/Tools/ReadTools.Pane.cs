@@ -9,7 +9,6 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal sealed partial class ReadTools
 {
-    private const int MaximumSearchPatternBytes = 4_096;
     private const int MaximumSearchWorkBytes = 8 * 1_024 * 1_024;
 
     /// <summary>Reads a pane's content and screen state together.</summary>
@@ -178,7 +177,7 @@ internal sealed partial class ReadTools
         + "question about what a pane CONTAINS — list tools only see names "
         + "and sizes.")]
     public async Task<SearchResult> SearchPanesAsync(
-        [Description("A .NET regular expression to look for, at most 4096 UTF-8 bytes.")]
+        [Description("A .NET regular expression to look for, at most 999 UTF-8 bytes.")]
         string pattern,
         [Description("A session id such as $0, or its name. Omit to search every session.")]
         string? session = null,
@@ -291,7 +290,7 @@ internal sealed partial class ReadTools
     /// <summary>Rejects a pattern too large to compile or report within policy.</summary>
     internal static void ValidateSearchPatternBudget(string pattern, int resultMaxBytes)
     {
-        int patternMaxBytes = Math.Min(MaximumSearchPatternBytes, resultMaxBytes);
+        int patternMaxBytes = Math.Min(MaximumRegexPatternBytes, resultMaxBytes);
         int patternBytes = System.Text.Encoding.UTF8.GetByteCount(pattern);
         if (patternBytes > patternMaxBytes)
         {

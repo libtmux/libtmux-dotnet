@@ -349,10 +349,10 @@ public sealed class SearchResultBudgetTests
 
         McpException error = await Assert.ThrowsAsync<McpException>(() =>
             tools.SearchPanesAsync(
-                new string('x', 4_097),
+                new string('x', 1_000),
                 cancellationToken: TestContext.Current.CancellationToken));
 
-        Assert.Contains("4096", error.Message, StringComparison.Ordinal);
+        Assert.Contains("999", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, dispatches);
     }
 

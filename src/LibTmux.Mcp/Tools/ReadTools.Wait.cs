@@ -44,7 +44,7 @@ internal sealed partial class ReadTools
             + "the returned tail can still time out. Omit or pass an empty list to "
             + "return as soon as the pane prints anything new. Across both pattern "
             + "lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at most "
-            + "4096 bytes.")]
+            + "999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -255,13 +255,13 @@ internal sealed partial class ReadTools
                     continue;
                 }
 
-                if (pattern.Length > MaximumWaitPatternBytes)
+                if (pattern.Length > MaximumRegexPatternBytes)
                 {
                     throw PatternBudgetError();
                 }
 
                 int bytes = Encoding.UTF8.GetByteCount(pattern);
-                if (bytes > MaximumWaitPatternBytes
+                if (bytes > MaximumRegexPatternBytes
                     || bytes > MaximumWaitPatternBytesTotal - totalBytes)
                 {
                     throw PatternBudgetError();
@@ -286,7 +286,7 @@ internal sealed partial class ReadTools
         }
 
         static McpException PatternBudgetError() => new(
-            $"Pane-wait patterns may use at most {MaximumWaitPatternBytes} UTF-8 bytes each "
+            $"Pane-wait patterns may use at most {MaximumRegexPatternBytes} UTF-8 bytes each "
             + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
@@ -366,7 +366,6 @@ internal sealed partial class ReadTools
     /// </remarks>
     private const int TailLines = 20;
     private const int MaximumWaitPatterns = 32;
-    private const int MaximumWaitPatternBytes = 4_096;
     private const int MaximumWaitPatternBytesTotal = 16_384;
     private const int MaximumWaitMatchingWorkBytes = 8 * 1024 * 1024;
 }

@@ -177,6 +177,23 @@ public sealed class McpProtocolTests
                 .TryGetProperty("socketName", out _));
         });
 
+        JsonElement searchPattern = tools.Single(tool => tool.Name == "search_panes")
+            .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("pattern");
+        Assert.Contains(
+            "at most 999 UTF-8 bytes",
+            searchPattern.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        JsonElement waitProperties = tools.Single(tool => tool.Name == "wait_for_text")
+            .ProtocolTool.InputSchema.GetProperty("properties");
+        foreach (string name in new[] { "patterns", "stopPatterns" })
+        {
+            string description = waitProperties.GetProperty(name)
+                .GetProperty("description").GetString()!;
+            Assert.Contains("at most 32 entries", description, StringComparison.Ordinal);
+            Assert.Contains("16384 UTF-8 bytes", description, StringComparison.Ordinal);
+            Assert.Contains("at most 999 UTF-8 bytes", description, StringComparison.Ordinal);
+        }
+
         foreach (string spawn in new[]
         {
             "create_session", "create_window", "split_window", "respawn_pane",

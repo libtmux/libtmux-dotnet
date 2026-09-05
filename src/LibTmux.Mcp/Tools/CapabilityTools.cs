@@ -161,7 +161,7 @@ internal sealed class CapabilityTools
         _read.SnapshotPaneAsync(paneId, maxLines, cancellationToken: cancellationToken);
 
     public Task<SearchResult> SearchPanesAsync(
-        [Description("A bounded regular expression.")] string pattern,
+        [Description("A .NET regular expression, at most 999 UTF-8 bytes.")] string pattern,
         [Description("A session id or name. Omit for every session.")] string? session = null,
         [Description("Search scrollback too.")] bool includeHistory = false,
         [Description("Ignore case.")] bool ignoreCase = true,
@@ -191,9 +191,13 @@ internal sealed class CapabilityTools
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description(
             "Regular expressions that end the wait successfully. Only output arriving "
-            + "after this call counts; text already on screen never matches.")]
+            + "after this call counts; text already on screen never matches. Across both "
+            + "pattern lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at "
+            + "most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? patterns = null,
-        [Description("Regular expressions that stop the wait.")]
+        [Description(
+            "Regular expressions that stop the wait. Across both pattern lists: at most "
+            + "32 entries and 16384 UTF-8 bytes; each entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? stopPatterns = null,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
