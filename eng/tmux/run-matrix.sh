@@ -145,6 +145,16 @@ if [[ -n "${evidence_directory}" ]]; then
     results_file="${candidate}/results.ndjson"
 fi
 
+# One directory per invocation, emptied at the start. A kept log outlives the
+# run that made it, so without this a cell that has since started passing goes
+# on showing a failure, and anyone reading the directory cannot tell which run
+# it came from.
+FAILURE_DIRECTORY="${candidate:+${candidate}/failures}"
+FAILURE_DIRECTORY="${FAILURE_DIRECTORY:-${TMPDIR:-/tmp}/libtmux-matrix-failures}"
+readonly FAILURE_DIRECTORY
+rm -rf -- "${FAILURE_DIRECTORY}"
+kept_failures=0
+
 cleanup_candidate() {
     if [[ -n "${candidate}" && -d "${candidate}" ]]; then
         uv run python eng/evidence/assemble_bundle.py \
@@ -190,10 +200,15 @@ keep_failure_output() {
     local output_file="$1"
     local version="$2"
     local framework="$3"
-    local dir="${candidate:+${candidate}/failures}"
-    dir="${dir:-${TMPDIR:-/tmp}/libtmux-matrix-failures}"
-    mkdir -p -- "${dir}"
-    local kept="${dir}/${version}-${framework}.log"
+    mkdir -p -- "${FAILURE_DIRECTORY}"
+
+    # Counted, because a cell can fail twice in one run for different reasons
+    # and mv would leave only the later one — the same loss this function
+    # exists to prevent, one occurrence further along. A clock is not enough:
+    # two failures a second apart collide at second resolution.
+    kept_failures=$((kept_failures + 1))
+    local kept
+    kept="${FAILURE_DIRECTORY}/${kept_failures}-${version}-${framework}.log"
     mv -- "${output_file}" "${kept}"
     printf 'kept failing output at %s\n' "${kept}" >&2
 }
