@@ -808,7 +808,8 @@ internal sealed class CapabilityTools
                 "send_keys",
                 cancellationToken)
             .ConfigureAwait(false);
-        return new PaneInputResult(result.Changed, final.Pane.Id.ToString(), final.TargetPaneIds);
+        return new PaneInputResult(
+            WithCohort(result.Changed, final), final.Pane.Id.ToString(), final.TargetPaneIds);
     }
 
     public async Task<PaneInputBatchResult> SendKeysBatchAsync(
@@ -1025,9 +1026,20 @@ internal sealed class CapabilityTools
         }
 
         Pane source = sources[0];
+        RequireLiveInput(source);
         Pane[] windowPanes = [.. panes.Where(candidate => candidate.Window.Id == source.Window.Id)];
+
+        // tmux gates delivery to a peer on all of window.c:1326-1331, not on
+        // synchronize-panes alone: a dead peer, one with input disabled, and
+        // every hidden pane of a zoomed window are all skipped. Reading only
+        // the option over-reported the cohort, and run_shell_command then
+        // refused sends that tmux would have delivered to one pane.
         Pane[] cohort = SynchronizesInput(source)
-            ? [.. windowPanes.Where(SynchronizesInput)]
+            ?
+            [
+                source,
+                .. windowPanes.Where(peer => peer.Id != source.Id && ReceivesBroadcast(peer)),
+            ]
             : [source];
         foreach (Pane recipient in cohort)
         {
@@ -1039,6 +1051,21 @@ internal sealed class CapabilityTools
             cohort.Select(candidate => candidate.Id.ToString())
                 .Order(StringComparer.Ordinal)
                 .ToArray());
+    }
+
+    // targetPaneIds already carried the fan-out, but the sentence named one
+    // pane, and the sentence is what a model reads.
+    private static string WithCohort(string changed, PaneInputPreflight preflight)
+    {
+        string source = preflight.Pane.Id.ToString();
+        string[] others =
+        [
+            .. preflight.TargetPaneIds.Where(id => !string.Equals(id, source, StringComparison.Ordinal)),
+        ];
+        return others.Length == 0
+            ? changed
+            : $"{changed.TrimEnd('.')}, and tmux delivered the same input to "
+                + $"{string.Join(", ", others)}, which synchronize input with it.";
     }
 
     private static void RequireSingularRunOutcome(PaneInputPreflight preflight)
@@ -1054,6 +1081,38 @@ internal sealed class CapabilityTools
             + "Use a pane whose synchronized input cohort contains only its named source, "
             + "then retry.");
     }
+
+    // A pane whose fd is closed or whose input is off receives nothing, and
+    // tmux says so by doing nothing at all. Reporting that as a send told the
+    // caller their keys landed somewhere they did not.
+    private static void RequireLiveInput(Pane pane)
+    {
+        if (RawFlag(pane, "pane_dead"))
+        {
+            throw new McpException(
+                $"Pane {pane.Id} has exited and receives no input. Restart it with "
+                + "respawn_pane, or name a live pane.");
+        }
+
+        if (RawFlag(pane, "pane_input_off"))
+        {
+            throw new McpException(
+                $"Pane {pane.Id} has input disabled and receives no input. Read its "
+                + "output with capture_pane, or name a pane that accepts input.");
+        }
+    }
+
+    private static bool ReceivesBroadcast(Pane peer) =>
+        SynchronizesInput(peer)
+        && !RawFlag(peer, "pane_dead")
+        && !RawFlag(peer, "pane_input_off")
+        && (!RawFlag(peer, "window_zoomed_flag") || RawFlag(peer, "pane_active"));
+
+    // Absent reads as the permissive value, which is what tmux versions
+    // without the field behave like.
+    private static bool RawFlag(Pane pane, string field) =>
+        pane.RawFormatFields.TryGetValue(field, out string? value)
+        && string.Equals(value, "1", StringComparison.Ordinal);
 
     private static bool SynchronizesInput(Pane pane) =>
         ParsePaneSynchronization(

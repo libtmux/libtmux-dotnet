@@ -13,6 +13,50 @@ namespace LibTmux.IntegrationTests;
 public sealed class TmuxToolsTests
 {
     [UnixFact]
+    public async Task A_synchronized_cohort_holds_only_the_panes_tmux_would_reach()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string first = scope.Pane.Id.ToString();
+        ActionResult second = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        ActionResult third = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
+
+        PaneInputResult all = await mcp.Capabilities.SendKeysAsync(
+            "# all", first, enter: true, cancellationToken: token);
+        Assert.Equal(3, all.TargetPaneIds.Count);
+        Assert.Contains(second.PaneId!, all.TargetPaneIds);
+        Assert.Contains(third.PaneId!, all.TargetPaneIds);
+
+        // A zoomed window hides its other panes, and window.c skips every pane
+        // that is not visible, so the cohort collapses to the zoomed one.
+        Server server = scope.Server;
+        _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
+
+        PaneInputResult zoomed = await mcp.Capabilities.SendKeysAsync(
+            "# zoomed", first, enter: true, cancellationToken: token);
+        Assert.Equal([first], zoomed.TargetPaneIds);
+        Assert.DoesNotContain("synchronize", zoomed.Changed, StringComparison.Ordinal);
+
+        // Which is what makes the run refusal wrong: the outcome is singular.
+        RunResult run = await mcp.Capabilities.RunShellCommandAsync(
+            "echo zoomed-ran", first, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, run.ExitStatus);
+
+        _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
+        PaneInputResult restored = await mcp.Capabilities.SendKeysAsync(
+            "# restored", first, enter: true, cancellationToken: token);
+        Assert.Equal(3, restored.TargetPaneIds.Count);
+        Assert.Contains("synchronize", restored.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
     public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
