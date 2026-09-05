@@ -99,9 +99,12 @@ public static class ServerInstructions
         + "pass back its cursor.";
 
     private const string Budget =
-        "COST: terminal text keeps the NEWEST lines and reports what was dropped. "
-        + "Check content.truncated or output.truncated; true means lines are missing, "
-        + "not absent. Prefer capture_since while watching.";
+        "COST: terminal text keeps the NEWEST lines. Two losses are reported "
+        + "separately and you must check both: truncated with droppedLines counts "
+        + "what a budget trimmed, and linesMissed with anchorLost means scrollback "
+        + "discarded output before it could be read, which cannot be counted — "
+        + "droppedLines reads 0 there because nothing was trimmed, not because "
+        + "nothing was lost. Prefer capture_since while watching.";
 
     private const string Gaps =
         "ABSENT ON PURPOSE: no hook writing (a hook outlives this conversation — put "
