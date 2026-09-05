@@ -295,8 +295,8 @@ internal sealed record TailCursor(
                 Encoding.ASCII.GetBytes(endpoint)))
         {
             throw new McpException(
-                "That tmux_tail_pane cursor belongs to a different pane or tmux server. "
-                + "Call tmux_tail_pane without a cursor to start again here.");
+                "That capture_since cursor belongs to a different pane or tmux server. "
+                + "Call capture_since without a cursor to start again here.");
         }
     }
 
@@ -415,7 +415,7 @@ internal sealed record TailCursor(
     }
 
     private static McpException InvalidCursor() => new(
-        "That tmux_tail_pane cursor is invalid or is not one this server issued. "
+        "That capture_since cursor is invalid or is not one this server issued. "
         + "Omit it to start from what is on screen now.");
 }
 

@@ -101,22 +101,6 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task Clear_history_failure_after_clear_is_unknown()
-    {
-        await using var fixture = new ToolFixture { FailClearHistory = true };
-
-        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
-            fixture.Tools.ClearPaneAsync(
-                paneId: "%1",
-                includeHistory: true,
-                cancellationToken: TestContext.Current.CancellationToken));
-
-        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
-        Assert.Contains("do not retry", failure.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(2, fixture.SuccessfulSends);
-    }
-
-    [Fact]
     public async Task Run_reads_only_output_after_its_bound_baseline()
     {
         await using var fixture = new ToolFixture
@@ -363,23 +347,6 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task Start_job_does_not_dispatch_or_publish_when_its_baseline_never_stabilizes()
-    {
-        await using var fixture = new ToolFixture();
-        fixture.DestabilizeNextStateSamples(6);
-
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
-            fixture.Tools.StartJobAsync(
-                "echo never",
-                paneId: "%1",
-                cancellationToken: TestContext.Current.CancellationToken));
-
-        Assert.Contains("every snapshot attempt", failure.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(fixture.Commands, IsSendKeys);
-        Assert.Equal(0, fixture.TrackedJobs);
-    }
-
-    [Fact]
     public async Task Run_post_dispatch_failure_is_unknown_and_cleans_its_marker()
     {
         await using var fixture = new ToolFixture { FailWait = true };
@@ -452,7 +419,6 @@ public sealed class WriteToolsExecutionSafetyTests
 
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity;
-        private readonly JobStore _jobs = new();
         private readonly object _stateGate = new();
         private int _captureCount;
         private int _runStarted;
@@ -474,8 +440,7 @@ public sealed class WriteToolsExecutionSafetyTests
             Tools = new WriteTools(
                 _accessor,
                 effectivePolicy,
-                _activity,
-                _jobs);
+                _activity);
             Reads = new ReadTools(_accessor, effectivePolicy, _activity);
         }
 
@@ -494,8 +459,6 @@ public sealed class WriteToolsExecutionSafetyTests
         internal IReadOnlyList<IReadOnlyList<string>>? CaptureSequence { get; init; }
 
         internal ConcurrentQueue<string[]> Commands { get; } = new();
-
-        internal bool FailClearHistory { get; init; }
 
         internal int? FailSendAttempt { get; init; }
 
@@ -520,8 +483,6 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal bool StatusUnsetTokenWasCancelled { get; private set; }
 
-        internal int TrackedJobs => _jobs.List().TotalJobs;
-
         internal int? UnknownSendAttempt { get; init; }
 
         internal WriteTools Tools { get; }
@@ -540,7 +501,6 @@ public sealed class WriteToolsExecutionSafetyTests
         public async ValueTask DisposeAsync()
         {
             await _activity.DisposeAsync().ConfigureAwait(false);
-            await _jobs.DisposeAsync().ConfigureAwait(false);
             _accessor.Dispose();
         }
 
@@ -565,15 +525,6 @@ public sealed class WriteToolsExecutionSafetyTests
                         arguments,
                         TmuxDispatchState.NotDispatched);
                 }
-            }
-
-            if (arguments.Contains("clear-history", StringComparer.Ordinal)
-                && FailClearHistory)
-            {
-                throw new TmuxTransportException(
-                    "clear-history was not dispatched",
-                    arguments,
-                    TmuxDispatchState.NotDispatched);
             }
 
             if (arguments.Contains("send-keys", StringComparer.Ordinal))

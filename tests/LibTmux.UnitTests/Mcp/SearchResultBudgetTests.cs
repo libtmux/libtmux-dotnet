@@ -177,6 +177,37 @@ public sealed class SearchResultBudgetTests
     }
 
     [Fact]
+    public void Nonmatching_history_has_a_fixed_matching_work_ceiling()
+    {
+        var budget = new SearchResultBudget("needle", 1, 500, 4_000);
+        Regex regex = ReadTools.CompilePattern("needle", ignoreCase: false);
+        var lines = new RepeatedLines(20_000, new string('x', 1_024));
+
+        McpException error = Assert.Throws<McpException>(() => ReadTools.AddSearchMatches(
+            budget,
+            "%1",
+            "@1",
+            "$1",
+            lines,
+            0,
+            regex,
+            maxMatchesPerPane: 500,
+            TestContext.Current.CancellationToken));
+
+        Assert.Contains("work limit", error.Message, StringComparison.Ordinal);
+        Assert.InRange(lines.Reads, 1, 10_000);
+    }
+
+    [Fact]
+    public void Backtracking_only_constructs_are_refused()
+    {
+        McpException error = Assert.Throws<McpException>(() =>
+            ReadTools.CompilePattern("(x)\\1", ignoreCase: false));
+
+        Assert.Contains("bounded regular expression", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_regex_timeout_is_reported_as_an_actionable_mcp_error()
     {
         var budget = new SearchResultBudget("(a+)+$", 1, 10, 4_000);

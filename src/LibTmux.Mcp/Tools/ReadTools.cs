@@ -1,25 +1,11 @@
 using System.Runtime.Versioning;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <summary>Everything an assistant can ask tmux without changing it.</summary>
-/// <remarks>
-/// <para>
-/// Tier is the class, family is the file. A tool lives in the class matching
-/// what it costs to be wrong about — reading, changing, or removing — so the
-/// server registers a whole tier or none of it, and a tool above the operator's
-/// tier never reaches the model's list to be called by name.
-/// </para>
-/// <para>
-/// Shaped tools answer records rather than prose; <c>tmux_display_message</c>
-/// returns the raw format expansion it was asked for. Each tool is annotated
-/// <c>ReadOnly</c> so a client that gates on the hint does not prompt for a listing.
-/// </para>
-/// </remarks>
-[McpServerToolType]
+/// <remarks>Implementation helpers used by the authoritative capability handlers.</remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class ReadTools
+internal sealed partial class ReadTools
 {
     private readonly TmuxConnectionAccessor _connection;
     private readonly ServerPolicy _policy;

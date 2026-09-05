@@ -41,7 +41,7 @@ internal static class TmuxTargets
         {
             throw new McpException(
                 $"'{trimmed}' is not a pane id. A pane id looks like %1. "
-                + "Call tmux_list_panes to see what exists.");
+                + "Call list_panes to see what exists.");
         }
 
         RaiseIfAbsent(server);
@@ -60,7 +60,7 @@ internal static class TmuxTargets
 
         throw new McpException(
             $"No pane {trimmed} exists. It may have been closed. "
-            + "Call tmux_list_panes to see what does.");
+            + "Call list_panes to see what does.");
     }
 
     /// <summary>Finds the window a caller named, or the active one.</summary>
@@ -84,7 +84,7 @@ internal static class TmuxTargets
         {
             throw new McpException(
                 $"'{trimmed}' is not a window id. A window id looks like @1. "
-                + "Call tmux_list_windows to see what exists.");
+                + "Call list_windows to see what exists.");
         }
 
         RaiseIfAbsent(server);
@@ -99,7 +99,7 @@ internal static class TmuxTargets
 
         throw new McpException(
             $"No window {trimmed} exists. It may have been closed. "
-            + "Call tmux_list_windows to see what does.");
+            + "Call list_windows to see what does.");
     }
 
     /// <summary>Finds the session a caller named by id or by name.</summary>
@@ -122,7 +122,7 @@ internal static class TmuxTargets
         if (sessions.Count == 0)
         {
             throw new McpException(
-                "No tmux sessions are running. Call tmux_create_session to start one.");
+                "No tmux sessions are running. Call create_session to start one.");
         }
 
         if (string.IsNullOrWhiteSpace(session))
@@ -212,7 +212,7 @@ internal static class TmuxTargets
         if (panes.Count == 0)
         {
             throw new McpException(
-                "No tmux panes exist. Call tmux_create_session to start one.");
+                "No tmux panes exist. Call create_session to start one.");
         }
 
         foreach (Pane pane in panes)
@@ -247,8 +247,8 @@ internal static class TmuxTargets
         {
             throw new McpException(
                 "No tmux server is running on that socket, so there is nothing to "
-                + "target. Call tmux_create_session to start one, or "
-                + "tmux_list_servers to find a socket that has one.");
+                + "target. Call create_session to start the pinned server, or correct "
+                + "the startup socket setting.");
         }
     }
 

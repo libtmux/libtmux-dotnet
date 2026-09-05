@@ -12,28 +12,6 @@ namespace LibTmux.IntegrationTests;
 public sealed class TmuxToolsTests
 {
     [UnixFact]
-    public async Task Reading_tools_describe_what_tmux_holds()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
-
-        HierarchyView view = await mcp.Read.HierarchyAsync(cancellationToken: token);
-        Assert.Contains(view.Sessions, session => session.Name == scope.Session.Name);
-        Assert.Contains(view.Panes, pane => pane.PaneId == scope.Pane.Id.ToString());
-
-        // Every entity names its parent, which is what lets a caller filter a
-        // flat list instead of walking a tree.
-        PaneInfo described = view.Panes.Single(pane => pane.PaneId == scope.Pane.Id.ToString());
-        Assert.Equal(scope.Window.Id.ToString(), described.WindowId);
-        Assert.Equal(scope.Session.Id.ToString(), described.SessionId);
-        Assert.False(string.IsNullOrEmpty(described.CurrentCommand));
-    }
-
-    [UnixFact]
     public async Task A_pane_that_never_existed_is_refused_by_name()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -49,7 +27,7 @@ public sealed class TmuxToolsTests
 
         // The message has to say what to do next, or a model retries the same
         // call until it runs out of turn.
-        Assert.Contains("tmux_list_panes", missing.Message, StringComparison.Ordinal);
+        Assert.Contains("list_panes", missing.Message, StringComparison.Ordinal);
 
         McpException malformed = await Assert.ThrowsAsync<McpException>(
             () => mcp.Read.CapturePaneAsync("not-a-pane", cancellationToken: token));
@@ -255,7 +233,6 @@ public sealed class TmuxToolsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create(new ServerPolicy
         {
-            Tier = SafetyTier.Destructive,
             WaitCeiling = TimeSpan.FromSeconds(2),
         });
         TmuxTestFactory factory = new();
@@ -270,66 +247,6 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
 
         Assert.Equal(2, capped.EffectiveTimeoutSeconds);
-    }
-
-    [UnixFact]
-    public async Task A_job_returns_at_once_and_is_collected_later()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
-        string pane = scope.Pane.Id.ToString();
-
-        JobInfo started = await mcp.Write.StartJobAsync(
-            "sleep 2; echo JOB_FINISHED",
-            pane,
-            cancellationToken: token);
-        Assert.Equal(JobState.Running, started.State);
-
-        JobReport report = await mcp.Write.JobAsync(
-            started.JobId,
-            waitSeconds: 20,
-            cancellationToken: token);
-        Assert.Equal(JobState.Exited, report.Job.State);
-        Assert.Equal(0, report.Job.ExitStatus);
-        Assert.Contains(
-            report.Output.Lines,
-            line => line.Contains("JOB_FINISHED", StringComparison.Ordinal));
-    }
-
-    [UnixFact]
-    public async Task Convenience_tools_withdraw_owned_job_waiters_on_shutdown()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            cancellationToken: token);
-        WriteTools tools = McpTools.Writing(scope.Server);
-
-        JobInfo started = await tools.StartJobAsync(
-            "sleep 30",
-            scope.Pane.Id.ToString(),
-            cancellationToken: token);
-        await tools.DisposeAsync().AsTask().WaitAsync(token);
-
-        string channel = $"lt_r_{started.JobId}";
-        await scope.Server.WaitForAsync(
-            new WaitForRequest(channel, TmuxWaitMode.Signal),
-            token);
-        await using TmuxWaitChannel next = scope.Server.OpenWaitChannel(channel);
-
-        Assert.True(await next.WaitAsync(TimeSpan.FromSeconds(1), token));
-    }
-
-    [UnixFact]
-    public async Task A_job_handle_nobody_issued_is_refused_with_advice()
-    {
-        await using McpToolFixture mcp = McpToolFixture.Create();
-        McpException unknown = Assert.Throws<McpException>(() => mcp.Jobs.Get("nope"));
-        Assert.Contains("tmux_list_jobs", unknown.Message, StringComparison.Ordinal);
     }
 
     [UnixFact]
@@ -409,7 +326,7 @@ public sealed class TmuxToolsTests
         ActionResult split = await mcp.Write.SplitPaneAsync(
             scope.Pane.Id.ToString(),
             cancellationToken: token);
-        await mcp.Destructive.KillPaneAsync(split.PaneId!, cancellationToken: token);
+        await mcp.Capabilities.KillPaneAsync(split.PaneId!, cancellationToken: token);
 
         IReadOnlyList<PaneInfo> left = await mcp.Read.ListPanesAsync(
             windowId: scope.Window.Id.ToString(),

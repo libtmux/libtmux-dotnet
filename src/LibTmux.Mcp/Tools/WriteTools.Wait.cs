@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Text;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
@@ -14,7 +13,7 @@ namespace LibTmux.Mcp;
 /// with the ones that only read it.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools
+internal sealed partial class WriteTools
 {
     /// <summary>Waits on a tmux wait-for channel.</summary>
     /// <param name="channel">The channel name.</param>
@@ -24,14 +23,13 @@ public sealed partial class WriteTools
     /// <returns>What happened.</returns>
     /// <remarks>
     /// tmux's own rendezvous, exposed for a shell command a caller composed
-    /// themselves. <c>tmux_run</c> uses this internally, so reach for this only
+    /// themselves. <c>run_shell_command</c> uses this internally, so reach for this only
     /// when the command's shape does not fit that tool.
     /// </remarks>
-    [McpServerTool(Name = "tmux_wait_for_channel", Destructive = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Block until something signals a tmux wait-for channel with "
         + "'tmux wait-for -S <channel>'. Use when you composed a shell command that "
-        + "signals it. For an ordinary command whose completion you want, tmux_run "
+        + "signals it. For an ordinary command whose completion you want, run_shell_command "
         + "already does this and also reports the exit status.")]
     public async Task<ActionResult> WaitForChannelAsync(
         [Description("The channel name to wait on, at most 4096 UTF-8 bytes.")] string channel,

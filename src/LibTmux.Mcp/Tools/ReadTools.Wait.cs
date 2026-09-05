@@ -5,13 +5,12 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <content>Waiting for a pane to say something, without polling it.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class ReadTools
+internal sealed partial class ReadTools
 {
     /// <summary>Waits until a pane prints text a caller is looking for.</summary>
     /// <param name="paneId">The pane, or null for the active one.</param>
@@ -24,19 +23,18 @@ public sealed partial class ReadTools
     /// <param name="cancellationToken">Stops waiting.</param>
     /// <returns>How the wait ended and what the pane showed.</returns>
     /// <remarks>
-    /// For a command the caller wrote, <c>tmux_run</c> is better: it knows
+    /// For a command the caller wrote, <c>run_shell_command</c> is better: it knows
     /// exactly when the command finished and what it exited with, where this
     /// can only recognise text. This is for output nobody here authored — a
     /// server starting up, a build another process launched, a person typing.
     /// </remarks>
-    [McpServerTool(Name = "tmux_wait_for_text", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Wait until a pane prints something matching one of these patterns, then "
         + "return. Use for output you did NOT start — a server's ready line, another "
         + "process's progress, a person typing. For a command you are running "
-        + "yourself, tmux_run is better: it reports the real exit status instead of "
+        + "yourself, run_shell_command is better: it reports the real exit status instead of "
         + "guessing from text. Omit patterns to wait for any new output at all. "
-        + "Never poll tmux_capture_pane in a loop; this call does the waiting.")]
+        + "Never poll capture_pane in a loop; this call does the waiting.")]
     public async Task<WaitResult> WaitForTextAsync(
         [Description("The pane id, such as %1. Omit for the active pane.")]
         string? paneId = null,
@@ -63,6 +61,9 @@ public sealed partial class ReadTools
         ValidateWaitPatterns(patterns, stopPatterns, _policy.MaxBytes);
         Regex[] wanted = Compile(patterns, ignoreCase);
         Regex[] stops = Compile(stopPatterns, ignoreCase);
+        var matchingWork = new SearchWorkBudget(
+            MaximumWaitMatchingWorkBytes,
+            "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane.");
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
@@ -109,7 +110,7 @@ public sealed partial class ReadTools
 
             if (read.Lines.Count > 0)
             {
-                if (Match(stops, read.Lines, cancellationToken) is string stopped)
+                if (Match(stops, read.Lines, matchingWork, cancellationToken) is string stopped)
                 {
                     return await FinishAsync(
                             pane,
@@ -135,7 +136,7 @@ public sealed partial class ReadTools
                         .ConfigureAwait(false);
                 }
 
-                if (Match(wanted, read.Lines, cancellationToken) is string hit)
+                if (Match(wanted, read.Lines, matchingWork, cancellationToken) is string hit)
                 {
                     return await FinishAsync(
                             pane,
@@ -290,13 +291,26 @@ public sealed partial class ReadTools
     internal static string? Match(
         Regex[] patterns,
         IReadOnlyList<string> lines,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => Match(
+            patterns,
+            lines,
+            new SearchWorkBudget(
+                MaximumWaitMatchingWorkBytes,
+                "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane."),
+            cancellationToken);
+
+    private static string? Match(
+        Regex[] patterns,
+        IReadOnlyList<string> lines,
+        SearchWorkBudget matchingWork,
+        CancellationToken cancellationToken)
     {
         foreach (Regex pattern in patterns)
         {
             foreach (string line in lines)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                matchingWork.Consume(Encoding.UTF8.GetByteCount(line));
                 try
                 {
                     if (pattern.IsMatch(line))
@@ -351,4 +365,5 @@ public sealed partial class ReadTools
     private const int MaximumWaitPatterns = 32;
     private const int MaximumWaitPatternBytes = 4_096;
     private const int MaximumWaitPatternBytesTotal = 16_384;
+    private const int MaximumWaitMatchingWorkBytes = 8 * 1024 * 1024;
 }

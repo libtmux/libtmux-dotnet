@@ -107,12 +107,10 @@ public sealed class WaitChannelAttributionTests
         Server server = endpoint.Server;
         using var accessor = new TmuxConnectionAccessor(server);
         await using var activity = new PaneActivityHub();
-        await using var jobs = new JobStore();
         var tools = new WriteTools(
             accessor,
             new ServerPolicy(),
-            activity,
-            jobs);
+            activity);
 
         Task<ActionResult> timingOut = tools.WaitForChannelAsync(
             "attribution-race",

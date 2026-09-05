@@ -5,13 +5,12 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <content>Running a command in a pane and knowing when it finished.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools
+internal sealed partial class WriteTools
 {
     private static readonly TimeSpan StatusCleanupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StatusCleanupMargin = TimeSpan.FromMinutes(1);
@@ -33,7 +32,6 @@ public sealed partial class WriteTools
     /// <c>$?</c>, so "it finished" and "it exited 1" are facts rather than
     /// readings of a prompt this tool would have to recognise.
     /// </remarks>
-    [McpServerTool(Name = "tmux_run", Destructive = true, OpenWorld = true, UseStructuredContent = true)]
     [Description(
         "Run a shell command in a pane, wait for it to finish, and report its real "
         + "exit status and output. This is the tool for 'run X and tell me if it "
@@ -41,8 +39,8 @@ public sealed partial class WriteTools
         + "deterministically and costs one call. The command runs in a subshell, so "
         + "cd and export do not persist. Output starts at an authenticated position "
         + "captured before dispatch; check linesMissed and anchorLost. If it may "
-        + "outlast the timeout, use tmux_start_job instead and collect it later. A "
-        + "timed-out command MAY STILL BE RUNNING; inspect it and do not retry it.")]
+        + "outlast the timeout, run it through a client-managed MCP task. A timed-out "
+        + "command MAY STILL BE RUNNING; inspect it and do not retry it.")]
     public async Task<RunResult> RunAsync(
         [Description(
             "The shell command to run, at most LIBTMUX_MCP_MAX_BYTES UTF-8 bytes. "

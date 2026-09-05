@@ -68,9 +68,8 @@ public sealed class WaitInputBudgetTests
         using var accessor = new TmuxConnectionAccessor(server);
         await using var activity = new PaneActivityHub();
         var policy = new ServerPolicy { MaxBytes = 4_000 };
-        await using var jobs = new JobStore();
         var tools = new ReadTools(accessor, policy, activity);
-        var writes = new WriteTools(accessor, policy, activity, jobs);
+        var writes = new WriteTools(accessor, policy, activity);
 
         _ = await Assert.ThrowsAsync<McpException>(() => tools.WaitForTextAsync(
             patterns: [new string('x', 4_097)],
@@ -93,5 +92,18 @@ public sealed class WaitInputBudgetTests
             patterns,
             Enumerable.Repeat("not yet", 32_768).ToArray(),
             cancellation.Token));
+    }
+
+    [Fact]
+    public void A_wait_refuses_more_than_eight_mebibytes_of_matching_work()
+    {
+        Regex[] patterns = [ReadTools.CompilePattern("not-present", ignoreCase: false)];
+
+        McpException error = Assert.Throws<McpException>(() => ReadTools.Match(
+            patterns,
+            [new string('x', 8 * 1024 * 1024 + 1)],
+            TestContext.Current.CancellationToken));
+
+        Assert.Contains("matching work limit", error.Message, StringComparison.Ordinal);
     }
 }

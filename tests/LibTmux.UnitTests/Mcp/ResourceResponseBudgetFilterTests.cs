@@ -24,7 +24,7 @@ public sealed class ResourceResponseBudgetFilterTests
             [
                 new TextResourceContents
                 {
-                    Uri = "tmux://hierarchy",
+                    Uri = "budget://oversized",
                     MimeType = "application/json",
                     Text = new string('x', 8_000),
                 },
@@ -50,7 +50,7 @@ public sealed class ResourceResponseBudgetFilterTests
             [
                 new TextResourceContents
                 {
-                    Uri = "tmux://self",
+                    Uri = "budget://fits",
                     MimeType = "application/json",
                     Text = "null",
                 },

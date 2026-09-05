@@ -110,7 +110,7 @@ public sealed class PasteTextCleanupTests
         Assert.Contains("cleanup failed", result.Changed, StringComparison.Ordinal);
         Assert.Contains(fixture.CreatedBuffer!, result.Changed, StringComparison.Ordinal);
         Assert.Contains("Do not retry", result.Changed, StringComparison.Ordinal);
-        Assert.Contains("tmux_list_buffers", result.Changed, StringComparison.Ordinal);
+        Assert.Contains("Inspect and remove it manually", result.Changed, StringComparison.Ordinal);
         Assert.Contains(
             $"tmux delete-buffer -b {fixture.CreatedBuffer}",
             result.Changed,
@@ -133,7 +133,6 @@ public sealed class PasteTextCleanupTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity = new();
-        private readonly JobStore _jobs = new();
 
         internal PasteFixture(
             bool failSetBuffer = false,
@@ -162,7 +161,7 @@ public sealed class PasteTextCleanupTests
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
-            Tools = new WriteTools(_accessor, new ServerPolicy(), _activity, _jobs);
+            Tools = new WriteTools(_accessor, new ServerPolicy(), _activity);
         }
 
         internal ConcurrentDictionary<string, string> Buffers { get; } = new(
@@ -186,7 +185,6 @@ public sealed class PasteTextCleanupTests
         public async ValueTask DisposeAsync()
         {
             _releasePrimary.TrySetResult();
-            await _jobs.DisposeAsync().ConfigureAwait(false);
             await _activity.DisposeAsync().ConfigureAwait(false);
             _accessor.Dispose();
         }

@@ -22,10 +22,9 @@
     <!-- Not trimmed, and the reason is more specific than "it reflects".
          Publishing ahead of time turns off reflective JSON for the whole
          assembly, and the SDK builds each tool's output schema by reflecting
-         over its return type — so the process aborts at startup with
-         "JsonTypeInfo metadata for type HierarchyView was not provided",
-         before any tool is called. Measured: the AOT publish itself is clean,
-         zero trim warnings.
+         over its return type, so the process aborts at startup before any tool
+         is called. Measured: the AOT publish itself is clean, zero trim
+         warnings.
 
          Reaching it would mean a source-generated context naming every result
          and parameter type, passed through the WithTools overload that takes
@@ -39,6 +38,9 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <Content Include="minimal.conf"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

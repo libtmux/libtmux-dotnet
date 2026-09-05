@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Runtime.Versioning;
 using System.Text.Json;
@@ -9,461 +10,555 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Extensions.Tasks;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace LibTmux.IntegrationTests;
 
-/// <summary>What a client actually receives over the wire.</summary>
-/// <remarks>
-/// The tool tests check what the tools do to tmux. These check the contract a
-/// client reads before calling anything: the names, the annotations it gates
-/// on, the schemas it validates against, and the guidance that decides whether
-/// it routes a question here at all. None of that is visible from calling a
-/// method directly.
-/// </remarks>
 [Collection("tmux control clients")]
 [UnsupportedOSPlatform("windows")]
 public sealed class McpProtocolTests
 {
     [UnixFact]
-    public async Task Reading_tools_are_annotated_so_a_client_does_not_prompt_for_a_listing()
+    public async Task The_wire_surface_is_the_pinned_cross_port_inventory()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        string[] expected =
+        [
+            "list_sessions", "list_windows", "list_panes", "get_server_info",
+            "get_session_info", "get_window_info", "get_pane_info", "capture_pane",
+            "capture_since", "snapshot_pane", "search_panes", "find_pane_by_position",
+            "wait_for_text", "get_tmux_variables", "show_option", "show_environment",
+            "show_hooks", "call_read_tools_batch", "rename_session", "rename_window",
+            "select_window", "select_pane", "select_layout", "resize_window",
+            "resize_pane", "move_window", "swap_pane", "set_pane_title",
+            "enter_copy_mode", "exit_copy_mode", "wait_for_channel", "signal_channel",
+            "set_mouse_enabled", "set_history_limit", "create_session", "create_window",
+            "split_window", "respawn_pane", "run_shell_command", "send_keys",
+            "send_keys_batch", "paste_text", "set_synchronize_panes",
+            "clear_pane_scrollback", "kill_pane", "kill_window", "kill_session",
+        ];
+
         await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
         IList<McpClientTool> tools = await harness.Client.ListToolsAsync(cancellationToken: token);
-        McpClientTool listing = tools.Single(tool => tool.Name == "tmux_list_panes");
-
-        Assert.True(listing.ProtocolTool.Annotations?.ReadOnlyHint);
-
-        // The MCP spec defines destructive=false as additive-only. Every
-        // mutating tmux tool can replace state or run caller-supplied input.
-        Assert.All(
-            tools.Where(tool => tool.ProtocolTool.Annotations?.ReadOnlyHint != true),
-            tool => Assert.True(
-                tool.ProtocolTool.Annotations?.DestructiveHint,
-                $"{tool.Name} can change non-additive state but is not marked destructive"));
-
-        McpClientTool split = tools.Single(tool => tool.Name == "tmux_split_pane");
-        Assert.True(split.ProtocolTool.Annotations?.DestructiveHint);
-        Assert.True(split.ProtocolTool.Annotations?.OpenWorldHint);
-        Assert.True(tools.Single(tool => tool.Name == "tmux_create_session")
-            .ProtocolTool.Annotations?.OpenWorldHint);
-        Assert.True(tools.Single(tool => tool.Name == "tmux_create_window")
-            .ProtocolTool.Annotations?.OpenWorldHint);
-    }
-
-    [UnixFact]
-    public async Task Every_tool_says_what_it_answers()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        IList<McpClientTool> tools = await harness.Client.ListToolsAsync(cancellationToken: token);
-
-        Assert.NotEmpty(tools);
-        foreach (McpClientTool tool in tools)
+        Assert.Equal(
+            expected.Order(StringComparer.Ordinal),
+            tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        Assert.All(tools, tool =>
         {
-            Assert.False(
-                string.IsNullOrWhiteSpace(tool.ProtocolTool.Description),
-                $"{tool.Name} has no description");
+            ToolAnnotations annotations = Assert.IsType<ToolAnnotations>(
+                tool.ProtocolTool.Annotations);
+            Assert.False(annotations.ReadOnlyHint);
+            Assert.True(annotations.DestructiveHint);
+            Assert.False(annotations.IdempotentHint);
+            Assert.True(annotations.OpenWorldHint);
+            Assert.False(string.IsNullOrWhiteSpace(tool.ProtocolTool.Title));
+            Assert.False(string.IsNullOrWhiteSpace(tool.ProtocolTool.Description));
+            Assert.False(tool.ProtocolTool.InputSchema.GetProperty("properties")
+                .TryGetProperty("socketName", out _));
+        });
 
-            // A schema is what lets a client destructure a result instead of
-            // re-parsing prose out of it. tmux_display_message is exempt: it
-            // answers whatever tmux expanded, which has no shape.
-            if (tool.Name != "tmux_display_message")
-            {
-                Assert.True(
-                    tool.ProtocolTool.OutputSchema.HasValue,
-                    $"{tool.Name} advertises no output schema");
-            }
+        foreach (string spawn in new[]
+        {
+            "create_session", "create_window", "split_window", "respawn_pane",
+        })
+        {
+            JsonElement schema = tools.Single(tool => tool.Name == spawn)
+                .ProtocolTool.InputSchema;
+            HashSet<string> properties = schema.GetProperty("properties")
+                .EnumerateObject()
+                .Select(property => property.Name)
+                .ToHashSet(StringComparer.Ordinal);
+            Assert.DoesNotContain("command", properties);
+            Assert.DoesNotContain("environment", properties);
+            Assert.DoesNotContain("socketName", properties);
         }
-    }
-
-    [UnixFact]
-    public async Task A_result_arrives_as_structured_content()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        // Deliberately against a socket with no tmux server behind it: that is
-        // the first thing an assistant asks, and it must be an answer rather
-        // than an error.
-        CallToolResult listed = await harness.Client.CallToolAsync(
-            "tmux_list_sessions",
-            cancellationToken: token);
-
-        Assert.NotEqual(true, listed.IsError);
-        Assert.NotNull(listed.StructuredContent);
-    }
-
-    [UnixFact]
-    public async Task Nullable_session_fields_still_satisfy_the_advertised_output_schema()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "schema" },
-            cancellationToken: token);
-
-        CallToolResult listed = await harness.Client.CallToolAsync(
-            "tmux_list_sessions",
-            cancellationToken: token);
-        CallToolResult hierarchy = await harness.Client.CallToolAsync(
-            "tmux_hierarchy",
-            cancellationToken: token);
-
-        Assert.NotEqual(true, listed.IsError);
-        Assert.NotEqual(true, hierarchy.IsError);
-
-        JsonElement listedSession = listed.StructuredContent!.Value[0];
-        JsonElement hierarchySession = hierarchy.StructuredContent!.Value
-            .GetProperty("sessions")[0];
-        Assert.True(listedSession.TryGetProperty("width", out _));
-        Assert.True(listedSession.TryGetProperty("height", out _));
-        Assert.True(hierarchySession.TryGetProperty("width", out _));
-        Assert.True(hierarchySession.TryGetProperty("height", out _));
-    }
-
-    [UnixFact]
-    public async Task The_destructive_tier_is_absent_unless_the_operator_asks_for_it()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(
-            token,
-            SafetyTier.Mutating);
-
-        IList<McpClientTool> tools = await harness.Client.ListToolsAsync(cancellationToken: token);
-        IEnumerable<string> names = tools.Select(tool => tool.Name);
-
-        // Not registered rather than refused: a tool that is not in the list
-        // cannot be called by name, guessed at, or argued for.
-        Assert.DoesNotContain("tmux_kill_session", names);
-        Assert.DoesNotContain("tmux_kill_server", names);
-        Assert.Contains("tmux_split_pane", names);
-        Assert.Contains("tmux_list_panes", names);
-    }
-
-    [UnixFact]
-    public async Task The_readonly_tier_offers_nothing_that_changes_tmux()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(
-            token,
-            SafetyTier.ReadOnly);
-
-        IList<McpClientTool> tools = await harness.Client.ListToolsAsync(cancellationToken: token);
-
-        Assert.All(
-            tools,
-            tool => Assert.True(
-                tool.ProtocolTool.Annotations?.ReadOnlyHint == true,
-                $"{tool.Name} is offered at the readonly tier but is not annotated read-only"));
-    }
-
-    [UnixFact]
-    public async Task The_hierarchy_is_readable_as_a_resource()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "probe" },
-            cancellationToken: token);
 
         IList<McpClientResource> resources = await harness.Client.ListResourcesAsync(
             cancellationToken: token);
-        Assert.Contains(resources, resource => resource.Uri == "tmux://hierarchy");
-
+        McpClientResource capability = Assert.Single(resources);
+        Assert.Equal("tmux://capabilities", capability.Uri);
         ReadResourceResult read = await harness.Client.ReadResourceAsync(
-            "tmux://hierarchy",
+            capability.Uri,
             cancellationToken: token);
-        Assert.NotEmpty(read.Contents);
-    }
-
-    [UnixFact]
-    public async Task The_recipes_are_offered_as_prompts()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        IList<McpClientPrompt> prompts = await harness.Client.ListPromptsAsync(
-            cancellationToken: token);
-
-        Assert.Contains(prompts, prompt => prompt.Name == "tmux_run_and_report");
-        Assert.Contains(prompts, prompt => prompt.Name == "tmux_diagnose_pane");
-    }
-
-    [UnixFact]
-    public async Task A_failure_arrives_as_an_error_result_rather_than_a_dropped_connection()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        // A session has to exist first, or the failure under test would be
-        // "no server running" rather than "no such pane".
-        await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "probe" },
-            cancellationToken: token);
-
-        CallToolResult failed = await harness.Client.CallToolAsync(
-            "tmux_capture_pane",
-            new Dictionary<string, object?> { ["paneId"] = "%999" },
-            cancellationToken: token);
-
-        Assert.True(failed.IsError);
-        string text = Assert.IsType<TextContentBlock>(failed.Content[0]).Text;
-
-        // The message has to name what to do next. "An error occurred" costs a
-        // model a turn and teaches it nothing.
-        Assert.Contains("%999", text, StringComparison.Ordinal);
-        Assert.Contains("tmux_list_panes", text, StringComparison.Ordinal);
-    }
-
-    [UnixFact]
-    public async Task A_subscribed_client_is_told_when_the_hierarchy_changes()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "watched" },
-            cancellationToken: token);
-
-        TaskCompletionSource<JsonNode?> acknowledged = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<JsonNode?> updated = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        await using IAsyncDisposable ack = harness.Client.RegisterNotificationHandler(
-            NotificationMethods.SubscriptionsAcknowledgedNotification,
-            (notification, _) =>
-            {
-                acknowledged.TrySetResult(notification.Params);
-                return default;
-            });
-        await using IAsyncDisposable changed = harness.Client.RegisterNotificationHandler(
-            NotificationMethods.ResourceUpdatedNotification,
-            (notification, _) =>
-            {
-                updated.TrySetResult(notification.Params);
-                return default;
-            });
-
-        // The listen request IS the stream: over stdio it stays open for as
-        // long as the subscription lives, so it is started rather than
-        // awaited, and cancelled to end the subscription.
-        using CancellationTokenSource listening = CancellationTokenSource
-            .CreateLinkedTokenSource(token);
-        JsonRpcRequest listenRequest = new()
-        {
-            Method = RequestMethods.SubscriptionsListen,
-            Params = JsonSerializer.SerializeToNode(
-                new SubscriptionsListenRequestParams
-                {
-                    Notifications = new SubscriptionsListenNotifications
-                    {
-                        ResourceSubscriptions = ["tmux://hierarchy"],
-                    },
-                },
-                McpJsonUtilities.DefaultOptions),
-        };
-        Task stream = harness.Client.SendRequestAsync(listenRequest, listening.Token);
-
-        Task acknowledgementDeadline = Task.Delay(TimeSpan.FromSeconds(15), token);
-        Task acknowledgementOutcome = await Task.WhenAny(
-            acknowledged.Task,
-            stream,
-            acknowledgementDeadline);
-        if (acknowledgementOutcome == stream)
-        {
-            await stream;
-        }
-
-        Assert.Same(acknowledged.Task, acknowledgementOutcome);
-
-        // A window appearing is a structural change, which is what tmux
-        // reports to a control client without being asked.
-        await harness.Client.CallToolAsync(
-            "tmux_create_window",
-            new Dictionary<string, object?> { ["name"] = "second" },
-            cancellationToken: token);
-
-        Assert.True(
-            await Task.WhenAny(updated.Task, Task.Delay(TimeSpan.FromSeconds(20), token))
-                == updated.Task,
-            "no resources/updated notification arrived within 20s");
-
-        JsonNode? parameters = await updated.Task;
+        TextResourceContents content = Assert.IsType<TextResourceContents>(
+            Assert.Single(read.Contents));
+        using JsonDocument document = JsonDocument.Parse(content.Text);
+        Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.True(document.RootElement.GetProperty("frozen").GetBoolean());
+        Assert.Equal(47, document.RootElement.GetProperty("toolCount").GetInt32());
+        Assert.Equal(0, document.RootElement.GetProperty("hostCommandTools").GetInt32());
         Assert.Equal(
-            "tmux://hierarchy",
-            Assert.IsType<JsonObject>(parameters)["uri"]?.GetValue<string>());
-
-        // Tagged with the stream it belongs to, which is what lets a client
-        // sharing one channel tell two subscriptions apart.
-        JsonNode subscriptionId = Assert.IsType<JsonObject>(parameters)["_meta"]?
-            ["io.modelcontextprotocol/subscriptionId"]
-            ?? throw new Xunit.Sdk.XunitException("the event has no subscription id");
-        _ = subscriptionId.GetValue<long>();
-
-        await listening.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => stream);
-    }
-
-    [UnixFact]
-    public async Task A_subscription_acknowledgement_preserves_a_string_request_id()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-        TaskCompletionSource<JsonNode?> acknowledged = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        await using IAsyncDisposable ack = harness.Client.RegisterNotificationHandler(
-            NotificationMethods.SubscriptionsAcknowledgedNotification,
-            (notification, _) =>
-            {
-                acknowledged.TrySetResult(notification.Params);
-                return default;
-            });
-        using CancellationTokenSource listening = CancellationTokenSource
-            .CreateLinkedTokenSource(token);
-        const string expectedId = "listen-string-id";
-        Task stream = harness.Client.SendRequestAsync(
-            new JsonRpcRequest
-            {
-                Id = new RequestId(expectedId),
-                Method = RequestMethods.SubscriptionsListen,
-                Params = JsonSerializer.SerializeToNode(
-                    new SubscriptionsListenRequestParams
-                    {
-                        Notifications = new SubscriptionsListenNotifications(),
-                    },
-                    McpJsonUtilities.DefaultOptions),
-            },
-            listening.Token);
-
-        Task acknowledgementDeadline = Task.Delay(TimeSpan.FromSeconds(15), token);
-        Task acknowledgementOutcome = await Task.WhenAny(
-            acknowledged.Task,
-            stream,
-            acknowledgementDeadline);
-        if (acknowledgementOutcome == stream)
+            "interface-shaping-not-authorization",
+            document.RootElement.GetProperty("toolFilteringBoundary").GetString());
+        Assert.Equal("tmux-user", document.RootElement.GetProperty("executionAuthority").GetString());
+        Assert.Equal("none", document.RootElement.GetProperty("operatingSystemBoundary").GetString());
+        Assert.Equal(
+            expected.Order(StringComparer.Ordinal),
+            document.RootElement.GetProperty("effectiveTools").EnumerateArray()
+                .Select(name => name.GetString()).Order(StringComparer.Ordinal));
+        JsonElement socket = document.RootElement.GetProperty("socket");
+        Assert.Equal("default-dedicated", socket.GetProperty("selectionProvenance").GetString());
+        Assert.Equal("created", socket.GetProperty("serverState").GetString());
+        Assert.Equal("minimal", socket.GetProperty("configurationProvenance").GetString());
+        Assert.Equal("tmux-objects-only", socket.GetProperty("namespaceBoundary").GetString());
+        Assert.True(socket.TryGetProperty("selector", out _));
+        JsonElement rows = document.RootElement.GetProperty("tools");
+        Assert.Equal(
+            expected.Order(StringComparer.Ordinal),
+            rows.EnumerateArray()
+                .Select(row => row.GetProperty("name").GetString())
+                .Order(StringComparer.Ordinal));
+        foreach (McpClientTool tool in tools)
         {
-            await stream;
+            JsonObject metadata = Assert.IsType<JsonObject>(tool.ProtocolTool.Meta);
+            KeyValuePair<string, JsonNode?> capabilityMetadata = Assert.Single(metadata);
+            Assert.Equal("com.git-pull.libtmux-mcp/capability", capabilityMetadata.Key);
+            JsonElement disclosed = rows.EnumerateArray()
+                .Single(row => row.GetProperty("name").GetString() == tool.Name);
+            Assert.True(JsonNode.DeepEquals(
+                JsonNode.Parse(disclosed.GetRawText()),
+                capabilityMetadata.Value));
+            Assert.True(JsonElement.DeepEquals(
+                tool.ProtocolTool.InputSchema,
+                disclosed.GetProperty("inputSchema")));
+            Assert.True(JsonElement.DeepEquals(
+                tool.ProtocolTool.OutputSchema!.Value,
+                disclosed.GetProperty("outputSchema")));
         }
 
-        Assert.Same(acknowledged.Task, acknowledgementOutcome);
-        JsonNode? parameters = await acknowledged.Task;
-        JsonNode subscriptionId = Assert.IsType<JsonObject>(parameters)["_meta"]?
-            ["io.modelcontextprotocol/subscriptionId"]
-            ?? throw new Xunit.Sdk.XunitException("the acknowledgement has no subscription id");
-        Assert.Equal(expectedId, subscriptionId.GetValue<string>());
+        JsonElement batch = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "call_read_tools_batch");
+        JsonElement showOption = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "show_option");
+        JsonElement synchronize = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "set_synchronize_panes");
+        JsonElement sendKeys = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "send_keys");
+        JsonElement renameSession = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "rename_session");
+        Assert.Equal(
+            ["change", "observe"],
+            sendKeys.GetProperty("tmuxEffects").EnumerateArray()
+                .Select(value => value.GetString()).ToArray());
+        Assert.Equal(
+            "pane-input",
+            Assert.Single(sendKeys.GetProperty("inputSinks").GetProperty("keys")
+                .EnumerateArray()).GetString());
+        Assert.True(sendKeys.TryGetProperty("inputSchema", out _));
+        Assert.True(sendKeys.TryGetProperty("outputSchema", out _));
+        string?[] literalNameSinks = renameSession.GetProperty("inputSinks")
+            .GetProperty("name").EnumerateArray().Select(value => value.GetString())
+            .Order(StringComparer.Ordinal).ToArray();
+        Assert.Collection(
+            literalNameSinks,
+            value => Assert.Equal("tmux-format", value),
+            value => Assert.Equal("tmux-state", value));
+        Assert.Equal(
+            "double-hash-once",
+            renameSession.GetProperty("inputLiteralization").GetProperty("name").GetString());
+        Assert.False(renameSession.TryGetProperty("tmuxFormatControls", out _));
+        AssertCapabilitySets(rows, "capture_since", ["change", "observe"],
+            ["terminal-content", "tmux-metadata"]);
+        AssertCapabilitySets(rows, "run_shell_command", ["change", "observe"],
+            ["terminal-content", "tmux-metadata"]);
+        AssertCapabilitySets(rows, "show_environment", ["observe"],
+            ["process-environment"]);
+        AssertCapabilitySets(rows, "show_hooks", ["observe"], ["configured-command"]);
+        AssertCapabilitySets(rows, "call_read_tools_batch", ["change", "observe"],
+            ["configured-command", "process-environment", "terminal-content", "tmux-metadata"]);
+        Assert.True(synchronize.GetProperty("amplifiesFutureInput").GetBoolean());
+        Assert.Contains(
+            "subsequent input is copied to every pane",
+            synchronize.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
+        Assert.All(
+            rows.EnumerateArray().Where(row => row.GetProperty("name").GetString()
+                != "set_synchronize_panes"),
+            row => Assert.False(row.GetProperty("amplifiesFutureInput").GetBoolean()));
+        string[] nested = batch.GetProperty("nestedAuthority")
+            .EnumerateArray()
+            .Select(name => name.GetString()!)
+            .ToArray();
+        string[] expectedNested =
+        [
+            "capture_pane", "capture_since", "find_pane_by_position",
+            "get_pane_info", "get_server_info", "get_session_info",
+            "get_tmux_variables", "get_window_info", "list_panes", "list_sessions",
+            "list_windows", "search_panes", "show_environment", "show_hooks",
+            "show_option", "snapshot_pane",
+        ];
+        Assert.Equal(expectedNested, nested);
+        Assert.Contains(
+            "configured-command",
+            showOption.GetProperty("outputClasses").EnumerateArray()
+                .Select(value => value.GetString()));
+        Assert.StartsWith(
+            "Read configured tmux commands;",
+            showOption.GetProperty("description").GetString(),
+            StringComparison.Ordinal);
 
-        await listening.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => stream);
-    }
+        JsonElement batchSchema = tools.Single(tool => tool.Name == "call_read_tools_batch")
+            .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("operations");
+        Assert.Equal(1, batchSchema.GetProperty("minItems").GetInt32());
+        Assert.Equal(16, batchSchema.GetProperty("maxItems").GetInt32());
+        JsonElement alternatives = batchSchema.GetProperty("items").GetProperty("oneOf");
+        Assert.Equal(expectedNested.Length, alternatives.GetArrayLength());
+        Assert.Equal(
+            expectedNested,
+            alternatives.EnumerateArray()
+                .Select(item => item.GetProperty("properties").GetProperty("tool")
+                    .GetProperty("const").GetString()));
+        Assert.All(alternatives.EnumerateArray(), item => Assert.False(
+            item.GetProperty("properties").GetProperty("arguments")
+                .GetProperty("additionalProperties").GetBoolean()));
+        string?[] onErrorValues = tools.Single(tool => tool.Name == "call_read_tools_batch")
+            .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("onError")
+            .GetProperty("enum").EnumerateArray().Select(value => value.GetString()).ToArray();
+        Assert.Equal(2, onErrorValues.Length);
+        Assert.Equal("continue", onErrorValues[0]);
+        Assert.Equal("stop", onErrorValues[1]);
+        JsonElement sendBatchSchema = tools.Single(tool => tool.Name == "send_keys_batch")
+            .ProtocolTool.InputSchema.GetProperty("properties");
+        Assert.True(sendBatchSchema.TryGetProperty("operations", out JsonElement sendOperations));
+        Assert.False(sendBatchSchema.TryGetProperty("steps", out _));
+        Assert.Equal(1, sendOperations.GetProperty("minItems").GetInt32());
+        Assert.Equal(64, sendOperations.GetProperty("maxItems").GetInt32());
+        Assert.Equal(
+            ["continue", "stop"],
+            sendBatchSchema.GetProperty("onError").GetProperty("enum")
+                .EnumerateArray().Select(value => value.GetString()).ToArray());
 
-    [UnixFact]
-    public async Task A_waiting_tool_can_be_started_as_a_task_and_collected_later()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-
-        CallToolResult made = await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "tasked" },
-            cancellationToken: token);
-        string pane = made.StructuredContent!.Value.GetProperty("paneId").GetString()!;
-
-        CallToolResult started = await harness.Client.CallToolAsync(
-            "tmux_start_job",
+        CallToolResult batched = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
             new Dictionary<string, object?>
             {
-                ["command"] = "echo TASKED && exit 7",
-                ["paneId"] = pane,
-            },
-            cancellationToken: token);
-        string jobId = started.StructuredContent!.Value
-            .GetProperty("jobId")
-            .GetString()!;
-
-        CallToolResult finished = await harness.Client.CallToolWithPollingAsync(
-            new CallToolRequestParams
-            {
-                Name = "tmux_job",
-                Arguments = new Dictionary<string, JsonElement>
+                ["operations"] = new object[]
                 {
-                    ["jobId"] = JsonSerializer.SerializeToElement(jobId),
-                    ["waitSeconds"] = JsonSerializer.SerializeToElement(20),
+                    new { tool = "list_sessions", arguments = new { } },
+                    new { tool = "get_server_info", arguments = new { } },
                 },
             },
             cancellationToken: token);
+        Assert.False(
+            batched.IsError ?? false,
+            JsonSerializer.Serialize(batched, ToolJson.Options));
+        JsonElement batchResult = Structured(batched);
+        Assert.Equal(2, batchResult.GetProperty("succeeded").GetInt32());
+        Assert.Equal(0, batchResult.GetProperty("failed").GetInt32());
+        Assert.Equal("stop", batchResult.GetProperty("onError").GetString());
+        JsonElement firstNested = batchResult.GetProperty("results")[0].GetProperty("result");
+        Assert.False(firstNested.GetProperty("isError").GetBoolean());
+        Assert.True(firstNested.TryGetProperty("content", out _));
+        Assert.True(firstNested.TryGetProperty("structuredContent", out _));
 
-        Assert.NotEqual(true, finished.IsError);
+        CallToolResult continued = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            new Dictionary<string, object?>
+            {
+                ["operations"] = new object[]
+                {
+                    new
+                    {
+                        tool = "get_session_info",
+                        arguments = new { session = "missing-batch-session" },
+                    },
+                    new { tool = "list_sessions", arguments = new { } },
+                },
+                ["onError"] = "continue",
+            },
+            cancellationToken: token);
+        Assert.False(
+            continued.IsError ?? false,
+            JsonSerializer.Serialize(continued, ToolJson.Options));
+        JsonElement continuedResult = Structured(continued);
+        Assert.Equal(1, continuedResult.GetProperty("succeeded").GetInt32());
+        Assert.Equal(1, continuedResult.GetProperty("failed").GetInt32());
+        Assert.Equal(2, continuedResult.GetProperty("results").GetArrayLength());
+        Assert.False(continuedResult.GetProperty("results")[0]
+            .GetProperty("success").GetBoolean());
+        Assert.True(continuedResult.GetProperty("results")[1]
+            .GetProperty("success").GetBoolean());
+
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        string synchronizedSession = $"sync-#{{pid}}-{suffix}";
+        CallToolResult created = await harness.Client.CallToolAsync(
+            "create_session",
+            new Dictionary<string, object?> { ["name"] = synchronizedSession },
+            cancellationToken: token);
+        JsonElement createdResult = Structured(created);
+        string sessionId = createdResult.GetProperty("sessionId").GetString()!;
+        string paneId = createdResult.GetProperty("paneId").GetString()!;
+        string windowId = createdResult.GetProperty("windowId").GetString()!;
+        CallToolResult initialSession = await harness.Client.CallToolAsync(
+            "get_session_info",
+            new Dictionary<string, object?> { ["session"] = sessionId },
+            cancellationToken: token);
         Assert.Equal(
-            7,
-            finished.StructuredContent!.Value
-                .GetProperty("job")
-                .GetProperty("exitStatus")
-                .GetInt32());
-    }
+            synchronizedSession,
+            Structured(initialSession).GetProperty("name").GetString());
 
-    [UnixFact]
-    public async Task Run_stays_synchronous_when_a_client_requests_a_task()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
-        CallToolResult made = await harness.Client.CallToolAsync(
-            "tmux_create_session",
-            new Dictionary<string, object?> { ["name"] = "run-sync" },
-            cancellationToken: token);
-        string pane = made.StructuredContent!.Value.GetProperty("paneId").GetString()!;
-
-        ResultOrCreatedTask<CallToolResult> answered = await harness.Client.CallToolAsTaskAsync(
-            new CallToolRequestParams
+        string renamedSession = $"renamed-#{{pid}}-{suffix}";
+        _ = await harness.Client.CallToolAsync(
+            "rename_session",
+            new Dictionary<string, object?>
             {
-                Name = "tmux_run",
-                Arguments = new Dictionary<string, JsonElement>
-                {
-                    ["command"] = JsonSerializer.SerializeToElement("exit 0"),
-                    ["paneId"] = JsonSerializer.SerializeToElement(pane),
-                },
+                ["session"] = sessionId,
+                ["name"] = renamedSession,
+            },
+            cancellationToken: token);
+        CallToolResult renamedSessionInfo = await harness.Client.CallToolAsync(
+            "get_session_info",
+            new Dictionary<string, object?> { ["session"] = sessionId },
+            cancellationToken: token);
+        Assert.Equal(
+            renamedSession,
+            Structured(renamedSessionInfo).GetProperty("name").GetString());
+
+        string literalWindowName = $"window-#{{pid}}-{suffix}";
+        CallToolResult createdWindow = await harness.Client.CallToolAsync(
+            "create_window",
+            new Dictionary<string, object?>
+            {
+                ["session"] = sessionId,
+                ["name"] = literalWindowName,
+            },
+            cancellationToken: token);
+        string createdWindowId = Structured(createdWindow).GetProperty("windowId").GetString()!;
+        CallToolResult createdWindowInfo = await harness.Client.CallToolAsync(
+            "get_window_info",
+            new Dictionary<string, object?> { ["windowId"] = createdWindowId },
+            cancellationToken: token);
+        Assert.Equal(
+            literalWindowName,
+            Structured(createdWindowInfo).GetProperty("name").GetString());
+
+        string renamedWindow = $"renamed-#{{pid}}-{suffix}";
+        _ = await harness.Client.CallToolAsync(
+            "rename_window",
+            new Dictionary<string, object?>
+            {
+                ["windowId"] = createdWindowId,
+                ["name"] = renamedWindow,
+            },
+            cancellationToken: token);
+        CallToolResult renamedWindowInfo = await harness.Client.CallToolAsync(
+            "get_window_info",
+            new Dictionary<string, object?> { ["windowId"] = createdWindowId },
+            cancellationToken: token);
+        Assert.Equal(
+            renamedWindow,
+            Structured(renamedWindowInfo).GetProperty("name").GetString());
+
+        CallToolResult split = await harness.Client.CallToolAsync(
+            "split_window",
+            new Dictionary<string, object?> { ["paneId"] = paneId },
+            cancellationToken: token);
+        string secondPaneId = Structured(split).GetProperty("paneId").GetString()!;
+        _ = await harness.Client.CallToolAsync(
+            "set_synchronize_panes",
+            new Dictionary<string, object?>
+            {
+                ["enabled"] = true,
+                ["windowId"] = windowId,
             },
             cancellationToken: token);
 
-        Assert.False(answered.IsTask);
-        Assert.NotNull(answered.Result);
+        CallToolResult sent = await harness.Client.CallToolAsync(
+            "send_keys",
+            new Dictionary<string, object?>
+            {
+                ["keys"] = "Escape",
+                ["paneId"] = paneId,
+                ["literal"] = false,
+            },
+            cancellationToken: token);
+        Assert.Equal(
+            new[] { paneId, secondPaneId }.Order(StringComparer.Ordinal),
+            TargetPaneIds(sent));
+
+        CallToolResult sentBatch = await harness.Client.CallToolAsync(
+            "send_keys_batch",
+            new Dictionary<string, object?>
+            {
+                ["operations"] = new[]
+                {
+                    new { paneId, keys = "Escape", literal = false },
+                },
+            },
+            cancellationToken: token);
+        Assert.Equal(
+            new[] { paneId, secondPaneId }.Order(StringComparer.Ordinal),
+            Structured(sentBatch).GetProperty("results")[0].GetProperty("targetPaneIds")
+                .EnumerateArray().Select(value => value.GetString()!)
+                .Order(StringComparer.Ordinal));
+
+        for (int mask = 0; mask < 16; mask++)
+        {
+            ImmutableHashSet<Toolset> selected = Enum.GetValues<Toolset>()
+                .Where(toolset => (mask & (1 << (int)toolset)) != 0)
+                .ToImmutableHashSet();
+            CapabilityRegistry registry = CapabilityRegistry.Select(new CapabilitySelection(
+                selected,
+                ImmutableHashSet.Create<string>(StringComparer.Ordinal),
+                ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
+            Assert.Equal(
+                CapabilityRegistry.Manifest.Count(definition => selected.Contains(definition.Toolset)),
+                registry.Definitions.Length);
+        }
+
+        Dictionary<string, string?> selectedEnvironment = new(StringComparer.Ordinal)
+        {
+            [ServerPolicy.SafetyVariable] = null,
+            [CapabilitySelection.ToolsetsVariable] = "inspect,execute",
+            [CapabilitySelection.ToolsVariable] = "kill_session",
+            [CapabilitySelection.ExcludeToolsVariable] = "kill_session,capture_pane",
+        };
+        CapabilitySelection selectedByName = CapabilitySelection.FromEnvironment(
+            name => selectedEnvironment.GetValueOrDefault(name),
+            []);
+        CapabilityRegistry selectedRegistry = CapabilityRegistry.Select(selectedByName);
+        Assert.DoesNotContain(selectedRegistry.Definitions, row => row.Name == "kill_session");
+        Assert.DoesNotContain(selectedRegistry.Definitions, row => row.Name == "capture_pane");
+        Assert.Contains(selectedRegistry.Definitions, row => row.Name == "create_session");
+        using JsonDocument selectedDisclosure = JsonDocument.Parse(
+            new CapabilityResource(
+                selectedRegistry,
+                new McpRuntimeDisclosure(
+                    "name:test", "operator-current", "unknown", "existing", false))
+                .Read());
+        JsonElement selectedBatch = selectedDisclosure.RootElement.GetProperty("tools")
+            .EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "call_read_tools_batch");
+        Assert.DoesNotContain(
+            selectedBatch.GetProperty("nestedAuthority").EnumerateArray(),
+            name => name.GetString() == "capture_pane");
+        Assert.Equal(15, selectedBatch.GetProperty("nestedAuthority").GetArrayLength());
+        JsonElement selectedBatchSchema = selectedRegistry.Tools
+            .Single(tool => tool.ProtocolTool.Name == "call_read_tools_batch")
+            .ProtocolTool.InputSchema.GetProperty("properties").GetProperty("operations");
+        Assert.DoesNotContain(
+            selectedBatchSchema.GetProperty("items").GetProperty("oneOf")
+                .EnumerateArray()
+                .Select(alternative => alternative.GetProperty("properties")
+                    .GetProperty("tool").GetProperty("const").GetString()),
+            name => name == "capture_pane");
+
+        CapabilityRegistry aggregateOnly = CapabilityRegistry.Select(new CapabilitySelection(
+            ImmutableHashSet<Toolset>.Empty,
+            ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
+            ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
+        ToolDefinition aggregate = Assert.Single(aggregateOnly.Definitions);
+        Assert.Equal(16, aggregate.NestedAuthority.Count);
+
+        CapabilityRegistry zeroAuthority = CapabilityRegistry.Select(new CapabilitySelection(
+            ImmutableHashSet<Toolset>.Empty,
+            ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
+            expectedNested.ToImmutableHashSet(StringComparer.Ordinal)));
+        JsonElement zeroCalls = Assert.Single(zeroAuthority.Tools).ProtocolTool.InputSchema
+            .GetProperty("properties").GetProperty("operations");
+        Assert.Equal(JsonValueKind.False, zeroCalls.GetProperty("items").ValueKind);
+        ToolDefinition zeroBatch = Assert.Single(zeroAuthority.Definitions);
+        Assert.Equal(Effect.Observe, Assert.Single(zeroBatch.Effects));
+        Assert.Empty(zeroBatch.OutputClasses);
+
+        selectedEnvironment[CapabilitySelection.ToolsVariable] = "not_a_tool";
+        Assert.Throws<McpException>(() => CapabilitySelection.FromEnvironment(
+            name => selectedEnvironment.GetValueOrDefault(name),
+            []));
+        selectedEnvironment[CapabilitySelection.ToolsVariable] = null;
+        selectedEnvironment[CapabilitySelection.ToolsetsVariable] = string.Empty;
+        Assert.Empty(CapabilitySelection.FromEnvironment(
+            name => selectedEnvironment.GetValueOrDefault(name),
+            [Toolset.Inspect]).Toolsets);
+        selectedEnvironment[CapabilitySelection.ToolsetsVariable] = "inspect,";
+        Assert.Throws<McpException>(() => CapabilitySelection.FromEnvironment(
+            name => selectedEnvironment.GetValueOrDefault(name),
+            []));
+        selectedEnvironment[CapabilitySelection.ToolsetsVariable] = "inspect";
+        selectedEnvironment[ServerPolicy.SafetyVariable] = string.Empty;
+        Assert.Throws<McpException>(() => CapabilitySelection.FromEnvironment(
+            name => selectedEnvironment.GetValueOrDefault(name),
+            []));
+
+        foreach (string literalNameTool in new[]
+        {
+            "create_session", "create_window", "rename_session", "rename_window",
+        })
+        {
+            ToolDefinition definition = CapabilityRegistry.Manifest
+                .Single(candidate => candidate.Name == literalNameTool);
+            Assert.Contains(InputSink.TmuxFormat, definition.InputSinks["name"]);
+            Assert.Equal("double-hash-once", definition.InputLiteralization["name"]);
+        }
     }
 
     [UnixFact]
-    public async Task A_listing_stays_a_plain_call_rather_than_becoming_a_task()
+    public async Task Default_startup_proves_new_minimal_daemon_ownership()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            ["TMUX_TMPDIR"] = root,
+            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        };
 
-        ResultOrCreatedTask<CallToolResult> answered = await harness.Client.CallToolAsTaskAsync(
-            new CallToolRequestParams { Name = "tmux_list_sessions" },
-            cancellationToken: token);
+        try
+        {
+            McpStartup created = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+            Assert.Equal("created", created.Disclosure.ServerState);
+            Assert.Equal("minimal", created.Disclosure.ConfigurationProvenance);
+            Assert.Equal("default-dedicated", created.Disclosure.SocketProvenance);
+            Assert.Contains(Toolset.Teardown, created.Selection.Toolsets);
+            Assert.True(File.Exists(created.ConnectionOptions.ConfigurationFile));
+            Assert.Contains("@libtmux_mcp_owner", await File.ReadAllTextAsync(
+                created.ConnectionOptions.ConfigurationFile!, token), StringComparison.Ordinal);
+            TmuxCommandResult globalEnvironment = await Server.Open(created.ConnectionOptions)
+                .ExecuteCommandAsync(["show-environment", "-g"], token);
+            Assert.DoesNotContain(
+                globalEnvironment.StandardOutputLines,
+                line => line.StartsWith("LIBTMUX_MCP_OWNER=", StringComparison.Ordinal));
 
-        // A listing answers in milliseconds. Making it a task would cost a
-        // second round trip to collect an answer that was already there.
-        Assert.False(answered.IsTask);
-        Assert.NotNull(answered.Result);
+            McpStartup existing = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+            Assert.Equal("existing", existing.Disclosure.ServerState);
+            Assert.Equal("unknown", existing.Disclosure.ConfigurationProvenance);
+            Assert.DoesNotContain(Toolset.Teardown, existing.Selection.Toolsets);
+
+            await Server.Open(created.ConnectionOptions).KillAsync(token);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
-    /// <summary>A server and a client joined by a pipe, over a throwaway socket.</summary>
-    /// <remarks>
-    /// Composed through <see cref="McpServerComposition" /> rather than wired
-    /// by hand, so what these tests check is what the executable actually
-    /// serves.
-    /// </remarks>
+    private static JsonElement Structured(CallToolResult result) =>
+        Assert.IsType<JsonElement>(result.StructuredContent);
+
+    private static IEnumerable<string> TargetPaneIds(CallToolResult result) =>
+        Structured(result).GetProperty("targetPaneIds")
+            .EnumerateArray()
+            .Select(value => value.GetString()!)
+            .Order(StringComparer.Ordinal);
+
+    private static void AssertCapabilitySets(
+        JsonElement rows,
+        string name,
+        string[] effects,
+        string[] outputs)
+    {
+        JsonElement row = rows.EnumerateArray()
+            .Single(candidate => candidate.GetProperty("name").GetString() == name);
+        Assert.Equal(effects, row.GetProperty("tmuxEffects").EnumerateArray()
+            .Select(value => value.GetString()).ToArray());
+        Assert.Equal(outputs, row.GetProperty("outputClasses").EnumerateArray()
+            .Select(value => value.GetString()).ToArray());
+    }
+
     private sealed class ProtocolHarness : IAsyncDisposable
     {
         private readonly McpServer _server;
@@ -484,24 +579,26 @@ public sealed class McpProtocolTests
 
         internal McpClient Client { get; }
 
-        internal static async Task<ProtocolHarness> StartAsync(
-            CancellationToken cancellationToken,
-            SafetyTier tier = SafetyTier.Destructive)
+        internal static async Task<ProtocolHarness> StartAsync(CancellationToken cancellationToken)
         {
             ServiceCollection services = new();
             services.AddLogging();
             string socketName = $"ltp-{Guid.NewGuid():N}"[..20];
             McpServerComposition.Add(
                 services,
-                // Ten seconds clamped what these tests ask for, so a job that
-                // waited on a shell starting under load reported no exit status
-                // rather than the one it was about to produce.
-                new ServerPolicy { Tier = tier, WaitCeiling = TimeSpan.FromSeconds(20) },
+                new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(20) },
                 new ServerConnectionOptions(
                     tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
                     socketName: socketName,
                     configurationFile: "/dev/null"),
-                callerPaneId: null);
+                callerPaneId: null,
+                CapabilitySelection.All,
+                new McpRuntimeDisclosure(
+                    $"name:{socketName}",
+                    "default-dedicated",
+                    "minimal",
+                    ServerState: "created",
+                    TeardownExplicitlySelected: false));
             ServiceProvider provider = services.BuildServiceProvider();
 
             Pipe clientToServer = new();
@@ -514,13 +611,11 @@ public sealed class McpProtocolTests
                 provider.GetRequiredService<ILoggerFactory>(),
                 provider);
             _ = server.RunAsync(CancellationToken.None);
-
             McpClient client = await McpClient.CreateAsync(
                 new StreamClientTransport(
                     clientToServer.Writer.AsStream(),
                     serverToClient.Reader.AsStream()),
                 cancellationToken: cancellationToken);
-
             return new ProtocolHarness(server, client, provider, socketName);
         }
 
@@ -529,11 +624,6 @@ public sealed class McpProtocolTests
             await Client.DisposeAsync().ConfigureAwait(false);
             await _server.DisposeAsync().ConfigureAwait(false);
             await _services.DisposeAsync().ConfigureAwait(false);
-
-            // The tools start a tmux server on this socket, and nothing else
-            // here owns it. Left behind it keeps running: a suite run leaked
-            // one per test until the machine carried dozens of idle servers
-            // and unrelated timing tests began to fail.
             try
             {
                 Server tmux = await Server.ConnectAsync(
@@ -547,8 +637,6 @@ public sealed class McpProtocolTests
             }
             catch (LibTmuxException)
             {
-                // No server was ever started on it, which is the common case
-                // for a test that only listed things.
             }
         }
     }

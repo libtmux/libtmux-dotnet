@@ -34,11 +34,12 @@ import subprocess
 import sys
 import time
 
+import build
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT = REPO / "docs" / "mcp" / "tools.md"
 
-#: Every tier, so the reference covers tools the default tier hides.
-TIERS = ("readonly", "mutating", "destructive")
+CAPABILITY_KEY = "com.git-pull.libtmux-mcp/capability"
 
 FRAMES = (
     {
@@ -70,8 +71,25 @@ def _binary() -> pathlib.Path:
     raise SystemExit(msg)
 
 
-def _ask(tier: str) -> dict[int, dict]:
-    """Run one server at ``tier`` and collect its answers by request id."""
+def _ask() -> dict[int, dict]:
+    """Run one server with all four toolsets and collect answers by request id."""
+    env = dict(os.environ)
+    for name in (
+        "LIBTMUX_SAFETY",
+        "LIBTMUX_TOOLS",
+        "LIBTMUX_EXCLUDE_TOOLS",
+        "LIBTMUX_SOCKET_PATH",
+        "LIBTMUX_TMUX_CONFIG",
+    ):
+        env.pop(name, None)
+    env.update(
+        {
+            "LIBTMUX_SOCKET": "libtmux-mcp-docs",
+            "LIBTMUX_TOOLSETS": "inspect,manage,execute,teardown",
+        }
+    )
+    if "DOTNET_ROOT" not in env:
+        env.update(build.dotnet_environment())
     proc = subprocess.Popen(
         [str(_binary())],
         stdin=subprocess.PIPE,
@@ -79,9 +97,9 @@ def _ask(tier: str) -> dict[int, dict]:
         stderr=subprocess.DEVNULL,
         text=True,
         bufsize=1,
-        # The ambient environment, so the apphost finds the runtime the same
-        # way the developer's shell does. Only the tier is overridden.
-        env={**os.environ, "LIBTMUX_SAFETY": tier},
+        # Keep runtime discovery from the ambient environment but make the
+        # advertised capability surface deterministic.
+        env=env,
     )
     assert proc.stdin is not None
     assert proc.stdout is not None
@@ -101,8 +119,8 @@ def _ask(tier: str) -> dict[int, dict]:
             message = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(message, dict) and "id" in message and "result" in message:
-            answers[message["id"]] = message["result"]
+        if isinstance(message, dict) and "id" in message:
+            answers[message["id"]] = message.get("result", {})
 
     proc.stdin.close()
     try:
@@ -110,13 +128,6 @@ def _ask(tier: str) -> dict[int, dict]:
     except subprocess.TimeoutExpired:
         proc.kill()
     return answers
-
-
-def _tier_of(name: str, by_tier: dict[str, set[str]]) -> str:
-    for tier in TIERS:
-        if name in by_tier[tier]:
-            return tier
-    return "unknown"
 
 
 def _one_line(text: str) -> str:
@@ -127,15 +138,15 @@ def _one_line(text: str) -> str:
 
 
 def main() -> int:
-    answers = {tier: _ask(tier) for tier in TIERS}
-    if not answers["destructive"].get(2):
+    answers = _ask()
+    if not answers.get(2):
         print("the server did not answer tools/list", file=sys.stderr)
         return 1
 
-    by_tier = {
-        tier: {tool["name"] for tool in answers[tier][2]["tools"]} for tier in TIERS
-    }
-    tools = sorted(answers["destructive"][2]["tools"], key=lambda tool: tool["name"])
+    tools = sorted(answers[2]["tools"], key=lambda tool: tool["name"])
+    resources = answers.get(3, {}).get("resources", [])
+    templates = answers.get(4, {}).get("resourceTemplates", [])
+    prompts = answers.get(5, {}).get("prompts", [])
 
     lines = [
         "# tmux MCP tools",
@@ -147,23 +158,24 @@ def main() -> int:
         "$ uv run eng/mcp/dump_tools.py",
         "```",
         "",
-        f"{len(tools)} tools, {len(answers['destructive'].get(3, {}).get('resources', []))}"
-        f" resources and"
-        f" {len(answers['destructive'].get(4, {}).get('resourceTemplates', []))} resource"
-        " templates, and"
-        f" {len(answers['destructive'].get(5, {}).get('prompts', []))} prompts.",
+        f"{len(tools)} tools and {len(resources)} static resource. No dynamic resource",
+        f"templates or prompts are registered ({len(templates)} templates, {len(prompts)} prompts).",
         "",
-        "`tier` is the lowest `LIBTMUX_SAFETY` that registers the tool. `read` marks",
-        "a tool annotated read-only, which a client may use to skip a confirmation.",
+        "Every row is the capability object advertised with the tool under",
+        f"`_meta[\"{CAPABILITY_KEY}\"]`. Effects and output classes are sets.",
+        "All protocol annotations are conservative: read-only false, destructive true,",
+        "idempotent false, and open-world true.",
         "",
-        "| Tool | Tier | Read | Does |",
-        "|---|---|---|---|",
+        "| Tool | Toolset | Reach | Effects | Output classes | Does |",
+        "|---|---|---|---|---|---|",
     ]
     for tool in tools:
-        annotations = tool.get("annotations") or {}
-        read = "yes" if annotations.get("readOnlyHint") else ""
+        capability = (tool.get("_meta") or {}).get(CAPABILITY_KEY) or {}
+        effects = ", ".join(capability.get("tmuxEffects", []))
+        outputs = ", ".join(capability.get("outputClasses", [])) or "none"
         lines.append(
-            f"| `{tool['name']}` | {_tier_of(tool['name'], by_tier)} | {read} "
+            f"| `{tool['name']}` | {capability.get('toolset', 'unknown')} "
+            f"| {capability.get('processReach', 'unknown')} | {effects} | {outputs} "
             f"| {_one_line(tool.get('description', ''))} |"
         )
 
@@ -171,7 +183,7 @@ def main() -> int:
         ("Resources", 3, "resources", "uri"),
         ("Resource templates", 4, "resourceTemplates", "uriTemplate"),
     ):
-        entries = answers["destructive"].get(key, {}).get(field, [])
+        entries = answers.get(key, {}).get(field, [])
         if not entries:
             continue
         lines += ["", f"## {label}", "", "| URI | Does |", "|---|---|"]
@@ -180,7 +192,6 @@ def main() -> int:
             for entry in sorted(entries, key=lambda entry: entry[uri])
         ]
 
-    prompts = answers["destructive"].get(5, {}).get("prompts", [])
     if prompts:
         lines += ["", "## Prompts", "", "| Prompt | Does |", "|---|---|"]
         lines += [

@@ -162,19 +162,19 @@ public sealed class ToolResponseBudgetFilterTests
             TmuxDispatchState.Unknown);
 
         string read = ToolFailureFilter.ActionableAdvice(
-            "tmux_capture_pane",
+            "capture_pane",
             error,
             mayModify: false,
             "The read failed.");
         string write = ToolFailureFilter.ActionableAdvice(
-            "tmux_start_job",
+            "run_shell_command",
             error,
             mayModify: true,
             "The dispatch failed.");
 
         Assert.Equal("The read failed.", read);
         Assert.Contains("Do not retry", write, StringComparison.Ordinal);
-        Assert.Contains("tmux_list_jobs", write, StringComparison.Ordinal);
+        Assert.Contains("Inspect tmux state first", write, StringComparison.Ordinal);
     }
 
     [Fact]

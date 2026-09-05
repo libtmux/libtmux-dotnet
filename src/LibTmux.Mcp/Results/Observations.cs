@@ -99,8 +99,7 @@ public sealed record WaitResult(
 /// </param>
 /// <param name="TimedOut">
 /// Whether waiting stopped before completion. The shell command may still be
-/// running; inspect the pane and do not retry it. Use <c>tmux_start_job</c> when
-/// work must remain recoverable after the wait.
+/// running; inspect the pane and do not retry it.
 /// </param>
 /// <param name="Output">What the command printed, within the budget.</param>
 /// <param name="ElapsedSeconds">How long it took.</param>
@@ -166,3 +165,14 @@ public sealed record ActionResult(
     string? PaneId = null,
     string? WindowId = null,
     string? SessionId = null);
+
+/// <summary>What pane input targeted after tmux synchronization was resolved.</summary>
+/// <param name="Changed">What was sent, in plain words.</param>
+/// <param name="PaneId">The pane named by the caller after active-pane resolution.</param>
+/// <param name="TargetPaneIds">
+/// Every pane that received the input when synchronize-panes expanded the target.
+/// </param>
+public sealed record PaneInputResult(
+    string Changed,
+    string PaneId,
+    IReadOnlyList<string> TargetPaneIds);

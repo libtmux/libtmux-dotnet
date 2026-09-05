@@ -311,7 +311,7 @@ def test_use_local_preserves_existing_env_when_replacing(
 
     Regression: ``cmd_use_local`` previously constructed the replacement
     spec via ``build_local_spec`` (env={}) and wrote it directly,
-    silently dropping client-side settings like ``LIBTMUX_SAFETY`` or
+    silently dropping client-side settings like ``LIBTMUX_TOOLSETS`` or
     ``LIBTMUX_SOCKET`` that the user had set on the prior pinned-PyPI
     entry. The fix merges ``current.env`` into the new spec; this test
     locks the behaviour by seeding env on a Cursor entry, running
@@ -326,7 +326,7 @@ def test_use_local_preserves_existing_env_when_replacing(
                 "tmux": {
                     "command": "uvx",
                     "args": ["libtmux-mcp==0.1.0a2"],
-                    "env": {"LIBTMUX_SAFETY": "readonly", "FOO": "bar"},
+                    "env": {"LIBTMUX_TOOLSETS": "inspect", "FOO": "bar"},
                 }
             }
         },
@@ -343,7 +343,7 @@ def test_use_local_preserves_existing_env_when_replacing(
     )
     assert entry["args"] == []
     assert entry["env"] == _runtime_env(fake_repo) | {
-        "LIBTMUX_SAFETY": "readonly",
+        "LIBTMUX_TOOLSETS": "inspect",
         "FOO": "bar",
     }
 
@@ -1694,7 +1694,7 @@ def test_use_local_env_flag_wins_over_preserved_env(
                 "tmux": {
                     "command": "uvx",
                     "args": ["libtmux-mcp==0.1.0a2"],
-                    "env": {"LIBTMUX_SAFETY": "readonly", "KEEP": "me"},
+                    "env": {"LIBTMUX_TOOLSETS": "inspect", "KEEP": "me"},
                 }
             }
         },
@@ -1710,14 +1710,14 @@ def test_use_local_env_flag_wins_over_preserved_env(
             "--cli",
             "cursor",
             "--env",
-            "LIBTMUX_SAFETY=destructive",
+            "LIBTMUX_TOOLSETS=inspect,manage,execute,teardown",
         ]
     )
     assert mcp_swap.cmd_use_local(args) == 0
 
     entry = json.loads(info.config_path.read_text())["mcpServers"]["tmux"]
     assert entry["env"] == _runtime_env(fake_repo) | {
-        "LIBTMUX_SAFETY": "destructive",
+        "LIBTMUX_TOOLSETS": "inspect,manage,execute,teardown",
         "KEEP": "me",
     }
 

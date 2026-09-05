@@ -85,6 +85,7 @@ public sealed class ExampleNamespaceTests
         "TMPDIR",
         "LIBTMUX_SOCKET_NAME",
         "LIBTMUX_SOCKET_PATH",
+        "LIBTMUX_MCP_COMMAND",
         "TMUX",
         "TMUX_PANE",
     ];

@@ -11,7 +11,7 @@ namespace LibTmux.Mcp;
 /// <remarks>
 /// <para>
 /// An unhandled exception reaches the client as "An error occurred invoking
-/// 'tmux_run'" — true, and useless. A model reading that has no way to tell a
+/// 'run_shell_command'" — true, and useless. A model reading that has no way to tell a
 /// dead pane from a missing binary from its own bad argument, so it retries
 /// the same call. Every failure here names what went wrong and what to do
 /// instead.
@@ -51,7 +51,7 @@ internal static class ToolFailureFilter
             // handle and asking again is exactly what a caller would have to
             // do, and they have no way to know that.
             request.Services?.GetService<TmuxConnectionAccessor>()
-                ?.Invalidate(SocketArgument(request));
+                ?.Invalidate();
             try
             {
                 return await next(request, cancellationToken).ConfigureAwait(false);
@@ -64,7 +64,7 @@ internal static class ToolFailureFilter
                     retried,
                     mayModify,
                     "The tmux server was restarted and the retry failed too. "
-                    + "Call tmux_list_servers to see what is running now.");
+                    + "Call get_server_info to see what is running now.");
             }
         }
         catch (TmuxVersionTooLowException error)
@@ -75,7 +75,7 @@ internal static class ToolFailureFilter
                 error,
                 mayModify,
                 "This tmux is too old for that operation. "
-                + "Call tmux_server_info to see which version is running.");
+                + "Call get_server_info to see which version is running.");
         }
         catch (TmuxObjectNotFoundException error)
         {
@@ -85,7 +85,7 @@ internal static class ToolFailureFilter
                 error,
                 mayModify,
                 "That session, window or pane no longer exists. "
-                + "Call tmux_hierarchy to see what does.");
+                + "Call list_sessions, list_windows, or list_panes to see what does.");
         }
         catch (TmuxCommandException error)
         {
@@ -130,13 +130,6 @@ internal static class ToolFailureFilter
         }
     };
 
-    private static string? SocketArgument(RequestContext<CallToolRequestParams> request) =>
-        request.Params?.Arguments is { } arguments
-            && arguments.TryGetValue("socketName", out System.Text.Json.JsonElement socket)
-            && socket.ValueKind == System.Text.Json.JsonValueKind.String
-                ? socket.GetString()
-                : null;
-
     private static CallToolResult Failure(
         ILogger logger,
         string tool,
@@ -172,7 +165,7 @@ internal static class ToolFailureFilter
         {
             return $"The paste failed, and temporary tmux buffer {buffer} may still "
                 + "contain the pasted text because cleanup failed. Do not retry the paste. "
-                + "Inspect with tmux_list_buffers, then ask the operator to remove that "
+                + "Ask the operator to inspect and remove that "
                 + $"exact buffer with tmux delete-buffer -b {buffer}.";
         }
 
@@ -185,9 +178,7 @@ internal static class ToolFailureFilter
             return advice;
         }
 
-        string recovery = string.Equals(tool, "tmux_start_job", StringComparison.Ordinal)
-            ? " Call tmux_list_jobs now; any possibly started command has a retained handle."
-            : " Inspect tmux state first.";
+        const string recovery = " Inspect tmux state first.";
         return advice
             + " tmux may have acted before the failure. Do not retry this operation."
             + recovery;

@@ -12,7 +12,7 @@ namespace LibTmux.Mcp;
 /// </remarks>
 public sealed record ServerPolicy
 {
-    /// <summary>The environment variable naming the safety tier.</summary>
+    /// <summary>The retired environment variable rejected by startup migration handling.</summary>
     public const string SafetyVariable = "LIBTMUX_SAFETY";
 
     /// <summary>The environment variable naming the wait ceiling in seconds.</summary>
@@ -23,9 +23,6 @@ public sealed record ServerPolicy
 
     /// <summary>The environment variable naming the response byte budget.</summary>
     public const string MaxBytesVariable = "LIBTMUX_MCP_MAX_BYTES";
-
-    /// <summary>The environment variable naming the default socket.</summary>
-    public const string SocketVariable = "LIBTMUX_SOCKET";
 
     /// <summary>Ceiling applied when nothing names one.</summary>
     public const double DefaultWaitCeilingSeconds = 30.0;
@@ -43,16 +40,13 @@ public sealed record ServerPolicy
     private const int MaxBytesFloor = 4_000;
     private const int MaxBytesLimit = 4_000_000;
 
-    /// <summary>Gets the highest tier of tool this server registers.</summary>
-    public SafetyTier Tier { get; init; } = SafetyTier.Mutating;
-
     /// <summary>Gets the longest a single wait may block before reporting a timeout.</summary>
     /// <remarks>
     /// The ceiling bounds the model's turn rather than the transport: waits
     /// await throughout, so a long one does not stall other calls. What an
     /// unbounded wait costs is the turn itself — a badly chosen pattern would
-    /// spend all of it with nothing to show. Background jobs exist for work
-    /// that legitimately outlives this.
+    /// spend all of it with nothing to show. Client-managed MCP tasks cover
+    /// work that legitimately outlives one synchronous request.
     /// </remarks>
     public TimeSpan WaitCeiling { get; init; } = TimeSpan.FromSeconds(DefaultWaitCeilingSeconds);
 
@@ -61,9 +55,6 @@ public sealed record ServerPolicy
 
     /// <summary>Gets the byte budget one content-bearing result may carry.</summary>
     public int MaxBytes { get; init; } = DefaultMaxBytes;
-
-    /// <summary>Gets the socket every tool uses unless a call names another.</summary>
-    public string? DefaultSocketName { get; init; }
 
     /// <summary>Reads the policy out of a set of environment variables.</summary>
     /// <param name="read">Answers an environment variable, or null when it is unset.</param>
@@ -76,7 +67,6 @@ public sealed record ServerPolicy
         ArgumentNullException.ThrowIfNull(read);
         return new ServerPolicy
         {
-            Tier = ParseTier(read(SafetyVariable), logger),
             WaitCeiling = TimeSpan.FromSeconds(ParseDouble(
                 read(WaitCeilingVariable),
                 WaitCeilingVariable,
@@ -98,14 +88,8 @@ public sealed record ServerPolicy
                 MaxBytesFloor,
                 MaxBytesLimit,
                 logger),
-            DefaultSocketName = NullIfBlank(read(SocketVariable)),
         };
     }
-
-    /// <summary>Answers whether a tool at one tier is offered under this policy.</summary>
-    /// <param name="tier">The tier the tool belongs to.</param>
-    /// <returns><see langword="true" /> when the tool is registered.</returns>
-    public bool Allows(SafetyTier tier) => tier <= Tier;
 
     /// <summary>Lowers a caller's timeout to the ceiling this policy sets.</summary>
     /// <param name="requested">What the caller asked for, or null for the ceiling.</param>
@@ -123,29 +107,6 @@ public sealed record ServerPolicy
         }
 
         return asked > WaitCeiling ? WaitCeiling : asked;
-    }
-
-    private static SafetyTier ParseTier(string? value, ILogger? logger)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return SafetyTier.Mutating;
-        }
-
-        if (Enum.TryParse(value.Replace("-", string.Empty, StringComparison.Ordinal), true, out SafetyTier parsed)
-            && Enum.IsDefined(parsed))
-        {
-            return parsed;
-        }
-
-        // An unreadable tier falls to the safest one rather than the default:
-        // a typo must never widen what the server offers.
-        if (logger is not null)
-        {
-            Log.UnrecognisedSetting(logger, SafetyVariable, value, nameof(SafetyTier.ReadOnly));
-        }
-
-        return SafetyTier.ReadOnly;
     }
 
     private static double ParseDouble(
@@ -226,6 +187,4 @@ public sealed record ServerPolicy
         return clamped;
     }
 
-    private static string? NullIfBlank(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value;
 }

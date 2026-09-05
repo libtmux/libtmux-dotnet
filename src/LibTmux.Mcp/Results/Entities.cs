@@ -163,16 +163,3 @@ public sealed record TmuxServerInfo(
     int WindowCount,
     int PaneCount,
     string? CallerPaneId);
-
-/// <summary>The whole hierarchy in one answer.</summary>
-/// <param name="Sessions">Every session.</param>
-/// <param name="Windows">Every window, across every session.</param>
-/// <param name="Panes">Every pane, across every window.</param>
-/// <remarks>
-/// Flat lists rather than a tree: a model filters a list without walking it,
-/// and each entity already names its parent.
-/// </remarks>
-public sealed record HierarchyView(
-    IReadOnlyList<SessionInfo> Sessions,
-    IReadOnlyList<WindowInfo> Windows,
-    IReadOnlyList<PaneInfo> Panes);

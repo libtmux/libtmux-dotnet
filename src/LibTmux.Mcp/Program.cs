@@ -25,7 +25,7 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal static class Program
 {
-    private static async Task<int> Main(string[] args)
+    private static async Task<int> Main()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -47,7 +47,8 @@ internal static class Program
         // The library configures every await away from a caller's context. This
         // is the entry point rather than the library: there is no context here
         // to return to, so these say nothing about it.
-        await using ServiceProvider provider = BuildProvider(services, args);
+        await using ServiceProvider provider = await BuildProviderAsync(services)
+            .ConfigureAwait(false);
         ILoggerFactory logging = provider.GetRequiredService<ILoggerFactory>();
 
         // The transport buffers standard output, so it is held and disposed
@@ -65,7 +66,7 @@ internal static class Program
         return 0;
     }
 
-    private static ServiceProvider BuildProvider(ServiceCollection services, string[] args)
+    private static async Task<ServiceProvider> BuildProviderAsync(ServiceCollection services)
     {
         using ILoggerFactory startup = LoggerFactory.Create(logging =>
             logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace));
@@ -73,16 +74,17 @@ internal static class Program
         ServerPolicy policy = ServerPolicy.FromEnvironment(
             System.Environment.GetEnvironmentVariable,
             startup.CreateLogger(nameof(ServerPolicy)));
-
-        // A socket named on the command line lets one assistant drive a server
-        // that is not the ambient one, which is what a test or a sandbox wants.
-        string? socket = args.Length > 0 ? args[0] : policy.DefaultSocketName;
+        McpStartup resolved = await McpStartup.ResolveAsync(
+                System.Environment.GetEnvironmentVariable)
+            .ConfigureAwait(false);
 
         McpServerComposition.Add(
             services,
             policy,
-            new ServerConnectionOptions(socketName: socket),
-            TmuxTargets.CallerPaneId());
+            resolved.ConnectionOptions,
+            TmuxTargets.CallerPaneId(),
+            resolved.Selection,
+            resolved.Disclosure);
 
         return services.BuildServiceProvider();
     }

@@ -3,13 +3,12 @@ using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <content>Putting keystrokes and text into a pane.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools
+internal sealed partial class WriteTools
 {
     internal const string PasteBufferCleanupFailureDataKey =
         "LibTmux.Mcp.PasteBufferCleanupFailure";
@@ -33,14 +32,13 @@ public sealed partial class WriteTools
     /// <remarks>
     /// This does not wait and reports nothing about what the keys did, which is
     /// the point: it is for driving a program's interface. A shell command
-    /// whose result matters belongs in <c>tmux_run</c>.
+    /// whose result matters belongs in <c>run_shell_command</c>.
     /// </remarks>
-    [McpServerTool(Name = "tmux_send_keys", Destructive = true, OpenWorld = true, UseStructuredContent = true)]
     [Description(
         "Send raw keystrokes to a pane and return immediately. Use for driving an "
         + "interactive program — a key in vim, a menu choice, Ctrl-C. Set literal=false "
         + "to send named keys such as C-c, Escape or F5. For running a shell command "
-        + "and learning whether it worked, use tmux_run instead; this tool tells you "
+        + "and learning whether it worked, use run_shell_command instead; this tool tells you "
         + "nothing about what happened next.")]
     public async Task<ActionResult> SendKeysAsync(
         [Description("The text to type, or a key name such as C-c when literal is false.")]
@@ -74,7 +72,7 @@ public sealed partial class WriteTools
 
         return new ActionResult(
             $"Sent {keys.Length} characters to {pane.Id}. "
-            + "Read the pane, or use tmux_wait_for_text, to see what they did.",
+            + "Read the pane, or use wait_for_text, to see what they did.",
             PaneId: pane.Id.ToString());
     }
 
@@ -84,7 +82,6 @@ public sealed partial class WriteTools
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>What was sent.</returns>
-    [McpServerTool(Name = "tmux_send_keys_batch", Destructive = true, OpenWorld = true, UseStructuredContent = true)]
     [Description(
         "Send several keystrokes to one pane in order, in a single call. Use for a "
         + "short interactive sequence — open a file, move, type, save — instead of "
@@ -210,7 +207,6 @@ public sealed partial class WriteTools
     /// Bracketed paste tells the program the text was pasted rather than typed,
     /// which is what stops an editor auto-indenting every line of it.
     /// </remarks>
-    [McpServerTool(Name = "tmux_paste_text", Destructive = true, OpenWorld = true, UseStructuredContent = true)]
     [Description(
         "Paste a block of text into a pane through a tmux buffer. Use for multi-line "
         + "text, or anything an editor would mangle if typed — bracketed paste stops "
@@ -281,7 +277,7 @@ public sealed partial class WriteTools
             return new ActionResult(
                 $"Pasted {text.Length} characters into {pane.Id}, but cleanup failed and "
                 + $"temporary buffer {buffer} may remain. Do not retry the paste. Inspect "
-                + "with tmux_list_buffers, then remove it manually with "
+                + "and remove it manually with "
                 + $"tmux delete-buffer -b {buffer}.",
                 PaneId: pane.Id.ToString());
         }
@@ -315,59 +311,6 @@ public sealed partial class WriteTools
         }
     }
 
-    /// <summary>Clears a pane's screen, and optionally its scrollback.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
-    /// <param name="includeHistory">Whether scrollback goes too.</param>
-    /// <param name="socketName">The tmux socket, or null for the default.</param>
-    /// <param name="cancellationToken">Cancels the tmux commands.</param>
-    /// <returns>What was cleared.</returns>
-    [McpServerTool(Name = "tmux_clear_pane", Destructive = true, OpenWorld = false, UseStructuredContent = true)]
-    [Description(
-        "Clear a pane's visible screen, and optionally its scrollback too. Useful "
-        + "before running something whose output you want to read on its own. "
-        + "Clearing history cannot be undone and invalidates any tmux_tail_pane "
-        + "cursor for that pane.")]
-    public async Task<ActionResult> ClearPaneAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
-        string? paneId = null,
-        [Description("Also discard the scrollback. This cannot be undone.")]
-        bool includeHistory = false,
-        [Description("The tmux socket to use. Omit for the default server.")]
-        string? socketName = null,
-        CancellationToken cancellationToken = default)
-    {
-        Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-            .ConfigureAwait(false);
-
-        var sequence = new TmuxMutationSequence(
-            "The pane was cleared, but clearing its history failed. The screen may "
-            + "already have changed; do not retry the whole operation.");
-        await MutateAsync(
-                sequence,
-                async () =>
-                {
-                    _ = await pane.ClearAsync(cancellationToken).ConfigureAwait(false);
-                },
-                "Clearing the pane may have reached tmux. The screen may already have "
-                + "changed; do not retry until you inspect it.")
-            .ConfigureAwait(false);
-        if (includeHistory)
-        {
-            await MutateAsync(
-                    sequence,
-                    () => pane.ClearHistoryAsync(cancellationToken: cancellationToken),
-                    "Clearing pane history may have reached tmux. The screen may already "
-                    + "have changed; do not retry until you inspect it.")
-                .ConfigureAwait(false);
-        }
-
-        return new ActionResult(
-            includeHistory
-                ? $"Cleared {pane.Id} and discarded its scrollback."
-                : $"Cleared {pane.Id}.",
-            PaneId: pane.Id.ToString());
-    }
 }
 
 /// <summary>One keystroke in a batch.</summary>

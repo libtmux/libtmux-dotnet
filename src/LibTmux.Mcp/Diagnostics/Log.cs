@@ -53,12 +53,6 @@ internal static partial class Log
         string? socket);
 
     [LoggerMessage(
-        EventId = 6,
-        Level = LogLevel.Debug,
-        Message = "Background job {JobId} in pane {PaneId} ended as {Outcome}.")]
-    internal static partial void JobEnded(ILogger logger, string jobId, string paneId, JobState outcome);
-
-    [LoggerMessage(
         EventId = 7,
         Level = LogLevel.Warning,
         Message = "Tool {Tool} failed.")]
@@ -73,22 +67,4 @@ internal static partial class Log
         Exception error,
         string? socket);
 
-    [LoggerMessage(
-        EventId = 9,
-        Level = LogLevel.Warning,
-        Message = "Background job {JobId} in pane {PaneId} could no longer be watched.")]
-    internal static partial void JobWatcherFailed(
-        ILogger logger,
-        Exception error,
-        string jobId,
-        string paneId);
-
-    [LoggerMessage(
-        EventId = 10,
-        Level = LogLevel.Debug,
-        Message = "Hierarchy subscriber callback for endpoint {Endpoint} failed.")]
-    internal static partial void HierarchySubscriberFailed(
-        ILogger logger,
-        Exception error,
-        string endpoint);
 }

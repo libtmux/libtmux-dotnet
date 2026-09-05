@@ -4,7 +4,7 @@ using LibTmux.Testing;
 
 namespace LibTmux.IntegrationTests;
 
-/// <summary>A server of each tier, wired to one throwaway tmux socket.</summary>
+/// <summary>Direct tool helpers wired to one throwaway tmux socket.</summary>
 /// <remarks>
 /// The tools are exercised directly rather than through the protocol. What is
 /// worth testing here is what they do to tmux; that the protocol carries a
@@ -18,18 +18,16 @@ internal sealed class McpToolFixture : IAsyncDisposable
         TmuxTestOptions options,
         TmuxConnectionAccessor connection,
         PaneActivityHub activity,
-        JobStore jobs,
         ReadTools read,
         WriteTools write,
-        DestructiveTools destructive)
+        CapabilityTools capabilities)
     {
         Options = options;
         Connection = connection;
         Activity = activity;
-        Jobs = jobs;
         Read = read;
         Write = write;
-        Destructive = destructive;
+        Capabilities = capabilities;
     }
 
     internal TmuxTestOptions Options { get; }
@@ -38,13 +36,11 @@ internal sealed class McpToolFixture : IAsyncDisposable
 
     internal PaneActivityHub Activity { get; }
 
-    internal JobStore Jobs { get; }
-
     internal ReadTools Read { get; }
 
     internal WriteTools Write { get; }
 
-    internal DestructiveTools Destructive { get; }
+    internal CapabilityTools Capabilities { get; }
 
     internal static McpToolFixture Create(ServerPolicy? policy = null)
     {
@@ -57,27 +53,30 @@ internal sealed class McpToolFixture : IAsyncDisposable
             options.ConnectionOptions,
             options.ConnectionOptions.SocketName);
         PaneActivityHub activity = new();
-        JobStore jobs = new();
         ServerPolicy effective = policy ?? new ServerPolicy
         {
-            Tier = SafetyTier.Destructive,
             WaitCeiling = TimeSpan.FromSeconds(20),
         };
 
+        var read = new ReadTools(connection, effective, activity);
+        var write = new WriteTools(connection, effective, activity);
         return new McpToolFixture(
             options,
             connection,
             activity,
-            jobs,
-            new ReadTools(connection, effective, activity),
-            new WriteTools(connection, effective, activity, jobs),
-            new DestructiveTools(connection));
+            read,
+            write,
+            new CapabilityTools(
+                read,
+                write,
+                connection,
+                CapabilityRegistry.All(),
+                effective));
     }
 
     public async ValueTask DisposeAsync()
     {
         await Activity.DisposeAsync().ConfigureAwait(false);
-        await Jobs.DisposeAsync().ConfigureAwait(false);
         Connection.Dispose();
     }
 }

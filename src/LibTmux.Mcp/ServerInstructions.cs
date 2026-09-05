@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 namespace LibTmux.Mcp;
@@ -43,14 +42,9 @@ public static class ServerInstructions
         Append(text, WaitDoNotPoll);
         Append(text, Budget);
         Append(text, Gaps);
-        Append(
-            text,
-            string.Create(
-                CultureInfo.InvariantCulture,
-                $"SAFETY: tier is {policy.Tier.ToString().ToLowerInvariant()} "
-                + $"(readonly < mutating < destructive, set by LIBTMUX_SAFETY). Tools above "
-                + $"the tier are not registered, so a missing tool is policy, not an error. "
-                + $"Waits are capped at {policy.WaitCeiling.TotalSeconds:0.#}s."));
+        Append(text, $"CAPABILITIES: tmux://capabilities reports the startup-frozen socket "
+            + $"and effective tools. A missing tool was not selected. Waits are capped at "
+            + $"{policy.WaitCeiling.TotalSeconds:0.#}s.");
 
         if (ExceedsBudget(text.ToString()))
         {
@@ -69,7 +63,7 @@ public static class ServerInstructions
                 withContext,
                 $"YOU ARE HERE: this server runs in pane {callerPaneId}. Do not send keys "
                 + "or kill anything there unless asked — it is the terminal you are "
-                + "talking through. tmux_whoami confirms it.");
+                + "talking through. get_pane_info confirms it.");
             if (!ExceedsBudget(withContext.ToString()))
             {
                 return withContext.ToString();
@@ -83,8 +77,7 @@ public static class ServerInstructions
         "Drives tmux: terminal sessions, windows and panes on this machine. "
         + "Hierarchy is Server > Session > Window > Pane. Target by id — %1 is a pane, "
         + "@1 a window, $1 a session — because ids survive renames and layout changes. "
-        + "Tools that address tmux take socketName; tmux_list_servers discovers sockets, "
-        + "and tmux_list_jobs spans the jobs recorded by this MCP process.";
+        + "Every tool uses the one socket pinned when this MCP process starts.";
 
     private const string Scope =
         "USE FOR: tmux panes, windows, sessions, splits, scrollback, copy mode, "
@@ -94,21 +87,21 @@ public static class ServerInstructions
         + "If a bare 'window' or 'session' could mean either, ask once.";
 
     private const string MetadataVersusContent =
-        "NAMES VS TEXT: tmux_list_* answer names, sizes and running commands. They "
+        "NAMES VS TEXT: list_sessions, list_windows and list_panes answer names, sizes "
+        + "and running commands. They "
         + "cannot see terminal text. For what a pane is SHOWING — an error, a prompt, "
-        + "a build log — use tmux_search_panes, tmux_capture_pane or tmux_snapshot_pane.";
+        + "a build log — use search_panes, capture_pane or snapshot_pane.";
 
     private const string WaitDoNotPoll =
-        "WAIT, NEVER POLL: never loop on tmux_capture_pane to see if something "
-        + "finished. For a command you run: tmux_run (waits, gives the real exit "
-        + "status) or tmux_start_job then tmux_job when it may take minutes. For "
-        + "output you did not start: tmux_wait_for_text. To watch across turns: "
-        + "tmux_tail_pane, passing back its cursor.";
+        "WAIT, NEVER POLL: never loop on capture_pane. For a command you run, "
+        + "run_shell_command waits and reports the real exit status. For output you did "
+        + "not start, use wait_for_text. To watch across turns, use capture_since and "
+        + "pass back its cursor.";
 
     private const string Budget =
         "COST: terminal text keeps the NEWEST lines and reports what was dropped. "
-        + "Check content.truncated, output.truncated, or tail.truncated; true means "
-        + "lines are missing, not absent. Prefer tmux_tail_pane while watching.";
+        + "Check content.truncated or output.truncated; true means lines are missing, "
+        + "not absent. Prefer capture_since while watching.";
 
     private const string Gaps =
         "ABSENT ON PURPOSE: no hook writing (a hook outlives this conversation — put "

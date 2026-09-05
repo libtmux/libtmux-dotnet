@@ -1184,7 +1184,7 @@ def _cmd_use_local(args: argparse.Namespace) -> int:
                 print(f"[{label}] already {where} — no change")
                 continue
             # Three layers, weakest first. The existing entry supplies
-            # client-side settings a swap must not drop (LIBTMUX_SAFETY,
+            # client-side settings a swap must not drop (LIBTMUX_TOOLSETS,
             # LIBTMUX_SOCKET, custom dev knobs). The spec overrides them with
             # what it computed this run -- the runtime location, which is
             # derived from the SDK in use and would otherwise be inherited
@@ -1714,7 +1714,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Extra env var to write into the server entry (repeatable). "
             "Layered on top of any preserved existing env; explicit --env wins. "
-            "Use to inject e.g. TMUX_MCP_SAFETY without a manual post-edit."
+            "Use to inject e.g. LIBTMUX_TOOLSETS without a manual post-edit."
         ),
     )
     pu.add_argument("--cli", action="append", choices=ALL_CLIS)

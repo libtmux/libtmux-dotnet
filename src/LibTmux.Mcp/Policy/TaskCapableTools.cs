@@ -8,10 +8,9 @@ namespace LibTmux.Mcp;
 /// <remarks>
 /// <para>
 /// The Tasks extension lets a client start a tool call, get a handle back
-/// immediately, and collect the result later — the protocol's own answer to
-/// the problem <c>tmux_start_job</c> solves by hand. Where both exist the
-/// protocol's is better: the client drives it, so a model does not have to
-/// remember a handle across turns.
+/// immediately, and collect the result later. The client drives the handle, so
+/// a model does not have to remember an application-specific token across
+/// turns.
 /// </para>
 /// <para>
 /// Only the tools that wait are offered this way. A listing answers in
@@ -30,9 +29,8 @@ internal static class TaskCapableTools
     /// <summary>The tools whose whole job is to wait for something.</summary>
     private static readonly HashSet<string> Waiting = new(StringComparer.Ordinal)
     {
-        "tmux_wait_for_text",
-        "tmux_wait_for_channel",
-        "tmux_job",
+        "wait_for_text",
+        "wait_for_channel",
     };
 
     /// <summary>Answers how one tool call may be executed.</summary>

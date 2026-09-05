@@ -5,7 +5,7 @@ namespace LibTmux.Mcp;
 
 /// <content>Failure semantics shared by composite MCP mutations.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools
+internal sealed partial class WriteTools
 {
     private static async Task MutateAsync(
         TmuxMutationSequence sequence,

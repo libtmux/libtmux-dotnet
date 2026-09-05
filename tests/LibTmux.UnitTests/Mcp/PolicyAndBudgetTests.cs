@@ -1,44 +1,153 @@
+using System.Reflection;
+using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Json.Nodes;
 using LibTmux.Mcp;
+using LibTmux.UnitTests.Transport;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LibTmux.UnitTests;
 
 /// <summary>The rules that decide what a tool may spend, and what it says it spent.</summary>
+[UnsupportedOSPlatform("windows")]
 public sealed class ServerPolicyTests
 {
     [Fact]
-    public void An_unset_environment_offers_the_middle_tier()
+    public void An_unset_budget_environment_uses_the_documented_defaults()
     {
         ServerPolicy policy = ServerPolicy.FromEnvironment(_ => null);
 
-        Assert.Equal(SafetyTier.Mutating, policy.Tier);
-        Assert.True(policy.Allows(SafetyTier.ReadOnly));
-        Assert.True(policy.Allows(SafetyTier.Mutating));
-        Assert.False(policy.Allows(SafetyTier.Destructive));
-    }
-
-    [Theory]
-    [InlineData("readonly", SafetyTier.ReadOnly)]
-    [InlineData("ReadOnly", SafetyTier.ReadOnly)]
-    [InlineData("read-only", SafetyTier.ReadOnly)]
-    [InlineData("mutating", SafetyTier.Mutating)]
-    [InlineData("destructive", SafetyTier.Destructive)]
-    public void A_named_tier_is_honoured(string value, SafetyTier expected)
-    {
-        ServerPolicy policy = ServerPolicy.FromEnvironment(
-            name => name == ServerPolicy.SafetyVariable ? value : null);
-
-        Assert.Equal(expected, policy.Tier);
+        Assert.Equal(ServerPolicy.DefaultWaitCeilingSeconds, policy.WaitCeiling.TotalSeconds);
+        Assert.Equal(ServerPolicy.DefaultMaxLines, policy.MaxLines);
+        Assert.Equal(ServerPolicy.DefaultMaxBytes, policy.MaxBytes);
     }
 
     [Fact]
-    public void A_tier_nobody_recognises_falls_to_the_safest_one()
+    public void The_retired_safety_variable_is_a_fatal_migration_error()
     {
-        // Not to the default. A typo must never widen what the server offers.
-        ServerPolicy policy = ServerPolicy.FromEnvironment(
-            name => name == ServerPolicy.SafetyVariable ? "destrutive" : null);
+        Assert.Throws<ModelContextProtocol.McpException>(() =>
+            CapabilitySelection.FromEnvironment(
+                name => name == ServerPolicy.SafetyVariable ? string.Empty : null,
+                []));
+    }
 
-        Assert.Equal(SafetyTier.ReadOnly, policy.Tier);
+    [Fact]
+    public void An_empty_toolsets_value_selects_the_zero_subset()
+    {
+        CapabilitySelection selection = CapabilitySelection.FromEnvironment(
+            name => name == CapabilitySelection.ToolsetsVariable ? string.Empty : null,
+            [Toolset.Inspect]);
+
+        Assert.Empty(selection.Toolsets);
+    }
+
+    [Theory]
+    [InlineData(CapabilitySelection.ToolsVariable)]
+    [InlineData(CapabilitySelection.ExcludeToolsVariable)]
+    public void Empty_named_tool_lists_are_rejected(string variable)
+    {
+        Assert.Throws<ModelContextProtocol.McpException>(() =>
+            CapabilitySelection.FromEnvironment(
+                name => name == variable ? string.Empty : null,
+                []));
+    }
+
+    [Fact]
+    public void An_explicit_tmux_configuration_is_a_raw_absolute_path()
+    {
+        MethodInfo parser = typeof(McpStartup).GetMethod(
+            "ParseConfiguration",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        string path = Path.GetFullPath("tmux-test.conf");
+
+        var parsed = ((string? Path, string Provenance))parser.Invoke(null, [path])!;
+
+        Assert.Equal(path, parsed.Path);
+        Assert.Equal("user-configured", parsed.Provenance);
+        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, [string.Empty]));
+        Assert.Throws<TargetInvocationException>(() => parser.Invoke(null, ["relative.conf"]));
+    }
+
+    [Fact]
+    public void Configuration_disclosure_distinguishes_user_paths_from_existing_unknown_state()
+    {
+        Assert.Equal(
+            "user-configured",
+            McpStartup.ReportedConfigurationProvenance("user-configured", existing: true));
+        Assert.Equal(
+            "unknown",
+            McpStartup.ReportedConfigurationProvenance("minimal", existing: true));
+        Assert.Equal(
+            "minimal",
+            McpStartup.ReportedConfigurationProvenance("minimal", existing: false));
+    }
+
+    [Fact]
+    public void Public_composition_defaults_omit_teardown_for_unknown_provenance()
+    {
+        ServiceCollection services = new();
+        _ = McpServerComposition.Add(
+            services,
+            new ServerPolicy(),
+            new ServerConnectionOptions(socketName: "unknown-provenance"),
+            callerPaneId: null);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        CapabilityRegistry registry = provider.GetRequiredService<CapabilityRegistry>();
+
+        Assert.DoesNotContain(registry.Definitions, definition =>
+            definition.Toolset == Toolset.Teardown);
+        Assert.Equal("unknown", provider.GetRequiredService<McpRuntimeDisclosure>()
+            .ConfigurationProvenance);
+    }
+
+    [UnixTheory]
+    [InlineData(McpStartup.SocketVariable)]
+    [InlineData(McpStartup.SocketPathVariable)]
+    public async Task Explicit_socket_selectors_are_user_configured_and_omit_default_teardown(
+        string variable)
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-explicit-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string value = variable == McpStartup.SocketVariable
+            ? $"explicit-{Guid.NewGuid():N}"
+            : Path.Combine(root, "tmux.sock");
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [variable] = value,
+            ["LIBTMUX_TMUX"] = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["TMUX_TMPDIR"] = root,
+        };
+
+        try
+        {
+            McpStartup startup = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("operator-current", startup.Disclosure.SocketProvenance);
+            Assert.Equal("absent", startup.Disclosure.ServerState);
+            Assert.DoesNotContain(Toolset.Teardown, startup.Selection.Toolsets);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Indeterminate_socket_probe_fails_closed()
+    {
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            [McpStartup.SocketVariable] = $"indeterminate-{Guid.NewGuid():N}",
+            ["LIBTMUX_TMUX"] = "/bin/false",
+        };
+
+        await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+            McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name),
+                TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -63,6 +172,48 @@ public sealed class ServerPolicyTests
         Assert.Equal(TimeSpan.FromSeconds(5), policy.EffectiveTimeout(TimeSpan.FromSeconds(5)));
         Assert.Equal(TimeSpan.FromSeconds(30), policy.EffectiveTimeout(null));
         Assert.Equal(TimeSpan.FromSeconds(30), policy.EffectiveTimeout(TimeSpan.Zero));
+    }
+}
+
+/// <summary>Bounds aggregate execution that crosses nested tool calls.</summary>
+[UnsupportedOSPlatform("windows")]
+public sealed class BatchResponseBudgetTests
+{
+    [Fact]
+    public void A_batch_larger_than_one_mebibyte_keeps_rows_and_marks_elided_results()
+    {
+        ReadToolCallResult[] results =
+        [
+            new(
+                Index: 0,
+                Tool: "capture_pane",
+                Success: true,
+                Error: null,
+                Result: JsonValue.Create(new string('x', 1_048_576)),
+                ResultTruncated: false),
+            new(
+                Index: 1,
+                Tool: "get_server_info",
+                Success: false,
+                Error: "synthetic failure",
+                Result: null,
+                ResultTruncated: false),
+        ];
+
+        ReadToolBatchResult bounded = CapabilityTools.FitBatchResponse(
+            results,
+            onError: "continue",
+            stoppedAt: null);
+
+        Assert.Equal(2, bounded.Results.Count);
+        Assert.True(bounded.Truncated);
+        Assert.True(bounded.TruncatedBytes > 0);
+        Assert.Null(bounded.Results[0].Result);
+        Assert.True(bounded.Results[0].ResultTruncated);
+        Assert.False(bounded.Results[1].Success);
+        Assert.Equal(1, bounded.Succeeded);
+        Assert.Equal(1, bounded.Failed);
+        Assert.Equal("continue", bounded.OnError);
     }
 }
 
@@ -184,14 +335,12 @@ public sealed class ServerInstructionsTests
     }
 
     [Fact]
-    public void The_active_tier_is_stated_so_a_missing_tool_reads_as_policy()
+    public void The_capability_resource_is_named_so_a_missing_tool_is_explainable()
     {
-        string text = ServerInstructions.Compose(
-            new ServerPolicy { Tier = SafetyTier.ReadOnly },
-            null);
+        string text = ServerInstructions.Compose(new ServerPolicy(), null);
 
-        Assert.Contains("readonly", text, StringComparison.Ordinal);
-        Assert.Contains("LIBTMUX_SAFETY", text, StringComparison.Ordinal);
+        Assert.Contains("tmux://capabilities", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("LIBTMUX_SAFETY", text, StringComparison.Ordinal);
     }
 
     [Fact]
