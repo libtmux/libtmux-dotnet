@@ -8,6 +8,62 @@ Versions follow [Semantic Versioning](https://semver.org). During alpha the
 public API can change in any release with no deprecation period — pin an exact
 version.
 
+## [Unreleased]
+
+### Added
+
+- `LibTmux.Mcp` advertises 47 tools from one immutable capability registry.
+  Every tool and the static `tmux://capabilities` resource expose matching
+  process-reach, effect, output, trust, input-literalization, and annotation
+  metadata.
+
+- `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
+  effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
+  and `teardown` are valid; exact-name exclusions apply last.
+
+### Changed
+
+- **The MCP server now pins one socket and one configuration at startup.** Use
+  `LIBTMUX_SOCKET` for a socket name, `LIBTMUX_SOCKET_PATH` for an absolute
+  socket path, and `LIBTMUX_TMUX_CONFIG` for an explicit absolute tmux
+  configuration path. The default is the product-dedicated `libtmux-mcp`
+  socket with a minimal configuration. Replace the retired positional socket
+  argument with `LIBTMUX_SOCKET`.
+
+- **All MCP annotations are conservative.** Every advertised tool reports
+  read-only false, destructive true, idempotent false, and open-world true;
+  capability metadata carries the more precise process, effect, output, and
+  input-literalization model. Internal input-sink classifications remain CI
+  validation facts rather than public metadata.
+
+- `set_synchronize_panes` reports that it amplifies subsequent input, and
+  `send_keys` and `send_keys_batch` report the resolved pane target set.
+
+- Read batches retain every executed row while rolling back the newest nested
+  payloads needed to keep the complete response within 1,000,000 bytes.
+
+- Serialized MCP request IDs are capped at 524,288 bytes and rejected before
+  tool dispatch, keeping invalid-request replies bounded.
+
+- The default dedicated daemon is removed at MCP shutdown only when its
+  authenticated launch marker still belongs to that process.
+
+- Existing daemons report configuration provenance as unknown because tmux
+  does not reload a supplied configuration path into an already-running server.
+
+### Removed
+
+- **`LIBTMUX_SAFETY` and ordered MCP safety tiers are removed.** Remove the
+  variable and select unordered capabilities with `LIBTMUX_TOOLSETS`; merely
+  defining the retired variable now stops startup with a migration error.
+
+- **The prior MCP jobs, prompts, dynamic hierarchy resources, subscriptions,
+  generic format expansion, server discovery, buffers, and server-wide kill
+  routes are removed.** Use the pinned 47-tool surface and the static
+  `tmux://capabilities` resource. The hierarchy, session, and pane URIs migrate
+  to typed list and capture tools; `tmux://self` migrates to `get_server_info`
+  and `list_panes`, while `tmux://servers` has no discovery replacement.
+
 ## [0.0.0-alpha.10] — 2026-08-30
 
 ### Added
@@ -447,6 +503,7 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.10...HEAD
 [0.0.0-alpha.10]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.10
 [0.0.0-alpha.9]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.9
 [0.0.0-alpha.8]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.8
