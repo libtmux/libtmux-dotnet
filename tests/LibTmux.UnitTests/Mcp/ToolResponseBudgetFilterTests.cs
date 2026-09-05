@@ -18,6 +18,29 @@ namespace LibTmux.UnitTests;
 public sealed class ToolResponseBudgetFilterTests
 {
     [Fact]
+    public void A_tool_left_out_of_this_server_is_not_called_unknown()
+    {
+        string advice = ToolFailureFilter.AdviceFor(
+            new InvalidOperationException("Unknown tool: 'kill_window'"),
+            declaration: null,
+            tool: "kill_window");
+
+        // Toolset gates are the point; "unknown" invites a caller to conclude
+        // the server cannot do it at all.
+        Assert.Contains("was not selected", advice, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unknown tool", advice, StringComparison.Ordinal);
+
+        // A name nothing declares really is unknown.
+        Assert.Contains(
+            "This is unexpected",
+            ToolFailureFilter.AdviceFor(
+                new InvalidOperationException("Unknown tool: 'nope'"),
+                declaration: null,
+                tool: "nope"),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Mutation_advice_is_separated_from_tmux_own_wording()
     {
         TmuxCommandResult result = new(

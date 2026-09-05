@@ -76,7 +76,7 @@ internal static class ToolFailureFilter
                 tool,
                 error,
                 mayModify,
-                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool)));
+                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool), tool));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -96,13 +96,14 @@ internal static class ToolFailureFilter
                 tool,
                 error,
                 mayModify,
-                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool)));
+                AdviceFor(error, ToolMetadata.Declaration(request.Services, tool), tool));
         }
     };
 
     /// <summary>Answers what to tell a caller about one failure.</summary>
     /// <param name="error">What went wrong.</param>
     /// <param name="declaration">What this server declared about the tool, when known.</param>
+    /// <param name="tool">The tool named by the call, when known.</param>
     /// <returns>The sentence naming the cause and what to do instead.</returns>
     /// <remarks>
     /// Shared with the read batch, which dispatches its inner operations
@@ -110,11 +111,21 @@ internal static class ToolFailureFilter
     /// the same failure read differently depending on whether it was called
     /// alone or inside a batch, and the batch's wording was the better one.
     /// </remarks>
-    internal static string AdviceFor(Exception error, ToolDefinition? declaration = null)
+    internal static string AdviceFor(
+        Exception error,
+        ToolDefinition? declaration = null,
+        string? tool = null)
     {
         ArgumentNullException.ThrowIfNull(error);
         return error switch
         {
+            // A gated-off tool is not unknown, it was not selected, and the
+            // difference is the whole point of the toolset gates. Saying
+            // "unknown" invites a caller to conclude the server cannot do it.
+            _ when declaration is null && WasNotSelected(tool) =>
+                $"'{tool}' was not selected for this server. Its toolset is not "
+                + "enabled, so it is unavailable in this conversation. Read "
+                + "tmux://capabilities for the tools that are.",
             TmuxVersionTooLowException => "This tmux is too old for that operation. "
                 + "Call get_server_info to see which version is running.",
             TmuxObjectNotFoundException => "That session, window or pane no longer exists. "
@@ -141,6 +152,14 @@ internal static class ToolFailureFilter
                 + "most likely fail the same way.",
         };
     }
+
+    /// <summary>Answers whether a tool exists but was left out of this server.</summary>
+    /// <param name="tool">The tool named by the call.</param>
+    /// <returns><see langword="true" /> when the name is a real but unselected tool.</returns>
+    private static bool WasNotSelected(string? tool) =>
+        tool is not null
+        && CapabilityRegistry.Manifest.Any(candidate =>
+            string.Equals(candidate.Name, tool, StringComparison.Ordinal));
 
     /// <summary>Answers whether a name is one the caller was invited to send.</summary>
     /// <param name="declaration">What this server declared about the tool.</param>

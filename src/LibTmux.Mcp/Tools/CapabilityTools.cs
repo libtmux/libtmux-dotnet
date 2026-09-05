@@ -331,7 +331,8 @@ internal sealed class CapabilityTools
                 // warning the filter would add on top.
                 string message = BoundError(ToolFailureFilter.AdviceFor(
                     error,
-                    name.Length == 0 ? null : dispatch.GetValueOrDefault(name)));
+                    name.Length == 0 ? null : dispatch.GetValueOrDefault(name),
+                    name.Length == 0 ? null : name));
                 results.Add(new ReadToolCallResult(
                     index,
                     name,
