@@ -372,6 +372,29 @@ public sealed class TmuxToolsTests
             scope.Window.Id.ToString(),
             (await mcp.Capabilities.GetPaneInfoAsync(moved, token)).WindowId);
 
+        // tmux does not break the only pane out of its window: 3.7 answers with
+        // the id the caller already had, and 3.2a prints no id and fails. The
+        // pane already has that window to itself either way.
+        // Joining into a synchronized window enrols the pane in its input
+        // cohort, which changes the blast radius of every later send_keys
+        // there. Said only when it is true.
+        Assert.DoesNotContain("synchronizes input", joined.Changed, StringComparison.Ordinal);
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            true, scope.Window.Id.ToString(), cancellationToken: token);
+        ActionResult outsider = await mcp.Capabilities.CreateWindowAsync(
+            scope.Session.Id.ToString(), cancellationToken: token);
+        ActionResult enrolled = await mcp.Capabilities.JoinPaneAsync(
+            outsider.PaneId!, first, cancellationToken: token);
+        Assert.Contains("synchronizes input", enrolled.Changed, StringComparison.Ordinal);
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            false, scope.Window.Id.ToString(), cancellationToken: token);
+
+        ActionResult solo = await mcp.Capabilities.CreateSessionAsync(
+            "solo", cancellationToken: token);
+        McpException already = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.BreakPaneAsync(solo.PaneId!, cancellationToken: token));
+        Assert.Contains("already the only pane", already.Message, StringComparison.Ordinal);
+
         McpException itself = await Assert.ThrowsAsync<McpException>(
             () => mcp.Capabilities.JoinPaneAsync(moved, moved, cancellationToken: token));
         Assert.Contains("itself", itself.Message, StringComparison.Ordinal);

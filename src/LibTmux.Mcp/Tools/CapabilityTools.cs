@@ -636,6 +636,21 @@ internal sealed class CapabilityTools
         // placeholder, and rename-window does expand — so the same argument
         // would need escaping on some versions and not others. rename_window
         // already gets that right, and it takes the id this returns.
+        // tmux does not break the only pane out of its window. It relinks that
+        // window at a new index and unlinks the old one (cmd-break-pane.c:81),
+        // so 3.7 answers with the id the caller already had while 3.2a prints
+        // no id at all and the call fails. Either way the pane already has the
+        // window to itself, which is what was asked for.
+        IReadOnlyList<Pane> siblings = await pane.Window
+            .GetPanesAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (siblings.Count <= 1)
+        {
+            throw new McpException(
+                $"{pane.Id} is already the only pane in {pane.Window.Id}, so it has that "
+                + "window to itself. Use move_window to change where the window sits.");
+        }
+
         Window created = await pane
             .BreakAsync(null, detach, cancellationToken)
             .ConfigureAwait(false);
@@ -670,8 +685,20 @@ internal sealed class CapabilityTools
                 new MovePaneRequest(target.Id.ToString(), direction, detach: detach),
                 cancellationToken)
             .ConfigureAwait(false);
+
+        // A window with synchronize-panes on enrols whatever joins it, so a
+        // move made for layout changes the blast radius of every later
+        // send_keys in that window. Said only when it is true, the way a
+        // spawn reports a start directory only when tmux ignored it.
+        Pane moved = await TmuxTargets
+            .PaneAsync(server, pane.Id.ToString(), cancellationToken)
+            .ConfigureAwait(false);
+        string cohort = SynchronizesInput(moved)
+            ? " That window synchronizes input, so keys sent to any pane in it now reach "
+                + $"{pane.Id} as well; send_keys reports the cohort it actually reached."
+            : string.Empty;
         return new ActionResult(
-            $"Moved {pane.Id} into {target.Window.Id} beside {target.Id}.",
+            $"Moved {pane.Id} into {target.Window.Id} beside {target.Id}.{cohort}",
             PaneId: pane.Id.ToString(),
             WindowId: target.Window.Id.ToString());
     }
