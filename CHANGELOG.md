@@ -21,6 +21,54 @@ version.
   effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
   and `teardown` are valid; exact-name exclusions apply last.
 
+### Fixed
+
+- **`show_environment` no longer returns values by default.** Omitting `name`
+  answers every variable's name, `hasValue`, and `isRemoved` and no values.
+  Naming one variable answers its value unless the name reads as a credential,
+  which reports `withheld` instead. The tmux server environment is server-wide
+  and outlives every session on the socket.
+
+- **`isCaller` and `callerPaneId` are verified against the socket the pane
+  belongs to.** tmux numbers panes per server, so `TMUX_PANE` alone marked an
+  unrelated pane on the pinned socket as the terminal the conversation runs
+  through, and left the real one unmarked. The "you are here" instruction
+  segment answers to the same check.
+
+- **`move_window` refuses `replaceExisting` unless `kill_window` is enabled.**
+  tmux `move-window -k` kills whatever holds the destination index, which the
+  default `manage` toolset could reach without the teardown gate. A move that
+  does replace now says what it killed.
+
+- **A running server holding no sessions answers instead of failing.** tmux
+  refuses `list-windows -a` and `list-panes -a` with "no current target" when
+  no session exists, which reached callers as raw command failures across
+  eleven read tools. `get_server_info` reports zero counts and keeps the tmux
+  version.
+
+- Failure advice reads a tool's declared effects rather than the deliberately
+  pessimistic `readOnlyHint`, so a failing read is no longer described as
+  possibly having changed tmux. A refusal this server wrote keeps its own
+  message instead of gaining the unexpected-failure backstop, and tmux's own
+  wording is ended before the mutation warning is appended to it.
+
+- The four spawning tools report where a pane actually started when tmux could
+  not use the requested `startDirectory`; tmux falls back to `HOME` and then
+  `/` without reporting an error.
+
+- `set_history_limit` takes a session rather than a window, because tmux keeps
+  `history-limit` at session scope; the previous window parameter silently
+  changed every window in the session.
+
+- The server instructions describe budget truncation and scrollback loss
+  separately, because `droppedLines` reads 0 when scrollback discarded output.
+
+- `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
+  and `session_height` formats in 2.9. A zero resize extent is refused
+  alongside the negatives tmux already refused, an unknown layout is no longer
+  reported as "tmux tmux <version>", and `wait_for_text` documents that text
+  already on screen never matches.
+
 ### Changed
 
 - **The MCP server now pins one socket and one configuration at startup.** Use
