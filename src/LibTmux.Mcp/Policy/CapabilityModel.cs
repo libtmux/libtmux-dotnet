@@ -258,6 +258,9 @@ internal sealed class CapabilityRegistry
         ToolDefinition sendBatch = definitions.Single(definition =>
             string.Equals(definition.Name, "send_keys_batch", StringComparison.Ordinal));
         ToolDefinition shapedSendBatch = ShapeSendKeysBatch(sendBatch);
+        ToolDefinition setOption = definitions.Single(definition =>
+            string.Equals(definition.Name, "set_option", StringComparison.Ordinal));
+        ToolDefinition shapedSetOption = ShapeSetOption(setOption);
         return
         [
             .. definitions.Select(definition =>
@@ -265,8 +268,24 @@ internal sealed class CapabilityRegistry
                     ? shaped
                     : string.Equals(definition.Name, sendBatch.Name, StringComparison.Ordinal)
                         ? shapedSendBatch
+                    : string.Equals(definition.Name, setOption.Name, StringComparison.Ordinal)
+                        ? shapedSetOption
                     : definition),
         ];
+    }
+
+    // The enum is the allow-list itself, so a client discovers what it may set
+    // from the schema rather than by being refused one name at a time.
+    private static ToolDefinition ShapeSetOption(ToolDefinition definition)
+    {
+        JsonObject schema = JsonNode.Parse(definition.InputSchema.GetRawText())!.AsObject();
+        schema["properties"]!.AsObject()["name"]!.AsObject()["enum"] =
+            new JsonArray([.. InertOptions.Names.Order(StringComparer.Ordinal)
+                .Select(name => (JsonNode)JsonValue.Create(name))]);
+        return definition with
+        {
+            InputSchema = JsonSerializer.SerializeToElement(schema, ToolJson.Options),
+        };
     }
 
     private static ToolDefinition ShapeSendKeysBatch(ToolDefinition definition)
@@ -523,6 +542,7 @@ internal sealed class CapabilityRegistry
             ManageTool("wait_for_channel", "Wait for channel", Manage, nameof(CapabilityTools.WaitForChannelAsync), S(("channel", InputSink.TmuxState), ("timeoutSeconds", InputSink.None)), selfBounded: true, stateOnly: true, detail: "Block until something signals a tmux wait-for channel with 'tmux wait-for -S <channel>'. Use when you composed a shell command that signals it. For an ordinary command whose completion you want, run_shell_command already does this and also reports the exit status."),
             ManageTool("signal_channel", "Signal channel", Manage, nameof(CapabilityTools.SignalChannelAsync), S(("channel", InputSink.TmuxState)), stateOnly: true, detail: "Signal a tmux wait-for channel, releasing whatever waits on it. The channel latches: signalling before anyone waits still satisfies the next wait, so a handoff cannot be lost to a race."),
             ManageTool("set_mouse_enabled", "Set mouse enabled", Manage, nameof(CapabilityTools.SetMouseEnabledAsync), S(("enabled", InputSink.TmuxState)), stateOnly: true, detail: "Turn tmux mouse support on or off. This sets the global option, so it applies to every session on this server and changes what a human watching can do with their mouse."),
+            ManageTool("set_option", "Set option", Manage, nameof(CapabilityTools.SetOptionAsync), S(("name", InputSink.TmuxLookup), ("value", InputSink.TmuxState), ("scope", InputSink.None), ("paneId", InputSink.TmuxLookup)), stateOnly: true, detail: "Set one tmux option that holds a flag, a number, a choice or a colour, such as status-position, base-index or remain-on-exit. The name enum is the whole settable set: tmux's string and command options are absent because their values are formats and commands, so writing one would run code on every future pane. Read any option, settable or not, with show_option."),
             ManageTool("set_history_limit", "Set history limit", Manage, nameof(CapabilityTools.SetHistoryLimitAsync), S(("lines", InputSink.TmuxState), ("session", InputSink.TmuxLookup)), stateOnly: true, detail: "Set how many scrollback lines tmux keeps. This is a SESSION option, so it covers every window in the session rather than one pane. Raise it before starting something that prints a lot: no capture can return lines tmux has already discarded."),
 
             Execute("create_session", "Create session", Spawn, ProcessReach.ConfiguredProcess, nameof(CapabilityTools.CreateSessionAsync), SM(M("name", InputSink.TmuxState, InputSink.TmuxFormat), M("startDirectory", InputSink.TmuxState, InputSink.TmuxFormat), M("width", InputSink.TmuxState), M("height", InputSink.TmuxState)), inputLiteralization: F(("name", "double-hash-once"), ("startDirectory", "double-hash-once")), detail: "Create a detached tmux session and return its ids. Give a width and height when nothing will attach to it: a session with no client keeps tmux's default 80x24, which truncates wide output."),

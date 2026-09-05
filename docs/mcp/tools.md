@@ -7,7 +7,7 @@ first time somebody adds a tool. Regenerate after changing the surface:
 $ uv run eng/mcp/dump_tools.py
 ```
 
-45 tools and 1 static resource. No dynamic resource
+46 tools and 1 static resource. No dynamic resource
 templates or prompts are registered (0 templates, 0 prompts).
 
 Every row is the capability object advertised with the tool under
@@ -53,6 +53,7 @@ Earlier tier-era names and removed families are mapped in the
 | `send_keys_batch` | execute | pane-input | change, observe | tmux-metadata | Send input to a pane's program; a shell that receives it runs it with your user's permissions. |
 | `set_history_limit` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_mouse_enabled` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
+| `set_option` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_pane_title` | manage | none | change, observe | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_synchronize_panes` | execute | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `show_environment` | inspect | none | observe | process-environment | Read the tmux environment; accepts no client-supplied executable input. |

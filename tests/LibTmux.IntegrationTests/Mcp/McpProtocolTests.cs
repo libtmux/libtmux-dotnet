@@ -150,7 +150,7 @@ public sealed class McpProtocolTests
             "wait_for_text", "get_tmux_variables", "show_option", "show_environment",
             "show_hooks", "call_read_tools_batch", "rename_session", "rename_window",
             "select_window", "select_pane", "select_layout", "resize_window",
-            "resize_pane", "move_window", "swap_pane", "set_pane_title",
+            "resize_pane", "move_window", "swap_pane", "set_option", "set_pane_title",
             "wait_for_channel", "signal_channel", "set_mouse_enabled", "set_history_limit",
             "create_session", "create_window", "split_window", "respawn_pane",
             "run_shell_command", "send_keys", "send_keys_batch", "paste_text",
@@ -222,7 +222,7 @@ public sealed class McpProtocolTests
         using JsonDocument document = JsonDocument.Parse(content.Text);
         Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.True(document.RootElement.GetProperty("frozen").GetBoolean());
-        Assert.Equal(45, document.RootElement.GetProperty("toolCount").GetInt32());
+        Assert.Equal(46, document.RootElement.GetProperty("toolCount").GetInt32());
         Assert.Equal(0, document.RootElement.GetProperty("hostCommandTools").GetInt32());
         Assert.Equal(
             "interface-shaping-not-authorization",
@@ -261,7 +261,7 @@ public sealed class McpProtocolTests
         JsonElement rows = document.RootElement.GetProperty("tools");
         Assert.Equal(18, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "inspect"));
-        Assert.Equal(14, rows.EnumerateArray().Count(row =>
+        Assert.Equal(15, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "manage"));
         Assert.Equal(9, rows.EnumerateArray().Count(row =>
             row.GetProperty("toolset").GetString() == "execute"));
@@ -627,33 +627,30 @@ public sealed class McpProtocolTests
                     .GetProperty("tool").GetProperty("const").GetString()),
             name => name == "capture_pane");
 
-        CapabilityRegistry aggregateOnly = CapabilityRegistry.Select(new CapabilitySelection(
-            ImmutableHashSet<Toolset>.Empty,
-            ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
-            ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
-        ToolDefinition aggregate = Assert.Single(aggregateOnly.Definitions);
-        Assert.Equal(16, aggregate.NestedAuthority.Count);
-
         CapabilityRegistry environmentOnly = CapabilityRegistry.Select(new CapabilitySelection(
-            ImmutableHashSet<Toolset>.Empty,
-            ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
+            ImmutableHashSet.Create(Toolset.Inspect),
+            ImmutableHashSet.Create<string>(StringComparer.Ordinal),
             expectedNested.Where(name => name != "show_environment")
                 .ToImmutableHashSet(StringComparer.Ordinal)));
-        ToolDefinition environmentBatch = Assert.Single(environmentOnly.Definitions);
+        ToolDefinition environmentBatch = environmentOnly.Definitions
+            .Single(row => row.Name == "call_read_tools_batch");
         Assert.Equal(OutputClass.ProcessEnvironment, Assert.Single(environmentBatch.OutputClasses));
         Assert.StartsWith(
             "Read the tmux environment;",
             environmentBatch.Description,
             StringComparison.Ordinal);
 
+        // Naming only the batch grants only the batch. Its authority is trimmed
+        // by the whole selection, so nesting can never widen what was selected.
         CapabilityRegistry zeroAuthority = CapabilityRegistry.Select(new CapabilitySelection(
             ImmutableHashSet<Toolset>.Empty,
             ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
-            expectedNested.ToImmutableHashSet(StringComparer.Ordinal)));
+            ImmutableHashSet.Create<string>(StringComparer.Ordinal)));
         JsonElement zeroCalls = Assert.Single(zeroAuthority.Tools).ProtocolTool.InputSchema
             .GetProperty("properties").GetProperty("operations");
         Assert.Equal(JsonValueKind.False, zeroCalls.GetProperty("items").ValueKind);
         ToolDefinition zeroBatch = Assert.Single(zeroAuthority.Definitions);
+        Assert.Empty(zeroBatch.NestedAuthority);
         Assert.Equal(Effect.Observe, Assert.Single(zeroBatch.Effects));
         Assert.Empty(zeroBatch.OutputClasses);
         Assert.StartsWith(

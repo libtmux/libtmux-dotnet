@@ -433,6 +433,31 @@ internal static class TmuxTargets
                 + "it cannot use.";
     }
 
+    /// <summary>Resolves the option table one scope names.</summary>
+    /// <param name="server">The server to resolve within.</param>
+    /// <param name="scope">Which level the caller named.</param>
+    /// <param name="paneId">The pane whose scope to take, or null for the active one.</param>
+    /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <returns>The options at that scope.</returns>
+    internal static async Task<TmuxOptions> OptionsAsync(
+        Server server,
+        OptionScope scope,
+        string? paneId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return scope switch
+        {
+            OptionScope.Server => server.Options,
+            OptionScope.Session => (await PaneAsync(server, paneId, cancellationToken)
+                .ConfigureAwait(false)).Session.Options,
+            OptionScope.Window => (await PaneAsync(server, paneId, cancellationToken)
+                .ConfigureAwait(false)).Window.Options,
+            _ => (await PaneAsync(server, paneId, cancellationToken)
+                .ConfigureAwait(false)).Options,
+        };
+    }
+
     /// <summary>Reads a tmux format field for one pane as a number.</summary>
     /// <param name="pane">The pane to ask about.</param>
     /// <param name="format">The format string, such as <c>#{history_size}</c>.</param>

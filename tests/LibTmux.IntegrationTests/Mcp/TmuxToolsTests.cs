@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -11,6 +12,93 @@ namespace LibTmux.IntegrationTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class TmuxToolsTests
 {
+    [UnixFact]
+    public async Task Every_settable_option_is_one_this_tmux_refuses_a_command_for()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        int known = 0;
+
+        // The allow-list was read off tmux's own option types at one revision.
+        // This asks the tmux actually under test, on every matrix version, and
+        // it has to answer in both directions: the option takes its own value
+        // back, and refuses both a bare word and a real tmux command.
+        foreach (string name in InertOptions.Names)
+        {
+            RawTmuxResult current = await raw.ExecuteAsync(
+                ["show-options", "-gv", name], token);
+            if (current.ExitCode != 0)
+            {
+                Assert.Contains("option", current.StandardErrorText, StringComparison.Ordinal);
+                continue;
+            }
+
+            known++;
+            // tmux prints "none" for an unset colour and refuses it as input,
+            // so its own round-trip is lossy for exactly those two options.
+            string value = current.StandardOutputText.TrimEnd('\n');
+            if (value.Length > 0 && !string.Equals(value, "none", StringComparison.Ordinal))
+            {
+                RawTmuxResult restored = await raw.ExecuteAsync(
+                    ["set-option", "-g", name, value], token);
+                Assert.Equal(0, restored.ExitCode);
+            }
+
+            foreach (string probe in new[] { "zzz", "display-message zzz" })
+            {
+                RawTmuxResult refused = await raw.ExecuteAsync(
+                    ["set-option", "-g", name, probe], token);
+
+                // A refusal for "no such option" would prove nothing about the
+                // option's type, which is the whole claim being tested.
+                Assert.NotEqual(0, refused.ExitCode);
+                Assert.DoesNotContain(
+                    "option", refused.StandardErrorText, StringComparison.Ordinal);
+            }
+        }
+
+        // 3.2a knows 52 of the 76 and 3.7a knows all of them, so a floor here
+        // catches a list that stopped matching tmux without pinning a version.
+        Assert.InRange(known, 50, InertOptions.Names.Count);
+    }
+
+    [UnixFact]
+    public async Task Setting_an_option_refuses_every_name_that_carries_code()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        await mcp.Capabilities.SetOptionAsync(
+            "status-position", "top", OptionScope.Session, cancellationToken: token);
+        IReadOnlyList<OptionEntry> read = await mcp.Read.ShowOptionsAsync(
+            "status-position", OptionScope.Session, cancellationToken: token);
+        Assert.Equal("top", Assert.Single(read).Value);
+
+        // default-command is a command option and status-left is a format, so
+        // either would run code on panes this call never named.
+        foreach (string name in new[] { "default-command", "status-left", "after-new-session" })
+        {
+            McpException refused = await Assert.ThrowsAsync<McpException>(
+                () => mcp.Capabilities.SetOptionAsync(name, "on", cancellationToken: token));
+            Assert.Contains("show_option", refused.Message, StringComparison.Ordinal);
+        }
+
+        // An allowed name still cannot carry a format, so a misclassification
+        // in the list alone is not enough to reach tmux's format engine.
+        McpException format = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync(
+                "status-position", "#(id)", cancellationToken: token));
+        Assert.Contains("inert", format.Message, StringComparison.Ordinal);
+
+        McpException owned = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync("mouse", "on", cancellationToken: token));
+        Assert.Contains("set_mouse_enabled", owned.Message, StringComparison.Ordinal);
+    }
+
     [UnixFact]
     public async Task A_pane_that_never_existed_is_refused_by_name()
     {

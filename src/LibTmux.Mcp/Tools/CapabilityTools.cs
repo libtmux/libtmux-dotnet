@@ -655,6 +655,30 @@ internal sealed class CapabilityTools
         return new ActionResult($"Mouse support is {(enabled ? "enabled" : "disabled")}.");
     }
 
+    public async Task<ActionResult> SetOptionAsync(
+        [Description("The option name, from this tool's enumerated list.")] string name,
+        [Description("The value: a whole number, a word such as on, or a colour.")] string value,
+        [Description("Server, Session, Window, or Pane.")] OptionScope scope = OptionScope.Session,
+        [Description("The pane whose scope is written.")] string? paneId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(value);
+        InertOptions.Require(name, value);
+        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
+        TmuxOptions options = await TmuxTargets
+            .OptionsAsync(server, scope, paneId, cancellationToken)
+            .ConfigureAwait(false);
+
+        // expandFormat stays off: it is the flag that would make tmux read the
+        // value as a format, which is the one thing the grammar rules out.
+        _ = await options.SetAsync(
+                new SetOptionRequest(name, value, global: scope is OptionScope.Server),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new ActionResult($"Set {name} to {value} at {scope} scope.");
+    }
+
     public async Task<ActionResult> SetHistoryLimitAsync(
         [Description("The scrollback line limit.")] int lines,
         [Description("A session id such as $0, or its name. Omit for the first session.")]

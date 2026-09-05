@@ -30,7 +30,7 @@ internal sealed partial class ReadTools
         CancellationToken cancellationToken = default)
     {
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        TmuxOptions options = await OptionsForAsync(server, scope, paneId, cancellationToken)
+        TmuxOptions options = await TmuxTargets.OptionsAsync(server, scope, paneId, cancellationToken)
             .ConfigureAwait(false);
 
         IReadOnlyList<TmuxOption> read = string.IsNullOrWhiteSpace(name)
@@ -160,21 +160,6 @@ internal sealed partial class ReadTools
                 new HookEntry(hook.Name, entry.Index, entry.Command, scope))),
         ];
     }
-
-    private static async Task<TmuxOptions> OptionsForAsync(
-        Server server,
-        OptionScope scope,
-        string? paneId,
-        CancellationToken cancellationToken) => scope switch
-        {
-            OptionScope.Server => server.Options,
-            OptionScope.Session => (await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-                .ConfigureAwait(false)).Session.Options,
-            OptionScope.Window => (await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-                .ConfigureAwait(false)).Window.Options,
-            _ => (await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-                .ConfigureAwait(false)).Options,
-        };
 
     private static async Task<TmuxHooks> HooksForAsync(
         Server server,
