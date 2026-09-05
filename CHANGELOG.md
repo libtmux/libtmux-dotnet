@@ -12,10 +12,10 @@ version.
 
 ### Added
 
-- `LibTmux.Mcp` advertises 47 tools from one immutable capability registry.
-  Every tool and the static `tmux://capabilities` resource expose matching
-  process-reach, effect, output, trust, input-literalization, and annotation
-  metadata.
+- `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
+  one immutable capability registry. Every tool and the static
+  `tmux://capabilities` resource expose matching process-reach, effect, output,
+  trust, input-literalization, and annotation metadata.
 
 - `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
   effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
@@ -63,6 +63,11 @@ version.
 - The server instructions describe budget truncation and scrollback loss
   separately, because `droppedLines` reads 0 when scrollback discarded output.
 
+- **MCP input refuses pane modes before mutation.** `send_keys`, each
+  `send_keys_batch` operation, and `run_shell_command` refuse when any actual
+  recipient expanded by `synchronize-panes` is modal. `paste_text` refuses
+  only when its named target is modal because buffer paste does not fan out.
+
 - **A failure reads the same whether it was called directly or inside
   `call_read_tools_batch`.** The batch dispatches its inner operations itself
   and never passed through the failure filter, so the same failure carried
@@ -72,20 +77,15 @@ version.
 - **Tool descriptions carry the guidance that tells overlapping tools apart.**
   Descriptions are built from the capability model, so the text written as
   `[Description]` on `ReadTools` and `WriteTools` was never advertised — the
-  registered handlers are the `CapabilityTools` methods. Forty-two of
-  forty-seven tools shipped `"<opener> <Title>."`; `send_keys` reached clients
-  as "Send keys." Twenty-seven descriptions now ship, including the sentences
-  routing a caller between `send_keys` and `run_shell_command`, and between
-  the list tools and `search_panes`.
+  registered handlers are the `CapabilityTools` methods. `send_keys` reached
+  clients as "Send keys." Registered descriptions now route callers between
+  `send_keys` and `run_shell_command`, distinguish list tools from
+  `search_panes`, explain what `respawn_pane` reruns and what
+  `killExistingProcess` destroys, and state the modal-input boundary.
 
 - A null arriving for a declared input field is answered as bad input rather
   than as an unexpected internal failure, and `wait_for_text` states that text
   already on screen never matches.
-
-- Thirty-eight of forty-seven tools now describe what they are for, including
-  that `respawn_pane` reruns a pane's original command and that
-  `killExistingProcess` destroys a running one, and that input tools do not
-  reach a pane's program while it is in copy mode.
 
 - Calling a tool whose toolset is not enabled says it was not selected instead
   of "Unknown tool", and `select_layout` no longer warns that tmux may have
@@ -141,9 +141,15 @@ version.
   variable and select unordered capabilities with `LIBTMUX_TOOLSETS`; merely
   defining the retired variable now stops startup with a migration error.
 
+- **The MCP no longer advertises `enter_copy_mode` or `exit_copy_mode`.** Pane
+  modes belong to the attached human. Use `capture_pane`, `search_panes`,
+  `snapshot_pane`, and `capture_since` cursors to observe without entering,
+  driving, or cancelling a mode; wait for the human to leave before sending
+  input.
+
 - **The prior MCP jobs, prompts, dynamic hierarchy resources, subscriptions,
   generic format expansion, server discovery, buffers, and server-wide kill
-  routes are removed.** Use the pinned 47-tool surface and the static
+  routes are removed.** Use the pinned 45-tool surface and the static
   `tmux://capabilities` resource. The hierarchy, session, and pane URIs migrate
   to typed list and capture tools; `tmux://self` migrates to `get_server_info`
   and `list_panes`, while `tmux://servers` has no discovery replacement.
