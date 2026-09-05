@@ -207,12 +207,15 @@ internal sealed partial class WriteTools
             // the shell never ran it — a pane held by something other than an
             // idle shell, or a line editor this server could not clear. Saying
             // so beats the timeout's usual "it may still be running".
-            // An exact line, not a line containing it: the shell echoes the
-            // printf that prints the marker, and a program like cat echoes the
-            // whole payload back, so "contains" is true without anything
-            // having run. Only the print produces a line that IS the marker.
+            // A row that BEGINS with the marker, not one equal to it and not
+            // one merely containing it. Equality broke on a widen: tmux
+            // reflows, so the marker row written at 60 columns is merged with
+            // what follows into one 200-column row, and a still-running
+            // command was reported as never started — which inverts the retry
+            // advice. Containment would take the shell's echo of the printf
+            // that prints it, or a pane occupant re-emitting that echo.
             bool started = read.Lines.Any(line =>
-                string.Equals(line.Trim(), token.BeginMarker, StringComparison.Ordinal));
+                line.TrimStart().StartsWith(token.BeginMarker, StringComparison.Ordinal));
             string id = pane.Id.ToString();
             double elapsedSeconds = Math.Round(elapsed.Elapsed.TotalSeconds, 3);
             return sequence.Observe(() => StructuredTextResultBudget.Fit(
@@ -276,7 +279,12 @@ internal sealed partial class WriteTools
 
         /// <summary>Mints a token nothing else is using.</summary>
         /// <returns>The token.</returns>
-        internal static RunToken Create() => new(Guid.NewGuid().ToString("N")[..10]);
+        internal static RunToken Create()
+        {
+            RunToken token = new(Guid.NewGuid().ToString("N")[..10]);
+            PaneText.Remember(token.Id);
+            return token;
+        }
     }
 
     internal static async Task SendRunPayloadAsync(

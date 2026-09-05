@@ -980,9 +980,14 @@ public sealed class McpProtocolTests
             "rename_session",
             new Dictionary<string, object?> { ["name"] = "bad\nname" },
             cancellationToken: token);
+        // tmux only began validating names in 3.7 — older servers accept the
+        // newline — so this asserts the advice, not the refusal.
         string refusedName = Assert.IsType<TextContentBlock>(Assert.Single(badName.Content)).Text;
-        Assert.Contains("invalid session name", refusedName, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", refusedName, StringComparison.Ordinal);
+        if (badName.IsError ?? false)
+        {
+            Assert.Contains("invalid session name", refusedName, StringComparison.Ordinal);
+        }
     }
 
     private static readonly string[] NeverArrives = ["TEXT_THAT_NEVER_ARRIVES"];

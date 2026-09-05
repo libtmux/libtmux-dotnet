@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -22,7 +23,83 @@ namespace LibTmux.Mcp;
 /// </remarks>
 internal static partial class PaneText
 {
-    /// <summary>Removes lines that only exist because this server ran something.</summary>
+    private const int RememberedTokens = 64;
+    private static readonly ConcurrentQueue<string> Minted = new();
+
+    /// <summary>Records a token this process minted, so its echo is known.</summary>
+    /// <param name="id">The run token's identifier.</param>
+    /// <remarks>
+    /// Shape alone cannot separate this server's bookkeeping from a caller's
+    /// text: widened, it deleted a build log line; narrowed, it left the
+    /// payload's own rows on screen. A token that was actually minted is not a
+    /// guess, so it catches a row that wrapping split away from every shape
+    /// while never matching text a caller wrote. The shapes stay for
+    /// bookkeeping a previous server process left behind.
+    /// </remarks>
+    internal static void Remember(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        Minted.Enqueue(id);
+        while (Minted.Count > RememberedTokens && Minted.TryDequeue(out _))
+        {
+        }
+    }
+
+    private static bool CarriesMintedToken(string logical)
+    {
+        foreach (string id in Minted)
+        {
+            if (logical.Contains(id, StringComparison.Ordinal)
+                || logical.Contains($"lt_b_{id[..5]}", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Marks the rows a run's echoed payload occupies.</summary>
+    /// <remarks>
+    /// Per-row matching cannot cover the echo: it is one shell command line
+    /// wrapped across rows, and a middle row carries no token at all — which
+    /// is how <c>set-option</c> and <c>wait-for</c> stayed readable through
+    /// search and could wake a wait. The echo runs from the row naming the
+    /// begin marker to the row naming the rendezvous channel, and both ends
+    /// are minted ids, so the span is exact and matches nothing a caller
+    /// wrote.
+    /// </remarks>
+    private static bool[] PayloadRows(IReadOnlyList<string> lines)
+    {
+        bool[] payload = new bool[lines.Count];
+        foreach (string id in Minted)
+        {
+            string head = $"lt_b_{id[..5]}";
+            string channel = $"lt_r_{id}";
+            int first = -1;
+            for (int row = 0; row < lines.Count; row++)
+            {
+                if (first < 0 && lines[row].Contains(head, StringComparison.Ordinal))
+                {
+                    first = row;
+                }
+
+                if (first >= 0 && lines[row].Contains(channel, StringComparison.Ordinal))
+                {
+                    for (int span = first; span <= row; span++)
+                    {
+                        payload[span] = true;
+                    }
+
+                    first = -1;
+                }
+            }
+        }
+
+        return payload;
+    }
+
+    /// <summary>Removes lines that only exist because this server ran something.</summary>    /// <summary>Removes lines that only exist because this server ran something.</summary>
     /// <param name="lines">The captured rows, oldest first.</param>
     /// <param name="paneWidth">
     /// The pane's width in columns, used to tell a wrapped continuation from a
@@ -40,6 +117,7 @@ internal static partial class PaneText
         }
 
         Regex marker = MarkerPattern();
+        bool[] payload = PayloadRows(lines);
         List<string>? kept = null;
         StringBuilder logical = new();
 
@@ -61,7 +139,14 @@ internal static partial class PaneText
                 logical.Append(lines[end]);
             }
 
-            if (marker.IsMatch(logical.ToString()))
+            string joined = logical.ToString();
+            bool inPayload = false;
+            for (int row = start; row <= end && !inPayload; row++)
+            {
+                inPayload = payload[row];
+            }
+
+            if (inPayload || marker.IsMatch(joined) || CarriesMintedToken(joined))
             {
                 kept ??= [.. lines.Take(start)];
             }
