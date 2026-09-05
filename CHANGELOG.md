@@ -12,17 +12,78 @@ version.
 
 ### Added
 
-- `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
+- `LibTmux.Mcp` advertises 46 tools, including 15 in the `manage` toolset, from
   one immutable capability registry. Every tool carries conservative protocol
   annotations. Its `_meta` capability object and the static
   `tmux://capabilities` resource carry matching non-protocol metadata for
   process reach, tmux effects, output classes, trust, and input literalization.
+
+- `set_option` writes the tmux options typed as flag, number, choice or colour,
+  published as a schema enum of 74 names taken from tmux's own option table.
+  Values must be a whole number, a bare word or a hex colour, so a
+  misclassified name still cannot reach the format engine. `destroy-unattached`
+  answers to the teardown gate; `exit-empty` and `exit-unattached` are refused,
+  because no tool here can end a tmux server and so none may arm one.
 
 - `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
   effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
   and `teardown` are valid; exact-name exclusions apply last.
 
 ### Fixed
+
+- **`run_shell_command` reaches only the pane it names.** It sent its payload
+  with `send-keys`, which tmux fans out to the synchronized cohort, and
+  defended its singular exit status by refusing whenever the cohort was larger
+  — advice a caller could not follow, and still a check against a later send.
+  The payload now travels through a tmux buffer, which writes straight to the
+  named pane, so the outcome is singular by construction and the refusal is
+  gone. Under a process toggling `synchronize-panes` every 10-50ms, measured
+  across 40 runs: 6 leaks before, none after, and 40 calls completed rather
+  than 23.
+
+- **An empty identifier is refused rather than read as the current object.**
+  Null still means the current pane, window or session; `""` used to mean the
+  same, so `kill_window(windowId: "")` destroyed the active window and
+  `send_keys(paneId: "")` typed into whatever pane was active anywhere on the
+  server.
+
+- **A direct call is held to the schema it published.** Every tool declares
+  `additionalProperties: false`, which only the batch path enforced: the SDK
+  dropped an undeclared argument, coerced `"5"` where an integer was declared,
+  and let a wrong type reach the caller as System.Text.Json prose. Declared
+  integers now carry their type's range, so a value beyond `Int32` is refused
+  by the schema rather than by the binder.
+
+- **Nesting cannot widen a selection.** `call_read_tools_batch` trimmed its
+  declared authority by `LIBTMUX_EXCLUDE_TOOLS` alone, so naming the batch in
+  `LIBTMUX_TOOLS` while the toolsets omitted `inspect` published a batch that
+  still reached all sixteen inspect tools. A batch left with no authority is
+  no longer published at all.
+
+- **The synchronized cohort holds only the panes tmux would reach.** tmux gates
+  delivery on more than `synchronize-panes`: a dead peer, a peer with input
+  disabled, and every hidden pane of a zoomed window are skipped. A source that
+  receives nothing is refused rather than reported as sent.
+
+- **`show_option` sees the options a server was configured with.** It asked for
+  values set at exactly the scope named, and `set -g` is where nearly all tmux
+  configuration lives, so a configured server read as unconfigured. Inherited
+  values are included and marked, and the scope in the result means where the
+  read asked rather than where the value was set.
+
+- **Refusals name what a caller can act on.** The three selection knobs are
+  distinguished rather than all reported as a disabled toolset; the pattern
+  subset is described as linear-time rather than as ".NET regular expressions"
+  it then refuses; and the mutation warning no longer follows a command tmux
+  said it refused, nor appears twice in one message.
+
+- `wait_for_channel` answers with `signalled`, `elapsedSeconds` and
+  `effectiveTimeoutSeconds`, so a timeout and a signal are told apart without
+  matching prose. A misconfigured environment exits with its message and status
+  1 instead of an abort and a stack trace. `swap_pane` refuses a pane and
+  itself, `maxLines` below one is refused rather than answered with nothing,
+  and `droppedBytes` documents that it counts pane text while the budget bounds
+  the serialized result.
 
 - **`show_environment` no longer returns values by default.** Omitting `name`
   answers every variable's name, `hasValue`, and `isRemoved` and no values.
@@ -68,10 +129,8 @@ version.
   `send_keys_batch` operation check the named source: effective
   `pane_synchronized` `0` means source only, while `1` uses configured
   effective-on membership from inherited window settings and pane overrides.
-  A modal cohort member refuses that operation. `run_shell_command` requires a
-  singleton and refuses before baseline or payload if synchronization expands
-  its cohort. `paste_text` remains target-only because buffer paste does not
-  fan out.
+  A modal cohort member refuses that operation. `paste_text` remains
+  target-only because buffer paste does not fan out.
 
 - **A failure reads the same whether it was called directly or inside
   `call_read_tools_batch`.** The batch dispatches its inner operations itself
