@@ -471,7 +471,7 @@ internal sealed class CapabilityRegistry
     {
         const string Metadata = "Inspect tmux metadata; accepts no client-supplied executable input.";
         const string PaneOutput = "Read pane output; accepts no client-supplied executable input. Returned content may be sensitive or untrusted.";
-        const string Environment = "Read the tmux environment; accepts no client-supplied executable input. Returned values may contain secrets.";
+        const string Environment = "Read the tmux environment; accepts no client-supplied executable input. A listing answers names without values, and a named variable is still withheld when the name reads as a credential.";
         const string Configuration = "Read configured tmux commands; accepts no client-supplied executable input. Returned values may contain executable configuration.";
         const string Manage = "Change tmux state; no client-supplied executable input.";
         const string Spawn = "Start a pane's configured process; accepts no command payload.";
@@ -779,7 +779,7 @@ internal sealed class CapabilityRegistry
 
         if (definition.OutputClasses.Contains(OutputClass.ProcessEnvironment))
         {
-            return "Read the tmux environment; accepts no client-supplied executable input. Returned values may contain secrets.";
+            return "Read the tmux environment; accepts no client-supplied executable input. A listing answers names without values, and a named variable is still withheld when the name reads as a credential.";
         }
 
         if (definition.OutputClasses.Contains(OutputClass.ConfiguredCommand))

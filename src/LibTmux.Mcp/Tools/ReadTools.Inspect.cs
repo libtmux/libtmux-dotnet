@@ -50,9 +50,14 @@ internal sealed partial class ReadTools
     /// <returns>The variables.</returns>
     [Description(
         "Read the environment tmux gives to new panes, at the server or session level. "
-        + "This is what a NEW pane will inherit, not what an already-running shell has.")]
+        + "This is what a NEW pane will inherit, not what an already-running shell has. "
+        + "Values are withheld: omitting name answers every name and whether it is set, "
+        + "and naming one answers its value unless the name reads as a credential.")]
     public async Task<IReadOnlyList<EnvironmentEntry>> ShowEnvironmentAsync(
-        [Description("One variable name. Omit to list them all.")] string? name = null,
+        [Description(
+            "One variable name, which answers its value. Omit for every name with "
+            + "hasValue instead of values.")]
+        string? name = null,
         [Description("A session id such as $0, or its name. Omit for the server's environment.")]
         string? session = null,
         [Description("The tmux socket to read. Omit for the default server.")]
@@ -69,13 +74,54 @@ internal sealed partial class ReadTools
         {
             TmuxEnvironmentEntry? one = await environment.GetAsync(name, cancellationToken)
                 .ConfigureAwait(false);
-            return one is null ? [] : [new EnvironmentEntry(one.Name, one.Value, one.IsRemoved)];
+            return one is null ? [] : [Entry(one, withValue: true)];
         }
 
         IReadOnlyList<TmuxEnvironmentEntry> all = await environment.GetAllAsync(cancellationToken)
             .ConfigureAwait(false);
-        return [.. all.Select(each => new EnvironmentEntry(each.Name, each.Value, each.IsRemoved))];
+        return [.. all.Select(each => Entry(each, withValue: false))];
     }
+
+    /// <summary>Answers one variable, withholding the value unless it was asked for by name.</summary>
+    /// <param name="source">What tmux reported.</param>
+    /// <param name="withValue">Whether the caller named this variable specifically.</param>
+    /// <returns>The entry as the caller may see it.</returns>
+    private static EnvironmentEntry Entry(TmuxEnvironmentEntry source, bool withValue)
+    {
+        bool hasValue = source.Value is not null;
+        bool withheld = !withValue || NamesACredential(source.Name);
+        return new EnvironmentEntry(
+            source.Name,
+            withheld ? null : source.Value,
+            source.IsRemoved,
+            hasValue,
+            withheld && hasValue);
+    }
+
+    /// <summary>Answers whether a variable name reads as holding a credential.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns><see langword="true" /> when the value is never disclosed.</returns>
+    /// <remarks>
+    /// Matched on the name because the value is opaque — a token and a path are
+    /// both strings. The list is deliberately broad: withholding a PATH that
+    /// happens to say KEY costs one call to the shell, and disclosing one API
+    /// key cannot be undone.
+    /// </remarks>
+    private static bool NamesACredential(string name)
+    {
+        foreach (string fragment in CredentialNameFragments)
+        {
+            if (name.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static readonly string[] CredentialNameFragments =
+        ["KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "AUTH"];
 
     /// <summary>Reads the hooks tmux will run.</summary>
     /// <param name="scope">Which level to read.</param>
@@ -154,9 +200,22 @@ public sealed record OptionEntry(string Name, string? Value, OptionScope Scope);
 
 /// <summary>One variable in tmux's environment.</summary>
 /// <param name="Name">The variable name.</param>
-/// <param name="Value">Its value, or null when it is marked removed.</param>
+/// <param name="Value">Its value, or null when it is removed, unset, or withheld.</param>
 /// <param name="IsRemoved">Whether tmux will unset it for a new pane.</param>
-public sealed record EnvironmentEntry(string Name, string? Value, bool IsRemoved);
+/// <param name="HasValue">Whether tmux holds a value, whatever this entry discloses.</param>
+/// <param name="Withheld">Whether a value exists and was not disclosed.</param>
+/// <remarks>
+/// The tmux server environment is server-wide and outlives every session on
+/// the socket, so it is where exported API keys accumulate. A listing answers
+/// <see cref="HasValue" /> rather than values, and a value asked for by name
+/// is still withheld when the name reads as a credential.
+/// </remarks>
+public sealed record EnvironmentEntry(
+    string Name,
+    string? Value,
+    bool IsRemoved,
+    bool HasValue,
+    bool Withheld);
 
 /// <summary>One command tmux will run on an event.</summary>
 /// <param name="Name">The hook name, such as <c>pane-exited</c>.</param>

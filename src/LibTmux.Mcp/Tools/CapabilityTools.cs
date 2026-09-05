@@ -233,7 +233,10 @@ internal sealed class CapabilityTools
         _read.ShowOptionsAsync(name, scope, paneId, cancellationToken: cancellationToken);
 
     public Task<IReadOnlyList<EnvironmentEntry>> ShowEnvironmentAsync(
-        [Description("One variable name. Omit for all variables.")] string? name = null,
+        [Description(
+            "One variable name, which answers its value. Omit for every name with "
+            + "hasValue instead of values.")]
+        string? name = null,
         [Description("A session id or name. Omit for the server environment.")]
         string? session = null,
         CancellationToken cancellationToken = default) =>

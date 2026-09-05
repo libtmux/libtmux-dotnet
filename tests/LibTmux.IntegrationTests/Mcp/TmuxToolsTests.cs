@@ -381,4 +381,42 @@ public sealed class TmuxToolsTests
         // budget that kept the oldest would answer the wrong question.
         Assert.Contains(small.Content.Lines, line => line.Contains("300", StringComparison.Ordinal));
     }
+
+    [UnixFact]
+    public async Task The_environment_answers_names_and_withholds_credential_values()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        await server.Environment.SetAsync("LIBTMUX_PROBE_PLAIN", "plain-value", cancellationToken: token);
+        await server.Environment.SetAsync("LIBTMUX_PROBE_API_KEY", "not-a-real-key", cancellationToken: token);
+
+        IReadOnlyList<EnvironmentEntry> listed = await mcp.Read.ShowEnvironmentAsync(
+            cancellationToken: token);
+
+        // A listing is the easy call, so it is the one that must never carry a
+        // value: the server environment is where exported API keys accumulate.
+        Assert.All(listed, entry => Assert.Null(entry.Value));
+        EnvironmentEntry plain = Assert.Single(listed, entry => entry.Name == "LIBTMUX_PROBE_PLAIN");
+        Assert.True(plain.HasValue);
+        Assert.True(plain.Withheld);
+
+        IReadOnlyList<EnvironmentEntry> named = await mcp.Read.ShowEnvironmentAsync(
+            "LIBTMUX_PROBE_PLAIN",
+            cancellationToken: token);
+        Assert.Equal("plain-value", Assert.Single(named).Value);
+
+        IReadOnlyList<EnvironmentEntry> secret = await mcp.Read.ShowEnvironmentAsync(
+            "LIBTMUX_PROBE_API_KEY",
+            cancellationToken: token);
+        EnvironmentEntry withheld = Assert.Single(secret);
+        Assert.Null(withheld.Value);
+        Assert.True(withheld.HasValue);
+        Assert.True(withheld.Withheld);
+    }
 }
