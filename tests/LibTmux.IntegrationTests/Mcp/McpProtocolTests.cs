@@ -1,8 +1,11 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LibTmux.Engineering;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +22,122 @@ namespace LibTmux.IntegrationTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class McpProtocolTests
 {
+    [UnixFact]
+    public async Task An_oversized_request_id_is_rejected_before_tool_dispatch()
+    {
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        CancellationToken token = timeout.Token;
+        string nonce = Guid.NewGuid().ToString("N")[..8];
+        string socketName = $"lt-id-{nonce}";
+        string root = Path.Combine(WorkspaceSocketRoot.Root, $"request-id-{nonce}");
+        Directory.CreateDirectory(root);
+        Server endpoint = Server.Open(new ServerConnectionOptions(
+            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: socketName,
+            configurationFile: "/dev/null",
+            childEnvironment: new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root }));
+
+        var startInfo = new ProcessStartInfo(
+            Path.Combine(AppContext.BaseDirectory, "LibTmux.Mcp"))
+        {
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        startInfo.Environment["LIBTMUX_SOCKET"] = socketName;
+        startInfo.Environment["LIBTMUX_TOOLSETS"] = "inspect,manage,execute";
+        startInfo.Environment["LIBTMUX_TMUX_CONFIG"] = "/dev/null";
+        startInfo.Environment["TMUX_TMPDIR"] = root;
+
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("The MCP test process did not start.");
+        Task<string> standardError = process.StandardError.ReadToEndAsync(token);
+        process.StandardInput.AutoFlush = true;
+
+        try
+        {
+            await WriteAsync(process, new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = 1,
+                ["method"] = "initialize",
+                ["params"] = new JsonObject
+                {
+                    ["protocolVersion"] = "2025-06-18",
+                    ["capabilities"] = new JsonObject(),
+                    ["clientInfo"] = new JsonObject
+                    {
+                        ["name"] = "request-id-test",
+                        ["version"] = "1",
+                    },
+                },
+            }, token);
+            JsonNode initialized = await ReadAsync(process, token);
+            Assert.NotNull(initialized["result"]);
+            await WriteAsync(process, new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["method"] = "notifications/initialized",
+            }, token);
+
+            const int MaximumRequestIdBytes = RequestIdBudgetFilter.MaximumSerializedBytes;
+            string acceptedId = new('i', MaximumRequestIdBytes - 2);
+            await WriteAsync(process, ToolCall(acceptedId, "list_sessions", new JsonObject()), token);
+            JsonNode accepted = await ReadAsync(process, token);
+            Assert.Equal(acceptedId, accepted["id"]?.GetValue<string>());
+
+            string marker = $"oversized-id-must-not-run-{nonce}";
+            await WriteAsync(
+                process,
+                ToolCall(
+                    new string('i', 1_000_000),
+                    "create_session",
+                    new JsonObject { ["name"] = marker }),
+                token);
+            JsonNode rejected = await ReadAsync(process, token);
+
+            TmuxCommandResult sessions = await endpoint.ExecuteCommandAsync(
+                ["list-sessions", "-F", "#{session_name}"],
+                token);
+            Assert.DoesNotContain(marker, sessions.StandardOutputLines);
+            Assert.Null(rejected["id"]);
+            Assert.Equal(-32600, rejected["error"]?["code"]?.GetValue<int>());
+            Assert.Contains(
+                MaximumRequestIdBytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                rejected["error"]?["message"]?.GetValue<string>(),
+                StringComparison.Ordinal);
+            Assert.True(Encoding.UTF8.GetByteCount(rejected.ToJsonString()) < 1_000);
+        }
+        finally
+        {
+            process.StandardInput.Close();
+            try
+            {
+                await process.WaitForExitAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(CancellationToken.None);
+            }
+
+            _ = await standardError;
+            try
+            {
+                await endpoint.KillAsync(CancellationToken.None);
+            }
+            catch (LibTmuxException)
+            {
+            }
+
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [UnixFact]
     public async Task The_wire_surface_is_the_pinned_cross_port_inventory()
     {
@@ -636,6 +755,36 @@ public sealed class McpProtocolTests
 
     private static JsonElement Structured(CallToolResult result) =>
         Assert.IsType<JsonElement>(result.StructuredContent);
+
+    private static JsonObject ToolCall(string id, string name, JsonObject arguments) => new()
+    {
+        ["jsonrpc"] = "2.0",
+        ["id"] = id,
+        ["method"] = "tools/call",
+        ["params"] = new JsonObject
+        {
+            ["name"] = name,
+            ["arguments"] = arguments,
+        },
+    };
+
+    private static async Task WriteAsync(
+        Process process,
+        JsonNode message,
+        CancellationToken cancellationToken) =>
+        await process.StandardInput.WriteLineAsync(
+            message.ToJsonString(ToolJson.Options).AsMemory(),
+            cancellationToken);
+
+    private static async Task<JsonNode> ReadAsync(
+        Process process,
+        CancellationToken cancellationToken)
+    {
+        string line = await process.StandardOutput.ReadLineAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The MCP test process closed without a reply.");
+        return JsonNode.Parse(line)
+            ?? throw new InvalidOperationException("The MCP test process returned JSON null.");
+    }
 
     private static IEnumerable<string> TargetPaneIds(CallToolResult result) =>
         Structured(result).GetProperty("targetPaneIds")

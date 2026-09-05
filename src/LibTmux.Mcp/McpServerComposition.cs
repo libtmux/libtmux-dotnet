@@ -78,6 +78,8 @@ public static class McpServerComposition
             })
             .WithTools(registry.Tools)
             .WithResources<CapabilityResource>()
+            .WithMessageFilters(filters =>
+                filters.AddIncomingFilter(RequestIdBudgetFilter.Create()))
             .WithRequestFilters(filters =>
             {
                 filters.AddCallToolFilter(next =>
