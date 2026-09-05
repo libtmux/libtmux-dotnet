@@ -955,6 +955,23 @@ public sealed class McpProtocolTests
         string refusedLayout = Assert.IsType<TextContentBlock>(Assert.Single(layout.Content)).Text;
         Assert.Contains("not-a-real-layout", refusedLayout, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", refusedLayout, StringComparison.Ordinal);
+
+        // A value tmux refuses reaches tmux, so this is the same claim through
+        // a real dispatch: every command goes out behind a generation guard,
+        // which makes it a chain, and a chain refused at its first command has
+        // still mutated nothing.
+        CallToolResult badValue = await harness.Client.CallToolAsync(
+            "set_option",
+            new Dictionary<string, object?>
+            {
+                ["name"] = "base-index",
+                ["value"] = "notanumber",
+                ["scope"] = "Session",
+            },
+            cancellationToken: token);
+        string refusedValue = Assert.IsType<TextContentBlock>(Assert.Single(badValue.Content)).Text;
+        Assert.Contains("notanumber", refusedValue, StringComparison.Ordinal);
+        Assert.DoesNotContain("may have acted", refusedValue, StringComparison.Ordinal);
     }
 
     private static readonly string[] NeverArrives = ["TEXT_THAT_NEVER_ARRIVES"];

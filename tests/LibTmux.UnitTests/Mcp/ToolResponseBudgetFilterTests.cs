@@ -44,7 +44,7 @@ public sealed class ToolResponseBudgetFilterTests
     public void Mutation_advice_is_separated_from_tmux_own_wording()
     {
         TmuxCommandResult chained = new(
-            ["kill-window", ";", "move-window"],
+            ["display-message", "-p", "x", ";", "kill-window", ";", "move-window"],
             1,
             ReadOnlyMemory<byte>.Empty,
             ReadOnlyMemory<byte>.Empty,
@@ -75,6 +75,23 @@ public sealed class ToolResponseBudgetFilterTests
             mayModify: true,
             "tmux refused the command: set-option failed: unknown value: 1");
         Assert.DoesNotContain("may have acted", refusal, StringComparison.Ordinal);
+
+        // A guarded single command is a chain too. tmux stops at the failure,
+        // so a chain whose first command it refused has mutated nothing, and
+        // the guard's own two links only read.
+        TmuxCommandResult guarded = new(
+            ["display-message", "-p", "x", ";", "if-shell", "-F", "y", "", "m", ";", "set-option"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["value is invalid: notanumber"]);
+        string guardedRefusal = ToolFailureFilter.ActionableAdvice(
+            "set_option",
+            new TmuxCommandException("set-option failed", guarded),
+            mayModify: true,
+            "tmux refused the command: set-option failed");
+        Assert.DoesNotContain("may have acted", guardedRefusal, StringComparison.Ordinal);
     }
 
     [Fact]

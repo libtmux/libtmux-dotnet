@@ -283,8 +283,7 @@ internal static class ToolFailureFilter
                 && cancellation.CommandMayHaveExecuted
             || error is LibTmuxException tmux
                 && tmux.Dispatch != TmuxDispatchState.NotDispatched
-                && (tmux is not TmuxCommandException refused
-                    || ChainMayHavePartlyRun(refused));
+                && !RefusedWithoutActing(tmux);
 
         // The advice may already carry this warning, and saying it twice reads
         // as two different failures rather than one.
@@ -306,12 +305,59 @@ internal static class ToolFailureFilter
             + " Inspect tmux state first.";
     }
 
+    // tmux reports a refusal two ways: as a command failure, and as an option
+    // failure when it rejected the name or the value. Both mean tmux declined
+    // to act, so both contradict a warning that it might have.
+    private static bool RefusedWithoutActing(LibTmuxException error) => error switch
+    {
+        TmuxCommandException command => !ChainMayHavePartlyRun(command),
+        TmuxOptionException option => option.InnerException
+            is not TmuxCommandException inner || !ChainMayHavePartlyRun(inner),
+        _ => false,
+    };
+
     // tmux refusing one command is evidence that it did not run it, and the
-    // warning contradicted tmux's own sentence. A chain is the exception:
-    // links before the failing one already ran.
-    private static bool ChainMayHavePartlyRun(TmuxCommandException error) =>
-        error.Result.Arguments.Any(static argument =>
-            string.Equals(argument, ";", StringComparison.Ordinal));
+    // warning contradicted tmux's own sentence. A chain is the exception, but
+    // only past its second command: tmux stops at the failure, so a chain whose
+    // first command it refused has mutated nothing either. The generation guard
+    // prepends a read and an if-shell to every chain, and neither changes tmux.
+    private static bool ChainMayHavePartlyRun(TmuxCommandException error)
+    {
+        int commands = 0;
+        bool leading = true;
+        foreach (string[] link in Links(error.Result.Arguments))
+        {
+            if (leading
+                && link.Length > 0
+                && link[0] is "display-message" or "if-shell")
+            {
+                continue;
+            }
+
+            leading = false;
+            commands++;
+        }
+
+        return commands > 1;
+    }
+
+    private static IEnumerable<string[]> Links(IReadOnlyList<string> arguments)
+    {
+        List<string> link = [];
+        foreach (string argument in arguments)
+        {
+            if (string.Equals(argument, ";", StringComparison.Ordinal))
+            {
+                yield return [.. link];
+                link.Clear();
+                continue;
+            }
+
+            link.Add(argument);
+        }
+
+        yield return [.. link];
+    }
 
     private static bool TryPasteCleanup(Exception? error, out string? buffer)
     {
