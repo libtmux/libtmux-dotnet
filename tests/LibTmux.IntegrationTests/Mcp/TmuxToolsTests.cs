@@ -779,4 +779,55 @@ public sealed class TmuxToolsTests
                 result.Error ?? string.Empty,
                 StringComparison.Ordinal));
     }
+
+    [UnixFact]
+    public async Task Every_declared_input_bound_is_enforced_on_both_sides()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        static string Filler(int bytes) => new('a', bytes);
+        static Task Refuses(Func<Task> call) => Assert.ThrowsAsync<McpException>(call);
+
+        // A bound is only a bound if the value at the limit is accepted and
+        // the next one is not. Half of that is a limit nobody can rely on.
+        Task Wait(IReadOnlyList<string> patterns) =>
+            mcp.Capabilities.WaitForTextAsync(pane, patterns, timeoutSeconds: 0.2, cancellationToken: token);
+
+        await Wait([.. Enumerable.Repeat("zz", 32)]);
+        await Refuses(() => Wait([.. Enumerable.Repeat("zz", 33)]));
+        await Wait([Filler(4096)]);
+        await Refuses(() => Wait([Filler(4097)]));
+        await Wait([.. Enumerable.Repeat(Filler(4096), 4)]);
+        await Refuses(() => Wait([.. Enumerable.Repeat(Filler(4096), 4), "z"]));
+
+        Task Variables(int count) => mcp.Capabilities.GetTmuxVariablesAsync(
+            [.. Enumerable.Repeat("session_name", count)], pane, cancellationToken: token);
+
+        await Variables(1);
+        await Variables(64);
+        await Refuses(() => Variables(0));
+        await Refuses(() => Variables(65));
+
+        Task Keys(int steps, int delay) => mcp.Capabilities.SendKeysBatchAsync(
+            [.. Enumerable.Range(0, steps).Select(_ =>
+                new PaneInputOperation("", pane, DelayMilliseconds: delay))],
+            cancellationToken: token);
+
+        await Keys(64, 0);
+        await Refuses(() => Keys(65, 0));
+        await Refuses(() => Keys(1, 2001));
+
+        await mcp.Capabilities.SearchPanesAsync(Filler(4096), cancellationToken: token);
+        await Refuses(() => mcp.Capabilities.SearchPanesAsync(
+            Filler(4097), cancellationToken: token));
+
+        await Refuses(() => mcp.Capabilities.WaitForChannelAsync(
+            Filler(4097), cancellationToken: token));
+    }
 }

@@ -260,6 +260,13 @@ public sealed class McpProtocolTests
 
             // The row says only what the protocol cannot. Carrying a second
             // copy of the schemas cost 54 KB and the output one was wrong.
+            //
+            // This absence is asserted rather than the two being compared,
+            // because comparing them could not have caught the disagreement:
+            // the SDK wraps a non-object output schema as {"result": ...} when
+            // it serializes, so two in-process representations agree while the
+            // bytes on the wire do not. Anything whose contract is the wire
+            // shape has to be asserted against raw bytes.
             Assert.False(disclosed.TryGetProperty("inputSchema", out _));
             Assert.False(disclosed.TryGetProperty("outputSchema", out _));
             Assert.False(disclosed.TryGetProperty("description", out _));
