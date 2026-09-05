@@ -84,7 +84,7 @@ A refactor nobody can observe is not an entry.
 
 One change per bullet. Lead with the identifier and a concrete verb — add,
 fix, remove, deprecate, `now`, `no longer`. Name identifiers literally:
-`Pane.CaptureAsync`, `TMUX_TMPDIR`, `tmux://panes/{pane}`.
+`Pane.CaptureAsync`, `TMUX_TMPDIR`, `tmux://capabilities`.
 
 Group under `### Added`, `### Changed`, and `### Fixed`. Bold the opening
 sentence of anything a reader must act on; leave the rest plain.

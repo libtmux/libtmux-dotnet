@@ -165,6 +165,8 @@ def main() -> int:
         f"`_meta[\"{CAPABILITY_KEY}\"]`. Effects and output classes are sets.",
         "All protocol annotations are conservative: read-only false, destructive true,",
         "idempotent false, and open-world true.",
+        "Earlier tier-era names and removed families are mapped in the",
+        "[migration table](README.md#migrating-from-the-tiered-surface).",
         "",
         "| Tool | Toolset | Reach | Effects | Output classes | Does |",
         "|---|---|---|---|---|---|",

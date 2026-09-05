@@ -263,20 +263,18 @@ $ dotnet tool install --global LibTmux.Mcp --prerelease
 { "mcpServers": { "tmux": { "command": "libtmux-mcp" } } }
 ```
 
-It exposes 42 tools across three safety tiers, four fixed `tmux://` resources,
-two resource templates and four workflow prompts — [the full
-reference](docs/mcp/tools.md) is generated from the server itself. Pass a socket
-name as its first argument to drive a server other than the ambient one, which
-is what a sandbox wants.
+It exposes 47 tools selected from the unordered `inspect`, `manage`, `execute`,
+and `teardown` sets, plus the static `tmux://capabilities` resource. [The full
+reference](docs/mcp/tools.md) is generated from the server itself. Pin one
+socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
 
 What it is built around is that an assistant should never get stuck and never
-waste context. `tmux_run` returns the shell's real exit status,
-`tmux_start_job` hands back a handle for work that takes minutes, and
-`tmux_wait_for_text` normally wakes from tmux's control-mode stream, with a
-bounded polling fallback when that stream cannot start. Nothing returns
-unbounded output: every capture keeps the newest lines and reports what it
-dropped. `LIBTMUX_SAFETY` decides which tier is registered, and a tool above it
-never reaches the model's list.
+waste context. `run_shell_command` returns the shell's real exit status, and
+`wait_for_text` normally wakes from tmux's control-mode stream, with a bounded
+polling fallback when that stream cannot start. Nothing returns unbounded
+output: every capture keeps the newest lines and reports what it dropped.
+Exact include/exclude selection is frozen at startup and reported through
+`tmux://capabilities`.
 [Full instructions](src/LibTmux.Mcp/README.md).
 
 ## Documentation
@@ -284,7 +282,7 @@ never reaches the model's list.
 - [Choosing a mode](docs/modes/matrix.md) — the three dispatch modes, measured
 - [Windows psmux preview](docs/psmux.md) — what it reads, and what it refuses
 - [API reference](docs/api/README.md) — rendered from the doc comments
-- [tmux MCP tools](docs/mcp/tools.md) — every tool, tier and resource, generated
+- [tmux MCP tools](docs/mcp/tools.md) — every tool, capability row and resource, generated
 - [Public API](docs/public-api.md) — the reviewed, approved surface
 - [Version deltas](docs/parity/version-deltas.json) — every tmux difference, with its proof
 - [Decisions](docs/decisions/) — why the transport, object model and query catalog are shaped this way
