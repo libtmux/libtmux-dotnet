@@ -284,14 +284,17 @@ path. With none of these set, the server uses the product-dedicated
 minimal endpoint defaults to all four toolsets. Existing, explicitly named,
 path-pinned, and user-configured endpoints omit teardown unless it is selected
 by toolset or exact tool name.
+On shutdown, the MCP process removes only a dedicated daemon whose launch
+marker still matches; it leaves existing or replaced daemons running.
 
 Selecting `call_read_tools_batch` alone retains its 16 declared inspect
 operations for nested dispatch without advertising them separately. Each
 `operations` entry names a `tool` and carries that tool's native typed
-`arguments`. Explicit exclusions prune the schema, declared authority, and
-dispatch together. The batch runs serially, supports `onError: "stop"` or
-`"continue"`, keeps every completed row and full nested MCP envelope, and
-marks nested result payloads it must elide to fit its structured-result budget.
+`arguments`. Explicit
+exclusions prune the schema, declared authority, and dispatch together. The
+batch runs serially, supports `onError: "stop"` or `"continue"`, keeps every
+completed row and full nested MCP envelope, and marks nested result payloads it
+must elide to fit the 1,000,000-byte aggregate response ceiling.
 `send_keys_batch` uses the same `operations` and `onError` naming for its
 bounded pane-input sequence.
 
@@ -371,6 +374,7 @@ owns the name, controlled description, toolset, reach, tmux effects, output
 classes, trust flags, conservative annotations, schemas, internal input-sink
 classification, public input literalization, nested authority, and handler used
 for registration, dispatch, disclosure, and generated reference material.
+Internal sink classifications stay out of the public capability rows.
 
 Long calls report progress while they run, so a wait shows as running rather
 than hung. It costs nothing when the client asks for none.

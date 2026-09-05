@@ -145,10 +145,6 @@ internal sealed record ToolDefinition(
             ["idempotentHint"] = Annotations.Idempotent,
             ["openWorldHint"] = Annotations.OpenWorld,
         },
-        ["inputSinks"] = JsonSerializer.SerializeToNode(
-            InputSinks.ToDictionary(
-                pair => pair.Key,
-                pair => pair.Value.Select(Kebab).Order(StringComparer.Ordinal))),
         ["inputLiteralization"] = JsonSerializer.SerializeToNode(InputLiteralization),
         ["nestedAuthority"] = JsonSerializer.SerializeToNode(
             NestedAuthority.Order(StringComparer.Ordinal)),
@@ -361,10 +357,8 @@ internal sealed class CapabilityRegistry
             .ToImmutableHashSet();
         const string Detail = "Execute up to 16 declared inspect operations serially; "
             + "inner operations receive no separate approval.";
-        const string Opener = "Read pane output; accepts no client-supplied executable input. Returned content may be sensitive or untrusted.";
-        return definition with
+        ToolDefinition shaped = definition with
         {
-            Description = $"{Opener} {Detail}",
             Effects = effects,
             OutputClasses = outputs,
             MayExposeSecrets = nested.Any(candidate => candidate.MayExposeSecrets),
@@ -373,6 +367,7 @@ internal sealed class CapabilityRegistry
             NestedAuthority = names,
             InputSchema = BuildBatchInputSchema(definition.InputSchema, nested),
         };
+        return shaped with { Description = $"{ControlledOpener(shaped)} {Detail}" };
     }
 
     private static JsonElement BuildBatchInputSchema(
@@ -501,7 +496,7 @@ internal sealed class CapabilityRegistry
             Inspect("get_window_info", "Get window info", Metadata, nameof(CapabilityTools.GetWindowInfoAsync), S(("windowId", InputSink.TmuxLookup)), batchEligible: true),
             Inspect("get_pane_info", "Get pane info", Metadata, nameof(CapabilityTools.GetPaneInfoAsync), S(("paneId", InputSink.TmuxLookup)), batchEligible: true),
             Inspect("capture_pane", "Capture pane", PaneOutput, nameof(CapabilityTools.CapturePaneAsync), S(("paneId", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("maxLines", InputSink.None), ("joinWrappedLines", InputSink.None)), terminal: true, batchEligible: true),
-            Inspect("capture_since", "Capture since", PaneOutput, nameof(CapabilityTools.CaptureSinceAsync), S(("paneId", InputSink.TmuxLookup), ("cursor", InputSink.None), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, effects: E(Effect.Observe, Effect.Change)),
+            Inspect("capture_since", "Capture since", PaneOutput, nameof(CapabilityTools.CaptureSinceAsync), S(("paneId", InputSink.TmuxLookup), ("cursor", InputSink.None), ("maxLines", InputSink.None)), terminal: true, batchEligible: true),
             Inspect("snapshot_pane", "Snapshot pane", PaneOutput, nameof(CapabilityTools.SnapshotPaneAsync), S(("paneId", InputSink.TmuxLookup), ("maxLines", InputSink.None)), terminal: true, batchEligible: true),
             Inspect("search_panes", "Search panes", PaneOutput, nameof(CapabilityTools.SearchPanesAsync), S(("pattern", InputSink.Regex), ("session", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("ignoreCase", InputSink.None), ("maxMatchesPerPane", InputSink.None)), terminal: true, batchEligible: true),
             Inspect("find_pane_by_position", "Find pane by position", Metadata, nameof(CapabilityTools.FindPaneByPositionAsync), S(("windowId", InputSink.TmuxLookup), ("position", InputSink.None)), batchEligible: true),
@@ -752,11 +747,6 @@ internal sealed class CapabilityRegistry
 
     private static string ControlledOpener(ToolDefinition definition)
     {
-        if (definition.Name == "call_read_tools_batch")
-        {
-            return "Read pane output; accepts no client-supplied executable input. Returned content may be sensitive or untrusted.";
-        }
-
         if (definition.Toolset == Toolset.Teardown)
         {
             return "Delete tmux state; accepts no command payload.";

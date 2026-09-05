@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ModelContextProtocol;
+using ModelContextProtocol.Protocol;
 
 namespace LibTmux.Mcp;
 
@@ -55,7 +56,8 @@ internal sealed record PaneInputBatchResult(
 [UnsupportedOSPlatform("windows")]
 internal sealed class CapabilityTools
 {
-    private const int MaximumBatchResponseBytes = 1_048_576;
+    internal const int MaximumBatchResponseBytes = 1_000_000;
+    private const int JsonLineTerminatorBytes = 1;
 
     private static readonly Regex VariableName = new(
         "^[A-Za-z][A-Za-z0-9_]*$",
@@ -331,17 +333,21 @@ internal sealed class CapabilityTools
             }
         }
 
-        return FitBatchResponse(
+        return new ReadToolBatchResult(
             results,
-            onError,
+            results.Count(result => result.Success),
+            results.Count(result => !result.Success),
             stoppedAt,
-            MaximumBatchResponseBytes);
+            Truncated: false,
+            TruncatedBytes: 0,
+            onError);
     }
 
     internal static ReadToolBatchResult FitBatchResponse(
         IReadOnlyList<ReadToolCallResult> results,
         string onError,
         int? stoppedAt,
+        RequestId requestId,
         int maximumBytes = MaximumBatchResponseBytes)
     {
         ArgumentNullException.ThrowIfNull(results);
@@ -360,13 +366,15 @@ internal sealed class CapabilityTools
             onError);
 
         ReadToolBatchResult candidate = Snapshot();
-        if (Utf8JsonBudget.GetStructuredToolResultByteCount(candidate, ToolJson.Options)
-            <= maximumBytes)
+        if (GetCompleteBatchResponseByteCount(candidate, requestId) <= maximumBytes)
         {
             return candidate;
         }
 
-        for (int index = 0; index < fitted.Count; index++)
+        int nullBytes = Utf8JsonBudget.GetStructuredJsonFragmentByteCount<JsonNode?>(
+            null,
+            ToolJson.Options);
+        for (int index = fitted.Count - 1; index >= 0; index--)
         {
             JsonNode? result = fitted[index].Result;
             if (result is null)
@@ -376,7 +384,8 @@ internal sealed class CapabilityTools
 
             int removed = Math.Max(
                 0,
-                Utf8JsonBudget.GetStructuredJsonFragmentByteCount(result, ToolJson.Options) - 4);
+                Utf8JsonBudget.GetStructuredJsonFragmentByteCount(result, ToolJson.Options)
+                    - nullBytes);
             truncatedBytes = checked(truncatedBytes + removed);
             fitted[index] = fitted[index] with
             {
@@ -384,14 +393,70 @@ internal sealed class CapabilityTools
                 ResultTruncated = true,
             };
             candidate = Snapshot();
-            if (Utf8JsonBudget.GetStructuredToolResultByteCount(candidate, ToolJson.Options)
-                <= maximumBytes)
+            if (GetCompleteBatchResponseByteCount(candidate, requestId) <= maximumBytes)
+            {
+                return candidate;
+            }
+        }
+
+        const string ElidedError = "Nested error omitted to fit the response limit.";
+        for (int index = fitted.Count - 1; index >= 0; index--)
+        {
+            string? error = fitted[index].Error;
+            if (error is null || error.Length <= ElidedError.Length)
+            {
+                continue;
+            }
+
+            int removed = Math.Max(
+                0,
+                Utf8JsonBudget.GetStructuredJsonStringContentByteCount(
+                    error,
+                    ToolJson.Options)
+                    - Utf8JsonBudget.GetStructuredJsonStringContentByteCount(
+                        ElidedError,
+                        ToolJson.Options));
+            truncatedBytes = checked(truncatedBytes + removed);
+            fitted[index] = fitted[index] with
+            {
+                Error = ElidedError,
+                ResultTruncated = true,
+            };
+            candidate = Snapshot();
+            if (GetCompleteBatchResponseByteCount(candidate, requestId) <= maximumBytes)
             {
                 return candidate;
             }
         }
 
         return Snapshot();
+    }
+
+    internal static int GetCompleteBatchResponseByteCount(
+        ReadToolBatchResult result,
+        RequestId requestId)
+    {
+        CallToolResult toolResult = CreateBatchToolResult(result);
+        var response = new JsonObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = JsonSerializer.SerializeToNode(requestId, ToolJson.Options),
+            ["result"] = JsonSerializer.SerializeToNode(toolResult, ToolJson.Options),
+        };
+        return checked(
+            Utf8JsonBudget.GetByteCount(response, ToolJson.Options)
+            + Utf8JsonBudget.ProtocolMetadataReserve
+            + JsonLineTerminatorBytes);
+    }
+
+    internal static CallToolResult CreateBatchToolResult(ReadToolBatchResult result)
+    {
+        JsonElement structured = JsonSerializer.SerializeToElement(result, ToolJson.Options);
+        return new CallToolResult
+        {
+            Content = [new TextContentBlock { Text = structured.GetRawText() }],
+            StructuredContent = structured,
+        };
     }
 
     private static string BoundError(string value) => value.Length <= 4096

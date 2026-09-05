@@ -10,6 +10,7 @@ internal sealed record McpStartup(
     ServerConnectionOptions ConnectionOptions,
     CapabilitySelection Selection,
     McpRuntimeDisclosure Disclosure)
+    : IAsyncDisposable
 {
     internal const string SocketVariable = "LIBTMUX_SOCKET";
     internal const string SocketPathVariable = "LIBTMUX_SOCKET_PATH";
@@ -19,6 +20,7 @@ internal sealed record McpStartup(
     private const string OwnerVariable = "LIBTMUX_MCP_OWNER";
     private const string OwnerOption = "@libtmux_mcp_owner";
     private const string DedicatedSocketName = "libtmux-mcp";
+    private OwnedDedicatedDaemon? OwnedDaemon { get; init; }
 
     internal static string MinimalConfigurationPath =>
         Path.Combine(AppContext.BaseDirectory, "minimal.conf");
@@ -83,6 +85,7 @@ internal sealed record McpStartup(
             .ConfigureAwait(false);
         bool existing = probe == ProbeState.Existing;
         bool newDedicatedMinimal = false;
+        string? markerNonce = null;
         if (dedicated && !existing
             && string.Equals(configurationProvenance, "minimal", StringComparison.Ordinal))
         {
@@ -116,6 +119,7 @@ internal sealed record McpStartup(
             }
 
             newDedicatedMinimal = true;
+            markerNonce = nonce;
         }
         ImmutableHashSet<Toolset> defaults = newDedicatedMinimal
             ? Enum.GetValues<Toolset>().ToImmutableHashSet()
@@ -160,7 +164,12 @@ internal sealed record McpStartup(
                 serverState,
                 resolvedSocketPath,
                 McpRuntimeDisclosure.BuildAttachCommand(options, resolvedSocketPath),
-                explicitlySelectedTeardown));
+                explicitlySelectedTeardown))
+        {
+            OwnedDaemon = newDedicatedMinimal
+                ? new OwnedDedicatedDaemon(options, nonce: markerNonce!)
+                : null,
+        };
     }
 
     private static async Task<string> ResolveSocketPathAsync(
@@ -203,9 +212,13 @@ internal sealed record McpStartup(
     }
 
     internal static string ReportedConfigurationProvenance(string configured, bool existing) =>
-        string.Equals(configured, "user-configured", StringComparison.Ordinal)
-            ? "user-configured"
-            : existing ? "unknown" : "minimal";
+        existing
+            ? "unknown"
+            : string.Equals(configured, "user-configured", StringComparison.Ordinal)
+                ? "user-configured"
+                : "minimal";
+
+    public ValueTask DisposeAsync() => OwnedDaemon?.DisposeAsync() ?? ValueTask.CompletedTask;
 
     private static ServerConnectionOptions Options(
         string binary,
@@ -280,5 +293,42 @@ internal sealed record McpStartup(
     {
         Absent,
         Existing,
+    }
+
+    private sealed class OwnedDedicatedDaemon(
+        ServerConnectionOptions options,
+        string nonce) : IAsyncDisposable
+    {
+        private int _disposed;
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                _ = await Server.Open(options).ExecuteCommandAsync(
+                        [
+                            "if-shell",
+                            "-F",
+                            $"#{{==:#{{{OwnerOption}}},{nonce}}}",
+                            "kill-server",
+                        ],
+                        cleanup.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (LibTmuxException)
+            {
+                // The owned daemon already exited, or was replaced after startup.
+            }
+            catch (OperationCanceledException)
+            {
+                // Process teardown remains bounded even if tmux stops responding.
+            }
+        }
     }
 }

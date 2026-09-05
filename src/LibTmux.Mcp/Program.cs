@@ -86,6 +86,9 @@ internal static class Program
             resolved.Selection,
             resolved.Disclosure);
 
-        return services.BuildServiceProvider();
+        services.AddSingleton<McpStartup>(_ => resolved);
+        ServiceProvider provider = services.BuildServiceProvider();
+        _ = provider.GetRequiredService<McpStartup>();
+        return provider;
     }
 }

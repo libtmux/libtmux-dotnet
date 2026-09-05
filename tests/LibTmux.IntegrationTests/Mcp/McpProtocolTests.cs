@@ -160,31 +160,29 @@ public sealed class McpProtocolTests
             ["change", "observe"],
             sendKeys.GetProperty("tmuxEffects").EnumerateArray()
                 .Select(value => value.GetString()).ToArray());
-        Assert.Equal(
-            "pane-input",
-            Assert.Single(sendKeys.GetProperty("inputSinks").GetProperty("keys")
-                .EnumerateArray()).GetString());
         Assert.True(sendKeys.TryGetProperty("inputSchema", out _));
         Assert.True(sendKeys.TryGetProperty("outputSchema", out _));
-        string?[] literalNameSinks = renameSession.GetProperty("inputSinks")
-            .GetProperty("name").EnumerateArray().Select(value => value.GetString())
-            .Order(StringComparer.Ordinal).ToArray();
-        Assert.Collection(
-            literalNameSinks,
-            value => Assert.Equal("tmux-format", value),
-            value => Assert.Equal("tmux-state", value));
+        Assert.All(rows.EnumerateArray(), row =>
+        {
+            Assert.False(row.TryGetProperty("inputSinks", out _));
+            Assert.False(row.TryGetProperty("tmuxFormatControls", out _));
+        });
         Assert.Equal(
             "double-hash-once",
             renameSession.GetProperty("inputLiteralization").GetProperty("name").GetString());
-        Assert.False(renameSession.TryGetProperty("tmuxFormatControls", out _));
-        AssertCapabilitySets(rows, "capture_since", ["change", "observe"],
+        JsonElement variables = rows.EnumerateArray()
+            .Single(row => row.GetProperty("name").GetString() == "get_tmux_variables");
+        Assert.Equal(
+            "validated-variable-name",
+            variables.GetProperty("inputLiteralization").GetProperty("names").GetString());
+        AssertCapabilitySets(rows, "capture_since", ["observe"],
             ["terminal-content", "tmux-metadata"]);
         AssertCapabilitySets(rows, "run_shell_command", ["change", "observe"],
             ["terminal-content", "tmux-metadata"]);
         AssertCapabilitySets(rows, "show_environment", ["observe"],
             ["process-environment"]);
         AssertCapabilitySets(rows, "show_hooks", ["observe"], ["configured-command"]);
-        AssertCapabilitySets(rows, "call_read_tools_batch", ["change", "observe"],
+        AssertCapabilitySets(rows, "call_read_tools_batch", ["observe"],
             ["configured-command", "process-environment", "terminal-content", "tmux-metadata"]);
         Assert.True(synchronize.GetProperty("amplifiesFutureInput").GetBoolean());
         Assert.Contains(
@@ -476,6 +474,18 @@ public sealed class McpProtocolTests
         ToolDefinition aggregate = Assert.Single(aggregateOnly.Definitions);
         Assert.Equal(16, aggregate.NestedAuthority.Count);
 
+        CapabilityRegistry environmentOnly = CapabilityRegistry.Select(new CapabilitySelection(
+            ImmutableHashSet<Toolset>.Empty,
+            ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
+            expectedNested.Where(name => name != "show_environment")
+                .ToImmutableHashSet(StringComparer.Ordinal)));
+        ToolDefinition environmentBatch = Assert.Single(environmentOnly.Definitions);
+        Assert.Equal(OutputClass.ProcessEnvironment, Assert.Single(environmentBatch.OutputClasses));
+        Assert.StartsWith(
+            "Read the tmux environment;",
+            environmentBatch.Description,
+            StringComparison.Ordinal);
+
         CapabilityRegistry zeroAuthority = CapabilityRegistry.Select(new CapabilitySelection(
             ImmutableHashSet<Toolset>.Empty,
             ImmutableHashSet.Create(StringComparer.Ordinal, "call_read_tools_batch"),
@@ -486,6 +496,10 @@ public sealed class McpProtocolTests
         ToolDefinition zeroBatch = Assert.Single(zeroAuthority.Definitions);
         Assert.Equal(Effect.Observe, Assert.Single(zeroBatch.Effects));
         Assert.Empty(zeroBatch.OutputClasses);
+        Assert.StartsWith(
+            "Inspect tmux metadata;",
+            zeroBatch.Description,
+            StringComparison.Ordinal);
 
         selectedEnvironment[CapabilitySelection.ToolsVariable] = "not_a_tool";
         Assert.Throws<McpException>(() => CapabilitySelection.FromEnvironment(
@@ -555,7 +569,64 @@ public sealed class McpProtocolTests
             Assert.Equal("unknown", existing.Disclosure.ConfigurationProvenance);
             Assert.DoesNotContain(Toolset.Teardown, existing.Selection.Toolsets);
 
-            await Server.Open(created.ConnectionOptions).KillAsync(token);
+            IAsyncDisposable owner = Assert.IsAssignableFrom<IAsyncDisposable>(created);
+            await owner.DisposeAsync();
+            TmuxCommandResult afterCleanup = await Server.Open(created.ConnectionOptions)
+                .ExecuteCommandAsync(["list-sessions"], token);
+            Assert.NotEqual(0, afterCleanup.ExitCode);
+        }
+        finally
+        {
+            try
+            {
+                await Server.Open(new ServerConnectionOptions(
+                        tmuxBinaryPath: environment["LIBTMUX_TMUX"]!,
+                        socketName: "libtmux-mcp",
+                        configurationFile: McpStartup.MinimalConfigurationPath,
+                        childEnvironment: new Dictionary<string, string?>
+                        {
+                            ["TMUX_TMPDIR"] = root,
+                        }))
+                    .KillAsync(CancellationToken.None);
+            }
+            catch (LibTmuxException)
+            {
+            }
+
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Default_cleanup_refuses_a_foreign_owner_marker()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(Path.GetTempPath(), $"libtmux-mcp-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            ["TMUX_TMPDIR"] = root,
+            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        };
+
+        try
+        {
+            McpStartup created = await McpStartup.ResolveAsync(
+                name => environment.GetValueOrDefault(name), token);
+            Server server = Server.Open(created.ConnectionOptions);
+            _ = await server.ExecuteCommandAsync(
+                ["set-option", "-g", "@libtmux_mcp_owner", "foreign-owner"],
+                token);
+
+            IAsyncDisposable owner = Assert.IsAssignableFrom<IAsyncDisposable>(created);
+            await owner.DisposeAsync();
+
+            TmuxCommandResult marker = await server.ExecuteCommandAsync(
+                ["show-options", "-gqv", "@libtmux_mcp_owner"],
+                token);
+            Assert.Equal(0, marker.ExitCode);
+            Assert.Equal("foreign-owner", Assert.Single(marker.StandardOutputLines));
+            await server.KillAsync(token);
         }
         finally
         {

@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using LibTmux.Mcp;
 using LibTmux.UnitTests.Transport;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Protocol;
 
 namespace LibTmux.UnitTests;
 
@@ -72,7 +73,7 @@ public sealed class ServerPolicyTests
     public void Configuration_disclosure_distinguishes_user_paths_from_existing_unknown_state()
     {
         Assert.Equal(
-            "user-configured",
+            "unknown",
             McpStartup.ReportedConfigurationProvenance("user-configured", existing: true));
         Assert.Equal(
             "unknown",
@@ -180,7 +181,7 @@ public sealed class ServerPolicyTests
 public sealed class BatchResponseBudgetTests
 {
     [Fact]
-    public void A_batch_larger_than_one_mebibyte_keeps_rows_and_marks_elided_results()
+    public void A_batch_fits_the_complete_one_million_byte_response_from_the_end()
     {
         ReadToolCallResult[] results =
         [
@@ -189,31 +190,66 @@ public sealed class BatchResponseBudgetTests
                 Tool: "capture_pane",
                 Success: true,
                 Error: null,
-                Result: JsonValue.Create(new string('x', 1_048_576)),
+                Result: JsonValue.Create(new string('x', 350_000)),
                 ResultTruncated: false),
             new(
                 Index: 1,
-                Tool: "get_server_info",
-                Success: false,
-                Error: "synthetic failure",
-                Result: null,
+                Tool: "capture_pane",
+                Success: true,
+                Error: null,
+                Result: JsonValue.Create(new string('y', 350_000)),
                 ResultTruncated: false),
         ];
+        var requestId = new RequestId(new string('i', 1_024));
 
         ReadToolBatchResult bounded = CapabilityTools.FitBatchResponse(
             results,
             onError: "continue",
-            stoppedAt: null);
+            stoppedAt: null,
+            requestId: requestId,
+            maximumBytes: 1_000_000);
 
         Assert.Equal(2, bounded.Results.Count);
         Assert.True(bounded.Truncated);
         Assert.True(bounded.TruncatedBytes > 0);
-        Assert.Null(bounded.Results[0].Result);
-        Assert.True(bounded.Results[0].ResultTruncated);
-        Assert.False(bounded.Results[1].Success);
-        Assert.Equal(1, bounded.Succeeded);
-        Assert.Equal(1, bounded.Failed);
+        Assert.NotNull(bounded.Results[0].Result);
+        Assert.False(bounded.Results[0].ResultTruncated);
+        Assert.Null(bounded.Results[1].Result);
+        Assert.True(bounded.Results[1].ResultTruncated);
+        Assert.Equal(2, bounded.Succeeded);
+        Assert.Equal(0, bounded.Failed);
         Assert.Equal("continue", bounded.OnError);
+        Assert.True(
+            CapabilityTools.GetCompleteBatchResponseByteCount(bounded, requestId)
+            <= 1_000_000);
+    }
+
+    [Fact]
+    public void Sixteen_failed_rows_still_fit_the_default_wire_budget()
+    {
+        ReadToolCallResult[] results = Enumerable.Range(0, 16)
+            .Select(index => new ReadToolCallResult(
+                Index: index,
+                Tool: "capture_pane",
+                Success: false,
+                Error: new string('e', 4_096),
+                Result: JsonValue.Create(new string('r', 4_096)),
+                ResultTruncated: false))
+            .ToArray();
+        var requestId = new RequestId(1);
+
+        ReadToolBatchResult bounded = CapabilityTools.FitBatchResponse(
+            results,
+            onError: "continue",
+            stoppedAt: null,
+            requestId: requestId,
+            maximumBytes: ServerPolicy.DefaultMaxBytes);
+
+        Assert.Equal(16, bounded.Results.Count);
+        Assert.True(bounded.Truncated);
+        Assert.True(
+            CapabilityTools.GetCompleteBatchResponseByteCount(bounded, requestId)
+            <= ServerPolicy.DefaultMaxBytes);
     }
 }
 

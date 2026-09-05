@@ -2,6 +2,7 @@ using System.IO.Pipelines;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LibTmux.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -222,6 +223,23 @@ public sealed class ToolResponseBudgetFilterTests
     }
 
     [Fact]
+    public async Task Read_batch_uses_its_fixed_aggregate_wire_budget()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using BudgetProtocolHarness harness = await BudgetProtocolHarness.StartAsync(token);
+
+        CallToolResult result = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            cancellationToken: token);
+
+        Assert.NotEqual(true, result.IsError);
+        JsonElement structured = Assert.IsType<JsonElement>(result.StructuredContent);
+        Assert.Equal(1, structured.GetProperty("results").GetArrayLength());
+        Assert.False(structured.GetProperty("truncated").GetBoolean());
+        Assert.True(Utf8JsonBudget.GetByteCount(result, ToolJson.Options) > 4_000);
+    }
+
+    [Fact]
     public async Task Structured_result_accounting_matches_the_sdk_wire_shape()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -308,6 +326,24 @@ public sealed class ToolResponseBudgetFilterTests
 
         [McpServerTool(Name = "budget_probe_large", UseStructuredContent = true)]
         public static BudgetProbeResult Large() => new(new string('x', 16_000));
+
+        [McpServerTool(Name = "call_read_tools_batch", UseStructuredContent = true)]
+        public static ReadToolBatchResult ReadBatch() => new(
+            [
+                new ReadToolCallResult(
+                    Index: 0,
+                    Tool: "capture_pane",
+                    Success: true,
+                    Error: null,
+                    Result: JsonValue.Create(new string('b', 16_000)),
+                    ResultTruncated: false),
+            ],
+            Succeeded: 1,
+            Failed: 0,
+            StoppedAt: null,
+            Truncated: false,
+            TruncatedBytes: 0,
+            OnError: "stop");
 
         [McpServerTool(Name = "budget_probe_search", UseStructuredContent = true)]
         public static SearchResult Search()

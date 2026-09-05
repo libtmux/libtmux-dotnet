@@ -17,9 +17,9 @@ idempotent false, and open-world true.
 
 | Tool | Toolset | Reach | Effects | Output classes | Does |
 |---|---|---|---|---|---|
-| `call_read_tools_batch` | inspect | none | change, observe | configured-command, process-environment, terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
+| `call_read_tools_batch` | inspect | none | observe | configured-command, process-environment, terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
 | `capture_pane` | inspect | none | observe | terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
-| `capture_since` | inspect | none | change, observe | terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
+| `capture_since` | inspect | none | observe | terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
 | `clear_pane_scrollback` | teardown | none | delete | tmux-metadata | Delete tmux state; accepts no command payload. |
 | `create_session` | execute | configured-process | change, observe | tmux-metadata | Start a pane's configured process; accepts no command payload. |
 | `create_window` | execute | configured-process | change, observe | tmux-metadata | Start a pane's configured process; accepts no command payload. |
