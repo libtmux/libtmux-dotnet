@@ -72,11 +72,13 @@ public sealed record TmuxOption
     /// <param name="name">The option name, without index or inheritance marker.</param>
     /// <param name="value">The value tmux reported.</param>
     /// <param name="index">The array index, or null for an option that is not an array.</param>
-    public TmuxOption(string name, TmuxOptionValue value, int? index)
+    /// <param name="inherited">Whether the value came from a parent scope.</param>
+    public TmuxOption(string name, TmuxOptionValue value, int? index, bool inherited = false)
     {
         Name = name;
         Value = value;
         Index = index;
+        Inherited = inherited;
     }
 
     /// <summary>Gets the option name, without index or inheritance marker.</summary>
@@ -87,4 +89,12 @@ public sealed record TmuxOption
 
     /// <summary>Gets the array index, or null for an option that is not an array.</summary>
     public int? Index { get; }
+
+    /// <summary>Gets whether the value came from a parent scope.</summary>
+    /// <remarks>
+    /// Only a read that asked for inherited values can tell. Without it tmux
+    /// answers nothing at all for an option set at a wider scope, so a false
+    /// value there means "not reported as inherited", not "set here".
+    /// </remarks>
+    public bool Inherited { get; }
 }

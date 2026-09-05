@@ -524,7 +524,7 @@ modes differ.
 | `LibTmux.TmuxNotificationEvent.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException.#ctor(System.String,System.String,System.Exception)` | Initializes a missing-object exception. |
 | `LibTmux.TmuxOperationCanceledException.#ctor(System.String,System.Threading.CancellationToken,System.Boolean,System.Int32,System.Exception)` | Initializes a tmux cancellation exception. |
-| `LibTmux.TmuxOption.#ctor(System.String,LibTmux.TmuxOptionValue,System.Nullable{System.Int32})` | Initializes an option. |
+| `LibTmux.TmuxOption.#ctor(System.String,LibTmux.TmuxOptionValue,System.Nullable{System.Int32},System.Boolean)` | Initializes an option. |
 | `LibTmux.TmuxOptionException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one rejected option. |
 | `LibTmux.TmuxOptionValue.#ctor(System.String,LibTmux.TmuxOptionState,System.Nullable{System.Boolean},System.Nullable{System.Int64})` | Initializes an option value. |
 | `LibTmux.TmuxOptions.GetAllAsync(LibTmux.GetOptionsRequest,System.Threading.CancellationToken)` | Reads every option in the scope. |
@@ -1081,6 +1081,7 @@ modes differ.
 | `LibTmux.TmuxOperationCanceledException.ClientProcessId` | Gets the disposable client process identifier. |
 | `LibTmux.TmuxOperationCanceledException.CommandMayHaveExecuted` | Gets whether tmux may have observed the command. |
 | `LibTmux.TmuxOption.Index` | Gets the array index, or null for an option that is not an array. |
+| `LibTmux.TmuxOption.Inherited` | Gets whether the value came from a parent scope. |
 | `LibTmux.TmuxOption.Name` | Gets the option name, without index or inheritance marker. |
 | `LibTmux.TmuxOption.Value` | Gets the value tmux reported. |
 | `LibTmux.TmuxOptionException.OptionName` | Gets the option tmux was asked about. |

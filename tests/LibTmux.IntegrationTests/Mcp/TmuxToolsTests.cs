@@ -170,6 +170,36 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_read_sees_the_options_a_server_was_actually_configured_with()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // set -g is where nearly all tmux configuration lives, and a read
+        // without inherited values answers nothing for it at any narrower
+        // scope, so a normally configured server looked unconfigured.
+        _ = await scope.Server.ExecuteCommandAsync(
+            ["set-option", "-g", "base-index", "5"], token);
+
+        OptionEntry global = Assert.Single(await mcp.Read.ShowOptionsAsync(
+            "base-index", OptionScope.Session, cancellationToken: token));
+        Assert.Equal("5", global.Value);
+        Assert.True(global.Inherited);
+
+        // Set where it was asked, the same read reports it as this scope's own.
+        await mcp.Capabilities.SetOptionAsync(
+            "base-index", "7", OptionScope.Session, cancellationToken: token);
+        OptionEntry own = Assert.Single(await mcp.Read.ShowOptionsAsync(
+            "base-index", OptionScope.Session, cancellationToken: token));
+        Assert.Equal("7", own.Value);
+        Assert.False(own.Inherited);
+    }
+
+    [UnixFact]
     public async Task Setting_an_option_refuses_every_name_that_carries_code()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

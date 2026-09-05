@@ -13511,7 +13511,7 @@
       "summary": "Creates TmuxOperationCanceledException."
     },
     {
-      "id": "M:LibTmux.TmuxOption.#ctor(string,TmuxOptionValue,int?)",
+      "id": "M:LibTmux.TmuxOption.#ctor(string,TmuxOptionValue,int?,bool)",
       "declaringType": "T:LibTmux.TmuxOption",
       "name": ".ctor",
       "kind": "constructor",
@@ -13531,9 +13531,13 @@
         {
           "name": "index",
           "type": "int?"
+        },
+        {
+          "name": "inherited",
+          "type": "bool"
         }
       ],
-      "signature": "TmuxOption(string name, TmuxOptionValue value, int? index)",
+      "signature": "TmuxOption(string name, TmuxOptionValue value, int? index, bool inherited = false)",
       "portable": true,
       "summary": "Creates TmuxOption."
     },
@@ -22530,6 +22534,20 @@
       "signature": "int? LibTmux.TmuxOption.Index { get; }",
       "portable": true,
       "summary": "Gets Index."
+    },
+    {
+      "id": "P:LibTmux.TmuxOption.Inherited",
+      "declaringType": "T:LibTmux.TmuxOption",
+      "name": "Inherited",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "bool",
+      "parameters": [],
+      "signature": "bool LibTmux.TmuxOption.Inherited { get; }",
+      "portable": true,
+      "summary": "Gets Inherited."
     },
     {
       "id": "P:LibTmux.TmuxOption.Name",

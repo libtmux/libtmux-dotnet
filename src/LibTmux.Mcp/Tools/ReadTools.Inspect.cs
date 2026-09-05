@@ -15,9 +15,11 @@ internal sealed partial class ReadTools
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The options.</returns>
     [Description(
-        "Read tmux options at the server, session, window or pane level. Omit the name "
-        + "to list them all. Reading history-limit before a long tail tells you how "
-        + "much output the pane can hold before it starts dropping lines.")]
+        "Read tmux options at the server, session, window or pane level. Values set at "
+        + "a wider scope are included and marked inherited, because that is where nearly "
+        + "all tmux configuration lives. Omit the name to list them all. Reading "
+        + "history-limit before a long tail tells you how much output the pane can hold "
+        + "before it starts dropping lines.")]
     public async Task<IReadOnlyList<OptionEntry>> ShowOptionsAsync(
         [Description("One option name, such as history-limit. Omit to list every option.")]
         string? name = null,
@@ -33,13 +35,25 @@ internal sealed partial class ReadTools
         TmuxOptions options = await TmuxTargets.OptionsAsync(server, scope, paneId, cancellationToken)
             .ConfigureAwait(false);
 
+        // Inherited values included. Without them tmux answers nothing for an
+        // option set at a wider scope, and `set -g` is where nearly all real
+        // configuration lives — so reading history-limit at pane scope on a
+        // normally configured server came back empty.
         IReadOnlyList<TmuxOption> read = string.IsNullOrWhiteSpace(name)
-            ? await options.GetAllAsync(new GetOptionsRequest(quiet: true), cancellationToken)
+            ? await options.GetAllAsync(
+                    new GetOptionsRequest(includeInherited: true, quiet: true),
+                    cancellationToken)
                 .ConfigureAwait(false)
-            : await options.GetAsync(new GetOptionRequest(name, quiet: true), cancellationToken)
+            : await options.GetAsync(
+                    new GetOptionRequest(name, includeInherited: true, quiet: true),
+                    cancellationToken)
                 .ConfigureAwait(false);
 
-        return [.. read.Select(each => new OptionEntry(each.Name, each.Value.Raw, scope))];
+        return
+        [
+            .. read.Select(each => new OptionEntry(
+                each.Name, each.Value.Raw, scope, each.Inherited)),
+        ];
     }
 
     /// <summary>Reads tmux's environment.</summary>
@@ -177,11 +191,16 @@ internal sealed partial class ReadTools
         };
 }
 
-/// <summary>One tmux option.</summary>
+/// <summary>One tmux option as read at one scope.</summary>
 /// <param name="Name">The option name.</param>
-/// <param name="Value">Its value as tmux reports it.</param>
-/// <param name="Scope">The level it was read at.</param>
-public sealed record OptionEntry(string Name, string? Value, OptionScope Scope);
+/// <param name="Value">The value tmux reported.</param>
+/// <param name="Scope">The scope the read asked at, not where the value was set.</param>
+/// <param name="Inherited">Whether the value came from a wider scope than the one asked.</param>
+public sealed record OptionEntry(
+    string Name,
+    string? Value,
+    OptionScope Scope,
+    bool Inherited);
 
 /// <summary>One variable in tmux's environment.</summary>
 /// <param name="Name">The variable name.</param>

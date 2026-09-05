@@ -2020,8 +2020,9 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.TmuxOption.#ctor(string,TmuxOptionValue,int?)` | `TmuxOption(string name, TmuxOptionValue value, int? index)` | Public | No | Portable | Creates TmuxOption. |
+| `M:LibTmux.TmuxOption.#ctor(string,TmuxOptionValue,int?,bool)` | `TmuxOption(string name, TmuxOptionValue value, int? index, bool inherited = false)` | Public | No | Portable | Creates TmuxOption. |
 | `P:LibTmux.TmuxOption.Index` | `int? LibTmux.TmuxOption.Index { get; }` | Public | No | Portable | Gets Index. |
+| `P:LibTmux.TmuxOption.Inherited` | `bool LibTmux.TmuxOption.Inherited { get; }` | Public | No | Portable | Gets Inherited. |
 | `P:LibTmux.TmuxOption.Name` | `string LibTmux.TmuxOption.Name { get; }` | Public | No | Portable | Gets Name. |
 | `P:LibTmux.TmuxOption.Value` | `TmuxOptionValue LibTmux.TmuxOption.Value { get; }` | Public | No | Portable | Gets Value. |
 
