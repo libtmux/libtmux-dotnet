@@ -103,6 +103,25 @@ public sealed class McpProtocolTests
         Assert.Equal("minimal", socket.GetProperty("configurationProvenance").GetString());
         Assert.Equal("tmux-objects-only", socket.GetProperty("namespaceBoundary").GetString());
         Assert.True(socket.TryGetProperty("selector", out _));
+        JsonElement boundary = document.RootElement.GetProperty("boundary");
+        Assert.Equal(4, boundary.EnumerateObject().Count());
+        Assert.True(boundary.GetProperty("oneSocketPerProcess").GetBoolean());
+        Assert.False(boundary.GetProperty("perCallSocketSelection").GetBoolean());
+        Assert.False(boundary.GetProperty("hostCommandExecution").GetBoolean());
+        Assert.False(boundary.GetProperty("dynamicResources").GetBoolean());
+        JsonElement connection = document.RootElement.GetProperty("connection");
+        Assert.Equal(socket.GetProperty("selector").GetString(),
+            connection.GetProperty("socketSelector").GetString());
+        Assert.Equal(socket.GetProperty("selectionProvenance").GetString(),
+            connection.GetProperty("socketProvenance").GetString());
+        Assert.Equal(socket.GetProperty("serverState").GetString(),
+            connection.GetProperty("serverState").GetString());
+        Assert.Equal(socket.GetProperty("configurationProvenance").GetString(),
+            connection.GetProperty("configurationProvenance").GetString());
+        Assert.True(connection.TryGetProperty("resolvedSocketPath", out _));
+        Assert.Contains(" -N -L '",
+            connection.GetProperty("attachCommand").GetString(),
+            StringComparison.Ordinal);
         JsonElement rows = document.RootElement.GetProperty("tools");
         Assert.Equal(
             expected.Order(StringComparer.Ordinal),
@@ -425,7 +444,13 @@ public sealed class McpProtocolTests
             new CapabilityResource(
                 selectedRegistry,
                 new McpRuntimeDisclosure(
-                    "name:test", "operator-current", "unknown", "existing", false))
+                    "name:test",
+                    "operator-current",
+                    "unknown",
+                    "existing",
+                    ResolvedSocketPath: "",
+                    AttachCommand: "tmux -N -L 'test' attach",
+                    TeardownExplicitlySelected: false))
                 .Read());
         JsonElement selectedBatch = selectedDisclosure.RootElement.GetProperty("tools")
             .EnumerateArray()
@@ -512,6 +537,8 @@ public sealed class McpProtocolTests
             Assert.Equal("created", created.Disclosure.ServerState);
             Assert.Equal("minimal", created.Disclosure.ConfigurationProvenance);
             Assert.Equal("default-dedicated", created.Disclosure.SocketProvenance);
+            Assert.False(string.IsNullOrWhiteSpace(created.Disclosure.ResolvedSocketPath));
+            Assert.Contains(" -N -S '", created.Disclosure.AttachCommand, StringComparison.Ordinal);
             Assert.Contains(Toolset.Teardown, created.Selection.Toolsets);
             Assert.True(File.Exists(created.ConnectionOptions.ConfigurationFile));
             Assert.Contains("@libtmux_mcp_owner", await File.ReadAllTextAsync(
@@ -598,6 +625,8 @@ public sealed class McpProtocolTests
                     "default-dedicated",
                     "minimal",
                     ServerState: "created",
+                    ResolvedSocketPath: "",
+                    AttachCommand: $"tmux -N -L '{socketName}' attach",
                     TeardownExplicitlySelected: false));
             ServiceProvider provider = services.BuildServiceProvider();
 

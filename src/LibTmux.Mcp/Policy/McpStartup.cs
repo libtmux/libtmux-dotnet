@@ -142,6 +142,14 @@ internal sealed record McpStartup(
         string serverState = existing
             ? "existing"
             : newDedicatedMinimal ? "created" : "absent";
+        string resolvedSocketPath = socketPath is null ? "" : Path.GetFullPath(socketPath);
+        if (existing || newDedicatedMinimal)
+        {
+            resolvedSocketPath = await ResolveSocketPathAsync(
+                    Server.Open(options),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
         return new McpStartup(
             options,
             selection,
@@ -150,7 +158,26 @@ internal sealed record McpStartup(
                 socketProvenance,
                 reportedConfiguration,
                 serverState,
+                resolvedSocketPath,
+                McpRuntimeDisclosure.BuildAttachCommand(options, resolvedSocketPath),
                 explicitlySelectedTeardown));
+    }
+
+    private static async Task<string> ResolveSocketPathAsync(
+        Server server,
+        CancellationToken cancellationToken)
+    {
+        TmuxCommandResult result = await server.ExecuteCommandAsync(
+                ["display-message", "-p", "#{socket_path}"],
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (result.ExitCode != 0 || result.StandardOutputLines.Count != 1
+            || string.IsNullOrWhiteSpace(result.StandardOutputLines[0]))
+        {
+            throw new McpException("Could not resolve the selected tmux socket path.");
+        }
+
+        return Path.GetFullPath(result.StandardOutputLines[0]);
     }
 
     private static (string? Path, string Provenance) ParseConfiguration(string? value)

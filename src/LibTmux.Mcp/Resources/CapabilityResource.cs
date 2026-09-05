@@ -11,16 +11,37 @@ internal sealed record McpRuntimeDisclosure(
     string SocketProvenance,
     string ConfigurationProvenance,
     string ServerState,
+    string ResolvedSocketPath,
+    string AttachCommand,
     bool TeardownExplicitlySelected)
 {
-    internal static McpRuntimeDisclosure Unknown(ServerConnectionOptions options) => new(
-        options.SocketPath is string path
-            ? $"path:{path}"
-            : $"name:{options.SocketName ?? "default"}",
-        "unknown",
-        "unknown",
-        ServerState: "unknown",
-        TeardownExplicitlySelected: false);
+    internal static McpRuntimeDisclosure Unknown(ServerConnectionOptions options)
+    {
+        string resolvedPath = options.SocketPath is string path ? Path.GetFullPath(path) : "";
+        return new(
+            resolvedPath.Length == 0
+                ? $"name:{options.SocketName ?? "default"}"
+                : $"path:{resolvedPath}",
+            "unknown",
+            "unknown",
+            ServerState: "unknown",
+            resolvedPath,
+            BuildAttachCommand(options, resolvedPath),
+            TeardownExplicitlySelected: false);
+    }
+
+    internal static string BuildAttachCommand(
+        ServerConnectionOptions options,
+        string resolvedSocketPath)
+    {
+        string selector = resolvedSocketPath.Length == 0
+            ? $"-L {ShellQuote(options.SocketName ?? "default")}"
+            : $"-S {ShellQuote(resolvedSocketPath)}";
+        return $"{ShellQuote(options.TmuxBinaryPath)} -N {selector} attach";
+    }
+
+    private static string ShellQuote(string value) =>
+        $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
 
 }
 
@@ -62,6 +83,22 @@ internal sealed class CapabilityResource
                 ["serverState"] = _runtime.ServerState,
                 ["configurationProvenance"] = _runtime.ConfigurationProvenance,
                 ["namespaceBoundary"] = "tmux-objects-only",
+            },
+            ["boundary"] = new JsonObject
+            {
+                ["oneSocketPerProcess"] = true,
+                ["perCallSocketSelection"] = false,
+                ["hostCommandExecution"] = false,
+                ["dynamicResources"] = false,
+            },
+            ["connection"] = new JsonObject
+            {
+                ["socketSelector"] = _runtime.SocketSelector,
+                ["socketProvenance"] = _runtime.SocketProvenance,
+                ["resolvedSocketPath"] = _runtime.ResolvedSocketPath,
+                ["serverState"] = _runtime.ServerState,
+                ["configurationProvenance"] = _runtime.ConfigurationProvenance,
+                ["attachCommand"] = _runtime.AttachCommand,
             },
             ["toolsets"] = JsonSerializer.SerializeToNode(
                 Enum.GetValues<Toolset>()
