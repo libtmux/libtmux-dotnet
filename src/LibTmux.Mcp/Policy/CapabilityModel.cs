@@ -124,11 +124,20 @@ internal sealed record ToolDefinition(
             });
     }
 
+    /// <summary>Builds the capability disclosure for one tool.</summary>
+    /// <returns>What this server knows about the tool that the protocol does not say.</returns>
+    /// <remarks>
+    /// Only what the protocol cannot express. A client already holds the
+    /// title, description, schemas and annotations from tools/list, and it
+    /// joins these rows on name — carrying a second copy cost 54 KB across
+    /// this document and every tool's _meta, and the copy of the output schema
+    /// was wrong: the server sends structuredContent as an object, so for a
+    /// tool answering a list the protocol wraps the array as {"result": ...}
+    /// and this row described the bare array the server never sends.
+    /// </remarks>
     internal JsonObject CapabilityRow() => new()
     {
         ["name"] = Name,
-        ["title"] = Title,
-        ["description"] = Description,
         ["toolset"] = Kebab(Toolset),
         ["processReach"] = Kebab(Reach),
         ["tmuxEffects"] = JsonSerializer.SerializeToNode(
@@ -138,18 +147,9 @@ internal sealed record ToolDefinition(
         ["mayExposeSecrets"] = MayExposeSecrets,
         ["mayReturnUntrustedContent"] = MayReturnUntrustedContent,
         ["amplifiesFutureInput"] = AmplifiesFutureInput,
-        ["annotations"] = new JsonObject
-        {
-            ["readOnlyHint"] = Annotations.ReadOnly,
-            ["destructiveHint"] = Annotations.Destructive,
-            ["idempotentHint"] = Annotations.Idempotent,
-            ["openWorldHint"] = Annotations.OpenWorld,
-        },
         ["inputLiteralization"] = JsonSerializer.SerializeToNode(InputLiteralization),
         ["nestedAuthority"] = JsonSerializer.SerializeToNode(
             NestedAuthority.Order(StringComparer.Ordinal)),
-        ["inputSchema"] = JsonNode.Parse(InputSchema.GetRawText()),
-        ["outputSchema"] = JsonNode.Parse(OutputSchema.GetRawText()),
     };
 
     private static string Kebab<T>(T value)

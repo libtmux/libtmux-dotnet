@@ -257,12 +257,13 @@ public sealed class McpProtocolTests
             Assert.True(JsonNode.DeepEquals(
                 JsonNode.Parse(disclosed.GetRawText()),
                 capabilityMetadata.Value));
-            Assert.True(JsonElement.DeepEquals(
-                tool.ProtocolTool.InputSchema,
-                disclosed.GetProperty("inputSchema")));
-            Assert.True(JsonElement.DeepEquals(
-                tool.ProtocolTool.OutputSchema!.Value,
-                disclosed.GetProperty("outputSchema")));
+
+            // The row says only what the protocol cannot. Carrying a second
+            // copy of the schemas cost 54 KB and the output one was wrong.
+            Assert.False(disclosed.TryGetProperty("inputSchema", out _));
+            Assert.False(disclosed.TryGetProperty("outputSchema", out _));
+            Assert.False(disclosed.TryGetProperty("description", out _));
+            Assert.False(disclosed.TryGetProperty("annotations", out _));
         }
 
         JsonElement batch = rows.EnumerateArray()
@@ -279,8 +280,7 @@ public sealed class McpProtocolTests
             ["change", "observe"],
             sendKeys.GetProperty("tmuxEffects").EnumerateArray()
                 .Select(value => value.GetString()).ToArray());
-        Assert.True(sendKeys.TryGetProperty("inputSchema", out _));
-        Assert.True(sendKeys.TryGetProperty("outputSchema", out _));
+        Assert.Equal("send_keys", sendKeys.GetProperty("name").GetString());
         Assert.All(rows.EnumerateArray(), row =>
         {
             Assert.False(row.TryGetProperty("inputSinks", out _));
@@ -306,7 +306,7 @@ public sealed class McpProtocolTests
         Assert.True(synchronize.GetProperty("amplifiesFutureInput").GetBoolean());
         Assert.Contains(
             "subsequent input is copied to every pane",
-            synchronize.GetProperty("description").GetString(),
+            tools.Single(tool => tool.Name == "set_synchronize_panes").Description,
             StringComparison.Ordinal);
         Assert.All(
             rows.EnumerateArray().Where(row => row.GetProperty("name").GetString()
@@ -331,7 +331,7 @@ public sealed class McpProtocolTests
                 .Select(value => value.GetString()));
         Assert.StartsWith(
             "Read configured tmux commands;",
-            showOption.GetProperty("description").GetString(),
+            tools.Single(tool => tool.Name == "show_option").Description,
             StringComparison.Ordinal);
 
         JsonElement batchSchema = tools.Single(tool => tool.Name == "call_read_tools_batch")
