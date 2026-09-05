@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using ModelContextProtocol.Protocol;
@@ -116,6 +117,14 @@ internal static class ToolFailureFilter
         {
             return Failure(logger, tool, error, mayModify, error.Message);
         }
+        catch (McpException error)
+        {
+            // A refusal this server wrote already names the cause and the cure.
+            // Sending it through the backstop appended "this is unexpected" and
+            // told the caller to go read a log, contradicting the sentence
+            // immediately before it.
+            return Failure(logger, tool, error, mayModify, error.Message);
+        }
         catch (Exception error) when (error is not OperationCanceledException)
         {
             // The backstop for anything unhandled; see the class remarks.
@@ -178,10 +187,15 @@ internal static class ToolFailureFilter
             return advice;
         }
 
-        const string recovery = " Inspect tmux state first.";
-        return advice
+        // tmux's own wording is a fragment more often than a sentence, so
+        // appending to it unseparated produced "index in use: 0 tmux may have
+        // acted before the failure."
+        string ended = advice.Length == 0 || advice[^1] is '.' or '!' or '?' or ':'
+            ? advice
+            : advice + ".";
+        return ended
             + " tmux may have acted before the failure. Do not retry this operation."
-            + recovery;
+            + " Inspect tmux state first.";
     }
 
     private static bool TryPasteCleanup(Exception? error, out string? buffer)

@@ -18,6 +18,29 @@ namespace LibTmux.UnitTests;
 public sealed class ToolResponseBudgetFilterTests
 {
     [Fact]
+    public void Mutation_advice_is_separated_from_tmux_own_wording()
+    {
+        TmuxCommandResult result = new(
+            ["move-window"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["index in use: 0"]);
+        TmuxCommandException error = new("move-window failed: index in use: 0", result);
+
+        string advice = ToolFailureFilter.ActionableAdvice(
+            "move_window",
+            error,
+            mayModify: true,
+            "tmux refused the command: move-window failed: index in use: 0");
+
+        // tmux ends its refusals without punctuation, so the warning ran into
+        // them: "index in use: 0 tmux may have acted before the failure."
+        Assert.Contains("in use: 0. tmux may have acted", advice, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Oversized_text_and_structured_content_are_replaced_by_a_bounded_error()
     {
         var policy = new ServerPolicy { MaxBytes = 4_000 };

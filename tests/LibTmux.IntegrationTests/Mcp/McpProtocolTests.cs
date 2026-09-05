@@ -753,6 +753,32 @@ public sealed class McpProtocolTests
         }
     }
 
+    [UnixFact]
+    public async Task A_refusal_this_server_wrote_is_not_called_unexpected()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+
+        _ = await harness.Client.CallToolAsync(
+            "create_session",
+            new Dictionary<string, object?> { ["name"] = "refusal-probe" },
+            cancellationToken: token);
+        CallToolResult refused = await harness.Client.CallToolAsync(
+            "capture_pane",
+            new Dictionary<string, object?> { ["paneId"] = "%999" },
+            cancellationToken: token);
+
+        Assert.True(refused.IsError ?? false);
+        string message = Assert.IsType<TextContentBlock>(Assert.Single(refused.Content)).Text;
+
+        // The refusal already names the cause and the cure; the unexpected
+        // backstop told the caller to go read a log instead.
+        Assert.Contains("%999", message, StringComparison.Ordinal);
+        Assert.Contains("list_panes", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("This is unexpected", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("may have acted", message, StringComparison.Ordinal);
+    }
+
     private static JsonElement Structured(CallToolResult result) =>
         Assert.IsType<JsonElement>(result.StructuredContent);
 
