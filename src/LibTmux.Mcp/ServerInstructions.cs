@@ -39,6 +39,7 @@ public static class ServerInstructions
         Append(text, Purpose);
         Append(text, Scope);
         Append(text, MetadataVersusContent);
+        Append(text, PaneModes);
         Append(text, WaitDoNotPoll);
         Append(text, Budget);
         Append(text, Gaps);
@@ -61,9 +62,8 @@ public static class ServerInstructions
             StringBuilder withContext = new(text.ToString());
             Append(
                 withContext,
-                $"YOU ARE HERE: this server runs in pane {callerPaneId}. Do not send keys "
-                + "or kill anything there unless asked — it is the terminal you are "
-                + "talking through. get_pane_info confirms it.");
+                $"YOU ARE HERE: server pane {callerPaneId}. Do not send keys or kill it "
+                + "unless asked; get_pane_info confirms it.");
             if (!ExceedsBudget(withContext.ToString()))
             {
                 return withContext.ToString();
@@ -80,7 +80,7 @@ public static class ServerInstructions
         + "Every tool uses the one socket pinned when this MCP process starts.";
 
     private const string Scope =
-        "USE FOR: tmux panes, windows, sessions, splits, scrollback, copy mode, "
+        "USE FOR: tmux panes, windows, sessions, splits, scrollback, "
         + "sending keys, 'this terminal', 'the shell'. "
         + "DO NOT USE FOR: browser tabs, editor splits (VS Code, Neovim), desktop "
         + "windows (i3, sway), or login sessions — none of those are tmux. "
@@ -91,6 +91,10 @@ public static class ServerInstructions
         + "and running commands. They "
         + "cannot see terminal text. For what a pane is SHOWING — an error, a prompt, "
         + "a build log — use search_panes, capture_pane or snapshot_pane.";
+
+    private const string PaneModes =
+        "PANE MODES: humans own them. Observe via capture, search, snapshot and "
+        + "cursors. Input refuses; wait for exit; never enter, drive or cancel.";
 
     private const string WaitDoNotPoll =
         "WAIT, NEVER POLL: never loop on capture_pane. For a command you run, "

@@ -151,10 +151,10 @@ public sealed class McpProtocolTests
             "show_hooks", "call_read_tools_batch", "rename_session", "rename_window",
             "select_window", "select_pane", "select_layout", "resize_window",
             "resize_pane", "move_window", "swap_pane", "set_pane_title",
-            "enter_copy_mode", "exit_copy_mode", "wait_for_channel", "signal_channel",
-            "set_mouse_enabled", "set_history_limit", "create_session", "create_window",
-            "split_window", "respawn_pane", "run_shell_command", "send_keys",
-            "send_keys_batch", "paste_text", "set_synchronize_panes",
+            "wait_for_channel", "signal_channel", "set_mouse_enabled", "set_history_limit",
+            "create_session", "create_window", "split_window", "respawn_pane",
+            "run_shell_command", "send_keys", "send_keys_batch", "paste_text",
+            "set_synchronize_panes",
             "clear_pane_scrollback", "kill_pane", "kill_window", "kill_session",
         ];
 
@@ -205,7 +205,7 @@ public sealed class McpProtocolTests
         using JsonDocument document = JsonDocument.Parse(content.Text);
         Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.True(document.RootElement.GetProperty("frozen").GetBoolean());
-        Assert.Equal(47, document.RootElement.GetProperty("toolCount").GetInt32());
+        Assert.Equal(45, document.RootElement.GetProperty("toolCount").GetInt32());
         Assert.Equal(0, document.RootElement.GetProperty("hostCommandTools").GetInt32());
         Assert.Equal(
             "interface-shaping-not-authorization",
@@ -242,6 +242,14 @@ public sealed class McpProtocolTests
             connection.GetProperty("attachCommand").GetString(),
             StringComparison.Ordinal);
         JsonElement rows = document.RootElement.GetProperty("tools");
+        Assert.Equal(18, rows.EnumerateArray().Count(row =>
+            row.GetProperty("toolset").GetString() == "inspect"));
+        Assert.Equal(14, rows.EnumerateArray().Count(row =>
+            row.GetProperty("toolset").GetString() == "manage"));
+        Assert.Equal(9, rows.EnumerateArray().Count(row =>
+            row.GetProperty("toolset").GetString() == "execute"));
+        Assert.Equal(4, rows.EnumerateArray().Count(row =>
+            row.GetProperty("toolset").GetString() == "teardown"));
         Assert.Equal(
             expected.Order(StringComparer.Ordinal),
             rows.EnumerateArray()

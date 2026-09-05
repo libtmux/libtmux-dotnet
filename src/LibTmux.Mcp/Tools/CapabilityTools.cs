@@ -619,16 +619,6 @@ internal sealed class CapabilityTools
         return new ActionResult($"Set the title of {titled.Id}.", PaneId: titled.Id.ToString());
     }
 
-    public async Task<ActionResult> EnterCopyModeAsync(
-        [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        CancellationToken cancellationToken = default) =>
-        await SetCopyModeAsync(paneId, cancel: false, cancellationToken).ConfigureAwait(false);
-
-    public async Task<ActionResult> ExitCopyModeAsync(
-        [Description("A pane id. Omit for the active pane.")] string? paneId = null,
-        CancellationToken cancellationToken = default) =>
-        await SetCopyModeAsync(paneId, cancel: true, cancellationToken).ConfigureAwait(false);
-
     public Task<ActionResult> WaitForChannelAsync(
         [Description("The tmux wait-for channel.")] string channel,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
@@ -967,21 +957,6 @@ internal sealed class CapabilityTools
             panes.Select(candidate => candidate.Id.ToString())
                 .Order(StringComparer.Ordinal)
                 .ToArray());
-    }
-
-    private async Task<ActionResult> SetCopyModeAsync(
-        string? paneId,
-        bool cancel,
-        CancellationToken cancellationToken)
-    {
-        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
-        Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
-            .ConfigureAwait(false);
-        await pane.EnterCopyModeAsync(new CopyModeRequest(cancel: cancel), cancellationToken)
-            .ConfigureAwait(false);
-        return new ActionResult(
-            $"{(cancel ? "Exited" : "Entered")} copy mode in {pane.Id}.",
-            PaneId: pane.Id.ToString());
     }
 
     private async Task<object?> DispatchReadAsync(

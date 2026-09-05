@@ -50,6 +50,16 @@ cover the cases, and the server's instructions steer between them:
 | Watch a pane across turns | `capture_since` | Answers only what is **new** since its cursor |
 | Read several facts together | `call_read_tools_batch` | Runs up to 16 declared inspect calls serially |
 
+Read visible text and scrollback with `capture_pane`. Use `snapshot_pane` when
+content, cursor, size, and running command must describe the same instant;
+`search_panes` to locate matching text; and `capture_since` to follow only new
+output through its authenticated cursor.
+
+Pane modes belong to attached humans. `snapshot_pane` reports mode state, and
+ordinary capture still reads the underlying pane text; the MCP never enters,
+drives, or exits a mode. Input refuses modal targets, including synchronized
+recipients; wait for the human to leave instead of cancelling the mode.
+
 A client that speaks the [Tasks extension](https://modelcontextprotocol.io) can
 start `wait_for_text` or `wait_for_channel` as a task and collect the result
 later. It is offered, never required, so a client without it keeps the blocking
@@ -332,6 +342,7 @@ for the current surface.
 | `tmux_run` | `run_shell_command` | The call remains synchronous and bounded. There are no detached job handles. |
 | `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP cancellation | The background-job registry has no replacement. Long-running work stays visible in its pane. |
 | `tmux_tail_pane` | `capture_since` | The opaque cursor still supports incremental pane reads. |
+| `enter_copy_mode`, `exit_copy_mode` | `capture_pane`, `snapshot_pane`, `search_panes`, `capture_since`, and explicit human interaction | Capture reads visible text and scrollback without changing client state. A human owns entering, driving, and leaving pane modes. |
 | `tmux_display_message` | `get_tmux_variables` | Only validated variable names are accepted; arbitrary tmux formats have no replacement. |
 | `tmux_server_info`, `tmux_whoami`, `tmux://self` | `get_server_info` and `list_panes` | `callerPaneId` and `isCaller` replace the separate identity route. |
 | `tmux_show_options`, `tmux_split_pane` | `show_option`, `split_window` | The new names match the cross-port surface. Spawn calls accept no command or environment payload. |

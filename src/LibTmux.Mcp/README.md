@@ -52,12 +52,18 @@ its target only from the startup environment.
 
 Anything where the answer lives in a terminal rather than in a file. Run a
 build and learn whether it passed. Watch a dev server come up. Find which of
-eleven panes is showing the stack trace. Lay out a workspace and drive it.
+eleven panes is showing the stack trace. Read visible text and scrollback with
+`capture_pane`, or use `snapshot_pane`, `search_panes`, and `capture_since` for
+structured and incremental observation. Lay out a workspace and drive it.
 
 The design goal is that an assistant never gets **stuck** and never **wastes
 context**: waits are event-driven when control mode is available and use a
 bounded polling fallback otherwise; no tool returns unbounded output, and no
 failure comes back as "an error occurred".
+
+Pane modes belong to attached humans. The MCP observes but never enters,
+drives, or exits a mode. Input refuses modal targets; wait for the human to
+leave instead of cancelling the mode.
 
 ## How it behaves
 

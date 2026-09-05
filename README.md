@@ -263,18 +263,23 @@ $ dotnet tool install --global LibTmux.Mcp --prerelease
 { "mcpServers": { "tmux": { "command": "libtmux-mcp" } } }
 ```
 
-It exposes 47 tools selected from the unordered `inspect`, `manage`, `execute`,
-and `teardown` sets, plus the static `tmux://capabilities` resource. [The full
-reference](docs/mcp/tools.md) is generated from the server itself. Pin one
-socket for the process with `LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
+It exposes 45 tools selected from the unordered `inspect` (18), `manage` (14),
+`execute` (9), and `teardown` (4) sets, plus the static
+`tmux://capabilities` resource. Existing and user-configured sockets omit
+teardown by default and expose 41. [The full reference](docs/mcp/tools.md) is
+generated from the server itself. Pin one socket for the process with
+`LIBTMUX_SOCKET` or `LIBTMUX_SOCKET_PATH`.
 
 What it is built around is that an assistant should never get stuck and never
 waste context. `run_shell_command` returns the shell's real exit status, and
 `wait_for_text` normally wakes from tmux's control-mode stream, with a bounded
 polling fallback when that stream cannot start. Nothing returns unbounded
-output: every capture keeps the newest lines and reports what it dropped.
-Exact include/exclude selection is frozen at startup and reported through
-`tmux://capabilities`.
+output: `capture_pane` reads visible text and scrollback, while `snapshot_pane`,
+`search_panes`, and `capture_since` provide structured and incremental
+observation. Pane modes belong to attached humans: the MCP never enters,
+drives, or exits one. Input refuses modal targets; wait for the human to leave
+rather than cancelling the mode. Exact include/exclude selection is frozen at
+startup and reported through `tmux://capabilities`.
 [Full instructions](src/LibTmux.Mcp/README.md).
 
 ## Documentation
