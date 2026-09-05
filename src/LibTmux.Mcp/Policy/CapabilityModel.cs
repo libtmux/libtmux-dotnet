@@ -335,6 +335,14 @@ internal sealed class CapabilityRegistry
         operations["minItems"] = 1;
         operations["maxItems"] = 64;
         properties["onError"]!.AsObject()["enum"] = new JsonArray("continue", "stop");
+
+        // The handler refuses outside 0..2000, and the schema inherited int's
+        // range instead — so a client validating against what was published
+        // sent values this server then refused.
+        JsonObject step = operations["items"]!.AsObject()["properties"]!.AsObject();
+        JsonObject delay = step["delayMilliseconds"]!.AsObject();
+        delay["minimum"] = 0;
+        delay["maximum"] = WriteTools.MaximumStepDelayMilliseconds;
         return definition with
         {
             InputSchema = JsonSerializer.SerializeToElement(schema, ToolJson.Options),
@@ -599,7 +607,7 @@ internal sealed class CapabilityRegistry
             ManageTool("signal_channel", "Signal channel", Manage, nameof(CapabilityTools.SignalChannelAsync), S(("channel", InputSink.TmuxState)), stateOnly: true, detail: "Signal a tmux wait-for channel, releasing whatever waits on it. The channel latches: signalling before anyone waits still satisfies the next wait, so a handoff cannot be lost to a race."),
             ManageTool("set_mouse_enabled", "Set mouse enabled", Manage, nameof(CapabilityTools.SetMouseEnabledAsync), S(("enabled", InputSink.TmuxState)), stateOnly: true, detail: "Turn tmux mouse support on or off. This sets the global option, so it applies to every session on this server and changes what a human watching can do with their mouse."),
             ManageTool("set_option", "Set option", Manage, nameof(CapabilityTools.SetOptionAsync), S(("name", InputSink.TmuxLookup), ("value", InputSink.TmuxState), ("scope", InputSink.None), ("paneId", InputSink.TmuxLookup)), stateOnly: true, detail: "Set one tmux option that holds a flag, a number, a choice or a colour, such as status-position, base-index or remain-on-exit. The name enum is the whole settable set: tmux's string and command options are absent because their values are formats and commands, so writing one would run code on every future pane. Read any option, settable or not, with show_option."),
-            ManageTool("set_history_limit", "Set history limit", Manage, nameof(CapabilityTools.SetHistoryLimitAsync), S(("lines", InputSink.TmuxState), ("session", InputSink.TmuxLookup)), stateOnly: true, detail: "Set how many scrollback lines tmux keeps. This is a SESSION option, so it covers every window in the session rather than one pane. Raise it before starting something that prints a lot: no capture can return lines tmux has already discarded."),
+            ManageTool("set_history_limit", "Set history limit", Manage, nameof(CapabilityTools.SetHistoryLimitAsync), S(("lines", InputSink.TmuxState), ("session", InputSink.TmuxLookup)), stateOnly: true, detail: "Set how many scrollback lines tmux keeps. This is a SESSION option, so it covers every window in the session rather than one pane, and the session must be named because the call can destroy data. Raise it before starting something that prints a lot: no capture can return lines tmux has already discarded. LOWERING it discards the excess from every pane immediately, and the result says how many lines went; raising the limit again does not bring them back."),
 
             Execute("create_session", "Create session", Spawn, ProcessReach.ConfiguredProcess, nameof(CapabilityTools.CreateSessionAsync), SM(M("name", InputSink.TmuxState, InputSink.TmuxFormat), M("startDirectory", InputSink.TmuxState, InputSink.TmuxFormat), M("width", InputSink.TmuxState), M("height", InputSink.TmuxState)), inputLiteralization: F(("name", "double-hash-once"), ("startDirectory", "double-hash-once")), detail: "Create a detached tmux session and return its ids. Give a width and height when nothing will attach to it: a session with no client keeps tmux's default 80x24, which truncates wide output."),
             Execute("create_window", "Create window", Spawn, ProcessReach.ConfiguredProcess, nameof(CapabilityTools.CreateWindowAsync), SM(M("session", InputSink.TmuxLookup), M("name", InputSink.TmuxState, InputSink.TmuxFormat), M("startDirectory", InputSink.TmuxState, InputSink.TmuxFormat)), inputLiteralization: F(("name", "double-hash-once"), ("startDirectory", "double-hash-once")), detail: "Create a window in a tmux session and return its ids."),

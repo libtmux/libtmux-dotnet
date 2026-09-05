@@ -240,6 +240,19 @@ internal sealed partial class ReadTools
                 $"A pane wait accepts at most {MaximumWaitPatterns} patterns across both lists.");
         }
 
+        // Naming no patterns at all is the any-output wait, and that stays.
+        // An empty or null entry inside a list is different: it used to be
+        // dropped, which silently turned "wait until X appears" into "return
+        // on the first byte of anything" — a false early return the caller
+        // sees only by reading the outcome field.
+        if (new[] { patterns, stopPatterns }.Any(list =>
+            list is not null && list.Any(string.IsNullOrEmpty)))
+        {
+            throw new McpException(
+                "A wait pattern cannot be empty or null. Drop the entry to wait for "
+                + "any output at all, or give the text to wait for.");
+        }
+
         int totalBytes = 0;
         foreach (IReadOnlyList<string>? list in new[] { patterns, stopPatterns })
         {

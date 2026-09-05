@@ -449,16 +449,24 @@ internal static class TmuxTargets
         // differently — a trailing slash, a . or a .. segment — is recognised
         // as honoured rather than reported as a fallback.
         string asked = Path.TrimEndingDirectorySeparator(Path.GetFullPath(requested));
+
+        // The request reaching here has been literalized for tmux, so a '#' in
+        // the path arrives doubled and never equals what tmux reports. Both
+        // forms are compared rather than only the undoubled one, so a
+        // directory genuinely named with '##' is not reported as a fallback.
+        string literal = Path.TrimEndingDirectorySeparator(
+            Path.GetFullPath(requested.Replace("##", "#", StringComparison.Ordinal)));
         string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
             .ConfigureAwait(false);
         // Stated as where it landed rather than as a rejection: the two paths
         // come from different sides of a symlink often enough that claiming
         // tmux refused the request would sometimes be the wrong story.
+        string landed = actual is null
+            ? string.Empty
+            : Path.TrimEndingDirectorySeparator(actual);
         return actual is null
-            || string.Equals(
-                Path.TrimEndingDirectorySeparator(actual),
-                asked,
-                StringComparison.Ordinal)
+            || string.Equals(landed, asked, StringComparison.Ordinal)
+            || string.Equals(landed, literal, StringComparison.Ordinal)
             ? string.Empty
             : $" It started in {actual}; tmux does not refuse a start directory "
                 + "it cannot use.";

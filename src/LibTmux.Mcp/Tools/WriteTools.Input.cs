@@ -18,7 +18,7 @@ internal sealed partial class WriteTools
     private static readonly TimeSpan PasteBufferCleanupTimeout = TimeSpan.FromSeconds(5);
     private const int MaximumBatchSteps = 64;
     private const int MaximumBatchKeyBytes = 65_536;
-    private const int MaximumStepDelayMilliseconds = 2_000;
+    internal const int MaximumStepDelayMilliseconds = 2_000;
 
     /// <summary>Sends keys to a pane.</summary>
     /// <param name="keys">The text or key name to send.</param>
@@ -115,9 +115,16 @@ internal sealed partial class WriteTools
                 cancellationToken)
             .ConfigureAwait(false);
 
+        // Only literal keys are characters. With literal false the argument is
+        // a key name, so counting it counted the name rather than the key —
+        // and tmux types a name it does not recognize as text, which the
+        // caller is worse placed than this server to notice.
         return new ActionResult(
-            $"Sent {keys.Length} characters to {pane.Id}. "
-            + "Read the pane, or use wait_for_text, to see what they did.",
+            (literal
+                ? $"Sent {keys.Length} characters to {pane.Id}."
+                : $"Sent key '{keys}' to {pane.Id}; tmux types a key name it does not "
+                    + "know as literal text.")
+            + " Read the pane, or use wait_for_text, to see what they did.",
             PaneId: pane.Id.ToString());
     }
 

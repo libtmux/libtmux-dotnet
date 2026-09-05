@@ -705,8 +705,7 @@ internal sealed class CapabilityTools
 
     public async Task<ActionResult> SetHistoryLimitAsync(
         [Description("The scrollback line limit.")] int lines,
-        [Description("A session id such as $0, or its name. Omit for the first session.")]
-        string? session = null,
+        [Description("A session id such as $0, or its name.")] string session,
         CancellationToken cancellationToken = default)
     {
         if (lines <= 0)
@@ -719,12 +718,33 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Session owner = await TmuxTargets.SessionAsync(server, session, cancellationToken)
             .ConfigureAwait(false);
+
+        // Lowering the limit does not take effect for future output: tmux frees
+        // the oldest lines of every pane in the session as soon as the option
+        // changes (options.c session_update_history, grid_collect_history). The
+        // count is readable before the call, so reporting it is the difference
+        // between a caller knowing it discarded a build log and not.
+        int discarded = 0;
+        foreach (Pane pane in await owner.GetPanesAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (pane.RawFormatFields.TryGetValue("history_size", out string? raw)
+                && int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out int held)
+                && held > lines)
+            {
+                discarded += held - lines;
+            }
+        }
+
         _ = await owner.Options.SetAsync(
                 new SetOptionRequest("history-limit", lines.ToString(CultureInfo.InvariantCulture)),
                 cancellationToken)
             .ConfigureAwait(false);
+        string lost = discarded == 0
+            ? string.Empty
+            : $" This discarded {discarded} lines of scrollback that were already held; "
+                + "raising the limit again does not bring them back.";
         return new ActionResult(
-            $"Set the history limit of every window in {owner.Id} to {lines}.",
+            $"Set the history limit of every window in {owner.Id} to {lines}.{lost}",
             SessionId: owner.Id.ToString());
     }
 
