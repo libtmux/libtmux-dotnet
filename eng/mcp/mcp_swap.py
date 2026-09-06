@@ -54,7 +54,10 @@ $ uv run eng/mcp/mcp_swap.py revert
 
 Scope
 -----
-This script is best-effort and intentionally narrow:
+This script is transactional and intentionally narrow. A multi-client
+``use`` or ``revert`` either completes for every selected client or restores
+the exact pre-command files; recovery data is authenticated and changes to
+owned files make the operation fail closed.
 
 - **Global configs only.** Writes to ``~/.cursor/mcp.json``,
   ``~/.claude.json``, ``~/.codex/config.toml``,
@@ -118,6 +121,7 @@ import contextlib
 import dataclasses
 import difflib
 import fcntl
+import hashlib
 import json
 import os
 import pathlib
@@ -207,19 +211,9 @@ def _parse_state_key(key: str) -> tuple[CLIName, Scope] | None:
 def _parse_state_entry(v: dict[str, t.Any]) -> SwapEntry | None:
     """Build a :class:`SwapEntry` from a raw state-file dict, or ``None``.
 
-    Validates at the trust boundary so a hand-edited ``state.json`` can't
-    crash later code paths — particularly :func:`cmd_revert`'s LIFO sort,
-    which compares ``SwapEntry.seq_no`` and would raise ``TypeError`` on a
-    mixed ``int``/``str`` ordering. ``seq_no`` is coerced via ``int()``;
-    any ``KeyError`` (missing required field), ``ValueError`` (non-numeric
-    string), or ``TypeError`` (wrong shape, extra keys for the dataclass)
-    drops the entry silently. Same drop-on-malformed posture as
-    :func:`_parse_state_key`.
-
-    Mirrors CPython's ``Lib/sched.py`` discipline: validate at the
-    counter's *origin* (``enterabs`` for sched, ``load_state`` here), not
-    at sort time. State-file schema is internal — no compatibility
-    contract — so silent drop is the right failure mode.
+    ``load_state`` uses this tolerant parser for read-only diagnostics. The
+    strict mutation path separately requires the version, root checksum,
+    entry checksum, and complete recovery identities.
     """
     try:
         v = {**v, "seq_no": int(v["seq_no"])}
@@ -232,10 +226,10 @@ def _parse_state_entry(v: dict[str, t.Any]) -> SwapEntry | None:
 # tooling state, distinct from the ``LibTmux.Mcp`` tool it swaps.
 STATE_DIR = xdg.state_home() / "tmux-mcp-dev" / "swap"
 STATE_FILE = STATE_DIR / "state.json"
+STATE_VERSION = 1
+STATE_MAX_BYTES = 1 << 20
 
 BACKUP_SUFFIX_PREFIX = ".bak.mcp-swap-"
-
-
 
 
 @dataclasses.dataclass(frozen=True)
@@ -341,7 +335,8 @@ PI_ADAPTER_HINT = "needs the pi-mcp-adapter package; pi has no built-in MCP clie
 #: GitHub publishes ``refs/pull/<n>/head`` on the *base* repository, so
 #: one URL serves same-repo and fork pull requests alike.
 
-@dataclasses.dataclass
+
+@dataclasses.dataclass(frozen=True)
 class SwapEntry:
     """One CLI's bookkeeping for a swap, written to the state file."""
 
@@ -360,13 +355,140 @@ class SwapEntry:
     seq_no: int
     #: Exact destination changed by the swap. ``config_path`` may be a
     #: symlink that is later repointed, so it is not sufficient recovery
-    #: identity. Older state entries omit this field and fall back to
-    #: ``config_path`` during revert.
+    #: identity. Strict mutation rejects older entries that omit it.
     target_path: str | None = None
+    #: Authenticated identity of the config after the latest transaction
+    #: touching its physical target. Every stacked Claude entry is updated
+    #: together because both scopes share one file.
+    config_identity: dict[str, t.Any] | None = None
+    #: Authenticated identity and location of the pristine backup.
+    backup_identity: dict[str, t.Any] | None = None
+    #: Exact server route this layer installed, including inherited env.
+    route: dict[str, t.Any] | None = None
+    #: SHA-256 of the canonical entry document without this field.
+    checksum: str | None = None
 
 
 class SwapStateError(RuntimeError):
     """Swap state is unsafe to use for a mutating operation."""
+
+
+class TransactionFailure(RuntimeError):
+    """A planned swap could not commit or roll back exactly."""
+
+
+class FileState(t.NamedTuple):
+    """Stable identity, mode, metadata and bytes for one regular file."""
+
+    device: int
+    inode: int
+    mode: int
+    size: int
+    modified_ns: int
+    data: bytes
+
+
+class DirectoryState(t.NamedTuple):
+    """Logical and physical identity for a transaction directory."""
+
+    logical: pathlib.Path
+    physical: pathlib.Path
+    symlink: bool
+    link_text: str | None
+    link_device: int
+    link_inode: int
+    link_mode: int
+    device: int
+    inode: int
+    mode: int
+
+
+class Target(t.NamedTuple):
+    """One selected CLI config layer."""
+
+    cli: CLIName
+    scope: Scope
+    info: CLIInfo
+
+    @property
+    def label(self) -> str:
+        return f"{self.cli}:{self.scope}" if self.cli == "claude" else self.cli
+
+
+class ConfigState(t.NamedTuple):
+    """Authenticated logical link and physical config state."""
+
+    target: Target
+    parent: DirectoryState
+    symlink: bool
+    link_text: str | None
+    link_device: int
+    link_inode: int
+    link_mode: int
+    physical: pathlib.Path
+    file: FileState
+
+
+class ArtifactState(t.NamedTuple):
+    """Authenticated backup or global state artifact."""
+
+    path: pathlib.Path
+    parent: DirectoryState | None
+    physical: pathlib.Path
+    file: FileState | None
+
+
+class PreparedUse(t.NamedTuple):
+    config: ConfigState
+    backup: ArtifactState | None
+    output: bytes
+    action: t.Literal["replaced", "added"] | None
+    spec: McpServerSpec
+    prior: SwapEntry | None
+    swapped_at: str
+    seq_no: int
+
+    @property
+    def changed(self) -> bool:
+        return self.action is not None
+
+
+class PreparedRevert(t.NamedTuple):
+    config: ConfigState
+    entries: tuple[tuple[tuple[CLIName, Scope], SwapEntry, ArtifactState], ...]
+    output: bytes
+    output_mode: int
+
+
+class StagedUse(t.NamedTuple):
+    plan: PreparedUse
+    output: pathlib.Path
+    recovery: pathlib.Path
+    backup: pathlib.Path | None
+
+
+class StagedRevert(t.NamedTuple):
+    plan: PreparedRevert
+    output: pathlib.Path
+    recovery: pathlib.Path
+    backup_recoveries: tuple[pathlib.Path, ...]
+
+
+class ConfigWrite(t.NamedTuple):
+    config: ConfigState
+    committed: FileState
+    recovery: pathlib.Path
+
+
+class BackupWrite(t.NamedTuple):
+    backup: ArtifactState
+    committed: FileState
+
+
+class BackupRemoval(t.NamedTuple):
+    backup: ArtifactState
+    recovery: pathlib.Path
+
 
 # ---------------------------------------------------------------------------
 # Config IO — per format
@@ -824,64 +946,120 @@ def _spec_from_entry(entry: t.Any, *, info: CLIInfo) -> McpServerSpec:
 # ---------------------------------------------------------------------------
 
 
-def load_state(*, strict: bool = False) -> dict[tuple[CLIName, Scope], SwapEntry]:
-    """Read the swap-state file, returning an empty mapping when absent.
+def _canonical_json(value: t.Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
-    The state file's schema is internal — no compatibility contract —
-    so this loader assumes a single canonical shape. Malformed keys
-    (those that don't parse as ``cli:scope``) and entries with a
-    non-coercible ``seq_no`` or missing required fields are dropped
-    silently so a hand-edited file cannot crash the script.
 
-    A file that will not parse at all is reported rather than dropped
-    silently: it means the record of every swap is gone, so ``revert``
-    is about to say there is nothing to unwind while swapped configs
-    and their backups sit on disk. Saying so is what lets the operator
-    go find those backups. Mutating callers pass ``strict=True`` so an
-    unreadable or malformed record blocks changes instead of being
-    overwritten as empty state.
-    """
-    if not STATE_FILE.exists():
-        return {}
+def _entry_document(entry: SwapEntry, *, checksum: bool) -> dict[str, t.Any]:
+    document = dataclasses.asdict(entry)
+    if not checksum:
+        document.pop("checksum", None)
+    return document
+
+
+def _with_entry_checksum(entry: SwapEntry) -> SwapEntry:
+    digest = hashlib.sha256(_canonical_json(_entry_document(entry, checksum=False)))
+    return dataclasses.replace(entry, checksum=digest.hexdigest())
+
+
+def _state_document(
+    entries: dict[tuple[CLIName, Scope], SwapEntry], *, include_checksum: bool = True
+) -> dict[str, t.Any]:
+    normalized = {
+        _state_key(cli, scope): _entry_document(
+            _with_entry_checksum(entry), checksum=True
+        )
+        for (cli, scope), entry in sorted(entries.items())
+    }
+    core: dict[str, t.Any] = {"version": STATE_VERSION, "entries": normalized}
+    if include_checksum:
+        core["checksum"] = hashlib.sha256(_canonical_json(core)).hexdigest()
+    return core
+
+
+def _state_bytes(entries: dict[tuple[CLIName, Scope], SwapEntry]) -> bytes:
+    data = (json.dumps(_state_document(entries), indent=2) + "\n").encode("utf-8")
+    if len(data) > STATE_MAX_BYTES:
+        raise SwapStateError(f"swap state exceeds {STATE_MAX_BYTES} bytes")
+    return data
+
+
+def _load_state_bytes(
+    data: bytes, *, strict: bool
+) -> dict[tuple[CLIName, Scope], SwapEntry]:
     try:
-        raw = json.loads(STATE_FILE.read_text())
-    except (OSError, ValueError) as exc:
+        if len(data) > STATE_MAX_BYTES:
+            raise ValueError(f"exceeds {STATE_MAX_BYTES} bytes")
+        raw = json.loads(data)
+        if not isinstance(raw, dict):
+            raise TypeError("has invalid shape")
+        versioned = "version" in raw or "checksum" in raw
+        if versioned:
+            if set(raw) != {"version", "entries", "checksum"}:
+                raise ValueError("has unknown or missing fields")
+            if type(raw["version"]) is not int or raw["version"] != STATE_VERSION:
+                raise ValueError("has unsupported version")
+            expected = hashlib.sha256(
+                _canonical_json({"version": raw["version"], "entries": raw["entries"]})
+            ).hexdigest()
+            if not isinstance(raw["checksum"], str) or raw["checksum"] != expected:
+                raise ValueError("checksum mismatch")
+        elif strict:
+            raise ValueError("uses unauthenticated legacy schema")
+        entries = raw.get("entries", {})
+        if not isinstance(entries, dict):
+            raise TypeError("has invalid entries")
+        out: dict[tuple[CLIName, Scope], SwapEntry] = {}
+        for raw_key, raw_entry in entries.items():
+            key = _parse_state_key(raw_key)
+            if key is None or not isinstance(raw_entry, dict):
+                if strict or versioned:
+                    raise ValueError(f"has invalid entry {raw_key!r}")
+                continue
+            entry = _parse_state_entry(raw_entry)
+            if entry is None:
+                if strict or versioned:
+                    raise ValueError(f"has invalid entry {raw_key!r}")
+                continue
+            if versioned:
+                if entry.checksum is None:
+                    raise ValueError(f"entry {raw_key!r} has no checksum")
+                expected_entry = _with_entry_checksum(
+                    dataclasses.replace(entry, checksum=None)
+                ).checksum
+                if entry.checksum != expected_entry:
+                    raise ValueError(f"entry {raw_key!r} checksum mismatch")
+                if strict and (
+                    entry.config_identity is None
+                    or entry.backup_identity is None
+                    or entry.route is None
+                    or entry.target_path is None
+                ):
+                    raise ValueError(f"entry {raw_key!r} lacks recovery identity")
+            out[key] = entry
+        return out
+    except (TypeError, UnicodeDecodeError, ValueError) as exc:
         message = f"swap state unreadable ({STATE_FILE}): {exc}"
         print(message, file=sys.stderr)
         if strict:
             raise SwapStateError(message) from exc
         return {}
-    if not isinstance(raw, dict):
-        if strict:
-            message = f"swap state has invalid shape: {STATE_FILE}"
-            print(message, file=sys.stderr)
-            raise SwapStateError(message)
+
+
+def load_state(*, strict: bool = False) -> dict[tuple[CLIName, Scope], SwapEntry]:
+    """Load checksummed recovery state; mutating callers reject legacy data."""
+    if not os.path.lexists(STATE_FILE):
         return {}
-    entries = raw.get("entries", {})
-    if not isinstance(entries, dict):
+    try:
+        if STATE_FILE.is_symlink() or not STATE_FILE.is_file():
+            raise ValueError("is not a regular file")
+        return _load_state_bytes(STATE_FILE.read_bytes(), strict=strict)
+    except OSError as exc:
+        message = f"swap state unreadable ({STATE_FILE}): {exc}"
+        print(message, file=sys.stderr)
         if strict:
-            message = f"swap state has invalid entries: {STATE_FILE}"
-            print(message, file=sys.stderr)
-            raise SwapStateError(message)
-        entries = {}
-    out: dict[tuple[CLIName, Scope], SwapEntry] = {}
-    for k, v in entries.items():
-        parsed = _parse_state_key(k)
-        if parsed is None:
-            if strict:
-                message = f"swap state has invalid key {k!r}: {STATE_FILE}"
-                print(message, file=sys.stderr)
-                raise SwapStateError(message)
-            continue
-        entry = _parse_state_entry(v)
-        if entry is None:
-            if strict:
-                message = f"swap state has invalid entry {k!r}: {STATE_FILE}"
-                print(message, file=sys.stderr)
-                raise SwapStateError(message)
-            continue
-        out[parsed] = entry
-    return out
+            raise SwapStateError(message) from exc
+        return {}
 
 
 @contextlib.contextmanager
@@ -895,23 +1073,221 @@ def _state_lock() -> t.Iterator[None]:
 
 
 def save_state(entries: dict[tuple[CLIName, Scope], SwapEntry]) -> None:
-    """Write the swap-state file atomically."""
+    """Write versioned, checksummed swap state atomically."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "entries": {
-            _state_key(cli, scope): dataclasses.asdict(v)
-            for (cli, scope), v in entries.items()
-        },
+    atomic_write(STATE_FILE, _state_bytes(entries))
+
+
+def _file_state(path: pathlib.Path) -> FileState:
+    before = path.stat()
+    if not stat.S_ISREG(before.st_mode):
+        raise ValueError(f"{path} is not a regular file")
+    data = path.read_bytes()
+    after = path.stat()
+    before_key = (
+        before.st_dev,
+        before.st_ino,
+        before.st_mode,
+        before.st_size,
+        before.st_mtime_ns,
+    )
+    after_key = (
+        after.st_dev,
+        after.st_ino,
+        after.st_mode,
+        after.st_size,
+        after.st_mtime_ns,
+    )
+    if before_key != after_key:
+        raise RuntimeError(f"{path} changed while it was read")
+    return FileState(
+        after.st_dev,
+        after.st_ino,
+        stat.S_IMODE(after.st_mode),
+        after.st_size,
+        after.st_mtime_ns,
+        data,
+    )
+
+
+def _directory_state(path: pathlib.Path) -> DirectoryState:
+    logical = path.lstat()
+    symlink = stat.S_ISLNK(logical.st_mode)
+    if not symlink and not stat.S_ISDIR(logical.st_mode):
+        raise ValueError(f"{path} is not a directory or directory symlink")
+    physical = path.resolve(strict=True)
+    details = physical.stat()
+    if not stat.S_ISDIR(details.st_mode):
+        raise ValueError(f"{path} is not a directory")
+    return DirectoryState(
+        path,
+        physical,
+        symlink,
+        os.readlink(path) if symlink else None,
+        logical.st_dev,
+        logical.st_ino,
+        logical.st_mode,
+        details.st_dev,
+        details.st_ino,
+        stat.S_IMODE(details.st_mode),
+    )
+
+
+def _config_state(target: Target) -> ConfigState:
+    path = target.info.config_path
+    parent = _directory_state(path.parent)
+    details = path.lstat()
+    symlink = stat.S_ISLNK(details.st_mode)
+    if not symlink and not stat.S_ISREG(details.st_mode):
+        raise ValueError(f"{path} is not a regular file or symlink")
+    physical = path.resolve(strict=True)
+    file = _file_state(physical)
+    if not symlink and (details.st_dev, details.st_ino) != (file.device, file.inode):
+        raise RuntimeError(f"{path} changed while it was resolved")
+    return ConfigState(
+        target,
+        parent,
+        symlink,
+        os.readlink(path) if symlink else None,
+        details.st_dev,
+        details.st_ino,
+        details.st_mode,
+        physical,
+        file,
+    )
+
+
+def _artifact_state(path: pathlib.Path, *, required: bool = False) -> ArtifactState:
+    parent = _directory_state(path.parent) if path.parent.exists() else None
+    physical = (
+        parent.physical / path.name
+        if parent is not None
+        else path.resolve(strict=False)
+    )
+    if not os.path.lexists(path):
+        if required:
+            raise FileNotFoundError(path)
+        return ArtifactState(path, parent, physical, None)
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"{path} is not a regular file")
+    if path.resolve(strict=True) != physical:
+        raise RuntimeError(f"{path} changed while it was resolved")
+    file = _file_state(physical)
+    return ArtifactState(path, parent, physical, file)
+
+
+def _file_document(file: FileState) -> dict[str, t.Any]:
+    return {
+        "device": file.device,
+        "inode": file.inode,
+        "mode": file.mode,
+        "modified_ns": file.modified_ns,
+        "sha256": hashlib.sha256(file.data).hexdigest(),
+        "size": file.size,
     }
-    atomic_write(STATE_FILE, (json.dumps(payload, indent=2) + "\n").encode("utf-8"))
 
 
-def _save_or_clear_state(entries: dict[tuple[CLIName, Scope], SwapEntry]) -> None:
-    """Persist ``entries``, removing the state file when the mapping is empty."""
-    if entries:
-        save_state(entries)
-    elif STATE_FILE.exists():
-        STATE_FILE.unlink()
+def _directory_document(directory: DirectoryState) -> dict[str, t.Any]:
+    return {
+        "device": directory.device,
+        "inode": directory.inode,
+        "link_device": directory.link_device if directory.symlink else None,
+        "link_inode": directory.link_inode if directory.symlink else None,
+        "link_mode": directory.link_mode if directory.symlink else None,
+        "link_text": directory.link_text,
+        "logical": str(directory.logical),
+        "mode": directory.mode,
+        "physical": str(directory.physical),
+        "symlink": directory.symlink,
+    }
+
+
+def _config_document(config: ConfigState, file: FileState) -> dict[str, t.Any]:
+    return {
+        "file": _file_document(file),
+        "link_device": config.link_device if config.symlink else None,
+        "link_inode": config.link_inode if config.symlink else None,
+        "link_mode": config.link_mode if config.symlink else None,
+        "link_text": config.link_text,
+        "logical": str(config.target.info.config_path),
+        "parent": _directory_document(config.parent),
+        "symlink": config.symlink,
+        "target": str(config.physical),
+    }
+
+
+def _artifact_document(artifact: ArtifactState, file: FileState) -> dict[str, t.Any]:
+    if artifact.parent is None:
+        raise RuntimeError(f"{artifact.path.parent} does not exist")
+    return {
+        "file": _file_document(file),
+        "parent": _directory_document(artifact.parent),
+        "path": str(artifact.path),
+        "target": str(artifact.physical),
+    }
+
+
+def _same_typed(left: t.Any, right: t.Any) -> bool:
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(
+            _same_typed(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _same_typed(one, two) for one, two in zip(left, right, strict=True)
+        )
+    return bool(left == right)
+
+
+def _verify_directory(expected: DirectoryState) -> None:
+    if _directory_state(expected.logical) != expected:
+        raise RuntimeError(f"{expected.logical} changed")
+
+
+def _verify_config(config: ConfigState, expected: FileState) -> None:
+    _verify_directory(config.parent)
+    path = config.target.info.config_path
+    details = path.lstat()
+    if config.symlink:
+        if (
+            not stat.S_ISLNK(details.st_mode)
+            or os.readlink(path) != config.link_text
+            or (details.st_dev, details.st_ino, details.st_mode)
+            != (config.link_device, config.link_inode, config.link_mode)
+        ):
+            raise RuntimeError(f"{path} symlink changed")
+    elif not stat.S_ISREG(details.st_mode):
+        raise RuntimeError(f"{path} topology changed")
+    if path.resolve(strict=True) != config.physical:
+        raise RuntimeError(f"{path} target changed")
+    current = _file_state(config.physical)
+    if current != expected:
+        raise RuntimeError(f"{path} identity, mode, or bytes changed")
+    if not config.symlink and (details.st_dev, details.st_ino) != (
+        current.device,
+        current.inode,
+    ):
+        raise RuntimeError(f"{path} logical identity changed")
+
+
+def _verify_artifact(artifact: ArtifactState, expected: FileState | None) -> None:
+    if artifact.parent is None:
+        if expected is not None or os.path.lexists(artifact.path):
+            raise RuntimeError(f"{artifact.path.parent} changed")
+        return
+    _verify_directory(artifact.parent)
+    if expected is None:
+        if os.path.lexists(artifact.path):
+            raise RuntimeError(f"{artifact.path} appeared")
+        return
+    if not os.path.lexists(artifact.path) or artifact.path.is_symlink():
+        raise RuntimeError(f"{artifact.path} topology changed")
+    if artifact.path.resolve(strict=True) != artifact.physical:
+        raise RuntimeError(f"{artifact.path} target changed")
+    if _file_state(artifact.physical) != expected:
+        raise RuntimeError(f"{artifact.path} identity, mode, or bytes changed")
 
 
 # ---------------------------------------------------------------------------
@@ -1087,336 +1463,1156 @@ def _points_at(
     )
 
 
-def _cmd_use_local(args: argparse.Namespace) -> int:
-    """Rewrite each target CLI's config to run the repo, or a pull request.
+def _spec_document(
+    name: str, scope: Scope, repo: pathlib.Path, spec: McpServerSpec
+) -> dict[str, t.Any]:
+    return {
+        "args": list(spec.args),
+        "command": spec.command,
+        "env": dict(spec.env),
+        "name": name,
+        "repo": str(repo),
+        "scope": scope,
+    }
 
-    Which build the entry runs is chosen by ``--source``; see the module
-    docstring for what each one costs.
 
-    The optional ``--scope`` flag selects Claude's user-level fallback
-    vs. per-project override; see :data:`Scope`. The flag is silently
-    coerced to ``"user"`` for non-Claude CLIs by :func:`_normalize_scope`.
-    """
+def _spec_from_document(document: dict[str, t.Any]) -> McpServerSpec:
+    expected = {"args", "command", "env", "name", "repo", "scope"}
+    if set(document) != expected:
+        raise ValueError("recovery route has unknown or missing fields")
+    args = document["args"]
+    env = document["env"]
+    if (
+        not isinstance(args, list)
+        or any(not isinstance(value, str) for value in args)
+        or not isinstance(env, dict)
+        or any(not isinstance(key, str) for key in env)
+        or any(not isinstance(value, str) for value in env.values())
+        or type(document["command"]) is not str
+        or type(document["name"]) is not str
+        or type(document["repo"]) is not str
+        or document["scope"] not in ALL_SCOPES
+    ):
+        raise ValueError("recovery route is invalid")
+    return McpServerSpec(command=document["command"], args=list(args), env=dict(env))
+
+
+def _selected_targets(args: argparse.Namespace) -> list[Target]:
+    selected = list(args.cli or present_clis())
+    if not selected:
+        raise TransactionFailure("no CLIs detected — nothing to do")
+    return [
+        Target(cli, _normalize_scope(cli, args.scope), CLIS[cli]) for cli in selected
+    ]
+
+
+def _source_spec(
+    args: argparse.Namespace,
+) -> tuple[pathlib.Path, str, str, str, build.Source, McpServerSpec]:
     repo = pathlib.Path(args.repo).resolve()
     project = getattr(args, "project", None) or build.DEFAULT_PROJECT
     server, default_binary = build.resolve_repo_meta(repo, project)
     server = args.server or server
     binary = args.entry or default_binary
-    command = build.project_property(
-        build.project_file(repo, project).read_text(), "ToolCommandName"
-    ) or "libtmux-mcp"
-    extra_env = dict(args.env or [])
-    source: build.Source = getattr(args, "source", "debug")
-
-    # A config naming a binary that was never built leaves every agent
-    # failing to start a server, and the failure surfaces inside the agent
-    # rather than here.
-    try:
-        if source in ("debug", "release") and not getattr(args, "no_build", False):
-            build.dotnet_build(repo, source.capitalize(), project)
-        if source == "published":
-            build.install_published("LibTmux.Mcp", args.version, binary, command)
-        spec = build.build_source_spec(
-            source,
-            repo=repo,
-            binary=binary,
-            project=project,
-            command=command,
-            version=getattr(args, "version", None),
-            binary_path=(
-                pathlib.Path(args.bin) if getattr(args, "bin", None) else None
-            ),
+    command = (
+        build.project_property(
+            build.project_file(repo, project).read_text(), "ToolCommandName"
         )
-    except (RuntimeError, subprocess.CalledProcessError) as exc:
-        print(f"{source}: {exc}", file=sys.stderr)
-        return 1
+        or "libtmux-mcp"
+    )
+    source: build.Source = getattr(args, "source", "debug")
+    spec = build.build_source_spec(
+        source,
+        repo=repo,
+        binary=binary,
+        project=project,
+        command=command,
+        version=getattr(args, "version", None),
+        binary_path=(pathlib.Path(args.bin) if getattr(args, "bin", None) else None),
+    )
+    return (
+        repo,
+        project,
+        server,
+        binary,
+        source,
+        dataclasses.replace(spec, env={**spec.env, **dict(args.env or [])}),
+    )
 
+
+def _setup_source(
+    args: argparse.Namespace,
+    repo: pathlib.Path,
+    project: str,
+    binary: str,
+    source: build.Source,
+    spec: McpServerSpec,
+) -> None:
+    command = (
+        build.project_property(
+            build.project_file(repo, project).read_text(), "ToolCommandName"
+        )
+        or "libtmux-mcp"
+    )
+    if source in ("debug", "release") and not getattr(args, "no_build", False):
+        build.dotnet_build(repo, source.capitalize(), project)
+    if source == "published":
+        build.install_published("LibTmux.Mcp", args.version, binary, command)
     launcher = pathlib.Path(spec.command)
     if not launcher.is_file():
-        print(f"{source}: {launcher} does not exist", file=sys.stderr)
-        return 1
-    spec = dataclasses.replace(spec, env={**spec.env, **extra_env})
-
-    hint = _naming_hint(repo, server)
-    if hint:
-        print(hint, file=sys.stderr)
-
-    targets = args.cli or present_clis()
-    if not targets:
-        print("no CLIs detected — nothing to do", file=sys.stderr)
-        return 1
-
-    # Runs under --dry-run too, and for every source: starting the server
-    # once here is the difference between finding out that a build cannot
-    # speak the protocol now, and finding out from inside each agent.
+        raise TransactionFailure(f"{source}: {launcher} does not exist")
     if not args.no_preflight:
         print(f"preflight: {spec.command} {' '.join(spec.args)}", file=sys.stderr)
         failure = build.preflight_spec(spec)
         if failure is not None:
-            print(f"preflight failed, nothing written:\n{failure}", file=sys.stderr)
-            return 1
+            raise TransactionFailure(f"preflight failed, nothing written:\n{failure}")
 
-    ts = time.strftime("%Y%m%d%H%M%S")
-    state = load_state(strict=True)
-    had_error = 0
-    for cli in targets:
-        scope = _normalize_scope(cli, args.scope)
-        label = f"{cli}:{scope}" if cli == "claude" else cli
-        info = CLIS[cli]
-        if not info.config_path.exists():
-            print(f"[{label}] skip — config not found at {info.config_path}")
-            had_error = 1
+
+def _available_backup_path(target: Target, timestamp: str) -> pathlib.Path:
+    suffix = f"{BACKUP_SUFFIX_PREFIX}{timestamp}"
+    if target.cli == "claude":
+        suffix += f"-{target.scope}"
+    base = target.info.config_path.with_suffix(target.info.config_path.suffix + suffix)
+    candidate = base
+    attempt = 0
+    while os.path.lexists(candidate):
+        attempt += 1
+        candidate = base.with_name(f"{base.name}-{attempt}")
+    return candidate
+
+
+def _parse_config(config: ConfigState) -> t.Any:
+    info = dataclasses.replace(config.target.info, config_path=config.physical)
+    return load_config(info)
+
+
+def _verify_entry_ownership(
+    key: tuple[CLIName, Scope],
+    entry: SwapEntry,
+    config: ConfigState,
+    document: t.Any,
+) -> ArtifactState:
+    if (
+        entry.config_identity is None
+        or entry.backup_identity is None
+        or entry.route is None
+        or entry.target_path is None
+    ):
+        raise SwapStateError(f"{_state_key(*key)} lacks recovery identity")
+    if entry.config_path != str(config.target.info.config_path):
+        raise SwapStateError(f"{_state_key(*key)} names another logical config")
+    if entry.target_path != str(config.physical):
+        raise SwapStateError(f"{_state_key(*key)} names another physical config")
+    if not _same_typed(entry.config_identity, _config_document(config, config.file)):
+        raise SwapStateError(f"{_state_key(*key)} config identity changed")
+    backup = _artifact_state(pathlib.Path(entry.backup_path), required=True)
+    backup_file = t.cast(FileState, backup.file)
+    if not _same_typed(entry.backup_identity, _artifact_document(backup, backup_file)):
+        raise SwapStateError(f"{_state_key(*key)} backup identity changed")
+    route = entry.route
+    spec = _spec_from_document(route)
+    if route["scope"] != key[1]:
+        raise SwapStateError(f"{_state_key(*key)} scope changed")
+    actual = get_server(
+        key[0],
+        document,
+        route["name"],
+        pathlib.Path(route["repo"]),
+        scope=key[1],
+    )
+    if actual != spec:
+        raise SwapStateError(f"{_state_key(*key)} server route changed")
+    return backup
+
+
+def _plan_use(
+    args: argparse.Namespace,
+    repo: pathlib.Path,
+    server: str,
+    spec: McpServerSpec,
+    timestamp: str,
+    state: dict[tuple[CLIName, Scope], SwapEntry],
+    state_file: ArtifactState,
+) -> list[PreparedUse]:
+    prepared: list[PreparedUse] = []
+    errors: list[str] = []
+    next_seq = max((entry.seq_no for entry in state.values()), default=-1) + 1
+    for target in _selected_targets(args):
+        if not os.path.lexists(target.info.config_path):
+            errors.append(
+                f"[{target.label}] config not found at {target.info.config_path}"
+            )
             continue
-        target_path = info.config_path.resolve()
-        target_info = dataclasses.replace(info, config_path=target_path)
-        # Per-CLI: RuntimeError (bad shape), ValueError (unparseable),
-        # OSError (unreadable) all surface as one clean error, not a traceback.
         try:
-            original_bytes = target_path.read_bytes()
-            config = load_config(target_info)
-            current = get_server(cli, config, server, repo, scope=scope)
-            if (
-                current
-                and _points_at(current, spec, repo)
-                and all(current.env.get(k) == v for k, v in extra_env.items())
-            ):
-                where = _describe_spec(spec, repo)
-                print(f"[{label}] already {where} — no change")
-                continue
-            # Three layers, weakest first. The existing entry supplies
-            # client-side settings a swap must not drop (LIBTMUX_TOOLSETS,
-            # LIBTMUX_SOCKET, custom dev knobs). The spec overrides them with
-            # what it computed this run -- the runtime location, which is
-            # derived from the SDK in use and would otherwise be inherited
-            # stale from a swap made against a different one. Explicit --env
-            # wins over both, because it is the operator saying so.
+            config = _config_state(target)
+            document = _parse_config(config)
+            relevant = {
+                key: entry
+                for key, entry in state.items()
+                if entry.target_path == str(config.physical)
+            }
+            recovered: dict[tuple[CLIName, Scope], ArtifactState] = {}
+            for key, entry in relevant.items():
+                recovered[key] = _verify_entry_ownership(key, entry, config, document)
+            current = get_server(target.cli, document, server, repo, scope=target.scope)
             base_env = dict(current.env) if current else {}
             base_env.update(spec.env)
-            base_env.update(extra_env)
+            base_env.update(dict(args.env or []))
             cli_spec = dataclasses.replace(spec, env=base_env)
-            action = set_server(cli, config, server, cli_spec, repo, scope=scope)
-            new_bytes = dump_config_bytes(info, config, original=original_bytes)
-        except (RuntimeError, ValueError, OSError) as exc:
-            print(f"[{label}] {exc}", file=sys.stderr)
-            had_error = 1
-            continue
-
-        if args.dry_run:
-            print(f"--- {info.config_path} (current)")
-            print(f"+++ {info.config_path} (proposed)")
-            diff = difflib.unified_diff(
-                original_bytes.decode(errors="replace").splitlines(keepends=True),
-                new_bytes.decode(errors="replace").splitlines(keepends=True),
-                lineterm="",
-            )
-            sys.stdout.writelines(diff)
-            continue
-
-        # Re-swapping an unreverted layer must not re-back-up: original_bytes
-        # is this script's own prior output, so keep the first backup (the
-        # only copy of the pristine config) and its seq_no/swapped_at.
-        prior = state.get((cli, scope))
-        prior_backup = pathlib.Path(prior.backup_path) if prior is not None else None
-        if prior_backup is not None and prior_backup.exists():
-            backup_path = prior_backup
-            backup_note = f"pre-swap backup kept: {backup_path}"
-        else:
-            if prior is not None:
-                print(
-                    f"[{label}] recorded backup is gone ({prior.backup_path}); the "
-                    "new backup captures the already-swapped config, not the "
-                    "original",
-                    file=sys.stderr,
+            prior = state.get((target.cli, target.scope))
+            if prior is not None and (target.cli, target.scope) not in recovered:
+                raise SwapStateError(
+                    f"{target.label} recovery names another config target"
                 )
-            # Claude is the only CLI where two swaps (different scopes) can
-            # touch the same config file in one second; embed the scope so
-            # the two backups read distinctly. Non-Claude backup filenames
-            # carry no scope suffix. Collisions past that are resolved by
-            # ``write_new_backup``, which never overwrites.
-            backup_suffix = f"{BACKUP_SUFFIX_PREFIX}{ts}"
-            if cli == "claude":
-                backup_suffix += f"-{scope}"
-            # A backup that cannot be written must abort this CLI rather
-            # than degrade into a swap with nothing to revert to — an
-            # unwritable directory is the case that produces both.
-            try:
-                backup_path = write_new_backup(
-                    info.config_path.with_suffix(
-                        info.config_path.suffix + backup_suffix
-                    ),
-                    original_bytes,
+            if current is not None and _points_at(current, cli_spec, repo):
+                prepared.append(
+                    PreparedUse(
+                        config,
+                        recovered.get((target.cli, target.scope)),
+                        config.file.data,
+                        None,
+                        cli_spec,
+                        prior,
+                        prior.swapped_at if prior else timestamp,
+                        prior.seq_no if prior else next_seq,
+                    )
                 )
-            except OSError as exc:
-                print(f"[{label}] cannot write backup: {exc}", file=sys.stderr)
-                had_error = 1
                 continue
-            backup_note = f"backup: {backup_path}"
-        if prior is not None and backup_path == prior_backup:
-            # ``swapped_at`` mirrors the timestamp in the backup filename
-            # and ``seq_no`` fixes the backup's place in the unwind
-            # stack; both describe the kept backup, not this run.
-            seq_no, swapped_at = prior.seq_no, prior.swapped_at
-        else:
-            seq_no = max((e.seq_no for e in state.values()), default=-1) + 1
-            swapped_at = ts
-        next_state = dict(state)
-        next_state[(cli, scope)] = SwapEntry(
-            config_path=str(info.config_path),
-            backup_path=str(backup_path),
-            server=server,
-            action=action,
-            swapped_at=swapped_at,
-            seq_no=seq_no,
-            target_path=str(target_path),
-        )
-        try:
-            save_state(next_state)
-        except OSError as exc:
-            print(
-                f"[{label}] cannot save recovery state ({exc}); config unchanged; "
-                f"backup at {backup_path}",
-                file=sys.stderr,
+            action = set_server(
+                target.cli,
+                document,
+                server,
+                cli_spec,
+                repo,
+                scope=target.scope,
             )
-            had_error = 1
-            continue
-        previous_state = state
-        state = next_state
-        try:
-            atomic_write(target_path, new_bytes)
-            _revalidate(target_info)
-        except Exception as exc:
-            try:
-                atomic_write(target_path, original_bytes)
-            except Exception as rollback_exc:
-                rollback_note = f"; rollback failed ({rollback_exc})"
+            output = dump_config_bytes(target.info, document, original=config.file.data)
+            if prior is None:
+                backup = _artifact_state(_available_backup_path(target, timestamp))
+                seq_no = next_seq
+                next_seq += 1
+                swapped_at = timestamp
             else:
-                rollback_note = "; original config restored"
-                try:
-                    _save_or_clear_state(previous_state)
-                except OSError as state_exc:
-                    rollback_note += f"; recovery state cleanup failed ({state_exc})"
-                else:
-                    state = previous_state
-            print(
-                f"[{label}] write failed ({exc}){rollback_note}; "
-                f"backup at {backup_path}",
-                file=sys.stderr,
+                backup = recovered[(target.cli, target.scope)]
+                seq_no = prior.seq_no
+                swapped_at = prior.swapped_at
+            prepared.append(
+                PreparedUse(
+                    config,
+                    backup,
+                    output,
+                    action,
+                    cli_spec,
+                    prior,
+                    swapped_at,
+                    seq_no,
+                )
             )
-            had_error = 1
-            continue
-        print(f"[{label}] {action}; {backup_note}")
+        except Exception as exc:  # noqa: BLE001 - finish planning every target
+            errors.append(f"[{target.label}] {exc}")
+    if errors:
+        raise TransactionFailure("; ".join(errors))
+    _reject_transaction_aliases(prepared, state_file)
+    return prepared
 
-    return had_error
+
+def _reject_transaction_aliases(
+    plans: t.Iterable[PreparedUse | PreparedRevert], state_file: ArtifactState
+) -> None:
+    config_paths: dict[pathlib.Path, str] = {}
+    config_inodes: dict[tuple[int, int], str] = {}
+    paths: dict[pathlib.Path, str] = {}
+    inodes: dict[tuple[int, int], str] = {}
+
+    def claim(
+        path: pathlib.Path,
+        file: FileState | None,
+        owner: str,
+        *,
+        config: bool = False,
+    ) -> None:
+        inode = None if file is None else (file.device, file.inode)
+        if config:
+            duplicate = config_paths.get(path)
+            if duplicate is None and inode is not None:
+                duplicate = config_inodes.get(inode)
+            if duplicate is not None:
+                raise TransactionFailure(
+                    f"duplicate physical config target for {duplicate} and {owner}"
+                )
+            config_paths[path] = owner
+            if inode is not None:
+                config_inodes[inode] = owner
+        duplicate = paths.get(path)
+        if duplicate is None and inode is not None:
+            duplicate = inodes.get(inode)
+        if duplicate is not None:
+            raise TransactionFailure(
+                f"duplicate transaction destination for {duplicate} and {owner}"
+            )
+        paths[path] = owner
+        if inode is not None:
+            inodes[inode] = owner
+
+    plan_list = list(plans)
+    for plan in plan_list:
+        claim(
+            plan.config.physical,
+            plan.config.file,
+            f"{plan.config.target.label} config",
+            config=True,
+        )
+    for plan in plan_list:
+        artifacts = (
+            (() if plan.backup is None else (plan.backup,))
+            if isinstance(plan, PreparedUse)
+            else tuple(item[2] for item in plan.entries)
+        )
+        for artifact in artifacts:
+            claim(
+                artifact.physical,
+                artifact.file,
+                f"{plan.config.target.label} backup",
+            )
+    claim(state_file.physical, state_file.file, "swap state")
+
+
+def _stage(
+    directory: pathlib.Path,
+    logical_name: str,
+    role: str,
+    data: bytes,
+    mode: int,
+) -> pathlib.Path:
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{logical_name}.mcp-swap-{role}-", dir=str(directory)
+    )
+    temporary = pathlib.Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchmod(stream.fileno(), mode)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return temporary
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _apply_replace(
+    source: pathlib.Path, destination: pathlib.Path
+) -> tuple[FileState, Exception | None]:
+    source_state = _file_state(source)
+    delayed: Exception | None = None
+    try:
+        os.replace(source, destination)
+    except Exception as exc:
+        try:
+            moved = _file_state(destination) == source_state
+        except (OSError, RuntimeError, ValueError):
+            moved = False
+        if not moved:
+            raise
+        delayed = exc
+    committed = _file_state(destination)
+    if committed != source_state:
+        raise RuntimeError(f"atomic replacement of {destination} was not exact")
+    return committed, delayed
+
+
+def _apply_unlink(path: pathlib.Path) -> Exception | None:
+    delayed: Exception | None = None
+    try:
+        os.unlink(path)
+    except Exception as exc:
+        if os.path.lexists(path):
+            raise
+        delayed = exc
+    if os.path.lexists(path):
+        raise RuntimeError(f"{path} still exists after removal")
+    return delayed
+
+
+def _cleanup_owned(
+    owned: set[pathlib.Path], preserve: set[pathlib.Path] | None = None
+) -> list[str]:
+    retained = preserve or set()
+    errors: list[str] = []
+    for path in sorted(owned - retained, key=str):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as exc:
+            errors.append(f"could not remove task-owned stage {path}: {exc}")
+    return errors
+
+
+def _snapshot_state(
+    *, strict: bool
+) -> tuple[ArtifactState, dict[tuple[CLIName, Scope], SwapEntry]]:
+    artifact = _artifact_state(STATE_FILE)
+    if artifact.file is None:
+        return artifact, {}
+    if artifact.file.mode != 0o600 and strict:
+        raise SwapStateError(f"swap state mode is not 0600: {STATE_FILE}")
+    return artifact, _load_state_bytes(artifact.file.data, strict=strict)
+
+
+def _route_for_plan(
+    plan: PreparedUse, repo: pathlib.Path, server: str
+) -> dict[str, t.Any]:
+    return _spec_document(server, plan.config.target.scope, repo, plan.spec)
+
+
+def _stage_use_transaction(
+    plans: list[PreparedUse],
+    repo: pathlib.Path,
+    server: str,
+    state: dict[tuple[CLIName, Scope], SwapEntry],
+    state_file: ArtifactState,
+    owned: set[pathlib.Path],
+) -> tuple[
+    list[StagedUse],
+    pathlib.Path,
+    pathlib.Path | None,
+    dict[tuple[CLIName, Scope], SwapEntry],
+]:
+    staged: list[StagedUse] = []
+    try:
+        for plan in plans:
+            output = _stage(
+                plan.config.physical.parent,
+                plan.config.target.info.config_path.name,
+                "output",
+                plan.output,
+                plan.config.file.mode,
+            )
+            owned.add(output)
+            recovery = _stage(
+                plan.config.physical.parent,
+                plan.config.target.info.config_path.name,
+                "recovery",
+                plan.config.file.data,
+                plan.config.file.mode,
+            )
+            owned.add(recovery)
+            backup_stage = None
+            backup = t.cast(ArtifactState, plan.backup)
+            if backup.file is None:
+                if backup.parent is None:
+                    raise RuntimeError(f"{backup.path.parent} does not exist")
+                backup_stage = _stage(
+                    backup.parent.physical,
+                    backup.path.name,
+                    "backup",
+                    plan.config.file.data,
+                    plan.config.file.mode,
+                )
+                owned.add(backup_stage)
+            staged.append(StagedUse(plan, output, recovery, backup_stage))
+
+        next_state = dict(state)
+        for item in staged:
+            plan = item.plan
+            output_file = _file_state(item.output)
+            backup = t.cast(ArtifactState, plan.backup)
+            backup_file = (
+                _file_state(item.backup)
+                if item.backup is not None
+                else t.cast(FileState, backup.file)
+            )
+            config_document = _config_document(plan.config, output_file)
+            for key, existing in tuple(next_state.items()):
+                if existing.target_path == str(plan.config.physical):
+                    next_state[key] = dataclasses.replace(
+                        existing, config_identity=config_document, checksum=None
+                    )
+            next_state[(plan.config.target.cli, plan.config.target.scope)] = SwapEntry(
+                config_path=str(plan.config.target.info.config_path),
+                backup_path=str(backup.path),
+                server=server,
+                action=t.cast(t.Literal["replaced", "added"], plan.action),
+                swapped_at=plan.swapped_at,
+                seq_no=plan.seq_no,
+                target_path=str(plan.config.physical),
+                config_identity=config_document,
+                backup_identity=_artifact_document(backup, backup_file),
+                route=_route_for_plan(plan, repo, server),
+            )
+
+        if state_file.parent is None:
+            raise RuntimeError(f"{STATE_FILE.parent} does not exist")
+        state_stage = _stage(
+            state_file.parent.physical,
+            STATE_FILE.name,
+            "state",
+            _state_bytes(next_state),
+            0o600,
+        )
+        owned.add(state_stage)
+        state_recovery = None
+        if state_file.file is not None:
+            state_recovery = _stage(
+                state_file.parent.physical,
+                STATE_FILE.name,
+                "recovery-state",
+                state_file.file.data,
+                state_file.file.mode,
+            )
+            owned.add(state_recovery)
+        return staged, state_stage, state_recovery, next_state
+    except Exception as exc:
+        cleanup = _cleanup_owned(owned)
+        detail = f"swap staging failed: {exc}"
+        if cleanup:
+            detail += "; " + "; ".join(cleanup)
+        raise TransactionFailure(detail) from exc
+
+
+def _verify_removed_config(config: ConfigState) -> None:
+    _verify_directory(config.parent)
+    path = config.target.info.config_path
+    if config.symlink:
+        details = path.lstat()
+        if (
+            not stat.S_ISLNK(details.st_mode)
+            or os.readlink(path) != config.link_text
+            or (details.st_dev, details.st_ino, details.st_mode)
+            != (config.link_device, config.link_inode, config.link_mode)
+        ):
+            raise RuntimeError(f"{path} symlink changed")
+    elif os.path.lexists(path):
+        raise RuntimeError(f"{path} appeared")
+    if os.path.lexists(config.physical):
+        raise RuntimeError(f"{config.physical} appeared")
+
+
+def _restore_config(operation: ConfigWrite, owned: set[pathlib.Path]) -> None:
+    if os.path.lexists(operation.config.physical):
+        _verify_config(operation.config, operation.committed)
+    else:
+        _verify_removed_config(operation.config)
+    restored, delayed = _apply_replace(operation.recovery, operation.config.physical)
+    owned.discard(operation.recovery)
+    if restored != operation.config.file:
+        raise RuntimeError(
+            f"{operation.config.target.label} config rollback identity changed"
+        )
+    _verify_config(operation.config, operation.config.file)
+    if delayed is not None:
+        raise delayed
+
+
+def _rollback_use(
+    config_writes: list[ConfigWrite],
+    backup_writes: list[BackupWrite],
+    state_file: ArtifactState,
+    state_changed: bool,
+    state_committed: FileState | None,
+    state_recovery: pathlib.Path | None,
+    owned: set[pathlib.Path],
+) -> tuple[list[str], set[pathlib.Path]]:
+    errors: list[str] = []
+    if state_changed:
+        try:
+            if state_committed is not None:
+                current = _artifact_state(STATE_FILE, required=True)
+                _verify_artifact(current, state_committed)
+                delayed = _apply_unlink(STATE_FILE)
+                if delayed is not None:
+                    raise delayed
+            elif os.path.lexists(STATE_FILE):
+                raise RuntimeError("unexpected replacement swap state")
+            if state_file.file is not None:
+                recovery = t.cast(pathlib.Path, state_recovery)
+                restored, delayed = _apply_replace(recovery, STATE_FILE)
+                owned.discard(recovery)
+                if restored != state_file.file:
+                    raise RuntimeError("swap state rollback identity changed")
+                if delayed is not None:
+                    raise delayed
+        except Exception as exc:  # noqa: BLE001 - continue backup rollback
+            errors.append(f"swap state: {exc}")
+    for backup_write in reversed(backup_writes):
+        try:
+            _verify_artifact(backup_write.backup, backup_write.committed)
+            delayed = _apply_unlink(backup_write.backup.physical)
+            if delayed is not None:
+                raise delayed
+        except Exception as exc:  # noqa: BLE001 - report every recovery failure
+            errors.append(f"backup {backup_write.backup.path}: {exc}")
+    for operation in reversed(config_writes):
+        try:
+            _restore_config(operation, owned)
+        except Exception as exc:  # noqa: BLE001 - preserve all recovery evidence
+            errors.append(f"{operation.config.target.label} config: {exc}")
+    if not errors:
+        return [], set()
+    preserved = set(owned)
+    preserved.update(operation.backup.path for operation in backup_writes)
+    preserved.add(STATE_FILE)
+    return errors, preserved
+
+
+def _commit_use_transaction(
+    staged: list[StagedUse],
+    state_stage: pathlib.Path,
+    state_recovery: pathlib.Path | None,
+    state_file: ArtifactState,
+    next_state: dict[tuple[CLIName, Scope], SwapEntry],
+    repo: pathlib.Path,
+    server: str,
+    owned: set[pathlib.Path],
+) -> None:
+    config_writes: list[ConfigWrite] = []
+    backup_writes: list[BackupWrite] = []
+    state_changed = False
+    state_committed: FileState | None = None
+    try:
+        for item in staged:
+            _verify_config(item.plan.config, item.plan.config.file)
+            backup = t.cast(ArtifactState, item.plan.backup)
+            _verify_artifact(backup, backup.file)
+        _verify_artifact(state_file, state_file.file)
+        for item in staged:
+            plan = item.plan
+            removed, delayed = _apply_replace(plan.config.physical, item.recovery)
+            config_writes.append(ConfigWrite(plan.config, removed, item.recovery))
+            if removed != plan.config.file:
+                raise RuntimeError(
+                    f"{plan.config.target.label} config identity changed"
+                )
+            if delayed is not None:
+                raise delayed
+            committed, delayed = _apply_replace(item.output, plan.config.physical)
+            owned.discard(item.output)
+            config_writes[-1] = ConfigWrite(plan.config, committed, item.recovery)
+            current = plan.config._replace(file=committed)  # type: ignore[attr-defined]
+            document = _parse_config(current)
+            actual = get_server(
+                plan.config.target.cli,
+                document,
+                server,
+                repo,
+                scope=plan.config.target.scope,
+            )
+            if actual != plan.spec:
+                raise RuntimeError(
+                    f"{plan.config.target.label} committed route is not exact"
+                )
+            if delayed is not None:
+                raise delayed
+        for item in staged:
+            if item.backup is None:
+                continue
+            backup = t.cast(ArtifactState, item.plan.backup)
+            _verify_artifact(backup, None)
+            committed, delayed = _apply_replace(item.backup, backup.physical)
+            owned.discard(item.backup)
+            backup_writes.append(BackupWrite(backup, committed))
+            if delayed is not None:
+                raise delayed
+        for operation in config_writes:
+            _verify_config(operation.config, operation.committed)
+        for backup_write in backup_writes:
+            _verify_artifact(backup_write.backup, backup_write.committed)
+        _verify_artifact(state_file, state_file.file)
+        if state_file.file is not None:
+            recovery = t.cast(pathlib.Path, state_recovery)
+            removed, delayed = _apply_replace(STATE_FILE, recovery)
+            state_changed = True
+            if removed != state_file.file:
+                raise RuntimeError("swap state identity changed")
+            if delayed is not None:
+                raise delayed
+        state_committed, delayed = _apply_replace(state_stage, STATE_FILE)
+        state_changed = True
+        owned.discard(state_stage)
+        if delayed is not None:
+            raise delayed
+        loaded = _load_state_bytes(state_committed.data, strict=True)
+        expected = {
+            key: _with_entry_checksum(entry) for key, entry in next_state.items()
+        }
+        if loaded != expected:
+            raise RuntimeError("committed swap state is not exact")
+        _verify_artifact(state_file, state_committed)
+        for operation in config_writes:
+            _verify_config(operation.config, operation.committed)
+        for backup_write in backup_writes:
+            _verify_artifact(backup_write.backup, backup_write.committed)
+    except Exception as exc:
+        rollback_errors, preserved = _rollback_use(
+            config_writes,
+            backup_writes,
+            state_file,
+            state_changed,
+            state_committed,
+            state_recovery,
+            owned,
+        )
+        cleanup = _cleanup_owned(owned, preserved)
+        detail = f"swap failed: {exc}"
+        if rollback_errors:
+            detail += "; rollback incomplete: " + "; ".join(rollback_errors)
+        if cleanup:
+            detail += "; cleanup incomplete: " + "; ".join(cleanup)
+        if preserved:
+            detail += "; recovery artifacts: " + ", ".join(
+                str(path) for path in sorted(preserved, key=str)
+            )
+        raise TransactionFailure(detail) from exc
+    cleanup = _cleanup_owned(owned)
+    if cleanup:
+        raise TransactionFailure("swap cleanup failed: " + "; ".join(cleanup))
+
+
+def _print_use_preview(plans: list[PreparedUse], repo: pathlib.Path) -> None:
+    for plan in plans:
+        if not plan.changed:
+            print(
+                f"[{plan.config.target.label}] already "
+                f"{_describe_spec(plan.spec, repo)} — no change"
+            )
+            continue
+        path = plan.config.target.info.config_path
+        print(f"--- {path} (current)")
+        print(f"+++ {path} (proposed)")
+        diff = difflib.unified_diff(
+            plan.config.file.data.decode(errors="replace").splitlines(keepends=True),
+            plan.output.decode(errors="replace").splitlines(keepends=True),
+            lineterm="",
+        )
+        sys.stdout.writelines(diff)
 
 
 def cmd_use_local(args: argparse.Namespace) -> int:
-    """Run :func:`_cmd_use_local` under the shared mutation lock."""
-    if args.dry_run:
-        return _cmd_use_local(args)
+    """Plan every selected CLI, then commit one recoverable transaction."""
     try:
+        repo, project, server, binary, source, spec = _source_spec(args)
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        state_file, state = _snapshot_state(strict=True)
+        preview = _plan_use(args, repo, server, spec, timestamp, state, state_file)
+        hint = _naming_hint(repo, server)
+        if hint:
+            print(hint, file=sys.stderr)
+        if args.dry_run:
+            _print_use_preview(preview, repo)
+            return 0
+        _setup_source(args, repo, project, binary, source, spec)
         with _state_lock():
-            return _cmd_use_local(args)
-    except SwapStateError:
+            state_file, state = _snapshot_state(strict=True)
+            plans = _plan_use(args, repo, server, spec, timestamp, state, state_file)
+            changed = [plan for plan in plans if plan.changed]
+            if not changed:
+                _print_use_preview(plans, repo)
+                return 0
+            owned: set[pathlib.Path] = set()
+            staged, state_stage, state_recovery, next_state = _stage_use_transaction(
+                changed, repo, server, state, state_file, owned
+            )
+            _commit_use_transaction(
+                staged,
+                state_stage,
+                state_recovery,
+                state_file,
+                next_state,
+                repo,
+                server,
+                owned,
+            )
+        for plan in changed:
+            backup = t.cast(ArtifactState, plan.backup)
+            note = "pre-swap backup kept" if plan.prior else "backup"
+            print(f"[{plan.config.target.label}] {plan.action}; {note}: {backup.path}")
+        return 0
+    except (OSError, RuntimeError, subprocess.CalledProcessError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
         return 1
-    except OSError as exc:
-        print(f"swap state unavailable: {exc}", file=sys.stderr)
-        return 1
 
 
-def _revalidate(info: CLIInfo) -> None:
-    """Re-parse the file after writing; raise on failure."""
-    load_config(info)
-
-
-def _cmd_revert(args: argparse.Namespace) -> int:
-    """Restore each target CLI's config from the backup recorded in the state file.
-
-    Without ``--scope``, every recorded entry for the targeted CLIs is
-    reverted (so a Claude install that has both user-scope and
-    project-scope swaps gets both restored). With ``--scope``, only
-    the matching scope is reverted; the parameter is silently coerced
-    to ``"user"`` for non-Claude CLIs.
-    """
-    state = load_state(strict=True)
-    # Without --cli, revert every CLI that has any recorded swap.
-    targets = list(args.cli) if args.cli else list({cli for cli, _scope in state})
-    if not targets:
-        print("no recorded swaps — nothing to revert", file=sys.stderr)
-        return 1
-
-    had_error = 0
-    for cli in targets:
-        if args.scope is not None:
-            wanted_scopes: tuple[Scope, ...] = (_normalize_scope(cli, args.scope),)
-        else:
-            wanted_scopes = ALL_SCOPES
-        cli_keys = [
-            (sc_cli, sc_scope)
-            for (sc_cli, sc_scope) in state
-            if sc_cli == cli and sc_scope in wanted_scopes
-        ]
-        if not cli_keys:
-            label = f"{cli}:{args.scope}" if args.scope and cli == "claude" else cli
+def _plan_revert(
+    args: argparse.Namespace,
+    state: dict[tuple[CLIName, Scope], SwapEntry],
+    state_file: ArtifactState,
+) -> list[PreparedRevert]:
+    selected_clis = list(args.cli or sorted({key[0] for key in state}))
+    if not selected_clis:
+        raise TransactionFailure("no recorded swaps — nothing to revert")
+    selected: set[tuple[CLIName, Scope]] = set()
+    for cli in selected_clis:
+        scopes = (
+            ALL_SCOPES if args.scope is None else (_normalize_scope(cli, args.scope),)
+        )
+        matches = {key for key in state if key[0] == cli and key[1] in scopes}
+        if not matches:
+            label = f"{cli}:{args.scope}" if cli == "claude" and args.scope else cli
             print(f"[{label}] no state entry — skip")
-            continue
-        # LIFO by seq_no, not dict/parse order. When two scopes back the same
-        # file, the later swap's backup contains the earlier one's edits, so
-        # each layer must be restored before the one under it.
-        cli_keys.sort(key=lambda k: state[k].seq_no, reverse=True)
-        for key in cli_keys:
-            sc_cli, sc_scope = key
-            entry = state[key]
-            label = f"{sc_cli}:{sc_scope}" if sc_cli == "claude" else sc_cli
-            backup = pathlib.Path(entry.backup_path)
-            dest = pathlib.Path(entry.target_path or entry.config_path)
-            if not backup.exists():
-                print(f"[{label}] backup missing: {backup}", file=sys.stderr)
-                had_error = 1
-                break
-            if args.dry_run:
-                print(f"[{label}] would restore {dest} from {backup}")
-                continue
-            try:
-                atomic_write(dest, backup.read_bytes())
-            except OSError as exc:
-                print(f"[{label}] restore failed: {exc}", file=sys.stderr)
-                had_error = 1
-                break
-            next_state = dict(state)
-            next_state.pop(key)
-            try:
-                _save_or_clear_state(next_state)
-            except OSError as exc:
-                print(
-                    f"[{label}] restored, but recovery state could not be updated: "
-                    f"{exc}",
-                    file=sys.stderr,
+        selected.update(matches)
+    if not selected:
+        return []
+    groups: dict[str, list[tuple[CLIName, Scope]]] = {}
+    for key in sorted(selected, key=lambda item: (state[item].seq_no, item)):
+        physical = state[key].target_path
+        if physical is None:
+            raise SwapStateError(f"{_state_key(*key)} lacks a physical config")
+        groups.setdefault(physical, []).append(key)
+    prepared: list[PreparedRevert] = []
+    errors: list[str] = []
+    for target_path, keys in groups.items():
+        ordered = sorted(keys, key=lambda key: state[key].seq_no, reverse=True)
+        first_key = ordered[0]
+        info = CLIS[first_key[0]]
+        target = Target(first_key[0], first_key[1], info)
+        try:
+            config = _config_state(target)
+            if str(config.physical) != target_path:
+                raise SwapStateError(
+                    f"{_state_key(*first_key)} physical config changed"
                 )
-                had_error = 1
-                break
-            state = next_state
-            try:
-                backup.unlink()
-            except OSError as exc:
-                print(
-                    f"[{label}] restored; backup cleanup failed: {exc}", file=sys.stderr
+            document = _parse_config(config)
+            all_layers = sorted(
+                (
+                    key
+                    for key, entry in state.items()
+                    if entry.target_path == target_path
+                ),
+                key=lambda key: state[key].seq_no,
+                reverse=True,
+            )
+            if ordered != all_layers[: len(ordered)]:
+                raise SwapStateError(
+                    "cannot revert a recovery layer while a newer layer remains"
                 )
-                had_error = 1
-            print(f"[{label}] restored from {backup}")
-    return had_error
+            artifacts: list[tuple[tuple[CLIName, Scope], SwapEntry, ArtifactState]] = []
+            for key in all_layers:
+                layer_info = CLIS[key[0]]
+                if layer_info.config_path != info.config_path:
+                    raise SwapStateError(
+                        f"{_state_key(*key)} names an aliased client config"
+                    )
+                backup = _verify_entry_ownership(key, state[key], config, document)
+                if key in selected:
+                    artifacts.append((key, state[key], backup))
+            last_backup = t.cast(FileState, artifacts[-1][2].file)
+            prepared.append(
+                PreparedRevert(
+                    config,
+                    tuple(artifacts),
+                    last_backup.data,
+                    last_backup.mode,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - finish planning every target
+            errors.append(f"[{target.label}] {exc}")
+    if errors:
+        raise TransactionFailure("; ".join(errors))
+    _reject_transaction_aliases(prepared, state_file)
+    return prepared
+
+
+def _stage_revert_transaction(
+    plans: list[PreparedRevert],
+    state: dict[tuple[CLIName, Scope], SwapEntry],
+    state_file: ArtifactState,
+    owned: set[pathlib.Path],
+) -> tuple[
+    list[StagedRevert],
+    pathlib.Path | None,
+    pathlib.Path,
+    dict[tuple[CLIName, Scope], SwapEntry],
+]:
+    staged: list[StagedRevert] = []
+    try:
+        for plan in plans:
+            output = _stage(
+                plan.config.physical.parent,
+                plan.config.target.info.config_path.name,
+                "restore",
+                plan.output,
+                plan.output_mode,
+            )
+            owned.add(output)
+            recovery = _stage(
+                plan.config.physical.parent,
+                plan.config.target.info.config_path.name,
+                "recovery",
+                plan.config.file.data,
+                plan.config.file.mode,
+            )
+            owned.add(recovery)
+            backup_recoveries: list[pathlib.Path] = []
+            for _key, _entry, backup in plan.entries:
+                backup_file = t.cast(FileState, backup.file)
+                if backup.parent is None:
+                    raise RuntimeError(f"{backup.path.parent} does not exist")
+                recovery_backup = _stage(
+                    backup.parent.physical,
+                    backup.path.name,
+                    "recovery-backup",
+                    backup_file.data,
+                    backup_file.mode,
+                )
+                owned.add(recovery_backup)
+                backup_recoveries.append(recovery_backup)
+            staged.append(
+                StagedRevert(plan, output, recovery, tuple(backup_recoveries))
+            )
+        next_state = dict(state)
+        for item in staged:
+            output_file = _file_state(item.output)
+            for key, _entry, _backup in item.plan.entries:
+                next_state.pop(key)
+            config_document = _config_document(item.plan.config, output_file)
+            for key, entry in tuple(next_state.items()):
+                if entry.target_path == str(item.plan.config.physical):
+                    next_state[key] = dataclasses.replace(
+                        entry, config_identity=config_document, checksum=None
+                    )
+            info = dataclasses.replace(
+                item.plan.config.target.info, config_path=item.output
+            )
+            document = load_config(info)
+            for key, entry in next_state.items():
+                if entry.target_path != str(item.plan.config.physical):
+                    continue
+                route = t.cast(dict[str, t.Any], entry.route)
+                actual = get_server(
+                    key[0],
+                    document,
+                    route["name"],
+                    pathlib.Path(route["repo"]),
+                    scope=key[1],
+                )
+                if actual != _spec_from_document(route):
+                    raise RuntimeError(
+                        f"{_state_key(*key)} backup does not restore its route"
+                    )
+        if state_file.parent is None or state_file.file is None:
+            raise RuntimeError("swap state disappeared during revert planning")
+        state_stage = None
+        if next_state:
+            state_stage = _stage(
+                state_file.parent.physical,
+                STATE_FILE.name,
+                "state",
+                _state_bytes(next_state),
+                0o600,
+            )
+            owned.add(state_stage)
+        state_recovery = _stage(
+            state_file.parent.physical,
+            STATE_FILE.name,
+            "recovery-state",
+            state_file.file.data,
+            state_file.file.mode,
+        )
+        owned.add(state_recovery)
+        return staged, state_stage, state_recovery, next_state
+    except Exception as exc:
+        cleanup = _cleanup_owned(owned)
+        detail = f"revert staging failed: {exc}"
+        if cleanup:
+            detail += "; " + "; ".join(cleanup)
+        raise TransactionFailure(detail) from exc
+
+
+def _rollback_revert(
+    config_writes: list[ConfigWrite],
+    backup_removals: list[BackupRemoval],
+    state_file: ArtifactState,
+    state_changed: bool,
+    state_committed: FileState | None,
+    state_recovery: pathlib.Path,
+    owned: set[pathlib.Path],
+) -> tuple[list[str], set[pathlib.Path]]:
+    errors: list[str] = []
+    if state_changed:
+        try:
+            if state_committed is None:
+                if os.path.lexists(STATE_FILE):
+                    raise RuntimeError("unexpected replacement swap state")
+            else:
+                current = _artifact_state(STATE_FILE, required=True)
+                _verify_artifact(current, state_committed)
+                delayed = _apply_unlink(STATE_FILE)
+                if delayed is not None:
+                    raise delayed
+            restored, delayed = _apply_replace(state_recovery, STATE_FILE)
+            owned.discard(state_recovery)
+            if restored != state_file.file:
+                raise RuntimeError("swap state rollback identity changed")
+            if delayed is not None:
+                raise delayed
+        except Exception as exc:  # noqa: BLE001 - retain state recovery
+            errors.append(f"swap state: {exc}")
+    for backup_removal in reversed(backup_removals):
+        try:
+            if os.path.lexists(backup_removal.backup.path):
+                raise RuntimeError(f"{backup_removal.backup.path} appeared")
+            restored, delayed = _apply_replace(
+                backup_removal.recovery, backup_removal.backup.physical
+            )
+            owned.discard(backup_removal.recovery)
+            if restored != backup_removal.backup.file:
+                raise RuntimeError(
+                    f"{backup_removal.backup.path} rollback identity changed"
+                )
+            if delayed is not None:
+                raise delayed
+        except Exception as exc:  # noqa: BLE001 - report every rollback failure
+            errors.append(f"backup {backup_removal.backup.path}: {exc}")
+    for operation in reversed(config_writes):
+        try:
+            _restore_config(operation, owned)
+        except Exception as exc:  # noqa: BLE001 - preserve every recovery copy
+            errors.append(f"{operation.config.target.label} config: {exc}")
+    if not errors:
+        return [], set()
+    preserved = set(owned)
+    preserved.update(operation.backup.path for operation in backup_removals)
+    preserved.add(STATE_FILE)
+    return errors, preserved
+
+
+def _commit_revert_transaction(
+    staged: list[StagedRevert],
+    state_stage: pathlib.Path | None,
+    state_recovery: pathlib.Path,
+    state_file: ArtifactState,
+    next_state: dict[tuple[CLIName, Scope], SwapEntry],
+    owned: set[pathlib.Path],
+) -> None:
+    config_writes: list[ConfigWrite] = []
+    backup_removals: list[BackupRemoval] = []
+    state_changed = False
+    state_committed: FileState | None = None
+    try:
+        for item in staged:
+            _verify_config(item.plan.config, item.plan.config.file)
+            for _key, _entry, backup in item.plan.entries:
+                _verify_artifact(backup, backup.file)
+        _verify_artifact(state_file, state_file.file)
+        for item in staged:
+            plan = item.plan
+            removed, delayed = _apply_replace(plan.config.physical, item.recovery)
+            config_writes.append(ConfigWrite(plan.config, removed, item.recovery))
+            if removed != plan.config.file:
+                raise RuntimeError(
+                    f"{plan.config.target.label} config identity changed"
+                )
+            if delayed is not None:
+                raise delayed
+            committed, delayed = _apply_replace(item.output, plan.config.physical)
+            owned.discard(item.output)
+            config_writes[-1] = ConfigWrite(plan.config, committed, item.recovery)
+            if delayed is not None:
+                raise delayed
+        for item in staged:
+            for (_key, _entry, backup), recovery in zip(
+                item.plan.entries, item.backup_recoveries, strict=True
+            ):
+                _verify_artifact(backup, backup.file)
+                removed, delayed = _apply_replace(backup.physical, recovery)
+                backup_removals.append(BackupRemoval(backup, recovery))
+                if removed != backup.file:
+                    raise RuntimeError(f"{backup.path} identity changed")
+                if delayed is not None:
+                    raise delayed
+        for operation in config_writes:
+            _verify_config(operation.config, operation.committed)
+        for backup_removal in backup_removals:
+            _verify_artifact(backup_removal.backup, None)
+        _verify_artifact(state_file, state_file.file)
+        removed, delayed = _apply_replace(STATE_FILE, state_recovery)
+        state_changed = True
+        if removed != state_file.file:
+            raise RuntimeError("swap state identity changed")
+        if delayed is not None:
+            raise delayed
+        if state_stage is not None:
+            state_committed, delayed = _apply_replace(state_stage, STATE_FILE)
+            owned.discard(state_stage)
+            if delayed is not None:
+                raise delayed
+        if next_state:
+            current = _artifact_state(STATE_FILE, required=True)
+            loaded = _load_state_bytes(
+                t.cast(FileState, current.file).data, strict=True
+            )
+            expected = {
+                key: _with_entry_checksum(entry) for key, entry in next_state.items()
+            }
+            if loaded != expected:
+                raise RuntimeError("committed revert state is not exact")
+        elif os.path.lexists(STATE_FILE):
+            raise RuntimeError("empty swap state was not removed")
+        _verify_artifact(state_file, state_committed)
+        for operation in config_writes:
+            _verify_config(operation.config, operation.committed)
+        for backup_removal in backup_removals:
+            _verify_artifact(backup_removal.backup, None)
+    except Exception as exc:
+        rollback_errors, preserved = _rollback_revert(
+            config_writes,
+            backup_removals,
+            state_file,
+            state_changed,
+            state_committed,
+            state_recovery,
+            owned,
+        )
+        cleanup = _cleanup_owned(owned, preserved)
+        detail = f"revert failed: {exc}"
+        if rollback_errors:
+            detail += "; rollback incomplete: " + "; ".join(rollback_errors)
+        if cleanup:
+            detail += "; cleanup incomplete: " + "; ".join(cleanup)
+        if preserved:
+            detail += "; recovery artifacts: " + ", ".join(
+                str(path) for path in sorted(preserved, key=str)
+            )
+        raise TransactionFailure(detail) from exc
+    cleanup = _cleanup_owned(owned)
+    if cleanup:
+        raise TransactionFailure("revert cleanup failed: " + "; ".join(cleanup))
 
 
 def cmd_revert(args: argparse.Namespace) -> int:
-    """Run :func:`_cmd_revert` under the shared mutation lock."""
-    if args.dry_run:
-        return _cmd_revert(args)
+    """Authenticate every selected recovery layer, then revert atomically."""
     try:
+        state_file, state = _snapshot_state(strict=True)
+        preview = _plan_revert(args, state, state_file)
+        if args.dry_run:
+            for plan in preview:
+                for key, entry, _backup in plan.entries:
+                    label = f"{key[0]}:{key[1]}" if key[0] == "claude" else key[0]
+                    print(f"[{label}] would restore {entry.backup_path}")
+            return 0
+        if not preview:
+            return 0
         with _state_lock():
-            return _cmd_revert(args)
-    except SwapStateError:
-        return 1
-    except OSError as exc:
-        print(f"swap state unavailable: {exc}", file=sys.stderr)
+            state_file, state = _snapshot_state(strict=True)
+            plans = _plan_revert(args, state, state_file)
+            owned: set[pathlib.Path] = set()
+            staged, state_stage, state_recovery, next_state = _stage_revert_transaction(
+                plans, state, state_file, owned
+            )
+            _commit_revert_transaction(
+                staged,
+                state_stage,
+                state_recovery,
+                state_file,
+                next_state,
+                owned,
+            )
+        for plan in plans:
+            for key, entry, _backup in plan.entries:
+                label = f"{key[0]}:{key[1]}" if key[0] == "claude" else key[0]
+                print(f"[{label}] restored from {entry.backup_path}")
+        return 0
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
         return 1
 
 
@@ -1703,9 +2899,7 @@ def build_parser() -> argparse.ArgumentParser:
     pu.add_argument(
         "--server", help=f"MCP server name (default: {build.DEFAULT_SERVER})"
     )
-    pu.add_argument(
-        "--entry", help="binary name (default: the project's AssemblyName)"
-    )
+    pu.add_argument("--entry", help="binary name (default: the project's AssemblyName)")
     pu.add_argument(
         "--env",
         action="append",
