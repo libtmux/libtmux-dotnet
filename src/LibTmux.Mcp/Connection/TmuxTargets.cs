@@ -462,7 +462,8 @@ internal static class TmuxTargets
         // was ASKED for, so a start directory tmux ignored still reads back as
         // the one requested and the fallback this note exists to disclose
         // disappears. Measured — a spawn into /definitely/does/not/exist
-        // reports that path as its start and /home/d as its current.
+        // reports that path as its start and the inherited directory
+        // as its current.
         string? actual = await DisplayAsync(pane, "#{pane_current_path}", cancellationToken)
             .ConfigureAwait(false);
         // Stated as where it landed rather than as a rejection: the two paths
