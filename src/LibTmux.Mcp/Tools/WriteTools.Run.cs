@@ -270,7 +270,10 @@ internal sealed partial class WriteTools
                 double elapsedSeconds = Math.Round(elapsed.Elapsed.TotalSeconds, 3);
                 return sequence.Observe(() => StructuredTextResultBudget.Fit(
                     PaneText.Scrub(
-                        PaneText.AfterBeginMarker(read.Lines, token.BeginMarker, pane.Width),
+                        PaneText.BeforeEndMarker(
+                            PaneText.AfterBeginMarker(read.Lines, token.BeginMarker, pane.Width),
+                            token.EndMarker,
+                            pane.Width),
                         pane.Width),
                     maxLines ?? _policy.MaxLines,
                     _policy.MaxBytes,
@@ -364,8 +367,21 @@ internal sealed partial class WriteTools
         /// <summary>Gets the marker's first half, as the payload spells it.</summary>
         internal string BeginHead => $"lt_b_{Id[..5]}";
 
-        /// <summary>Gets the marker's second half, as the payload spells it.</summary>
-        internal string BeginTail => Id[5..];
+        /// <summary>Gets either marker's second half, as the payload spells it.</summary>
+        internal string MarkerTail => Id[5..];
+
+        /// <summary>Gets the line the command's own output ends before.</summary>
+        /// <remarks>
+        /// The right bound of the output window. Without it a run reported
+        /// whatever the shell drew after the command — its next prompt, which
+        /// wraps into two rows once it is wider than the pane — as output the
+        /// command printed. Assembled from halves for the same reason as
+        /// <see cref="BeginMarker" />.
+        /// </remarks>
+        internal string EndMarker => $"lt_e_{Id}";
+
+        /// <summary>Gets the end marker's first half, as the payload spells it.</summary>
+        internal string EndHead => $"lt_e_{Id[..5]}";
 
         /// <summary>Mints a token nothing else is using.</summary>
         /// <returns>The token.</returns>
@@ -861,7 +877,7 @@ internal sealed partial class WriteTools
             "command printf '%s%s\\n' '",
             token.BeginHead,
             "' '",
-            token.BeginTail,
+            token.MarkerTail,
             "'\n",
             "if command test \"$",
             trapStatus,
@@ -890,6 +906,11 @@ internal sealed partial class WriteTools
             status,
             "=$?\n",
             "fi\n",
+            "command printf '%s%s\\n' '",
+            token.EndHead,
+            "' '",
+            token.MarkerTail,
+            "'\n",
             statusCommand,
             " \"$",
             status,

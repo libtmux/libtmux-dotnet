@@ -50,7 +50,8 @@ internal static partial class PaneText
         foreach (string id in Minted)
         {
             if (logical.Contains(id, StringComparison.Ordinal)
-                || logical.Contains($"lt_b_{id[..5]}", StringComparison.Ordinal))
+                || logical.Contains($"lt_b_{id[..5]}", StringComparison.Ordinal)
+                || logical.Contains($"lt_e_{id[..5]}", StringComparison.Ordinal))
             {
                 return true;
             }
@@ -210,6 +211,78 @@ internal static partial class PaneText
         return begin < 0 ? lines : [.. lines.Skip(begin + 1)];
     }
 
+    /// <summary>Drops the marker a run printed after its command, and all that follows.</summary>
+    /// <param name="lines">The rows left after the begin marker, oldest first.</param>
+    /// <param name="marker">The marker the run printed once the command returned.</param>
+    /// <param name="paneWidth">The pane's width, or zero when rows are joined.</param>
+    /// <returns>The rows the command itself printed.</returns>
+    /// <remarks>
+    /// The window needs both bounds. Dropping everything before the begin
+    /// marker still left whatever the shell drew afterwards — its next prompt —
+    /// reported as command output, which a short prompt hid because the
+    /// since-baseline diff happened to absorb it and a wrapped one did not.
+    /// <para>
+    /// The marker does not always start a row: a command whose last write had
+    /// no trailing newline leaves the cursor mid-row, and the marker is printed
+    /// from there. So the row carrying it is truncated rather than dropped, and
+    /// what the command printed before it is kept.
+    /// </para>
+    /// </remarks>
+    internal static IReadOnlyList<string> BeforeEndMarker(
+        IReadOnlyList<string> lines,
+        string marker,
+        int paneWidth)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker);
+
+        StringBuilder logical = new();
+        int start = 0;
+        while (start < lines.Count)
+        {
+            int end = start;
+            logical.Clear();
+            logical.Append(lines[start]);
+            while (paneWidth > 0
+                && end + 1 < lines.Count
+                && lines[end].Length == paneWidth)
+            {
+                end++;
+                logical.Append(lines[end]);
+            }
+
+            int at = logical.ToString().IndexOf(marker, StringComparison.Ordinal);
+            if (at < 0)
+            {
+                start = end + 1;
+                continue;
+            }
+
+            List<string> kept = [.. lines.Take(start)];
+            int consumed = 0;
+            for (int row = start; row <= end; row++)
+            {
+                if (consumed + lines[row].Length > at)
+                {
+                    string head = lines[row][..(at - consumed)];
+                    if (head.Length > 0)
+                    {
+                        kept.Add(head);
+                    }
+
+                    break;
+                }
+
+                kept.Add(lines[row]);
+                consumed += lines[row].Length;
+            }
+
+            return kept;
+        }
+
+        return lines;
+    }
+
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
     /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
@@ -228,7 +301,7 @@ internal static partial class PaneText
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"@?lt_[rsb]_[0-9a-f]{10}|'lt_b_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
+        @"@?lt_[rsbe]_[0-9a-f]{10}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
         RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
 }

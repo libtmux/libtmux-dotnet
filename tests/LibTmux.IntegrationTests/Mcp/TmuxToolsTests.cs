@@ -752,6 +752,49 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_run_reports_no_prompt_the_shell_drew_after_the_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        string longPrompt = "runner@runnervmejwal:~/work/libtmux-dotnet/libtmux-dotnet/"
+            + "tests/LibTmux.IntegrationTests/bin/Release/net10.0$ ";
+        await mcp.Write.SendKeysAsync(
+            "exec bash --norc --noprofile", pane, enter: true, cancellationToken: token);
+        await Task.Delay(700, token);
+        await mcp.Write.SendKeysAsync(
+            $"PS1='{longPrompt}'", pane, enter: true, cancellationToken: token);
+        await Task.Delay(700, token);
+
+        RunResult many = await mcp.Write.RunAsync(
+            "for i in 1 2 3\ndo\n  echo \"line $i\"\ndone",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Equal(["line 1", "line 2", "line 3"], many.Output.Lines);
+
+        RunResult silent = await mcp.Write.RunAsync(
+            "true", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, silent.ExitStatus);
+        Assert.Empty(silent.Output.Lines);
+
+        // A command whose last write has no trailing newline leaves the cursor
+        // mid-row, so the end marker is printed from there.
+        RunResult partial = await mcp.Write.RunAsync(
+            "printf abc", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(["abc"], partial.Output.Lines);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            pane, includeHistory: true, cancellationToken: token);
+        Assert.DoesNotContain(captured.Content.Lines, l => l.Contains("lt_e_", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
     public async Task A_run_leaves_none_of_its_own_bookkeeping_on_screen()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

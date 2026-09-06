@@ -536,6 +536,7 @@ public sealed class ServerInstructionsTests
 public sealed class PaneTextTests
 {
     private const string Marker = "@lt_s_0123456789";
+    private const string End = "lt_e_0123456789";
 
     [Fact]
     public void A_bookkeeping_line_is_removed()
@@ -572,6 +573,54 @@ public sealed class PaneTextTests
         IReadOnlyList<string> kept = PaneText.Scrub([joined, "mcp-ran"], paneWidth: 80);
 
         Assert.Equal(["mcp-ran"], kept);
+    }
+
+    [Fact]
+    public void A_prompt_drawn_after_the_command_is_not_output()
+    {
+        // The shell draws its next prompt before the pane is read, and a prompt
+        // wider than the pane arrives as two rows. Neither is command output.
+        string first = new string('p', 80);
+        IReadOnlyList<string> kept = PaneText.BeforeEndMarker(
+            ["line 1", "line 2", End, first, "rompt$"],
+            End,
+            paneWidth: 80);
+
+        Assert.Equal(["line 1", "line 2"], kept);
+    }
+
+    [Fact]
+    public void Output_that_did_not_end_in_a_newline_survives()
+    {
+        // printf with no trailing newline leaves the cursor mid-row, so the
+        // marker is printed from there and the row is truncated, not dropped.
+        IReadOnlyList<string> kept = PaneText.BeforeEndMarker(
+            [$"abc{End}", "prompt$"],
+            End,
+            paneWidth: 80);
+
+        Assert.Equal(["abc"], kept);
+    }
+
+    [Fact]
+    public void An_end_marker_split_across_wrapped_rows_still_bounds_the_output()
+    {
+        string first = new string('x', 78) + "lt_e_";
+        IReadOnlyList<string> kept = PaneText.BeforeEndMarker(
+            [first, "0123456789 rest", "prompt$"],
+            End,
+            paneWidth: 83);
+
+        Assert.Equal([new string('x', 78)], kept);
+    }
+
+    [Fact]
+    public void Output_with_no_end_marker_is_returned_unchanged()
+    {
+        // A run that timed out never printed one, and its partial output stands.
+        IReadOnlyList<string> lines = ["one", "two"];
+
+        Assert.Same(lines, PaneText.BeforeEndMarker(lines, End, paneWidth: 80));
     }
 
     [Fact]
