@@ -283,22 +283,12 @@ jobs:
             [ -e "$lock" ] || continue
             echo "== $lock"
             stat -f 'nlink=%l ino=%i mode=%Lp uid=%u' "$lock"
-            echo "-- every name sharing that inode, anywhere under TMPDIR:"
-            find "${TMPDIR}" -inum "$(stat -f %i "$lock")" 2>/dev/null
+            ino="$(stat -f %i "$lock")"
+            echo "-- every name sharing that inode, across the whole volume:"
+            find / -xdev -inum "$ino" 2>/dev/null
             echo "-- the tree the test left behind:"
             find "$root" -print0 | xargs -0 stat -f '%N nlink=%l ino=%i mode=%Lp'
           done
-
-      # Temporary. Opens a shell on the runner only when the job has already
-      # failed, so a green run never waits. The repository is public and the
-      # connection string is printed to a public log, so access is limited to
-      # the keys the actor has registered with GitHub.
-      - name: Debug shell on failure
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
-        with:
-          limit-access-to-actor: true
-        timeout-minutes: 15
 
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,
