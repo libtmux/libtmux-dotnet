@@ -13,6 +13,7 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal sealed partial class WriteTools
 {
+    private const int MaximumInheritedTrapBytes = 64 * 1024;
     private static readonly TimeSpan StatusCleanupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StatusCleanupMargin = TimeSpan.FromMinutes(1);
     internal static readonly TimeSpan JobStatusMarkerLifetime = TimeSpan.FromMinutes(11);
@@ -387,12 +388,16 @@ internal sealed partial class WriteTools
                 dispatch.Directory,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string commandPath = Path.Combine(dispatch.Directory, "command");
+            string trapPath = Path.Combine(dispatch.Directory, "traps");
             string scriptPath = Path.Combine(dispatch.Directory, "run");
             await WritePrivateFileAsync(commandPath, command + "\n", cancellationToken)
+                .ConfigureAwait(false);
+            await WritePrivateFileAsync(trapPath, string.Empty, cancellationToken)
                 .ConfigureAwait(false);
             string script = BuildRunWrapper(
                 token,
                 commandPath,
+                trapPath,
                 statusCommand,
                 scheduleCleanupCommand,
                 signalCommand);
@@ -531,35 +536,118 @@ internal sealed partial class WriteTools
     private static string BuildRunWrapper(
         RunToken token,
         string commandPath,
+        string trapPath,
         string statusCommand,
         string scheduleCleanupCommand,
-        string signalCommand) =>
-        string.Concat(
+        string signalCommand)
+    {
+        string flags = $"__lt_flags_{token.Id}";
+        string trapStatus = $"__lt_trap_status_{token.Id}";
+        string trapBytes = $"__lt_trap_bytes_{token.Id}";
+        string status = $"__lt_status_{token.Id}";
+        string command = ShellQuote(commandPath);
+        string traps = ShellQuote(trapPath);
+        string forget = $"\\unset {flags} {trapStatus} {trapBytes} {status}";
+        string RunWith(string options) =>
+            $"    ( {forget}; {options}; . {traps} )\n";
+        return string.Concat(
             "(\n",
-            "case $- in *e*) __lt_errexit=1 ;; *) __lt_errexit=0 ;; esac\n",
-            "set +e\n",
+            flags,
+            "=$-\n",
+            "\\set +x\n",
+            "\\set +e\n",
+            trapStatus,
+            "=0\n",
+            "\\umask 077\n",
+            "if : >| ",
+            traps,
+            "; then\n",
+            "  case \"${BASH_VERSION-}:${ZSH_VERSION-}\" in\n",
+            "    ?*:*) if \\trap -p ERR DEBUG >| ",
+            traps,
+            "; then :; else ",
+            trapStatus,
+            "=125; fi; \\trap - ERR DEBUG ;;\n",
+            "    :?*) if \\trap >| ",
+            traps,
+            "; then :; else ",
+            trapStatus,
+            "=125; fi; \\trap - ERR DEBUG ;;\n",
+            "  esac\n",
+            "else ",
+            trapStatus,
+            "=125\n",
+            "fi\n",
+            "if command test \"$",
+            trapStatus,
+            "\" -eq 0; then\n",
+            "  if ",
+            trapBytes,
+            "=$(command wc -c < ",
+            traps,
+            ") && command test \"$",
+            trapBytes,
+            "\" -le ",
+            MaximumInheritedTrapBytes.ToString(CultureInfo.InvariantCulture),
+            " 2>/dev/null; then :; else ",
+            trapStatus,
+            "=125; : >| ",
+            traps,
+            "; fi\n",
+            "fi\n",
+            "if command test \"$",
+            trapStatus,
+            "\" -eq 0; then\n",
+            "  { command printf '\\n'; command cat ",
+            command,
+            "; } >> ",
+            traps,
+            " || ",
+            trapStatus,
+            "=125\n",
+            "fi\n",
             "command printf '%s%s\\n' '",
             token.BeginHead,
             "' '",
             token.BeginTail,
             "'\n",
-            "if [ \"$__lt_errexit\" -eq 1 ]; then\n",
-            "  ( set -e; . ",
-            ShellQuote(commandPath),
-            " )\n",
+            "if command test \"$",
+            trapStatus,
+            "\" -ne 0; then\n",
+            "  ",
+            status,
+            "=125\n",
             "else\n",
-            "  ( set +e; . ",
-            ShellQuote(commandPath),
-            " )\n",
+            "  case \"$",
+            flags,
+            "\" in\n",
+            "    *e*x*|*x*e*)\n",
+            RunWith("\\set -e; \\set -x"),
+            "    ;;\n",
+            "    *e*)\n",
+            RunWith("\\set -e; \\set +x"),
+            "    ;;\n",
+            "    *x*)\n",
+            RunWith("\\set +e; \\set -x"),
+            "    ;;\n",
+            "    *)\n",
+            RunWith("\\set +e; \\set +x"),
+            "    ;;\n",
+            "  esac\n",
+            "  ",
+            status,
+            "=$?\n",
             "fi\n",
-            "__lt=$?\n",
             statusCommand,
-            " \"$__lt\"\n",
+            " \"$",
+            status,
+            "\"\n",
             scheduleCleanupCommand,
             "\n",
             signalCommand,
-            "\nexit 0\n",
+            "\n\\exit 0\n",
             ")\n");
+    }
 
     private static async Task WritePrivateFileAsync(
         string path,

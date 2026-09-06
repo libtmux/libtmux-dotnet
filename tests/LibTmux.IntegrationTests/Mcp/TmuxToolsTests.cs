@@ -115,14 +115,26 @@ public sealed class TmuxToolsTests
             mcp.Options,
             token);
         string pane = scope.Pane.Id.ToString();
+        string suffix = Guid.NewGuid().ToString("N");
+        string debugOut = $"debug-out-{suffix}";
+        string debugError = $"debug-error-{suffix}";
+        string errorOut = $"error-out-{suffix}";
+        string errorError = $"error-error-{suffix}";
+        string parentExit = Path.Combine(Path.GetTempPath(), $"libtmux-parent-exit-{suffix}");
         await scope.Pane.RespawnAsync(
             new RespawnRequest(
                 "exec /bin/bash --noprofile --norc",
                 killExistingProcess: true),
             token);
-        string ready = $"shell-state-ready-{Guid.NewGuid():N}";
-        string setup = "printf() { :; }; alias printf=:; set -ef; "
-            + $"trap 'command printf trap-fired >/dev/null' 0; echo {ready}";
+        string ready = $"shell-state-ready-{suffix}";
+        string setup = "printf() { :; }; alias printf=:; "
+            + "readonly __lt=human __lt_errexit=human; "
+            + $"trap 'command printf x > {parentExit}' EXIT; "
+            + $"trap 'command printf \"{debugOut}\\n\"; "
+            + $"command printf \"{debugError}\\n\" >&2' DEBUG; "
+            + $"trap 'command printf \"{errorOut}\\n\"; "
+            + $"command printf \"{errorError}\\n\" >&2' ERR; "
+            + $"set -E; set -T; set -e; set -x; set -C; echo {ready}";
         await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
         _ = await mcp.Capabilities.WaitForTextAsync(
             pane,
@@ -130,25 +142,149 @@ public sealed class TmuxToolsTests
             timeoutSeconds: 5,
             cancellationToken: token);
 
+        string successMarker = $"success-{suffix}";
+        RunResult success = await mcp.Capabilities.RunShellCommandAsync(
+            $"command printf '{successMarker}\\n'",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+        string unreachable = $"unreachable-{suffix}";
+        RunResult failed = await mcp.Capabilities.RunShellCommandAsync(
+            $"false; command printf '{unreachable}\\n'",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
         RunResult exited = await mcp.Capabilities.RunShellCommandAsync(
             "exit 23",
             pane,
             timeoutSeconds: 5,
             cancellationToken: token);
         RunResult state = await mcp.Capabilities.RunShellCommandAsync(
-            "case $- in *e*f*|*f*e*) command printf 'options-kept\\n' ;; "
-                + "*) exit 91 ;; esac; trap | command grep trap-fired",
+            "case $- in *e*) : ;; *) exit 91 ;; esac; "
+                + "case $- in *x*) : ;; *) exit 92 ;; esac; "
+                + "case $- in *C*) : ;; *) exit 93 ;; esac; "
+                + "command printf 'options-kept\\n'",
             pane,
             timeoutSeconds: 5,
             cancellationToken: token);
 
+        Assert.Equal(0, success.ExitStatus);
+        Assert.Contains(successMarker, success.Output.Lines);
+        Assert.Equal(1, success.Output.Lines.Count(line => line == debugOut));
+        Assert.Equal(1, success.Output.Lines.Count(line => line == debugError));
+        Assert.NotEqual(0, failed.ExitStatus);
+        Assert.DoesNotContain(unreachable, failed.Output.Lines);
+        Assert.Equal(1, failed.Output.Lines.Count(line => line == errorOut));
+        Assert.Equal(1, failed.Output.Lines.Count(line => line == errorError));
         Assert.Equal(23, exited.ExitStatus);
         Assert.True(exited.Started);
         Assert.Equal(0, state.ExitStatus);
         Assert.True(state.Started);
         Assert.Contains("options-kept", state.Output.Lines);
-        Assert.Contains(state.Output.Lines, line =>
-            line.Contains("trap-fired", StringComparison.Ordinal));
+        Assert.False(File.Exists(parentExit));
+    }
+
+    [UnixFact]
+    public async Task Run_shell_command_preserves_options_across_accepted_shells()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        foreach ((string name, string arguments) in new[]
+        {
+            ("bash", "--noprofile --norc"),
+            ("zsh", "-f"),
+            ("dash", string.Empty),
+            ("sh", string.Empty),
+        })
+        {
+            string? executable = FindExecutable(name);
+            if (executable is null)
+            {
+                continue;
+            }
+
+            await using McpToolFixture mcp = McpToolFixture.Create();
+            TmuxTestFactory factory = new();
+            await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+                mcp.Options,
+                token);
+            string pane = scope.Pane.Id.ToString();
+            await scope.Pane.RespawnAsync(
+                new RespawnRequest(
+                    $"exec {ShellQuote(executable)} {arguments}",
+                    killExistingProcess: true),
+                token);
+            string suffix = Guid.NewGuid().ToString("N");
+            string ready = $"shell-ready-{name}-{suffix}";
+            string setup = "printf() { :; }; alias printf=:; "
+                + "readonly __lt=human __lt_errexit=human; "
+                + $"set -e; set -x; set -C; echo {ready}";
+            await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+            _ = await mcp.Capabilities.WaitForTextAsync(
+                pane,
+                [ready],
+                timeoutSeconds: 5,
+                cancellationToken: token);
+
+            string marker = $"options-{name}-{suffix}";
+            RunResult state = await mcp.Capabilities.RunShellCommandAsync(
+                "case $- in *e*) : ;; *) exit 91 ;; esac; "
+                    + "case $- in *x*) : ;; *) exit 92 ;; esac; "
+                    + "case $- in *C*) : ;; *) exit 93 ;; esac; "
+                    + $"command printf '{marker}\\n'",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token);
+            RunResult exited = await mcp.Capabilities.RunShellCommandAsync(
+                "exit 23",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token);
+
+            Assert.True(state.Started, name);
+            Assert.Equal(0, state.ExitStatus);
+            Assert.Contains(marker, state.Output.Lines);
+            Assert.True(exited.Started, name);
+            Assert.Equal(23, exited.ExitStatus);
+        }
+    }
+
+    [UnixFact]
+    public async Task Run_shell_command_rejects_oversized_inherited_traps()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+        await scope.Pane.RespawnAsync(
+            new RespawnRequest(
+                "exec /bin/bash --noprofile --norc",
+                killExistingProcess: true),
+            token);
+        string suffix = Guid.NewGuid().ToString("N");
+        string ready = $"oversized-trap-ready-{suffix}";
+        string sideEffect = Path.Combine(Path.GetTempPath(), $"libtmux-ran-{suffix}");
+        string setup = "trap_action=\": x$(command printf '%070000d' 0)\"; "
+            + "trap \"$trap_action\" ERR; unset trap_action; "
+            + $"echo {ready}";
+        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            pane,
+            [ready],
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        RunResult refused = await mcp.Capabilities.RunShellCommandAsync(
+            $"command printf x > {ShellQuote(sideEffect)}",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        Assert.True(refused.Started);
+        Assert.Equal(125, refused.ExitStatus);
+        Assert.False(File.Exists(sideEffect));
     }
 
     [UnixFact]
@@ -1749,6 +1885,17 @@ public sealed class TmuxToolsTests
     private static async Task<Pane> FreshPaneAsync(Pane pane, CancellationToken cancellationToken) =>
         (await pane.Window.GetPanesAsync(cancellationToken).ConfigureAwait(false))
             .Single(candidate => candidate.Id == pane.Id);
+
+    private static string? FindExecutable(string name)
+    {
+        string? path = System.Environment.GetEnvironmentVariable("PATH");
+        return path?.Split(Path.PathSeparator)
+            .Select(directory => Path.Combine(directory, name))
+            .FirstOrDefault(File.Exists);
+    }
+
+    private static string ShellQuote(string value) =>
+        $"'{value.Replace("'", "'\\''", StringComparison.Ordinal)}'";
 
     private static async Task SetPaneSynchronizationAsync(
         Pane pane,
