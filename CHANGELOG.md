@@ -34,6 +34,11 @@ version.
   across 40 runs: 6 leaks before, none after, and 40 calls completed rather
   than 23.
 
+- The private MCP config swapper sets its lock file's mode after creating it.
+  `openat` is variadic in C, and Apple's arm64 ABI passes a variadic argument
+  on the stack rather than in a register, so the 0600 the lock was created with
+  never reached the kernel there and every swap failed its own ownership check.
+
 - **A run reports what the command printed, not the prompt drawn after it.**
   The output window was bounded on the left only, by the marker the run prints
   before the command, so the shell's next prompt fell inside it. A prompt
