@@ -12,6 +12,19 @@ version.
 
 ### Added
 
+- This port's guides and examples now publish to libtmux.org at
+  `/en/dotnet/latest/`, a path the site's port switcher and every page's
+  sidebar already linked and which returned 403 until now. libtmux.org's own
+  assembly builds the tree, reading this checkout for the sources its examples
+  quote. (#21)
+
+- `docfx.json` at the repository root, which extracts `LibTmux`,
+  `LibTmux.Query.Json`, and `LibTmux.Workspace` from their XML documentation
+  comments for the API reference libtmux.org publishes at
+  `/en/reference/dotnet/`. `LibTmux.Mcp` is excluded: it packs as a tool and
+  ships no assembly to reference, so its documented surface is the MCP tool
+  list in `docs/mcp/tools.md`. (#21)
+
 ### Fixed
 
 ### Changed
