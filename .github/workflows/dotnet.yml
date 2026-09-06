@@ -235,6 +235,33 @@ jobs:
           --configuration Release --no-build --framework net10.0
           -- --minimum-expected-tests 200
 
+      # Temporary probe. The swap lock test sees one link where an lstat a
+      # statement earlier saw two, and no reading of the code explains it. This
+      # asks the platform directly instead of through a build.
+      - name: Probe link accounting
+        run: |
+          python3 - <<'PROBE'
+          import os, tempfile
+          root = tempfile.mkdtemp()
+          orig = os.path.join(root, "orig")
+          alias = os.path.join(root, "alias")
+          open(orig, "w").close()
+          os.chmod(orig, 0o600)
+          def show(label):
+              st = os.lstat(orig)
+              print(f"{label}: nlink={st.st_nlink} ino={st.st_ino} mode={st.st_mode & 0o7777:o}")
+          show("baseline      ")
+          os.link(orig, alias)
+          show("after link    ")
+          fd = open(alias, "r+")
+          show("alias opened  ")
+          os.unlink(alias)
+          show("alias unlinked")
+          fd.close()
+          show("fd closed     ")
+          print("dir:", sorted(os.listdir(root)))
+          PROBE
+
       - name: Native MCP swap tests
         run: >
           dotnet test eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
