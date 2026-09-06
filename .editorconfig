@@ -23,3 +23,16 @@ dotnet_diagnostic.IDE0005.severity = warning
 dotnet_diagnostic.IDE0161.severity = warning
 dotnet_diagnostic.IDE0040.severity = warning
 dotnet_diagnostic.IDE1005.severity = warning
+
+# A library cannot see its caller's synchronization context, so an await that
+# resumes on it deadlocks a caller who blocks. CA2007 is off in AnalysisLevel
+# 10-recommended. Match with `**.cs`: `**/` wants at least one directory, so
+# a per-project `[src/X/**/*.cs]` would miss files sitting at X's own root.
+[src/**.cs]
+dotnet_diagnostic.CA2007.severity = error
+
+# LibTmux.Mcp packs as a tool: its entry point owns the process and has no
+# context to return to, as Program.cs says. A later section wins, so this
+# opt-out stays below the rule it lifts.
+[src/LibTmux.Mcp/**.cs]
+dotnet_diagnostic.CA2007.severity = none
