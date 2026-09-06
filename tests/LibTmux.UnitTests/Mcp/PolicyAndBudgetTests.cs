@@ -139,10 +139,10 @@ public sealed class ServerPolicyTests
     public async Task Explicit_socket_selectors_are_user_configured_and_omit_default_teardown(
         string variable)
     {
-        string root = Path.Combine(Path.GetTempPath(), $"libtmux-explicit-{Guid.NewGuid():N}");
+        string root = SocketRoots.Reserve("exp");
         Directory.CreateDirectory(root);
         string value = variable == McpStartup.SocketVariable
-            ? $"explicit-{Guid.NewGuid():N}"
+            ? SocketRoots.Name("exp")
             : Path.Combine(root, "tmux.sock");
         Dictionary<string, string?> environment = new(StringComparer.Ordinal)
         {

@@ -29,7 +29,7 @@ public sealed class WriteToolsExecutionSafetyTests
             using var accessor = new TmuxConnectionAccessor(
                 new ServerConnectionOptions(
                     tmuxBinaryPath: "/bin/false",
-                    socketName: $"route-pin-{Guid.NewGuid():N}"));
+                    socketName: SocketRoots.Name("route-pin")));
 
             Server server = await accessor.GetAsync(
                 cancellationToken: TestContext.Current.CancellationToken);
@@ -856,9 +856,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task Capability_run_refuses_a_socket_transition_before_dispatch()
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-route-transition-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("route");
         string other = Path.Combine(directory, "other.sock");
         Directory.CreateDirectory(directory);
         using Socket endpoint = CreateBoundSocket(other);
@@ -1301,9 +1299,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task A_complete_foreign_caller_does_not_block_selected_input()
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-foreign-caller-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("foreign");
         string foreign = Path.Combine(directory, "foreign.sock");
         string? priorServer = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.ServerVariable);
@@ -1342,9 +1338,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task Capability_send_signs_a_foreign_to_detached_caller_transition()
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-caller-transition-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("caller");
         string foreign = Path.Combine(directory, "foreign.sock");
         string? priorServer = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.ServerVariable);
@@ -1488,9 +1482,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [InlineData(true)]
     public async Task A_socket_alias_cannot_hide_the_caller_pane(bool hardLink)
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-socket-alias-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("alias");
         string socket = Path.Combine(directory, "server.sock");
         string alias = Path.Combine(directory, "alias.sock");
         string? priorServer = Environment.GetEnvironmentVariable(
@@ -1775,9 +1767,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [InlineData(true)]
     public async Task A_socket_alias_cannot_evade_an_input_reservation(bool hardLink)
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-reservation-alias-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("resalias");
         string socket = Path.Combine(directory, "server.sock");
         string alias = Path.Combine(directory, "alias.sock");
         Directory.CreateDirectory(directory);
@@ -1831,9 +1821,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task Distinct_socket_endpoints_do_not_share_input_reservations()
     {
-        string directory = Path.Combine(
-            Path.GetTempPath(),
-            $"libtmux-dotnet-distinct-reservations-{Guid.NewGuid():N}");
+        string directory = SocketRoots.Reserve("distinct");
         string firstPath = Path.Combine(directory, "first.sock");
         string secondPath = Path.Combine(directory, "second.sock");
         Directory.CreateDirectory(directory);
