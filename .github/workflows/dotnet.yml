@@ -206,6 +206,10 @@ jobs:
   # visible without making the primary Linux gate depend on hosted macOS.
   macos:
     name: macos arm64 (advisory)
+    # Not on pull requests: the lane is advisory, so it cannot fail one, and a
+    # hosted macOS minute costs ten times a Linux one. Master and manual
+    # dispatch still exercise the platform.
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 20
     continue-on-error: true
