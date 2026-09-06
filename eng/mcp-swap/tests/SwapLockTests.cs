@@ -85,7 +85,7 @@ public sealed class SwapLockTests
 
         using TestPaths paths = new();
         SwapRuntime runtime = Runtime(paths);
-        using SwapLock held = SwapLock.Acquire(runtime);
+        SwapLock held = SwapLock.Acquire(runtime);
         held.Validate();
         string alias = Path.Combine(paths.Root, "lock-alias");
         NativeFileSystem.CreateHardLink(alias, runtime.LockFile);
@@ -119,6 +119,10 @@ public sealed class SwapLockTests
         // broken". Say which before asking.
         Assert.Equal<ulong>(1, NativeFileSystem.LStat(runtime.LockFile).LinkCount);
 
+        held.Validate();
+
+        // The dispose-time validate is the one that fails on macOS, and the
+        // one on the line above does not, so the state has to be read here.
         string before = NativeFileSystem.RawStatHex(runtime.LockFile);
         string aliasState = File.Exists(alias) ? "alias still present" : "alias gone";
         string listing = string.Join(
@@ -128,12 +132,12 @@ public sealed class SwapLockTests
                 .Order(StringComparer.Ordinal));
         try
         {
-            held.Validate();
+            held.Dispose();
         }
         catch (IOException error)
         {
             throw new IOException(
-                $"[before validate: hex {before}, {aliasState}, tree {listing}] {error.Message}",
+                $"[before dispose: hex {before}, {aliasState}, tree {listing}] {error.Message}",
                 error);
         }
     }
