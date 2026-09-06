@@ -766,6 +766,9 @@ public sealed class TmuxToolsTests
         // carries the working directory and so wraps once the path is deep,
         // while a developer machine may run a shell this never reproduces on.
         // Pin both the shell and the prompt rather than inheriting either.
+        // It is bash and not sh because only bash is guaranteed to take PS1
+        // from the environment under --norc. Were it absent the shell would
+        // exit and the runs below would time out, which fails loudly.
         const string tail = "ionTests/bin/Release/net10.0$";
         string longPrompt = "runner@runnervmejwal:~/work/libtmux-dotnet/libtmux-dotnet/"
             + "tests/LibTmux.IntegrationTests/bin/Release/net10.0$ ";
