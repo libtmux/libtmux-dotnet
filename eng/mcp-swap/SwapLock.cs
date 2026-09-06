@@ -221,7 +221,8 @@ internal sealed class SwapLock : IDisposable
             || identity.Permissions != 0x1C0
             || identity.UserId != NativeFileSystem.GetUserId())
         {
-            throw new IOException($"swap lock directory must be an owned 0700 directory: {path}");
+            throw new IOException(
+                $"swap lock directory must be an owned 0700 directory: {path} {Observed(identity)}");
         }
     }
 
@@ -232,8 +233,21 @@ internal sealed class SwapLock : IDisposable
             || identity.LinkCount != 1
             || identity.UserId != NativeFileSystem.GetUserId())
         {
-            throw new IOException($"swap lock must be an owned 0600 regular file with one link: {path}");
+            throw new IOException(
+                $"swap lock must be an owned 0600 regular file with one link: "
+                + $"{path} {Observed(identity)}");
         }
+    }
+
+    /// <summary>Says what was there, since the message above says what was wanted.</summary>
+    /// <param name="identity">The identity that failed a check.</param>
+    /// <returns>The fields the checks read.</returns>
+    private static string Observed(NativeIdentity identity)
+    {
+        return $"(mode {Convert.ToString(identity.Permissions, 8)}, links {identity.LinkCount}, "
+            + $"uid {identity.UserId} against {NativeFileSystem.GetUserId()}, "
+            + $"regular {identity.IsRegular}, directory {identity.IsDirectory}, "
+            + $"symlink {identity.IsSymbolicLink})";
     }
 
     private static bool SameDirectoryIdentity(NativeIdentity expected, NativeIdentity current) =>
