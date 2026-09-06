@@ -113,6 +113,11 @@ public sealed class SwapLockTests
 
         Assert.Equal("blocked\n", result);
         File.Delete(alias);
+
+        // Validate below refuses a lock carrying more than one link, so it
+        // cannot tell "the alias outlived the delete" from "validation is
+        // broken". Say which before asking.
+        Assert.Equal<ulong>(1, NativeFileSystem.LStat(runtime.LockFile).LinkCount);
         held.Validate();
     }
 
