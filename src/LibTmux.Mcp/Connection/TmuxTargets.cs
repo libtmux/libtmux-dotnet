@@ -475,6 +475,8 @@ internal static class TmuxTargets
         return actual is null
             || string.Equals(landed, asked, StringComparison.Ordinal)
             || string.Equals(landed, literal, StringComparison.Ordinal)
+            || PaneInputEndpoint.SameDirectory(landed, asked)
+            || PaneInputEndpoint.SameDirectory(landed, literal)
             ? string.Empty
             : $" It started in {actual}; tmux does not refuse a start directory "
                 + "it cannot use.";

@@ -224,6 +224,63 @@ internal static class PaneInputEndpoint
         return Identify(path, "pane input route socket path");
     }
 
+    /// <summary>Answers whether two paths name one directory.</summary>
+    /// <param name="first">A path.</param>
+    /// <param name="second">Another path.</param>
+    /// <returns><see langword="true" /> when both name the same directory.</returns>
+    /// <remarks>
+    /// Spelling does not settle it. macOS reaches its temporary directory
+    /// through a symlink, so a caller asking for <c>/tmp</c> lands in
+    /// <c>/private/tmp</c> and a string comparison reads that as a different
+    /// directory. Device and inode are what "the same directory" means, and a
+    /// path that cannot be stat'd is not the same as one that can.
+    /// </remarks>
+    internal static bool SameDirectory(string first, string second)
+    {
+        return TryIdentify(first) is (ulong, ulong) left
+            && TryIdentify(second) is (ulong, ulong) right
+            && left == right;
+    }
+
+    private static (ulong Device, ulong Inode)? TryIdentify(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+        {
+            return null;
+        }
+
+        nint buffer = Marshal.AllocHGlobal(StatBufferBytes);
+        try
+        {
+            nint encoded = Marshal.StringToCoTaskMemUTF8(Path.GetFullPath(path));
+            int result;
+            try
+            {
+                result = InvokeStat(encoded, buffer);
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(encoded);
+            }
+
+            if (result != 0)
+            {
+                return null;
+            }
+
+            (ulong device, ulong inode, uint _) = ReadIdentity(buffer, "directory");
+            return (device, inode);
+        }
+        catch (McpException)
+        {
+            return null;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
     internal static PaneInputEndpointIdentity Identify(string path, string subject)
     {
         McpStartup.RequireSafeRouteValue(path, subject);
