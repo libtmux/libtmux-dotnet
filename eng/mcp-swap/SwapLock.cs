@@ -146,7 +146,14 @@ internal sealed class SwapLock : IDisposable
 
         try
         {
-            Validate();
+            try
+            {
+                Validate();
+            }
+            catch (IOException error)
+            {
+                throw new IOException($"swap lock invalid at dispose: {error.Message}", error);
+            }
         }
         finally
         {
@@ -210,7 +217,17 @@ internal sealed class SwapLock : IDisposable
             throw new IOException($"swap lock changed while inspected: {logical}");
         }
 
-        ValidateIdentity(current, logical);
+        if (!IsOwnedPrivateFile(current))
+        {
+            throw new IOException(
+                $"swap lock must be an owned 0600 regular file with one link: {logical} "
+                + $"{Observed(current)} [raw {Observed(raw)}, "
+                + $"physical {physical}, realpath {NativeFileSystem.RealPath(logical)}, "
+                + $"dirphysical {directory.Physical}, "
+                + $"hex(logical) {NativeFileSystem.RawStatHex(logical)}, "
+                + $"hex(physical) {NativeFileSystem.RawStatHex(physical)}]");
+        }
+
         return new(logical, physical, current);
     }
 
@@ -226,12 +243,15 @@ internal sealed class SwapLock : IDisposable
         }
     }
 
+    private static bool IsOwnedPrivateFile(NativeIdentity identity) =>
+        identity.IsRegular
+        && identity.Permissions == 0x180
+        && identity.LinkCount == 1
+        && identity.UserId == NativeFileSystem.GetUserId();
+
     private static void ValidateIdentity(NativeIdentity identity, string path)
     {
-        if (!identity.IsRegular
-            || identity.Permissions != 0x180
-            || identity.LinkCount != 1
-            || identity.UserId != NativeFileSystem.GetUserId())
+        if (!IsOwnedPrivateFile(identity))
         {
             throw new IOException(
                 $"swap lock must be an owned 0600 regular file with one link: "
