@@ -46,20 +46,38 @@ internal static class TmuxEnvironmentVariables
             return false;
         }
 
-        string[] parts = value.Split(',');
-        if (parts.Length != 3
-            || parts[0].Length == 0
-            || !int.TryParse(
-                parts[1],
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int processId)
-            || !SessionId.TryParse($"${parts[2]}", out SessionId sessionId))
+        int sessionSeparator = value.LastIndexOf(',');
+        int processSeparator = sessionSeparator > 0
+            ? value.LastIndexOf(',', sessionSeparator - 1)
+            : -1;
+        if (processSeparator <= 0
+            || sessionSeparator == value.Length - 1)
         {
             return false;
         }
 
-        entry = new TmuxServerLocation(parts[0], processId, sessionId);
+        string socketPath = value[..processSeparator];
+        string rawProcessId = value[(processSeparator + 1)..sessionSeparator];
+        string rawSessionId = value[(sessionSeparator + 1)..];
+        if (!int.TryParse(
+                rawProcessId,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int processId)
+            || processId <= 0
+            || rawProcessId != processId.ToString(CultureInfo.InvariantCulture)
+            || !int.TryParse(
+                rawSessionId,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int sessionId)
+            || sessionId < 0
+            || rawSessionId != sessionId.ToString(CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        entry = new TmuxServerLocation(socketPath, processId, new SessionId(sessionId));
         return true;
     }
 

@@ -29,6 +29,30 @@ public sealed class TmuxEnvironmentTests
         Assert.Equal(SessionId.Parse("$3"), entry.SessionId);
     }
 
+    [Fact]
+    public void Reads_a_socket_path_that_contains_commas()
+    {
+        bool read = TmuxEnvironmentVariables.TryRead(
+            Env(("TMUX", "/tmp/tmux,private,default,4242,3")),
+            out TmuxServerLocation? entry);
+
+        Assert.True(read);
+        Assert.Equal("/tmp/tmux,private,default", entry!.SocketPath);
+        Assert.Equal(4242, entry.ServerProcessId);
+        Assert.Equal(SessionId.Parse("$3"), entry.SessionId);
+    }
+
+    [Theory]
+    [InlineData("0", "3")]
+    [InlineData("04242", "3")]
+    [InlineData("4242", "03")]
+    [InlineData("4242", "-1")]
+    [InlineData("4242", "$3")]
+    public void Rejects_noncanonical_pid_or_session(string pid, string session) =>
+        Assert.False(TmuxEnvironmentVariables.TryRead(
+            Env(("TMUX", $"/tmp/socket,{pid},{session}")),
+            out _));
+
     [Theory]
     [InlineData("")]
     [InlineData("/tmp/socket,4242")]
