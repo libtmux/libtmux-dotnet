@@ -13,7 +13,45 @@ namespace LibTmux.IntegrationTests;
 public sealed class TmuxToolsTests
 {
     [UnixFact]
-    public async Task A_synchronized_cohort_holds_only_the_panes_tmux_would_reach()
+    public async Task An_attached_human_client_blocks_every_pane_input_tool()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
+            raw,
+            token);
+        TmuxTestOptions options = new(new ServerConnectionOptions(
+            tmuxBinaryPath: raw.TmuxBinaryPath,
+            socketPath: raw.SocketPath,
+            configurationFile: "/dev/null"));
+        await using McpToolFixture mcp = McpToolFixture.Create(options);
+        string pane = Assert.Single(await mcp.Read.ListPanesAsync(cancellationToken: token)).PaneId;
+        string marker = $"attended-{Guid.NewGuid():N}";
+
+        McpException send = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.SendKeysAsync(marker, pane, cancellationToken: token));
+        McpException paste = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.PasteTextAsync(marker, pane, cancellationToken: token));
+        McpException run = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(marker, pane, cancellationToken: token));
+        PaneInputBatchResult batch = await mcp.Capabilities.SendKeysBatchAsync(
+            [new PaneInputOperation(marker, pane)],
+            cancellationToken: token);
+
+        Assert.All([send, paste, run], refusal =>
+            Assert.Contains($"attended pane {pane}", refusal.Message, StringComparison.Ordinal));
+        Assert.Contains(
+            $"attended pane {pane}",
+            Assert.Single(batch.Results).Error,
+            StringComparison.Ordinal);
+        RawTmuxResult capture = await raw.ExecuteAsync(
+            ["capture-pane", "-p", "-t", pane],
+            token);
+        Assert.DoesNotContain(marker, capture.StandardOutputText, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task A_synchronized_cohort_reports_configured_membership()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -34,35 +72,31 @@ public sealed class TmuxToolsTests
         Assert.Contains(second.PaneId!, all.TargetPaneIds);
         Assert.Contains(third.PaneId!, all.TargetPaneIds);
 
-        // send_keys fans out; a run does not. Its payload travels through a
-        // buffer, which tmux writes straight to the named pane, so the exit
-        // status it reports is one pane's even with the cohort at three.
-        RunResult scoped = await mcp.Capabilities.RunShellCommandAsync(
-            "echo cohort-marker-7f3", first, timeoutSeconds: 20, cancellationToken: token);
-        Assert.Equal(0, scoped.ExitStatus);
-        foreach (string peer in new[] { second.PaneId!, third.PaneId! })
-        {
-            CaptureResult seen = await mcp.Read.CapturePaneAsync(
-                peer, cancellationToken: token);
-            Assert.DoesNotContain(
-                seen.Content.Lines,
-                line => line.Contains("cohort-marker-7f3", StringComparison.Ordinal));
-        }
+        McpException scoped = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo must-not-run",
+                first,
+                timeoutSeconds: 20,
+                cancellationToken: token));
+        Assert.Contains("exactly one", scoped.Message, StringComparison.Ordinal);
 
-        // A zoomed window hides its other panes, and window.c skips every pane
-        // that is not visible, so the cohort collapses to the zoomed one.
+        // Zoom affects tmux delivery, not configured membership. The result
+        // deliberately does not claim which delivery filters fired.
         Server server = scope.Server;
         _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
 
         PaneInputResult zoomed = await mcp.Capabilities.SendKeysAsync(
             "# zoomed", first, enter: true, cancellationToken: token);
-        Assert.Equal([first], zoomed.TargetPaneIds);
-        Assert.DoesNotContain("synchronize", zoomed.Changed, StringComparison.Ordinal);
+        Assert.Equal(3, zoomed.TargetPaneIds.Count);
+        Assert.DoesNotContain("delivered", zoomed.Changed, StringComparison.Ordinal);
 
-        // Which is what makes the run refusal wrong: the outcome is singular.
-        RunResult run = await mcp.Capabilities.RunShellCommandAsync(
-            "echo zoomed-ran", first, timeoutSeconds: 20, cancellationToken: token);
-        Assert.Equal(0, run.ExitStatus);
+        McpException zoomedRun = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo still-must-not-run",
+                first,
+                timeoutSeconds: 20,
+                cancellationToken: token));
+        Assert.Contains("exactly one", zoomedRun.Message, StringComparison.Ordinal);
 
         _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
         PaneInputResult restored = await mcp.Capabilities.SendKeysAsync(

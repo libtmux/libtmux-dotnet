@@ -8,6 +8,10 @@ using ModelContextProtocol;
 
 namespace LibTmux.UnitTests.Mcp;
 
+[CollectionDefinition("Process environment", DisableParallelization = true)]
+public sealed class ProcessEnvironmentCollectionDefinition;
+
+[Collection("Process environment")]
 [UnsupportedOSPlatform("windows")]
 public sealed class WriteToolsExecutionSafetyTests
 {
@@ -95,7 +99,143 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task Capability_run_reaches_one_pane_from_inside_a_cohort()
+    public async Task Capability_send_refuses_every_pane_visible_to_a_human_client()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0", Active: "1"),
+                    new PaneListingRow("%2", "0", "0", Active: "0"),
+                ],
+            ],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%1", "0")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync("must-not-send", "%2", cancellationToken: token));
+
+        Assert.Contains("attended", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("%2", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.ClientListingCount);
+    }
+
+    [Theory]
+    [InlineData("", "%1", "0")]
+    [InlineData("2", "%1", "0")]
+    [InlineData("0", "%01", "0")]
+    [InlineData("0", "%1", "2")]
+    public async Task Capability_input_rejects_malformed_client_attention(
+        string control,
+        string paneId,
+        string zoomed)
+    {
+        await using var fixture = new ToolFixture
+        {
+            ClientListings =
+            [
+                [new ClientListingRow(control, paneId, zoomed)],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("client", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Configured_membership_does_not_claim_delivery_filters()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "1", "0", Active: "1", WindowZoomed: "1"),
+                    new PaneListingRow("%2", "1", "0", Active: "0", WindowZoomed: "1"),
+                ],
+            ],
+        };
+
+        PaneInputResult sent = await fixture.Capabilities.SendKeysAsync(
+            "configured",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(["%1", "%2"], sent.TargetPaneIds);
+        Assert.DoesNotContain("delivered", sent.Changed, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("1", "0", "dead")]
+    [InlineData("0", "1", "input is disabled")]
+    [InlineData("", "0", "pane_dead")]
+    [InlineData("0", "", "pane_input_off")]
+    public async Task Configured_membership_refuses_unwritable_peers(
+        string dead,
+        string inputOff,
+        string expected)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "1", "0"),
+                    new PaneListingRow("%2", "1", "0", Dead: dead, InputOff: inputOff),
+                ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("%2", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains(expected, refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("2")]
+    [InlineData("")]
+    [InlineData("00")]
+    public async Task Pane_mode_must_be_canonical_zero(string mode)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", mode)],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("pane_in_mode", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_run_refuses_a_configured_multi_pane_cohort()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using var fixture = new ToolFixture
@@ -107,17 +247,242 @@ public sealed class WriteToolsExecutionSafetyTests
             ],
         };
 
-        // The payload travels through a buffer, which tmux does not fan out,
-        // so a synchronized cohort no longer costs the caller the tool. The
-        // dispatch-time listing still happens: the source has to be re-read
-        // for the mode and liveness checks even though the cohort cannot
-        // change the outcome.
-        RunResult result = await fixture.Capabilities.RunShellCommandAsync(
-            "echo one-pane", "%1", cancellationToken: token);
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo one-pane", "%1", cancellationToken: token));
+
+        Assert.Contains("exactly one", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("%1", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("%2", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.SuccessfulSends);
+        Assert.Equal(1, fixture.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_run_requires_a_posix_shell_at_both_preflights()
+    {
+        await using var initial = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "vim")],
+            ],
+        };
+        McpException initialRefusal = await Assert.ThrowsAsync<McpException>(() =>
+            initial.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains("POSIX", initialRefusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, initial.CaptureCount);
+        Assert.Equal(0, initial.SuccessfulSends);
+
+        await using var transition = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "bash")],
+                [new PaneListingRow("%1", "0", "0", CurrentCommand: "vim")],
+            ],
+        };
+        McpException finalRefusal = await Assert.ThrowsAsync<McpException>(() =>
+            transition.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains("POSIX", finalRefusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, transition.SuccessfulSends);
+        Assert.Equal(2, transition.PaneListingCount);
+    }
+
+    [Fact]
+    public async Task Capability_paste_rechecks_after_staging_and_cleans_on_refusal()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0")],
+                [new PaneListingRow("%1", "0", "1")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.PasteTextAsync(
+                "must-not-paste",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("paste_text", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(2, fixture.PaneListingCount);
+        Assert.DoesNotContain(fixture.Commands, arguments =>
+            arguments.Contains("paste-buffer", StringComparer.Ordinal));
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("delete-buffer", StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Capability_paste_is_target_only_and_appends_enter_in_one_buffer()
+    {
+        IReadOnlyList<PaneListingRow> panes =
+        [
+            new PaneListingRow("%1", "1", "0"),
+            new PaneListingRow("%2", "1", "1"),
+        ];
+        await using var fixture = new ToolFixture
+        {
+            PaneListings = [panes, panes],
+        };
+
+        ActionResult result = await fixture.Capabilities.PasteTextAsync(
+            "echo once",
+            "%1",
+            bracketed: false,
+            enter: true,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("%1", result.PaneId);
-        Assert.Equal(1, fixture.SuccessfulSends);
         Assert.Equal(2, fixture.PaneListingCount);
+        string[] staged = Assert.Single(fixture.Commands, arguments =>
+            arguments.Contains("set-buffer", StringComparer.Ordinal));
+        Assert.Equal("echo once\n", staged[^1]);
+        Assert.Single(fixture.Commands, arguments =>
+            arguments.Contains("paste-buffer", StringComparer.Ordinal));
+        Assert.DoesNotContain(fixture.Commands, arguments =>
+            arguments.Contains("send-keys", StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Every_pane_input_tool_refuses_the_caller_pane()
+    {
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                $"{ToolFixture.SocketPath},121,1");
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%1");
+            await using var fixture = new ToolFixture();
+
+            McpException send = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.SendKeysAsync(
+                    "must-not-send",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            McpException paste = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.PasteTextAsync(
+                    "must-not-paste",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            McpException run = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.RunShellCommandAsync(
+                    "echo must-not-run",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            PaneInputBatchResult batch = await fixture.Capabilities.SendKeysBatchAsync(
+                [new PaneInputOperation("must-not-batch", "%1")],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.All([send, paste, run], failure =>
+                Assert.Contains("caller pane %1", failure.Message, StringComparison.Ordinal));
+            Assert.Contains(
+                "caller pane %1",
+                Assert.Single(batch.Results).Error,
+                StringComparison.Ordinal);
+            Assert.Equal(0, fixture.SuccessfulSends);
+            Assert.DoesNotContain(fixture.Commands, arguments =>
+                arguments.Contains("set-buffer", StringComparer.Ordinal));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+        }
+    }
+
+    [Theory]
+    [InlineData(null, "%1")]
+    [InlineData("", "%1")]
+    [InlineData("malformed", "%1")]
+    [InlineData("/tmp/libtmux-execution-safety.sock,0121,1", "%1")]
+    [InlineData("/tmp/libtmux-execution-safety.sock,-1,1", "%1")]
+    [InlineData("/tmp/libtmux-execution-safety.sock,121,1", null)]
+    [InlineData("/tmp/libtmux-execution-safety.sock,121,1", "%01")]
+    public async Task Incomplete_or_malformed_caller_context_fails_closed(
+        string? server,
+        string? pane)
+    {
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.ServerVariable, server);
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, pane);
+            await using var fixture = new ToolFixture();
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.SendKeysAsync(
+                    "must-not-send",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("malformed or incomplete", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+        }
+    }
+
+    [Fact]
+    public async Task A_same_server_caller_pane_missing_from_the_snapshot_fails_closed()
+    {
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                $"{ToolFixture.SocketPath},121,1");
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%2");
+            await using var fixture = new ToolFixture();
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.SendKeysAsync(
+                    "must-not-send",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("caller pane %2", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("absent", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+        }
     }
 
     [Fact]
@@ -567,16 +932,31 @@ public sealed class WriteToolsExecutionSafetyTests
         int PaneHeight,
         int CursorY);
 
-    private sealed record PaneListingRow(string Id, string Synchronized, string InMode);
+    private sealed record PaneListingRow(
+        string Id,
+        string Synchronized,
+        string InMode,
+        string Dead = "0",
+        string InputOff = "0",
+        string CurrentCommand = "bash",
+        string Active = "1",
+        string WindowZoomed = "0");
+
+    private sealed record ClientListingRow(
+        string Control,
+        string PaneId,
+        string WindowZoomed);
 
     private sealed class ToolFixture : IAsyncDisposable
     {
         private static readonly ServerGeneration Generation = new(121, 1201);
+        internal const string SocketPath = "/tmp/libtmux-execution-safety.sock";
 
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity;
         private readonly object _stateGate = new();
         private int _captureCount;
+        private int _clientListingCount;
         private int _paneListingCount;
         private int _runStarted;
         private int _stateSampleCount;
@@ -589,7 +969,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 Task.FromException<IControlModeSession>(
                     new InvalidOperationException("Fake control attach unavailable.")));
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(socketName: "execution-safety"),
+                new ServerConnectionOptions(socketPath: SocketPath),
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
@@ -618,6 +998,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal CancellationTokenSource? CancelDuringWait { get; init; }
 
         internal int CaptureCount => Volatile.Read(ref _captureCount);
+
+        internal int ClientListingCount => Volatile.Read(ref _clientListingCount);
 
         internal IReadOnlyList<IReadOnlyList<string>>? CaptureSequence { get; init; }
 
@@ -651,6 +1033,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal CapabilityTools Capabilities { get; }
 
         internal IReadOnlyList<IReadOnlyList<PaneListingRow>>? PaneListings { get; init; }
+
+        internal IReadOnlyList<IReadOnlyList<ClientListingRow>>? ClientListings { get; init; }
 
         internal int PaneListingCount => Volatile.Read(ref _paneListingCount);
 
@@ -741,6 +1125,8 @@ public sealed class WriteToolsExecutionSafetyTests
         {
             string body = arguments.Contains("list-panes", StringComparer.Ordinal)
                 ? PaneListing()
+                : arguments.Contains("list-clients", StringComparer.Ordinal)
+                    ? ClientListing()
                 : arguments.Any(static argument => argument.Contains(
                     "#{history_size}",
                     StringComparison.Ordinal))
@@ -815,6 +1201,20 @@ public sealed class WriteToolsExecutionSafetyTests
                 field => FieldValue(field.WireName, pane) + FormatProjection.RowSeparator)) + "\n"));
         }
 
+        private string ClientListing()
+        {
+            FormatProjection projection = FormatProjection.Create(
+                "list-clients",
+                TmuxVersion.Parse("3.7"));
+            int index = Interlocked.Increment(ref _clientListingCount) - 1;
+            IReadOnlyList<ClientListingRow> clients = ClientListings is { Count: > 0 } sequence
+                ? sequence[Math.Min(index, sequence.Count - 1)]
+                : [];
+            return string.Concat(clients.Select(client => string.Concat(projection.Fields.Select(
+                field => ClientFieldValue(field.WireName, client) + FormatProjection.RowSeparator))
+                + "\n"));
+        }
+
         private static string FieldValue(string field, PaneListingRow pane) => field switch
         {
             "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -826,9 +1226,27 @@ public sealed class WriteToolsExecutionSafetyTests
             "pane_pid" => "4242",
             "pane_width" => "80",
             "pane_height" => "24",
-            "pane_active" => pane.Id == "%1" ? "1" : "0",
+            "pane_active" => pane.Active,
+            "window_zoomed_flag" => pane.WindowZoomed,
+            "pane_current_command" => pane.CurrentCommand,
+            "pane_dead" => pane.Dead,
+            "pane_input_off" => pane.InputOff,
             "pane_in_mode" => pane.InMode,
             "pane_synchronized" => pane.Synchronized,
+            _ => string.Empty,
+        };
+
+        private static string ClientFieldValue(string field, ClientListingRow client) => field switch
+        {
+            "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "start_time" => Generation.StartTime.ToString(
+                System.Globalization.CultureInfo.InvariantCulture),
+            "session_id" => "$1",
+            "window_id" => "@1",
+            "pane_id" => client.PaneId,
+            "client_name" => "/dev/pts/test",
+            "client_control_mode" => client.Control,
+            "window_zoomed_flag" => client.WindowZoomed,
             _ => string.Empty,
         };
 

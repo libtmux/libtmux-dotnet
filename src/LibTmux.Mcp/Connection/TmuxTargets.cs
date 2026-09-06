@@ -343,7 +343,7 @@ internal static class TmuxTargets
     /// server that will not answer is left unidentified, which keeps the
     /// caller's pane foreign rather than assuming it is ours.
     /// </remarks>
-    private static async Task<string?> SocketPathAsync(
+    internal static async Task<string?> SocketPathAsync(
         Server server,
         CancellationToken cancellationToken)
     {

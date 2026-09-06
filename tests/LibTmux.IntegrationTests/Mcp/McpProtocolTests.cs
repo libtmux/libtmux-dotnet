@@ -405,6 +405,9 @@ public sealed class McpProtocolTests
             ["continue", "stop"],
             sendBatchSchema.GetProperty("onError").GetProperty("enum")
                 .EnumerateArray().Select(value => value.GetString()).ToArray());
+        JsonElement pasteSchema = tools.Single(tool => tool.Name == "paste_text")
+            .ProtocolTool.InputSchema.GetProperty("properties");
+        Assert.True(pasteSchema.TryGetProperty("enter", out _));
 
         CallToolResult batched = await harness.Client.CallToolAsync(
             "call_read_tools_batch",

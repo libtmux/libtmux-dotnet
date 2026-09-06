@@ -51,6 +51,16 @@ internal sealed class McpToolFixture : IAsyncDisposable
             socketName: $"ltm-{Guid.NewGuid():N}"[..20],
             configurationFile: "/dev/null"));
 
+        return Create(options, policy, registry);
+    }
+
+    internal static McpToolFixture Create(
+        TmuxTestOptions options,
+        ServerPolicy? policy = null,
+        CapabilityRegistry? registry = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
         TmuxConnectionAccessor connection = new(
             options.ConnectionOptions,
             options.ConnectionOptions.SocketName);

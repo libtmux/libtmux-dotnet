@@ -5,6 +5,7 @@ using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using LibTmux.Internal;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 
@@ -57,6 +58,13 @@ internal sealed record PaneInputPreflight(
     Pane Pane,
     IReadOnlyList<string> TargetPaneIds);
 
+internal enum PaneInputPreflightKind
+{
+    Configured,
+    TargetOnly,
+    SingularCommand,
+}
+
 [UnsupportedOSPlatform("windows")]
 internal sealed class CapabilityTools
 {
@@ -68,6 +76,10 @@ internal sealed class CapabilityTools
     private static readonly Regex VariableName = new(
         @"\A[A-Za-z][A-Za-z0-9_]{0,63}\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly FrozenSet<string> PosixShells = new[]
+    {
+        "sh", "ash", "bash", "dash", "ksh", "mksh", "pdksh", "zsh",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     private readonly ReadTools _read;
     private readonly WriteTools _write;
@@ -905,6 +917,7 @@ internal sealed class CapabilityTools
         PaneInputPreflight initial = await PreflightPaneInputDispatchAsync(
             paneId,
             "run_shell_command",
+            PaneInputPreflightKind.SingularCommand,
             cancellationToken).ConfigureAwait(false);
         return await _write.RunWithDispatchPreflightAsync(
                 command, initial.Pane, timeoutSeconds, maxLines, suppressHistory,
@@ -915,6 +928,7 @@ internal sealed class CapabilityTools
                     PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
                         initial.Pane.Id.ToString(),
                         "run_shell_command",
+                        PaneInputPreflightKind.SingularCommand,
                         token).ConfigureAwait(false);
                     return final.Pane;
                 },
@@ -934,6 +948,7 @@ internal sealed class CapabilityTools
         PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
                 paneId,
                 "send_keys",
+                PaneInputPreflightKind.Configured,
                 cancellationToken)
             .ConfigureAwait(false);
         ActionResult result = await WriteTools.SendKeysToPreflightedPaneAsync(
@@ -979,6 +994,7 @@ internal sealed class CapabilityTools
                 PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
                         operation.PaneId,
                         "send_keys_batch",
+                        PaneInputPreflightKind.Configured,
                         cancellationToken)
                     .ConfigureAwait(false);
                 _ = await WriteTools.SendKeysToPreflightedPaneAsync(
@@ -1022,12 +1038,38 @@ internal sealed class CapabilityTools
             onError);
     }
 
-    public Task<ActionResult> PasteTextAsync(
+    public async Task<ActionResult> PasteTextAsync(
         [Description("The text to paste.")] string text,
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description("Use bracketed paste.")] bool bracketed = true,
-        CancellationToken cancellationToken = default) =>
-        _write.PasteTextAsync(text, paneId, bracketed, cancellationToken: cancellationToken);
+        [Description("Append Enter to the same paste buffer.")] bool enter = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        PaneInputPreflight initial = await PreflightPaneInputDispatchAsync(
+                paneId,
+                "paste_text",
+                PaneInputPreflightKind.TargetOnly,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return await WriteTools.PasteWithDispatchPreflightAsync(
+                text,
+                initial.Pane,
+                bracketed,
+                enter,
+                async token =>
+                {
+                    PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                            initial.Pane.Id.ToString(),
+                            "paste_text",
+                            PaneInputPreflightKind.TargetOnly,
+                            token)
+                        .ConfigureAwait(false);
+                    return final.Pane;
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public async Task<ActionResult> SetSynchronizePanesAsync(
         [Description("Whether to set this window's inherited synchronize-panes default. Pane overrides can still include or exclude individual panes.")] bool enabled,
@@ -1117,13 +1159,28 @@ internal sealed class CapabilityTools
     private async Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
             string? paneId,
             string toolName,
+            PaneInputPreflightKind kind,
             CancellationToken cancellationToken)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         string requestedPaneId = await ResolvePaneInputIdAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Pane> panes = await server.GetPanesAsync(cancellationToken).ConfigureAwait(false);
-        return ResolvePaneInputTargets(panes, requestedPaneId, toolName);
+        IReadOnlyList<Pane> panes = await server.GetPanesStrictAsync(cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyList<Client> clients = await server.GetClientsStrictAsync(cancellationToken)
+            .ConfigureAwait(false);
+        string? callerPaneId = await ResolvePaneInputCallerIdAsync(
+                server,
+                panes,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return ResolvePaneInputTargets(
+            panes,
+            clients,
+            callerPaneId,
+            requestedPaneId,
+            toolName,
+            kind);
     }
 
     private static async Task<string> ResolvePaneInputIdAsync(
@@ -1161,46 +1218,81 @@ internal sealed class CapabilityTools
 
     private static PaneInputPreflight ResolvePaneInputTargets(
         IReadOnlyList<Pane> panes,
+        IReadOnlyList<Client> clients,
+        string? callerPaneId,
         string paneId,
-        string toolName)
+        string toolName,
+        PaneInputPreflightKind kind)
     {
-        Pane[] sources = [.. panes.Where(candidate => candidate.Id.ToString() == paneId)];
-        if (sources.Length != 1)
+        Dictionary<string, Pane> unique = panes
+            .GroupBy(candidate => candidate.Id.ToString(), StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        if (!unique.TryGetValue(paneId, out Pane? source))
         {
             throw new McpException(
                 $"Could not resolve {paneId} in its fresh pane listing. Do not send input; "
                 + "inspect the window and retry.");
         }
 
-        Pane source = sources[0];
-        RequireLiveInput(source);
-        Pane[] windowPanes = [.. panes.Where(candidate => candidate.Window.Id == source.Window.Id)];
-
-        // tmux gates delivery to a peer on all of window.c:1326-1331, not on
-        // synchronize-panes alone: a dead peer, one with input disabled, and
-        // every hidden pane of a zoomed window are all skipped. Reading only
-        // the option over-reported the cohort, and run_shell_command then
-        // refused sends that tmux would have delivered to one pane.
-        Pane[] cohort = SynchronizesInput(source)
-            ?
-            [
-                source,
-                .. windowPanes.Where(peer => peer.Id != source.Id && ReceivesBroadcast(peer)),
-            ]
-            : [source];
-        foreach (Pane recipient in cohort)
+        Dictionary<string, Pane> windowPanes = unique.Values
+            .Where(candidate => candidate.Window.Id == source.Window.Id)
+            .ToDictionary(candidate => candidate.Id.ToString(), StringComparer.Ordinal);
+        Pane[] configured = kind == PaneInputPreflightKind.TargetOnly
+            ? [source]
+            : ParsePaneFlag(source, "pane_synchronized")
+                ?
+                [
+                    .. windowPanes.Values.Where(candidate =>
+                        ParsePaneFlag(candidate, "pane_synchronized")),
+                ]
+                : [source];
+        Array.Sort(configured, static (left, right) => string.CompareOrdinal(
+            left.Id.ToString(),
+            right.Id.ToString()));
+        foreach (Pane member in configured)
         {
-            WriteTools.RefuseHumanOwnedMode(recipient, toolName);
+            RequireWritablePane(member, toolName);
+        }
+
+        HashSet<string> attended = AttendedPaneIds(clients, windowPanes);
+        foreach (Pane member in configured)
+        {
+            string memberId = member.Id.ToString();
+            if (string.Equals(callerPaneId, memberId, StringComparison.Ordinal))
+            {
+                throw new McpException($"{toolName} refuses caller pane {memberId}.");
+            }
+
+            if (attended.Contains(memberId))
+            {
+                throw new McpException(
+                    $"{toolName} refuses attended pane {memberId}. Name a detached pane, "
+                    + "or wait until no human client is viewing it.");
+            }
+        }
+
+        string[] configuredIds =
+        [
+            .. configured.Select(candidate => candidate.Id.ToString()),
+        ];
+        if (kind == PaneInputPreflightKind.SingularCommand)
+        {
+            if (configuredIds.Length != 1)
+            {
+                throw new McpException(
+                    $"{toolName} requires exactly one effective pane; observed "
+                    + $"{string.Join(", ", configuredIds)}.");
+            }
+
+            RequirePosixShell(source, toolName);
         }
 
         return new PaneInputPreflight(
             source,
-            cohort.Select(candidate => candidate.Id.ToString())
-                .Order(StringComparer.Ordinal)
-                .ToArray());
+            configuredIds);
     }
 
-    // targetPaneIds already carried the fan-out, but the sentence named one
+    // targetPaneIds carries configured membership, but the sentence names one
     // pane, and the sentence is what a model reads.
     private static string WithCohort(string changed, PaneInputPreflight preflight)
     {
@@ -1211,43 +1303,218 @@ internal sealed class CapabilityTools
         ];
         return others.Length == 0
             ? changed
-            : $"{changed.TrimEnd('.')}, and tmux delivered the same input to "
-                + $"{string.Join(", ", others)}, which "
-                + (others.Length == 1 ? "synchronizes" : "synchronize")
-                + " input with it.";
+            : $"{changed.TrimEnd('.')}; configured synchronized cohort: "
+                + $"{string.Join(", ", preflight.TargetPaneIds)}. Membership does not "
+                + "prove delivery.";
     }
 
-    // A pane whose fd is closed or whose input is off receives nothing, and
-    // tmux says so by doing nothing at all. Reporting that as a send told the
-    // caller their keys landed somewhere they did not.
-    private static void RequireLiveInput(Pane pane)
+    private static async Task<string?> ResolvePaneInputCallerIdAsync(
+        Server server,
+        IReadOnlyList<Pane> panes,
+        CancellationToken cancellationToken)
     {
-        if (RawFlag(pane, "pane_dead"))
+        string? rawServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? rawPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        if (rawServer is null && rawPane is null)
         {
-            throw new McpException(
-                $"Pane {pane.Id} has exited and receives no input. Restart it with "
-                + "respawn_pane, or name a live pane.");
+            return null;
         }
 
-        if (RawFlag(pane, "pane_input_off"))
+        if (string.IsNullOrEmpty(rawServer)
+            || string.IsNullOrEmpty(rawPane)
+            || !TmuxEnvironmentVariables.TryRead(null, out TmuxServerLocation? caller)
+            || !TmuxEnvironmentVariables.TryReadPane(null, out PaneId callerPane)
+            || rawPane != callerPane.ToString()
+            || caller.ServerProcessId <= 0
+            || rawServer != $"{caller.SocketPath},{caller.ServerProcessId.ToString(CultureInfo.InvariantCulture)},{caller.SessionId.ToString()[1..]}")
         {
             throw new McpException(
-                $"Pane {pane.Id} has input disabled and receives no input. Read its "
-                + "output with capture_pane, or name a pane that accepts input.");
+                "Pane input is refused because the caller tmux identity is malformed or "
+                + "incomplete.");
+        }
+
+        string? serverSocket = await TmuxTargets.SocketPathAsync(server, cancellationToken)
+            .ConfigureAwait(false);
+        if (serverSocket is null)
+        {
+            throw new McpException(
+                "Pane input is refused because the caller socket cannot be compared with "
+                + "the selected server.");
+        }
+
+        string callerSocket;
+        string selectedSocket;
+        try
+        {
+            callerSocket = Path.GetFullPath(caller.SocketPath);
+            selectedSocket = Path.GetFullPath(serverSocket);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        {
+            throw new McpException(
+                "Pane input is refused because the caller socket path is malformed.",
+                error);
+        }
+
+        if (!string.Equals(callerSocket, selectedSocket, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        string[] rawPids =
+        [
+            .. panes.Select(pane => ReadPaneField(pane, "pid"))
+                .Distinct(StringComparer.Ordinal),
+        ];
+        if (rawPids.Length != 1
+            || !int.TryParse(
+                rawPids[0],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int serverPid)
+            || serverPid <= 0
+            || rawPids[0] != serverPid.ToString(CultureInfo.InvariantCulture))
+        {
+            throw new McpException(
+                "Pane input is refused because tmux returned an invalid server pid.");
+        }
+
+        if (caller.ServerProcessId != serverPid)
+        {
+            return null;
+        }
+
+        string callerPaneId = callerPane.ToString();
+        if (!panes.Any(pane => pane.Id.ToString() == callerPaneId))
+        {
+            throw new McpException(
+                $"Pane input is refused because caller pane {callerPaneId} is absent from "
+                + "the selected server.");
+        }
+
+        return callerPaneId;
+    }
+
+    private static HashSet<string> AttendedPaneIds(
+        IReadOnlyList<Client> clients,
+        IReadOnlyDictionary<string, Pane> windowPanes)
+    {
+        HashSet<string> attended = new(StringComparer.Ordinal);
+        foreach (Client client in clients)
+        {
+            bool control = ParseClientFlag(client, "client_control_mode");
+            string activePane = ReadClientField(client, "pane_id");
+            if (!PaneId.TryParse(activePane, out PaneId parsed)
+                || parsed.ToString() != activePane)
+            {
+                throw new McpException(
+                    "Pane input is refused because a client pane_id is malformed.");
+            }
+
+            bool zoomed = ParseClientFlag(client, "window_zoomed_flag");
+            if (control || !windowPanes.ContainsKey(activePane))
+            {
+                continue;
+            }
+
+            if (zoomed)
+            {
+                attended.Add(activePane);
+            }
+            else
+            {
+                attended.UnionWith(windowPanes.Keys);
+            }
+        }
+
+        return attended;
+    }
+
+    private static void RequireWritablePane(Pane pane, string toolName)
+    {
+        if (ParsePaneFlag(pane, "pane_dead"))
+        {
+            throw new McpException(
+                $"{toolName} refuses dead pane {pane.Id}. Restart it with respawn_pane, "
+                + "or name a live pane.");
+        }
+
+        if (ParsePaneFlag(pane, "pane_input_off"))
+        {
+            throw new McpException(
+                $"{toolName} refuses pane {pane.Id} because its input is disabled. "
+                + "Read it with capture_pane, or name a pane that accepts input.");
+        }
+
+        string rawMode = ReadPaneField(pane, "pane_in_mode");
+        if (rawMode == "0")
+        {
+            return;
+        }
+
+        if (uint.TryParse(
+                rawMode,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out uint mode)
+            && mode > 0
+            && rawMode == mode.ToString(CultureInfo.InvariantCulture))
+        {
+            throw new McpException(
+                $"{toolName} refuses pane {pane.Id} because pane_in_mode is {rawMode}; "
+                + "the mode is human-owned. Use capture_pane or snapshot_pane, then wait "
+                + "for the mode to end.");
+        }
+
+        throw new McpException(
+            $"{toolName} refuses pane {pane.Id} because pane_in_mode is unavailable or "
+            + "malformed.");
+    }
+
+    private static void RequirePosixShell(Pane pane, string toolName)
+    {
+        string current = ReadPaneField(pane, "pane_current_command");
+        int slash = current.LastIndexOf('/');
+        string name = slash < 0 ? current : current[(slash + 1)..];
+        if (name.Length > 0 && name[0] == '-')
+        {
+            name = name[1..];
+        }
+
+        if (!PosixShells.Contains(name))
+        {
+            throw new McpException(
+                $"{toolName} requires a POSIX-compatible shell in pane {pane.Id}; it is "
+                + $"running '{name}'. Use send_keys when typing into another program is "
+                + "intentional.");
         }
     }
 
-    private static bool ReceivesBroadcast(Pane peer) =>
-        SynchronizesInput(peer)
-        && !RawFlag(peer, "pane_dead")
-        && !RawFlag(peer, "pane_input_off")
-        && (!RawFlag(peer, "window_zoomed_flag") || RawFlag(peer, "pane_active"));
+    private static bool ParsePaneFlag(Pane pane, string field) =>
+        ParseFlag(ReadPaneField(pane, field), field, $"pane {pane.Id}");
 
-    // Absent reads as the permissive value, which is what tmux versions
-    // without the field behave like.
-    private static bool RawFlag(Pane pane, string field) =>
-        pane.RawFormatFields.TryGetValue(field, out string? value)
-        && string.Equals(value, "1", StringComparison.Ordinal);
+    private static bool ParseClientFlag(Client client, string field) =>
+        ParseFlag(ReadClientField(client, field), field, "client");
+
+    private static bool ParseFlag(string raw, string field, string subject) => raw switch
+    {
+        "0" => false,
+        "1" => true,
+        _ => throw new McpException(
+            $"Pane input is refused because {subject} {field} is unavailable or malformed."),
+    };
+
+    private static string ReadPaneField(Pane pane, string field) =>
+        pane.RawFormatFields.TryGetValue(field, out string? value) && value is not null
+            ? value
+            : string.Empty;
+
+    private static string ReadClientField(Client client, string field) =>
+        client.RawFormatFields.TryGetValue(field, out string? value) && value is not null
+            ? value
+            : string.Empty;
 
     private static bool SynchronizesInput(Pane pane) =>
         ParsePaneSynchronization(

@@ -284,6 +284,42 @@ internal sealed partial class WriteTools
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
         RefuseHumanOwnedMode(pane, "paste_text");
+        return await PasteTextAsyncCore(
+                text,
+                pane,
+                bracketed,
+                enter: false,
+                dispatchPreflight: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal static Task<ActionResult> PasteWithDispatchPreflightAsync(
+        string text,
+        Pane pane,
+        bool bracketed,
+        bool enter,
+        Func<CancellationToken, Task<Pane>> dispatchPreflight,
+        CancellationToken cancellationToken) =>
+        PasteTextAsyncCore(
+            text,
+            pane,
+            bracketed,
+            enter,
+            dispatchPreflight,
+            cancellationToken);
+
+    private static async Task<ActionResult> PasteTextAsyncCore(
+        string text,
+        Pane pane,
+        bool bracketed,
+        bool enter,
+        Func<CancellationToken, Task<Pane>>? dispatchPreflight,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        string payload = enter ? text + '\n' : text;
+        Server server = pane.Server;
 
         string buffer = $"libtmux_mcp_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
@@ -294,7 +330,7 @@ internal sealed partial class WriteTools
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await server.SetBufferAsync(text, buffer, cancellationToken: cancellationToken)
+                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 bufferMayExist = true;
             }
@@ -307,6 +343,11 @@ internal sealed partial class WriteTools
             {
                 bufferMayExist = error.Dispatch != TmuxDispatchState.NotDispatched;
                 throw;
+            }
+
+            if (dispatchPreflight is not null)
+            {
+                pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
             }
 
             await pane.PasteBufferAsync(
@@ -331,7 +372,8 @@ internal sealed partial class WriteTools
         if (cleanupFailure is not null)
         {
             return new ActionResult(
-                $"Pasted {text.Length} characters into {pane.Id}, but cleanup failed and "
+                $"Pasted {text.Length} characters{(enter ? " and Enter" : string.Empty)} "
+                + $"into {pane.Id}, but cleanup failed and "
                 + $"temporary buffer {buffer} may remain. Do not retry the paste. Inspect "
                 + "and remove it manually with "
                 + $"tmux delete-buffer -b {buffer}.",
@@ -339,7 +381,8 @@ internal sealed partial class WriteTools
         }
 
         return new ActionResult(
-            $"Pasted {text.Length} characters into {pane.Id}.",
+            $"Pasted {text.Length} characters{(enter ? " and Enter" : string.Empty)} "
+                + $"into {pane.Id}.",
             PaneId: pane.Id.ToString());
     }
 
