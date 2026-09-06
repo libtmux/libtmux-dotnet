@@ -686,6 +686,52 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
+    public async Task A_socket_named_with_a_non_ascii_byte_pins_the_path_it_names()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        // Short, because a Unix domain socket path is capped at 104 bytes and
+        // macOS spends about half of that on its temporary directory.
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            $"lt-{Guid.NewGuid().ToString("N")[..8]}");
+        Directory.CreateDirectory(root);
+        const string name = "lt-\u00fe";
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+        {
+            ["TMUX_TMPDIR"] = root,
+            [McpStartup.SocketVariable] = name,
+            ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
+        };
+
+        try
+        {
+            // The server has to exist, because that is when tmux stores the
+            // escaped spelling this pins around.
+            Server seeded = Server.Open(new ServerConnectionOptions(
+                socketName: name,
+                childEnvironment: environment));
+            await seeded.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
+
+            McpStartup startup = await McpStartup.ResolveAsync(
+                variable => environment.GetValueOrDefault(variable), token);
+
+            // tmux 3.4 and 3.5 answer #{socket_path} with printable escapes of
+            // the byte, naming no file. The pinned path has to be the one the
+            // socket actually has, because it is the -S a run travels over.
+            Assert.Null(startup.ConnectionOptions.SocketName);
+            string pinned = Assert.IsType<string>(startup.ConnectionOptions.SocketPath);
+            Assert.Equal(Path.Combine(root, $"tmux-{PaneInputEndpoint.UserId}", name), pinned);
+            Assert.True(File.Exists(pinned), $"pinned socket does not exist: {pinned}");
+            await seeded.ExecuteCommandAsync(["kill-server"], token);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task Default_startup_proves_new_minimal_daemon_ownership()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
