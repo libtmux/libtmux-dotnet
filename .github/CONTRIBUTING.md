@@ -335,11 +335,12 @@ stops a moved tag from changing what CI runs. Dependabot maintains those pins.
 
 `src/LibTmux.Mcp` is a stdio server, so the only honest test of its tool
 descriptions is whether a model picks the right tool without being told which.
-`eng/mcp/mcp_swap.py` points every installed agent CLI at a local build, and
-`revert` puts their configs back from the timestamped backup it took:
+The private [native MCP config swapper](../eng/mcp-swap/README.md) points every
+installed agent CLI at a local build, and `revert` puts their configs back from
+the timestamped backup it took:
 
 ```console
-$ uv run eng/mcp/mcp_swap.py use \
+$ mise exec -- dotnet run --project eng/mcp-swap/LibTmux.McpSwap.csproj -- use \
     --source release \
     --env TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
 ```

@@ -162,7 +162,8 @@ The supported range is 3.2a to 3.7c, proven from source on every commit.
 If you install the SDK through a version manager rather than system-wide, an
 agent that spawns this server will not inherit your shell and the launcher will
 not find the runtime. Set `DOTNET_ROOT` in the client's config for that server;
-`eng/mcp/mcp_swap.py` does it for you.
+the repository's [native config swapper](../../eng/mcp-swap/README.md) does it
+for you.
 
 ## Related packages
 
