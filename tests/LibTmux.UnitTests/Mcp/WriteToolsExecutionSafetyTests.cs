@@ -15,6 +15,30 @@ public sealed class ProcessEnvironmentCollectionDefinition;
 [UnsupportedOSPlatform("windows")]
 public sealed class WriteToolsExecutionSafetyTests
 {
+    [Fact]
+    public async Task Explicit_connection_options_pin_the_tmux_binary()
+    {
+        const string variable = "LIBTMUX_TMUX";
+        string? before = Environment.GetEnvironmentVariable(variable);
+        Environment.SetEnvironmentVariable(variable, "/not/a/late/tmux");
+        try
+        {
+            using var accessor = new TmuxConnectionAccessor(
+                new ServerConnectionOptions(
+                    tmuxBinaryPath: "/bin/false",
+                    socketName: $"route-pin-{Guid.NewGuid():N}"));
+
+            Server server = await accessor.GetAsync(
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal("/bin/false", server.ConnectionOptions.TmuxBinaryPath);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(variable, before);
+        }
+    }
+
     [Theory]
     [InlineData("0", false)]
     [InlineData("1", true)]

@@ -153,6 +153,61 @@ public sealed class ServerPolicyTests
                 TestContext.Current.CancellationToken));
     }
 
+    [UnixFact]
+    public async Task Tmux_routes_reject_every_ascii_control_and_del_before_probe()
+    {
+        int[] controls =
+        [
+            10,
+            .. Enumerable.Range(0, 32).Where(value => value != 10),
+            127,
+        ];
+        foreach (string variable in new[]
+        {
+            "LIBTMUX_TMUX",
+            McpStartup.SocketVariable,
+            McpStartup.SocketPathVariable,
+        })
+        {
+            foreach (int value in controls)
+            {
+                string route = $"route'{(char)value}雪";
+                Dictionary<string, string?> environment = new(StringComparer.Ordinal)
+                {
+                    ["LIBTMUX_TMUX"] = "/not/a/tmux/binary",
+                    [variable] = variable == McpStartup.SocketPathVariable
+                        ? Path.Combine(Path.GetTempPath(), route)
+                        : route,
+                };
+
+                ModelContextProtocol.McpException failure = await Assert.ThrowsAsync<
+                    ModelContextProtocol.McpException>(() => McpStartup.ResolveAsync(
+                        name => environment.GetValueOrDefault(name),
+                        TestContext.Current.CancellationToken));
+
+                Assert.Contains("ASCII control", failure.Message, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
+    public void Tmux_route_validation_rejects_only_ascii_controls_and_del()
+    {
+        for (int value = 0; value <= byte.MaxValue; value++)
+        {
+            string route = $"route'{(char)value}雪";
+            Exception? failure = Record.Exception(() =>
+                McpStartup.RequireSafeRouteValue(route, "route"));
+
+            bool invalid = value <= 0x1f || value == 0x7f;
+            Assert.Equal(invalid, failure is not null);
+            if (invalid)
+            {
+                Assert.IsType<ModelContextProtocol.McpException>(failure);
+            }
+        }
+    }
+
     [Theory]
     [InlineData("0.001")]
     [InlineData("99999")]

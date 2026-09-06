@@ -15,8 +15,9 @@ namespace LibTmux.Mcp;
 /// the same commands, not one server addressed two ways.
 /// </para>
 /// <para>
-/// The tmux binary comes from <c>LIBTMUX_TMUX</c> when it is set, which is how
-/// a caller pins a build without changing the path.
+/// When no template is supplied, the tmux binary comes from
+/// <c>LIBTMUX_TMUX</c>. An explicit template is already a pinned route and wins
+/// over later process-environment changes.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -40,8 +41,10 @@ public sealed class TmuxConnectionAccessor : IDisposable
         string? defaultSocketName = null,
         ILogger? logger = null)
     {
+        bool useProcessDefault = template is null;
         _template = template ?? new ServerConnectionOptions();
-        _binaryPath = System.Environment.GetEnvironmentVariable(BinaryVariable) is string named
+        _binaryPath = useProcessDefault
+            && System.Environment.GetEnvironmentVariable(BinaryVariable) is string named
             && !string.IsNullOrWhiteSpace(named)
                 ? named
                 : _template.TmuxBinaryPath;

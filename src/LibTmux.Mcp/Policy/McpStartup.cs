@@ -61,6 +61,8 @@ internal sealed record McpStartup(
 
         string? socketName = NonBlank(Read(SocketVariable), SocketVariable);
         string? socketPath = NonBlank(Read(SocketPathVariable), SocketPathVariable);
+        RequireSafeRouteValue(socketName, SocketVariable);
+        RequireSafeRouteValue(socketPath, SocketPathVariable);
         if (socketName is not null && socketPath is not null)
         {
             throw new McpException(
@@ -93,6 +95,7 @@ internal sealed record McpStartup(
         (string? configurationFile, string configurationProvenance) =
             ParseConfiguration(Read(ConfigurationVariable));
         string binary = NonBlank(Read(TmuxBinaryVariable), TmuxBinaryVariable) ?? "tmux";
+        RequireSafeRouteValue(binary, TmuxBinaryVariable);
         Dictionary<string, string?> childEnvironment = ChildEnvironment(
             Read(TmuxTemporaryDirectoryVariable));
         ServerConnectionOptions options = Options(
@@ -307,6 +310,23 @@ internal sealed record McpStartup(
         }
 
         return value;
+    }
+
+    internal static void RequireSafeRouteValue(string? value, string variable)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        foreach (char character in value)
+        {
+            if (character <= '\u001f' || character == '\u007f')
+            {
+                throw new McpException(
+                    $"{variable} must not contain an ASCII control character or DEL.");
+            }
+        }
     }
 
     private enum ProbeState
