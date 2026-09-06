@@ -1375,14 +1375,21 @@ public sealed class TmuxToolsTests
             // a respawn under load is read part way through its chdir — the
             // answer is then an ancestor of the target, which looks exactly
             // like the fallback this proof exists to rule out.
-            Assert.Equal(
-                literalDirectory,
-                await TmuxWait.UntilAsync(
-                    cancellation => ReadAsync(spawned.PaneId!, "#{pane_current_path}"),
-                    path => path == literalDirectory,
-                    TestBudget.Settle,
-                    TimeSpan.FromMilliseconds(20),
-                    token));
+            // By identity, not by spelling. macOS reaches its temporary
+            // directory through a symlink, so a pane that chdir'd exactly
+            // where it was asked reports the resolved name and never equals
+            // the requested one.
+            string? settled = await TmuxWait.UntilAsync(
+                cancellation => ReadAsync(spawned.PaneId!, "#{pane_current_path}"),
+                path => path is not null
+                    && PaneInputEndpoint.SameDirectory(path, literalDirectory),
+                TestBudget.Settle,
+                TimeSpan.FromMilliseconds(20),
+                token);
+            Assert.True(
+                settled is not null
+                    && PaneInputEndpoint.SameDirectory(settled, literalDirectory),
+                $"expected {literalDirectory}, settled in {settled}");
         }
 
         Dictionary<(string Tool, string Field), Func<Task>> proofs = new()
