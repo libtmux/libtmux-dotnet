@@ -314,7 +314,11 @@ presentation metadata, not enforcement.
 The process pins one endpoint before registration. `LIBTMUX_SOCKET` supplies a
 socket name, `LIBTMUX_SOCKET_PATH` supplies an absolute socket path, and the two
 are mutually exclusive. `LIBTMUX_TMUX_CONFIG` is an explicit absolute config
-path. With none of these set, the server uses the product-dedicated
+path. `LIBTMUX_TMUX` selects the executable; a bare or relative value is
+resolved once against the startup `PATH`, and later calls use that absolute
+path. Once a server answers, its reported absolute socket path replaces the
+name selector so pane-local environment changes cannot redirect a run's
+bookkeeping. With none of these set, the server uses the product-dedicated
 `libtmux-mcp` socket and minimal configuration. A newly created dedicated
 minimal endpoint defaults to all four toolsets. Existing, explicitly named,
 path-pinned, and user-configured endpoints omit teardown unless it is selected
@@ -376,6 +380,8 @@ for the current surface.
 | `tmux_server_info`, `tmux_whoami`, `tmux://self` | `get_server_info` and `list_panes` | `callerPaneId` and `isCaller` replace the separate identity route. |
 | `tmux_show_options`, `tmux_split_pane` | `show_option`, `split_window` | The new names match the cross-port surface. Spawn calls accept no command or environment payload. |
 | `tmux_clear_pane` | `clear_pane_scrollback` | Scrollback deletion remains. Clearing the visible screen has no MCP replacement. |
+| `break_pane`, `join_pane` | No current MCP replacement; .NET callers can use `Pane.BreakAsync` and `Pane.JoinAsync` directly. | Cross-port MCP deliberately omits pane reparenting. The core library operations remain available. |
+| `set_option` | `set_history_limit`, `set_mouse_enabled`, `set_pane_title`, `set_synchronize_panes`, or the core options API | The cross-port MCP exposes only purpose-specific setters. `show_option` still reads any option. |
 | `tmux_list_servers`, `tmux_kill_server`, `tmux://servers` | Socket environment variables and `tmux://capabilities` | One socket is pinned per process. Server discovery and server-wide teardown have no replacement. |
 | `tmux_list_buffers` and public buffer operations | `paste_text` | Paste uses an ephemeral internal buffer; listing or managing tmux buffers has no replacement. |
 | `tmux_hierarchy`, `tmux://hierarchy`, `tmux://sessions`, `tmux://sessions/{sessionId}/panes`, `tmux://panes/{paneId}/content` | `list_sessions`, `list_windows`, `list_panes`, `capture_pane`, and `call_read_tools_batch` | Reads remain approval-bearing tools. Dynamic resources, templates, and subscriptions have no replacement. |

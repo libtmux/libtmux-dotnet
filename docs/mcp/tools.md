@@ -7,7 +7,7 @@ first time somebody adds a tool. Regenerate after changing the surface:
 $ uv run eng/mcp/dump_tools.py
 ```
 
-48 tools and 1 static resource. No dynamic resource
+45 tools and 1 static resource. No dynamic resource
 templates or prompts are registered (0 templates, 0 prompts).
 
 Every row is the capability object advertised with the tool under
@@ -19,7 +19,6 @@ Earlier tier-era names and removed families are mapped in the
 
 | Tool | Toolset | Reach | Effects | Output classes | Does |
 |---|---|---|---|---|---|
-| `break_pane` | manage | none | change, observe | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `call_read_tools_batch` | inspect | none | observe | configured-command, process-environment, terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
 | `capture_pane` | inspect | none | observe | terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
 | `capture_since` | inspect | none | observe | terminal-content, tmux-metadata | Read pane output; accepts no client-supplied executable input. |
@@ -32,7 +31,6 @@ Earlier tier-era names and removed families are mapped in the
 | `get_session_info` | inspect | none | observe | tmux-metadata | Inspect tmux metadata; accepts no client-supplied executable input. |
 | `get_tmux_variables` | inspect | none | observe | configured-command, tmux-metadata | Read configured tmux commands; accepts no client-supplied executable input. |
 | `get_window_info` | inspect | none | observe | tmux-metadata | Inspect tmux metadata; accepts no client-supplied executable input. |
-| `join_pane` | manage | none | change, observe | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `kill_pane` | teardown | none | delete, observe | tmux-metadata | Delete tmux state; accepts no command payload. |
 | `kill_session` | teardown | none | delete, observe | tmux-metadata | Delete tmux state; accepts no command payload. |
 | `kill_window` | teardown | none | delete, observe | tmux-metadata | Delete tmux state; accepts no command payload. |
@@ -55,7 +53,6 @@ Earlier tier-era names and removed families are mapped in the
 | `send_keys_batch` | execute | pane-input | change, observe | tmux-metadata | Send input to a pane's program; a shell that receives it runs it with your user's permissions. |
 | `set_history_limit` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_mouse_enabled` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
-| `set_option` | manage | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_pane_title` | manage | none | change, observe | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `set_synchronize_panes` | execute | none | change | tmux-metadata | Change tmux state; no client-supplied executable input. |
 | `show_environment` | inspect | none | observe | process-environment | Read the tmux environment; accepts no client-supplied executable input. |
