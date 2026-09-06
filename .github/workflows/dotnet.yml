@@ -277,18 +277,30 @@ jobs:
       - name: Name the second link
         if: ${{ failure() }}
         run: |
+          # Report only. find walks unreadable directories and returns non-zero,
+          # and the shell runs with -e, which ended the last attempt after one
+          # root and hid every case worth seeing.
+          set +e
           shopt -s nullglob
           for root in "${TMPDIR}"libtmux-mcp-swap-*; do
             lock="$root/state/libtmux-mcp-dev/swap/state.lock"
             [ -e "$lock" ] || continue
+            read -r links ino <<<"$(stat -f '%l %i' "$lock")"
+            [ "$links" = "1" ] && continue
             echo "== $lock"
             stat -f 'nlink=%l ino=%i mode=%Lp uid=%u' "$lock"
-            ino="$(stat -f %i "$lock")"
-            echo "-- every name sharing that inode, across the whole volume:"
-            find / -xdev -inum "$ino" 2>/dev/null
+            echo "-- names sharing that inode under the per-user temp tree:"
+            # /private/var/folders is where TMPDIR really lives; searching it
+            # rather than / skips the firmlink at /System/Volumes/Data that
+            # reports one inode under two prefixes.
+            find /private/var/folders -inum "$ino" 2>/dev/null
+            echo "-- and under /tmp:"
+            find /private/tmp -inum "$ino" 2>/dev/null
             echo "-- the tree the test left behind:"
-            find "$root" -print0 | xargs -0 stat -f '%N nlink=%l ino=%i mode=%Lp'
+            find "$root" -print0 2>/dev/null | xargs -0 stat -f '%N nlink=%l ino=%i mode=%Lp' 2>/dev/null
           done
+          echo "== done"
+          exit 0
 
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,
