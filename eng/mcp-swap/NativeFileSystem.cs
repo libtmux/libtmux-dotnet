@@ -468,16 +468,6 @@ internal static partial class NativeFileSystem
 
     internal static NativeIdentity LStat(string path) => ReadStat(path, follow: false);
 
-    /// <summary>Dumps the first bytes lstat wrote, to check a decode against a platform.</summary>
-    /// <param name="path">The path to stat.</param>
-    /// <returns>The leading bytes as hex, or why the call failed.</returns>
-    internal static string RawStatHex(string path)
-    {
-        byte[] buffer = new byte[MetadataBufferSize];
-        return InvokeStat(Path.GetFullPath(path), buffer, follow: false) != 0
-            ? $"lstat errno {Marshal.GetLastPInvokeError()}"
-            : Convert.ToHexString(buffer.AsSpan(0, 32));
-    }
 
     internal static bool TryLStat(string path, out NativeIdentity? identity)
     {

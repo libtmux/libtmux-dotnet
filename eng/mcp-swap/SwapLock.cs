@@ -239,11 +239,7 @@ internal sealed class SwapLock : IDisposable
         {
             throw new IOException(
                 $"swap lock must be an owned 0600 regular file with one link: {logical} "
-                + $"{Observed(current)} [raw {Observed(raw)}, "
-                + $"physical {physical}, realpath {NativeFileSystem.RealPath(logical)}, "
-                + $"dirphysical {directory.Physical}, "
-                + $"hex(logical) {NativeFileSystem.RawStatHex(logical)}, "
-                + $"hex(physical) {NativeFileSystem.RawStatHex(physical)}]");
+                + $"{Observed(current)} [raw {Observed(raw)}, physical {physical}]");
         }
 
         return new(logical, physical, current);
