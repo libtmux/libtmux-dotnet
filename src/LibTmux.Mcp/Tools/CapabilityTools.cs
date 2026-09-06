@@ -56,7 +56,8 @@ internal sealed record PaneInputBatchResult(
 
 internal sealed record PaneInputPreflight(
     Pane Pane,
-    IReadOnlyList<string> TargetPaneIds);
+    IReadOnlyList<string> TargetPaneIds,
+    PaneRunRegistry.PaneInputLease? DispatchLease);
 
 internal enum PaneInputPreflightKind
 {
@@ -918,17 +919,22 @@ internal sealed class CapabilityTools
             paneId,
             "run_shell_command",
             PaneInputPreflightKind.SingularCommand,
+            reserveDispatch: false,
             cancellationToken).ConfigureAwait(false);
+        PaneRunRegistry.PaneRunLease lease = PaneRunRegistry.Acquire(initial.Pane);
         return await _write.RunWithDispatchPreflightAsync(
                 command, initial.Pane, timeoutSeconds, maxLines, suppressHistory,
                 socketName: null,
                 progress: null,
+                lease,
                 dispatchPreflight: async token =>
                 {
                     PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
                         initial.Pane.Id.ToString(),
                         "run_shell_command",
                         PaneInputPreflightKind.SingularCommand,
+                        reserveDispatch: false,
+                        lease,
                         token).ConfigureAwait(false);
                     return final.Pane;
                 },
@@ -949,19 +955,29 @@ internal sealed class CapabilityTools
                 paneId,
                 "send_keys",
                 PaneInputPreflightKind.Configured,
+                reserveDispatch: true,
                 cancellationToken)
             .ConfigureAwait(false);
-        ActionResult result = await WriteTools.SendKeysToPreflightedPaneAsync(
-                final.Pane,
-                keys,
-                enter,
-                literal,
-                suppressHistory,
-                "send_keys",
-                cancellationToken)
-            .ConfigureAwait(false);
-        return new PaneInputResult(
-            WithCohort(result.Changed, final), final.Pane.Id.ToString(), final.TargetPaneIds);
+        try
+        {
+            ActionResult result = await WriteTools.SendKeysToPreflightedPaneAsync(
+                    final.Pane,
+                    keys,
+                    enter,
+                    literal,
+                    suppressHistory,
+                    "send_keys",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return new PaneInputResult(
+                WithCohort(result.Changed, final),
+                final.Pane.Id.ToString(),
+                final.TargetPaneIds);
+        }
+        finally
+        {
+            final.DispatchLease?.Release();
+        }
     }
 
     public async Task<PaneInputBatchResult> SendKeysBatchAsync(
@@ -989,12 +1005,14 @@ internal sealed class CapabilityTools
         for (int index = 0; index < operations.Count; index++)
         {
             PaneInputOperation operation = operations[index];
+            PaneInputPreflight? final = null;
             try
             {
-                PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                final = await PreflightPaneInputDispatchAsync(
                         operation.PaneId,
                         "send_keys_batch",
                         PaneInputPreflightKind.Configured,
+                        reserveDispatch: true,
                         cancellationToken)
                     .ConfigureAwait(false);
                 _ = await WriteTools.SendKeysToPreflightedPaneAsync(
@@ -1028,6 +1046,10 @@ internal sealed class CapabilityTools
                     break;
                 }
             }
+            finally
+            {
+                final?.DispatchLease?.Release();
+            }
         }
 
         return new PaneInputBatchResult(
@@ -1050,6 +1072,7 @@ internal sealed class CapabilityTools
                 paneId,
                 "paste_text",
                 PaneInputPreflightKind.TargetOnly,
+                reserveDispatch: false,
                 cancellationToken)
             .ConfigureAwait(false);
         return await WriteTools.PasteWithDispatchPreflightAsync(
@@ -1063,9 +1086,10 @@ internal sealed class CapabilityTools
                             initial.Pane.Id.ToString(),
                             "paste_text",
                             PaneInputPreflightKind.TargetOnly,
+                            reserveDispatch: true,
                             token)
                         .ConfigureAwait(false);
-                    return final.Pane;
+                    return final;
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -1160,6 +1184,8 @@ internal sealed class CapabilityTools
             string? paneId,
             string toolName,
             PaneInputPreflightKind kind,
+            bool reserveDispatch,
+            PaneRunRegistry.PaneRunLease? runLease,
             CancellationToken cancellationToken)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
@@ -1180,8 +1206,24 @@ internal sealed class CapabilityTools
             callerPaneId,
             requestedPaneId,
             toolName,
-            kind);
+            kind,
+            reserveDispatch,
+            runLease);
     }
+
+    private Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
+        string? paneId,
+        string toolName,
+        PaneInputPreflightKind kind,
+        bool reserveDispatch,
+        CancellationToken cancellationToken) =>
+        PreflightPaneInputDispatchAsync(
+            paneId,
+            toolName,
+            kind,
+            reserveDispatch,
+            runLease: null,
+            cancellationToken);
 
     private static async Task<string> ResolvePaneInputIdAsync(
         Server server,
@@ -1222,7 +1264,9 @@ internal sealed class CapabilityTools
         string? callerPaneId,
         string paneId,
         string toolName,
-        PaneInputPreflightKind kind)
+        PaneInputPreflightKind kind,
+        bool reserveDispatch,
+        PaneRunRegistry.PaneRunLease? runLease)
     {
         Dictionary<string, Pane> unique = panes
             .GroupBy(candidate => candidate.Id.ToString(), StringComparer.Ordinal)
@@ -1287,9 +1331,16 @@ internal sealed class CapabilityTools
             RequirePosixShell(source, toolName);
         }
 
+        PaneRunRegistry.PaneInputLease? dispatchLease = PaneRunRegistry.Authorize(
+            configured,
+            runLease,
+            toolName,
+            reserveDispatch);
+
         return new PaneInputPreflight(
             source,
-            configuredIds);
+            configuredIds,
+            dispatchLease);
     }
 
     // targetPaneIds carries configured membership, but the sentence names one

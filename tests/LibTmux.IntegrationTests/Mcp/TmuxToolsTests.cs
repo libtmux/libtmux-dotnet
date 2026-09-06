@@ -152,6 +152,55 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_timed_out_run_blocks_retry_until_real_completion()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        RunResult timedOut = await mcp.Capabilities.RunShellCommandAsync(
+            "sleep 2",
+            pane,
+            timeoutSeconds: 0.1,
+            cancellationToken: token);
+        Assert.True(timedOut.TimedOut);
+
+        McpException refused = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo too-soon",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token));
+        Assert.Contains("still active", refused.Message, StringComparison.Ordinal);
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            try
+            {
+                RunResult after = await mcp.Capabilities.RunShellCommandAsync(
+                    "true",
+                    pane,
+                    timeoutSeconds: 5,
+                    cancellationToken: deadline.Token);
+                Assert.Equal(0, after.ExitStatus);
+                break;
+            }
+            catch (McpException error) when (error.Message.Contains(
+                "still active",
+                StringComparison.Ordinal))
+            {
+                await Task.Delay(25, deadline.Token);
+            }
+        }
+    }
+
+    [UnixFact]
     public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

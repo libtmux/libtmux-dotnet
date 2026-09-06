@@ -299,7 +299,7 @@ internal sealed partial class WriteTools
         Pane pane,
         bool bracketed,
         bool enter,
-        Func<CancellationToken, Task<Pane>> dispatchPreflight,
+        Func<CancellationToken, Task<PaneInputPreflight>> dispatchPreflight,
         CancellationToken cancellationToken) =>
         PasteTextAsyncCore(
             text,
@@ -314,17 +314,41 @@ internal sealed partial class WriteTools
         Pane pane,
         bool bracketed,
         bool enter,
-        Func<CancellationToken, Task<Pane>>? dispatchPreflight,
+        Func<CancellationToken, Task<PaneInputPreflight>>? dispatchPreflight,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(text);
         string payload = enter ? text + '\n' : text;
         Server server = pane.Server;
+        if (payload.Length == 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            PaneRunRegistry.PaneInputLease? noOpLease = null;
+            try
+            {
+                if (dispatchPreflight is not null)
+                {
+                    PaneInputPreflight final = await dispatchPreflight(cancellationToken)
+                        .ConfigureAwait(false);
+                    pane = final.Pane;
+                    noOpLease = final.DispatchLease;
+                }
+
+                return new ActionResult(
+                    $"No text or Enter was requested for {pane.Id}; pane input was unchanged.",
+                    PaneId: pane.Id.ToString());
+            }
+            finally
+            {
+                noOpLease?.Release();
+            }
+        }
 
         string buffer = $"libtmux_mcp_{Guid.NewGuid():N}"[..24];
         Exception? primaryFailure = null;
         Exception? cleanupFailure = null;
         bool bufferMayExist = false;
+        PaneRunRegistry.PaneInputLease? dispatchLease = null;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -347,7 +371,10 @@ internal sealed partial class WriteTools
 
             if (dispatchPreflight is not null)
             {
-                pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
+                PaneInputPreflight final = await dispatchPreflight(cancellationToken)
+                    .ConfigureAwait(false);
+                pane = final.Pane;
+                dispatchLease = final.DispatchLease;
             }
 
             await pane.PasteBufferAsync(
@@ -362,6 +389,7 @@ internal sealed partial class WriteTools
         }
         finally
         {
+            dispatchLease?.Release();
             if (bufferMayExist)
             {
                 cleanupFailure = await CleanupPasteBufferAsync(server, buffer, primaryFailure)

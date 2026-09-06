@@ -670,6 +670,221 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task A_process_wide_run_reservation_refuses_a_competing_run()
+    {
+        await using var firstFixture = new ToolFixture { BlockFirstWait = true };
+        await using var secondFixture = new ToolFixture();
+        Task<RunResult> first = firstFixture.Capabilities.RunShellCommandAsync(
+            "sleep 1",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        await firstFixture.FirstWaitStarted.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                secondFixture.Capabilities.RunShellCommandAsync(
+                    "echo competing",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(1, firstFixture.SuccessfulSends);
+            Assert.Equal(0, secondFixture.SuccessfulSends);
+        }
+        finally
+        {
+            firstFixture.ReleaseFirstWait();
+            _ = await first;
+        }
+    }
+
+    [Fact]
+    public async Task An_active_run_refuses_other_pane_input_paths()
+    {
+        await using var owner = new ToolFixture { BlockFirstWait = true };
+        await using var writer = new ToolFixture();
+        Task<RunResult> running = owner.Capabilities.RunShellCommandAsync(
+            "sleep 1",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        await owner.FirstWaitStarted.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            Exception? send = await Record.ExceptionAsync(() =>
+                writer.Capabilities.SendKeysAsync(
+                    "blocked",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            Exception? paste = await Record.ExceptionAsync(() =>
+                writer.Capabilities.PasteTextAsync(
+                    "blocked",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            PaneInputBatchResult batch = await writer.Capabilities.SendKeysBatchAsync(
+                [new PaneInputOperation("blocked", "%1")],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Contains("still active", Assert.IsType<McpException>(send).Message);
+            Assert.Contains("still active", Assert.IsType<McpException>(paste).Message);
+            Assert.Contains("still active", Assert.Single(batch.Results).Error);
+            Assert.Equal(0, writer.SuccessfulSends);
+        }
+        finally
+        {
+            owner.ReleaseFirstWait();
+            _ = await running;
+        }
+    }
+
+    [Fact]
+    public async Task A_run_refuses_while_an_input_dispatch_is_in_flight()
+    {
+        await using var writer = new ToolFixture { BlockFirstSend = true };
+        await using var runner = new ToolFixture();
+        Task<PaneInputResult> writing = writer.Capabilities.SendKeysAsync(
+            "one",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        await writer.FirstSendStarted.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                runner.Capabilities.RunShellCommandAsync(
+                    "echo competing",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("input", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, runner.SuccessfulSends);
+        }
+        finally
+        {
+            writer.ReleaseFirstSend();
+            _ = await writing;
+        }
+    }
+
+    [Fact]
+    public async Task A_timed_out_run_keeps_its_reservation_until_completion()
+    {
+        await using var owner = new ToolFixture { TimeoutFirstWait = true };
+        await using var contender = new ToolFixture();
+
+        RunResult timedOut = await owner.Capabilities.RunShellCommandAsync(
+            "sleep 1",
+            "%1",
+            timeoutSeconds: 0.01,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(timedOut.TimedOut);
+        await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    [Fact]
+    public async Task A_cancelled_run_keeps_its_reservation_until_completion()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        await using var owner = new ToolFixture
+        {
+            TimeoutFirstWait = true,
+            CancelAfterSuccessfulSend = cancellation,
+        };
+        await using var contender = new ToolFixture();
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "sleep 1",
+                "%1",
+                cancellationToken: cancellation.Token));
+
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+        await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    [Fact]
+    public async Task An_ambiguous_dispatch_keeps_its_reservation_until_completion()
+    {
+        await using var owner = new ToolFixture
+        {
+            TimeoutFirstWait = true,
+            UnknownSendAttempt = 1,
+        };
+        await using var contender = new ToolFixture();
+
+        TmuxTransportException failure = await Assert.ThrowsAsync<TmuxTransportException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "sleep 1",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+        await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    [Fact]
+    public async Task A_completed_run_requires_its_authenticated_exit_status()
+    {
+        await using var owner = new ToolFixture { StatusValue = null };
+        await using var next = new ToolFixture();
+
+        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "echo once",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("exit status", failure.Message, StringComparison.OrdinalIgnoreCase);
+        RunResult after = await next.Capabilities.RunShellCommandAsync(
+            "echo after",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(after.TimedOut);
+    }
+
+    private static async Task AssertReservedUntilCompletionAsync(
+        ToolFixture owner,
+        ToolFixture contender)
+    {
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                contender.Capabilities.RunShellCommandAsync(
+                    "echo too-soon",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+            Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(0, contender.SuccessfulSends);
+        }
+        finally
+        {
+            owner.CompleteTimedOutRun();
+        }
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(2));
+        while (true)
+        {
+            try
+            {
+                RunResult afterCompletion = await contender.Capabilities.RunShellCommandAsync(
+                    "echo after",
+                    "%1",
+                    cancellationToken: deadline.Token);
+                Assert.False(afterCompletion.TimedOut);
+                break;
+            }
+            catch (McpException error) when (error.Message.Contains(
+                "still active",
+                StringComparison.Ordinal))
+            {
+                await Task.Delay(10, deadline.Token);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Run_rejects_an_oversized_command_before_any_query_or_mutation()
     {
         await using var fixture = new ToolFixture(new ServerPolicy { MaxBytes = 4_000 });
@@ -890,7 +1105,7 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task Run_post_dispatch_failure_is_unknown_and_cleans_its_marker()
+    public async Task Run_post_dispatch_wait_failure_retains_cleanup_until_recovery()
     {
         await using var fixture = new ToolFixture { FailWait = true };
 
@@ -910,6 +1125,7 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Contains(
             fixture.Commands,
             arguments => arguments.Contains("paste-buffer", StringComparer.Ordinal));
+        await fixture.StatusUnsetObserved.WaitAsync(TestContext.Current.CancellationToken);
         Assert.Contains(fixture.Commands, IsStatusUnset);
     }
 
@@ -970,6 +1186,25 @@ public sealed class WriteToolsExecutionSafetyTests
             arguments.Contains("set-buffer", StringComparer.Ordinal));
         Assert.Contains(fixture.Commands, arguments =>
             arguments.Contains("delete-buffer", StringComparer.Ordinal));
+        Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+    }
+
+    [Fact]
+    public async Task Capability_empty_paste_rechecks_without_creating_a_buffer()
+    {
+        await using var fixture = new ToolFixture();
+
+        ActionResult result = await fixture.Capabilities.PasteTextAsync(
+            string.Empty,
+            "%1",
+            enter: false,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Contains("unchanged", result.Changed, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, fixture.PaneListingCount);
+        Assert.Equal(2, fixture.ClientListingCount);
+        Assert.DoesNotContain(fixture.Commands, arguments =>
+            arguments.Contains("set-buffer", StringComparer.Ordinal));
         Assert.DoesNotContain(fixture.Commands, IsSendKeys);
     }
 
@@ -1056,6 +1291,19 @@ public sealed class WriteToolsExecutionSafetyTests
         private int _stateSampleCount;
         private int _stateVersion;
         private int _unstableStateSamples;
+        private int _waitCount;
+        private readonly TaskCompletionSource _firstWaitStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseFirstWait = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _firstSendStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseFirstSend = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseTimedOutWait = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _statusUnsetObserved = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal ToolFixture(ServerPolicy? policy = null)
         {
@@ -1086,6 +1334,12 @@ public sealed class WriteToolsExecutionSafetyTests
         internal int? AmbiguousSendAttempt { get; init; }
 
         internal IReadOnlyList<string> BeforeLines { get; init; } = ["prompt"];
+
+        internal bool BlockFirstWait { get; init; }
+
+        internal bool BlockFirstSend { get; init; }
+
+        internal bool TimeoutFirstWait { get; init; }
 
         internal CancellationTokenSource? CancelAfterSuccessfulSend { get; init; }
 
@@ -1122,6 +1376,14 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal bool StatusUnsetTokenWasCancelled { get; private set; }
 
+        internal Task StatusUnsetObserved => _statusUnsetObserved.Task;
+
+        internal string? StatusValue { get; init; } = "0";
+
+        internal Task FirstWaitStarted => _firstWaitStarted.Task;
+
+        internal Task FirstSendStarted => _firstSendStarted.Task;
+
         internal int? UnknownSendAttempt { get; init; }
 
         internal CapabilityTools Capabilities { get; }
@@ -1145,13 +1407,23 @@ public sealed class WriteToolsExecutionSafetyTests
             }
         }
 
+        internal void ReleaseFirstWait() => _releaseFirstWait.TrySetResult();
+
+        internal void ReleaseFirstSend() => _releaseFirstSend.TrySetResult();
+
+        internal void CompleteTimedOutRun()
+        {
+            _releaseFirstWait.TrySetResult();
+            _releaseTimedOutWait.TrySetResult();
+        }
+
         public async ValueTask DisposeAsync()
         {
             await _activity.DisposeAsync().ConfigureAwait(false);
             _accessor.Dispose();
         }
 
-        private Task<TmuxCommandResult> ExecuteAsync(
+        private async Task<TmuxCommandResult> ExecuteAsync(
             TmuxCommandRequest request,
             CancellationToken cancellationToken)
         {
@@ -1159,13 +1431,31 @@ public sealed class WriteToolsExecutionSafetyTests
             Commands.Enqueue(arguments);
             if (arguments.Length > 0 && arguments[0] == "wait-for")
             {
+                bool signal = arguments.Contains("-S", StringComparer.Ordinal);
+                if (signal && TimeoutFirstWait && Volatile.Read(ref _waitCount) == 1)
+                {
+                    _releaseFirstWait.TrySetResult();
+                }
+
+                int wait = signal ? 0 : Interlocked.Increment(ref _waitCount);
+                if ((BlockFirstWait || TimeoutFirstWait) && wait == 1)
+                {
+                    _firstWaitStarted.TrySetResult();
+                    await _releaseFirstWait.Task.WaitAsync(cancellationToken);
+                }
+
+                if (TimeoutFirstWait && wait == 2)
+                {
+                    await _releaseTimedOutWait.Task.WaitAsync(cancellationToken);
+                }
+
                 if (CancelDuringWait is not null)
                 {
                     CancelDuringWait.Cancel();
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                if (FailWait)
+                if (FailWait && !signal && wait == 1)
                 {
                     throw new TmuxTransportException(
                         "wait was not dispatched",
@@ -1177,6 +1467,12 @@ public sealed class WriteToolsExecutionSafetyTests
             if (IsSendKeys(arguments))
             {
                 SendAttempts++;
+                if (BlockFirstSend && SendAttempts == 1)
+                {
+                    _firstSendStarted.TrySetResult();
+                    await _releaseFirstSend.Task.WaitAsync(cancellationToken);
+                }
+
                 if (AmbiguousSendAttempt == SendAttempts)
                 {
                     throw new TmuxOperationCanceledException(
@@ -1210,9 +1506,10 @@ public sealed class WriteToolsExecutionSafetyTests
             if (IsStatusUnset(arguments))
             {
                 StatusUnsetTokenWasCancelled |= cancellationToken.IsCancellationRequested;
+                _statusUnsetObserved.TrySetResult();
             }
 
-            return Task.FromResult(Success(arguments, Output(arguments)));
+            return Success(arguments, Output(arguments));
         }
 
         private string Output(IReadOnlyList<string> arguments)
@@ -1227,8 +1524,10 @@ public sealed class WriteToolsExecutionSafetyTests
                     ? StateListing()
                     : arguments.Contains("capture-pane", StringComparer.Ordinal)
                         ? Lines(CaptureLines())
-                        : arguments.Contains("show-options", StringComparer.Ordinal)
-                            ? $"{arguments[^1]} 0\n"
+                    : arguments.Contains("show-options", StringComparer.Ordinal)
+                            ? StatusValue is null
+                                ? string.Empty
+                                : $"{arguments[^1]} {StatusValue}\n"
                             : string.Empty;
             return IsGuarded(arguments)
                 ? $"{Generation.ProcessId}:{Generation.StartTime}\n{body}"
