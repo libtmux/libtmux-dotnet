@@ -388,6 +388,9 @@ class FileState(t.NamedTuple):
     data: bytes
 
 
+OwnedFiles = dict[pathlib.Path, FileState]
+
+
 class DirectoryState(t.NamedTuple):
     """Logical and physical identity for a transaction directory."""
 
@@ -401,6 +404,19 @@ class DirectoryState(t.NamedTuple):
     device: int
     inode: int
     mode: int
+
+
+class LockState(t.NamedTuple):
+    """Authenticated path and open descriptor for the persistent swap lock."""
+
+    logical: pathlib.Path
+    physical: pathlib.Path
+    parent: DirectoryState | None
+    device: int | None
+    inode: int | None
+    mode: int | None
+    links: int | None
+    descriptor: int | None
 
 
 class Target(t.NamedTuple):
@@ -1062,14 +1078,118 @@ def load_state(*, strict: bool = False) -> dict[tuple[CLIName, Scope], SwapEntry
         return {}
 
 
+def _lock_path() -> pathlib.Path:
+    return STATE_DIR / "state.lock"
+
+
+def _inspect_lock(*, descriptor: int | None = None) -> LockState:
+    """Inspect the lock without following either its path or parent."""
+    path = _lock_path()
+    parent = None
+    if os.path.lexists(STATE_DIR):
+        parent = _directory_state(STATE_DIR)
+        if parent.symlink:
+            raise RuntimeError(f"swap lock directory is a symlink: {STATE_DIR}")
+        physical = parent.physical / path.name
+    else:
+        physical = path.resolve(strict=False)
+    if not os.path.lexists(path):
+        return LockState(path, physical, parent, None, None, None, None, descriptor)
+    before = path.lstat()
+    if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+        raise RuntimeError(f"swap lock is not a regular file: {path}")
+    resolved = path.resolve(strict=True)
+    after = path.lstat()
+    before_key = (before.st_dev, before.st_ino, before.st_mode, before.st_nlink)
+    after_key = (after.st_dev, after.st_ino, after.st_mode, after.st_nlink)
+    if before_key != after_key or resolved != physical:
+        raise RuntimeError(f"swap lock changed while it was inspected: {path}")
+    return LockState(
+        path,
+        physical,
+        parent,
+        after.st_dev,
+        after.st_ino,
+        stat.S_IMODE(after.st_mode),
+        after.st_nlink,
+        descriptor,
+    )
+
+
+def _validate_lock(lock: LockState) -> None:
+    """Bind the lock's public path to its exclusive open descriptor."""
+    if lock.device is None or lock.inode is None:
+        if lock.descriptor is not None:
+            raise RuntimeError(f"swap lock path disappeared: {lock.logical}")
+        return
+    if lock.mode != 0o600:
+        raise RuntimeError(f"swap lock mode is not 0600: {lock.logical}")
+    if lock.links != 1:
+        raise RuntimeError(f"swap lock has hard links: {lock.logical}")
+    if lock.descriptor is None:
+        return
+    current = _inspect_lock(descriptor=lock.descriptor)
+    if current != lock:
+        raise RuntimeError(f"swap lock path changed: {lock.logical}")
+    opened = os.fstat(lock.descriptor)
+    if (
+        not stat.S_ISREG(opened.st_mode)
+        or (opened.st_dev, opened.st_ino) != (lock.device, lock.inode)
+        or stat.S_IMODE(opened.st_mode) != lock.mode
+        or opened.st_nlink != lock.links
+    ):
+        raise RuntimeError(f"swap lock descriptor changed: {lock.logical}")
+
+
 @contextlib.contextmanager
-def _state_lock() -> t.Iterator[None]:
-    """Serialize config mutations that share the swap state file."""
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    fd = os.open(STATE_DIR / "state.lock", os.O_RDWR | os.O_CREAT, 0o600)
-    with os.fdopen(fd, "a+b") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        yield
+def _state_lock() -> t.Iterator[LockState]:
+    """Hold and authenticate the persistent lock for every mutation."""
+    STATE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    directory_fd: int | None = None
+    lock_fd: int | None = None
+    try:
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise RuntimeError(
+                "platform cannot open the swap lock without following links"
+            )
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        directory_flags |= getattr(os, "O_CLOEXEC", 0)
+        directory_fd = os.open(STATE_DIR, directory_flags)
+        parent = _directory_state(STATE_DIR)
+        opened_parent = os.fstat(directory_fd)
+        if parent.symlink or (opened_parent.st_dev, opened_parent.st_ino) != (
+            parent.device,
+            parent.inode,
+        ):
+            raise RuntimeError(f"swap lock directory changed: {STATE_DIR}")
+        lock_flags = os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        try:
+            lock_fd = os.open(
+                _lock_path().name,
+                lock_flags | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=directory_fd,
+            )
+            os.fchmod(lock_fd, 0o600)
+        except FileExistsError:
+            lock_fd = os.open(_lock_path().name, lock_flags, dir_fd=directory_fd)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        lock = _inspect_lock(descriptor=lock_fd)
+        _validate_lock(lock)
+    except Exception as exc:
+        if lock_fd is not None:
+            os.close(lock_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
+        raise TransactionFailure(f"swap lock is unusable: {exc}") from exc
+    try:
+        yield lock
+    finally:
+        try:
+            _validate_lock(lock)
+        finally:
+            os.close(t.cast(int, lock_fd))
+            os.close(t.cast(int, directory_fd))
 
 
 def save_state(entries: dict[tuple[CLIName, Scope], SwapEntry]) -> None:
@@ -1108,6 +1228,25 @@ def _file_state(path: pathlib.Path) -> FileState:
         after.st_mtime_ns,
         data,
     )
+
+
+def _regular_file_state(path: pathlib.Path) -> FileState:
+    details = path.lstat()
+    if stat.S_ISLNK(details.st_mode) or not stat.S_ISREG(details.st_mode):
+        raise ValueError(f"{path} is not a regular file")
+    file = _file_state(path)
+    if (details.st_dev, details.st_ino) != (file.device, file.inode):
+        raise RuntimeError(f"{path} changed while it was resolved")
+    return file
+
+
+def _own(owned: OwnedFiles, path: pathlib.Path) -> None:
+    owned[path] = _regular_file_state(path)
+
+
+def _release_missing(owned: OwnedFiles, path: pathlib.Path) -> None:
+    if not os.path.lexists(path):
+        owned.pop(path, None)
 
 
 def _directory_state(path: pathlib.Path) -> DirectoryState:
@@ -1717,7 +1856,9 @@ def _plan_use(
 
 
 def _reject_transaction_aliases(
-    plans: t.Iterable[PreparedUse | PreparedRevert], state_file: ArtifactState
+    plans: t.Iterable[PreparedUse | PreparedRevert],
+    state_file: ArtifactState,
+    lock: LockState | None = None,
 ) -> None:
     config_paths: dict[pathlib.Path, str] = {}
     config_inodes: dict[tuple[int, int], str] = {}
@@ -1725,7 +1866,8 @@ def _reject_transaction_aliases(
     inodes: dict[tuple[int, int], str] = {}
 
     def claim(
-        path: pathlib.Path,
+        logical: pathlib.Path,
+        physical: pathlib.Path,
         file: FileState | None,
         owner: str,
         *,
@@ -1733,30 +1875,46 @@ def _reject_transaction_aliases(
     ) -> None:
         inode = None if file is None else (file.device, file.inode)
         if config:
-            duplicate = config_paths.get(path)
+            duplicate = config_paths.get(physical)
             if duplicate is None and inode is not None:
                 duplicate = config_inodes.get(inode)
             if duplicate is not None:
                 raise TransactionFailure(
                     f"duplicate physical config target for {duplicate} and {owner}"
                 )
-            config_paths[path] = owner
+            config_paths[physical] = owner
             if inode is not None:
                 config_inodes[inode] = owner
-        duplicate = paths.get(path)
-        if duplicate is None and inode is not None:
+        duplicate = next(
+            (
+                paths[path]
+                for path in dict.fromkeys((logical, physical))
+                if path in paths and paths[path] != owner
+            ),
+            None,
+        )
+        if duplicate is None and inode is not None and inodes.get(inode) != owner:
             duplicate = inodes.get(inode)
         if duplicate is not None:
             raise TransactionFailure(
                 f"duplicate transaction destination for {duplicate} and {owner}"
             )
-        paths[path] = owner
+        paths[logical] = owner
+        paths[physical] = owner
         if inode is not None:
             inodes[inode] = owner
 
     plan_list = list(plans)
+    if lock is not None:
+        lock_file = (
+            None
+            if lock.device is None or lock.inode is None
+            else FileState(lock.device, lock.inode, t.cast(int, lock.mode), 0, 0, b"")
+        )
+        claim(lock.logical, lock.physical, lock_file, "swap lock")
     for plan in plan_list:
         claim(
+            plan.config.target.info.config_path,
             plan.config.physical,
             plan.config.file,
             f"{plan.config.target.label} config",
@@ -1770,11 +1928,25 @@ def _reject_transaction_aliases(
         )
         for artifact in artifacts:
             claim(
+                artifact.path,
                 artifact.physical,
                 artifact.file,
                 f"{plan.config.target.label} backup",
             )
-    claim(state_file.physical, state_file.file, "swap state")
+    claim(
+        state_file.path,
+        state_file.physical,
+        state_file.file,
+        "swap state",
+    )
+
+
+def _check_lock_plan(
+    plans: t.Iterable[PreparedUse | PreparedRevert], state_file: ArtifactState
+) -> None:
+    lock = _inspect_lock()
+    _reject_transaction_aliases(plans, state_file, lock)
+    _validate_lock(lock)
 
 
 def _stage(
@@ -1801,48 +1973,159 @@ def _stage(
 
 
 def _apply_replace(
-    source: pathlib.Path, destination: pathlib.Path
+    source: pathlib.Path,
+    destination: pathlib.Path,
+    *,
+    expected: FileState,
+    destination_expected: FileState,
+    lock: LockState,
 ) -> tuple[FileState, Exception | None]:
-    source_state = _file_state(source)
-    delayed: Exception | None = None
+    """Take aside one exact file without clobbering either pathname."""
+    _validate_lock(lock)
+    if _regular_file_state(source) != expected:
+        raise RuntimeError(f"{source} changed before atomic take-aside")
+    if _regular_file_state(destination) != destination_expected:
+        raise RuntimeError(f"{destination} changed before atomic take-aside")
+    delayed = _apply_unlink(
+        destination,
+        expected=destination_expected,
+        lock=lock,
+    )
+    if delayed is not None:
+        raise delayed
+    committed, delayed = _publish_absent(
+        source,
+        destination,
+        expected=expected,
+        lock=lock,
+    )
     try:
-        os.replace(source, destination)
-    except Exception as exc:
-        try:
-            moved = _file_state(destination) == source_state
-        except (OSError, RuntimeError, ValueError):
-            moved = False
-        if not moved:
-            raise
-        delayed = exc
-    committed = _file_state(destination)
-    if committed != source_state:
-        raise RuntimeError(f"atomic replacement of {destination} was not exact")
+        removal_error = _apply_unlink(source, expected=expected, lock=lock)
+    except Exception as exc:  # noqa: BLE001 - retain the committed recovery
+        removal_error = exc
+    if delayed is None:
+        delayed = removal_error
     return committed, delayed
 
 
-def _apply_unlink(path: pathlib.Path) -> Exception | None:
+def _publish_absent(
+    source: pathlib.Path,
+    destination: pathlib.Path,
+    *,
+    expected: FileState,
+    lock: LockState,
+) -> tuple[FileState, Exception | None]:
+    """Publish an owned file only while the destination remains absent."""
+    _validate_lock(lock)
+    if _regular_file_state(source) != expected:
+        raise RuntimeError(f"{source} changed before atomic publication")
+    if os.path.lexists(destination):
+        raise RuntimeError(f"{destination} appeared before atomic publication")
+    _validate_lock(lock)
     delayed: Exception | None = None
     try:
-        os.unlink(path)
+        os.link(source, destination, follow_symlinks=False)
     except Exception as exc:
-        if os.path.lexists(path):
-            raise
+        try:
+            committed = _regular_file_state(destination)
+        except (OSError, RuntimeError, ValueError):
+            raise exc
+        if committed != expected:
+            raise RuntimeError(
+                f"atomic publication of {destination} was not exact"
+            ) from exc
         delayed = exc
+    else:
+        committed = _regular_file_state(destination)
+    if committed != expected:
+        raise RuntimeError(f"atomic publication of {destination} was not exact")
+    return committed, delayed
+
+
+def _remove_exact(path: pathlib.Path, expected: FileState) -> Exception | None:
+    """Move one public path into private quarantine before deleting it."""
+    quarantine_dir = pathlib.Path(
+        tempfile.mkdtemp(prefix=f".{path.name}.mcp-swap-retained-", dir=path.parent)
+    )
+    quarantine_dir.chmod(0o700)
+    quarantine = quarantine_dir / "artifact"
+    delayed: Exception | None = None
+    try:
+        path.rename(quarantine)
+    except Exception as exc:  # noqa: BLE001 - authenticate a possibly completed move
+        try:
+            current = _regular_file_state(quarantine)
+        except (OSError, RuntimeError, ValueError):
+            try:
+                quarantine_dir.rmdir()
+            except OSError:
+                pass
+            raise exc
+        delayed = exc
+    else:
+        current = _regular_file_state(quarantine)
+    if current != expected:
+        raise RuntimeError(f"{path} changed; retained at {quarantine_dir}")
     if os.path.lexists(path):
-        raise RuntimeError(f"{path} still exists after removal")
+        delayed = delayed or RuntimeError(f"{path} appeared during removal")
+    try:
+        quarantine.unlink()
+    except Exception as exc:
+        if os.path.lexists(quarantine):
+            raise RuntimeError(
+                f"{path} removal failed; retained at {quarantine_dir}: {exc}"
+            ) from exc
+        delayed = delayed or exc
+    if os.path.lexists(quarantine):
+        raise RuntimeError(f"{quarantine} still exists after removal")
+    try:
+        quarantine_dir.rmdir()
+    except Exception as exc:
+        if quarantine_dir.exists():
+            raise
+        delayed = delayed or exc
+    return delayed
+
+
+def _apply_unlink(
+    path: pathlib.Path,
+    *,
+    expected: FileState,
+    lock: LockState,
+) -> Exception | None:
+    _validate_lock(lock)
+    if _regular_file_state(path) != expected:
+        raise RuntimeError(f"{path} changed before removal")
+    _validate_lock(lock)
+    delayed = _remove_exact(path, expected)
+    try:
+        _validate_lock(lock)
+    except Exception as exc:  # noqa: BLE001 - preserve post-removal failure
+        if delayed is None:
+            delayed = exc
     return delayed
 
 
 def _cleanup_owned(
-    owned: set[pathlib.Path], preserve: set[pathlib.Path] | None = None
+    owned: OwnedFiles,
+    preserve: set[pathlib.Path] | None = None,
+    *,
+    lock: LockState,
 ) -> list[str]:
     retained = preserve or set()
     errors: list[str] = []
-    for path in sorted(owned - retained, key=str):
+    for path in sorted(
+        (candidate for candidate in owned if candidate not in retained), key=str
+    ):
         try:
-            path.unlink(missing_ok=True)
-        except OSError as exc:
+            if not os.path.lexists(path):
+                continue
+            _validate_lock(lock)
+            delayed = _remove_exact(path, owned[path])
+            if delayed is not None:
+                raise delayed
+            _validate_lock(lock)
+        except (OSError, RuntimeError, ValueError) as exc:
             errors.append(f"could not remove task-owned stage {path}: {exc}")
     return errors
 
@@ -1870,7 +2153,8 @@ def _stage_use_transaction(
     server: str,
     state: dict[tuple[CLIName, Scope], SwapEntry],
     state_file: ArtifactState,
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> tuple[
     list[StagedUse],
     pathlib.Path,
@@ -1880,6 +2164,7 @@ def _stage_use_transaction(
     staged: list[StagedUse] = []
     try:
         for plan in plans:
+            _validate_lock(lock)
             output = _stage(
                 plan.config.physical.parent,
                 plan.config.target.info.config_path.name,
@@ -1887,7 +2172,7 @@ def _stage_use_transaction(
                 plan.output,
                 plan.config.file.mode,
             )
-            owned.add(output)
+            _own(owned, output)
             recovery = _stage(
                 plan.config.physical.parent,
                 plan.config.target.info.config_path.name,
@@ -1895,7 +2180,7 @@ def _stage_use_transaction(
                 plan.config.file.data,
                 plan.config.file.mode,
             )
-            owned.add(recovery)
+            _own(owned, recovery)
             backup_stage = None
             backup = t.cast(ArtifactState, plan.backup)
             if backup.file is None:
@@ -1908,8 +2193,9 @@ def _stage_use_transaction(
                     plan.config.file.data,
                     plan.config.file.mode,
                 )
-                owned.add(backup_stage)
+                _own(owned, backup_stage)
             staged.append(StagedUse(plan, output, recovery, backup_stage))
+            _validate_lock(lock)
 
         next_state = dict(state)
         for item in staged:
@@ -1949,7 +2235,7 @@ def _stage_use_transaction(
             _state_bytes(next_state),
             0o600,
         )
-        owned.add(state_stage)
+        _own(owned, state_stage)
         state_recovery = None
         if state_file.file is not None:
             state_recovery = _stage(
@@ -1959,10 +2245,11 @@ def _stage_use_transaction(
                 state_file.file.data,
                 state_file.file.mode,
             )
-            owned.add(state_recovery)
+            _own(owned, state_recovery)
+        _validate_lock(lock)
         return staged, state_stage, state_recovery, next_state
     except Exception as exc:
-        cleanup = _cleanup_owned(owned)
+        cleanup = _cleanup_owned(owned, lock=lock)
         detail = f"swap staging failed: {exc}"
         if cleanup:
             detail += "; " + "; ".join(cleanup)
@@ -1987,13 +2274,25 @@ def _verify_removed_config(config: ConfigState) -> None:
         raise RuntimeError(f"{config.physical} appeared")
 
 
-def _restore_config(operation: ConfigWrite, owned: set[pathlib.Path]) -> None:
+def _restore_config(operation: ConfigWrite, owned: OwnedFiles, lock: LockState) -> None:
     if os.path.lexists(operation.config.physical):
         _verify_config(operation.config, operation.committed)
+        delayed = _apply_unlink(
+            operation.config.physical,
+            expected=operation.committed,
+            lock=lock,
+        )
+        if delayed is not None:
+            raise delayed
     else:
         _verify_removed_config(operation.config)
-    restored, delayed = _apply_replace(operation.recovery, operation.config.physical)
-    owned.discard(operation.recovery)
+    restored, delayed = _publish_absent(
+        operation.recovery,
+        operation.config.physical,
+        expected=owned[operation.recovery],
+        lock=lock,
+    )
+    _release_missing(owned, operation.recovery)
     if restored != operation.config.file:
         raise RuntimeError(
             f"{operation.config.target.label} config rollback identity changed"
@@ -2010,7 +2309,8 @@ def _rollback_use(
     state_changed: bool,
     state_committed: FileState | None,
     state_recovery: pathlib.Path | None,
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> tuple[list[str], set[pathlib.Path]]:
     errors: list[str] = []
     if state_changed:
@@ -2018,15 +2318,24 @@ def _rollback_use(
             if state_committed is not None:
                 current = _artifact_state(STATE_FILE, required=True)
                 _verify_artifact(current, state_committed)
-                delayed = _apply_unlink(STATE_FILE)
+                delayed = _apply_unlink(
+                    STATE_FILE,
+                    expected=state_committed,
+                    lock=lock,
+                )
                 if delayed is not None:
                     raise delayed
             elif os.path.lexists(STATE_FILE):
                 raise RuntimeError("unexpected replacement swap state")
             if state_file.file is not None:
                 recovery = t.cast(pathlib.Path, state_recovery)
-                restored, delayed = _apply_replace(recovery, STATE_FILE)
-                owned.discard(recovery)
+                restored, delayed = _publish_absent(
+                    recovery,
+                    STATE_FILE,
+                    expected=owned[recovery],
+                    lock=lock,
+                )
+                _release_missing(owned, recovery)
                 if restored != state_file.file:
                     raise RuntimeError("swap state rollback identity changed")
                 if delayed is not None:
@@ -2036,14 +2345,18 @@ def _rollback_use(
     for backup_write in reversed(backup_writes):
         try:
             _verify_artifact(backup_write.backup, backup_write.committed)
-            delayed = _apply_unlink(backup_write.backup.physical)
+            delayed = _apply_unlink(
+                backup_write.backup.physical,
+                expected=backup_write.committed,
+                lock=lock,
+            )
             if delayed is not None:
                 raise delayed
         except Exception as exc:  # noqa: BLE001 - report every recovery failure
             errors.append(f"backup {backup_write.backup.path}: {exc}")
     for operation in reversed(config_writes):
         try:
-            _restore_config(operation, owned)
+            _restore_config(operation, owned, lock)
         except Exception as exc:  # noqa: BLE001 - preserve all recovery evidence
             errors.append(f"{operation.config.target.label} config: {exc}")
     if not errors:
@@ -2062,7 +2375,8 @@ def _commit_use_transaction(
     next_state: dict[tuple[CLIName, Scope], SwapEntry],
     repo: pathlib.Path,
     server: str,
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> None:
     config_writes: list[ConfigWrite] = []
     backup_writes: list[BackupWrite] = []
@@ -2076,7 +2390,15 @@ def _commit_use_transaction(
         _verify_artifact(state_file, state_file.file)
         for item in staged:
             plan = item.plan
-            removed, delayed = _apply_replace(plan.config.physical, item.recovery)
+            removed, delayed = _apply_replace(
+                plan.config.physical,
+                item.recovery,
+                expected=plan.config.file,
+                destination_expected=owned[item.recovery],
+                lock=lock,
+            )
+            if removed == plan.config.file:
+                owned[item.recovery] = removed
             config_writes.append(ConfigWrite(plan.config, removed, item.recovery))
             if removed != plan.config.file:
                 raise RuntimeError(
@@ -2084,9 +2406,16 @@ def _commit_use_transaction(
                 )
             if delayed is not None:
                 raise delayed
-            committed, delayed = _apply_replace(item.output, plan.config.physical)
-            owned.discard(item.output)
+            _verify_removed_config(plan.config)
+            committed, delayed = _publish_absent(
+                item.output,
+                plan.config.physical,
+                expected=owned[item.output],
+                lock=lock,
+            )
+            _release_missing(owned, item.output)
             config_writes[-1] = ConfigWrite(plan.config, committed, item.recovery)
+            _verify_config(plan.config, committed)
             current = plan.config._replace(file=committed)  # type: ignore[attr-defined]
             document = _parse_config(current)
             actual = get_server(
@@ -2107,8 +2436,13 @@ def _commit_use_transaction(
                 continue
             backup = t.cast(ArtifactState, item.plan.backup)
             _verify_artifact(backup, None)
-            committed, delayed = _apply_replace(item.backup, backup.physical)
-            owned.discard(item.backup)
+            committed, delayed = _publish_absent(
+                item.backup,
+                backup.physical,
+                expected=owned[item.backup],
+                lock=lock,
+            )
+            _release_missing(owned, item.backup)
             backup_writes.append(BackupWrite(backup, committed))
             if delayed is not None:
                 raise delayed
@@ -2119,15 +2453,28 @@ def _commit_use_transaction(
         _verify_artifact(state_file, state_file.file)
         if state_file.file is not None:
             recovery = t.cast(pathlib.Path, state_recovery)
-            removed, delayed = _apply_replace(STATE_FILE, recovery)
+            removed, delayed = _apply_replace(
+                STATE_FILE,
+                recovery,
+                expected=state_file.file,
+                destination_expected=owned[recovery],
+                lock=lock,
+            )
+            if removed == state_file.file:
+                owned[recovery] = removed
             state_changed = True
             if removed != state_file.file:
                 raise RuntimeError("swap state identity changed")
             if delayed is not None:
                 raise delayed
-        state_committed, delayed = _apply_replace(state_stage, STATE_FILE)
+        state_committed, delayed = _publish_absent(
+            state_stage,
+            STATE_FILE,
+            expected=owned[state_stage],
+            lock=lock,
+        )
         state_changed = True
-        owned.discard(state_stage)
+        _release_missing(owned, state_stage)
         if delayed is not None:
             raise delayed
         loaded = _load_state_bytes(state_committed.data, strict=True)
@@ -2150,8 +2497,9 @@ def _commit_use_transaction(
             state_committed,
             state_recovery,
             owned,
+            lock,
         )
-        cleanup = _cleanup_owned(owned, preserved)
+        cleanup = _cleanup_owned(owned, preserved, lock=lock)
         detail = f"swap failed: {exc}"
         if rollback_errors:
             detail += "; rollback incomplete: " + "; ".join(rollback_errors)
@@ -2162,7 +2510,7 @@ def _commit_use_transaction(
                 str(path) for path in sorted(preserved, key=str)
             )
         raise TransactionFailure(detail) from exc
-    cleanup = _cleanup_owned(owned)
+    cleanup = _cleanup_owned(owned, lock=lock)
     if cleanup:
         raise TransactionFailure("swap cleanup failed: " + "; ".join(cleanup))
 
@@ -2193,6 +2541,7 @@ def cmd_use_local(args: argparse.Namespace) -> int:
         timestamp = time.strftime("%Y%m%d%H%M%S")
         state_file, state = _snapshot_state(strict=True)
         preview = _plan_use(args, repo, server, spec, timestamp, state, state_file)
+        _check_lock_plan(preview, state_file)
         hint = _naming_hint(repo, server)
         if hint:
             print(hint, file=sys.stderr)
@@ -2200,16 +2549,18 @@ def cmd_use_local(args: argparse.Namespace) -> int:
             _print_use_preview(preview, repo)
             return 0
         _setup_source(args, repo, project, binary, source, spec)
-        with _state_lock():
+        with _state_lock() as lock:
             state_file, state = _snapshot_state(strict=True)
             plans = _plan_use(args, repo, server, spec, timestamp, state, state_file)
+            _reject_transaction_aliases(plans, state_file, lock)
+            _validate_lock(lock)
             changed = [plan for plan in plans if plan.changed]
             if not changed:
                 _print_use_preview(plans, repo)
                 return 0
-            owned: set[pathlib.Path] = set()
+            owned: OwnedFiles = {}
             staged, state_stage, state_recovery, next_state = _stage_use_transaction(
-                changed, repo, server, state, state_file, owned
+                changed, repo, server, state, state_file, owned, lock
             )
             _commit_use_transaction(
                 staged,
@@ -2220,6 +2571,7 @@ def cmd_use_local(args: argparse.Namespace) -> int:
                 repo,
                 server,
                 owned,
+                lock,
             )
         for plan in changed:
             backup = t.cast(ArtifactState, plan.backup)
@@ -2315,7 +2667,8 @@ def _stage_revert_transaction(
     plans: list[PreparedRevert],
     state: dict[tuple[CLIName, Scope], SwapEntry],
     state_file: ArtifactState,
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> tuple[
     list[StagedRevert],
     pathlib.Path | None,
@@ -2325,6 +2678,7 @@ def _stage_revert_transaction(
     staged: list[StagedRevert] = []
     try:
         for plan in plans:
+            _validate_lock(lock)
             output = _stage(
                 plan.config.physical.parent,
                 plan.config.target.info.config_path.name,
@@ -2332,7 +2686,7 @@ def _stage_revert_transaction(
                 plan.output,
                 plan.output_mode,
             )
-            owned.add(output)
+            _own(owned, output)
             recovery = _stage(
                 plan.config.physical.parent,
                 plan.config.target.info.config_path.name,
@@ -2340,7 +2694,7 @@ def _stage_revert_transaction(
                 plan.config.file.data,
                 plan.config.file.mode,
             )
-            owned.add(recovery)
+            _own(owned, recovery)
             backup_recoveries: list[pathlib.Path] = []
             for _key, _entry, backup in plan.entries:
                 backup_file = t.cast(FileState, backup.file)
@@ -2353,11 +2707,12 @@ def _stage_revert_transaction(
                     backup_file.data,
                     backup_file.mode,
                 )
-                owned.add(recovery_backup)
+                _own(owned, recovery_backup)
                 backup_recoveries.append(recovery_backup)
             staged.append(
                 StagedRevert(plan, output, recovery, tuple(backup_recoveries))
             )
+            _validate_lock(lock)
         next_state = dict(state)
         for item in staged:
             output_file = _file_state(item.output)
@@ -2399,7 +2754,7 @@ def _stage_revert_transaction(
                 _state_bytes(next_state),
                 0o600,
             )
-            owned.add(state_stage)
+            _own(owned, state_stage)
         state_recovery = _stage(
             state_file.parent.physical,
             STATE_FILE.name,
@@ -2407,10 +2762,11 @@ def _stage_revert_transaction(
             state_file.file.data,
             state_file.file.mode,
         )
-        owned.add(state_recovery)
+        _own(owned, state_recovery)
+        _validate_lock(lock)
         return staged, state_stage, state_recovery, next_state
     except Exception as exc:
-        cleanup = _cleanup_owned(owned)
+        cleanup = _cleanup_owned(owned, lock=lock)
         detail = f"revert staging failed: {exc}"
         if cleanup:
             detail += "; " + "; ".join(cleanup)
@@ -2424,7 +2780,8 @@ def _rollback_revert(
     state_changed: bool,
     state_committed: FileState | None,
     state_recovery: pathlib.Path,
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> tuple[list[str], set[pathlib.Path]]:
     errors: list[str] = []
     if state_changed:
@@ -2435,11 +2792,20 @@ def _rollback_revert(
             else:
                 current = _artifact_state(STATE_FILE, required=True)
                 _verify_artifact(current, state_committed)
-                delayed = _apply_unlink(STATE_FILE)
+                delayed = _apply_unlink(
+                    STATE_FILE,
+                    expected=state_committed,
+                    lock=lock,
+                )
                 if delayed is not None:
                     raise delayed
-            restored, delayed = _apply_replace(state_recovery, STATE_FILE)
-            owned.discard(state_recovery)
+            restored, delayed = _publish_absent(
+                state_recovery,
+                STATE_FILE,
+                expected=owned[state_recovery],
+                lock=lock,
+            )
+            _release_missing(owned, state_recovery)
             if restored != state_file.file:
                 raise RuntimeError("swap state rollback identity changed")
             if delayed is not None:
@@ -2450,10 +2816,13 @@ def _rollback_revert(
         try:
             if os.path.lexists(backup_removal.backup.path):
                 raise RuntimeError(f"{backup_removal.backup.path} appeared")
-            restored, delayed = _apply_replace(
-                backup_removal.recovery, backup_removal.backup.physical
+            restored, delayed = _publish_absent(
+                backup_removal.recovery,
+                backup_removal.backup.physical,
+                expected=owned[backup_removal.recovery],
+                lock=lock,
             )
-            owned.discard(backup_removal.recovery)
+            _release_missing(owned, backup_removal.recovery)
             if restored != backup_removal.backup.file:
                 raise RuntimeError(
                     f"{backup_removal.backup.path} rollback identity changed"
@@ -2464,7 +2833,7 @@ def _rollback_revert(
             errors.append(f"backup {backup_removal.backup.path}: {exc}")
     for operation in reversed(config_writes):
         try:
-            _restore_config(operation, owned)
+            _restore_config(operation, owned, lock)
         except Exception as exc:  # noqa: BLE001 - preserve every recovery copy
             errors.append(f"{operation.config.target.label} config: {exc}")
     if not errors:
@@ -2481,7 +2850,8 @@ def _commit_revert_transaction(
     state_recovery: pathlib.Path,
     state_file: ArtifactState,
     next_state: dict[tuple[CLIName, Scope], SwapEntry],
-    owned: set[pathlib.Path],
+    owned: OwnedFiles,
+    lock: LockState,
 ) -> None:
     config_writes: list[ConfigWrite] = []
     backup_removals: list[BackupRemoval] = []
@@ -2495,7 +2865,15 @@ def _commit_revert_transaction(
         _verify_artifact(state_file, state_file.file)
         for item in staged:
             plan = item.plan
-            removed, delayed = _apply_replace(plan.config.physical, item.recovery)
+            removed, delayed = _apply_replace(
+                plan.config.physical,
+                item.recovery,
+                expected=plan.config.file,
+                destination_expected=owned[item.recovery],
+                lock=lock,
+            )
+            if removed == plan.config.file:
+                owned[item.recovery] = removed
             config_writes.append(ConfigWrite(plan.config, removed, item.recovery))
             if removed != plan.config.file:
                 raise RuntimeError(
@@ -2503,9 +2881,16 @@ def _commit_revert_transaction(
                 )
             if delayed is not None:
                 raise delayed
-            committed, delayed = _apply_replace(item.output, plan.config.physical)
-            owned.discard(item.output)
+            _verify_removed_config(plan.config)
+            committed, delayed = _publish_absent(
+                item.output,
+                plan.config.physical,
+                expected=owned[item.output],
+                lock=lock,
+            )
+            _release_missing(owned, item.output)
             config_writes[-1] = ConfigWrite(plan.config, committed, item.recovery)
+            _verify_config(plan.config, committed)
             if delayed is not None:
                 raise delayed
         for item in staged:
@@ -2513,7 +2898,15 @@ def _commit_revert_transaction(
                 item.plan.entries, item.backup_recoveries, strict=True
             ):
                 _verify_artifact(backup, backup.file)
-                removed, delayed = _apply_replace(backup.physical, recovery)
+                removed, delayed = _apply_replace(
+                    backup.physical,
+                    recovery,
+                    expected=t.cast(FileState, backup.file),
+                    destination_expected=owned[recovery],
+                    lock=lock,
+                )
+                if removed == backup.file:
+                    owned[recovery] = removed
                 backup_removals.append(BackupRemoval(backup, recovery))
                 if removed != backup.file:
                     raise RuntimeError(f"{backup.path} identity changed")
@@ -2524,15 +2917,28 @@ def _commit_revert_transaction(
         for backup_removal in backup_removals:
             _verify_artifact(backup_removal.backup, None)
         _verify_artifact(state_file, state_file.file)
-        removed, delayed = _apply_replace(STATE_FILE, state_recovery)
+        removed, delayed = _apply_replace(
+            STATE_FILE,
+            state_recovery,
+            expected=t.cast(FileState, state_file.file),
+            destination_expected=owned[state_recovery],
+            lock=lock,
+        )
+        if removed == state_file.file:
+            owned[state_recovery] = removed
         state_changed = True
         if removed != state_file.file:
             raise RuntimeError("swap state identity changed")
         if delayed is not None:
             raise delayed
         if state_stage is not None:
-            state_committed, delayed = _apply_replace(state_stage, STATE_FILE)
-            owned.discard(state_stage)
+            state_committed, delayed = _publish_absent(
+                state_stage,
+                STATE_FILE,
+                expected=owned[state_stage],
+                lock=lock,
+            )
+            _release_missing(owned, state_stage)
             if delayed is not None:
                 raise delayed
         if next_state:
@@ -2561,8 +2967,9 @@ def _commit_revert_transaction(
             state_committed,
             state_recovery,
             owned,
+            lock,
         )
-        cleanup = _cleanup_owned(owned, preserved)
+        cleanup = _cleanup_owned(owned, preserved, lock=lock)
         detail = f"revert failed: {exc}"
         if rollback_errors:
             detail += "; rollback incomplete: " + "; ".join(rollback_errors)
@@ -2573,7 +2980,7 @@ def _commit_revert_transaction(
                 str(path) for path in sorted(preserved, key=str)
             )
         raise TransactionFailure(detail) from exc
-    cleanup = _cleanup_owned(owned)
+    cleanup = _cleanup_owned(owned, lock=lock)
     if cleanup:
         raise TransactionFailure("revert cleanup failed: " + "; ".join(cleanup))
 
@@ -2583,6 +2990,7 @@ def cmd_revert(args: argparse.Namespace) -> int:
     try:
         state_file, state = _snapshot_state(strict=True)
         preview = _plan_revert(args, state, state_file)
+        _check_lock_plan(preview, state_file)
         if args.dry_run:
             for plan in preview:
                 for key, entry, _backup in plan.entries:
@@ -2591,12 +2999,14 @@ def cmd_revert(args: argparse.Namespace) -> int:
             return 0
         if not preview:
             return 0
-        with _state_lock():
+        with _state_lock() as lock:
             state_file, state = _snapshot_state(strict=True)
             plans = _plan_revert(args, state, state_file)
-            owned: set[pathlib.Path] = set()
+            _reject_transaction_aliases(plans, state_file, lock)
+            _validate_lock(lock)
+            owned: OwnedFiles = {}
             staged, state_stage, state_recovery, next_state = _stage_revert_transaction(
-                plans, state, state_file, owned
+                plans, state, state_file, owned, lock
             )
             _commit_revert_transaction(
                 staged,
@@ -2605,6 +3015,7 @@ def cmd_revert(args: argparse.Namespace) -> int:
                 state_file,
                 next_state,
                 owned,
+                lock,
             )
         for plan in plans:
             for key, entry, _backup in plan.entries:
