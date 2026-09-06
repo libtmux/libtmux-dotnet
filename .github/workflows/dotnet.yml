@@ -268,6 +268,17 @@ jobs:
           --configuration Release --no-build --framework net10.0
           -- --minimum-expected-tests 119
 
+      # Temporary. Opens a shell on the runner only when the job has already
+      # failed, so a green run never waits. The repository is public and the
+      # connection string is printed to a public log, so access is limited to
+      # the keys the actor has registered with GitHub.
+      - name: Debug shell on failure
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
+        with:
+          limit-access-to-actor: true
+        timeout-minutes: 20
+
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,
         # started and driven on a platform whose process and socket behaviour is
