@@ -1507,7 +1507,11 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task A_timed_out_run_keeps_its_reservation_until_completion()
     {
-        await using var owner = new ToolFixture { TimeoutFirstWait = true };
+        await using var owner = new ToolFixture
+        {
+            TimeoutFirstWait = true,
+            StatusValue = null,
+        };
         await using var contender = new ToolFixture();
 
         RunResult timedOut = await owner.Capabilities.RunShellCommandAsync(
@@ -1529,6 +1533,7 @@ public sealed class WriteToolsExecutionSafetyTests
         {
             TimeoutFirstWait = true,
             CancelAfterSuccessfulSend = cancellation,
+            StatusValue = null,
         };
         await using var contender = new ToolFixture();
 
@@ -1549,6 +1554,7 @@ public sealed class WriteToolsExecutionSafetyTests
         {
             TimeoutFirstWait = true,
             UnknownSendAttempt = 1,
+            StatusValue = null,
         };
         await using var contender = new ToolFixture();
 
@@ -1563,10 +1569,10 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
-    public async Task A_completed_run_requires_its_authenticated_exit_status()
+    public async Task A_completion_signal_without_status_retains_run_ownership()
     {
         await using var owner = new ToolFixture { StatusValue = null };
-        await using var next = new ToolFixture();
+        await using var contender = new ToolFixture();
 
         McpException failure = await Assert.ThrowsAsync<McpException>(() =>
             owner.Capabilities.RunShellCommandAsync(
@@ -1575,11 +1581,228 @@ public sealed class WriteToolsExecutionSafetyTests
                 cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("exit status", failure.Message, StringComparison.OrdinalIgnoreCase);
-        RunResult after = await next.Capabilities.RunShellCommandAsync(
-            "echo after",
+        try
+        {
+            await AssertRunReservedAsync(contender);
+        }
+        finally
+        {
+            owner.PublishStatus("0");
+        }
+
+        await AwaitRunReservationReleaseAsync(contender);
+    }
+
+    [Fact]
+    public async Task Retained_run_retries_two_undispatched_wait_failures()
+    {
+        await using var owner = new ToolFixture
+        {
+            FailWaitAttempts = [1, 2],
+            PublishStatusOnWaitAttempt = 3,
+            StatusValue = null,
+        };
+        await using var contender = new ToolFixture();
+
+        _ = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "echo once",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        await AwaitRunReservationReleaseAsync(contender);
+        Assert.True(owner.WaitCount >= 3);
+    }
+
+    [Fact]
+    public async Task Ambiguous_wait_failure_does_not_open_a_second_waiter()
+    {
+        await using var owner = new ToolFixture
+        {
+            UnknownWaitAttempt = 1,
+            StatusValue = null,
+        };
+        await using var contender = new ToolFixture();
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "echo once",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+
+        try
+        {
+            await AssertRunReservedAsync(contender);
+            Assert.Equal(1, owner.WaitCount);
+        }
+        finally
+        {
+            owner.PublishStatus("0");
+        }
+
+        await AwaitRunReservationReleaseAsync(contender);
+    }
+
+    [Fact]
+    public async Task Authenticated_completion_releases_before_waiter_cleanup()
+    {
+        await using var owner = new ToolFixture
+        {
+            UnknownWaitAttempt = 1,
+            StatusValue = null,
+            BlockWaitSignal = true,
+        };
+        await using var contender = new ToolFixture();
+
+        _ = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            owner.Capabilities.RunShellCommandAsync(
+                "echo once",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        owner.PublishStatus("0");
+        await owner.WaitSignalBlocked.WaitAsync(
+            TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+        try
+        {
+            await AwaitRunReservationReleaseAsync(contender);
+        }
+        finally
+        {
+            owner.ReleaseWaitSignal();
+        }
+    }
+
+    [Fact]
+    public async Task Ambiguous_retained_probe_retries_without_releasing_ownership()
+    {
+        IReadOnlyList<PaneListingRow> pane = [new PaneListingRow("%1", "0", "0")];
+        await using var owner = new ToolFixture
+        {
+            TimeoutFirstWait = true,
+            StatusValue = null,
+            FailNextRetainedPaneProbe = true,
+            PaneListings = [pane, pane, []],
+        };
+        await using var contender = new ToolFixture();
+
+        RunResult timedOut = await owner.Capabilities.RunShellCommandAsync(
+            "sleep 1",
             "%1",
+            timeoutSeconds: 0.01,
             cancellationToken: TestContext.Current.CancellationToken);
-        Assert.False(after.TimedOut);
+        Assert.True(timedOut.TimedOut);
+        try
+        {
+            await owner.RetainedPaneProbeFailed.WaitAsync(
+                TimeSpan.FromSeconds(1),
+                TestContext.Current.CancellationToken);
+            await AssertRunReservedAsync(contender);
+            await AwaitRunReservationReleaseAsync(contender);
+        }
+        finally
+        {
+            owner.CompleteTimedOutRun();
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Timed_out_run_releases_after_authenticated_pane_end(bool dead)
+    {
+        IReadOnlyList<PaneListingRow> pane = [new PaneListingRow("%1", "0", "0")];
+        IReadOnlyList<PaneListingRow> ended = dead
+            ? [new PaneListingRow("%1", "0", "0", Dead: "1")]
+            : [];
+        await using var owner = new ToolFixture
+        {
+            TimeoutFirstWait = true,
+            StatusValue = null,
+            PaneListings = [pane, pane, ended],
+        };
+        await using var contender = new ToolFixture();
+
+        RunResult timedOut = await owner.Capabilities.RunShellCommandAsync(
+            "sleep 1",
+            "%1",
+            timeoutSeconds: 0.01,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(timedOut.TimedOut);
+        try
+        {
+            await AwaitRunReservationReleaseAsync(contender);
+        }
+        finally
+        {
+            owner.CompleteTimedOutRun();
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Timed_out_run_releases_after_authenticated_daemon_end(bool replacement)
+    {
+        Process? daemon = null;
+        if (!replacement)
+        {
+            var startInfo = new ProcessStartInfo("/bin/sleep");
+            startInfo.ArgumentList.Add("30");
+            daemon = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("Could not start /bin/sleep.");
+        }
+
+        ServerGeneration? generation = daemon is null
+            ? null
+            : new ServerGeneration(daemon.Id, 1);
+        try
+        {
+            await using var owner = new ToolFixture(generation: generation)
+            {
+                TimeoutFirstWait = true,
+                StatusValue = null,
+                EndServerOnRetainedPaneProbe = !replacement,
+                ReplaceServerOnRetainedPaneProbe = replacement,
+            };
+            await using var contender = new ToolFixture(generation: generation);
+
+            RunResult timedOut = await owner.Capabilities.RunShellCommandAsync(
+                "sleep 1",
+                "%1",
+                timeoutSeconds: 0.01,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.True(timedOut.TimedOut);
+            if (daemon is not null)
+            {
+                daemon.Kill();
+                await daemon.WaitForExitAsync(TestContext.Current.CancellationToken);
+            }
+
+            try
+            {
+                await AwaitRunReservationReleaseAsync(contender);
+            }
+            finally
+            {
+                owner.CompleteTimedOutRun();
+            }
+        }
+        finally
+        {
+            if (daemon is not null)
+            {
+                if (!daemon.HasExited)
+                {
+                    daemon.Kill();
+                    await daemon.WaitForExitAsync(TestContext.Current.CancellationToken);
+                }
+
+                daemon.Dispose();
+            }
+        }
     }
 
     private static async Task AssertReservedUntilCompletionAsync(
@@ -1588,19 +1811,29 @@ public sealed class WriteToolsExecutionSafetyTests
     {
         try
         {
-            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
-                contender.Capabilities.RunShellCommandAsync(
-                    "echo too-soon",
-                    "%1",
-                    cancellationToken: TestContext.Current.CancellationToken));
-            Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
-            Assert.Equal(0, contender.SuccessfulSends);
+            await AssertRunReservedAsync(contender);
         }
         finally
         {
             owner.CompleteTimedOutRun();
         }
 
+        await AwaitRunReservationReleaseAsync(contender);
+    }
+
+    private static async Task AssertRunReservedAsync(ToolFixture contender)
+    {
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            contender.Capabilities.RunShellCommandAsync(
+                "echo too-soon",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(0, contender.SuccessfulSends);
+    }
+
+    private static async Task AwaitRunReservationReleaseAsync(ToolFixture contender)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(
             TestContext.Current.CancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(2));
@@ -2048,15 +2281,18 @@ public sealed class WriteToolsExecutionSafetyTests
 
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity;
+        private readonly ServerGeneration _generation;
         private readonly object _stateGate = new();
         private int _captureCount;
         private int _clientListingCount;
         private int _paneListingCount;
+        private int _retainedPaneProbeFailed;
         private int _runStarted;
         private int _stateSampleCount;
         private int _stateVersion;
         private int _unstableStateSamples;
         private int _waitCount;
+        private string? _statusValue = "0";
         private readonly TaskCompletionSource _firstWaitStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _releaseFirstWait = new(
@@ -2071,14 +2307,22 @@ public sealed class WriteToolsExecutionSafetyTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _releaseTimedOutWait = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _waitSignalBlocked = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseWaitSignal = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _retainedPaneProbeFailedSignal = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _statusUnsetObserved = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal ToolFixture(
             ServerPolicy? policy = null,
             string tmuxBinaryPath = "/bin/sh",
-            string socketPath = SocketPath)
+            string socketPath = SocketPath,
+            ServerGeneration? generation = null)
         {
+            _generation = generation ?? Generation;
             _activity = new PaneActivityHub(static (_, _) =>
                 Task.FromException<IControlModeSession>(
                     new InvalidOperationException("Fake control attach unavailable.")));
@@ -2087,7 +2331,7 @@ public sealed class WriteToolsExecutionSafetyTests
                     tmuxBinaryPath: tmuxBinaryPath,
                     socketPath: socketPath),
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
-            var server = new Server(connection, Generation, "tmux 3.7");
+            var server = new Server(connection, _generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
             ServerPolicy effectivePolicy = policy ?? new ServerPolicy();
             Tools = new WriteTools(
@@ -2111,6 +2355,8 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal bool BlockFirstWait { get; init; }
 
+        internal bool BlockWaitSignal { get; init; }
+
         internal bool BlockFirstSend { get; init; }
 
         internal int? BlockPaneListingAttempt { get; init; }
@@ -2133,6 +2379,16 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal bool FailWait { get; init; }
 
+        internal IReadOnlyList<int>? FailWaitAttempts { get; init; }
+
+        internal bool FailNextRetainedPaneProbe { get; init; }
+
+        internal bool EndServerOnRetainedPaneProbe { get; init; }
+
+        internal bool ReplaceServerOnRetainedPaneProbe { get; init; }
+
+        internal int? PublishStatusOnWaitAttempt { get; init; }
+
         internal int SendAttempts { get; private set; }
 
         internal IReadOnlyList<StateSample>? StateSequence { get; init; }
@@ -2154,13 +2410,21 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal Task StatusUnsetObserved => _statusUnsetObserved.Task;
 
-        internal string? StatusValue { get; init; } = "0";
+        internal string? StatusValue
+        {
+            get => Volatile.Read(ref _statusValue);
+            init => Volatile.Write(ref _statusValue, value);
+        }
+
+        internal int WaitCount => Volatile.Read(ref _waitCount);
 
         internal Task FirstWaitStarted => _firstWaitStarted.Task;
 
         internal Task FirstSendStarted => _firstSendStarted.Task;
 
         internal int? UnknownSendAttempt { get; init; }
+
+        internal int? UnknownWaitAttempt { get; init; }
 
         internal CapabilityTools Capabilities { get; }
 
@@ -2171,6 +2435,10 @@ public sealed class WriteToolsExecutionSafetyTests
         internal int PaneListingCount => Volatile.Read(ref _paneListingCount);
 
         internal Task PaneListingBlocked => _paneListingBlocked.Task;
+
+        internal Task RetainedPaneProbeFailed => _retainedPaneProbeFailedSignal.Task;
+
+        internal Task WaitSignalBlocked => _waitSignalBlocked.Task;
 
         internal WriteTools Tools { get; }
 
@@ -2191,8 +2459,13 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal void ReleasePaneListing() => _releasePaneListing.TrySetResult();
 
+        internal void ReleaseWaitSignal() => _releaseWaitSignal.TrySetResult();
+
+        internal void PublishStatus(string? status) => Volatile.Write(ref _statusValue, status);
+
         internal void CompleteTimedOutRun()
         {
+            PublishStatus("0");
             _releaseFirstWait.TrySetResult();
             _releaseTimedOutWait.TrySetResult();
         }
@@ -2212,6 +2485,12 @@ public sealed class WriteToolsExecutionSafetyTests
             if (arguments.Length > 0 && arguments[0] == "wait-for")
             {
                 bool signal = arguments.Contains("-S", StringComparer.Ordinal);
+                if (signal && BlockWaitSignal)
+                {
+                    _waitSignalBlocked.TrySetResult();
+                    await _releaseWaitSignal.Task.WaitAsync(cancellationToken);
+                }
+
                 if (signal && TimeoutFirstWait && Volatile.Read(ref _waitCount) == 1)
                 {
                     _releaseFirstWait.TrySetResult();
@@ -2235,12 +2514,62 @@ public sealed class WriteToolsExecutionSafetyTests
                     cancellationToken.ThrowIfCancellationRequested();
                 }
 
-                if (FailWait && !signal && wait == 1)
+                if (!signal
+                    && (FailWait && wait == 1
+                        || FailWaitAttempts?.Contains(wait) == true))
                 {
                     throw new TmuxTransportException(
                         "wait was not dispatched",
                         arguments,
                         TmuxDispatchState.NotDispatched);
+                }
+
+                if (!signal && UnknownWaitAttempt == wait)
+                {
+                    throw new TmuxTransportException(
+                        "wait outcome is unknown",
+                        arguments,
+                        TmuxDispatchState.Unknown);
+                }
+
+                if (!signal && PublishStatusOnWaitAttempt == wait)
+                {
+                    PublishStatus("0");
+                }
+            }
+
+            bool paneListing = arguments.Contains("list-panes", StringComparer.Ordinal);
+            if (paneListing && Volatile.Read(ref _paneListingCount) >= 2)
+            {
+                if (FailNextRetainedPaneProbe
+                    && Interlocked.Exchange(ref _retainedPaneProbeFailed, 1) == 0)
+                {
+                    _retainedPaneProbeFailedSignal.TrySetResult();
+                    throw new TmuxTransportException(
+                        "retained pane probe outcome is unknown",
+                        arguments,
+                        TmuxDispatchState.Unknown);
+                }
+
+                if (ReplaceServerOnRetainedPaneProbe)
+                {
+                    string marker = arguments.Single(argument => argument.StartsWith(
+                        "libtmux_stale_",
+                        StringComparison.Ordinal));
+                    return Result(
+                        arguments,
+                        1,
+                        $"{_generation.ProcessId + 1}:{_generation.StartTime + 1}\n",
+                        $"unknown command: {marker}\n");
+                }
+
+                if (EndServerOnRetainedPaneProbe)
+                {
+                    return Result(
+                        arguments,
+                        1,
+                        string.Empty,
+                        $"no server running on {SocketPath}\n");
                 }
             }
 
@@ -2283,7 +2612,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 CancelAfterSuccessfulSend?.Cancel();
             }
 
-            if (arguments.Contains("list-panes", StringComparer.Ordinal)
+            if (paneListing
                 && BlockPaneListingAttempt == Volatile.Read(ref _paneListingCount) + 1)
             {
                 _paneListingBlocked.TrySetResult();
@@ -2317,7 +2646,7 @@ public sealed class WriteToolsExecutionSafetyTests
                                 : $"{arguments[^1]} {StatusValue}\n"
                             : string.Empty;
             return IsGuarded(arguments)
-                ? $"{Generation.ProcessId}:{Generation.StartTime}\n{body}"
+                ? $"{_generation.ProcessId}:{_generation.StartTime}\n{body}"
                 : body;
         }
 
@@ -2395,10 +2724,10 @@ public sealed class WriteToolsExecutionSafetyTests
                 + "\n"));
         }
 
-        private static string FieldValue(string field, PaneListingRow pane) => field switch
+        private string FieldValue(string field, PaneListingRow pane) => field switch
         {
-            "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "start_time" => Generation.StartTime.ToString(
+            "pid" => _generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "start_time" => _generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => pane.SessionId,
             "window_id" => pane.WindowId,
@@ -2417,10 +2746,10 @@ public sealed class WriteToolsExecutionSafetyTests
             _ => string.Empty,
         };
 
-        private static string ClientFieldValue(string field, ClientListingRow client) => field switch
+        private string ClientFieldValue(string field, ClientListingRow client) => field switch
         {
-            "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            "start_time" => Generation.StartTime.ToString(
+            "pid" => _generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "start_time" => _generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => client.SessionId,
             "window_id" => client.WindowId,
@@ -2433,16 +2762,23 @@ public sealed class WriteToolsExecutionSafetyTests
 
         private static TmuxCommandResult Success(
             IReadOnlyList<string> arguments,
-            string standardOutput)
+            string standardOutput) => Result(arguments, 0, standardOutput, string.Empty);
+
+        private static TmuxCommandResult Result(
+            IReadOnlyList<string> arguments,
+            int exitCode,
+            string standardOutput,
+            string standardError)
         {
             byte[] output = Encoding.UTF8.GetBytes(standardOutput);
+            byte[] error = Encoding.UTF8.GetBytes(standardError);
             return new TmuxCommandResult(
                 arguments,
-                0,
+                exitCode,
                 output,
-                ReadOnlyMemory<byte>.Empty,
+                error,
                 Utf8BackslashDecoder.ProjectOutputLines(output),
-                []);
+                Utf8BackslashDecoder.ProjectErrorLines(error));
         }
     }
 }
