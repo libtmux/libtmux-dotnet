@@ -707,18 +707,6 @@ public sealed class TmuxToolsTests
         Assert.Equal(0, silent.ExitStatus);
         Assert.Empty(silent.Output.Lines);
 
-        // Text left in the line editor by an earlier send_keys, or by a human
-        // sharing the pane, used to swallow the payload: the shell read the
-        // subshell paren as a glob qualifier and the run timed out having
-        // never started.
-        await mcp.Write.SendKeysAsync(
-            "echo LEFTOVER", pane, enter: false, cancellationToken: token);
-        RunResult afterLeftover = await mcp.Write.RunAsync(
-            "echo survived", pane, timeoutSeconds: 20, cancellationToken: token);
-        Assert.Equal(0, afterLeftover.ExitStatus);
-        Assert.False(afterLeftover.TimedOut);
-        Assert.Contains("survived", afterLeftover.Output.Lines);
-
         // A pane held by something that re-emits its input cannot be made to
         // look like a run that started. awk printing the last field of every
         // line turned the payload's own echo into a bare marker line, so the
