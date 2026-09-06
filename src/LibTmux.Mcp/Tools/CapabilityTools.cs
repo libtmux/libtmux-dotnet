@@ -81,6 +81,18 @@ internal sealed class CapabilityTools
     {
         "sh", "ash", "bash", "dash", "ksh", "ksh93", "mksh", "pdksh", "zsh",
     }.ToFrozenSet(StringComparer.Ordinal);
+    private static readonly string[] PaneInputStateFields =
+    [
+        "window_id",
+        "pane_synchronized",
+        "pane_in_mode",
+        "pane_dead",
+        "pane_input_off",
+        "pane_current_command",
+        "pane_active",
+        "window_zoomed_flag",
+        "socket_path",
+    ];
 
     private readonly ReadTools _read;
     private readonly WriteTools _write;
@@ -1273,9 +1285,8 @@ internal sealed class CapabilityTools
         bool reserveDispatch,
         PaneRunRegistry.PaneRunLease? runLease)
     {
-        Dictionary<string, Pane> unique = panes
-            .GroupBy(candidate => candidate.Id.ToString(), StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        (Dictionary<string, Pane> unique, Dictionary<string, HashSet<string>> sessions) =
+            ValidatePaneInputTopology(panes);
         if (!unique.TryGetValue(paneId, out Pane? source))
         {
             throw new McpException(
@@ -1303,7 +1314,11 @@ internal sealed class CapabilityTools
             RequireWritablePane(member, toolName);
         }
 
-        HashSet<string> attended = AttendedPaneIds(clients, windowPanes);
+        HashSet<string> attended = AttendedPaneIds(
+            clients,
+            unique,
+            sessions,
+            source.Window.Id.ToString());
         foreach (Pane member in configured)
         {
             string memberId = member.Id.ToString();
@@ -1460,22 +1475,55 @@ internal sealed class CapabilityTools
 
     private static HashSet<string> AttendedPaneIds(
         IReadOnlyList<Client> clients,
-        IReadOnlyDictionary<string, Pane> windowPanes)
+        Dictionary<string, Pane> panes,
+        Dictionary<string, HashSet<string>> paneSessions,
+        string sourceWindowId)
     {
         HashSet<string> attended = new(StringComparer.Ordinal);
         foreach (Client client in clients)
         {
             bool control = ParseClientFlag(client, "client_control_mode");
-            string activePane = ReadClientField(client, "pane_id");
-            if (!PaneId.TryParse(activePane, out PaneId parsed)
-                || parsed.ToString() != activePane)
+            if (control)
             {
-                throw new McpException(
-                    "Pane input is refused because a client pane_id is malformed.");
+                continue;
             }
 
+            string activePane = RequireCanonicalTargetId(
+                ReadClientField(client, "pane_id"),
+                '%',
+                "pane_id",
+                "client");
+
             bool zoomed = ParseClientFlag(client, "window_zoomed_flag");
-            if (control || !windowPanes.ContainsKey(activePane))
+            string sessionId = RequireCanonicalTargetId(
+                ReadClientField(client, "session_id"),
+                '$',
+                "session_id",
+                "client");
+            string windowId = RequireCanonicalTargetId(
+                ReadClientField(client, "window_id"),
+                '@',
+                "window_id",
+                "client");
+            if (!panes.TryGetValue(activePane, out Pane? active))
+            {
+                throw new McpException(
+                    "Pane input is refused because a terminal client reported an unknown "
+                    + "active pane.");
+            }
+
+            if (!string.Equals(
+                    ReadPaneField(active, "window_id"),
+                    windowId,
+                    StringComparison.Ordinal)
+                || !paneSessions[activePane].Contains(sessionId))
+            {
+                throw new McpException(
+                    "Pane input is refused because a terminal client reported an "
+                    + "inconsistent pane placement.");
+            }
+
+            if (!string.Equals(windowId, sourceWindowId, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -1486,11 +1534,92 @@ internal sealed class CapabilityTools
             }
             else
             {
-                attended.UnionWith(windowPanes.Keys);
+                attended.UnionWith(panes
+                    .Where(pair => string.Equals(
+                        ReadPaneField(pair.Value, "window_id"),
+                        sourceWindowId,
+                        StringComparison.Ordinal))
+                    .Select(pair => pair.Key));
             }
         }
 
         return attended;
+    }
+
+    private static (
+        Dictionary<string, Pane> Panes,
+        Dictionary<string, HashSet<string>> Sessions) ValidatePaneInputTopology(
+            IReadOnlyList<Pane> panes)
+    {
+        var unique = new Dictionary<string, Pane>(StringComparer.Ordinal);
+        var sessions = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (Pane pane in panes)
+        {
+            string paneId = pane.Id.ToString();
+            if (!string.Equals(
+                ReadPaneField(pane, "pane_id"),
+                paneId,
+                StringComparison.Ordinal))
+            {
+                throw new McpException(
+                    "Pane input is refused because tmux returned a noncanonical pane id.");
+            }
+
+            string sessionId = RequireCanonicalTargetId(
+                ReadPaneField(pane, "session_id"),
+                '$',
+                "session_id",
+                $"pane {paneId}");
+            _ = RequireCanonicalTargetId(
+                ReadPaneField(pane, "window_id"),
+                '@',
+                "window_id",
+                $"pane {paneId}");
+            if (unique.TryGetValue(paneId, out Pane? prior))
+            {
+                if (PaneInputStateFields.Any(field => !string.Equals(
+                    ReadPaneField(prior, field),
+                    ReadPaneField(pane, field),
+                    StringComparison.Ordinal)))
+                {
+                    throw new McpException(
+                        $"Pane input is refused because tmux returned inconsistent duplicate pane "
+                        + $"state for {paneId}.");
+                }
+            }
+            else
+            {
+                unique.Add(paneId, pane);
+                sessions.Add(paneId, new HashSet<string>(StringComparer.Ordinal));
+            }
+
+            sessions[paneId].Add(sessionId);
+        }
+
+        return (unique, sessions);
+    }
+
+    private static string RequireCanonicalTargetId(
+        string raw,
+        char sigil,
+        string field,
+        string subject)
+    {
+        if (raw.Length <= 1
+            || raw[0] != sigil
+            || !int.TryParse(
+                raw.AsSpan(1),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int value)
+            || value < 0
+            || raw != $"{sigil}{value.ToString(CultureInfo.InvariantCulture)}")
+        {
+            throw new McpException(
+                $"Pane input is refused because {subject} {field} is unavailable or malformed.");
+        }
+
+        return raw;
     }
 
     private static void RequireWritablePane(Pane pane, string toolName)

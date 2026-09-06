@@ -154,6 +154,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [InlineData("", "%1", "0")]
     [InlineData("2", "%1", "0")]
     [InlineData("0", "%01", "0")]
+    [InlineData("0", "%-1", "0")]
     [InlineData("0", "%1", "2")]
     public async Task Capability_input_rejects_malformed_client_attention(
         string control,
@@ -175,6 +176,233 @@ public sealed class WriteToolsExecutionSafetyTests
                 cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("client", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_an_unknown_terminal_client_pane()
+    {
+        await using var fixture = new ToolFixture
+        {
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%9", "0")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("unknown active pane", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("$2", "@2")]
+    [InlineData("$1", "@3")]
+    public async Task Capability_input_rejects_an_inconsistent_client_placement(
+        string sessionId,
+        string windowId)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                ],
+            ],
+            ClientListings =
+            [
+                [
+                    new ClientListingRow(
+                        "0",
+                        "%2",
+                        "0",
+                        SessionId: sessionId,
+                        WindowId: windowId),
+                ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("placement", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("", "@2")]
+    [InlineData("$1", "")]
+    [InlineData("$01", "@2")]
+    [InlineData("$-1", "@2")]
+    [InlineData("$1", "@02")]
+    [InlineData("$1", "@-1")]
+    public async Task Capability_input_rejects_malformed_terminal_client_placement(
+        string sessionId,
+        string windowId)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                ],
+            ],
+            ClientListings =
+            [
+                [
+                    new ClientListingRow(
+                        "0",
+                        "%2",
+                        "0",
+                        SessionId: sessionId,
+                        WindowId: windowId),
+                ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("client", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_ignores_other_windows_and_control_clients()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                ],
+            ],
+            ClientListings =
+            [
+                [
+                    new ClientListingRow("0", "%2", "0", WindowId: "@2"),
+                    new ClientListingRow("1", "malformed", "2", SessionId: "", WindowId: ""),
+                ],
+            ],
+        };
+
+        PaneInputResult result = await fixture.Capabilities.SendKeysAsync(
+            "safe",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("%1", result.PaneId);
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task A_zoomed_client_attends_only_its_active_pane()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0"),
+                    new PaneListingRow("%2", "0", "0"),
+                ],
+            ],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%1", "1")],
+            ],
+        };
+
+        PaneInputResult result = await fixture.Capabilities.SendKeysAsync(
+            "safe",
+            "%2",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("%2", result.PaneId);
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Linked_placements_preserve_sorted_deduplicated_recipients()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%3", "1", "0"),
+                    new PaneListingRow("%1", "1", "0"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                    new PaneListingRow(
+                        "%2",
+                        "0",
+                        "0",
+                        SessionId: "$2",
+                        WindowId: "@2"),
+                ],
+            ],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%2", "0", SessionId: "$2", WindowId: "@2")],
+            ],
+        };
+
+        PaneInputResult result = await fixture.Capabilities.SendKeysAsync(
+            "safe",
+            "%3",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(["%1", "%3"], result.TargetPaneIds);
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("1", "@1")]
+    [InlineData("0", "@2")]
+    public async Task Capability_input_rejects_inconsistent_duplicate_pane_rows(
+        string secondMode,
+        string secondWindow)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0"),
+                    new PaneListingRow(
+                        "%1",
+                        "0",
+                        secondMode,
+                        SessionId: "$2",
+                        WindowId: secondWindow),
+                ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("duplicate pane", refusal.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, fixture.SuccessfulSends);
     }
 
@@ -1447,12 +1675,15 @@ public sealed class WriteToolsExecutionSafetyTests
         string Active = "1",
         string WindowZoomed = "0",
         string SocketPath = ToolFixture.SocketPath,
-        string SessionId = "$1");
+        string SessionId = "$1",
+        string WindowId = "@1");
 
     private sealed record ClientListingRow(
         string Control,
         string PaneId,
-        string WindowZoomed);
+        string WindowZoomed,
+        string SessionId = "$1",
+        string WindowId = "@1");
 
     private sealed class ToolFixture : IAsyncDisposable
     {
@@ -1794,7 +2025,7 @@ public sealed class WriteToolsExecutionSafetyTests
             "start_time" => Generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => pane.SessionId,
-            "window_id" => "@1",
+            "window_id" => pane.WindowId,
             "pane_id" => pane.Id,
             "pane_pid" => "4242",
             "pane_width" => "80",
@@ -1815,8 +2046,8 @@ public sealed class WriteToolsExecutionSafetyTests
             "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "start_time" => Generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
-            "session_id" => "$1",
-            "window_id" => "@1",
+            "session_id" => client.SessionId,
+            "window_id" => client.WindowId,
             "pane_id" => client.PaneId,
             "client_name" => "/dev/pts/test",
             "client_control_mode" => client.Control,
