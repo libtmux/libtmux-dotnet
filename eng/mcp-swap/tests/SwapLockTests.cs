@@ -86,13 +86,14 @@ public sealed class SwapLockTests
         using TestPaths paths = new();
         SwapRuntime runtime = Runtime(paths);
 
-        // The lock is released only by Dispose, and the semaphore it releases
-        // is process-wide, so anything that escapes before it hangs every
-        // later test that acquires. Keep the using and decorate from outside.
-        string state = "not reached";
+        // Disposal validates, and a lock this test left aliased is invalid, so
+        // letting disposal's exception replace the body's hides which one
+        // actually failed. It is released only by Dispose and the semaphore it
+        // releases is process-wide, so it still has to run either way.
+        SwapLock held = SwapLock.Acquire(runtime);
+        Exception? bodyFailure = null;
         try
         {
-            using SwapLock held = SwapLock.Acquire(runtime);
             held.Validate();
             string alias = Path.Combine(paths.Root, "lock-alias");
             NativeFileSystem.CreateHardLink(alias, runtime.LockFile);
@@ -127,22 +128,21 @@ public sealed class SwapLockTests
             Assert.Equal<ulong>(1, NativeFileSystem.LStat(runtime.LockFile).LinkCount);
 
             held.Validate();
-
-            // The dispose-time validate is the one that fails on macOS, and the
-            // one on the line above does not, so the state has to be read here,
-            // at the last point before the scope ends and disposal validates.
-            state = $"hex {NativeFileSystem.RawStatHex(runtime.LockFile)}, "
-                + (File.Exists(alias) ? "alias still present" : "alias gone")
-                + ", tree "
-                + string.Join(
-                    ",",
-                    Directory.EnumerateFileSystemEntries(paths.Root, "*", SearchOption.AllDirectories)
-                        .Select(entry => Path.GetRelativePath(paths.Root, entry))
-                        .Order(StringComparer.Ordinal));
         }
-        catch (IOException error)
+        catch (Exception failure)
         {
-            throw new IOException($"[before dispose: {state}] {error.Message}", error);
+            bodyFailure = failure;
+            throw;
+        }
+        finally
+        {
+            try
+            {
+                held.Dispose();
+            }
+            catch (IOException) when (bodyFailure is not null)
+            {
+            }
         }
     }
 
