@@ -193,8 +193,8 @@ version.
   with the tmux user's authority.
 
 - `set_synchronize_panes` reports that it amplifies subsequent input, and
-  `send_keys` and `send_keys_batch` report preflight source or cohort membership,
-  not actual delivery.
+  `send_keys` and `send_keys_batch` report preflight source or cohort
+  membership, not actual delivery.
 
 - Read batches retain every executed row while rolling back the newest nested
   payloads needed to keep the complete response within 1,000,000 bytes.
