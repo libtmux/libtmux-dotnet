@@ -762,14 +762,32 @@ public sealed class TmuxToolsTests
             token);
         string pane = scope.Pane.Id.ToString();
 
+        // A pane's own shell decides this: CI runs bash, whose default prompt
+        // carries the working directory and so wraps once the path is deep,
+        // while a developer machine may run a shell this never reproduces on.
+        // Pin both the shell and the prompt rather than inheriting either.
+        const string tail = "ionTests/bin/Release/net10.0$";
         string longPrompt = "runner@runnervmejwal:~/work/libtmux-dotnet/libtmux-dotnet/"
             + "tests/LibTmux.IntegrationTests/bin/Release/net10.0$ ";
         await mcp.Write.SendKeysAsync(
-            "exec bash --norc --noprofile", pane, enter: true, cancellationToken: token);
-        await Task.Delay(700, token);
-        await mcp.Write.SendKeysAsync(
-            $"PS1='{longPrompt}'", pane, enter: true, cancellationToken: token);
-        await Task.Delay(700, token);
+            $"exec env PS1='{longPrompt}' bash --norc --noprofile -i",
+            pane,
+            enter: true,
+            cancellationToken: token);
+
+        // Wait for the prompt to be the one drawn, not merely echoed: a run
+        // that started against the old short prompt would pass the assertions
+        // below without proving anything.
+        string? last = null;
+        for (int attempt = 0; attempt < 100 && last?.EndsWith(tail, StringComparison.Ordinal) != true; attempt++)
+        {
+            await Task.Delay(100, token);
+            CaptureResult seen = await mcp.Read.CapturePaneAsync(
+                pane, includeHistory: true, cancellationToken: token);
+            last = seen.Content.Lines.LastOrDefault(line => line.Length > 0);
+        }
+
+        Assert.EndsWith(tail, last);
 
         RunResult many = await mcp.Write.RunAsync(
             "for i in 1 2 3\ndo\n  echo \"line $i\"\ndone",
