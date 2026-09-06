@@ -12,18 +12,11 @@ version.
 
 ### Added
 
-- `LibTmux.Mcp` advertises 46 tools, including 15 in the `manage` toolset, from
+- `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
   one immutable capability registry. Every tool carries conservative protocol
   annotations. Its `_meta` capability object and the static
   `tmux://capabilities` resource carry matching non-protocol metadata for
   process reach, tmux effects, output classes, trust, and input literalization.
-
-- `set_option` writes the tmux options typed as flag, number, choice or colour,
-  published as a schema enum of 74 names taken from tmux's own option table.
-  Values must be a whole number, a bare word or a hex colour, so a
-  misclassified name still cannot reach the format engine. `destroy-unattached`
-  answers to the teardown gate; `exit-empty` and `exit-unattached` are refused,
-  because no tool here can end a tmux server and so none may arm one.
 
 - `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
   effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
@@ -40,6 +33,14 @@ version.
   gone. Under a process toggling `synchronize-panes` every 10-50ms, measured
   across 40 runs: 6 leaks before, none after, and 40 calls completed rather
   than 23.
+
+- **A run reports what the command printed, not the prompt drawn after it.**
+  The output window was bounded on the left only, by the marker the run prints
+  before the command, so the shell's next prompt fell inside it. A prompt
+  narrower than the pane was absorbed by the since-baseline diff and hid this;
+  one carrying a deep path wraps into two rows and was reported as two lines of
+  output the command never printed. The run now prints an end marker once the
+  status is saved and reports only what lies between the two.
 
 - **An empty identifier is refused rather than read as the current object.**
   Null still means the current pane, window or session; `""` used to mean the
