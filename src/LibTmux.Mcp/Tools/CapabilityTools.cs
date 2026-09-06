@@ -921,12 +921,14 @@ internal sealed class CapabilityTools
             PaneInputPreflightKind.SingularCommand,
             reserveDispatch: false,
             cancellationToken).ConfigureAwait(false);
+        RunCommandRoute route = RunCommandRoute.From(initial.Pane, "run_shell_command");
         PaneRunRegistry.PaneRunLease lease = PaneRunRegistry.Acquire(initial.Pane);
         return await _write.RunWithDispatchPreflightAsync(
                 command, initial.Pane, timeoutSeconds, maxLines, suppressHistory,
                 socketName: null,
                 progress: null,
                 lease,
+                route,
                 dispatchPreflight: async token =>
                 {
                     PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
@@ -936,6 +938,9 @@ internal sealed class CapabilityTools
                         reserveDispatch: false,
                         lease,
                         token).ConfigureAwait(false);
+                    route.RequireSame(
+                        RunCommandRoute.From(final.Pane, "run_shell_command"),
+                        "run_shell_command");
                     return final.Pane;
                 },
                 cancellationToken: cancellationToken)

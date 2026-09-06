@@ -20,6 +20,7 @@ internal sealed record McpStartup(
     internal const string ConfigurationVariable = "LIBTMUX_TMUX_CONFIG";
     private const string TmuxBinaryVariable = "LIBTMUX_TMUX";
     private const string TmuxTemporaryDirectoryVariable = "TMUX_TMPDIR";
+    private const string PathVariable = "PATH";
     private const string OwnerVariable = "LIBTMUX_MCP_OWNER";
     private const string OwnerOption = "@libtmux_mcp_owner";
     private const string DedicatedSocketName = "libtmux-mcp";
@@ -45,6 +46,7 @@ internal sealed record McpStartup(
             ConfigurationVariable,
             TmuxBinaryVariable,
             TmuxTemporaryDirectoryVariable,
+            PathVariable,
         ];
         Dictionary<string, string?> environment = variables.ToDictionary(
             name => name,
@@ -94,10 +96,15 @@ internal sealed record McpStartup(
 
         (string? configurationFile, string configurationProvenance) =
             ParseConfiguration(Read(ConfigurationVariable));
-        string binary = NonBlank(Read(TmuxBinaryVariable), TmuxBinaryVariable) ?? "tmux";
-        RequireSafeRouteValue(binary, TmuxBinaryVariable);
+        string binary = ResolveExecutablePath(
+            NonBlank(Read(TmuxBinaryVariable), TmuxBinaryVariable) ?? "tmux",
+            Read(PathVariable));
+        string? tmuxTemporaryDirectory = Read(TmuxTemporaryDirectoryVariable);
+        RequireSafeRouteValue(
+            tmuxTemporaryDirectory,
+            TmuxTemporaryDirectoryVariable);
         Dictionary<string, string?> childEnvironment = ChildEnvironment(
-            Read(TmuxTemporaryDirectoryVariable));
+            tmuxTemporaryDirectory);
         ServerConnectionOptions options = Options(
             binary,
             socketName,
@@ -177,8 +184,16 @@ internal sealed record McpStartup(
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        ServerConnectionOptions pinnedOptions = resolvedSocketPath.Length == 0
+            ? options
+            : Options(
+                binary,
+                socketName: null,
+                socketPath: resolvedSocketPath,
+                configurationFile: configurationFile,
+                childEnvironment: childEnvironment);
         return new McpStartup(
-            options,
+            pinnedOptions,
             selection,
             new McpRuntimeDisclosure(
                 selector,
@@ -186,11 +201,11 @@ internal sealed record McpStartup(
                 reportedConfiguration,
                 serverState,
                 resolvedSocketPath,
-                McpRuntimeDisclosure.BuildAttachCommand(options, resolvedSocketPath),
+                McpRuntimeDisclosure.BuildAttachCommand(pinnedOptions, resolvedSocketPath),
                 explicitlySelectedTeardown))
         {
             OwnedDaemon = newDedicatedMinimal
-                ? new OwnedDedicatedDaemon(options, nonce: markerNonce!)
+                ? new OwnedDedicatedDaemon(pinnedOptions, nonce: markerNonce!)
                 : null,
         };
     }
@@ -209,7 +224,15 @@ internal sealed record McpStartup(
             throw new McpException("Could not resolve the selected tmux socket path.");
         }
 
-        return Path.GetFullPath(result.StandardOutputLines[0]);
+        string path = result.StandardOutputLines[0];
+        RequireSafeRouteValue(path, "resolved tmux socket path");
+        if (!Path.IsPathFullyQualified(path))
+        {
+            throw new McpException(
+                "The selected tmux server returned a non-absolute socket path.");
+        }
+
+        return path;
     }
 
     private static (string? Path, string Provenance) ParseConfiguration(string? value)
@@ -257,13 +280,78 @@ internal sealed record McpStartup(
 
     private static Dictionary<string, string?> ChildEnvironment(string? tmuxTemporaryDirectory)
     {
-        var environment = new Dictionary<string, string?>(StringComparer.Ordinal);
-        if (tmuxTemporaryDirectory is not null)
+        string? frozen = string.IsNullOrWhiteSpace(tmuxTemporaryDirectory)
+            ? null
+            : Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(tmuxTemporaryDirectory));
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            environment[TmuxTemporaryDirectoryVariable] = tmuxTemporaryDirectory;
-        }
+            [TmuxTemporaryDirectoryVariable] = frozen,
+        };
 
         return environment;
+    }
+
+    internal static string ResolveExecutablePath(string binary, string? searchPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(binary);
+        RequireSafeRouteValue(binary, TmuxBinaryVariable);
+        RequireSafeRouteValue(searchPath, PathVariable);
+
+        IEnumerable<string> candidates = binary.Contains(Path.DirectorySeparatorChar)
+            || binary.Contains(Path.AltDirectorySeparatorChar)
+                ? [binary]
+                : (searchPath ?? string.Empty)
+                    .Split(Path.PathSeparator)
+                    .Select(directory => Path.Combine(
+                        directory.Length == 0 ? Environment.CurrentDirectory : directory,
+                        binary));
+        foreach (string candidate in candidates)
+        {
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(candidate);
+                if (IsExecutableFile(fullPath))
+                {
+                    return fullPath;
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        throw new McpException(
+            $"{TmuxBinaryVariable} did not resolve to an executable file at startup.");
+    }
+
+    internal static bool IsExecutableFile(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            UnixFileMode mode = File.GetUnixFileMode(path);
+            UnixFileMode executable = UnixFileMode.UserExecute
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherExecute;
+            return (mode & executable) != 0;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static async Task<ProbeState> ProbeAsync(

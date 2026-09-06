@@ -120,6 +120,7 @@ public sealed class ServerPolicyTests
             [variable] = value,
             ["LIBTMUX_TMUX"] = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
             ["TMUX_TMPDIR"] = root,
+            ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
         };
 
         try
@@ -165,6 +166,8 @@ public sealed class ServerPolicyTests
         foreach (string variable in new[]
         {
             "LIBTMUX_TMUX",
+            "PATH",
+            "TMUX_TMPDIR",
             McpStartup.SocketVariable,
             McpStartup.SocketPathVariable,
         })
@@ -174,7 +177,9 @@ public sealed class ServerPolicyTests
                 string route = $"route'{(char)value}雪";
                 Dictionary<string, string?> environment = new(StringComparer.Ordinal)
                 {
-                    ["LIBTMUX_TMUX"] = "/not/a/tmux/binary",
+                    ["LIBTMUX_TMUX"] = variable == "TMUX_TMPDIR"
+                        ? "/bin/sh"
+                        : "/not/a/tmux/binary",
                     [variable] = variable == McpStartup.SocketPathVariable
                         ? Path.Combine(Path.GetTempPath(), route)
                         : route,
@@ -205,6 +210,39 @@ public sealed class ServerPolicyTests
             {
                 Assert.IsType<ModelContextProtocol.McpException>(failure);
             }
+        }
+    }
+
+    [UnixFact]
+    public void Tmux_executable_route_is_resolved_once_from_the_frozen_search_path()
+    {
+        string root = Directory.CreateTempSubdirectory("libtmux-tmux-route-").FullName;
+        string first = Path.Combine(root, "first");
+        string second = Path.Combine(root, "second");
+        Directory.CreateDirectory(first);
+        Directory.CreateDirectory(second);
+        string skipped = Path.Combine(first, "audit-tmux");
+        string selected = Path.Combine(second, "audit-tmux");
+        File.WriteAllText(skipped, "not executable");
+        File.WriteAllText(selected, "#!/bin/sh\nexit 0\n");
+        File.SetUnixFileMode(selected, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+        try
+        {
+            string path = string.Join(Path.PathSeparator, first, second);
+            Assert.Equal(selected, McpStartup.ResolveExecutablePath("audit-tmux", path));
+
+            string relative = Path.GetRelativePath(Environment.CurrentDirectory, selected);
+            Assert.Equal(selected, McpStartup.ResolveExecutablePath(relative, first));
+
+            Assert.Throws<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveExecutablePath("missing-tmux", path));
+            Assert.Throws<ModelContextProtocol.McpException>(() =>
+                McpStartup.ResolveExecutablePath(skipped, path));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 

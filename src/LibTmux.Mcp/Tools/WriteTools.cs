@@ -116,25 +116,22 @@ internal sealed partial class WriteTools : IAsyncDisposable
         "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 
     /// <summary>Builds the tmux command line that reaches this same server.</summary>
-    /// <param name="server">The server to address.</param>
+    /// <param name="route">The startup and preflight-authenticated route.</param>
     /// <param name="arguments">The tmux command and its arguments.</param>
     /// <returns>A shell-safe command line.</returns>
     /// <remarks>
     /// A command run from inside a pane inherits <c>TMUX</c> and would reach the
     /// ambient server, which is not necessarily the one this tool is driving.
-    /// Naming the socket is what makes the two the same server.
+    /// Naming the absolute socket is what makes the two the same server, and
+    /// <c>command</c> keeps a shell function from replacing the tmux executable.
     /// </remarks>
-    internal static string TmuxCommandLine(Server server, params string[] arguments)
+    internal static string TmuxCommandLine(
+        RunCommandRoute route,
+        params string[] arguments)
     {
-        StringBuilder line = new(ShellQuote(server.ConnectionOptions.TmuxBinaryPath));
-        if (server.ConnectionOptions.SocketPath is string path)
-        {
-            line.Append(" -S ").Append(ShellQuote(path));
-        }
-        else if (server.ConnectionOptions.SocketName is string name)
-        {
-            line.Append(" -L ").Append(ShellQuote(name));
-        }
+        StringBuilder line = new("command ");
+        line.Append(ShellQuote(route.TmuxBinaryPath));
+        line.Append(" -S ").Append(ShellQuote(route.SocketPath));
 
         foreach (string argument in arguments)
         {

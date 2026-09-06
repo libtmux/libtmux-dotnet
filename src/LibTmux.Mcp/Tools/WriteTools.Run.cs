@@ -9,6 +9,51 @@ using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
 
+[UnsupportedOSPlatform("windows")]
+internal readonly record struct RunCommandRoute(
+    string TmuxBinaryPath,
+    string SocketPath,
+    PaneId PaneId)
+{
+    internal static RunCommandRoute From(Pane pane, string toolName)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        string binary = pane.Server.ConnectionOptions.TmuxBinaryPath;
+        McpStartup.RequireSafeRouteValue(binary, "tmux executable route");
+        if (!Path.IsPathFullyQualified(binary) || !McpStartup.IsExecutableFile(binary))
+        {
+            throw new McpException(
+                $"{toolName} refuses an unresolved or unusable tmux executable route.");
+        }
+
+        if (!pane.RawFormatFields.TryGetValue("socket_path", out string? socketPath)
+            || string.IsNullOrWhiteSpace(socketPath))
+        {
+            throw new McpException(
+                $"{toolName} refuses a missing or non-absolute pane socket route.");
+        }
+
+        McpStartup.RequireSafeRouteValue(socketPath, "pane socket route");
+        if (!Path.IsPathFullyQualified(socketPath))
+        {
+            throw new McpException(
+                $"{toolName} refuses a missing or non-absolute pane socket route.");
+        }
+
+        return new RunCommandRoute(binary, socketPath, pane.Id);
+    }
+
+    internal void RequireSame(RunCommandRoute final, string toolName)
+    {
+        if (this != final)
+        {
+            throw new McpException(
+                $"{toolName} refuses because the pane or its tmux route changed before "
+                + "dispatch. The command was not sent.");
+        }
+    }
+}
+
 /// <content>Running a command in a pane and knowing when it finished.</content>
 [UnsupportedOSPlatform("windows")]
 internal sealed partial class WriteTools
@@ -75,6 +120,7 @@ internal sealed partial class WriteTools
             progress,
             dispatchPreflight: null,
             initialPane: null,
+            initialRoute: null,
             runLease: null,
             cancellationToken);
 
@@ -87,6 +133,7 @@ internal sealed partial class WriteTools
         string? socketName,
         IProgress<ProgressNotificationValue>? progress,
         PaneRunRegistry.PaneRunLease lease,
+        RunCommandRoute route,
         Func<CancellationToken, Task<Pane>> dispatchPreflight,
         CancellationToken cancellationToken) =>
         RunAsyncCore(
@@ -99,6 +146,7 @@ internal sealed partial class WriteTools
             progress,
             dispatchPreflight,
             pane,
+            route,
             lease,
             cancellationToken);
 
@@ -112,6 +160,7 @@ internal sealed partial class WriteTools
         IProgress<ProgressNotificationValue>? progress,
         Func<CancellationToken, Task<Pane>>? dispatchPreflight,
         Pane? initialPane,
+        RunCommandRoute? initialRoute,
         PaneRunRegistry.PaneRunLease? runLease,
         CancellationToken cancellationToken)
     {
@@ -137,6 +186,13 @@ internal sealed partial class WriteTools
             {
                 RefuseHumanOwnedMode(pane, "run_shell_command");
             }
+            RunCommandRoute route = initialRoute
+                ?? RunCommandRoute.From(pane, "run_shell_command");
+            if (route.PaneId != pane.Id)
+            {
+                throw new McpException(
+                    "run_shell_command lost its authenticated pane route before setup.");
+            }
             TimeSpan budget = _policy.EffectiveTimeout(
                 timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
             PaneRead baselineRead = await PaneReader
@@ -161,6 +217,7 @@ internal sealed partial class WriteTools
                 await sequence.MutateAsync(
                         () => SendRunPayloadAsync(
                             server,
+                            route,
                             command,
                             token,
                             suppressHistory,
@@ -339,6 +396,7 @@ internal sealed partial class WriteTools
 
     internal static async Task SendRunPayloadAsync(
         Server server,
+        RunCommandRoute route,
         string command,
         RunToken token,
         bool suppressHistory,
@@ -351,15 +409,15 @@ internal sealed partial class WriteTools
             statusMarkerLifetime,
             TimeSpan.Zero);
         string statusCommand = TmuxCommandLine(
-            server,
+            route,
             "set-option",
             "-p",
             "-t",
             dispatch.Pane.Id.ToString(),
             token.StatusOption);
-        string signalCommand = TmuxCommandLine(server, "wait-for", "-S", token.Channel);
+        string signalCommand = TmuxCommandLine(route, "wait-for", "-S", token.Channel);
         string unsetStatusCommand = TmuxCommandLine(
-            server,
+            route,
             "set-option",
             "-p",
             "-u",
@@ -370,7 +428,7 @@ internal sealed partial class WriteTools
         string cleanupDelay = ((long)Math.Ceiling(statusMarkerLifetime.TotalSeconds))
             .ToString(CultureInfo.InvariantCulture);
         string scheduleCleanupCommand = TmuxCommandLine(
-            server,
+            route,
             "run-shell",
             "-b",
             "-d",

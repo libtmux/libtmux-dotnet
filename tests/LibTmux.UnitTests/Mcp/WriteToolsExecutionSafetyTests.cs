@@ -320,6 +320,101 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Capability_run_refuses_a_socket_transition_before_dispatch()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0")],
+                [new PaneListingRow("%1", "0", "0", SocketPath: "/tmp/other.sock")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("route", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("set-buffer", StringComparer.Ordinal));
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("delete-buffer", StringComparer.Ordinal));
+        Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+    }
+
+    [Fact]
+    public async Task Capability_run_rejects_unusable_routes_before_setup()
+    {
+        foreach (string socketPath in new[]
+        {
+            string.Empty,
+            "relative.sock",
+            "/tmp/control\n.sock",
+            "/tmp/del\u007f.sock",
+        })
+        {
+            await using var fixture = new ToolFixture
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: socketPath)],
+                ],
+            };
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.RunShellCommandAsync(
+                    "echo never",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("route", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, fixture.CaptureCount);
+            Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+        }
+
+        foreach (string executable in new[]
+        {
+            "tmux",
+            "/no/such/tmux",
+            "/tmp/control\n/tmux",
+            "/tmp/del\u007f/tmux",
+        })
+        {
+            await using var fixture = new ToolFixture(tmuxBinaryPath: executable);
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.RunShellCommandAsync(
+                    "echo never",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("route", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, fixture.CaptureCount);
+            Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+        }
+    }
+
+    [Fact]
+    public void Run_bookkeeping_uses_an_absolute_socket_and_bypasses_shell_functions()
+    {
+        Assert.True(PaneId.TryParse("%7", out PaneId pane));
+        var route = new RunCommandRoute("/bin/sh", "/tmp/socket'雪", pane);
+
+        string command = WriteTools.TmuxCommandLine(
+            route,
+            "wait-for",
+            "-S",
+            "channel");
+
+        Assert.StartsWith("command '/bin/sh' -S ", command, StringComparison.Ordinal);
+        Assert.Contains("'/tmp/socket'\\''雪'", command, StringComparison.Ordinal);
+        Assert.DoesNotContain(" -L ", command, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Capability_run_accepts_ksh93_as_a_posix_shell()
     {
         IReadOnlyList<PaneListingRow> panes =
@@ -1269,7 +1364,8 @@ public sealed class WriteToolsExecutionSafetyTests
         string InputOff = "0",
         string CurrentCommand = "bash",
         string Active = "1",
-        string WindowZoomed = "0");
+        string WindowZoomed = "0",
+        string SocketPath = ToolFixture.SocketPath);
 
     private sealed record ClientListingRow(
         string Control,
@@ -1305,13 +1401,15 @@ public sealed class WriteToolsExecutionSafetyTests
         private readonly TaskCompletionSource _statusUnsetObserved = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        internal ToolFixture(ServerPolicy? policy = null)
+        internal ToolFixture(ServerPolicy? policy = null, string tmuxBinaryPath = "/bin/sh")
         {
             _activity = new PaneActivityHub(static (_, _) =>
                 Task.FromException<IControlModeSession>(
                     new InvalidOperationException("Fake control attach unavailable.")));
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(socketPath: SocketPath),
+                new ServerConnectionOptions(
+                    tmuxBinaryPath: tmuxBinaryPath,
+                    socketPath: SocketPath),
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);
@@ -1626,6 +1724,7 @@ public sealed class WriteToolsExecutionSafetyTests
             "pane_input_off" => pane.InputOff,
             "pane_in_mode" => pane.InMode,
             "pane_synchronized" => pane.Synchronized,
+            "socket_path" => pane.SocketPath,
             _ => string.Empty,
         };
 

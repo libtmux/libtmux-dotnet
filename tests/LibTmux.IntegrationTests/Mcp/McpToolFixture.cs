@@ -46,8 +46,13 @@ internal sealed class McpToolFixture : IAsyncDisposable
         ServerPolicy? policy = null,
         CapabilityRegistry? registry = null)
     {
+        string configuredBinary = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+            ?? "tmux";
+        string tmuxBinaryPath = McpStartup.ResolveExecutablePath(
+            configuredBinary,
+            System.Environment.GetEnvironmentVariable("PATH"));
         TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            tmuxBinaryPath: tmuxBinaryPath,
             socketName: $"ltm-{Guid.NewGuid():N}"[..20],
             configurationFile: "/dev/null"));
 

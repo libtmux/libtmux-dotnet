@@ -121,13 +121,18 @@ public sealed class TmuxToolsTests
         string errorOut = $"error-out-{suffix}";
         string errorError = $"error-error-{suffix}";
         string parentExit = Path.Combine(Path.GetTempPath(), $"libtmux-parent-exit-{suffix}");
+        string intercepted = Path.Combine(Path.GetTempPath(), $"libtmux-intercepted-{suffix}");
+        string decoyRoot = Directory.CreateTempSubdirectory("libtmux-route-decoy-").FullName;
         await scope.Pane.RespawnAsync(
             new RespawnRequest(
                 "exec /bin/bash --noprofile --norc",
                 killExistingProcess: true),
             token);
         string ready = $"shell-state-ready-{suffix}";
-        string setup = "printf() { :; }; alias printf=:; "
+        string setup = $"function {mcp.Options.ConnectionOptions.TmuxBinaryPath} "
+            + $"{{ command printf x > {ShellQuote(intercepted)}; }}; "
+            + $"TMUX_TMPDIR={ShellQuote(decoyRoot)}; "
+            + "printf() { :; }; alias printf=:; "
             + "readonly __lt=human __lt_errexit=human; "
             + $"trap 'command printf x > {parentExit}' EXIT; "
             + $"trap 'command printf \"{debugOut}\\n\"; "
@@ -182,6 +187,8 @@ public sealed class TmuxToolsTests
         Assert.True(state.Started);
         Assert.Contains("options-kept", state.Output.Lines);
         Assert.False(File.Exists(parentExit));
+        Assert.False(File.Exists(intercepted));
+        Directory.Delete(decoyRoot, recursive: true);
     }
 
     [UnixFact]

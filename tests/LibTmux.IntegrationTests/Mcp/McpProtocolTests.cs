@@ -695,6 +695,7 @@ public sealed class McpProtocolTests
         {
             ["TMUX_TMPDIR"] = root,
             ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
         };
 
         try
@@ -705,6 +706,11 @@ public sealed class McpProtocolTests
             Assert.Equal("minimal", created.Disclosure.ConfigurationProvenance);
             Assert.Equal("default-dedicated", created.Disclosure.SocketProvenance);
             Assert.False(string.IsNullOrWhiteSpace(created.Disclosure.ResolvedSocketPath));
+            Assert.True(Path.IsPathFullyQualified(created.ConnectionOptions.TmuxBinaryPath));
+            Assert.Null(created.ConnectionOptions.SocketName);
+            Assert.Equal(
+                created.Disclosure.ResolvedSocketPath,
+                created.ConnectionOptions.SocketPath);
             Assert.Contains(" -N -S '", created.Disclosure.AttachCommand, StringComparison.Ordinal);
             Assert.Contains(Toolset.Teardown, created.Selection.Toolsets);
             Assert.True(File.Exists(created.ConnectionOptions.ConfigurationFile));
@@ -720,6 +726,10 @@ public sealed class McpProtocolTests
                 name => environment.GetValueOrDefault(name), token);
             Assert.Equal("existing", existing.Disclosure.ServerState);
             Assert.Equal("unknown", existing.Disclosure.ConfigurationProvenance);
+            Assert.Null(existing.ConnectionOptions.SocketName);
+            Assert.Equal(
+                created.Disclosure.ResolvedSocketPath,
+                existing.ConnectionOptions.SocketPath);
             Assert.DoesNotContain(Toolset.Teardown, existing.Selection.Toolsets);
 
             IAsyncDisposable owner = Assert.IsAssignableFrom<IAsyncDisposable>(created);
@@ -760,6 +770,7 @@ public sealed class McpProtocolTests
         {
             ["TMUX_TMPDIR"] = root,
             ["LIBTMUX_TMUX"] = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            ["PATH"] = System.Environment.GetEnvironmentVariable("PATH"),
         };
 
         try
