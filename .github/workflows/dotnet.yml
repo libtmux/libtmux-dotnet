@@ -263,6 +263,9 @@ jobs:
           PROBE
 
       - name: Native MCP swap tests
+        # Temporary. A pre-existing control-mode disposal flake in the step
+        # above stops this one running, and it is the step under investigation.
+        if: ${{ !cancelled() }}
         env:
           LIBTMUX_KEEP_TEST_PATHS: '1'
         run: >
