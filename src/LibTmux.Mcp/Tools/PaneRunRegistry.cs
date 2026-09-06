@@ -386,6 +386,18 @@ internal static class PaneInputEndpoint
                 ? StatDarwinInode64(path, buffer)
                 : Stat(path, buffer);
 
+    /// <summary>Gets the real user id this process runs as.</summary>
+    /// <remarks>
+    /// tmux composes a named socket's path as
+    /// <c>&lt;root&gt;/tmux-&lt;uid&gt;/&lt;name&gt;</c>, and .NET exposes no
+    /// portable way to read the id, so composing that path without asking tmux
+    /// needs this.
+    /// </remarks>
+    internal static uint UserId => GetUid();
+
+    [DllImport("libc", EntryPoint = "getuid")]
+    private static extern uint GetUid();
+
     [DllImport(
         "libc",
         EntryPoint = "stat",

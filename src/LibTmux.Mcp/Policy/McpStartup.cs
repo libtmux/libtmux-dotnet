@@ -179,10 +179,9 @@ internal sealed record McpStartup(
         string resolvedSocketPath = socketPath is null ? "" : Path.GetFullPath(socketPath);
         if (existing || newDedicatedMinimal)
         {
-            resolvedSocketPath = await ResolveSocketPathAsync(
-                    Server.Open(options),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            resolvedSocketPath = ComposeSocketPath(socketName, childEnvironment)
+                ?? await ResolveSocketPathAsync(Server.Open(options), cancellationToken)
+                    .ConfigureAwait(false);
         }
         ServerConnectionOptions pinnedOptions = resolvedSocketPath.Length == 0
             ? options
@@ -208,6 +207,42 @@ internal sealed record McpStartup(
                 ? new OwnedDedicatedDaemon(pinnedOptions, nonce: markerNonce!)
                 : null,
         };
+    }
+
+    /// <summary>Builds the path a socket name resolves to, without asking tmux.</summary>
+    /// <param name="socketName">The pinned socket name, if the pin is a name.</param>
+    /// <param name="childEnvironment">The environment tmux was given.</param>
+    /// <returns>The path, or <see langword="null" /> to ask tmux instead.</returns>
+    /// <remarks>
+    /// Asking tmux does not round-trip. tmux escapes a non-printable byte in
+    /// the socket path when it stores it at server start, so on 3.4 and 3.5 a
+    /// socket named with one reports back as printable escapes naming no file
+    /// -- and that path is what a run passes to <c>-S</c> and what pane input
+    /// stats. tmux composes the path itself as
+    /// <c>&lt;root&gt;/tmux-&lt;uid&gt;/&lt;name&gt;</c> from the environment
+    /// it was started with, which is the environment this process froze, so it
+    /// can be built here byte for byte. Answering null falls back to asking,
+    /// which is right for a server this process did not name.
+    /// </remarks>
+    private static string? ComposeSocketPath(
+        string? socketName,
+        Dictionary<string, string?> childEnvironment)
+    {
+        if (socketName is null || OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        string root =
+            childEnvironment.TryGetValue(TmuxTemporaryDirectoryVariable, out string? configured)
+            && !string.IsNullOrWhiteSpace(configured)
+                ? configured
+                : "/tmp";
+        string composed = Path.Combine(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)),
+            $"tmux-{PaneInputEndpoint.UserId}",
+            socketName);
+        return File.Exists(composed) ? composed : null;
     }
 
     private static async Task<string> ResolveSocketPathAsync(
