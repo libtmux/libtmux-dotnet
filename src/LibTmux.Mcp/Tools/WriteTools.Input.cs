@@ -106,14 +106,19 @@ internal sealed partial class WriteTools
         CancellationToken cancellationToken)
     {
         RefuseHumanOwnedMode(pane, toolName);
-        await pane.SendKeysAsync(
-                new SendKeysRequest(
-                    text: keys,
-                    enter: enter,
-                    literal: literal,
-                    suppressHistory: suppressHistory),
-                cancellationToken)
-            .ConfigureAwait(false);
+        var request = new SendKeysRequest(
+            text: keys,
+            enter: false,
+            literal: literal,
+            suppressHistory: suppressHistory);
+        TmuxChain dispatch = pane.Server.Chain().Then(request.ToCommand(pane));
+        if (enter)
+        {
+            dispatch = dispatch.Then(
+                new SendKeysRequest(text: "Enter", enter: false).ToCommand(pane));
+        }
+
+        _ = await dispatch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
         // Only literal keys are characters. With literal false the argument is
         // a key name, so counting it counted the name rather than the key —

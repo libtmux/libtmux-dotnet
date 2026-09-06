@@ -1,9 +1,10 @@
-using LibTmux.Internal;
+using System.Runtime.Versioning;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
 
 /// <summary>Coordinates pane input across MCP tool instances in this process.</summary>
+[UnsupportedOSPlatform("windows")]
 internal static class PaneRunRegistry
 {
     private static readonly object Gate = new();
@@ -28,20 +29,36 @@ internal static class PaneRunRegistry
 
     internal static PaneInputLease? Authorize(
         IReadOnlyList<Pane> panes,
-        PaneRunLease? owner,
+        PaneRunLease? runOwner,
+        PaneInputLease? inputOwner,
         string toolName,
         bool reserveDispatch)
     {
         PaneRunIdentity[] identities = [.. panes.Select(PaneRunIdentity.For)];
         lock (Gate)
         {
-            if (owner is not null)
+            if (runOwner is not null)
             {
-                if (identities.Length != 1 || !owner.OwnsLocked(identities[0]))
+                if (inputOwner is not null
+                    || reserveDispatch
+                    || identities.Length != 1
+                    || !runOwner.OwnsLocked(identities[0]))
                 {
                     throw new McpException(
                         "run_shell_command lost its pane reservation or route before "
                         + "dispatch. The command was not sent.");
+                }
+
+                return null;
+            }
+
+            if (inputOwner is not null)
+            {
+                if (reserveDispatch || !inputOwner.OwnsLocked(identities))
+                {
+                    throw new McpException(
+                        $"{toolName} refuses because its configured pane membership or "
+                        + "input reservation changed before dispatch.");
                 }
 
                 return null;
@@ -142,6 +159,14 @@ internal static class PaneRunRegistry
             _token = token;
         }
 
+        internal bool OwnsLocked(PaneRunIdentity[] identities) =>
+            Volatile.Read(ref _released) == 0
+            && _identities.AsSpan().SequenceEqual(identities)
+            && identities.All(identity =>
+                Active.TryGetValue(identity, out Reservation reservation)
+                && reservation.Token == _token
+                && reservation.Kind == ReservationKind.Input);
+
         internal void Release()
         {
             if (Interlocked.Exchange(ref _released, 1) == 0)
@@ -152,21 +177,15 @@ internal static class PaneRunRegistry
     }
 
     internal readonly record struct PaneRunIdentity(
-        string Endpoint,
         ServerGeneration Generation,
-        PaneId PaneId,
-        string TmuxBinary)
+        PaneId PaneId)
     {
+        [UnsupportedOSPlatform("windows")]
         internal static PaneRunIdentity For(Pane pane)
         {
-            TmuxConnection connection = pane.Server.Connection
-                ?? throw new InvalidOperationException(
-                    "Pane input requires a materialized tmux connection.");
             return new PaneRunIdentity(
-                connection.GetEndpointFingerprint(),
                 pane.Generation,
-                pane.Id,
-                pane.Server.ConnectionOptions.TmuxBinaryPath);
+                pane.Id);
         }
     }
 
@@ -176,5 +195,64 @@ internal static class PaneRunRegistry
     {
         Run,
         Input,
+    }
+}
+
+[UnsupportedOSPlatform("windows")]
+internal static class PaneInputEndpoint
+{
+    internal static string From(Pane pane)
+    {
+        if (!pane.RawFormatFields.TryGetValue("socket_path", out string? path)
+            || string.IsNullOrWhiteSpace(path))
+        {
+            throw new McpException(
+                "Pane input route is refused because its tmux socket path is unavailable.");
+        }
+
+        return Normalize(path, "pane input route socket path");
+    }
+
+    internal static string Normalize(string path, string subject)
+    {
+        McpStartup.RequireSafeRouteValue(path, subject);
+        if (!Path.IsPathFullyQualified(path))
+        {
+            throw new McpException($"{subject} must be absolute.");
+        }
+
+        try
+        {
+            string full = Path.GetFullPath(path);
+            string root = Path.GetPathRoot(full)
+                ?? throw new McpException($"{subject} has no filesystem root.");
+            string current = root;
+            foreach (string component in full[root.Length..].Split(
+                Path.DirectorySeparatorChar,
+                StringSplitOptions.RemoveEmptyEntries))
+            {
+                string candidate = Path.Combine(current, component);
+                var entry = new FileInfo(candidate);
+                if (entry.LinkTarget is null)
+                {
+                    current = candidate;
+                    continue;
+                }
+
+                FileSystemInfo resolved = entry.ResolveLinkTarget(returnFinalTarget: true)
+                    ?? throw new McpException($"{subject} has an unresolved symbolic link.");
+                current = Path.GetFullPath(resolved.FullName);
+            }
+
+            return current;
+        }
+        catch (Exception error) when (
+            error is ArgumentException
+                or IOException
+                or NotSupportedException
+                or UnauthorizedAccessException)
+        {
+            throw new McpException($"{subject} cannot be resolved safely.", error);
+        }
     }
 }

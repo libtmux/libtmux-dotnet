@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -57,7 +58,25 @@ internal sealed record PaneInputBatchResult(
 internal sealed record PaneInputPreflight(
     Pane Pane,
     IReadOnlyList<string> TargetPaneIds,
-    PaneRunRegistry.PaneInputLease? DispatchLease);
+    string SafetySignature,
+    PaneRunRegistry.PaneInputLease? DispatchLease)
+{
+    internal void RequireSame(PaneInputPreflight current, string toolName)
+    {
+        if (!string.Equals(SafetySignature, current.SafetySignature, StringComparison.Ordinal))
+        {
+            throw new McpException(
+                $"{toolName} refuses because pane input state, placement, or route changed "
+                + "before dispatch. Inspect the pane and retry.");
+        }
+    }
+}
+
+internal sealed record PaneInputCallerIdentity(
+    string Endpoint,
+    ServerGeneration Generation,
+    string SessionId,
+    string PaneId);
 
 internal enum PaneInputPreflightKind
 {
@@ -948,8 +967,10 @@ internal sealed class CapabilityTools
                         "run_shell_command",
                         PaneInputPreflightKind.SingularCommand,
                         reserveDispatch: false,
-                        lease,
-                        token).ConfigureAwait(false);
+                        runLease: lease,
+                        inputLease: null,
+                        cancellationToken: token).ConfigureAwait(false);
+                    initial.RequireSame(final, "run_shell_command");
                     route.RequireSame(
                         RunCommandRoute.From(final.Pane, "run_shell_command"),
                         "run_shell_command");
@@ -968,7 +989,7 @@ internal sealed class CapabilityTools
         bool suppressHistory = false,
         CancellationToken cancellationToken = default)
     {
-        PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+        PaneInputPreflight initial = await PreflightPaneInputDispatchAsync(
                 paneId,
                 "send_keys",
                 PaneInputPreflightKind.Configured,
@@ -977,6 +998,16 @@ internal sealed class CapabilityTools
             .ConfigureAwait(false);
         try
         {
+            PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                    initial.Pane.Id.ToString(),
+                    "send_keys",
+                    PaneInputPreflightKind.Configured,
+                    reserveDispatch: false,
+                    runLease: null,
+                    inputLease: initial.DispatchLease,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            initial.RequireSame(final, "send_keys");
             ActionResult result = await WriteTools.SendKeysToPreflightedPaneAsync(
                     final.Pane,
                     keys,
@@ -993,7 +1024,7 @@ internal sealed class CapabilityTools
         }
         finally
         {
-            final.DispatchLease?.Release();
+            initial.DispatchLease?.Release();
         }
     }
 
@@ -1022,16 +1053,26 @@ internal sealed class CapabilityTools
         for (int index = 0; index < operations.Count; index++)
         {
             PaneInputOperation operation = operations[index];
-            PaneInputPreflight? final = null;
+            PaneInputPreflight? initial = null;
             try
             {
-                final = await PreflightPaneInputDispatchAsync(
+                initial = await PreflightPaneInputDispatchAsync(
                         operation.PaneId,
                         "send_keys_batch",
                         PaneInputPreflightKind.Configured,
                         reserveDispatch: true,
                         cancellationToken)
                     .ConfigureAwait(false);
+                PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                        initial.Pane.Id.ToString(),
+                        "send_keys_batch",
+                        PaneInputPreflightKind.Configured,
+                        reserveDispatch: false,
+                        runLease: null,
+                        inputLease: initial.DispatchLease,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                initial.RequireSame(final, "send_keys_batch");
                 _ = await WriteTools.SendKeysToPreflightedPaneAsync(
                         final.Pane,
                         operation.Keys,
@@ -1065,7 +1106,7 @@ internal sealed class CapabilityTools
             }
             finally
             {
-                final?.DispatchLease?.Release();
+                initial?.DispatchLease?.Release();
             }
         }
 
@@ -1089,27 +1130,37 @@ internal sealed class CapabilityTools
                 paneId,
                 "paste_text",
                 PaneInputPreflightKind.TargetOnly,
-                reserveDispatch: false,
+                reserveDispatch: true,
                 cancellationToken)
             .ConfigureAwait(false);
-        return await WriteTools.PasteWithDispatchPreflightAsync(
-                text,
-                initial.Pane,
-                bracketed,
-                enter,
-                async token =>
-                {
-                    PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
-                            initial.Pane.Id.ToString(),
-                            "paste_text",
-                            PaneInputPreflightKind.TargetOnly,
-                            reserveDispatch: true,
-                            token)
-                        .ConfigureAwait(false);
-                    return final;
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            return await WriteTools.PasteWithDispatchPreflightAsync(
+                    text,
+                    initial.Pane,
+                    bracketed,
+                    enter,
+                    async token =>
+                    {
+                        PaneInputPreflight final = await PreflightPaneInputDispatchAsync(
+                                initial.Pane.Id.ToString(),
+                                "paste_text",
+                                PaneInputPreflightKind.TargetOnly,
+                                reserveDispatch: false,
+                                runLease: null,
+                                inputLease: initial.DispatchLease,
+                                cancellationToken: token)
+                            .ConfigureAwait(false);
+                        initial.RequireSame(final, "paste_text");
+                        return final;
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            initial.DispatchLease?.Release();
+        }
     }
 
     public async Task<ActionResult> SetSynchronizePanesAsync(
@@ -1203,6 +1254,7 @@ internal sealed class CapabilityTools
             PaneInputPreflightKind kind,
             bool reserveDispatch,
             PaneRunRegistry.PaneRunLease? runLease,
+            PaneRunRegistry.PaneInputLease? inputLease,
             CancellationToken cancellationToken)
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
@@ -1212,7 +1264,7 @@ internal sealed class CapabilityTools
             .ConfigureAwait(false);
         IReadOnlyList<Client> clients = await server.GetClientsStrictAsync(cancellationToken)
             .ConfigureAwait(false);
-        string? callerPaneId = await ResolvePaneInputCallerIdAsync(
+        PaneInputCallerIdentity? caller = await ResolvePaneInputCallerAsync(
                 server,
                 panes,
                 cancellationToken)
@@ -1220,12 +1272,13 @@ internal sealed class CapabilityTools
         return ResolvePaneInputTargets(
             panes,
             clients,
-            callerPaneId,
+            caller,
             requestedPaneId,
             toolName,
             kind,
             reserveDispatch,
-            runLease);
+            runLease,
+            inputLease);
     }
 
     private Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
@@ -1240,6 +1293,7 @@ internal sealed class CapabilityTools
             kind,
             reserveDispatch,
             runLease: null,
+            inputLease: null,
             cancellationToken);
 
     private static async Task<string> ResolvePaneInputIdAsync(
@@ -1278,12 +1332,13 @@ internal sealed class CapabilityTools
     private static PaneInputPreflight ResolvePaneInputTargets(
         IReadOnlyList<Pane> panes,
         IReadOnlyList<Client> clients,
-        string? callerPaneId,
+        PaneInputCallerIdentity? caller,
         string paneId,
         string toolName,
         PaneInputPreflightKind kind,
         bool reserveDispatch,
-        PaneRunRegistry.PaneRunLease? runLease)
+        PaneRunRegistry.PaneRunLease? runLease,
+        PaneRunRegistry.PaneInputLease? inputLease)
     {
         (Dictionary<string, Pane> unique, Dictionary<string, HashSet<string>> sessions) =
             ValidatePaneInputTopology(panes);
@@ -1322,7 +1377,7 @@ internal sealed class CapabilityTools
         foreach (Pane member in configured)
         {
             string memberId = member.Id.ToString();
-            if (string.Equals(callerPaneId, memberId, StringComparison.Ordinal))
+            if (string.Equals(caller?.PaneId, memberId, StringComparison.Ordinal))
             {
                 throw new McpException($"{toolName} refuses caller pane {memberId}.");
             }
@@ -1351,17 +1406,96 @@ internal sealed class CapabilityTools
             RequirePosixShell(source, toolName);
         }
 
+        string safetySignature = PaneInputSafetySignature(
+            source,
+            configured,
+            sessions,
+            caller,
+            kind);
         PaneRunRegistry.PaneInputLease? dispatchLease = PaneRunRegistry.Authorize(
             configured,
             runLease,
+            inputLease,
             toolName,
             reserveDispatch);
 
         return new PaneInputPreflight(
             source,
             configuredIds,
+            safetySignature,
             dispatchLease);
     }
+
+    private static string PaneInputSafetySignature(
+        Pane source,
+        Pane[] configured,
+        Dictionary<string, HashSet<string>> sessions,
+        PaneInputCallerIdentity? caller,
+        PaneInputPreflightKind kind)
+    {
+        ServerGeneration generation = source.Generation;
+        var signature = new StringBuilder();
+        string endpoint = PaneInputEndpoint.From(source);
+        if (caller is not null
+            && !string.Equals(caller.Endpoint, endpoint, StringComparison.Ordinal))
+        {
+            throw new McpException(
+                "Pane input is refused because the caller and pane endpoint identities "
+                + "are inconsistent.");
+        }
+
+        AppendSignatureField(signature, endpoint);
+        AppendSignatureField(
+            signature,
+            generation.ProcessId.ToString(CultureInfo.InvariantCulture));
+        AppendSignatureField(
+            signature,
+            generation.StartTime.ToString(CultureInfo.InvariantCulture));
+        AppendSignatureField(signature, caller is null ? "0" : "1");
+        if (caller is not null)
+        {
+            AppendSignatureField(signature, caller.Endpoint);
+            AppendSignatureField(
+                signature,
+                caller.Generation.ProcessId.ToString(CultureInfo.InvariantCulture));
+            AppendSignatureField(
+                signature,
+                caller.Generation.StartTime.ToString(CultureInfo.InvariantCulture));
+            AppendSignatureField(signature, caller.SessionId);
+            AppendSignatureField(signature, caller.PaneId);
+        }
+
+        AppendSignatureField(signature, ((int)kind).ToString(CultureInfo.InvariantCulture));
+        AppendSignatureField(signature, source.Id.ToString());
+        AppendSignatureField(
+            signature,
+            configured.Length.ToString(CultureInfo.InvariantCulture));
+        foreach (Pane member in configured)
+        {
+            string memberId = member.Id.ToString();
+            AppendSignatureField(signature, memberId);
+            AppendSignatureField(
+                signature,
+                sessions[memberId].Count.ToString(CultureInfo.InvariantCulture));
+            foreach (string sessionId in sessions[memberId].Order(StringComparer.Ordinal))
+            {
+                AppendSignatureField(signature, sessionId);
+            }
+
+            foreach (string field in PaneInputStateFields)
+            {
+                AppendSignatureField(signature, ReadPaneField(member, field));
+            }
+        }
+
+        return signature.ToString();
+    }
+
+    private static void AppendSignatureField(StringBuilder signature, string value) =>
+        _ = signature
+            .Append(value.Length.ToString(CultureInfo.InvariantCulture))
+            .Append(':')
+            .Append(value);
 
     // targetPaneIds carries configured membership, but the sentence names one
     // pane, and the sentence is what a model reads.
@@ -1379,7 +1513,7 @@ internal sealed class CapabilityTools
                 + "prove delivery.";
     }
 
-    private static async Task<string?> ResolvePaneInputCallerIdAsync(
+    private static async Task<PaneInputCallerIdentity?> ResolvePaneInputCallerAsync(
         Server server,
         IReadOnlyList<Pane> panes,
         CancellationToken cancellationToken)
@@ -1416,29 +1550,35 @@ internal sealed class CapabilityTools
         }
 
         string callerSocket;
-        string selectedSocket;
         try
         {
-            McpStartup.RequireSafeRouteValue(caller.SocketPath, "caller tmux socket path");
-            callerSocket = Path.GetFullPath(caller.SocketPath);
-            selectedSocket = Path.GetFullPath(serverSocket);
+            callerSocket = PaneInputEndpoint.Normalize(
+                caller.SocketPath,
+                "caller tmux socket path");
         }
-        catch (Exception error) when (
-            error is ArgumentException or NotSupportedException or McpException)
+        catch (McpException error)
         {
             throw new McpException(
                 "Pane input is refused because the caller socket path is malformed.",
                 error);
         }
 
-        if (!string.Equals(callerSocket, selectedSocket, StringComparison.Ordinal))
-        {
-            return null;
-        }
+        string selectedSocket = PaneInputEndpoint.Normalize(
+            serverSocket,
+            "selected tmux socket path");
 
         ServerGeneration generation = server.Generation
             ?? throw new McpException(
                 "Pane input is refused because the selected server generation is unavailable.");
+        bool sameRoute = string.Equals(
+            callerSocket,
+            selectedSocket,
+            StringComparison.Ordinal);
+        if (!sameRoute && caller.ServerProcessId != generation.ProcessId)
+        {
+            return null;
+        }
+
         if (caller.ServerProcessId != generation.ProcessId)
         {
             throw new McpException(
@@ -1470,7 +1610,11 @@ internal sealed class CapabilityTools
                 + $"in claimed session {claimedSession}.");
         }
 
-        return callerPaneId;
+        return new PaneInputCallerIdentity(
+            selectedSocket,
+            generation,
+            claimedSession,
+            callerPaneId);
     }
 
     private static HashSet<string> AttendedPaneIds(
