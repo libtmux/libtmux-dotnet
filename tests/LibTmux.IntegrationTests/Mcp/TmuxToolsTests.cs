@@ -205,8 +205,15 @@ public sealed class TmuxToolsTests
 
         Assert.Equal(0, success.ExitStatus);
         Assert.Contains(successMarker, success.Output.Lines);
-        Assert.Equal(1, success.Output.Lines.Count(line => line == debugOut));
-        Assert.Equal(1, success.Output.Lines.Count(line => line == debugError));
+        // Counting alone cannot say what a second copy is, and the inherited
+        // DEBUG trap fires once per simple command, so the answer is in which
+        // commands ran inside the window.
+        Assert.True(
+            success.Output.Lines.Count(line => line == debugOut) == 1,
+            "debugOut once, saw [" + string.Join(" | ", success.Output.Lines) + "]");
+        Assert.True(
+            success.Output.Lines.Count(line => line == debugError) == 1,
+            "debugError once, saw [" + string.Join(" | ", success.Output.Lines) + "]");
         Assert.NotEqual(0, failed.ExitStatus);
         Assert.DoesNotContain(unreachable, failed.Output.Lines);
         Assert.Equal(1, failed.Output.Lines.Count(line => line == errorOut));
