@@ -118,7 +118,24 @@ public sealed class SwapLockTests
         // cannot tell "the alias outlived the delete" from "validation is
         // broken". Say which before asking.
         Assert.Equal<ulong>(1, NativeFileSystem.LStat(runtime.LockFile).LinkCount);
-        held.Validate();
+
+        string before = NativeFileSystem.RawStatHex(runtime.LockFile);
+        string aliasState = File.Exists(alias) ? "alias still present" : "alias gone";
+        string listing = string.Join(
+            ",",
+            Directory.EnumerateFileSystemEntries(paths.Root, "*", SearchOption.AllDirectories)
+                .Select(entry => Path.GetRelativePath(paths.Root, entry))
+                .Order(StringComparer.Ordinal));
+        try
+        {
+            held.Validate();
+        }
+        catch (IOException error)
+        {
+            throw new IOException(
+                $"[before validate: hex {before}, {aliasState}, tree {listing}] {error.Message}",
+                error);
+        }
     }
 
     [Theory]
