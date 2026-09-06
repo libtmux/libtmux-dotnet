@@ -26,6 +26,7 @@ jobs:
   build:
     name: build and prove
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -206,6 +207,7 @@ jobs:
   macos:
     name: macos arm64 (advisory)
     runs-on: macos-latest
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -263,6 +265,7 @@ jobs:
     needs: [build]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Report whether everything this workflow gates on passed
         # A skipped or cancelled dependency is not a pass. Comparing against
