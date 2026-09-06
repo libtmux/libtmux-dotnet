@@ -27,13 +27,20 @@ public static class McpServerComposition
         IServiceCollection services,
         ServerPolicy policy,
         ServerConnectionOptions connectionOptions,
-        string? callerPaneId) => Add(
+        string? callerPaneId)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(connectionOptions);
+        ServerConnectionOptions pinned = PinExecutable(connectionOptions);
+        return Add(
             services,
             policy,
-            connectionOptions,
+            pinned,
             callerPaneId,
             CapabilitySelection.WithoutTeardown,
-            McpRuntimeDisclosure.Unknown(connectionOptions));
+            McpRuntimeDisclosure.Unknown(pinned));
+    }
 
     internal static IMcpServerBuilder Add(
         IServiceCollection services,
@@ -48,6 +55,7 @@ public static class McpServerComposition
         ArgumentNullException.ThrowIfNull(connectionOptions);
         ArgumentNullException.ThrowIfNull(selection);
         ArgumentNullException.ThrowIfNull(runtime);
+        connectionOptions = PinExecutable(connectionOptions);
 
         CapabilityRegistry registry = CapabilityRegistry.Select(selection);
 
@@ -96,5 +104,45 @@ public static class McpServerComposition
             new BoundedMcpTaskCancellationOptions(taskStore));
 
         return builder;
+    }
+
+    private static ServerConnectionOptions PinExecutable(ServerConnectionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.PsmuxPreview is not null)
+        {
+            McpStartup.RequireSafeRouteValue(options.TmuxBinaryPath, "tmux executable route");
+            if (!Path.IsPathFullyQualified(options.TmuxBinaryPath)
+                || !McpStartup.IsExecutableFile(options.TmuxBinaryPath))
+            {
+                throw new ModelContextProtocol.McpException(
+                    "The MCP tmux executable route is not an absolute executable file.");
+            }
+
+            return options;
+        }
+
+        string? searchPath = options.ChildEnvironment is not null
+            && options.ChildEnvironment.TryGetValue("PATH", out string? configuredPath)
+                ? configuredPath
+                : System.Environment.GetEnvironmentVariable("PATH");
+        string executable = McpStartup.ResolveExecutablePath(
+            options.TmuxBinaryPath,
+            searchPath);
+        if (string.Equals(executable, options.TmuxBinaryPath, StringComparison.Ordinal))
+        {
+            return options;
+        }
+
+        return new ServerConnectionOptions(
+            tmuxBinaryPath: executable,
+            socketName: options.SocketName,
+            socketPath: options.SocketPath,
+            socketNameFactory: options.SocketNameFactory,
+            configurationFile: options.ConfigurationFile,
+            colorMode: options.ColorMode,
+            initializeAsync: options.InitializeAsync,
+            childEnvironment: options.ChildEnvironment,
+            logger: options.Logger);
     }
 }

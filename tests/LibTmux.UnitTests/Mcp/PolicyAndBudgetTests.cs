@@ -104,6 +104,35 @@ public sealed class ServerPolicyTests
             .ConfigurationProvenance);
     }
 
+    [UnixFact]
+    public void Public_composition_pins_a_relative_tmux_executable_at_registration()
+    {
+        string root = Directory.CreateTempSubdirectory("libtmux-composition-route-").FullName;
+        string executable = Path.Combine(root, "tmux");
+        File.WriteAllText(executable, "#!/bin/sh\nexit 0\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        string relative = Path.GetRelativePath(Environment.CurrentDirectory, executable);
+
+        try
+        {
+            ServiceCollection services = new();
+            _ = McpServerComposition.Add(
+                services,
+                new ServerPolicy(),
+                new ServerConnectionOptions(relative, socketName: "embedded"),
+                callerPaneId: null);
+            using ServiceProvider provider = services.BuildServiceProvider();
+
+            McpRuntimeDisclosure runtime = provider.GetRequiredService<McpRuntimeDisclosure>();
+
+            Assert.StartsWith($"'{executable}' -N ", runtime.AttachCommand, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [UnixTheory]
     [InlineData(McpStartup.SocketVariable)]
     [InlineData(McpStartup.SocketPathVariable)]
