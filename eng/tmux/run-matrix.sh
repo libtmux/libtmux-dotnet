@@ -145,14 +145,10 @@ if [[ -n "${evidence_directory}" ]]; then
     results_file="${candidate}/results.ndjson"
 fi
 
-# One directory per invocation, emptied at the start. A kept log outlives the
-# run that made it, so without this a cell that has since started passing goes
-# on showing a failure, and anyone reading the directory cannot tell which run
-# it came from.
-FAILURE_DIRECTORY="${candidate:+${candidate}/failures}"
-FAILURE_DIRECTORY="${FAILURE_DIRECTORY:-${TMPDIR:-/tmp}/libtmux-matrix-failures}"
+# Keep failures outside the unpublished candidate until the matrix succeeds.
+# An early failure discards the candidate but leaves its diagnostic output.
+FAILURE_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/libtmux-matrix-failures.XXXXXXXX")"
 readonly FAILURE_DIRECTORY
-rm -rf -- "${FAILURE_DIRECTORY}"
 kept_failures=0
 
 cleanup_candidate() {
@@ -162,6 +158,9 @@ cleanup_candidate() {
             --output "${evidence_directory}" \
             --ownership-nonce "${ownership_nonce}"
     fi
+    # A clean run leaves an empty directory. Failed output makes rmdir refuse,
+    # preserving the path printed by keep_failure_output.
+    rmdir -- "${FAILURE_DIRECTORY}" 2>/dev/null || true
 }
 trap cleanup_candidate EXIT
 
@@ -372,6 +371,9 @@ if [[ ${transition_proof} -eq 1 ]]; then
 fi
 
 if [[ -n "${candidate}" ]]; then
+    if [[ ${kept_failures} -gt 0 ]]; then
+        mv -- "${FAILURE_DIRECTORY}" "${candidate}/failures"
+    fi
     include_master_json=false
     if [[ ${include_master} -eq 1 ]]; then
         include_master_json=true
