@@ -490,13 +490,37 @@ internal static partial class NativeFileSystem
         EnsureUnix();
         int flags = OpenReadWrite | OpenCreate | OpenExclusive | OpenNoFollow | OpenCloseOnExec;
         int descriptor = OpenAtNative(directory.DangerousGetHandle().ToInt32(), name, flags, 0x180);
-        if (descriptor < 0 && Marshal.GetLastPInvokeError() == 17)
+        bool created = descriptor >= 0;
+        if (!created && Marshal.GetLastPInvokeError() == 17)
         {
             flags = OpenReadWrite | OpenNoFollow | OpenCloseOnExec;
             descriptor = OpenAtNative(directory.DangerousGetHandle().ToInt32(), name, flags, 0);
         }
 
-        return OwnedHandle(descriptor, $"cannot open swap lock {name}");
+        SafeFileHandle handle = OwnedHandle(descriptor, $"cannot open swap lock {name}");
+        if (!created)
+        {
+            return handle;
+        }
+
+        // openat is variadic in C, and Apple's arm64 ABI passes a variadic
+        // argument on the stack where every other target we build for passes
+        // it in a register. So the mode above never reaches the kernel on
+        // Apple silicon and the lock is created with whatever the stack held,
+        // which the 0600 check then rejects. fchmod is not variadic. Only the
+        // descriptor this call created is touched, so a lock that was already
+        // there is still rejected rather than repaired, and O_EXCL plus the
+        // owned 0700 directory leave no window another user could reach.
+        if (FChangeMode(handle.DangerousGetHandle().ToInt32(), 0x180) < 0)
+        {
+            int error = Marshal.GetLastPInvokeError();
+            handle.Dispose();
+            throw new IOException(
+                $"cannot set the mode of swap lock {name}: "
+                + Marshal.GetPInvokeErrorMessage(error));
+        }
+
+        return handle;
     }
 
     internal static NativeIdentity FStat(SafeFileHandle handle)
@@ -761,6 +785,9 @@ internal static partial class NativeFileSystem
 
     [LibraryImport("libc", EntryPoint = "free")]
     private static partial void Free(nint pointer);
+
+    [LibraryImport("libc", EntryPoint = "fchmod", SetLastError = true)]
+    private static partial int FChangeMode(int descriptor, uint mode);
 
     [LibraryImport("libc", EntryPoint = "getuid")]
     private static partial uint GetUid();
