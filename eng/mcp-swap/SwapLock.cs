@@ -119,6 +119,24 @@ internal sealed class SwapLock : IDisposable
         }
     }
 
+    /// <summary>Answers whether an identity is the lock this process holds.</summary>
+    /// <param name="identity">The identity to test.</param>
+    /// <returns><see langword="true" /> when it names the held lock.</returns>
+    /// <remarks>
+    /// Callers ask before opening. Opening first is what the retention below
+    /// exists to survive, and on macOS it does not get the chance: .NET
+    /// implements FileShare with an advisory lock, so it opens a descriptor,
+    /// finds the conflict, closes it, and throws a sharing violation -- and
+    /// that close drops every record lock this process holds on the file.
+    /// </remarks>
+    internal static bool IsActiveLock(NativeIdentity identity)
+    {
+        SwapLock? held = active;
+        return held is not null
+            && held.identity.Device == identity.Device
+            && held.identity.Inode == identity.Inode;
+    }
+
     internal static bool RetainIfActiveAlias(NativeIdentity identity, FileStream candidate)
     {
         SwapLock? held = active;

@@ -220,6 +220,15 @@ internal static partial class NativeFileSystem
             throw new IOException($"file exceeds {maximumBytes} bytes: {full}");
         }
 
+        // Refuse before opening. The retention below cannot be reached on a
+        // platform whose FileShare implementation opens and closes a
+        // descriptor to discover the conflict, and that close takes this
+        // process's record locks on the file with it.
+        if (SwapLock.IsActiveLock(before))
+        {
+            throw new IOException($"file aliases the held swap lock: {full}");
+        }
+
         FileStream? stream = new(
             full,
             FileMode.Open,
