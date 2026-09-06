@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
@@ -288,7 +290,7 @@ public sealed class WriteToolsExecutionSafetyTests
             [
                 [
                     new PaneListingRow("%1", "0", "0"),
-                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2", WindowIndex: "1"),
                 ],
             ],
             ClientListings =
@@ -301,6 +303,77 @@ public sealed class WriteToolsExecutionSafetyTests
                         SessionId: sessionId,
                         WindowId: windowId),
                 ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("placement", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("00")]
+    [InlineData("-1")]
+    [InlineData("4294967296")]
+    public async Task Capability_input_rejects_a_malformed_client_window_index(string windowIndex)
+    {
+        await using var fixture = new ToolFixture
+        {
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%1", "0", WindowIndex: windowIndex)],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("window_index", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_a_missing_terminal_client_identity()
+    {
+        await using var fixture = new ToolFixture
+        {
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%1", "0", Name: string.Empty)],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("client identity", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_a_mismatched_client_window_index()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", WindowIndex: "3")],
+            ],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%1", "0", WindowIndex: "4")],
             ],
         };
 
@@ -331,7 +404,7 @@ public sealed class WriteToolsExecutionSafetyTests
             [
                 [
                     new PaneListingRow("%1", "0", "0"),
-                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2", WindowIndex: "1"),
                 ],
             ],
             ClientListings =
@@ -366,13 +439,18 @@ public sealed class WriteToolsExecutionSafetyTests
             [
                 [
                     new PaneListingRow("%1", "0", "0"),
-                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2", WindowIndex: "1"),
                 ],
             ],
             ClientListings =
             [
                 [
-                    new ClientListingRow("0", "%2", "0", WindowId: "@2"),
+                    new ClientListingRow(
+                        "0",
+                        "%2",
+                        "0",
+                        WindowId: "@2",
+                        WindowIndex: "1"),
                     new ClientListingRow("1", "malformed", "2", SessionId: "", WindowId: ""),
                 ],
             ],
@@ -424,18 +502,27 @@ public sealed class WriteToolsExecutionSafetyTests
                 [
                     new PaneListingRow("%3", "1", "0"),
                     new PaneListingRow("%1", "1", "0"),
-                    new PaneListingRow("%2", "0", "0", WindowId: "@2"),
+                    new PaneListingRow("%2", "0", "0", WindowId: "@2", WindowIndex: "1"),
                     new PaneListingRow(
                         "%2",
                         "0",
                         "0",
                         SessionId: "$2",
-                        WindowId: "@2"),
+                        WindowId: "@2",
+                        WindowIndex: "1"),
                 ],
             ],
             ClientListings =
             [
-                [new ClientListingRow("0", "%2", "0", SessionId: "$2", WindowId: "@2")],
+                [
+                    new ClientListingRow(
+                        "0",
+                        "%2",
+                        "0",
+                        SessionId: "$2",
+                        WindowId: "@2",
+                        WindowIndex: "1"),
+                ],
             ],
         };
 
@@ -446,6 +533,150 @@ public sealed class WriteToolsExecutionSafetyTests
 
         Assert.Equal(["%1", "%3"], result.TargetPaneIds);
         Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task One_window_can_be_linked_twice_into_one_session_at_distinct_indexes()
+    {
+        IReadOnlyList<PaneListingRow> panes =
+        [
+            new PaneListingRow("%1", "1", "0", WindowIndex: "0"),
+            new PaneListingRow("%1", "1", "0", WindowIndex: "7"),
+            new PaneListingRow("%2", "1", "0", WindowIndex: "0"),
+            new PaneListingRow("%2", "1", "0", WindowIndex: "7"),
+        ];
+        await using var fixture = new ToolFixture { PaneListings = [panes, panes] };
+
+        PaneInputResult result = await fixture.Capabilities.SendKeysAsync(
+            "safe",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(["%1", "%2"], result.TargetPaneIds);
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_an_incomplete_linked_window_rectangle()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [
+                    new PaneListingRow("%1", "0", "0", WindowIndex: "0"),
+                    new PaneListingRow("%1", "0", "0", WindowIndex: "7"),
+                    new PaneListingRow("%2", "0", "0", WindowIndex: "0"),
+                ],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("incomplete linked-window", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_a_duplicate_pane_placement()
+    {
+        PaneListingRow pane = new("%1", "0", "0", WindowIndex: "3");
+        await using var fixture = new ToolFixture { PaneListings = [[pane, pane]] };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("duplicate pane placement", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("00")]
+    [InlineData("-1")]
+    [InlineData("4294967296")]
+    public async Task Capability_input_rejects_a_malformed_pane_window_index(string windowIndex)
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0", WindowIndex: windowIndex)],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("window_index", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_send_signs_client_relocation_with_unchanged_attention()
+    {
+        IReadOnlyList<PaneListingRow> panes =
+        [
+            new PaneListingRow("%1", "0", "0"),
+            new PaneListingRow("%3", "0", "0", WindowId: "@2", WindowIndex: "2"),
+            new PaneListingRow("%3", "0", "0", WindowId: "@2", WindowIndex: "7"),
+        ];
+        await using var fixture = new ToolFixture
+        {
+            PaneListings = [panes, panes],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%3", "0", WindowId: "@2", WindowIndex: "2")],
+                [new ClientListingRow("0", "%3", "0", WindowId: "@2", WindowIndex: "7")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("changed", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
+    }
+
+    [Fact]
+    public async Task Capability_send_signs_terminal_client_identity()
+    {
+        IReadOnlyList<PaneListingRow> panes =
+        [
+            new PaneListingRow("%1", "0", "0"),
+            new PaneListingRow("%2", "0", "0", WindowId: "@2", WindowIndex: "1"),
+        ];
+        await using var fixture = new ToolFixture
+        {
+            PaneListings = [panes, panes],
+            ClientListings =
+            [
+                [new ClientListingRow("0", "%2", "0", Name: "/dev/pts/one", WindowId: "@2", WindowIndex: "1")],
+                [new ClientListingRow("0", "%2", "0", Name: "/dev/pts/two", WindowId: "@2", WindowIndex: "1")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("changed", refusal.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fixture.SuccessfulSends);
     }
 
     [Theory]
@@ -625,27 +856,107 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task Capability_run_refuses_a_socket_transition_before_dispatch()
     {
-        await using var fixture = new ToolFixture
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-route-transition-{Guid.NewGuid():N}");
+        string other = Path.Combine(directory, "other.sock");
+        Directory.CreateDirectory(directory);
+        using Socket endpoint = CreateBoundSocket(other);
+        try
         {
-            PaneListings =
-            [
-                [new PaneListingRow("%1", "0", "0")],
-                [new PaneListingRow("%1", "0", "0", SocketPath: "/tmp/other.sock")],
-            ],
-        };
+            await using var fixture = new ToolFixture
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0")],
+                    [new PaneListingRow("%1", "0", "0", SocketPath: other)],
+                ],
+            };
 
-        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
-            fixture.Capabilities.RunShellCommandAsync(
-                "echo never",
-                "%1",
-                cancellationToken: TestContext.Current.CancellationToken));
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.RunShellCommandAsync(
+                    "echo never",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
 
-        Assert.Contains("route", refusal.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(fixture.Commands, arguments =>
-            arguments.Contains("set-buffer", StringComparer.Ordinal));
-        Assert.Contains(fixture.Commands, arguments =>
-            arguments.Contains("delete-buffer", StringComparer.Ordinal));
-        Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+            Assert.Contains("route", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(fixture.Commands, arguments =>
+                arguments.Contains("set-buffer", StringComparer.Ordinal));
+            Assert.Contains(fixture.Commands, arguments =>
+                arguments.Contains("delete-buffer", StringComparer.Ordinal));
+            Assert.DoesNotContain(fixture.Commands, IsSendKeys);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Capability_input_rejects_a_regular_file_endpoint()
+    {
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-regular-endpoint-{Guid.NewGuid():N}");
+        await File.WriteAllTextAsync(path, string.Empty, TestContext.Current.CancellationToken);
+        try
+        {
+            await using var fixture = new ToolFixture(socketPath: path)
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: path)],
+                ],
+            };
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.SendKeysAsync(
+                    "must-not-send",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("Unix socket", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData(Architecture.X64, 24)]
+    [InlineData(Architecture.Arm64, 16)]
+    public void Linux_endpoint_identity_uses_the_native_stat_layout(
+        Architecture architecture,
+        int expectedModeOffset) =>
+        Assert.Equal(expectedModeOffset, PaneInputEndpoint.LinuxModeOffset(architecture));
+
+    [Theory]
+    [InlineData(Architecture.X64, true)]
+    [InlineData(Architecture.Arm64, false)]
+    public void MacOS_endpoint_identity_uses_the_native_layout_and_symbol(
+        Architecture architecture,
+        bool expectedInode64EntryPoint)
+    {
+        nint buffer = Marshal.AllocHGlobal(24);
+        try
+        {
+            Marshal.WriteInt32(buffer, 0, 42);
+            Marshal.WriteInt16(buffer, 4, unchecked((short)0xC180));
+            Marshal.WriteInt64(buffer, 8, 123);
+
+            Assert.Equal(
+                (42UL, 123UL, 0xC180U),
+                PaneInputEndpoint.ReadMacOSIdentity(buffer));
+            Assert.Equal(
+                expectedInode64EntryPoint,
+                PaneInputEndpoint.UseDarwinInode64EntryPoint(architecture));
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     [Fact]
@@ -990,15 +1301,21 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task A_complete_foreign_caller_does_not_block_selected_input()
     {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-foreign-caller-{Guid.NewGuid():N}");
+        string foreign = Path.Combine(directory, "foreign.sock");
         string? priorServer = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.ServerVariable);
         string? priorPane = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.PaneVariable);
+        Directory.CreateDirectory(directory);
+        using Socket endpoint = CreateBoundSocket(foreign);
         try
         {
             Environment.SetEnvironmentVariable(
                 TmuxEnvironmentVariables.ServerVariable,
-                "/tmp/foreign.sock,999,7");
+                $"{foreign},999,7");
             Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%7");
             await using var fixture = new ToolFixture();
 
@@ -1018,6 +1335,57 @@ public sealed class WriteToolsExecutionSafetyTests
             Environment.SetEnvironmentVariable(
                 TmuxEnvironmentVariables.PaneVariable,
                 priorPane);
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Capability_send_signs_a_foreign_to_detached_caller_transition()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-caller-transition-{Guid.NewGuid():N}");
+        string foreign = Path.Combine(directory, "foreign.sock");
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        Directory.CreateDirectory(directory);
+        using Socket endpoint = CreateBoundSocket(foreign);
+        await using var fixture = new ToolFixture
+        {
+            BlockPaneListingAttempt = 2,
+        };
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                $"{foreign},999,7");
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%7");
+            Task<PaneInputResult> sending = fixture.Capabilities.SendKeysAsync(
+                "must-not-send",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken);
+            await fixture.PaneListingBlocked.WaitAsync(TestContext.Current.CancellationToken);
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.ServerVariable, null);
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, null);
+            fixture.ReleasePaneListing();
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() => sending);
+
+            Assert.Contains("changed", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            fixture.ReleasePaneListing();
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+            Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -1068,7 +1436,13 @@ public sealed class WriteToolsExecutionSafetyTests
         [
             new PaneListingRow("%1", "0", "0", SessionId: "$1"),
             new PaneListingRow("%1", "0", "0", SessionId: "$2"),
-            new PaneListingRow("%2", "0", "0", SessionId: "$1"),
+            new PaneListingRow(
+                "%2",
+                "0",
+                "0",
+                SessionId: "$1",
+                WindowId: "@2",
+                WindowIndex: "1"),
         ];
         await using var fixture = new ToolFixture
         {
@@ -1124,10 +1498,7 @@ public sealed class WriteToolsExecutionSafetyTests
         string? priorPane = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.PaneVariable);
         Directory.CreateDirectory(directory);
-        await File.WriteAllTextAsync(
-            socket,
-            string.Empty,
-            TestContext.Current.CancellationToken);
+        using Socket endpoint = CreateBoundSocket(socket);
         await CreateSocketAliasAsync(socket, alias, hardLink);
         try
         {
@@ -1410,10 +1781,7 @@ public sealed class WriteToolsExecutionSafetyTests
         string socket = Path.Combine(directory, "server.sock");
         string alias = Path.Combine(directory, "alias.sock");
         Directory.CreateDirectory(directory);
-        await File.WriteAllTextAsync(
-            socket,
-            string.Empty,
-            TestContext.Current.CancellationToken);
+        using Socket endpoint = CreateBoundSocket(socket);
         await CreateSocketAliasAsync(socket, alias, hardLink);
         try
         {
@@ -1447,6 +1815,61 @@ public sealed class WriteToolsExecutionSafetyTests
 
                 Assert.Contains("input", refusal.Message, StringComparison.OrdinalIgnoreCase);
                 Assert.Equal(0, runner.SuccessfulSends);
+            }
+            finally
+            {
+                writer.ReleaseFirstSend();
+                _ = await writing;
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Distinct_socket_endpoints_do_not_share_input_reservations()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-distinct-reservations-{Guid.NewGuid():N}");
+        string firstPath = Path.Combine(directory, "first.sock");
+        string secondPath = Path.Combine(directory, "second.sock");
+        Directory.CreateDirectory(directory);
+        using Socket firstEndpoint = CreateBoundSocket(firstPath);
+        using Socket secondEndpoint = CreateBoundSocket(secondPath);
+        try
+        {
+            await using var writer = new ToolFixture(socketPath: firstPath)
+            {
+                BlockFirstSend = true,
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: firstPath)],
+                ],
+            };
+            await using var runner = new ToolFixture(socketPath: secondPath)
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: secondPath)],
+                ],
+            };
+            Task<PaneInputResult> writing = writer.Capabilities.SendKeysAsync(
+                "one",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken);
+            await writer.FirstSendStarted.WaitAsync(TestContext.Current.CancellationToken);
+            try
+            {
+                PaneInputResult sent = await runner.Capabilities.SendKeysAsync(
+                    "independent",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+                Assert.Equal("%1", sent.PaneId);
+                Assert.Equal(1, runner.SuccessfulSends);
             }
             finally
             {
@@ -2248,6 +2671,16 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(0, created.ExitCode);
     }
 
+    private static Socket CreateBoundSocket(string path)
+    {
+        var socket = new Socket(
+            AddressFamily.Unix,
+            SocketType.Stream,
+            ProtocolType.Unspecified);
+        socket.Bind(new UnixDomainSocketEndPoint(path));
+        return socket;
+    }
+
     private sealed record StateSample(
         int HistorySize,
         int HistoryLimit,
@@ -2265,18 +2698,26 @@ public sealed class WriteToolsExecutionSafetyTests
         string WindowZoomed = "0",
         string SocketPath = ToolFixture.SocketPath,
         string SessionId = "$1",
-        string WindowId = "@1");
+        string WindowId = "@1",
+        string WindowIndex = "0");
 
     private sealed record ClientListingRow(
         string Control,
         string PaneId,
         string WindowZoomed,
+        string Name = "/dev/pts/test",
         string SessionId = "$1",
-        string WindowId = "@1");
+        string WindowId = "@1",
+        string WindowIndex = "0");
 
     private sealed class ToolFixture : IAsyncDisposable
     {
         private static readonly ServerGeneration Generation = new(121, 1201);
+        private static readonly Lazy<Socket> DefaultEndpoint = new(() =>
+        {
+            File.Delete(SocketPath);
+            return CreateBoundSocket(SocketPath);
+        });
         internal const string SocketPath = "/tmp/libtmux-execution-safety.sock";
 
         private readonly TmuxConnectionAccessor _accessor;
@@ -2322,6 +2763,11 @@ public sealed class WriteToolsExecutionSafetyTests
             string socketPath = SocketPath,
             ServerGeneration? generation = null)
         {
+            if (string.Equals(socketPath, SocketPath, StringComparison.Ordinal))
+            {
+                _ = DefaultEndpoint.Value;
+            }
+
             _generation = generation ?? Generation;
             _activity = new PaneActivityHub(static (_, _) =>
                 Task.FromException<IControlModeSession>(
@@ -2731,6 +3177,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => pane.SessionId,
             "window_id" => pane.WindowId,
+            "window_index" => pane.WindowIndex,
             "pane_id" => pane.Id,
             "pane_pid" => "4242",
             "pane_width" => "80",
@@ -2753,8 +3200,9 @@ public sealed class WriteToolsExecutionSafetyTests
                 System.Globalization.CultureInfo.InvariantCulture),
             "session_id" => client.SessionId,
             "window_id" => client.WindowId,
+            "window_index" => client.WindowIndex,
             "pane_id" => client.PaneId,
-            "client_name" => "/dev/pts/test",
+            "client_name" => client.Name,
             "client_control_mode" => client.Control,
             "window_zoomed_flag" => client.WindowZoomed,
             _ => string.Empty,

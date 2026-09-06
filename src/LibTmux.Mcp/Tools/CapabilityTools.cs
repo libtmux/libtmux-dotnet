@@ -72,11 +72,56 @@ internal sealed record PaneInputPreflight(
     }
 }
 
+internal enum PaneInputCallerRelation
+{
+    Detached,
+    Foreign,
+    Selected,
+}
+
 internal sealed record PaneInputCallerIdentity(
-    string Endpoint,
-    ServerGeneration Generation,
+    PaneInputCallerRelation Relation,
+    PaneInputEndpointIdentity Endpoint,
+    uint ServerProcessId,
     string SessionId,
-    string PaneId);
+    string PaneId)
+{
+    internal static PaneInputCallerIdentity Detached { get; } = new(
+        PaneInputCallerRelation.Detached,
+        default,
+        0,
+        string.Empty,
+        string.Empty);
+
+    internal string? ProtectedPaneId =>
+        Relation == PaneInputCallerRelation.Selected ? PaneId : null;
+}
+
+internal readonly record struct PaneInputPlacement(
+    string SessionId,
+    string WindowId,
+    uint WindowIndex);
+
+internal sealed record PaneInputMember(
+    Pane Pane,
+    string PaneId,
+    string WindowId,
+    IReadOnlyList<PaneInputPlacement> Placements);
+
+internal sealed record PaneInputTopology(
+    IReadOnlyDictionary<string, PaneInputMember> Members);
+
+internal readonly record struct PaneInputTerminalClient(
+    string Name,
+    string SessionId,
+    string WindowId,
+    uint WindowIndex,
+    string PaneId,
+    bool Zoomed);
+
+internal sealed record PaneInputAttention(
+    IReadOnlySet<string> AttendedPaneIds,
+    IReadOnlyList<PaneInputTerminalClient> TerminalClients);
 
 internal enum PaneInputPreflightKind
 {
@@ -111,6 +156,17 @@ internal sealed class CapabilityTools
         "pane_active",
         "window_zoomed_flag",
         "socket_path",
+    ];
+    private static readonly string[] PaneInputSignatureFields =
+    [
+        "window_id",
+        "pane_synchronized",
+        "pane_in_mode",
+        "pane_dead",
+        "pane_input_off",
+        "pane_current_command",
+        "pane_active",
+        "window_zoomed_flag",
     ];
 
     private readonly ReadTools _read;
@@ -1264,15 +1320,29 @@ internal sealed class CapabilityTools
             .ConfigureAwait(false);
         IReadOnlyList<Client> clients = await server.GetClientsStrictAsync(cancellationToken)
             .ConfigureAwait(false);
-        PaneInputCallerIdentity? caller = await ResolvePaneInputCallerAsync(
-                server,
-                panes,
-                cancellationToken)
+        string? socketPath = await TmuxTargets.SocketPathAsync(server, cancellationToken)
             .ConfigureAwait(false);
+        if (socketPath is null)
+        {
+            throw new McpException(
+                "Pane input is refused because the selected server socket is unavailable.");
+        }
+
+        PaneInputEndpointIdentity endpoint = PaneInputEndpoint.Identify(
+            socketPath,
+            "selected tmux socket path");
+        ServerGeneration generation = server.Generation
+            ?? throw new McpException(
+                "Pane input is refused because the selected server generation is unavailable.");
+        PaneInputCallerIdentity caller = ResolvePaneInputCaller(
+            panes,
+            endpoint,
+            generation);
         return ResolvePaneInputTargets(
             panes,
             clients,
             caller,
+            endpoint,
             requestedPaneId,
             toolName,
             kind,
@@ -1332,7 +1402,8 @@ internal sealed class CapabilityTools
     private static PaneInputPreflight ResolvePaneInputTargets(
         IReadOnlyList<Pane> panes,
         IReadOnlyList<Client> clients,
-        PaneInputCallerIdentity? caller,
+        PaneInputCallerIdentity caller,
+        PaneInputEndpointIdentity endpoint,
         string paneId,
         string toolName,
         PaneInputPreflightKind kind,
@@ -1340,18 +1411,24 @@ internal sealed class CapabilityTools
         PaneRunRegistry.PaneRunLease? runLease,
         PaneRunRegistry.PaneInputLease? inputLease)
     {
-        (Dictionary<string, Pane> unique, Dictionary<string, HashSet<string>> sessions) =
-            ValidatePaneInputTopology(panes);
-        if (!unique.TryGetValue(paneId, out Pane? source))
+        PaneInputTopology topology = ValidatePaneInputTopology(panes, endpoint);
+        if (!topology.Members.TryGetValue(paneId, out PaneInputMember? sourceMember))
         {
             throw new McpException(
                 $"Could not resolve {paneId} in its fresh pane listing. Do not send input; "
                 + "inspect the window and retry.");
         }
 
-        Dictionary<string, Pane> windowPanes = unique.Values
-            .Where(candidate => candidate.Window.Id == source.Window.Id)
-            .ToDictionary(candidate => candidate.Id.ToString(), StringComparer.Ordinal);
+        Pane source = sourceMember.Pane;
+        Dictionary<string, Pane> windowPanes = topology.Members.Values
+            .Where(candidate => string.Equals(
+                candidate.WindowId,
+                sourceMember.WindowId,
+                StringComparison.Ordinal))
+            .ToDictionary(
+                candidate => candidate.PaneId,
+                candidate => candidate.Pane,
+                StringComparer.Ordinal);
         Pane[] configured = kind == PaneInputPreflightKind.TargetOnly
             ? [source]
             : ParsePaneFlag(source, "pane_synchronized")
@@ -1369,20 +1446,19 @@ internal sealed class CapabilityTools
             RequireWritablePane(member, toolName);
         }
 
-        HashSet<string> attended = AttendedPaneIds(
+        PaneInputAttention attention = ResolveClientAttention(
             clients,
-            unique,
-            sessions,
-            source.Window.Id.ToString());
+            topology,
+            sourceMember.WindowId);
         foreach (Pane member in configured)
         {
             string memberId = member.Id.ToString();
-            if (string.Equals(caller?.PaneId, memberId, StringComparison.Ordinal))
+            if (string.Equals(caller.ProtectedPaneId, memberId, StringComparison.Ordinal))
             {
                 throw new McpException($"{toolName} refuses caller pane {memberId}.");
             }
 
-            if (attended.Contains(memberId))
+            if (attention.AttendedPaneIds.Contains(memberId))
             {
                 throw new McpException(
                     $"{toolName} refuses attended pane {memberId}. Name a detached pane, "
@@ -1409,8 +1485,10 @@ internal sealed class CapabilityTools
         string safetySignature = PaneInputSafetySignature(
             source,
             configured,
-            sessions,
+            topology,
             caller,
+            attention.TerminalClients,
+            endpoint,
             kind);
         PaneRunRegistry.PaneInputLease? dispatchLease = PaneRunRegistry.Authorize(
             configured,
@@ -1429,38 +1507,40 @@ internal sealed class CapabilityTools
     private static string PaneInputSafetySignature(
         Pane source,
         Pane[] configured,
-        Dictionary<string, HashSet<string>> sessions,
-        PaneInputCallerIdentity? caller,
+        PaneInputTopology topology,
+        PaneInputCallerIdentity caller,
+        IReadOnlyList<PaneInputTerminalClient> terminalClients,
+        PaneInputEndpointIdentity endpoint,
         PaneInputPreflightKind kind)
     {
         ServerGeneration generation = source.Generation;
         var signature = new StringBuilder();
-        string endpoint = PaneInputEndpoint.From(source);
-        if (caller is not null
-            && !string.Equals(caller.Endpoint, endpoint, StringComparison.Ordinal))
-        {
-            throw new McpException(
-                "Pane input is refused because the caller and pane endpoint identities "
-                + "are inconsistent.");
-        }
-
-        AppendSignatureField(signature, endpoint);
+        AppendSignatureField(
+            signature,
+            endpoint.Device.ToString(CultureInfo.InvariantCulture));
+        AppendSignatureField(
+            signature,
+            endpoint.Inode.ToString(CultureInfo.InvariantCulture));
         AppendSignatureField(
             signature,
             generation.ProcessId.ToString(CultureInfo.InvariantCulture));
         AppendSignatureField(
             signature,
             generation.StartTime.ToString(CultureInfo.InvariantCulture));
-        AppendSignatureField(signature, caller is null ? "0" : "1");
-        if (caller is not null)
+        AppendSignatureField(
+            signature,
+            ((int)caller.Relation).ToString(CultureInfo.InvariantCulture));
+        if (caller.Relation != PaneInputCallerRelation.Detached)
         {
-            AppendSignatureField(signature, caller.Endpoint);
             AppendSignatureField(
                 signature,
-                caller.Generation.ProcessId.ToString(CultureInfo.InvariantCulture));
+                caller.Endpoint.Device.ToString(CultureInfo.InvariantCulture));
             AppendSignatureField(
                 signature,
-                caller.Generation.StartTime.ToString(CultureInfo.InvariantCulture));
+                caller.Endpoint.Inode.ToString(CultureInfo.InvariantCulture));
+            AppendSignatureField(
+                signature,
+                caller.ServerProcessId.ToString(CultureInfo.InvariantCulture));
             AppendSignatureField(signature, caller.SessionId);
             AppendSignatureField(signature, caller.PaneId);
         }
@@ -1473,19 +1553,39 @@ internal sealed class CapabilityTools
         foreach (Pane member in configured)
         {
             string memberId = member.Id.ToString();
+            PaneInputMember state = topology.Members[memberId];
             AppendSignatureField(signature, memberId);
             AppendSignatureField(
                 signature,
-                sessions[memberId].Count.ToString(CultureInfo.InvariantCulture));
-            foreach (string sessionId in sessions[memberId].Order(StringComparer.Ordinal))
+                state.Placements.Count.ToString(CultureInfo.InvariantCulture));
+            foreach (PaneInputPlacement placement in state.Placements)
             {
-                AppendSignatureField(signature, sessionId);
+                AppendSignatureField(signature, placement.SessionId);
+                AppendSignatureField(signature, placement.WindowId);
+                AppendSignatureField(
+                    signature,
+                    placement.WindowIndex.ToString(CultureInfo.InvariantCulture));
             }
 
-            foreach (string field in PaneInputStateFields)
+            foreach (string field in PaneInputSignatureFields)
             {
                 AppendSignatureField(signature, ReadPaneField(member, field));
             }
+        }
+
+        AppendSignatureField(
+            signature,
+            terminalClients.Count.ToString(CultureInfo.InvariantCulture));
+        foreach (PaneInputTerminalClient client in terminalClients)
+        {
+            AppendSignatureField(signature, client.Name);
+            AppendSignatureField(signature, client.SessionId);
+            AppendSignatureField(signature, client.WindowId);
+            AppendSignatureField(
+                signature,
+                client.WindowIndex.ToString(CultureInfo.InvariantCulture));
+            AppendSignatureField(signature, client.PaneId);
+            AppendSignatureField(signature, client.Zoomed ? "1" : "0");
         }
 
         return signature.ToString();
@@ -1513,10 +1613,10 @@ internal sealed class CapabilityTools
                 + "prove delivery.";
     }
 
-    private static async Task<PaneInputCallerIdentity?> ResolvePaneInputCallerAsync(
-        Server server,
+    private static PaneInputCallerIdentity ResolvePaneInputCaller(
         IReadOnlyList<Pane> panes,
-        CancellationToken cancellationToken)
+        PaneInputEndpointIdentity selectedEndpoint,
+        ServerGeneration generation)
     {
         string? rawServer = Environment.GetEnvironmentVariable(
             TmuxEnvironmentVariables.ServerVariable);
@@ -1524,36 +1624,38 @@ internal sealed class CapabilityTools
             TmuxEnvironmentVariables.PaneVariable);
         if (rawServer is null && rawPane is null)
         {
-            return null;
+            return PaneInputCallerIdentity.Detached;
         }
 
+        int sessionSeparator = rawServer?.LastIndexOf(',') ?? -1;
+        int processSeparator = sessionSeparator > 0
+            ? rawServer!.LastIndexOf(',', sessionSeparator - 1)
+            : -1;
         if (string.IsNullOrEmpty(rawServer)
             || string.IsNullOrEmpty(rawPane)
-            || !TmuxEnvironmentVariables.TryRead(null, out TmuxServerLocation? caller)
-            || !TmuxEnvironmentVariables.TryReadPane(null, out PaneId callerPane)
-            || rawPane != callerPane.ToString()
-            || !Path.IsPathFullyQualified(caller.SocketPath)
-            || rawServer != $"{caller.SocketPath},{caller.ServerProcessId.ToString(CultureInfo.InvariantCulture)},{caller.SessionId.ToString()[1..]}")
+            || processSeparator <= 0
+            || processSeparator + 1 == sessionSeparator
+            || sessionSeparator + 1 == rawServer.Length
+            || !Path.IsPathFullyQualified(rawServer[..processSeparator])
+            || !TryParseCanonicalUInt32(
+                rawServer.AsSpan(processSeparator + 1, sessionSeparator - processSeparator - 1),
+                out uint callerProcessId)
+            || callerProcessId == 0
+            || !TryParseCanonicalUInt32(rawServer.AsSpan(sessionSeparator + 1), out uint session)
+            || rawPane.Length <= 1
+            || rawPane[0] != '%'
+            || !TryParseCanonicalUInt32(rawPane.AsSpan(1), out _))
         {
             throw new McpException(
                 "Pane input is refused because the caller tmux identity is malformed or "
                 + "incomplete.");
         }
 
-        string? serverSocket = await TmuxTargets.SocketPathAsync(server, cancellationToken)
-            .ConfigureAwait(false);
-        if (serverSocket is null)
-        {
-            throw new McpException(
-                "Pane input is refused because the caller socket cannot be compared with "
-                + "the selected server.");
-        }
-
-        string callerSocket;
+        PaneInputEndpointIdentity callerEndpoint;
         try
         {
-            callerSocket = PaneInputEndpoint.Normalize(
-                caller.SocketPath,
+            callerEndpoint = PaneInputEndpoint.Identify(
+                rawServer[..processSeparator],
                 "caller tmux socket path");
         }
         catch (McpException error)
@@ -1563,30 +1665,25 @@ internal sealed class CapabilityTools
                 error);
         }
 
-        string selectedSocket = PaneInputEndpoint.Normalize(
-            serverSocket,
-            "selected tmux socket path");
-
-        ServerGeneration generation = server.Generation
-            ?? throw new McpException(
-                "Pane input is refused because the selected server generation is unavailable.");
-        bool sameRoute = string.Equals(
-            callerSocket,
-            selectedSocket,
-            StringComparison.Ordinal);
-        if (!sameRoute && caller.ServerProcessId != generation.ProcessId)
+        string callerPaneId = rawPane;
+        string claimedSession = $"${session.ToString(CultureInfo.InvariantCulture)}";
+        if (callerEndpoint != selectedEndpoint)
         {
-            return null;
+            return new PaneInputCallerIdentity(
+                PaneInputCallerRelation.Foreign,
+                callerEndpoint,
+                callerProcessId,
+                claimedSession,
+                callerPaneId);
         }
 
-        if (caller.ServerProcessId != generation.ProcessId)
+        if (callerProcessId != (uint)generation.ProcessId)
         {
             throw new McpException(
                 "Pane input is refused because the caller server pid does not match the "
                 + "selected server.");
         }
 
-        string callerPaneId = callerPane.ToString();
         Pane[] placements =
         [
             .. panes.Where(pane => pane.Id.ToString() == callerPaneId),
@@ -1598,7 +1695,6 @@ internal sealed class CapabilityTools
                 + "the selected server.");
         }
 
-        string claimedSession = caller.SessionId.ToString();
         if (!placements.Any(pane =>
             string.Equals(
                 ReadPaneField(pane, "session_id"),
@@ -1611,25 +1707,33 @@ internal sealed class CapabilityTools
         }
 
         return new PaneInputCallerIdentity(
-            selectedSocket,
-            generation,
+            PaneInputCallerRelation.Selected,
+            selectedEndpoint,
+            callerProcessId,
             claimedSession,
             callerPaneId);
     }
 
-    private static HashSet<string> AttendedPaneIds(
+    private static PaneInputAttention ResolveClientAttention(
         IReadOnlyList<Client> clients,
-        Dictionary<string, Pane> panes,
-        Dictionary<string, HashSet<string>> paneSessions,
+        PaneInputTopology topology,
         string sourceWindowId)
     {
         HashSet<string> attended = new(StringComparer.Ordinal);
+        List<PaneInputTerminalClient> terminals = [];
         foreach (Client client in clients)
         {
             bool control = ParseClientFlag(client, "client_control_mode");
             if (control)
             {
                 continue;
+            }
+
+            string name = ReadClientField(client, "client_name");
+            if (name.Length == 0)
+            {
+                throw new McpException(
+                    "Pane input is refused because a terminal client identity is unavailable.");
             }
 
             string activePane = RequireCanonicalTargetId(
@@ -1649,23 +1753,32 @@ internal sealed class CapabilityTools
                 '@',
                 "window_id",
                 "client");
-            if (!panes.TryGetValue(activePane, out Pane? active))
+            uint windowIndex = RequireCanonicalUInt32(
+                ReadClientField(client, "window_index"),
+                "window_index",
+                "client");
+            if (!topology.Members.TryGetValue(activePane, out PaneInputMember? active))
             {
                 throw new McpException(
                     "Pane input is refused because a terminal client reported an unknown "
                     + "active pane.");
             }
 
-            if (!string.Equals(
-                    ReadPaneField(active, "window_id"),
-                    windowId,
-                    StringComparison.Ordinal)
-                || !paneSessions[activePane].Contains(sessionId))
+            var placement = new PaneInputPlacement(sessionId, windowId, windowIndex);
+            if (!active.Placements.Contains(placement))
             {
                 throw new McpException(
                     "Pane input is refused because a terminal client reported an "
                     + "inconsistent pane placement.");
             }
+
+            terminals.Add(new PaneInputTerminalClient(
+                name,
+                sessionId,
+                windowId,
+                windowIndex,
+                activePane,
+                zoomed));
 
             if (!string.Equals(windowId, sourceWindowId, StringComparison.Ordinal))
             {
@@ -1678,25 +1791,36 @@ internal sealed class CapabilityTools
             }
             else
             {
-                attended.UnionWith(panes
+                attended.UnionWith(topology.Members
                     .Where(pair => string.Equals(
-                        ReadPaneField(pair.Value, "window_id"),
+                        pair.Value.WindowId,
                         sourceWindowId,
                         StringComparison.Ordinal))
                     .Select(pair => pair.Key));
             }
         }
 
-        return attended;
+        PaneInputTerminalClient[] ordered =
+        [
+            .. terminals
+                .OrderBy(client => client.Name, StringComparer.Ordinal)
+                .ThenBy(client => client.SessionId, StringComparer.Ordinal)
+                .ThenBy(client => client.WindowId, StringComparer.Ordinal)
+                .ThenBy(client => client.WindowIndex)
+                .ThenBy(client => client.PaneId, StringComparer.Ordinal)
+                .ThenBy(client => client.Zoomed),
+        ];
+        return new PaneInputAttention(attended, ordered);
     }
 
-    private static (
-        Dictionary<string, Pane> Panes,
-        Dictionary<string, HashSet<string>> Sessions) ValidatePaneInputTopology(
-            IReadOnlyList<Pane> panes)
+    private static PaneInputTopology ValidatePaneInputTopology(
+        IReadOnlyList<Pane> panes,
+        PaneInputEndpointIdentity endpoint)
     {
         var unique = new Dictionary<string, Pane>(StringComparer.Ordinal);
-        var sessions = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var placements = new Dictionary<string, HashSet<PaneInputPlacement>>(
+            StringComparer.Ordinal);
+        var sessionIndexes = new Dictionary<(string SessionId, uint WindowIndex), string>();
         foreach (Pane pane in panes)
         {
             string paneId = pane.Id.ToString();
@@ -1714,11 +1838,31 @@ internal sealed class CapabilityTools
                 '$',
                 "session_id",
                 $"pane {paneId}");
-            _ = RequireCanonicalTargetId(
+            string windowId = RequireCanonicalTargetId(
                 ReadPaneField(pane, "window_id"),
                 '@',
                 "window_id",
                 $"pane {paneId}");
+            uint windowIndex = RequireCanonicalUInt32(
+                ReadPaneField(pane, "window_index"),
+                "window_index",
+                $"pane {paneId}");
+            if (PaneInputEndpoint.From(pane) != endpoint)
+            {
+                throw new McpException(
+                    "Pane input is refused because a pane route does not match the "
+                    + "selected tmux socket.");
+            }
+
+            var placement = new PaneInputPlacement(sessionId, windowId, windowIndex);
+            if (sessionIndexes.TryGetValue((sessionId, windowIndex), out string? indexedWindow)
+                && !string.Equals(indexedWindow, windowId, StringComparison.Ordinal))
+            {
+                throw new McpException(
+                    "Pane input is refused because tmux returned an inconsistent window index.");
+            }
+
+            sessionIndexes[(sessionId, windowIndex)] = windowId;
             if (unique.TryGetValue(paneId, out Pane? prior))
             {
                 if (PaneInputStateFields.Any(field => !string.Equals(
@@ -1734,13 +1878,57 @@ internal sealed class CapabilityTools
             else
             {
                 unique.Add(paneId, pane);
-                sessions.Add(paneId, new HashSet<string>(StringComparer.Ordinal));
+                placements.Add(paneId, []);
             }
 
-            sessions[paneId].Add(sessionId);
+            if (!placements[paneId].Add(placement))
+            {
+                throw new McpException(
+                    $"Pane input is refused because tmux returned a duplicate pane placement "
+                    + $"for {paneId}.");
+            }
         }
 
-        return (unique, sessions);
+        foreach (IGrouping<string, KeyValuePair<string, Pane>> window in unique.GroupBy(
+            pair => ReadPaneField(pair.Value, "window_id"),
+            StringComparer.Ordinal))
+        {
+            HashSet<PaneInputPlacement>? expected = null;
+            foreach ((string paneId, _) in window)
+            {
+                if (expected is null)
+                {
+                    expected = placements[paneId];
+                }
+                else if (!expected.SetEquals(placements[paneId]))
+                {
+                    throw new McpException(
+                        "Pane input is refused because tmux returned an incomplete "
+                        + "linked-window pane placement rectangle.");
+                }
+            }
+        }
+
+        var members = new Dictionary<string, PaneInputMember>(StringComparer.Ordinal);
+        foreach ((string paneId, Pane pane) in unique)
+        {
+            PaneInputPlacement[] ordered =
+            [
+                .. placements[paneId]
+                    .OrderBy(placement => placement.SessionId, StringComparer.Ordinal)
+                    .ThenBy(placement => placement.WindowId, StringComparer.Ordinal)
+                    .ThenBy(placement => placement.WindowIndex),
+            ];
+            members.Add(
+                paneId,
+                new PaneInputMember(
+                    pane,
+                    paneId,
+                    ReadPaneField(pane, "window_id"),
+                    ordered));
+        }
+
+        return new PaneInputTopology(members);
     }
 
     private static string RequireCanonicalTargetId(
@@ -1751,12 +1939,7 @@ internal sealed class CapabilityTools
     {
         if (raw.Length <= 1
             || raw[0] != sigil
-            || !int.TryParse(
-                raw.AsSpan(1),
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int value)
-            || value < 0
+            || !TryParseCanonicalUInt32(raw.AsSpan(1), out uint value)
             || raw != $"{sigil}{value.ToString(CultureInfo.InvariantCulture)}")
         {
             throw new McpException(
@@ -1765,6 +1948,28 @@ internal sealed class CapabilityTools
 
         return raw;
     }
+
+    private static uint RequireCanonicalUInt32(
+        string raw,
+        string field,
+        string subject)
+    {
+        if (!TryParseCanonicalUInt32(raw.AsSpan(), out uint value))
+        {
+            throw new McpException(
+                $"Pane input is refused because {subject} {field} is unavailable or malformed.");
+        }
+
+        return value;
+    }
+
+    private static bool TryParseCanonicalUInt32(ReadOnlySpan<char> raw, out uint value) =>
+        uint.TryParse(
+            raw,
+            NumberStyles.None,
+            CultureInfo.InvariantCulture,
+            out value)
+        && raw.SequenceEqual(value.ToString(CultureInfo.InvariantCulture));
 
     private static void RequireWritablePane(Pane pane, string toolName)
     {

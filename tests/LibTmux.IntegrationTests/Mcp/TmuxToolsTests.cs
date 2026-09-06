@@ -106,6 +106,36 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task Pane_input_accepts_one_window_linked_twice_into_one_session()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        int secondIndex = scope.Window.Index == 7 ? 8 : 7;
+        await scope.Window.LinkAsync(
+            new LinkWindowRequest(
+                scope.Session.Id.ToString(),
+                secondIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                detach: true),
+            token);
+
+        PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(
+            "# linked twice",
+            scope.Pane.Id.ToString(),
+            enter: true,
+            cancellationToken: token);
+
+        Assert.Equal([scope.Pane.Id.ToString()], sent.TargetPaneIds);
+        Assert.Equal(
+            2,
+            (await scope.Session.GetWindowsAsync(token)).Count(window =>
+                window.Id == scope.Window.Id));
+    }
+
+    [UnixFact]
     public async Task Run_shell_command_preserves_inherited_shell_state()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using ModelContextProtocol;
 
@@ -177,6 +179,7 @@ internal static class PaneRunRegistry
     }
 
     internal readonly record struct PaneRunIdentity(
+        PaneInputEndpointIdentity Endpoint,
         ServerGeneration Generation,
         PaneId PaneId)
     {
@@ -184,6 +187,7 @@ internal static class PaneRunRegistry
         internal static PaneRunIdentity For(Pane pane)
         {
             return new PaneRunIdentity(
+                PaneInputEndpoint.From(pane),
                 pane.Generation,
                 pane.Id);
         }
@@ -199,9 +203,16 @@ internal static class PaneRunRegistry
 }
 
 [UnsupportedOSPlatform("windows")]
+internal readonly record struct PaneInputEndpointIdentity(ulong Device, ulong Inode);
+
+[UnsupportedOSPlatform("windows")]
 internal static class PaneInputEndpoint
 {
-    internal static string From(Pane pane)
+    private const uint FileTypeMask = 0xF000;
+    private const uint SocketType = 0xC000;
+    private const int StatBufferBytes = 256;
+
+    internal static PaneInputEndpointIdentity From(Pane pane)
     {
         if (!pane.RawFormatFields.TryGetValue("socket_path", out string? path)
             || string.IsNullOrWhiteSpace(path))
@@ -210,10 +221,10 @@ internal static class PaneInputEndpoint
                 "Pane input route is refused because its tmux socket path is unavailable.");
         }
 
-        return Normalize(path, "pane input route socket path");
+        return Identify(path, "pane input route socket path");
     }
 
-    internal static string Normalize(string path, string subject)
+    internal static PaneInputEndpointIdentity Identify(string path, string subject)
     {
         McpStartup.RequireSafeRouteValue(path, subject);
         if (!Path.IsPathFullyQualified(path))
@@ -221,38 +232,112 @@ internal static class PaneInputEndpoint
             throw new McpException($"{subject} must be absolute.");
         }
 
+        nint buffer = Marshal.AllocHGlobal(StatBufferBytes);
         try
         {
             string full = Path.GetFullPath(path);
-            string root = Path.GetPathRoot(full)
-                ?? throw new McpException($"{subject} has no filesystem root.");
-            string current = root;
-            foreach (string component in full[root.Length..].Split(
-                Path.DirectorySeparatorChar,
-                StringSplitOptions.RemoveEmptyEntries))
+            nint encodedPath = Marshal.StringToCoTaskMemUTF8(full);
+            int result;
+            int error;
+            try
             {
-                string candidate = Path.Combine(current, component);
-                var entry = new FileInfo(candidate);
-                if (entry.LinkTarget is null)
-                {
-                    current = candidate;
-                    continue;
-                }
-
-                FileSystemInfo resolved = entry.ResolveLinkTarget(returnFinalTarget: true)
-                    ?? throw new McpException($"{subject} has an unresolved symbolic link.");
-                current = Path.GetFullPath(resolved.FullName);
+                result = InvokeStat(encodedPath, buffer);
+                error = Marshal.GetLastPInvokeError();
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(encodedPath);
             }
 
-            return current;
+            if (result != 0)
+            {
+                throw new Win32Exception(error);
+            }
+
+            (ulong device, ulong inode, uint mode) = ReadIdentity(buffer, subject);
+            if ((mode & FileTypeMask) != SocketType)
+            {
+                throw new McpException($"{subject} must identify a Unix socket.");
+            }
+
+            return new PaneInputEndpointIdentity(device, inode);
         }
         catch (Exception error) when (
             error is ArgumentException
+                or Win32Exception
                 or IOException
                 or NotSupportedException
                 or UnauthorizedAccessException)
         {
             throw new McpException($"{subject} cannot be resolved safely.", error);
         }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
+
+    private static (ulong Device, ulong Inode, uint Mode) ReadIdentity(
+        nint buffer,
+        string subject)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            return (
+                unchecked((ulong)Marshal.ReadInt64(buffer, 0)),
+                unchecked((ulong)Marshal.ReadInt64(buffer, 8)),
+                unchecked((uint)Marshal.ReadInt32(
+                    buffer,
+                    LinuxModeOffset(RuntimeInformation.ProcessArchitecture))));
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return ReadMacOSIdentity(buffer);
+        }
+
+        throw new McpException($"{subject} cannot be identified on this platform.");
+    }
+
+    internal static (ulong Device, ulong Inode, uint Mode) ReadMacOSIdentity(nint buffer) =>
+        (
+            unchecked((uint)Marshal.ReadInt32(buffer, 0)),
+            unchecked((ulong)Marshal.ReadInt64(buffer, 8)),
+            unchecked((ushort)Marshal.ReadInt16(buffer, 4)));
+
+    internal static int LinuxModeOffset(Architecture architecture) =>
+        architecture switch
+        {
+            Architecture.X64 => 24,
+            Architecture.Arm64 => 16,
+            _ => throw new PlatformNotSupportedException(
+                $"Linux {architecture} stat layout is not supported."),
+        };
+
+    internal static bool UseDarwinInode64EntryPoint(Architecture architecture) =>
+        architecture switch
+        {
+            Architecture.X64 => true,
+            Architecture.Arm64 => false,
+            _ => throw new PlatformNotSupportedException(
+                $"macOS {architecture} stat layout is not supported."),
+        };
+
+    private static int InvokeStat(nint path, nint buffer) =>
+        OperatingSystem.IsMacOS()
+            && UseDarwinInode64EntryPoint(RuntimeInformation.ProcessArchitecture)
+                ? StatDarwinInode64(path, buffer)
+                : Stat(path, buffer);
+
+    [DllImport(
+        "libc",
+        EntryPoint = "stat",
+        SetLastError = true)]
+    private static extern int Stat(nint path, nint buffer);
+
+    [DllImport(
+        "libc",
+        EntryPoint = "stat$INODE64",
+        SetLastError = true)]
+    private static extern int StatDarwinInode64(nint path, nint buffer);
 }
