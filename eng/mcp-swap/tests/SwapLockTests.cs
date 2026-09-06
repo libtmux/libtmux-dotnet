@@ -97,7 +97,14 @@ public sealed class SwapLockTests
             held.Validate();
             string alias = Path.Combine(paths.Root, "lock-alias");
             NativeFileSystem.CreateHardLink(alias, runtime.LockFile);
-            Assert.Throws<IOException>(() => NativeFileSystem.ReadStable(alias, 1024));
+            // ReadStable refuses an alias of the held lock by retaining the
+            // descriptor it opened, because closing any descriptor to a file
+            // drops this process's record locks on it. It can also refuse for
+            // reasons that close the descriptor, and those look identical to
+            // Throws<IOException>, so name the one that keeps the lock.
+            IOException refusal = Assert.Throws<IOException>(
+                () => NativeFileSystem.ReadStable(alias, 1024));
+            Assert.Contains("aliases the held swap lock", refusal.Message, StringComparison.Ordinal);
 
             string python = ExecutableFinder.Find("python3")
                 ?? throw new InvalidOperationException("python3 is required for the lock interoperability test");
