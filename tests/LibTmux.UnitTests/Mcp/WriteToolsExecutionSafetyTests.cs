@@ -26,15 +26,21 @@ public sealed class WriteToolsExecutionSafetyTests
         Environment.SetEnvironmentVariable(variable, "/not/a/late/tmux");
         try
         {
+            // Neither path exists, so the one the failure names is the one that
+            // reached the transport. Pinning a real binary that exits non-zero
+            // instead made this depend on whether the platform would spawn it,
+            // which macOS would not.
             using var accessor = new TmuxConnectionAccessor(
                 new ServerConnectionOptions(
-                    tmuxBinaryPath: "/bin/false",
+                    tmuxBinaryPath: "/not/the/pinned/tmux",
                     socketName: SocketRoots.Name("route-pin")));
 
-            Server server = await accessor.GetAsync(
-                cancellationToken: TestContext.Current.CancellationToken);
+            McpException failure = await Assert.ThrowsAsync<McpException>(
+                () => accessor.GetAsync(
+                    cancellationToken: TestContext.Current.CancellationToken));
 
-            Assert.Equal("/bin/false", server.ConnectionOptions.TmuxBinaryPath);
+            Assert.Contains("/not/the/pinned/tmux", failure.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("/not/a/late/tmux", failure.Message, StringComparison.Ordinal);
         }
         finally
         {
