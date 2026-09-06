@@ -550,6 +550,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [InlineData(null, "%1")]
     [InlineData("", "%1")]
     [InlineData("malformed", "%1")]
+    [InlineData("relative.sock,121,1", "%1")]
     [InlineData("/tmp/libtmux-execution-safety.sock,0121,1", "%1")]
     [InlineData("/tmp/libtmux-execution-safety.sock,-1,1", "%1")]
     [InlineData("/tmp/libtmux-execution-safety.sock,121,1", null)]
@@ -576,6 +577,86 @@ public sealed class WriteToolsExecutionSafetyTests
 
             Assert.Contains("malformed or incomplete", refusal.Message, StringComparison.Ordinal);
             Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+        }
+    }
+
+    [Theory]
+    [InlineData("/tmp/libtmux-execution-safety.sock,122,1", "server pid")]
+    [InlineData("/tmp/libtmux-execution-safety.sock,121,2", "session")]
+    public async Task A_selected_caller_must_match_the_daemon_and_session(
+        string server,
+        string expected)
+    {
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.ServerVariable, server);
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%1");
+            await using var fixture = new ToolFixture
+            {
+                PaneListings =
+                [
+                    [
+                        new PaneListingRow("%1", "0", "0", SessionId: "$1"),
+                        new PaneListingRow("%2", "0", "0", SessionId: "$1"),
+                    ],
+                ],
+            };
+
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                fixture.Capabilities.SendKeysAsync(
+                    "must-not-send",
+                    "%2",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains(expected, refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, fixture.SuccessfulSends);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                priorServer);
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.PaneVariable,
+                priorPane);
+        }
+    }
+
+    [Fact]
+    public async Task A_complete_foreign_caller_does_not_block_selected_input()
+    {
+        string? priorServer = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.ServerVariable);
+        string? priorPane = Environment.GetEnvironmentVariable(
+            TmuxEnvironmentVariables.PaneVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                TmuxEnvironmentVariables.ServerVariable,
+                "/tmp/foreign.sock,999,7");
+            Environment.SetEnvironmentVariable(TmuxEnvironmentVariables.PaneVariable, "%7");
+            await using var fixture = new ToolFixture();
+
+            PaneInputResult result = await fixture.Capabilities.SendKeysAsync(
+                "safe",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal("%1", result.PaneId);
+            Assert.Equal(1, fixture.SuccessfulSends);
         }
         finally
         {
@@ -1365,7 +1446,8 @@ public sealed class WriteToolsExecutionSafetyTests
         string CurrentCommand = "bash",
         string Active = "1",
         string WindowZoomed = "0",
-        string SocketPath = ToolFixture.SocketPath);
+        string SocketPath = ToolFixture.SocketPath,
+        string SessionId = "$1");
 
     private sealed record ClientListingRow(
         string Control,
@@ -1711,7 +1793,7 @@ public sealed class WriteToolsExecutionSafetyTests
             "pid" => Generation.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             "start_time" => Generation.StartTime.ToString(
                 System.Globalization.CultureInfo.InvariantCulture),
-            "session_id" => "$1",
+            "session_id" => pane.SessionId,
             "window_id" => "@1",
             "pane_id" => pane.Id,
             "pane_pid" => "4242",

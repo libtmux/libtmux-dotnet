@@ -1383,7 +1383,7 @@ internal sealed class CapabilityTools
             || !TmuxEnvironmentVariables.TryRead(null, out TmuxServerLocation? caller)
             || !TmuxEnvironmentVariables.TryReadPane(null, out PaneId callerPane)
             || rawPane != callerPane.ToString()
-            || caller.ServerProcessId <= 0
+            || !Path.IsPathFullyQualified(caller.SocketPath)
             || rawServer != $"{caller.SocketPath},{caller.ServerProcessId.ToString(CultureInfo.InvariantCulture)},{caller.SessionId.ToString()[1..]}")
         {
             throw new McpException(
@@ -1404,10 +1404,12 @@ internal sealed class CapabilityTools
         string selectedSocket;
         try
         {
+            McpStartup.RequireSafeRouteValue(caller.SocketPath, "caller tmux socket path");
             callerSocket = Path.GetFullPath(caller.SocketPath);
             selectedSocket = Path.GetFullPath(serverSocket);
         }
-        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        catch (Exception error) when (
+            error is ArgumentException or NotSupportedException or McpException)
         {
             throw new McpException(
                 "Pane input is refused because the caller socket path is malformed.",
@@ -1419,35 +1421,38 @@ internal sealed class CapabilityTools
             return null;
         }
 
-        string[] rawPids =
-        [
-            .. panes.Select(pane => ReadPaneField(pane, "pid"))
-                .Distinct(StringComparer.Ordinal),
-        ];
-        if (rawPids.Length != 1
-            || !int.TryParse(
-                rawPids[0],
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out int serverPid)
-            || serverPid <= 0
-            || rawPids[0] != serverPid.ToString(CultureInfo.InvariantCulture))
+        ServerGeneration generation = server.Generation
+            ?? throw new McpException(
+                "Pane input is refused because the selected server generation is unavailable.");
+        if (caller.ServerProcessId != generation.ProcessId)
         {
             throw new McpException(
-                "Pane input is refused because tmux returned an invalid server pid.");
-        }
-
-        if (caller.ServerProcessId != serverPid)
-        {
-            return null;
+                "Pane input is refused because the caller server pid does not match the "
+                + "selected server.");
         }
 
         string callerPaneId = callerPane.ToString();
-        if (!panes.Any(pane => pane.Id.ToString() == callerPaneId))
+        Pane[] placements =
+        [
+            .. panes.Where(pane => pane.Id.ToString() == callerPaneId),
+        ];
+        if (placements.Length == 0)
         {
             throw new McpException(
                 $"Pane input is refused because caller pane {callerPaneId} is absent from "
                 + "the selected server.");
+        }
+
+        string claimedSession = caller.SessionId.ToString();
+        if (!placements.Any(pane =>
+            string.Equals(
+                ReadPaneField(pane, "session_id"),
+                claimedSession,
+                StringComparison.Ordinal)))
+        {
+            throw new McpException(
+                $"Pane input is refused because caller pane {callerPaneId} has no placement "
+                + $"in claimed session {claimedSession}.");
         }
 
         return callerPaneId;
