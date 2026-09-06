@@ -81,7 +81,7 @@ jobs:
           --configuration Release
           --framework net10.0
           --no-build
-          --minimum-expected-tests 117
+          --minimum-expected-tests 119
 
       - name: Pack
         run: dotnet pack LibTmux.slnx --configuration Release --no-build --output artifacts/packages
@@ -239,7 +239,7 @@ jobs:
         run: >
           dotnet test eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --minimum-expected-tests 117
+          -- --minimum-expected-tests 119
 
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,

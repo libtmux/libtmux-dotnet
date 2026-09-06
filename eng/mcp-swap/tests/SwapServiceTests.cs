@@ -50,6 +50,54 @@ public sealed class SwapServiceTests
     }
 
     [Fact]
+    public void ASecondSwapKeepsTheBackupTheFirstOneTook()
+    {
+        using SwapFixture fixture = new();
+        ClientInfo client = fixture.Catalog["cursor"];
+        fixture.Seed(client, "{\"theme\":\"dark\"}");
+        byte[] pristine = File.ReadAllBytes(client.ConfigPath);
+
+        fixture.Service.Use(fixture.UseOptions(["cursor"]));
+        string second = fixture.CreateBinary("other-mcp");
+        fixture.Service.Use(fixture.UseOptions(["cursor"], binary: second));
+
+        Assert.Equal(second, fixture.ReadServer(client, ConfigScope.User)!.Command);
+
+        fixture.Service.Revert(fixture.RevertOptions(["cursor"]));
+
+        // The second swap runs against a config this tool had already written,
+        // so taking a fresh backup would capture the first swap's server and
+        // revert would strand it there for good. The second reuses the backup
+        // path the first recorded, leaving the pre-swap bytes untouched.
+        Assert.Equal(pristine, File.ReadAllBytes(client.ConfigPath));
+        Assert.False(File.Exists(fixture.StateFile));
+    }
+
+    [Fact]
+    public void RevertRestoresTheModeAndNotOnlyTheBytes()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using SwapFixture fixture = new();
+        ClientInfo client = fixture.Catalog["cursor"];
+        fixture.Seed(client, "{}");
+        File.SetUnixFileMode(
+            client.ConfigPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+        UnixFileMode pristine = File.GetUnixFileMode(client.ConfigPath);
+
+        fixture.Service.Use(fixture.UseOptions(["cursor"]));
+        fixture.Service.Revert(fixture.RevertOptions(["cursor"]));
+
+        // A config this tool widened and did not narrow again would stay
+        // readable to whoever the extra bits named.
+        Assert.Equal(pristine, File.GetUnixFileMode(client.ConfigPath));
+    }
+
+    [Fact]
     public void DryRunPlansWithoutCreatingLockStateBackupsOrConfigWrites()
     {
         using SwapFixture fixture = new();
