@@ -147,6 +147,31 @@ jobs:
           --no-build
           --minimum-expected-tests 1
 
+      # Temporary. A shell on the runner, reachable only by the keys the actor
+      # has registered with GitHub. The connection string goes to a pull
+      # request comment rather than the log, because GitHub stops serving a
+      # job's log while a step is streaming and this step streams until
+      # somebody attaches -- which made the log route useless for reading it.
+      - name: Debug shell on failure
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          brew install tmate >/dev/null 2>&1 || exit 0
+          curl -fsSL "https://github.com/${{ github.actor }}.keys" -o /tmp/tmate_keys || exit 0
+          [ -s /tmp/tmate_keys ] || exit 0
+          tmate -S /tmp/tmate.sock -a /tmp/tmate_keys new-session -d || exit 0
+          tmate -S /tmp/tmate.sock wait tmate-ready
+          conn=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
+          gh pr comment "$PR" --body "macOS runner shell (keys of @${{ github.actor }} only), \`touch /tmp/continue\` to release: \`$conn\`"
+          for _ in $(seq 1 90); do
+            [ -f /tmp/continue ] && break
+            sleep 10
+          done
+          exit 0
+
       - name: Integration tests
         # These run last because the packaging tests among them read what the
         # steps above produced: the package, the consumer, and the native
