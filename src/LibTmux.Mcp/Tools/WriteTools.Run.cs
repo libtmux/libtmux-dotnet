@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using System.Text;
 using LibTmux.Internal;
 using ModelContextProtocol;
 
@@ -144,16 +145,12 @@ internal sealed partial class WriteTools
             "The command was sent, but observing its result failed. It may still be "
             + "running or may already have finished; do not retry until you inspect the pane.");
         bool payloadMayHaveReachedTmux = false;
+        string? runDirectory = null;
         try
         {
             try
             {
-                if (dispatchPreflight is not null)
-                {
-                    pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
-                }
-
-                await sequence.MutateAsync(
+                RunDispatch dispatch = await sequence.MutateAsync(
                         () => SendRunPayloadAsync(
                             server,
                             pane,
@@ -161,8 +158,11 @@ internal sealed partial class WriteTools
                             token,
                             suppressHistory,
                             _policy.WaitCeiling + StatusCleanupMargin,
+                            dispatchPreflight,
                             cancellationToken))
                     .ConfigureAwait(false);
+                pane = dispatch.Pane;
+                runDirectory = dispatch.Directory;
                 payloadMayHaveReachedTmux = true;
             }
             catch (TmuxOperationCanceledException error) when (error.CommandMayHaveExecuted)
@@ -203,10 +203,10 @@ internal sealed partial class WriteTools
                     cancellationToken))
                 .ConfigureAwait(false);
 
-            // The marker is printed by the payload itself, so its absence means
-            // the shell never ran it — a pane held by something other than an
-            // idle shell, or a line editor this server could not clear. Saying
-            // so beats the timeout's usual "it may still be running".
+            // The marker is printed by the wrapper itself, so its absence means
+            // the shell never ran it. The pane may not have been at an empty,
+            // ready shell prompt. Saying so beats the timeout's usual "it may
+            // still be running".
             // A row that BEGINS with the marker, not one equal to it and not
             // one merely containing it. Containment would take the shell's
             // echo of the printf that prints the marker, or a pane occupant
@@ -240,9 +240,16 @@ internal sealed partial class WriteTools
         finally
         {
             elapsed.Stop();
-            if (payloadMayHaveReachedTmux)
+            try
             {
-                await CleanupStatusMarkerAsync(pane, token).ConfigureAwait(false);
+                if (payloadMayHaveReachedTmux)
+                {
+                    await CleanupStatusMarkerAsync(pane, token).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                DeleteRunDirectory(runDirectory);
             }
         }
     }
@@ -288,13 +295,16 @@ internal sealed partial class WriteTools
         }
     }
 
-    internal static async Task SendRunPayloadAsync(
+    internal sealed record RunDispatch(Pane Pane, string Directory);
+
+    internal static async Task<RunDispatch> SendRunPayloadAsync(
         Server server,
         Pane pane,
         string command,
         RunToken token,
         bool suppressHistory,
         TimeSpan statusMarkerLifetime,
+        Func<CancellationToken, Task<Pane>>? dispatchPreflight,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
@@ -326,59 +336,35 @@ internal sealed partial class WriteTools
             "-d",
             cleanupDelay,
             unsetStatusCommand);
-
-        // The subshell isolates user syntax from the rendezvous. The marker
-        // separates the shell's echoed payload from the command's output.
-        string payload = string.Concat(
-            suppressHistory ? " " : string.Empty,
-            "(\nprintf '%s%s\\n' '",
-            token.BeginHead,
-            "' '",
-            token.BeginTail,
-            "'\n",
-            command.TrimEnd(),
-            "\n); __lt=$?; ",
-            statusCommand,
-            " \"$__lt\"; ",
-            scheduleCleanupCommand,
-            "; ",
-            signalCommand,
-
-            // The submitting newline is part of the payload here. send-keys
-            // carried Enter as a separate key; a buffer has to hold it.
-            "\n");
-
-        // Clear whatever is already typed at the prompt first. This does touch
-        // a human's line editor, and the alternative is worse: the payload is
-        // pasted unbracketed so the shell reads it as typing, so it lands
-        // AFTER their text and the shell reads "echo LEFTOVER(" — the subshell
-        // paren parses as a glob qualifier, the command never runs, and the
-        // call burns its whole budget. Running a command already types a whole
-        // line into that pane; clearing a partial one first is less invasive
-        // than appending to it. A pasted 0x15 is not read as kill-line, so
-        // this goes through tmux's key path, and that path fans out to a
-        // synchronized cohort — hence the skip, which is why the clear can
-        // never reach a pane the caller did not name.
-        if (!SynchronizesInput(pane))
-        {
-            await pane.SendKeysAsync(
-                    new SendKeysRequest(text: "C-u", enter: false, literal: false),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        // Through a buffer rather than as keys. tmux fans send-keys out to the
-        // synchronized cohort (window.c:1381), so a tool promising one exit
-        // status could not keep that promise while synchronize-panes was on,
-        // and no check-then-send closes the window between them. paste-buffer
-        // writes straight to this pane's event (cmd-paste-buffer.c:53) and
-        // never reaches window_pane_paste, so the outcome is singular by
-        // construction. Not bracketed: a bracketed paste tells the shell the
-        // newline was pasted rather than typed, and nothing would run.
+        string? directory = null;
         string buffer = $"libtmux_run_{Guid.NewGuid():N}"[..24];
+        Exception? primaryFailure = null;
         bool bufferMayExist = false;
+        bool dispatched = false;
         try
         {
+            directory = Directory.CreateTempSubdirectory($"libtmux-run-{token.Id}-").FullName;
+            File.SetUnixFileMode(
+                directory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            string commandPath = Path.Combine(directory, "command");
+            string scriptPath = Path.Combine(directory, "run");
+            await WritePrivateFileAsync(commandPath, command + "\n", cancellationToken)
+                .ConfigureAwait(false);
+            string script = BuildRunWrapper(
+                token,
+                commandPath,
+                statusCommand,
+                scheduleCleanupCommand,
+                signalCommand);
+            await WritePrivateFileAsync(scriptPath, script, cancellationToken)
+                .ConfigureAwait(false);
+            string payload = string.Concat(
+                suppressHistory ? " " : string.Empty,
+                ". ",
+                ShellQuote(scriptPath),
+                "\n");
+
             try
             {
                 await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
@@ -396,24 +382,110 @@ internal sealed partial class WriteTools
                 throw;
             }
 
+            if (dispatchPreflight is not null)
+            {
+                pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
+            }
+
             await pane.PasteBufferAsync(
                     new PasteBufferRequest(name: buffer, deleteAfter: true, bracketed: false),
                     cancellationToken)
                 .ConfigureAwait(false);
             bufferMayExist = false;
+            dispatched = true;
+            return new RunDispatch(pane, directory);
+        }
+        catch (Exception error)
+        {
+            primaryFailure = error;
+            throw;
         }
         finally
         {
             if (bufferMayExist)
             {
-                _ = await CleanupPasteBufferAsync(server, buffer, null).ConfigureAwait(false);
+                _ = await CleanupPasteBufferAsync(server, buffer, primaryFailure)
+                    .ConfigureAwait(false);
+            }
+
+            if (!dispatched)
+            {
+                DeleteRunDirectory(directory);
             }
         }
     }
 
-    private static bool SynchronizesInput(Pane pane) =>
-        pane.RawFormatFields.TryGetValue("pane_synchronized", out string? value)
-        && string.Equals(value, "1", StringComparison.Ordinal);
+    private static string BuildRunWrapper(
+        RunToken token,
+        string commandPath,
+        string statusCommand,
+        string scheduleCleanupCommand,
+        string signalCommand) =>
+        string.Concat(
+            "(\n",
+            "case $- in *e*) __lt_errexit=1 ;; *) __lt_errexit=0 ;; esac\n",
+            "set +e\n",
+            "command printf '%s%s\\n' '",
+            token.BeginHead,
+            "' '",
+            token.BeginTail,
+            "'\n",
+            "if [ \"$__lt_errexit\" -eq 1 ]; then\n",
+            "  ( set -e; . ",
+            ShellQuote(commandPath),
+            " )\n",
+            "else\n",
+            "  ( set +e; . ",
+            ShellQuote(commandPath),
+            " )\n",
+            "fi\n",
+            "__lt=$?\n",
+            statusCommand,
+            " \"$__lt\"\n",
+            scheduleCleanupCommand,
+            "\n",
+            signalCommand,
+            "\nexit 0\n",
+            ")\n");
+
+    private static async Task WritePrivateFileAsync(
+        string path,
+        string contents,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            path,
+            new FileStreamOptions
+            {
+                Access = FileAccess.Write,
+                Mode = FileMode.CreateNew,
+                Options = FileOptions.Asynchronous,
+                Share = FileShare.None,
+                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+            });
+        byte[] bytes = Encoding.UTF8.GetBytes(contents);
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void DeleteRunDirectory(string? directory)
+    {
+        if (directory is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
 
     internal static void ValidateRunCommand(string command, int maximumBytes)
     {

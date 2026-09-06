@@ -133,9 +133,9 @@ public sealed record ChannelWaitResult(
 /// </remarks>
 /// <param name="Started">
 /// Whether the command was seen to begin. A timeout with this false means the
-/// payload never ran at all — something other than an idle shell was reading
-/// the pane's input — so the usual "it may still be running" does not apply
-/// and the pane is worth looking at before anything is retried.
+/// wrapper never ran, usually because the pane was not at an empty, ready shell
+/// prompt. The usual "it may still be running" does not apply; inspect the pane
+/// before retrying.
 /// </param>
 public sealed record RunResult(
     string PaneId,

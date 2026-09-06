@@ -78,7 +78,7 @@ internal sealed class CapabilityTools
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     private static readonly FrozenSet<string> PosixShells = new[]
     {
-        "sh", "ash", "bash", "dash", "ksh", "mksh", "pdksh", "zsh",
+        "sh", "ash", "bash", "dash", "ksh", "ksh93", "mksh", "pdksh", "zsh",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     private readonly ReadTools _read;

@@ -296,6 +296,26 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Capability_run_accepts_ksh93_as_a_posix_shell()
+    {
+        IReadOnlyList<PaneListingRow> panes =
+        [
+            new PaneListingRow("%1", "0", "0", CurrentCommand: "ksh93"),
+        ];
+        await using var fixture = new ToolFixture
+        {
+            PaneListings = [panes, panes],
+        };
+
+        _ = await fixture.Capabilities.RunShellCommandAsync(
+            "true",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, fixture.SuccessfulSends);
+    }
+
+    [Fact]
     public async Task Capability_paste_rechecks_after_staging_and_cleans_on_refusal()
     {
         await using var fixture = new ToolFixture
@@ -595,11 +615,6 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.DoesNotContain("old screen", result.Output.Lines);
         Assert.False(result.LinesMissed);
         Assert.False(result.AnchorLost);
-        string payload = Assert.Single(
-            fixture.Commands.SelectMany(static arguments => arguments),
-            argument => argument.Contains("run-shell", StringComparison.Ordinal));
-        Assert.Contains("'run-shell' '-b' '-d' '90'", payload, StringComparison.Ordinal);
-        Assert.DoesNotContain("sleep ", payload, StringComparison.Ordinal);
         Assert.Contains(fixture.Commands, IsStatusUnset);
     }
 
@@ -864,19 +879,74 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
         Assert.Contains("do not retry", failure.Message, StringComparison.OrdinalIgnoreCase);
 
-        // Two: the key that clears whatever was typed at the prompt, then the
-        // payload. The payload itself is one dispatch, where sending it as
-        // keys put the text and its Enter in separate commands — which is why
-        // "the text was sent but Enter failed" is a state this library has to
-        // describe.
-        Assert.Equal(2, fixture.SuccessfulSends);
-        Assert.Contains(
+        Assert.Equal(1, fixture.SuccessfulSends);
+        Assert.DoesNotContain(
             fixture.Commands,
             arguments => arguments.Contains("send-keys", StringComparer.Ordinal));
         Assert.Contains(
             fixture.Commands,
             arguments => arguments.Contains("paste-buffer", StringComparer.Ordinal));
         Assert.Contains(fixture.Commands, IsStatusUnset);
+    }
+
+    [Fact]
+    public async Task Capability_run_stages_before_its_final_check_and_dispatches_once()
+    {
+        await using var fixture = new ToolFixture { FailWait = true };
+
+        _ = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo once",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        string[][] commands = [.. fixture.Commands];
+        int[] paneChecks =
+        [
+            .. commands.Select((arguments, index) => (arguments, index))
+                .Where(entry => entry.arguments.Contains("list-panes", StringComparer.Ordinal))
+                .Select(entry => entry.index),
+        ];
+        int staged = Array.FindIndex(commands, arguments =>
+            arguments.Contains("set-buffer", StringComparer.Ordinal));
+        int finalClients = Array.FindLastIndex(commands, arguments =>
+            arguments.Contains("list-clients", StringComparer.Ordinal));
+        int dispatched = Array.FindIndex(commands, arguments =>
+            arguments.Contains("paste-buffer", StringComparer.Ordinal));
+
+        Assert.Equal(2, paneChecks.Length);
+        Assert.InRange(staged, 0, paneChecks[1] - 1);
+        Assert.Equal(finalClients + 1, dispatched);
+        Assert.Single(commands, IsSendKeys);
+        Assert.DoesNotContain(commands, arguments =>
+            arguments.Contains("send-keys", StringComparer.Ordinal));
+        Assert.DoesNotContain("echo once", commands[staged][^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Capability_run_cleans_staging_when_its_final_check_refuses()
+    {
+        await using var fixture = new ToolFixture
+        {
+            PaneListings =
+            [
+                [new PaneListingRow("%1", "0", "0")],
+                [new PaneListingRow("%1", "0", "1")],
+            ],
+        };
+
+        McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+            fixture.Capabilities.RunShellCommandAsync(
+                "echo never",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Contains("pane_in_mode", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("set-buffer", StringComparer.Ordinal));
+        Assert.Contains(fixture.Commands, arguments =>
+            arguments.Contains("delete-buffer", StringComparer.Ordinal));
+        Assert.DoesNotContain(fixture.Commands, IsSendKeys);
     }
 
     [Fact]

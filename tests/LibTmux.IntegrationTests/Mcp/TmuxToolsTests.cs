@@ -106,6 +106,52 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task Run_shell_command_preserves_inherited_shell_state()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+        await scope.Pane.RespawnAsync(
+            new RespawnRequest(
+                "exec /bin/bash --noprofile --norc",
+                killExistingProcess: true),
+            token);
+        string ready = $"shell-state-ready-{Guid.NewGuid():N}";
+        string setup = "printf() { :; }; alias printf=:; set -ef; "
+            + $"trap 'command printf trap-fired >/dev/null' 0; echo {ready}";
+        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            pane,
+            [ready],
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        RunResult exited = await mcp.Capabilities.RunShellCommandAsync(
+            "exit 23",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+        RunResult state = await mcp.Capabilities.RunShellCommandAsync(
+            "case $- in *e*f*|*f*e*) command printf 'options-kept\\n' ;; "
+                + "*) exit 91 ;; esac; trap | command grep trap-fired",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        Assert.Equal(23, exited.ExitStatus);
+        Assert.True(exited.Started);
+        Assert.Equal(0, state.ExitStatus);
+        Assert.True(state.Started);
+        Assert.Contains("options-kept", state.Output.Lines);
+        Assert.Contains(state.Output.Lines, line =>
+            line.Contains("trap-fired", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
     public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
