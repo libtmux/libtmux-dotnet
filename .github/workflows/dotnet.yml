@@ -263,10 +263,31 @@ jobs:
           PROBE
 
       - name: Native MCP swap tests
+        env:
+          LIBTMUX_KEEP_TEST_PATHS: '1'
         run: >
           dotnet test eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj
           --configuration Release --no-build --framework net10.0
           -- --minimum-expected-tests 119
+
+      # Temporary. The swap lock sees two links on a file an lstat a statement
+      # earlier saw one, and the only link this code creates is the test's own
+      # alias, which it deletes. Name every path sharing the inode instead of
+      # reasoning about which one it could be.
+      - name: Name the second link
+        if: ${{ failure() }}
+        run: |
+          shopt -s nullglob
+          for root in "${TMPDIR}"libtmux-mcp-swap-*; do
+            lock="$root/state/libtmux-mcp-dev/swap/state.lock"
+            [ -e "$lock" ] || continue
+            echo "== $lock"
+            stat -f 'nlink=%l ino=%i mode=%Lp uid=%u' "$lock"
+            echo "-- every name sharing that inode, anywhere under TMPDIR:"
+            find "${TMPDIR}" -inum "$(stat -f %i "$lock")" 2>/dev/null
+            echo "-- the tree the test left behind:"
+            find "$root" -print0 | xargs -0 stat -f '%N nlink=%l ino=%i mode=%Lp'
+          done
 
       # Temporary. Opens a shell on the runner only when the job has already
       # failed, so a green run never waits. The repository is public and the
@@ -277,7 +298,7 @@ jobs:
         uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         with:
           limit-access-to-actor: true
-        timeout-minutes: 20
+        timeout-minutes: 15
 
       - name: Integration tests
         # This is the part that could only ever be guessed at before: real tmux,

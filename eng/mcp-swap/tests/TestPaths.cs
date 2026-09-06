@@ -23,6 +23,14 @@ internal sealed class TestPaths : IDisposable
 
     public void Dispose()
     {
+        // A failure that deletes its own evidence cannot be read afterwards,
+        // and this suite's temporary roots are the evidence on a runner nobody
+        // can log into.
+        if (Environment.GetEnvironmentVariable("LIBTMUX_KEEP_TEST_PATHS") is not null)
+        {
+            return;
+        }
+
         if (Directory.Exists(Root))
         {
             Directory.Delete(Root, recursive: true);
