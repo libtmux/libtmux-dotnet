@@ -1,14 +1,16 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
+using ModelContextProtocol.Client;
 
 namespace LibTmux.Examples;
 
 /// <summary>One example: what it shows, where it lives, and how to run it.</summary>
 /// <remarks>
 /// A parameter typed <see cref="Server"/>, <see cref="Session"/>,
-/// <see cref="Window"/>, <see cref="Pane"/> or <see cref="CancellationToken"/>
-/// is supplied from the namespace; any other type throws.
+/// <see cref="Window"/>, <see cref="Pane"/>, <see cref="McpClient"/> or
+/// <see cref="CancellationToken"/> is supplied from the namespace; any other
+/// type throws.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
 public sealed class ExampleCase
@@ -53,6 +55,10 @@ public sealed class ExampleCase
             cancellationToken);
 
         ParameterInfo[] parameters = Method.GetParameters();
+        await using ExampleMcpConnection? mcp = parameters.Any(
+            parameter => parameter.ParameterType == typeof(McpClient))
+                ? await ExampleMcpConnection.OpenAsync(world.Server, cancellationToken)
+                : null;
         object?[] arguments = new object?[parameters.Length];
         for (int index = 0; index < parameters.Length; index++)
         {
@@ -63,10 +69,12 @@ public sealed class ExampleCase
                 _ when wanted == typeof(Session) => world.Session,
                 _ when wanted == typeof(Window) => world.Window,
                 _ when wanted == typeof(Pane) => world.Pane,
+                _ when wanted == typeof(McpClient) => mcp!.Client,
                 _ when wanted == typeof(CancellationToken) => cancellationToken,
                 _ => throw new InvalidOperationException(
                     $"Example {Topic}.{Id} asks for a {wanted.Name}, and an example "
-                    + "may ask for a Server, Session, Window, Pane or CancellationToken."),
+                    + "may ask for a Server, Session, Window, Pane, McpClient "
+                    + "or CancellationToken."),
             };
         }
 

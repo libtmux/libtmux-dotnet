@@ -102,9 +102,11 @@ def find_dotnet() -> str:
     agent failing to start the server with an error that surfaces inside
     the agent rather than here.
     """
-    found = shutil.which("dotnet")
-    if found:
-        return str(pathlib.Path(found).resolve())
+    root = os.environ.get("DOTNET_ROOT")
+    if root and pathlib.Path(root).is_absolute():
+        rooted = pathlib.Path(root) / ("dotnet.exe" if os.name == "nt" else "dotnet")
+        if rooted.is_file():
+            return str(rooted)
     try:
         resolved = subprocess.run(
             ["mise", "which", "dotnet"],
@@ -115,7 +117,10 @@ def find_dotnet() -> str:
     except (OSError, subprocess.CalledProcessError):
         resolved = ""
     if resolved:
-        return str(pathlib.Path(resolved).resolve())
+        return str(pathlib.Path(resolved).absolute())
+    found = shutil.which("dotnet")
+    if found:
+        return str(pathlib.Path(found).resolve())
     msg = (
         "no dotnet on PATH and mise could not name one; "
         "install the SDK or run inside `mise exec`"

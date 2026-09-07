@@ -64,6 +64,7 @@ public sealed class ReadmeExampleTests
         using System.Collections.Generic;
         using System.IO;
         using System.Linq;
+        using System.Text.Json;
         using System.Threading;
         using System.Threading.Tasks;
         using LibTmux;
@@ -74,6 +75,8 @@ public sealed class ReadmeExampleTests
         using LibTmux.Workspace;
         using Microsoft.Extensions.DependencyInjection;
         using Microsoft.Extensions.Logging;
+        using ModelContextProtocol.Client;
+        using ModelContextProtocol.Protocol;
 
         """;
 
@@ -285,6 +288,8 @@ public sealed class ReadmeExampleTests
         source.AppendLine("    public static Window window = null!;");
         source.AppendLine("    public static Pane pane = null!;");
         source.AppendLine("    public static ILogger logger = null!;");
+        source.AppendLine("    public static McpClient client = null!;");
+        source.AppendLine("    public static string paneId = null!;");
         source.AppendLine("    public static CancellationToken ct;");
         source.AppendLine();
         source.Append(methods);

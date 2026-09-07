@@ -57,7 +57,7 @@ internal static class PaneReader
             {
                 throw new McpException(
                     $"Pane {pane.Id} is dead: the program in it has exited. "
-                    + "Use tmux_respawn_pane to start it again.");
+                    + "Use respawn_pane to start it again.");
             }
 
             IReadOnlyList<string> lines = await CaptureAsync(pane, null, cancellationToken)
@@ -235,7 +235,7 @@ internal static class PaneReader
         {
             throw new McpException(
                 $"Pane {pane.Id} is running a different process than when the cursor was "
-                + "issued, so there is nothing to continue from. Call tmux_tail_pane "
+                + "issued, so there is nothing to continue from. Call capture_since "
                 + "again without a cursor.");
         }
     }

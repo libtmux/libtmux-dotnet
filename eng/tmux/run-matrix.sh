@@ -145,6 +145,12 @@ if [[ -n "${evidence_directory}" ]]; then
     results_file="${candidate}/results.ndjson"
 fi
 
+# Keep failures outside the unpublished candidate until the matrix succeeds.
+# An early failure discards the candidate but leaves its diagnostic output.
+FAILURE_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/libtmux-matrix-failures.XXXXXXXX")"
+readonly FAILURE_DIRECTORY
+kept_failures=0
+
 cleanup_candidate() {
     if [[ -n "${candidate}" && -d "${candidate}" ]]; then
         uv run python eng/evidence/assemble_bundle.py \
@@ -152,6 +158,9 @@ cleanup_candidate() {
             --output "${evidence_directory}" \
             --ownership-nonce "${ownership_nonce}"
     fi
+    # A clean run leaves an empty directory. Failed output makes rmdir refuse,
+    # preserving the path printed by keep_failure_output.
+    rmdir -- "${FAILURE_DIRECTORY}" 2>/dev/null || true
 }
 trap cleanup_candidate EXIT
 
@@ -179,6 +188,28 @@ record_result() {
         --argjson testCount "${test_count}" \
         '{advisory:$advisory,evaluatedCommit:$evaluatedCommit,framework:$framework,status:$status,testCount:$testCount,tmuxSourceCommit:$tmuxSourceCommit,tmuxVersion:$tmuxVersion}' \
         >> "${results_file}"
+}
+
+# A failing run's output is the most valuable thing it produces: the test that
+# failed, its assertion, and the actual against the expected. Reading two
+# integers out of it and deleting it leaves a status and a count, which say
+# that something failed but never what — and a single occurrence that nobody
+# can name costs more reruns than it would have cost to keep the file.
+keep_failure_output() {
+    local output_file="$1"
+    local version="$2"
+    local framework="$3"
+    mkdir -p -- "${FAILURE_DIRECTORY}"
+
+    # Counted, because a cell can fail twice in one run for different reasons
+    # and mv would leave only the later one — the same loss this function
+    # exists to prevent, one occurrence further along. A clock is not enough:
+    # two failures a second apart collide at second resolution.
+    kept_failures=$((kept_failures + 1))
+    local kept
+    kept="${FAILURE_DIRECTORY}/${kept_failures}-${version}-${framework}.log"
+    mv -- "${output_file}" "${kept}"
+    printf 'kept failing output at %s\n' "${kept}" >&2
 }
 
 run_one() {
@@ -215,7 +246,11 @@ run_one() {
     if [[ ${test_status} -ne 0 || -z "${test_count}" || "${test_count}" -eq 0 || -z "${skipped}" || "${skipped}" -ne 0 ]]; then
         status=failed
     fi
-    rm -f -- "${output_file}"
+    if [[ "${status}" == passed ]]; then
+        rm -f -- "${output_file}"
+    else
+        keep_failure_output "${output_file}" "${version}" "${framework}"
+    fi
     record_result "${version}" "${framework}" "${status}" "${advisory}" "${source_commit}" "${test_count:-0}"
     if [[ "${status}" != passed && "${advisory}" == false ]]; then
         return 1
@@ -296,11 +331,12 @@ run_transition_one() {
     test_count="$(sed -nE 's/^[[:space:]]*total:[[:space:]]*([0-9]+).*/\1/p' "${output_file}" | tail -1)"
     local skipped
     skipped="$(sed -nE 's/^[[:space:]]*skipped:[[:space:]]*([0-9]+).*/\1/p' "${output_file}" | tail -1)"
-    rm -f -- "${output_file}"
     if [[ ${test_status} -ne 0 || "${test_count}" != 1 || "${skipped}" != 0 ]]; then
+        keep_failure_output "${output_file}" "${version}" "${framework}"
         echo "break-pane transition failed for tmux ${version} on ${framework}" >&2
         return 1
     fi
+    rm -f -- "${output_file}"
 }
 
 for version in "${REQUIRED_VERSIONS[@]}"; do
@@ -335,6 +371,9 @@ if [[ ${transition_proof} -eq 1 ]]; then
 fi
 
 if [[ -n "${candidate}" ]]; then
+    if [[ ${kept_failures} -gt 0 ]]; then
+        mv -- "${FAILURE_DIRECTORY}" "${candidate}/failures"
+    fi
     include_master_json=false
     if [[ ${include_master} -eq 1 ]]; then
         include_master_json=true

@@ -59,8 +59,8 @@ Without it the tests spawn whatever `tmux` their own `PATH` resolves, while a
 command they send into a pane resolves it again through that pane's
 interactive shell. A version-matrix install earlier on the interactive `PATH`
 makes those two different binaries, and a client cannot talk to a server of
-another version. What you see is `tmux_run` timing out with no exit status,
-which reads as a library bug rather than as two tmuxes.
+another version. What you see is `run_shell_command` timing out with no exit
+status, which reads as a library bug rather than as two tmuxes.
 
 ## Own your tmux socket root
 
@@ -179,11 +179,11 @@ $ mise exec -- dotnet restore \
 ```
 
 ```console
-$ mise exec -- dotnet run \
+$ for f in net8.0 net10.0; do mise exec -- dotnet run \
     --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
     --configuration Release \
-    --framework net8.0 \
-    --no-restore
+    --framework "$f" \
+    --no-restore; done
 ```
 
 ```console
@@ -194,13 +194,18 @@ $ mise exec -- dotnet restore \
 ```
 
 ```console
-$ mise exec -- dotnet publish \
+$ for f in net8.0 net10.0; do mise exec -- dotnet publish \
     tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
     --configuration Release \
-    --framework net10.0 \
+    --framework "$f" \
     --runtime linux-x64 \
-    --no-restore
+    --no-restore; done
 ```
+
+Both loop over the frameworks because `Packed_consumers_execute_on_both_frameworks`
+and `Trimmed_native_aot_executes_on_both_frameworks` read the output of each.
+Building only one leaves those two failing, which reads like the unpacked-tree
+state above but is not it.
 
 `LibTmux.PackageConsumer` and `LibTmux.AotSmoke` are deliberately absent from
 `LibTmux.slnx`. Both restore the packed artifacts rather than project
@@ -330,11 +335,12 @@ stops a moved tag from changing what CI runs. Dependabot maintains those pins.
 
 `src/LibTmux.Mcp` is a stdio server, so the only honest test of its tool
 descriptions is whether a model picks the right tool without being told which.
-`eng/mcp/mcp_swap.py` points every installed agent CLI at a local build, and
-`revert` puts their configs back from the timestamped backup it took:
+The private [native MCP config swapper](../eng/mcp-swap/README.md) points every
+installed agent CLI at a local build, and `revert` puts their configs back from
+the timestamped backup it took:
 
 ```console
-$ uv run eng/mcp/mcp_swap.py use \
+$ mise exec -- dotnet run --project eng/mcp-swap/LibTmux.McpSwap.csproj -- use \
     --source release \
     --env TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
 ```

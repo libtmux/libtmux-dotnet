@@ -114,10 +114,15 @@ public sealed record ResizePaneRequest
         }
 
         string digits = value.EndsWith('%') ? value[..^1] : value;
-        if (digits.Length == 0 || !digits.All(char.IsAsciiDigit))
+
+        // Zero is rejected with the negatives it already refused: tmux coerces
+        // it to one rather than honouring it, so accepting it would agree to a
+        // size the caller did not ask for.
+        if (digits.Length == 0 || !digits.All(char.IsAsciiDigit)
+            || digits.TrimStart('0').Length == 0)
         {
             throw new ArgumentException(
-                "An extent is a number of cells or a percentage.",
+                "An extent is a positive number of cells or a percentage.",
                 parameterName);
         }
     }

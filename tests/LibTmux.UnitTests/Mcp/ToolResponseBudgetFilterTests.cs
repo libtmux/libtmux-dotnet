@@ -2,6 +2,7 @@ using System.IO.Pipelines;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LibTmux.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,82 @@ namespace LibTmux.UnitTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class ToolResponseBudgetFilterTests
 {
+    [Fact]
+    public void A_tool_left_out_of_this_server_is_not_called_unknown()
+    {
+        string advice = ToolFailureFilter.AdviceFor(
+            new InvalidOperationException("Unknown tool: 'kill_window'"),
+            declaration: null,
+            tool: "kill_window");
+
+        // Toolset gates are the point; "unknown" invites a caller to conclude
+        // the server cannot do it at all.
+        Assert.Contains("was not selected", advice, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unknown tool", advice, StringComparison.Ordinal);
+
+        // A name nothing declares really is unknown.
+        Assert.Contains(
+            "This is unexpected",
+            ToolFailureFilter.AdviceFor(
+                new InvalidOperationException("Unknown tool: 'nope'"),
+                declaration: null,
+                tool: "nope"),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Mutation_advice_is_separated_from_tmux_own_wording()
+    {
+        TmuxCommandResult chained = new(
+            ["kill-window", "-t", "@1", ";", "move-window", "-t", "@2"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["index in use: 0"]);
+        string advice = ToolFailureFilter.ActionableAdvice(
+            "move_window",
+            new TmuxCommandException("move-window failed: index in use: 0", chained),
+            mayModify: true,
+            "tmux refused the command: move-window failed: index in use: 0");
+
+        // tmux ends its refusals without punctuation, so the warning ran into
+        // them: "index in use: 0 tmux may have acted before the failure."
+        Assert.Contains("in use: 0. tmux may have acted", advice, StringComparison.Ordinal);
+
+        // One command tmux refused is one command tmux did not run, and the
+        // warning contradicted tmux's own sentence.
+        TmuxCommandResult single = new(
+            ["set-option"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["unknown value: 1"]);
+        string refusal = ToolFailureFilter.ActionableAdvice(
+            "set_option",
+            new TmuxCommandException("set-option failed: unknown value: 1", single),
+            mayModify: true,
+            "tmux refused the command: set-option failed: unknown value: 1");
+        Assert.DoesNotContain("may have acted", refusal, StringComparison.Ordinal);
+
+        // The shape a real dispatch produces: one command, no separator. This
+        // is the vector the wire sends, and the earlier synthetic one was not.
+        TmuxCommandResult guarded = new(
+            ["set-option", "-t", "$0", "base-index", "notanumber"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            ["value is invalid: notanumber"]);
+        string guardedRefusal = ToolFailureFilter.ActionableAdvice(
+            "set_option",
+            new TmuxCommandException("set-option failed", guarded),
+            mayModify: true,
+            "tmux refused the command: set-option failed");
+        Assert.DoesNotContain("may have acted", guardedRefusal, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Oversized_text_and_structured_content_are_replaced_by_a_bounded_error()
     {
@@ -162,19 +239,19 @@ public sealed class ToolResponseBudgetFilterTests
             TmuxDispatchState.Unknown);
 
         string read = ToolFailureFilter.ActionableAdvice(
-            "tmux_capture_pane",
+            "capture_pane",
             error,
             mayModify: false,
             "The read failed.");
         string write = ToolFailureFilter.ActionableAdvice(
-            "tmux_start_job",
+            "run_shell_command",
             error,
             mayModify: true,
             "The dispatch failed.");
 
         Assert.Equal("The read failed.", read);
         Assert.Contains("Do not retry", write, StringComparison.Ordinal);
-        Assert.Contains("tmux_list_jobs", write, StringComparison.Ordinal);
+        Assert.Contains("Inspect tmux state first", write, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -219,6 +296,23 @@ public sealed class ToolResponseBudgetFilterTests
         string message = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
         Assert.Contains("Narrow", message, StringComparison.Ordinal);
         Assert.True(Utf8JsonBudget.Fits(result, 4_000, ToolJson.Options));
+    }
+
+    [Fact]
+    public async Task Read_batch_uses_its_fixed_aggregate_wire_budget()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using BudgetProtocolHarness harness = await BudgetProtocolHarness.StartAsync(token);
+
+        CallToolResult result = await harness.Client.CallToolAsync(
+            "call_read_tools_batch",
+            cancellationToken: token);
+
+        Assert.NotEqual(true, result.IsError);
+        JsonElement structured = Assert.IsType<JsonElement>(result.StructuredContent);
+        Assert.Equal(1, structured.GetProperty("results").GetArrayLength());
+        Assert.False(structured.GetProperty("truncated").GetBoolean());
+        Assert.True(Utf8JsonBudget.GetByteCount(result, ToolJson.Options) > 4_000);
     }
 
     [Fact]
@@ -308,6 +402,24 @@ public sealed class ToolResponseBudgetFilterTests
 
         [McpServerTool(Name = "budget_probe_large", UseStructuredContent = true)]
         public static BudgetProbeResult Large() => new(new string('x', 16_000));
+
+        [McpServerTool(Name = "call_read_tools_batch", UseStructuredContent = true)]
+        public static ReadToolBatchResult ReadBatch() => new(
+            [
+                new ReadToolCallResult(
+                    Index: 0,
+                    Tool: "capture_pane",
+                    Success: true,
+                    Error: null,
+                    Result: JsonValue.Create(new string('b', 16_000)),
+                    ResultTruncated: false),
+            ],
+            Succeeded: 1,
+            Failed: 0,
+            StoppedAt: null,
+            Truncated: false,
+            TruncatedBytes: 0,
+            OnError: "stop");
 
         [McpServerTool(Name = "budget_probe_search", UseStructuredContent = true)]
         public static SearchResult Search()

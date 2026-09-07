@@ -8,6 +8,230 @@ Versions follow [Semantic Versioning](https://semver.org). During alpha the
 public API can change in any release with no deprecation period — pin an exact
 version.
 
+## [Unreleased]
+
+### Added
+
+- `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
+  one immutable capability registry. Every tool carries conservative protocol
+  annotations. Its `_meta` capability object and the static
+  `tmux://capabilities` resource carry matching non-protocol metadata for
+  process reach, tmux effects, output classes, trust, and input literalization.
+
+- `LIBTMUX_TOOLSETS`, `LIBTMUX_TOOLS`, and `LIBTMUX_EXCLUDE_TOOLS` freeze the
+  effective surface at startup. All subsets of `inspect`, `manage`, `execute`,
+  and `teardown` are valid; exact-name exclusions apply last.
+
+### Fixed
+
+- **`run_shell_command` reaches only the pane it names.** It sent its payload
+  with `send-keys`, which tmux fans out to the synchronized cohort, and
+  defended its singular exit status by refusing whenever the cohort was larger
+  — advice a caller could not follow, and still a check against a later send.
+  The payload now travels through a tmux buffer, which writes straight to the
+  named pane, so the outcome is singular by construction and the refusal is
+  gone. Under a process toggling `synchronize-panes` every 10-50ms, measured
+  across 40 runs: 6 leaks before, none after, and 40 calls completed rather
+  than 23.
+
+- The private MCP config swapper sets its lock file's mode after creating it.
+  `openat` is variadic in C, and Apple's arm64 ABI passes a variadic argument
+  on the stack rather than in a register, so the 0600 the lock was created with
+  never reached the kernel there and every swap failed its own ownership check.
+
+- **A run reports what the command printed, not the prompt drawn after it.**
+  The output window was bounded on the left only, by the marker the run prints
+  before the command, so the shell's next prompt fell inside it. A prompt
+  narrower than the pane was absorbed by the since-baseline diff and hid this;
+  one carrying a deep path wraps into two rows and was reported as two lines of
+  output the command never printed. The run now prints an end marker once the
+  status is saved and reports only what lies between the two.
+
+- **An empty identifier is refused rather than read as the current object.**
+  Null still means the current pane, window or session; `""` used to mean the
+  same, so `kill_window(windowId: "")` destroyed the active window and
+  `send_keys(paneId: "")` typed into whatever pane was active anywhere on the
+  server.
+
+- **A direct call is held to the schema it published.** Every tool declares
+  `additionalProperties: false`, which only the batch path enforced: the SDK
+  dropped an undeclared argument, coerced `"5"` where an integer was declared,
+  and let a wrong type reach the caller as System.Text.Json prose. Declared
+  integers now carry their type's range, so a value beyond `Int32` is refused
+  by the schema rather than by the binder.
+
+- **Nesting cannot widen a selection.** `call_read_tools_batch` trimmed its
+  declared authority by `LIBTMUX_EXCLUDE_TOOLS` alone, so naming the batch in
+  `LIBTMUX_TOOLS` while the toolsets omitted `inspect` published a batch that
+  still reached all sixteen inspect tools. A batch left with no authority is
+  no longer published at all.
+
+- **The synchronized cohort holds only the panes tmux would reach.** tmux gates
+  delivery on more than `synchronize-panes`: a dead peer, a peer with input
+  disabled, and every hidden pane of a zoomed window are skipped. A source that
+  receives nothing is refused rather than reported as sent.
+
+- **`show_option` sees the options a server was configured with.** It asked for
+  values set at exactly the scope named, and `set -g` is where nearly all tmux
+  configuration lives, so a configured server read as unconfigured. Inherited
+  values are included and marked, and the scope in the result means where the
+  read asked rather than where the value was set.
+
+- **Refusals name what a caller can act on.** The three selection knobs are
+  distinguished rather than all reported as a disabled toolset; the pattern
+  subset is described as linear-time rather than as ".NET regular expressions"
+  it then refuses; and the mutation warning no longer follows a command tmux
+  said it refused, nor appears twice in one message.
+
+- `wait_for_channel` answers with `signalled`, `elapsedSeconds` and
+  `effectiveTimeoutSeconds`, so a timeout and a signal are told apart without
+  matching prose. A misconfigured environment exits with its message and status
+  1 instead of an abort and a stack trace. `swap_pane` refuses a pane and
+  itself, `maxLines` below one is refused rather than answered with nothing,
+  and `droppedBytes` documents that it counts pane text while the budget bounds
+  the serialized result.
+
+- **`show_environment` no longer returns values by default.** Omitting `name`
+  answers every variable's name, `hasValue`, and `isRemoved` and no values.
+  Naming one variable answers its value unless the name reads as a credential,
+  which reports `withheld` instead. The tmux server environment is server-wide
+  and outlives every session on the socket.
+
+- **`isCaller` and `callerPaneId` are verified against the socket the pane
+  belongs to.** tmux numbers panes per server, so `TMUX_PANE` alone marked an
+  unrelated pane on the pinned socket as the terminal the conversation runs
+  through, and left the real one unmarked. The "you are here" instruction
+  segment answers to the same check.
+
+- **`move_window` refuses `replaceExisting` unless `kill_window` is enabled.**
+  tmux `move-window -k` kills whatever holds the destination index, which the
+  default `manage` toolset could reach without the teardown gate. A move that
+  does replace now says what it killed.
+
+- **A running server holding no sessions answers instead of failing.** tmux
+  refuses `list-windows -a` and `list-panes -a` with "no current target" when
+  no session exists, which reached callers as raw command failures across
+  eleven read tools. `get_server_info` reports zero counts and keeps the tmux
+  version.
+
+- Failure advice reads a tool's declared effects rather than the deliberately
+  pessimistic `readOnlyHint`, so a failing read is no longer described as
+  possibly having changed tmux. A refusal this server wrote keeps its own
+  message instead of gaining the unexpected-failure backstop, and tmux's own
+  wording is ended before the mutation warning is appended to it.
+
+- The four spawning tools report where a pane actually started when tmux could
+  not use the requested `startDirectory`; tmux falls back to `HOME` and then
+  `/` without reporting an error.
+
+- `set_history_limit` takes a session rather than a window, because tmux keeps
+  `history-limit` at session scope; the previous window parameter silently
+  changed every window in the session.
+
+- The server instructions describe budget truncation and scrollback loss
+  separately, because `droppedLines` reads 0 when scrollback discarded output.
+
+- **MCP input refuses pane modes before mutation.** `send_keys` and each
+  `send_keys_batch` operation check the named source: effective
+  `pane_synchronized` `0` means source only, while `1` uses configured
+  effective-on membership from inherited window settings and pane overrides.
+  A modal cohort member refuses that operation. `paste_text` remains
+  target-only because buffer paste does not fan out.
+
+- **A failure reads the same whether it was called directly or inside
+  `call_read_tools_batch`.** The batch dispatches its inner operations itself
+  and never passed through the failure filter, so the same failure carried
+  advice one way and a raw message the other. Argument validation is treated
+  as the refusal it is, without the `(Parameter 'x')` suffix .NET appends.
+
+- **Tool descriptions carry the guidance that tells overlapping tools apart.**
+  Descriptions are built from the capability model, so the text written as
+  `[Description]` on `ReadTools` and `WriteTools` was never advertised — the
+  registered handlers are the `CapabilityTools` methods. `send_keys` reached
+  clients as "Send keys." Registered descriptions now route callers between
+  `send_keys` and `run_shell_command`, distinguish list tools from
+  `search_panes`, explain what `respawn_pane` reruns and what
+  `killExistingProcess` destroys, and state the modal-input boundary.
+
+- A null arriving for a declared input field is answered as bad input rather
+  than as an unexpected internal failure, and `wait_for_text` states that text
+  already on screen never matches.
+
+- Calling a tool whose toolset is not enabled says it was not selected instead
+  of "Unknown tool", and `select_layout` no longer warns that tmux may have
+  acted when it refused a layout name before sending anything.
+
+- **Capability rows say only what the protocol cannot.** They carried the
+  title, description, annotations and both schemas that a client already has
+  from `tools/list` and joins to by name. `tmux://capabilities` drops from
+  67,667 to 14,451 UTF-8 bytes of resource text with all four toolsets
+  selected, and the raw JSON-RPC `tools/list` response drops from 132,914 to
+  72,665 bytes. The duplicated output schema was also wrong:
+  `structuredContent` is an object, so a tool answering a list has its array
+  wrapped as `{"result": ...}`, and six rows described the bare array the
+  server never sends.
+
+- `SessionInfo` drops `width` and `height`; tmux removed the `session_width`
+  and `session_height` formats in 2.9. A zero resize extent is refused
+  alongside the negatives tmux already refused, an unknown layout is no longer
+  reported as "tmux tmux <version>", and `wait_for_text` documents that text
+  already on screen never matches.
+
+### Changed
+
+- **The MCP server now pins one socket and one configuration at startup.** Use
+  `LIBTMUX_SOCKET` for a socket name, `LIBTMUX_SOCKET_PATH` for an absolute
+  socket path, and `LIBTMUX_TMUX_CONFIG` for an explicit absolute tmux
+  configuration path. The default is the product-dedicated `libtmux-mcp`
+  socket with a minimal configuration. Replace the retired positional socket
+  argument with `LIBTMUX_SOCKET`.
+
+- **All MCP annotations are conservative.** Every advertised tool reports
+  read-only false, destructive true, idempotent false, and open-world true;
+  capability metadata carries the more precise process, effect, output, and
+  input-literalization model. Internal input-sink classifications remain CI
+  validation facts rather than public metadata.
+
+- **CM-7 trust limits are explicit.** Tool filtering shapes the interface, not
+  authorization; MCP annotations are consent metadata, not enforcement. A
+  selected socket scopes tmux objects, not an OS sandbox, and execute tools run
+  with the tmux user's authority.
+
+- `set_synchronize_panes` reports that it amplifies subsequent input, and
+  `send_keys` and `send_keys_batch` report preflight source or cohort
+  membership, not actual delivery.
+
+- Read batches retain every executed row while rolling back the newest nested
+  payloads needed to keep the complete response within 1,000,000 bytes.
+
+- Serialized MCP request IDs are capped at 524,288 bytes and rejected before
+  tool dispatch, keeping invalid-request replies bounded.
+
+- The default dedicated daemon is removed at MCP shutdown only when its
+  authenticated launch marker still belongs to that process.
+
+- Existing daemons report configuration provenance as unknown because tmux
+  does not reload a supplied configuration path into an already-running server.
+
+### Removed
+
+- **`LIBTMUX_SAFETY` and ordered MCP safety tiers are removed.** Remove the
+  variable and select unordered capabilities with `LIBTMUX_TOOLSETS`; merely
+  defining the retired variable now stops startup with a migration error.
+
+- **The MCP no longer advertises `enter_copy_mode` or `exit_copy_mode`.** Pane
+  modes belong to the attached human. Use `capture_pane`, `search_panes`,
+  `snapshot_pane`, and `capture_since` cursors to observe without entering,
+  driving, or cancelling a mode; wait for the human to leave before sending
+  input.
+
+- **The prior MCP jobs, prompts, dynamic hierarchy resources, subscriptions,
+  generic format expansion, server discovery, buffers, and server-wide kill
+  routes are removed.** Use the pinned 45-tool surface and the static
+  `tmux://capabilities` resource. The hierarchy, session, and pane URIs migrate
+  to typed list and capture tools; `tmux://self` migrates to `get_server_info`
+  and `list_panes`, while `tmux://servers` has no discovery replacement.
+
 ## [0.0.0-alpha.10] — 2026-08-30
 
 ### Added
@@ -447,6 +671,7 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.10...HEAD
 [0.0.0-alpha.10]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.10
 [0.0.0-alpha.9]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.9
 [0.0.0-alpha.8]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.8

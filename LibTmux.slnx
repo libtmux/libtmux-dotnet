@@ -9,6 +9,10 @@
     <Project Path="examples/LibTmux.Examples/LibTmux.Examples.csproj" />
     <Project Path="benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/eng/">
+    <Project Path="eng/mcp-swap/LibTmux.McpSwap.csproj" />
+    <Project Path="eng/mcp-swap/tests/LibTmux.McpSwap.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LibTmux.ExampleTests/LibTmux.ExampleTests.csproj" />
     <Project Path="tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj" />

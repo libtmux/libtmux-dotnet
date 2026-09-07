@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
@@ -12,7 +13,481 @@ namespace LibTmux.IntegrationTests;
 public sealed class TmuxToolsTests
 {
     [UnixFact]
-    public async Task Reading_tools_describe_what_tmux_holds()
+    public async Task An_attached_human_client_blocks_every_pane_input_tool()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
+            raw,
+            token);
+        TmuxTestOptions options = new(new ServerConnectionOptions(
+            tmuxBinaryPath: raw.TmuxBinaryPath,
+            socketPath: raw.SocketPath,
+            configurationFile: "/dev/null"));
+        await using McpToolFixture mcp = McpToolFixture.Create(options);
+        string pane = Assert.Single(await mcp.Read.ListPanesAsync(cancellationToken: token)).PaneId;
+        string marker = $"attended-{Guid.NewGuid():N}";
+
+        McpException send = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.SendKeysAsync(marker, pane, cancellationToken: token));
+        McpException paste = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.PasteTextAsync(marker, pane, cancellationToken: token));
+        McpException run = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(marker, pane, cancellationToken: token));
+        PaneInputBatchResult batch = await mcp.Capabilities.SendKeysBatchAsync(
+            [new PaneInputOperation(marker, pane)],
+            cancellationToken: token);
+
+        Assert.All([send, paste, run], refusal =>
+            Assert.Contains($"attended pane {pane}", refusal.Message, StringComparison.Ordinal));
+        Assert.Contains(
+            $"attended pane {pane}",
+            Assert.Single(batch.Results).Error,
+            StringComparison.Ordinal);
+        RawTmuxResult capture = await raw.ExecuteAsync(
+            ["capture-pane", "-p", "-t", pane],
+            token);
+        Assert.DoesNotContain(marker, capture.StandardOutputText, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task A_synchronized_cohort_reports_configured_membership()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string first = scope.Pane.Id.ToString();
+        ActionResult second = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        ActionResult third = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
+
+        PaneInputResult all = await mcp.Capabilities.SendKeysAsync(
+            "# all", first, enter: true, cancellationToken: token);
+        Assert.Equal(3, all.TargetPaneIds.Count);
+        Assert.Contains(second.PaneId!, all.TargetPaneIds);
+        Assert.Contains(third.PaneId!, all.TargetPaneIds);
+
+        McpException scoped = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo must-not-run",
+                first,
+                timeoutSeconds: 20,
+                cancellationToken: token));
+        Assert.Contains("exactly one", scoped.Message, StringComparison.Ordinal);
+
+        // Zoom affects tmux delivery, not configured membership. The result
+        // deliberately does not claim which delivery filters fired.
+        Server server = scope.Server;
+        _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
+
+        PaneInputResult zoomed = await mcp.Capabilities.SendKeysAsync(
+            "# zoomed", first, enter: true, cancellationToken: token);
+        Assert.Equal(3, zoomed.TargetPaneIds.Count);
+        Assert.DoesNotContain("delivered", zoomed.Changed, StringComparison.Ordinal);
+
+        McpException zoomedRun = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo still-must-not-run",
+                first,
+                timeoutSeconds: 20,
+                cancellationToken: token));
+        Assert.Contains("exactly one", zoomedRun.Message, StringComparison.Ordinal);
+
+        _ = await server.ExecuteCommandAsync(["resize-pane", "-Z", "-t", first], token);
+        PaneInputResult restored = await mcp.Capabilities.SendKeysAsync(
+            "# restored", first, enter: true, cancellationToken: token);
+        Assert.Equal(3, restored.TargetPaneIds.Count);
+        Assert.Contains("synchronize", restored.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task Pane_input_accepts_one_window_linked_twice_into_one_session()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        int secondIndex = scope.Window.Index == 7 ? 8 : 7;
+        await scope.Window.LinkAsync(
+            new LinkWindowRequest(
+                scope.Session.Id.ToString(),
+                secondIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                detach: true),
+            token);
+
+        PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(
+            "# linked twice",
+            scope.Pane.Id.ToString(),
+            enter: true,
+            cancellationToken: token);
+
+        Assert.Equal([scope.Pane.Id.ToString()], sent.TargetPaneIds);
+        Assert.Equal(
+            2,
+            (await scope.Session.GetWindowsAsync(token)).Count(window =>
+                window.Id == scope.Window.Id));
+    }
+
+    [UnixFact]
+    public async Task Run_shell_command_preserves_inherited_shell_state()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+        string suffix = Guid.NewGuid().ToString("N");
+        string debugOut = $"debug-out-{suffix}";
+        string debugError = $"debug-error-{suffix}";
+        string errorOut = $"error-out-{suffix}";
+        string errorError = $"error-error-{suffix}";
+        string parentExit = Path.Combine(Path.GetTempPath(), $"libtmux-parent-exit-{suffix}");
+        string intercepted = Path.Combine(Path.GetTempPath(), $"libtmux-intercepted-{suffix}");
+        string decoyRoot = Directory.CreateTempSubdirectory("libtmux-route-decoy-").FullName;
+        await scope.Pane.RespawnAsync(
+            new RespawnRequest(
+                "exec /bin/bash --noprofile --norc",
+                killExistingProcess: true),
+            token);
+        string ready = $"shell-state-ready-{suffix}";
+        string setup = $"function {mcp.Options.ConnectionOptions.TmuxBinaryPath} "
+            + $"{{ command printf x > {ShellQuote(intercepted)}; }}; "
+            + $"TMUX_TMPDIR={ShellQuote(decoyRoot)}; "
+            + "printf() { :; }; alias printf=:; "
+            + "readonly __lt=human __lt_errexit=human; "
+            + $"trap 'command printf x > {parentExit}' EXIT; "
+            + $"trap 'command printf \"{debugOut}\\n\"; "
+            + $"command printf \"{debugError}\\n\" >&2' DEBUG; "
+            + $"trap 'command printf \"{errorOut}\\n\"; "
+            + $"command printf \"{errorError}\\n\" >&2' ERR; "
+            + $"set -E; set -T; set -e; set -x; set -C; echo {ready}";
+        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            pane,
+            [ready],
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        string successMarker = $"success-{suffix}";
+        RunResult success = await mcp.Capabilities.RunShellCommandAsync(
+            $"command printf '{successMarker}\\n'",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+        string unreachable = $"unreachable-{suffix}";
+        RunResult failed = await mcp.Capabilities.RunShellCommandAsync(
+            $"false; command printf '{unreachable}\\n'",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+        RunResult exited = await mcp.Capabilities.RunShellCommandAsync(
+            "exit 23",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+        RunResult state = await mcp.Capabilities.RunShellCommandAsync(
+            "case $- in *e*) : ;; *) exit 91 ;; esac; "
+                + "case $- in *x*) : ;; *) exit 92 ;; esac; "
+                + "case $- in *C*) : ;; *) exit 93 ;; esac; "
+                + "command printf 'options-kept\\n'",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        Assert.Equal(0, success.ExitStatus);
+        Assert.Contains(successMarker, success.Output.Lines);
+        // That the trap fired is the contract; how many times is the shell's.
+        // bash fires DEBUG twice for `command printf x`, once for the
+        // `command` and once for the `printf` it dispatches to, where other
+        // shells fire once. Both firings belong to the caller's own command --
+        // no wrapper command fires it inside the window, which is what this
+        // test is protecting.
+        Assert.Contains(debugOut, success.Output.Lines);
+        Assert.Contains(debugError, success.Output.Lines);
+        Assert.NotEqual(0, failed.ExitStatus);
+        Assert.DoesNotContain(unreachable, failed.Output.Lines);
+        Assert.Equal(1, failed.Output.Lines.Count(line => line == errorOut));
+        Assert.Equal(1, failed.Output.Lines.Count(line => line == errorError));
+        Assert.Equal(23, exited.ExitStatus);
+        Assert.True(exited.Started);
+        Assert.Equal(0, state.ExitStatus);
+        Assert.True(state.Started);
+        Assert.Contains("options-kept", state.Output.Lines);
+        Assert.False(File.Exists(parentExit));
+        Assert.False(File.Exists(intercepted));
+        Directory.Delete(decoyRoot, recursive: true);
+    }
+
+    [UnixFact]
+    public async Task Run_shell_command_preserves_options_across_accepted_shells()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        foreach ((string name, string arguments) in new[]
+        {
+            ("bash", "--noprofile --norc"),
+            ("zsh", "-f"),
+            ("dash", string.Empty),
+            ("sh", string.Empty),
+        })
+        {
+            string? executable = FindExecutable(name);
+            if (executable is null)
+            {
+                continue;
+            }
+
+            await using McpToolFixture mcp = McpToolFixture.Create();
+            TmuxTestFactory factory = new();
+            await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+                mcp.Options,
+                token);
+            string pane = scope.Pane.Id.ToString();
+            await scope.Pane.RespawnAsync(
+                new RespawnRequest(
+                    $"exec {ShellQuote(executable)} {arguments}",
+                    killExistingProcess: true),
+                token);
+            string suffix = Guid.NewGuid().ToString("N");
+            string ready = $"shell-ready-{name}-{suffix}";
+            string setup = "printf() { :; }; alias printf=:; "
+                + "readonly __lt=human __lt_errexit=human; "
+                + $"set -e; set -x; set -C; echo {ready}";
+            await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+            _ = await mcp.Capabilities.WaitForTextAsync(
+                pane,
+                [ready],
+                timeoutSeconds: 5,
+                cancellationToken: token);
+
+            string marker = $"options-{name}-{suffix}";
+            RunResult state = await mcp.Capabilities.RunShellCommandAsync(
+                "case $- in *e*) : ;; *) exit 91 ;; esac; "
+                    + "case $- in *x*) : ;; *) exit 92 ;; esac; "
+                    + "case $- in *C*) : ;; *) exit 93 ;; esac; "
+                    + $"command printf '{marker}\\n'",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token);
+            RunResult exited = await mcp.Capabilities.RunShellCommandAsync(
+                "exit 23",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token);
+
+            Assert.True(state.Started, name);
+            Assert.Equal(0, state.ExitStatus);
+            Assert.Contains(marker, state.Output.Lines);
+            Assert.True(exited.Started, name);
+            Assert.Equal(23, exited.ExitStatus);
+        }
+    }
+
+    [UnixFact]
+    public async Task Run_shell_command_rejects_oversized_inherited_traps()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+        await scope.Pane.RespawnAsync(
+            new RespawnRequest(
+                "exec /bin/bash --noprofile --norc",
+                killExistingProcess: true),
+            token);
+        string suffix = Guid.NewGuid().ToString("N");
+        string ready = $"oversized-trap-ready-{suffix}";
+        string sideEffect = Path.Combine(Path.GetTempPath(), $"libtmux-ran-{suffix}");
+        string setup = "trap_action=\": x$(command printf '%070000d' 0)\"; "
+            + "trap \"$trap_action\" ERR; unset trap_action; "
+            + $"echo {ready}";
+        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            pane,
+            [ready],
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        RunResult refused = await mcp.Capabilities.RunShellCommandAsync(
+            $"command printf x > {ShellQuote(sideEffect)}",
+            pane,
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        Assert.True(refused.Started);
+        Assert.Equal(125, refused.ExitStatus);
+        Assert.False(File.Exists(sideEffect));
+    }
+
+    [UnixFact]
+    public async Task A_timed_out_run_blocks_retry_until_real_completion()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        RunResult timedOut = await mcp.Capabilities.RunShellCommandAsync(
+            "sleep 2",
+            pane,
+            timeoutSeconds: 0.1,
+            cancellationToken: token);
+        Assert.True(timedOut.TimedOut);
+
+        McpException refused = await Assert.ThrowsAsync<McpException>(() =>
+            mcp.Capabilities.RunShellCommandAsync(
+                "echo too-soon",
+                pane,
+                timeoutSeconds: 5,
+                cancellationToken: token));
+        Assert.Contains("still active", refused.Message, StringComparison.Ordinal);
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            try
+            {
+                RunResult after = await mcp.Capabilities.RunShellCommandAsync(
+                    "true",
+                    pane,
+                    timeoutSeconds: 5,
+                    cancellationToken: deadline.Token);
+                Assert.Equal(0, after.ExitStatus);
+                break;
+            }
+            catch (McpException error) when (error.Message.Contains(
+                "still active",
+                StringComparison.Ordinal))
+            {
+                await Task.Delay(25, deadline.Token);
+            }
+        }
+    }
+
+    [UnixFact]
+    public async Task An_empty_identifier_is_refused_rather_than_read_as_the_current_one()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string session = scope.Session.Id.ToString();
+        ActionResult extra = await mcp.Capabilities.CreateWindowAsync(
+            session, cancellationToken: token);
+        int before = (await mcp.Read.ListWindowsAsync(session, cancellationToken: token)).Count;
+
+        // A caller that mangles an id into "" used to destroy the ACTIVE window
+        // rather than be told the id was empty.
+        McpException empty = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.KillWindowAsync(string.Empty, token));
+        Assert.Contains("empty windowId", empty.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            before,
+            (await mcp.Read.ListWindowsAsync(session, cancellationToken: token)).Count);
+
+        McpException blank = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.RenameWindowAsync("renamed", "   ", token));
+        Assert.Contains("list_windows", blank.Message, StringComparison.Ordinal);
+
+        // The pane-input tools resolve their own source pane, so the guard on
+        // the shared resolver missed exactly the three that type into a shell.
+        // find_pane_by_position takes its window as a required id and passes it
+        // to a listing where empty means every window, so every window's pane
+        // at index 0 matched and the pick threw onto the backstop.
+        McpException everyWindow = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.FindPaneByPositionAsync(string.Empty, 0, token));
+        Assert.Contains("list_windows", everyWindow.Message, StringComparison.Ordinal);
+        Assert.Null(await mcp.Capabilities.FindPaneByPositionAsync(
+            scope.Window.Id.ToString(), 99, token));
+
+        McpException typed = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SendKeysAsync("echo no", string.Empty, cancellationToken: token));
+        Assert.Contains("empty paneId", typed.Message, StringComparison.Ordinal);
+        McpException ran = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.RunShellCommandAsync(
+                "echo no", "   ", timeoutSeconds: 20, cancellationToken: token));
+        Assert.Contains("list_panes", ran.Message, StringComparison.Ordinal);
+
+        // Omission still means the current one, which is the behaviour the
+        // empty string was being mistaken for.
+        ActionResult renamed = await mcp.Capabilities.RenameWindowAsync(
+            "still-works", cancellationToken: token);
+        Assert.StartsWith("Renamed window", renamed.Changed, StringComparison.Ordinal);
+
+        ActionResult killed = await mcp.Capabilities.KillWindowAsync(
+            extra.WindowId!, token);
+        Assert.Contains(extra.WindowId!, killed.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task Every_settable_option_is_one_this_tmux_refuses_a_command_for()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        int known = 0;
+
+        // The allow-list was read off tmux's own option types at one revision.
+        // This asks the tmux actually under test, on every matrix version, and
+        // it has to answer in both directions: the option takes its own value
+        // back, and refuses both a bare word and a real tmux command.
+        foreach (string name in InertOptions.Names)
+        {
+            RawTmuxResult current = await raw.ExecuteAsync(
+                ["show-options", "-gv", name], token);
+            if (current.ExitCode != 0)
+            {
+                Assert.Contains("option", current.StandardErrorText, StringComparison.Ordinal);
+                continue;
+            }
+
+            known++;
+            // tmux prints "none" for an unset colour and refuses it as input,
+            // so its own round-trip is lossy for exactly those two options.
+            string value = current.StandardOutputText.TrimEnd('\n');
+            if (value.Length > 0 && !string.Equals(value, "none", StringComparison.Ordinal))
+            {
+                RawTmuxResult restored = await raw.ExecuteAsync(
+                    ["set-option", "-g", name, value], token);
+                Assert.Equal(0, restored.ExitCode);
+            }
+
+            foreach (string probe in new[] { "zzz", "display-message zzz" })
+            {
+                RawTmuxResult refused = await raw.ExecuteAsync(
+                    ["set-option", "-g", name, probe], token);
+
+                // A refusal for "no such option" would prove nothing about the
+                // option's type, which is the whole claim being tested.
+                Assert.NotEqual(0, refused.ExitCode);
+                Assert.DoesNotContain(
+                    "option", refused.StandardErrorText, StringComparison.Ordinal);
+            }
+        }
+
+        // 3.2a knows 52 of the 76 and 3.7a knows all of them, so a floor here
+        // catches a list that stopped matching tmux without pinning a version.
+        Assert.InRange(known, 50, InertOptions.Names.Count);
+    }
+
+    [UnixFact]
+    public async Task A_wait_streams_from_tmux_rather_than_falling_back_to_polling()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -21,16 +496,103 @@ public sealed class TmuxToolsTests
             mcp.Options,
             token);
 
-        HierarchyView view = await mcp.Read.HierarchyAsync(cancellationToken: token);
-        Assert.Contains(view.Sessions, session => session.Name == scope.Session.Name);
-        Assert.Contains(view.Panes, pane => pane.PaneId == scope.Pane.Id.ToString());
+        // The streaming design rests on tmux pushing pane output to a control
+        // client. When one cannot start, waiting falls back to a 60ms poll and
+        // nothing reports the difference — and every other test of this hub
+        // injects a fake session, so only this one says the real client starts.
+        Assert.False(mcp.Activity.IsStreaming);
+        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, token);
+        Assert.True(mcp.Activity.IsStreaming);
 
-        // Every entity names its parent, which is what lets a caller filter a
-        // flat list instead of walking a tree.
-        PaneInfo described = view.Panes.Single(pane => pane.PaneId == scope.Pane.Id.ToString());
-        Assert.Equal(scope.Window.Id.ToString(), described.WindowId);
-        Assert.Equal(scope.Session.Id.ToString(), described.SessionId);
-        Assert.False(string.IsNullOrEmpty(described.CurrentCommand));
+        await lease.DisposeAsync();
+        Assert.False(mcp.Activity.IsStreaming);
+    }
+
+    [UnixFact]
+    public async Task A_read_sees_the_options_a_server_was_actually_configured_with()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // set -g is where nearly all tmux configuration lives, and a read
+        // without inherited values answers nothing for it at any narrower
+        // scope, so a normally configured server looked unconfigured.
+        _ = await scope.Server.ExecuteCommandAsync(
+            ["set-option", "-g", "base-index", "5"], token);
+
+        OptionEntry global = Assert.Single(await mcp.Read.ShowOptionsAsync(
+            "base-index", OptionScope.Session, cancellationToken: token));
+        Assert.Equal("5", global.Value);
+        Assert.True(global.Inherited);
+
+        // Set where it was asked, the same read reports it as this scope's own.
+        await mcp.Capabilities.SetOptionAsync(
+            "base-index", "7", OptionScope.Session, cancellationToken: token);
+        OptionEntry own = Assert.Single(await mcp.Read.ShowOptionsAsync(
+            "base-index", OptionScope.Session, cancellationToken: token));
+        Assert.Equal("7", own.Value);
+        Assert.False(own.Inherited);
+    }
+
+    [UnixFact]
+    public async Task Setting_an_option_refuses_every_name_that_carries_code()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        await mcp.Capabilities.SetOptionAsync(
+            "status-position", "top", OptionScope.Session, cancellationToken: token);
+        IReadOnlyList<OptionEntry> read = await mcp.Read.ShowOptionsAsync(
+            "status-position", OptionScope.Session, cancellationToken: token);
+        Assert.Equal("top", Assert.Single(read).Value);
+
+        // default-command is a command option and status-left is a format, so
+        // either would run code on panes this call never named.
+        foreach (string name in new[] { "default-command", "status-left", "after-new-session" })
+        {
+            McpException refused = await Assert.ThrowsAsync<McpException>(
+                () => mcp.Capabilities.SetOptionAsync(name, "on", cancellationToken: token));
+            Assert.Contains("show_option", refused.Message, StringComparison.Ordinal);
+        }
+
+        // An allowed name still cannot carry a format, so a misclassification
+        // in the list alone is not enough to reach tmux's format engine.
+        McpException format = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync(
+                "status-position", "#(id)", cancellationToken: token));
+        Assert.Contains("inert", format.Message, StringComparison.Ordinal);
+
+        McpException owned = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync("mouse", "on", cancellationToken: token));
+        Assert.Contains("set_mouse_enabled", owned.Message, StringComparison.Ordinal);
+
+        // Excluding tmux's string and command types stops a value carrying
+        // code and is blind to a flag tmux acts on itself: these three end
+        // sessions or the server, so they answer to the teardown gate.
+        McpException lethal = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.SetOptionAsync(
+                "exit-unattached", "on", OptionScope.Server, cancellationToken: token));
+        Assert.Contains("end the server", lethal.Message, StringComparison.Ordinal);
+
+        await using McpToolFixture managed = McpToolFixture.Create(
+            registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
+        McpException gated = await Assert.ThrowsAsync<McpException>(
+            () => managed.Capabilities.SetOptionAsync(
+                "destroy-unattached", "off", OptionScope.Session, cancellationToken: token));
+        Assert.Contains("kill_session", gated.Message, StringComparison.Ordinal);
+
+        // The gate reads the name, so the harmless value still proves it opens.
+        ActionResult allowed = await mcp.Capabilities.SetOptionAsync(
+            "destroy-unattached", "off", OptionScope.Session, cancellationToken: token);
+        Assert.Contains("destroy-unattached", allowed.Changed, StringComparison.Ordinal);
     }
 
     [UnixFact]
@@ -49,7 +611,7 @@ public sealed class TmuxToolsTests
 
         // The message has to say what to do next, or a model retries the same
         // call until it runs out of turn.
-        Assert.Contains("tmux_list_panes", missing.Message, StringComparison.Ordinal);
+        Assert.Contains("list_panes", missing.Message, StringComparison.Ordinal);
 
         McpException malformed = await Assert.ThrowsAsync<McpException>(
             () => mcp.Read.CapturePaneAsync("not-a-pane", cancellationToken: token));
@@ -87,6 +649,179 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task A_pane_can_be_promoted_to_its_own_window_and_brought_back()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string first = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+            first, cancellationToken: token);
+        string moved = split.PaneId!;
+
+        // Splitting then promoting is the workflow the surface had no path
+        // for: a pane that turned out to matter could not leave the window it
+        // was split from.
+        ActionResult broken = await mcp.Capabilities.BreakPaneAsync(
+            moved, cancellationToken: token);
+        Assert.NotEqual(scope.Window.Id.ToString(), broken.WindowId);
+        PaneInfo promoted = await mcp.Capabilities.GetPaneInfoAsync(moved, token);
+        Assert.Equal(broken.WindowId, promoted.WindowId);
+
+        // The pane keeps its identity across the move, which is what makes it
+        // safe to promote something already running.
+        ActionResult joined = await mcp.Capabilities.JoinPaneAsync(
+            moved, first, cancellationToken: token);
+        Assert.Equal(scope.Window.Id.ToString(), joined.WindowId);
+        Assert.Equal(
+            scope.Window.Id.ToString(),
+            (await mcp.Capabilities.GetPaneInfoAsync(moved, token)).WindowId);
+
+        // tmux does not break the only pane out of its window: 3.7 answers with
+        // the id the caller already had, and 3.2a prints no id and fails. The
+        // pane already has that window to itself either way.
+        // Joining into a synchronized window enrols the pane in its input
+        // cohort, which changes the blast radius of every later send_keys
+        // there. Said only when it is true.
+        Assert.DoesNotContain("synchronizes input", joined.Changed, StringComparison.Ordinal);
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            true, scope.Window.Id.ToString(), cancellationToken: token);
+        ActionResult outsider = await mcp.Capabilities.CreateWindowAsync(
+            scope.Session.Id.ToString(), cancellationToken: token);
+        ActionResult enrolled = await mcp.Capabilities.JoinPaneAsync(
+            outsider.PaneId!, first, cancellationToken: token);
+        Assert.Contains("synchronizes input", enrolled.Changed, StringComparison.Ordinal);
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            false, scope.Window.Id.ToString(), cancellationToken: token);
+
+        ActionResult solo = await mcp.Capabilities.CreateSessionAsync(
+            "solo", cancellationToken: token);
+        McpException already = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.BreakPaneAsync(solo.PaneId!, cancellationToken: token));
+        Assert.Contains("already the only pane", already.Message, StringComparison.Ordinal);
+
+        McpException itself = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.JoinPaneAsync(moved, moved, cancellationToken: token));
+        Assert.Contains("itself", itself.Message, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task A_run_reports_what_the_command_printed_and_not_the_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        // A shell echoes what is pasted into it, and a multi-line command
+        // echoes as several lines carrying none of this server's markers, so
+        // the caller read its own command back as output — prompt, subshell
+        // paren and continuation lines included.
+        RunResult many = await mcp.Write.RunAsync(
+            "for i in 1 2 3\ndo\n  echo \"line $i\"\ndone",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Equal(0, many.ExitStatus);
+        Assert.Equal(
+            ["line 1", "line 2", "line 3"],
+            many.Output.Lines.Where(line => line.StartsWith("line ", StringComparison.Ordinal)));
+        Assert.DoesNotContain(
+            many.Output.Lines,
+            line => line.Contains("for i in", StringComparison.Ordinal));
+
+        // A command that prints nothing answers nothing, rather than two lines
+        // a caller cannot tell from output.
+        RunResult silent = await mcp.Write.RunAsync(
+            "true", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, silent.ExitStatus);
+        Assert.Empty(silent.Output.Lines);
+
+        // A pane held by something that re-emits its input cannot be made to
+        // look like a run that started. awk printing the last field of every
+        // line turned the payload's own echo into a bare marker line, so the
+        // marker is assembled from halves the payload never spells together.
+        ActionResult held = await mcp.Capabilities.SplitWindowAsync(
+            pane, cancellationToken: token);
+        await mcp.Write.SendKeysAsync(
+            "awk '{print $NF}'", held.PaneId, enter: true, cancellationToken: token);
+        RunResult never = await mcp.Write.RunAsync(
+            "echo x", held.PaneId, timeoutSeconds: 4, cancellationToken: token);
+        Assert.True(never.TimedOut);
+        Assert.False(never.Started);
+    }
+
+    [UnixFact]
+    public async Task A_run_reports_no_prompt_the_shell_drew_after_the_command()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        // A pane's own shell decides this: CI runs bash, whose default prompt
+        // carries the working directory and so wraps once the path is deep,
+        // while a developer machine may run a shell this never reproduces on.
+        // Pin both the shell and the prompt rather than inheriting either.
+        // It is bash and not sh because only bash is guaranteed to take PS1
+        // from the environment under --norc. Were it absent the shell would
+        // exit and the runs below would time out, which fails loudly.
+        const string tail = "ionTests/bin/Release/net10.0$";
+        string longPrompt = "runner@runnervmejwal:~/work/libtmux-dotnet/libtmux-dotnet/"
+            + "tests/LibTmux.IntegrationTests/bin/Release/net10.0$ ";
+        await mcp.Write.SendKeysAsync(
+            $"exec env PS1='{longPrompt}' bash --norc --noprofile -i",
+            pane,
+            enter: true,
+            cancellationToken: token);
+
+        // Wait for the prompt to be the one drawn, not merely echoed: a run
+        // that started against the old short prompt would pass the assertions
+        // below without proving anything.
+        string? last = null;
+        for (int attempt = 0; attempt < 100 && last?.EndsWith(tail, StringComparison.Ordinal) != true; attempt++)
+        {
+            await Task.Delay(100, token);
+            CaptureResult seen = await mcp.Read.CapturePaneAsync(
+                pane, includeHistory: true, cancellationToken: token);
+            last = seen.Content.Lines.LastOrDefault(line => line.Length > 0);
+        }
+
+        Assert.EndsWith(tail, last);
+
+        RunResult many = await mcp.Write.RunAsync(
+            "for i in 1 2 3\ndo\n  echo \"line $i\"\ndone",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Equal(["line 1", "line 2", "line 3"], many.Output.Lines);
+
+        RunResult silent = await mcp.Write.RunAsync(
+            "true", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(0, silent.ExitStatus);
+        Assert.Empty(silent.Output.Lines);
+
+        // A command whose last write has no trailing newline leaves the cursor
+        // mid-row, so the end marker is printed from there.
+        RunResult partial = await mcp.Write.RunAsync(
+            "printf abc", pane, timeoutSeconds: 20, cancellationToken: token);
+        Assert.Equal(["abc"], partial.Output.Lines);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            pane, includeHistory: true, cancellationToken: token);
+        Assert.DoesNotContain(captured.Content.Lines, l => l.Contains("lt_e_", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
     public async Task A_run_leaves_none_of_its_own_bookkeeping_on_screen()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -115,6 +850,23 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
         Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("lt_r_", StringComparison.Ordinal));
         Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("@lt_s_", StringComparison.Ordinal));
+
+        // The begin marker is spelled in halves in the payload, so the shell
+        // echoes a five-digit form as well as the ten-digit one the command
+        // prints. A scrubber anchored to the full length leaves the half on
+        // screen, where every later read of the pane shows it.
+        Assert.DoesNotContain(captured.Content.Lines, line => line.Contains("lt_b_", StringComparison.Ordinal));
+
+        // And the price of catching it is not a caller's own text. Lowering
+        // the digit minimum would have deleted this line from the output and
+        // from every later read, reporting no loss in any of the three fields
+        // that exist to report one.
+        RunResult lookalike = await mcp.Write.RunAsync(
+            "echo 'ref=lt_b_abcde note=matters'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        Assert.Contains("ref=lt_b_abcde note=matters", lookalike.Output.Lines);
     }
 
     [UnixFact]
@@ -255,7 +1007,6 @@ public sealed class TmuxToolsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create(new ServerPolicy
         {
-            Tier = SafetyTier.Destructive,
             WaitCeiling = TimeSpan.FromSeconds(2),
         });
         TmuxTestFactory factory = new();
@@ -270,66 +1021,6 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
 
         Assert.Equal(2, capped.EffectiveTimeoutSeconds);
-    }
-
-    [UnixFact]
-    public async Task A_job_returns_at_once_and_is_collected_later()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        await using McpToolFixture mcp = McpToolFixture.Create();
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            mcp.Options,
-            token);
-        string pane = scope.Pane.Id.ToString();
-
-        JobInfo started = await mcp.Write.StartJobAsync(
-            "sleep 2; echo JOB_FINISHED",
-            pane,
-            cancellationToken: token);
-        Assert.Equal(JobState.Running, started.State);
-
-        JobReport report = await mcp.Write.JobAsync(
-            started.JobId,
-            waitSeconds: 20,
-            cancellationToken: token);
-        Assert.Equal(JobState.Exited, report.Job.State);
-        Assert.Equal(0, report.Job.ExitStatus);
-        Assert.Contains(
-            report.Output.Lines,
-            line => line.Contains("JOB_FINISHED", StringComparison.Ordinal));
-    }
-
-    [UnixFact]
-    public async Task Convenience_tools_withdraw_owned_job_waiters_on_shutdown()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        TmuxTestFactory factory = new();
-        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
-            cancellationToken: token);
-        WriteTools tools = McpTools.Writing(scope.Server);
-
-        JobInfo started = await tools.StartJobAsync(
-            "sleep 30",
-            scope.Pane.Id.ToString(),
-            cancellationToken: token);
-        await tools.DisposeAsync().AsTask().WaitAsync(token);
-
-        string channel = $"lt_r_{started.JobId}";
-        await scope.Server.WaitForAsync(
-            new WaitForRequest(channel, TmuxWaitMode.Signal),
-            token);
-        await using TmuxWaitChannel next = scope.Server.OpenWaitChannel(channel);
-
-        Assert.True(await next.WaitAsync(TimeSpan.FromSeconds(1), token));
-    }
-
-    [UnixFact]
-    public async Task A_job_handle_nobody_issued_is_refused_with_advice()
-    {
-        await using McpToolFixture mcp = McpToolFixture.Create();
-        McpException unknown = Assert.Throws<McpException>(() => mcp.Jobs.Get("nope"));
-        Assert.Contains("tmux_list_jobs", unknown.Message, StringComparison.Ordinal);
     }
 
     [UnixFact]
@@ -409,7 +1100,7 @@ public sealed class TmuxToolsTests
         ActionResult split = await mcp.Write.SplitPaneAsync(
             scope.Pane.Id.ToString(),
             cancellationToken: token);
-        await mcp.Destructive.KillPaneAsync(split.PaneId!, cancellationToken: token);
+        await mcp.Capabilities.KillPaneAsync(split.PaneId!, cancellationToken: token);
 
         IReadOnlyList<PaneInfo> left = await mcp.Read.ListPanesAsync(
             windowId: scope.Window.Id.ToString(),
@@ -463,5 +1154,886 @@ public sealed class TmuxToolsTests
         // A terminal's newest line is the one that says what happened, so a
         // budget that kept the oldest would answer the wrong question.
         Assert.Contains(small.Content.Lines, line => line.Contains("300", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
+    public async Task The_environment_answers_names_and_withholds_credential_values()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        await server.Environment.SetAsync("LIBTMUX_PROBE_PLAIN", "plain-value", cancellationToken: token);
+        await server.Environment.SetAsync("LIBTMUX_PROBE_API_KEY", "not-a-real-key", cancellationToken: token);
+
+        IReadOnlyList<EnvironmentEntry> listed = await mcp.Read.ShowEnvironmentAsync(
+            cancellationToken: token);
+
+        // A listing is the easy call, so it is the one that must never carry a
+        // value: the server environment is where exported API keys accumulate.
+        Assert.All(listed, entry => Assert.Null(entry.Value));
+        EnvironmentEntry plain = Assert.Single(listed, entry => entry.Name == "LIBTMUX_PROBE_PLAIN");
+        Assert.True(plain.HasValue);
+        Assert.True(plain.Withheld);
+
+        IReadOnlyList<EnvironmentEntry> named = await mcp.Read.ShowEnvironmentAsync(
+            "LIBTMUX_PROBE_PLAIN",
+            cancellationToken: token);
+        Assert.Equal("plain-value", Assert.Single(named).Value);
+
+        IReadOnlyList<EnvironmentEntry> secret = await mcp.Read.ShowEnvironmentAsync(
+            "LIBTMUX_PROBE_API_KEY",
+            cancellationToken: token);
+        EnvironmentEntry withheld = Assert.Single(secret);
+        Assert.Null(withheld.Value);
+        Assert.True(withheld.HasValue);
+        Assert.True(withheld.Withheld);
+    }
+
+    [UnixFact]
+    public async Task An_empty_but_running_server_answers_zero_rather_than_refusing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        Server setup = Server.Open(mcp.Options.ConnectionOptions);
+        try
+        {
+            // The state between the last kill and the next create. tmux reaps a
+            // server that holds nothing, so exit-empty off is what holds it in
+            // the state a caller reaches by closing their last session.
+            await setup.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
+            await setup.ExecuteCommandAsync(["set-option", "-s", "exit-empty", "off"], token);
+            await setup.ExecuteCommandAsync(["kill-session", "-t", "seed"], token);
+
+            TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+            Assert.Equal(0, info.SessionCount);
+            Assert.Equal(0, info.WindowCount);
+            Assert.Equal(0, info.PaneCount);
+
+            // "Is anything running, and what am I talking to?" is the question
+            // asked against an empty server, so the half that stays knowable
+            // has to survive the zero counts.
+            Assert.NotNull(info.Version);
+            Assert.NotNull(info.SocketName);
+
+            Assert.Empty(await mcp.Read.ListSessionsAsync(cancellationToken: token));
+            Assert.Empty(await mcp.Read.ListWindowsAsync(cancellationToken: token));
+            Assert.Empty(await mcp.Read.ListPanesAsync(cancellationToken: token));
+
+            // tmux refuses a server-wide listing here with "no current target",
+            // which must not reach a caller as a raw command failure.
+            McpException absent = await Assert.ThrowsAsync<McpException>(
+                () => mcp.Read.CapturePaneAsync(cancellationToken: token));
+            Assert.Contains("create_session", absent.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await setup.ExecuteCommandAsync(["kill-server"], token);
+        }
+    }
+
+    [UnixFact]
+    public async Task The_caller_pane_is_only_recognised_on_its_own_socket()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        TmuxCommandResult where = await server.ExecuteCommandAsync(
+            ["display-message", "-p", "#{socket_path}"],
+            token);
+        string socketPath = where.StandardOutputLines[0];
+
+        string? priorServer = System.Environment.GetEnvironmentVariable("TMUX");
+        string? priorPane = System.Environment.GetEnvironmentVariable("TMUX_PANE");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("TMUX_PANE", pane);
+
+            System.Environment.SetEnvironmentVariable("TMUX", $"{socketPath},1,0");
+            Assert.True((await mcp.Read.ListPanesAsync(cancellationToken: token))
+                .Single(each => each.PaneId == pane).IsCaller);
+            Assert.Null((await mcp.Read.ServerInfoAsync(cancellationToken: token))
+                .CallerPaneSocket);
+
+            // tmux numbers panes per server, so the same id on another socket
+            // is an unrelated pane. Believing it would mark a scratch pane as
+            // the terminal the conversation runs through.
+            System.Environment.SetEnvironmentVariable("TMUX", "/tmp/tmux-1000/not-this-one,1,0");
+            Assert.False((await mcp.Read.ListPanesAsync(cancellationToken: token))
+                .Single(each => each.PaneId == pane).IsCaller);
+
+            TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+            Assert.Null(info.CallerPaneId);
+
+            // A bare null reads as "could not determine". Naming the socket the
+            // caller is actually on says the stronger and more useful thing:
+            // no listing from this server can ever contain that pane.
+            Assert.Equal("/tmp/tmux-1000/not-this-one", info.CallerPaneSocket);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("TMUX", priorServer);
+            System.Environment.SetEnvironmentVariable("TMUX_PANE", priorPane);
+        }
+    }
+
+    [UnixFact]
+    public async Task Replacing_a_window_answers_to_the_teardown_gate()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create(
+            registry: CapabilityRegistry.Select(CapabilitySelection.WithoutTeardown));
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // move-window -k kills whatever holds the destination index, so the
+        // default toolset could destroy a window without kill_window.
+        McpException refused = await Assert.ThrowsAsync<McpException>(
+            () => mcp.Capabilities.MoveWindowAsync(
+                scope.Window.Id.ToString(),
+                destination: "0",
+                replaceExisting: true,
+                cancellationToken: token));
+        Assert.Contains("kill_window", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("teardown", refused.Message, StringComparison.Ordinal);
+
+        // The move itself stays available without teardown.
+        ActionResult moved = await mcp.Capabilities.MoveWindowAsync(
+            scope.Window.Id.ToString(),
+            cancellationToken: token);
+        Assert.Contains("Moved window", moved.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task A_spawn_says_where_it_landed_when_tmux_ignored_the_directory()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // tmux does not refuse a directory it cannot enter; it falls back to
+        // HOME and reports success, so the caller has to be told.
+        ActionResult missing = await mcp.Write.CreateWindowAsync(
+            scope.Session.Id.ToString(),
+            startDirectory: "/nonexistent-libtmux-probe",
+            cancellationToken: token);
+        Assert.Contains("It started in ", missing.Changed, StringComparison.Ordinal);
+
+        // The same directory spelled with . and .. segments is still honoured.
+        ActionResult honoured = await mcp.Write.CreateWindowAsync(
+            scope.Session.Id.ToString(),
+            startDirectory: "/tmp/../tmp/./",
+            cancellationToken: token);
+        Assert.Equal("Created window ", honoured.Changed[..15]);
+        Assert.DoesNotContain("It started in", honoured.Changed, StringComparison.Ordinal);
+    }
+
+    [UnixFact]
+    public async Task Every_declared_format_literalization_is_proven_to_bite()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+
+        const string Injection = "INJ#{session_name}END";
+        string root = Path.Combine(Path.GetTempPath(), $"ltm-fmt-{Guid.NewGuid():N}"[..24]);
+        string literalDirectory = Path.Combine(root, Injection);
+        Directory.CreateDirectory(literalDirectory);
+
+        async Task<string?> ReadAsync(string target, string format) =>
+            (await server.ExecuteCommandAsync(
+                ["display-message", "-p", "-t", target, format],
+                token)).StandardOutputLines[0];
+
+        // A pane that starts in a directory whose NAME contains a format is the
+        // decisive proof: tmux can only chdir there if the request was never
+        // expanded. An expanded one silently lands in HOME instead.
+        async Task StartsInLiteralDirectoryAsync(Func<string, Task<ActionResult>> spawn)
+        {
+            ActionResult spawned = await spawn(literalDirectory);
+
+            // Settled, not sampled. pane_current_path follows the process, and
+            // a respawn under load is read part way through its chdir — the
+            // answer is then an ancestor of the target, which looks exactly
+            // like the fallback this proof exists to rule out.
+            // By identity, not by spelling. macOS reaches its temporary
+            // directory through a symlink, so a pane that chdir'd exactly
+            // where it was asked reports the resolved name and never equals
+            // the requested one.
+            string? settled = await TmuxWait.UntilAsync(
+                cancellation => ReadAsync(spawned.PaneId!, "#{pane_current_path}"),
+                path => path is not null
+                    && PaneInputEndpoint.SameDirectory(path, literalDirectory),
+                TestBudget.Settle,
+                TimeSpan.FromMilliseconds(20),
+                token);
+            Assert.True(
+                settled is not null
+                    && PaneInputEndpoint.SameDirectory(settled, literalDirectory),
+                $"expected {literalDirectory}, settled in {settled}");
+        }
+
+        Dictionary<(string Tool, string Field), Func<Task>> proofs = new()
+        {
+            [("rename_session", "name")] = async () =>
+            {
+                await mcp.Capabilities.RenameSessionAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Session.Id.ToString(), "#{session_name}"));
+            },
+            [("rename_window", "name")] = async () =>
+            {
+                await mcp.Capabilities.RenameWindowAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Window.Id.ToString(), "#{window_name}"));
+            },
+            [("set_pane_title", "title")] = async () =>
+            {
+                await mcp.Capabilities.SetPaneTitleAsync(Injection, cancellationToken: token);
+                Assert.Equal(Injection, await ReadAsync(scope.Pane.Id.ToString(), "#{pane_title}"));
+            },
+            [("create_session", "name")] = async () =>
+            {
+                ActionResult made = await mcp.Capabilities.CreateSessionAsync(
+                    $"{Injection}-s", cancellationToken: token);
+                Assert.Equal($"{Injection}-s", await ReadAsync(made.SessionId!, "#{session_name}"));
+            },
+            [("create_window", "name")] = async () =>
+            {
+                ActionResult made = await mcp.Capabilities.CreateWindowAsync(
+                    scope.Session.Id.ToString(), $"{Injection}-w", cancellationToken: token);
+                Assert.Equal($"{Injection}-w", await ReadAsync(made.WindowId!, "#{window_name}"));
+            },
+            [("create_session", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.CreateSessionAsync(
+                    null, directory, cancellationToken: token)),
+            [("create_window", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.CreateWindowAsync(
+                    scope.Session.Id.ToString(), null, directory, cancellationToken: token)),
+            [("split_window", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                directory => mcp.Capabilities.SplitWindowAsync(
+                    scope.Pane.Id.ToString(), startDirectory: directory, cancellationToken: token)),
+            [("respawn_pane", "startDirectory")] = () => StartsInLiteralDirectoryAsync(
+                async directory =>
+                {
+                    ActionResult host = await mcp.Capabilities.SplitWindowAsync(
+                        scope.Pane.Id.ToString(), cancellationToken: token);
+                    return await mcp.Capabilities.RespawnPaneAsync(
+                        host.PaneId, directory, killExistingProcess: true, cancellationToken: token);
+                }),
+            [("get_tmux_variables", "names")] = async () =>
+            {
+                // Validated rather than escaped: a name that is not a variable
+                // name never reaches a format string at all.
+                McpException refused = await Assert.ThrowsAsync<McpException>(
+                    () => mcp.Capabilities.GetTmuxVariablesAsync(
+                        [Injection], cancellationToken: token));
+                Assert.Contains("session_name", refused.Message, StringComparison.Ordinal);
+            },
+        };
+
+        try
+        {
+            // The capability model is the source of truth: a field that declares
+            // a literalization without a proof here fails rather than shipping
+            // an injection defence nobody ever exercised.
+            Assert.Equal(
+                CapabilityRegistry.Manifest
+                    .SelectMany(tool => tool.InputLiteralization.Keys
+                        .Select(field => $"{tool.Name}.{field}"))
+                    .Order(StringComparer.Ordinal),
+                proofs.Keys.Select(key => $"{key.Tool}.{key.Field}").Order(StringComparer.Ordinal));
+
+            foreach (Func<Task> proof in proofs.Values)
+            {
+                await proof();
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task A_capture_never_carries_raw_terminal_control_bytes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        await mcp.Write.RunAsync(
+            @"printf 'ESCPROBE_\033[31mRED\033[0m_END\n'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            pane,
+            includeHistory: true,
+            cancellationToken: token);
+
+        // Pane text reaches a model's context. A capture that preserved escape
+        // sequences would let anything running in a pane write terminal
+        // control codes straight into it.
+        Assert.Contains(
+            captured.Content.Lines,
+            line => line.Contains("ESCPROBE_", StringComparison.Ordinal)
+                && line.Contains("RED", StringComparison.Ordinal));
+        void HasNoControlBytes(IReadOnlyList<string> lines) =>
+            Assert.All(lines, line => Assert.DoesNotContain('\u001b', line));
+
+        HasNoControlBytes(captured.Content.Lines);
+
+        // capture_pane builds its own request; snapshot_pane and capture_since
+        // go through PaneReader, which builds a second one. Two constructions
+        // of the same defence can drift, so both are pinned here.
+        PaneSnapshot snapshot = await mcp.Read.SnapshotPaneAsync(
+            pane,
+            cancellationToken: token);
+        HasNoControlBytes(snapshot.Content.Lines);
+
+        TailResult baseline = await mcp.Read.TailPaneAsync(pane, cancellationToken: token);
+        HasNoControlBytes(baseline.Content.Lines);
+
+        await mcp.Write.RunAsync(
+            @"printf 'DELTAPROBE_\033[35mMAG\033[0m_END\n'",
+            pane,
+            timeoutSeconds: 20,
+            cancellationToken: token);
+        TailResult delta = await mcp.Read.TailPaneAsync(
+            pane,
+            baseline.Cursor,
+            cancellationToken: token);
+
+        // A delta returning nothing would also contain no control bytes, so
+        // the new text has to be present for this to mean anything.
+        Assert.Contains(
+            delta.Content.Lines,
+            line => line.Contains("DELTAPROBE_", StringComparison.Ordinal)
+                && line.Contains("MAG", StringComparison.Ordinal));
+        HasNoControlBytes(delta.Content.Lines);
+    }
+
+    [UnixFact]
+    public async Task A_read_batch_holds_its_declared_bounds_and_its_declared_tools()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        ReadToolCall Listing() => new("list_sessions", null);
+        Task<ReadToolBatchResult> RunAsync(int count) =>
+            mcp.Capabilities.CallReadToolsBatchAsync(
+                [.. Enumerable.Range(0, count).Select(_ => Listing())],
+                cancellationToken: token);
+
+        // Both sides of both bounds, because an off-by-one here either refuses
+        // a legal batch or accepts an unbounded one.
+        await Assert.ThrowsAsync<McpException>(() => RunAsync(0));
+        Assert.Equal(1, (await RunAsync(1)).Succeeded);
+        Assert.Equal(16, (await RunAsync(16)).Succeeded);
+        await Assert.ThrowsAsync<McpException>(() => RunAsync(17));
+
+        // Every tool the batch declares it can nest must actually dispatch.
+        // A name in that set that the dispatcher rejects is a surface that
+        // advertises more than it can do.
+        ToolDefinition batch = CapabilityRegistry.All().ByName["call_read_tools_batch"];
+        ReadToolBatchResult every = await mcp.Capabilities.CallReadToolsBatchAsync(
+            [.. batch.NestedAuthority.Order(StringComparer.Ordinal)
+                .Select(name => new ReadToolCall(name, null))],
+            onError: "continue",
+            cancellationToken: token);
+
+        Assert.Equal(batch.NestedAuthority.Count, every.Results.Count);
+        Assert.All(
+            every.Results,
+            result => Assert.DoesNotContain(
+                "not an enabled batch-eligible inspect tool",
+                result.Error ?? string.Empty,
+                StringComparison.Ordinal));
+    }
+
+    [UnixFact]
+    public async Task Every_declared_input_bound_is_enforced_on_both_sides()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        static string Filler(int bytes) => new('a', bytes);
+        static Task Refuses(Func<Task> call) => Assert.ThrowsAsync<McpException>(call);
+
+        // A bound is only a bound if the value at the limit is accepted and
+        // the next one is not. Half of that is a limit nobody can rely on.
+        Task Wait(IReadOnlyList<string> patterns) =>
+            mcp.Capabilities.WaitForTextAsync(pane, patterns, timeoutSeconds: 0.2, cancellationToken: token);
+
+        await Wait([.. Enumerable.Repeat("zz", 32)]);
+        await Refuses(() => Wait([.. Enumerable.Repeat("zz", 33)]));
+        await Wait([Filler(999)]);
+        await Refuses(() => Wait([Filler(1000)]));
+        string[] totalPatternBoundary =
+            [.. Enumerable.Repeat(Filler(999), 16), Filler(400)];
+        await Wait(totalPatternBoundary);
+        await Refuses(() => Wait([.. totalPatternBoundary, "z"]));
+
+        Task Variables(int count) => mcp.Capabilities.GetTmuxVariablesAsync(
+            [.. Enumerable.Repeat("session_name", count)], pane, cancellationToken: token);
+
+        await Variables(1);
+        await Variables(64);
+        await Refuses(() => Variables(0));
+        await Refuses(() => Variables(65));
+
+        Task Keys(int steps, int delay) => mcp.Capabilities.SendKeysBatchAsync(
+            [.. Enumerable.Range(0, steps).Select(_ =>
+                new PaneInputOperation("", pane, DelayMilliseconds: delay))],
+            cancellationToken: token);
+
+        await Keys(64, 0);
+        await Refuses(() => Keys(65, 0));
+        await Refuses(() => Keys(1, 2001));
+
+        await mcp.Capabilities.SearchPanesAsync(Filler(999), cancellationToken: token);
+        await Refuses(() => mcp.Capabilities.SearchPanesAsync(
+            Filler(1000), cancellationToken: token));
+
+        await Refuses(() => mcp.Capabilities.WaitForChannelAsync(
+            Filler(4097), cancellationToken: token));
+    }
+
+    [UnixFact]
+    public async Task Every_enumerated_parameter_value_is_answerable()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        // Driven off the enums themselves, so a value added later is swept
+        // without anybody remembering to add it here.
+        foreach (OptionScope level in Enum.GetValues<OptionScope>())
+        {
+            Assert.NotNull(await mcp.Capabilities.ShowOptionAsync(
+                "history-limit", level, pane, cancellationToken: token));
+            Assert.NotNull(await mcp.Capabilities.ShowHooksAsync(
+                level, pane, cancellationToken: token));
+        }
+
+        HashSet<string> made = [];
+        foreach (PaneDirection direction in Enum.GetValues<PaneDirection>())
+        {
+            ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+                pane, direction, cancellationToken: token);
+            Assert.True(made.Add(split.PaneId!), $"{direction} reused a pane id");
+        }
+
+        foreach (bool history in (bool[])[false, true])
+        {
+            foreach (bool joined in (bool[])[false, true])
+            {
+                CaptureResult read = await mcp.Read.CapturePaneAsync(
+                    pane,
+                    includeHistory: history,
+                    joinWrappedLines: joined,
+                    cancellationToken: token);
+                Assert.Equal(pane, read.PaneId);
+            }
+        }
+
+        foreach (bool enter in (bool[])[false, true])
+        {
+            foreach (bool literal in (bool[])[false, true])
+            {
+                PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(
+                    literal ? "x" : "Escape",
+                    pane,
+                    enter: enter,
+                    literal: literal,
+                    cancellationToken: token);
+                Assert.Contains(pane, sent.Changed, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [UnixFact]
+    public async Task Modal_panes_refuse_input_without_reaching_the_workload()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string paneId = scope.Pane.Id.ToString();
+        string marker = $"modal-input-{Guid.NewGuid():N}";
+
+        await scope.Pane.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            List<(string Tool, Exception? Error)> refusals = [];
+            foreach ((string tool, Func<Task> call) in new (string, Func<Task>)[]
+            {
+                ("send_keys", async () => _ = await mcp.Capabilities.SendKeysAsync(
+                    $"echo {marker}-send", paneId, enter: true, cancellationToken: token)),
+                ("paste_text", async () => _ = await mcp.Capabilities.PasteTextAsync(
+                    $"echo {marker}-paste\n", paneId, bracketed: false, cancellationToken: token)),
+                ("run_shell_command", async () => _ = await mcp.Capabilities.RunShellCommandAsync(
+                    $"echo {marker}-run", paneId, timeoutSeconds: 0.2, cancellationToken: token)),
+            })
+            {
+                refusals.Add((tool, await Record.ExceptionAsync(call)));
+            }
+
+            PaneInputBatchResult batch = await mcp.Capabilities.SendKeysBatchAsync(
+                [new PaneInputOperation($"echo {marker}-batch", paneId, Enter: true)],
+                cancellationToken: token);
+
+            foreach ((string tool, Exception? error) in refusals)
+            {
+                McpException refused = Assert.IsType<McpException>(error);
+                Assert.Contains(tool, refused.Message, StringComparison.Ordinal);
+                Assert.Contains(paneId, refused.Message, StringComparison.Ordinal);
+                Assert.Contains("human-owned", refused.Message, StringComparison.Ordinal);
+            }
+
+            PaneInputOperationResult refusal = Assert.Single(batch.Results);
+            Assert.False(refusal.Success);
+            Assert.Contains("send_keys_batch", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains(paneId, refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("human-owned", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("capture_pane", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("snapshot_pane", refusal.Error, StringComparison.Ordinal);
+            Assert.Contains("wait", refusal.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("exit", refusal.Error, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("cancel", refusal.Error, StringComparison.OrdinalIgnoreCase);
+            Pane fresh = await FreshPaneAsync(scope.Pane, token);
+            Assert.Equal("1", fresh.RawFormatFields["pane_in_mode"]);
+            await AssertMarkerAbsentAsync(mcp, paneId, marker, token);
+        }
+        finally
+        {
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Synchronized_input_refuses_when_a_sibling_is_human_owned()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string target = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
+        string sibling = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
+        string marker = $"synchronized-modal-{Guid.NewGuid():N}";
+
+        await mcp.Capabilities.SetSynchronizePanesAsync(
+            true,
+            scope.Window.Id.ToString(),
+            token);
+        await modal.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            List<(string Tool, Exception? Error)> refusals = [];
+            foreach ((string tool, Func<Task> call) in new (string, Func<Task>)[]
+            {
+                ("send_keys", async () => _ = await mcp.Capabilities.SendKeysAsync(
+                    $"echo {marker}-send", target, enter: true, cancellationToken: token)),
+                ("run_shell_command", async () => _ = await mcp.Capabilities.RunShellCommandAsync(
+                    $"echo {marker}-run", target, timeoutSeconds: 0.2, cancellationToken: token)),
+            })
+            {
+                refusals.Add((tool, await Record.ExceptionAsync(call)));
+            }
+
+            foreach ((string tool, Exception? error) in refusals)
+            {
+                McpException refused = Assert.IsType<McpException>(error);
+                Assert.Contains(tool, refused.Message, StringComparison.Ordinal);
+                Assert.Contains(sibling, refused.Message, StringComparison.Ordinal);
+                Assert.Contains("human-owned", refused.Message, StringComparison.Ordinal);
+            }
+
+            await AssertMarkerAbsentAsync(mcp, target, marker, token);
+            await AssertMarkerAbsentAsync(mcp, sibling, marker, token);
+        }
+        finally
+        {
+            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task An_effective_on_pane_cohort_refuses_modal_members_before_input()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string source = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(source, cancellationToken: token);
+        string peerId = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane peer = await TmuxTargets.PaneAsync(server, peerId, token);
+        string marker = $"effective-on-modal-{Guid.NewGuid():N}";
+        string deliveredMarker = $"effective-on-delivered-{Guid.NewGuid():N}";
+
+        _ = await scope.Window.Options.SetAsync(
+            new SetOptionRequest("synchronize-panes", "off"), token);
+        await SetPaneSynchronizationAsync(scope.Pane, "on", token);
+        await SetPaneSynchronizationAsync(peer, "on", token);
+        PaneInputResult delivered = await mcp.Capabilities.SendKeysAsync(
+            $"echo {deliveredMarker}", source, enter: true, cancellationToken: token);
+        Assert.Equal(new[] { source, peerId }.Order(StringComparer.Ordinal), delivered.TargetPaneIds);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            source, [deliveredMarker], timeoutSeconds: 5, cancellationToken: token);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            peerId, [deliveredMarker], timeoutSeconds: 5, cancellationToken: token);
+
+        await peer.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            List<(string Tool, Exception? Error)> refusals = [];
+            foreach ((string tool, Func<Task> call) in new (string, Func<Task>)[]
+            {
+                ("send_keys", async () => _ = await mcp.Capabilities.SendKeysAsync(
+                    $"echo {marker}-send", source, enter: true, cancellationToken: token)),
+                ("run_shell_command", async () => _ = await mcp.Capabilities.RunShellCommandAsync(
+                    $"echo {marker}-run", source, timeoutSeconds: 0.2, cancellationToken: token)),
+            })
+            {
+                refusals.Add((tool, await Record.ExceptionAsync(call)));
+            }
+
+            PaneInputBatchResult batch = await mcp.Capabilities.SendKeysBatchAsync(
+                [new PaneInputOperation($"echo {marker}-batch", source, Enter: true)],
+                cancellationToken: token);
+
+            foreach ((string tool, Exception? error) in refusals)
+            {
+                McpException refusal = Assert.IsType<McpException>(error);
+                Assert.Contains(tool, refusal.Message, StringComparison.Ordinal);
+                Assert.Contains(peerId, refusal.Message, StringComparison.Ordinal);
+                Assert.Contains("human-owned", refusal.Message, StringComparison.Ordinal);
+            }
+
+            PaneInputOperationResult batchRefusal = Assert.Single(batch.Results);
+            Assert.False(batchRefusal.Success);
+            Assert.Contains("send_keys_batch", batchRefusal.Error, StringComparison.Ordinal);
+            Assert.Contains(peerId, batchRefusal.Error, StringComparison.Ordinal);
+            await AssertMarkerAbsentAsync(mcp, source, marker, token);
+            await AssertMarkerAbsentAsync(mcp, peerId, marker, token);
+            Pane freshPeer = await FreshPaneAsync(peer, token);
+            Assert.Equal("1", freshPeer.RawFormatFields["pane_in_mode"]);
+        }
+        finally
+        {
+            await peer.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Pane_overrides_limit_input_to_the_source_effective_cohort()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string source = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(source, cancellationToken: token);
+        string peerId = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane peer = await TmuxTargets.PaneAsync(server, peerId, token);
+
+        _ = await scope.Window.Options.SetAsync(
+            new SetOptionRequest("synchronize-panes", "on"), token);
+
+        await SetPaneSynchronizationAsync(scope.Pane, "on", token);
+        await SetPaneSynchronizationAsync(peer, "off", token);
+        await AssertSourceOnlyInputAsync("source-on-peer-off", source, peerId, mcp, token);
+
+        await SetPaneSynchronizationAsync(scope.Pane, "off", token);
+        await peer.Options.UnsetAsync(new UnsetOptionRequest("synchronize-panes"), token);
+        await AssertSourceOnlyInputAsync("source-off-peer-on", source, peerId, mcp, token);
+    }
+
+    [UnixFact]
+    public async Task Paste_text_remains_target_only_when_a_synchronized_sibling_is_human_owned()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string target = scope.Pane.Id.ToString();
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(target, cancellationToken: token);
+        string sibling = split.PaneId!;
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane modal = await TmuxTargets.PaneAsync(server, sibling, token);
+        string marker = $"target-only-paste-{Guid.NewGuid():N}";
+
+        _ = await scope.Window.Options.SetAsync(
+            new SetOptionRequest("synchronize-panes", "off"), token);
+        await SetPaneSynchronizationAsync(scope.Pane, "on", token);
+        await SetPaneSynchronizationAsync(modal, "on", token);
+        await modal.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            _ = await mcp.Capabilities.PasteTextAsync(
+                $"echo {marker}\n",
+                target,
+                bracketed: false,
+                cancellationToken: token);
+
+            CaptureResult captured = await mcp.Read.CapturePaneAsync(
+                target,
+                includeHistory: true,
+                cancellationToken: token);
+            Assert.Contains(captured.Content.Lines, line => line.Contains(marker, StringComparison.Ordinal));
+            await AssertMarkerAbsentAsync(mcp, sibling, marker, token);
+        }
+        finally
+        {
+            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    [UnixFact]
+    public async Task Batch_dispatch_rechecks_a_pane_that_enters_mode_after_preflight()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string paneId = scope.Pane.Id.ToString();
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+        Pane preflight = await TmuxTargets.PaneAsync(server, paneId, token);
+        Assert.Equal("0", preflight.RawFormatFields["pane_in_mode"]);
+
+        await scope.Pane.EnterCopyModeAsync(cancellationToken: token);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(
+                () => WriteTools.SendKeysToPaneAsync(
+                    preflight,
+                    "echo stale-snapshot-marker",
+                    enter: true,
+                    literal: true,
+                    suppressHistory: false,
+                    toolName: "send_keys_batch",
+                    cancellationToken: token));
+
+            Assert.Contains("send_keys_batch", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains(paneId, refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("human-owned", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("capture_pane", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("snapshot_pane", refusal.Message, StringComparison.Ordinal);
+            Assert.Contains("wait", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("exit", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("cancel", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            await AssertMarkerAbsentAsync(mcp, paneId, "stale-snapshot-marker", token);
+        }
+        finally
+        {
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        }
+    }
+
+    private static async Task<Pane> FreshPaneAsync(Pane pane, CancellationToken cancellationToken) =>
+        (await pane.Window.GetPanesAsync(cancellationToken).ConfigureAwait(false))
+            .Single(candidate => candidate.Id == pane.Id);
+
+    private static string? FindExecutable(string name)
+    {
+        string? path = System.Environment.GetEnvironmentVariable("PATH");
+        return path?.Split(Path.PathSeparator)
+            .Select(directory => Path.Combine(directory, name))
+            .FirstOrDefault(File.Exists);
+    }
+
+    private static string ShellQuote(string value) =>
+        $"'{value.Replace("'", "'\\''", StringComparison.Ordinal)}'";
+
+    private static async Task SetPaneSynchronizationAsync(
+        Pane pane,
+        string value,
+        CancellationToken cancellationToken) =>
+        _ = await pane.Options.SetAsync(
+            new SetOptionRequest("synchronize-panes", value), cancellationToken);
+
+    private static async Task AssertSourceOnlyInputAsync(
+        string name,
+        string source,
+        string peer,
+        McpToolFixture mcp,
+        CancellationToken cancellationToken)
+    {
+        string marker = $"{name}-{Guid.NewGuid():N}";
+        PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(
+            $"echo {marker}", source, enter: true, cancellationToken: cancellationToken);
+        Assert.Equal([source], sent.TargetPaneIds);
+        _ = await mcp.Capabilities.WaitForTextAsync(
+            source, [marker], timeoutSeconds: 5, cancellationToken: cancellationToken);
+        await AssertMarkerAbsentAsync(mcp, peer, marker, cancellationToken);
+    }
+
+    private static async Task AssertMarkerAbsentAsync(
+        McpToolFixture mcp,
+        string paneId,
+        string marker,
+        CancellationToken cancellationToken)
+    {
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            paneId,
+            includeHistory: true,
+            cancellationToken: cancellationToken);
+        Assert.DoesNotContain(
+            captured.Content.Lines,
+            line => line.Contains(marker, StringComparison.Ordinal));
     }
 }

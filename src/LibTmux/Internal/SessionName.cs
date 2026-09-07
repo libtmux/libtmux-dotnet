@@ -26,7 +26,9 @@ internal static class SessionName
         if (name.AsSpan().IndexOfAny(':', '.') >= 0)
         {
             throw new ArgumentException(
-                "A tmux session name cannot contain ':' or '.'.",
+                "A session name here cannot contain ':' or '.'. tmux accepts them, but "
+                + "they separate session, window and pane in a tmux target, so a session "
+                + "named with one cannot be reached by name afterwards.",
                 nameof(name));
         }
 

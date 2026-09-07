@@ -41,6 +41,12 @@ internal sealed class TmuxCommandRequest
             if (index > 0)
             {
                 tokens.Add(TmuxCommandToken.Separator());
+
+                // The separator belongs in the logical vector too. Without it a
+                // grouped dispatch reports as one flat command, so nothing
+                // reading the arguments afterwards can tell how many commands
+                // tmux was actually given.
+                logicalArguments.Add(";");
             }
 
             foreach (string argument in command)

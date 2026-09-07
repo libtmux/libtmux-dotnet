@@ -45,6 +45,31 @@ public sealed class SnippetContractTests
     }
 
     [Fact]
+    public void Every_ordinary_published_example_runs_in_the_default_suite()
+    {
+        HashSet<string> runnable =
+        [
+            .. ExampleCase.Discover().Select(example => $"{example.Topic}.{example.Id}"),
+        ];
+        string[] skipped =
+        [
+            .. typeof(ExampleCase).Assembly
+                .GetTypes()
+                .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+                .Where(method => method.GetCustomAttribute<ExampleAttribute>() is not null)
+                .Where(method => method.DeclaringType!.Name != "Psmux")
+                .Select(method => $"{method.DeclaringType!.Name}.{method.Name}")
+                .Where(example => !runnable.Contains(example))
+                .Order(StringComparer.Ordinal),
+        ];
+
+        Assert.True(
+            skipped.Length == 0,
+            "These ordinary published examples do not run against live tmux:\n  "
+            + string.Join("\n  ", skipped));
+    }
+
+    [Fact]
     public void Every_example_lives_where_the_snippet_reader_looks()
     {
         // sync_snippets.py globs this one directory.

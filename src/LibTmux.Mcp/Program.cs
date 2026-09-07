@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
@@ -25,7 +26,7 @@ namespace LibTmux.Mcp;
 [UnsupportedOSPlatform("windows")]
 internal static class Program
 {
-    private static async Task<int> Main(string[] args)
+    private static async Task<int> Main()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -33,6 +34,23 @@ internal static class Program
             return 1;
         }
 
+        try
+        {
+            return await ServeAsync().ConfigureAwait(false);
+        }
+        catch (McpException error)
+        {
+            // A misconfigured environment is a message, not a crash. Letting it
+            // escape ended the process with SIGABRT and a .NET stack trace
+            // carrying absolute source paths, which reads as a broken server
+            // rather than as a variable to correct.
+            await Console.Error.WriteLineAsync(error.Message).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    private static async Task<int> ServeAsync()
+    {
         ServiceCollection services = new();
         services.AddLogging(logging =>
         {
@@ -47,7 +65,8 @@ internal static class Program
         // The library configures every await away from a caller's context. This
         // is the entry point rather than the library: there is no context here
         // to return to, so these say nothing about it.
-        await using ServiceProvider provider = BuildProvider(services, args);
+        await using ServiceProvider provider = await BuildProviderAsync(services)
+            .ConfigureAwait(false);
         ILoggerFactory logging = provider.GetRequiredService<ILoggerFactory>();
 
         // The transport buffers standard output, so it is held and disposed
@@ -65,7 +84,7 @@ internal static class Program
         return 0;
     }
 
-    private static ServiceProvider BuildProvider(ServiceCollection services, string[] args)
+    private static async Task<ServiceProvider> BuildProviderAsync(ServiceCollection services)
     {
         using ILoggerFactory startup = LoggerFactory.Create(logging =>
             logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace));
@@ -73,17 +92,21 @@ internal static class Program
         ServerPolicy policy = ServerPolicy.FromEnvironment(
             System.Environment.GetEnvironmentVariable,
             startup.CreateLogger(nameof(ServerPolicy)));
-
-        // A socket named on the command line lets one assistant drive a server
-        // that is not the ambient one, which is what a test or a sandbox wants.
-        string? socket = args.Length > 0 ? args[0] : policy.DefaultSocketName;
+        McpStartup resolved = await McpStartup.ResolveAsync(
+                System.Environment.GetEnvironmentVariable)
+            .ConfigureAwait(false);
 
         McpServerComposition.Add(
             services,
             policy,
-            new ServerConnectionOptions(socketName: socket),
-            TmuxTargets.CallerPaneId());
+            resolved.ConnectionOptions,
+            TmuxTargets.CallerPaneIdOn(resolved.Disclosure.ResolvedSocketPath),
+            resolved.Selection,
+            resolved.Disclosure);
 
-        return services.BuildServiceProvider();
+        services.AddSingleton<McpStartup>(_ => resolved);
+        ServiceProvider provider = services.BuildServiceProvider();
+        _ = provider.GetRequiredService<McpStartup>();
+        return provider;
     }
 }

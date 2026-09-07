@@ -267,7 +267,8 @@ internal static class OptionParser
         // An option read with the inherited flag is marked where it came from a
         // parent scope. The name is what a caller would set, so the marker is
         // not part of it.
-        if (name[^1] == '*')
+        bool inherited = name[^1] == '*';
+        if (inherited)
         {
             name = name[..^1];
         }
@@ -290,7 +291,7 @@ internal static class OptionParser
 
         return name.Length == 0
             ? null
-            : new TmuxOption(name, ParseValue(value), index ?? (forceIndex ? 0 : null));
+            : new TmuxOption(name, ParseValue(value), index ?? (forceIndex ? 0 : null), inherited);
     }
 
     private static Dictionary<string, IReadOnlyList<string>> BuildTerminalFeatures(

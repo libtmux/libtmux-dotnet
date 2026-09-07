@@ -1,28 +1,20 @@
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Text;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <summary>Everything an assistant can change about tmux, short of removing it.</summary>
 /// <remarks>
-/// Registered only when the operator's tier is <c>mutating</c> or higher.
-/// Tools that remove what they act on live in <see cref="DestructiveTools" />
-/// instead, so raising the tier to allow a split does not also allow a kill.
-/// Resources passed to the public constructor remain owned by the caller.
-/// Instances returned by <see cref="McpTools.Writing(ServerConnectionOptions?, ServerPolicy?, JobStore?)" />
-/// dispose only the resources that factory created.
+/// Resources passed to the constructor remain owned by the caller.
 /// </remarks>
-[McpServerToolType]
 [UnsupportedOSPlatform("windows")]
-public sealed partial class WriteTools : IAsyncDisposable
+internal sealed partial class WriteTools : IAsyncDisposable
 {
     private readonly object _lifetimeGate = new();
     private readonly TmuxConnectionAccessor _connection;
     private readonly ServerPolicy _policy;
     private readonly PaneActivityHub _activity;
-    private readonly JobStore _jobs;
     private readonly ResourceOwnership _ownership;
     private Task? _disposeTask;
 
@@ -30,14 +22,12 @@ public sealed partial class WriteTools : IAsyncDisposable
     /// <param name="connection">The servers the tools talk to.</param>
     /// <param name="policy">What the tools are allowed to spend.</param>
     /// <param name="activity">Tells a wait when a pane has printed something.</param>
-    /// <param name="jobs">Holds commands that outlive the call that started them.</param>
     /// <remarks>Disposing the tools does not dispose these caller-owned resources.</remarks>
     public WriteTools(
         TmuxConnectionAccessor connection,
         ServerPolicy policy,
-        PaneActivityHub activity,
-        JobStore jobs)
-        : this(connection, policy, activity, jobs, ResourceOwnership.None)
+        PaneActivityHub activity)
+        : this(connection, policy, activity, ResourceOwnership.None)
     {
     }
 
@@ -45,17 +35,14 @@ public sealed partial class WriteTools : IAsyncDisposable
         TmuxConnectionAccessor connection,
         ServerPolicy policy,
         PaneActivityHub activity,
-        JobStore jobs,
         ResourceOwnership ownership)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(activity);
-        ArgumentNullException.ThrowIfNull(jobs);
         _connection = connection;
         _policy = policy;
         _activity = activity;
-        _jobs = jobs;
         _ownership = ownership;
     }
 
@@ -77,18 +64,6 @@ public sealed partial class WriteTools : IAsyncDisposable
             try
             {
                 await _activity.DisposeAsync().ConfigureAwait(false);
-            }
-            catch (Exception error)
-            {
-                failures.Add(error);
-            }
-        }
-
-        if (_ownership.HasFlag(ResourceOwnership.Jobs))
-        {
-            try
-            {
-                await _jobs.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception error)
             {
@@ -128,7 +103,6 @@ public sealed partial class WriteTools : IAsyncDisposable
         None = 0,
         Connection = 1,
         Activity = 2,
-        Jobs = 4,
     }
 
     /// <summary>Quotes a word so a POSIX shell reads it as exactly that word.</summary>
@@ -142,25 +116,22 @@ public sealed partial class WriteTools : IAsyncDisposable
         "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 
     /// <summary>Builds the tmux command line that reaches this same server.</summary>
-    /// <param name="server">The server to address.</param>
+    /// <param name="route">The startup and preflight-authenticated route.</param>
     /// <param name="arguments">The tmux command and its arguments.</param>
     /// <returns>A shell-safe command line.</returns>
     /// <remarks>
     /// A command run from inside a pane inherits <c>TMUX</c> and would reach the
     /// ambient server, which is not necessarily the one this tool is driving.
-    /// Naming the socket is what makes the two the same server.
+    /// Naming the absolute socket is what makes the two the same server, and
+    /// <c>command</c> keeps a shell function from replacing the tmux executable.
     /// </remarks>
-    internal static string TmuxCommandLine(Server server, params string[] arguments)
+    internal static string TmuxCommandLine(
+        RunCommandRoute route,
+        params string[] arguments)
     {
-        StringBuilder line = new(ShellQuote(server.ConnectionOptions.TmuxBinaryPath));
-        if (server.ConnectionOptions.SocketPath is string path)
-        {
-            line.Append(" -S ").Append(ShellQuote(path));
-        }
-        else if (server.ConnectionOptions.SocketName is string name)
-        {
-            line.Append(" -L ").Append(ShellQuote(name));
-        }
+        StringBuilder line = new("command ");
+        line.Append(ShellQuote(route.TmuxBinaryPath));
+        line.Append(" -S ").Append(ShellQuote(route.SocketPath));
 
         foreach (string argument in arguments)
         {

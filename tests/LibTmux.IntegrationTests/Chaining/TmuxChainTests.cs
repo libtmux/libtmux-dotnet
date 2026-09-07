@@ -121,11 +121,20 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        await Assert.ThrowsAsync<TmuxCommandException>(
+        TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.Chain()
                 .Then("new-window", "-d", "-t", raw.SessionName, "-n", "before")
-                .Then("no-such-tmux-command")
+                .Then("kill-window", "-t", "@99999")
                 .ExecuteAsync(token));
+
+        // A command that parses and then fails, not one tmux cannot parse:
+        // tmux parses the whole list before running any of it, so an unknown
+        // command aborts the chain having changed nothing. Here the first
+        // command really did run, and the reported arguments have to say the
+        // dispatch was a chain or nothing reading them can tell that.
+        Assert.Contains(";", failure.Result.Arguments);
+        IReadOnlyList<Window> windows = await server.GetWindowsAsync(token);
+        Assert.Contains(windows, window => window.Name == "before");
     }
 
     [UnixFact]

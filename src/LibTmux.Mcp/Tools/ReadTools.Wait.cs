@@ -5,13 +5,12 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <content>Waiting for a pane to say something, without polling it.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class ReadTools
+internal sealed partial class ReadTools
 {
     /// <summary>Waits until a pane prints text a caller is looking for.</summary>
     /// <param name="paneId">The pane, or null for the active one.</param>
@@ -24,26 +23,28 @@ public sealed partial class ReadTools
     /// <param name="cancellationToken">Stops waiting.</param>
     /// <returns>How the wait ended and what the pane showed.</returns>
     /// <remarks>
-    /// For a command the caller wrote, <c>tmux_run</c> is better: it knows
+    /// For a command the caller wrote, <c>run_shell_command</c> is better: it knows
     /// exactly when the command finished and what it exited with, where this
     /// can only recognise text. This is for output nobody here authored — a
     /// server starting up, a build another process launched, a person typing.
     /// </remarks>
-    [McpServerTool(Name = "tmux_wait_for_text", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Wait until a pane prints something matching one of these patterns, then "
         + "return. Use for output you did NOT start — a server's ready line, another "
         + "process's progress, a person typing. For a command you are running "
-        + "yourself, tmux_run is better: it reports the real exit status instead of "
+        + "yourself, run_shell_command is better: it reports the real exit status instead of "
         + "guessing from text. Omit patterns to wait for any new output at all. "
-        + "Never poll tmux_capture_pane in a loop; this call does the waiting.")]
+        + "Never poll capture_pane in a loop; this call does the waiting.")]
     public async Task<WaitResult> WaitForTextAsync(
         [Description("The pane id, such as %1. Omit for the active pane.")]
         string? paneId = null,
         [Description(
-            "Regular expressions to wait for. Omit or pass an empty list to return as "
-            + "soon as the pane prints anything new. Across both pattern lists: at most "
-            + "32 entries and 16384 UTF-8 bytes; each entry is at most 4096 bytes.")]
+            "Regular expressions to wait for. Only output arriving AFTER this call "
+            + "counts — text already on screen never matches, so a pattern visible in "
+            + "the returned tail can still time out. Omit or pass an empty list to "
+            + "return as soon as the pane prints anything new. Across both pattern "
+            + "lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at most "
+            + "999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -63,6 +64,9 @@ public sealed partial class ReadTools
         ValidateWaitPatterns(patterns, stopPatterns, _policy.MaxBytes);
         Regex[] wanted = Compile(patterns, ignoreCase);
         Regex[] stops = Compile(stopPatterns, ignoreCase);
+        var matchingWork = new SearchWorkBudget(
+            MaximumWaitMatchingWorkBytes,
+            "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane.");
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
@@ -107,9 +111,13 @@ public sealed partial class ReadTools
                 .ConfigureAwait(false);
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
-            if (read.Lines.Count > 0)
+            // Matched against the rows the caller receives. Matching raw rows
+            // let a concurrent run's payload echo satisfy a wait, and then the
+            // scrubbed tail did not contain the line that matched.
+            IReadOnlyList<string> visible = PaneText.Scrub(read.Lines, pane.Width);
+            if (visible.Count > 0)
             {
-                if (Match(stops, read.Lines, cancellationToken) is string stopped)
+                if (Match(stops, visible, matchingWork, cancellationToken) is string stopped)
                 {
                     return await FinishAsync(
                             pane,
@@ -135,7 +143,7 @@ public sealed partial class ReadTools
                         .ConfigureAwait(false);
                 }
 
-                if (Match(wanted, read.Lines, cancellationToken) is string hit)
+                if (Match(wanted, visible, matchingWork, cancellationToken) is string hit)
                 {
                     return await FinishAsync(
                             pane,
@@ -236,6 +244,19 @@ public sealed partial class ReadTools
                 $"A pane wait accepts at most {MaximumWaitPatterns} patterns across both lists.");
         }
 
+        // Naming no patterns at all is the any-output wait, and that stays.
+        // An empty or null entry inside a list is different: it used to be
+        // dropped, which silently turned "wait until X appears" into "return
+        // on the first byte of anything" — a false early return the caller
+        // sees only by reading the outcome field.
+        if (new[] { patterns, stopPatterns }.Any(list =>
+            list is not null && list.Any(string.IsNullOrEmpty)))
+        {
+            throw new McpException(
+                "A wait pattern cannot be empty or null. Drop the entry to wait for "
+                + "any output at all, or give the text to wait for.");
+        }
+
         int totalBytes = 0;
         foreach (IReadOnlyList<string>? list in new[] { patterns, stopPatterns })
         {
@@ -251,13 +272,13 @@ public sealed partial class ReadTools
                     continue;
                 }
 
-                if (pattern.Length > MaximumWaitPatternBytes)
+                if (pattern.Length > MaximumRegexPatternBytes)
                 {
                     throw PatternBudgetError();
                 }
 
                 int bytes = Encoding.UTF8.GetByteCount(pattern);
-                if (bytes > MaximumWaitPatternBytes
+                if (bytes > MaximumRegexPatternBytes
                     || bytes > MaximumWaitPatternBytesTotal - totalBytes)
                 {
                     throw PatternBudgetError();
@@ -282,7 +303,7 @@ public sealed partial class ReadTools
         }
 
         static McpException PatternBudgetError() => new(
-            $"Pane-wait patterns may use at most {MaximumWaitPatternBytes} UTF-8 bytes each "
+            $"Pane-wait patterns may use at most {MaximumRegexPatternBytes} UTF-8 bytes each "
             + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
@@ -290,13 +311,26 @@ public sealed partial class ReadTools
     internal static string? Match(
         Regex[] patterns,
         IReadOnlyList<string> lines,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) => Match(
+            patterns,
+            lines,
+            new SearchWorkBudget(
+                MaximumWaitMatchingWorkBytes,
+                "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane."),
+            cancellationToken);
+
+    private static string? Match(
+        Regex[] patterns,
+        IReadOnlyList<string> lines,
+        SearchWorkBudget matchingWork,
+        CancellationToken cancellationToken)
     {
         foreach (Regex pattern in patterns)
         {
             foreach (string line in lines)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                matchingWork.Consume(Encoding.UTF8.GetByteCount(line));
                 try
                 {
                     if (pattern.IsMatch(line))
@@ -349,6 +383,6 @@ public sealed partial class ReadTools
     /// </remarks>
     private const int TailLines = 20;
     private const int MaximumWaitPatterns = 32;
-    private const int MaximumWaitPatternBytes = 4_096;
     private const int MaximumWaitPatternBytesTotal = 16_384;
+    private const int MaximumWaitMatchingWorkBytes = 8 * 1024 * 1024;
 }

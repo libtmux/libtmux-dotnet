@@ -92,6 +92,27 @@ public sealed record WaitResult(
     double ElapsedSeconds,
     double EffectiveTimeoutSeconds);
 
+/// <summary>What happened while waiting on a tmux wait-for channel.</summary>
+/// <param name="Changed">What happened, in plain words.</param>
+/// <param name="Channel">The channel that was waited on.</param>
+/// <param name="Signalled">
+/// Whether the channel was signalled. False means this attempt expired; tmux
+/// cannot say whether a signal raced the withdrawal, so it does not prove the
+/// channel was never signalled.
+/// </param>
+/// <param name="ElapsedSeconds">How long the wait ran.</param>
+/// <param name="EffectiveTimeoutSeconds">
+/// The timeout actually used. An over-large request is lowered to the server's
+/// ceiling rather than refused, so read this instead of assuming the value
+/// asked for was honoured.
+/// </param>
+public sealed record ChannelWaitResult(
+    string Changed,
+    string Channel,
+    bool Signalled,
+    double ElapsedSeconds,
+    double EffectiveTimeoutSeconds);
+
 /// <summary>What a command did.</summary>
 /// <param name="PaneId">The pane it ran in.</param>
 /// <param name="ExitStatus">
@@ -99,8 +120,7 @@ public sealed record WaitResult(
 /// </param>
 /// <param name="TimedOut">
 /// Whether waiting stopped before completion. The shell command may still be
-/// running; inspect the pane and do not retry it. Use <c>tmux_start_job</c> when
-/// work must remain recoverable after the wait.
+/// running; inspect the pane and do not retry it.
 /// </param>
 /// <param name="Output">What the command printed, within the budget.</param>
 /// <param name="ElapsedSeconds">How long it took.</param>
@@ -111,6 +131,12 @@ public sealed record WaitResult(
 /// The command runs in a subshell, so a <c>cd</c> or an <c>export</c> in it
 /// does not survive into the next call.
 /// </remarks>
+/// <param name="Started">
+/// Whether the command was seen to begin. A timeout with this false means the
+/// wrapper never ran, usually because the pane was not at an empty, ready shell
+/// prompt. The usual "it may still be running" does not apply; inspect the pane
+/// before retrying.
+/// </param>
 public sealed record RunResult(
     string PaneId,
     int? ExitStatus,
@@ -119,7 +145,8 @@ public sealed record RunResult(
     double ElapsedSeconds,
     double EffectiveTimeoutSeconds,
     bool LinesMissed = false,
-    bool AnchorLost = false);
+    bool AnchorLost = false,
+    bool Started = true);
 
 /// <summary>One pane whose text matched a search.</summary>
 /// <param name="PaneId">The pane that matched.</param>
@@ -166,3 +193,16 @@ public sealed record ActionResult(
     string? PaneId = null,
     string? WindowId = null,
     string? SessionId = null);
+
+/// <summary>What pane input targeted after tmux synchronization was resolved.</summary>
+/// <param name="Changed">What was sent, in plain words.</param>
+/// <param name="PaneId">The pane named by the caller after active-pane resolution.</param>
+/// <param name="TargetPaneIds">
+/// The named source when its effective pane_synchronized value is 0. Only when
+/// it is 1, every configured effective-on cohort member; membership does not
+/// prove delivery.
+/// </param>
+public sealed record PaneInputResult(
+    string Changed,
+    string PaneId,
+    IReadOnlyList<string> TargetPaneIds);

@@ -32,24 +32,47 @@ public static class McpServerComposition
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(connectionOptions);
+        ServerConnectionOptions pinned = PinExecutable(connectionOptions);
+        return Add(
+            services,
+            policy,
+            pinned,
+            callerPaneId,
+            CapabilitySelection.WithoutTeardown,
+            McpRuntimeDisclosure.Unknown(pinned));
+    }
+
+    internal static IMcpServerBuilder Add(
+        IServiceCollection services,
+        ServerPolicy policy,
+        ServerConnectionOptions connectionOptions,
+        string? callerPaneId,
+        CapabilitySelection selection,
+        McpRuntimeDisclosure runtime)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(connectionOptions);
+        ArgumentNullException.ThrowIfNull(selection);
+        ArgumentNullException.ThrowIfNull(runtime);
+        connectionOptions = PinExecutable(connectionOptions);
+
+        CapabilityRegistry registry = CapabilityRegistry.Select(selection);
 
         services.AddSingleton(policy);
+        services.AddSingleton(registry);
+        services.AddSingleton(runtime);
         services.AddSingleton(provider => new TmuxConnectionAccessor(
             connectionOptions,
             connectionOptions.SocketName,
             provider.GetService<ILoggerFactory>()?.CreateLogger<TmuxConnectionAccessor>()));
         services.AddSingleton(provider => new PaneActivityHub(
             provider.GetService<ILoggerFactory>()?.CreateLogger<PaneActivityHub>()));
-        services.AddSingleton(provider => new JobStore(
-            provider.GetService<ILoggerFactory>()?.CreateLogger<JobStore>()));
-        services.AddSingleton(provider => new HierarchyWatcher(
-            provider.GetService<ILoggerFactory>()?.CreateLogger<HierarchyWatcher>()));
         services.AddSingleton<ReadTools>();
         services.AddSingleton<WriteTools>();
-        services.AddSingleton<DestructiveTools>();
-        services.AddSingleton<HierarchyResources>();
+        services.AddSingleton<CapabilityTools>();
+        services.AddSingleton<CapabilityResource>();
         var taskStore = new BoundedMcpTaskStore();
-        services.AddSingleton(_ => new SubscriptionAdmission());
 
         IMcpServerBuilder builder = services
             .AddMcpServer(options =>
@@ -61,65 +84,16 @@ public static class McpServerComposition
                 };
                 options.ServerInstructions = ServerInstructions.Compose(policy, callerPaneId);
             })
-            .WithTools<ReadTools>(ToolJson.Options)
-            .WithResources<HierarchyResources>()
-            .WithPrompts<RecipePrompts>()
+            .WithTools(registry.Tools)
+            .WithResources<CapabilityResource>()
+            .WithMessageFilters(filters =>
+                filters.AddIncomingFilter(RequestIdBudgetFilter.Create()))
             .WithRequestFilters(filters =>
             {
                 filters.AddCallToolFilter(next =>
                     ToolResponseBudgetFilter.Create(policy)(ToolFailureFilter.Create()(next)));
                 filters.AddReadResourceFilter(ResourceResponseBudgetFilter.Create(policy));
             })
-
-            // A subscription is what turns the hierarchy from something a
-            // client re-reads on a timer into something that tells it when to.
-            .WithSubscribeToResourcesHandler(async (context, cancellationToken) =>
-            {
-                string? uri = context.Params?.Uri;
-                if (uri is not null
-                    && HierarchyWatcher.Watchable.Contains(uri)
-                    && context.Services is IServiceProvider scope)
-                {
-                    McpServer notify = context.Server;
-                    await scope.GetRequiredService<HierarchyWatcher>()
-                        .SubscribeAsync(
-                            uri,
-                            notify,
-                            async changed =>
-                            {
-                                foreach (string each in changed)
-                                {
-                                    await notify.SendNotificationAsync(
-                                            "notifications/resources/updated",
-                                            new { uri = each })
-                                        .ConfigureAwait(false);
-                                }
-                            },
-                            await scope.GetRequiredService<TmuxConnectionAccessor>()
-                                .GetAsync(cancellationToken: cancellationToken)
-                                .ConfigureAwait(false),
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                return new EmptyResult();
-            })
-            .WithUnsubscribeFromResourcesHandler(async (context, _) =>
-            {
-                if (context.Params?.Uri is string uri
-                    && context.Services is IServiceProvider scope)
-                {
-                    await scope.GetRequiredService<HierarchyWatcher>()
-                        .UnsubscribeAsync(uri, context.Server)
-                        .ConfigureAwait(false);
-                }
-
-                return new EmptyResult();
-            })
-
-            // The current revision grants listen without notifying the application;
-            // owning the stream is what starts the watcher that emits its events.
-            .WithSubscriptionsListenHandler(SubscriptionStream.Create())
 
             // Task-capable clients may collect a wait later; other clients block.
             .WithTasks(
@@ -129,19 +103,46 @@ public static class McpServerComposition
         services.AddSingleton<IConfigureOptions<McpServerOptions>>(
             new BoundedMcpTaskCancellationOptions(taskStore));
 
-        // Registration, not filtering. A tool the operator's tier does not
-        // allow never reaches the model's list, so it cannot be called by name,
-        // guessed at, or argued for.
-        if (policy.Allows(SafetyTier.Mutating))
-        {
-            builder.WithTools<WriteTools>(ToolJson.Options);
-        }
-
-        if (policy.Allows(SafetyTier.Destructive))
-        {
-            builder.WithTools<DestructiveTools>(ToolJson.Options);
-        }
-
         return builder;
+    }
+
+    private static ServerConnectionOptions PinExecutable(ServerConnectionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.PsmuxPreview is not null)
+        {
+            McpStartup.RequireSafeRouteValue(options.TmuxBinaryPath, "tmux executable route");
+            if (!Path.IsPathFullyQualified(options.TmuxBinaryPath)
+                || !McpStartup.IsExecutableFile(options.TmuxBinaryPath))
+            {
+                throw new ModelContextProtocol.McpException(
+                    "The MCP tmux executable route is not an absolute executable file.");
+            }
+
+            return options;
+        }
+
+        string? searchPath = options.ChildEnvironment is not null
+            && options.ChildEnvironment.TryGetValue("PATH", out string? configuredPath)
+                ? configuredPath
+                : System.Environment.GetEnvironmentVariable("PATH");
+        string executable = McpStartup.ResolveExecutablePath(
+            options.TmuxBinaryPath,
+            searchPath);
+        if (string.Equals(executable, options.TmuxBinaryPath, StringComparison.Ordinal))
+        {
+            return options;
+        }
+
+        return new ServerConnectionOptions(
+            tmuxBinaryPath: executable,
+            socketName: options.SocketName,
+            socketPath: options.SocketPath,
+            socketNameFactory: options.SocketNameFactory,
+            configurationFile: options.ConfigurationFile,
+            colorMode: options.ColorMode,
+            initializeAsync: options.InitializeAsync,
+            childEnvironment: options.ChildEnvironment,
+            logger: options.Logger);
     }
 }

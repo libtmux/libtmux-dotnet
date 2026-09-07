@@ -1116,8 +1116,9 @@ LibTmux.TmuxOption
 LibTmux.TmuxOption.<Clone>$() -> LibTmux.TmuxOption!
 LibTmux.TmuxOption.Equals(LibTmux.TmuxOption? other) -> bool
 LibTmux.TmuxOption.Index.get -> int?
+LibTmux.TmuxOption.Inherited.get -> bool
 LibTmux.TmuxOption.Name.get -> string!
-LibTmux.TmuxOption.TmuxOption(string! name, LibTmux.TmuxOptionValue! value, int? index) -> void
+LibTmux.TmuxOption.TmuxOption(string! name, LibTmux.TmuxOptionValue! value, int? index, bool inherited = false) -> void
 LibTmux.TmuxOption.Value.get -> LibTmux.TmuxOptionValue!
 LibTmux.TmuxOptionException
 LibTmux.TmuxOptionException.OptionName.get -> string!
@@ -1190,6 +1191,7 @@ LibTmux.TmuxWaitTimeoutException.Timeout.get -> System.TimeSpan
 LibTmux.TmuxWaitTimeoutException.TmuxWaitTimeoutException(string! message, System.TimeSpan timeout, System.Exception? innerException = null) -> void
 LibTmux.TmuxWindowException
 LibTmux.TmuxWindowException.TmuxWindowException(string! message, LibTmux.WindowId windowId, System.Exception? innerException = null) -> void
+LibTmux.TmuxWindowException.TmuxWindowException(string! message, LibTmux.WindowId windowId, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
 LibTmux.TmuxWindowException.WindowId.get -> LibTmux.WindowId
 LibTmux.UnbindKeyRequest
 LibTmux.UnbindKeyRequest.<Clone>$() -> LibTmux.UnbindKeyRequest!

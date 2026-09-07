@@ -20,22 +20,29 @@ public sealed partial class Server
     public async Task<IReadOnlyList<Client>> GetClientsAsync(
         CancellationToken cancellationToken = default)
     {
-        ServerGeneration generation = _generation
-            ?? throw new IncompleteSnapshotException("clients", SnapshotDepth.Server);
-        TmuxConnection connection = Connection
-            ?? throw new InvalidOperationException("The server handle has no connection.");
         try
         {
-            IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-                await new MaterializationQuery(new MaterializationContext(this, ParsedVersion()))
-                    .FetchAsync("list-clients", [], cancellationToken)
-                    .ConfigureAwait(false);
-            return [.. rows.Select(row => new Client(this, connection, generation, row))];
+            return await GetClientsStrictAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibTmuxException)
         {
             return [];
         }
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<IReadOnlyList<Client>> GetClientsStrictAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ServerGeneration generation = _generation
+            ?? throw new IncompleteSnapshotException("clients", SnapshotDepth.Server);
+        TmuxConnection connection = Connection
+            ?? throw new InvalidOperationException("The server handle has no connection.");
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+            await new MaterializationQuery(new MaterializationContext(this, ParsedVersion()))
+                .FetchAsync("list-clients", [], cancellationToken)
+                .ConfigureAwait(false);
+        return [.. rows.Select(row => new Client(this, connection, generation, row))];
     }
 
     /// <summary>Detaches one client.</summary>

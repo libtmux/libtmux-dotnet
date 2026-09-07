@@ -177,6 +177,46 @@ public sealed class SearchResultBudgetTests
     }
 
     [Fact]
+    public void Nonmatching_history_has_a_fixed_matching_work_ceiling()
+    {
+        var budget = new SearchResultBudget("needle", 1, 500, 4_000);
+        Regex regex = ReadTools.CompilePattern("needle", ignoreCase: false);
+        var lines = new RepeatedLines(20_000, new string('x', 1_024));
+
+        McpException error = Assert.Throws<McpException>(() => ReadTools.AddSearchMatches(
+            budget,
+            "%1",
+            "@1",
+            "$1",
+            lines,
+            0,
+            regex,
+            maxMatchesPerPane: 500,
+            TestContext.Current.CancellationToken));
+
+        Assert.Contains("work limit", error.Message, StringComparison.Ordinal);
+        Assert.InRange(lines.Reads, 1, 10_000);
+    }
+
+    [Fact]
+    public void Backtracking_only_constructs_are_refused()
+    {
+        McpException error = Assert.Throws<McpException>(() =>
+            ReadTools.CompilePattern("(x)\\1", ignoreCase: false));
+
+        // The constraint, not the .NET enum that enforces it: a caller can act
+        // on "backreferences are refused" and cannot act on RegexOptions.
+        Assert.Contains("backreferences", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("NonBacktracking", error.Message, StringComparison.Ordinal);
+
+        // A pattern that is simply malformed keeps the parser's own reason,
+        // which is the most specific thing anybody has.
+        McpException malformed = Assert.Throws<McpException>(() =>
+            ReadTools.CompilePattern("[unterminated", ignoreCase: false));
+        Assert.Contains("not a valid regular expression", malformed.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_regex_timeout_is_reported_as_an_actionable_mcp_error()
     {
         var budget = new SearchResultBudget("(a+)+$", 1, 10, 4_000);
@@ -318,10 +358,10 @@ public sealed class SearchResultBudgetTests
 
         McpException error = await Assert.ThrowsAsync<McpException>(() =>
             tools.SearchPanesAsync(
-                new string('x', 4_097),
+                new string('x', 1_000),
                 cancellationToken: TestContext.Current.CancellationToken));
 
-        Assert.Contains("4096", error.Message, StringComparison.Ordinal);
+        Assert.Contains("999", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, dispatches);
     }
 

@@ -2,15 +2,14 @@ using System.ComponentModel;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using ModelContextProtocol;
-using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;
 
 /// <content>Reading what panes are showing.</content>
 [UnsupportedOSPlatform("windows")]
-public sealed partial class ReadTools
+internal sealed partial class ReadTools
 {
-    private const int MaximumSearchPatternBytes = 4_096;
+    private const int MaximumSearchWorkBytes = 8 * 1_024 * 1_024;
 
     /// <summary>Reads a pane's content and screen state together.</summary>
     /// <param name="paneId">The pane, or null for the active one.</param>
@@ -18,11 +17,10 @@ public sealed partial class ReadTools
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The content, the cursor, and what the pane is.</returns>
-    [McpServerTool(Name = "tmux_snapshot_pane", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Read a pane's visible content together with its cursor position, size and "
-        + "running command, in one call. Prefer this over tmux_capture_pane plus "
-        + "tmux_list_panes: it is one round trip and the cursor is guaranteed to "
+        + "running command, in one call. Prefer this over capture_pane plus "
+        + "list_panes: it is one round trip and the cursor is guaranteed to "
         + "describe the text returned with it.")]
     public async Task<PaneSnapshot> SnapshotPaneAsync(
         [Description("The pane id, such as %1. Omit for the active pane.")]
@@ -39,7 +37,10 @@ public sealed partial class ReadTools
         PaneRead read = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);
 
-        PaneInfo paneInfo = PaneInfo.From(pane, TmuxTargets.CallerPaneId());
+        PaneInfo paneInfo = PaneInfo.From(
+            pane,
+            await TmuxTargets.VerifiedCallerPaneIdAsync(server, cancellationToken)
+                .ConfigureAwait(false));
         int? cursorX = await TmuxTargets.DisplayNumberAsync(
                 pane,
                 "#{cursor_x}",
@@ -47,7 +48,7 @@ public sealed partial class ReadTools
             .ConfigureAwait(false);
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(read.Lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new PaneSnapshot(
                 paneInfo,
@@ -71,11 +72,10 @@ public sealed partial class ReadTools
     /// stores a wrap as a real line break, so text a user typed into a narrow
     /// pane comes back split across rows and a search for it finds nothing.
     /// </remarks>
-    [McpServerTool(Name = "tmux_capture_pane", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Read the text a pane is showing, and optionally its scrollback. The newest "
         + "lines are always kept; anything dropped to fit the budget is reported. "
-        + "To watch a pane across several turns, use tmux_tail_pane instead — it "
+        + "To watch a pane across several turns, use capture_since instead — it "
         + "returns only what is new.")]
     public async Task<CaptureResult> CapturePaneAsync(
         [Description("The pane id, such as %1. Omit for the active pane.")]
@@ -105,7 +105,7 @@ public sealed partial class ReadTools
         string id = pane.Id.ToString();
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new CaptureResult(id, content),
             "pane capture");
@@ -118,7 +118,6 @@ public sealed partial class ReadTools
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The new text and a cursor for next time.</returns>
-    [McpServerTool(Name = "tmux_tail_pane", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Read only what a pane has printed since the last call. Pass back the cursor "
         + "each time. Use this to watch a long-running process across turns: the "
@@ -152,7 +151,7 @@ public sealed partial class ReadTools
         string nextCursor = TailCursor.Build(pane, read.State, read.CursorRows).Encode();
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(lines, pane.Width),
-            maxLines ?? _policy.MaxLines,
+            ResolveMaxLines(maxLines, _policy),
             _policy.MaxBytes,
             content => new TailResult(
                 id,
@@ -172,14 +171,13 @@ public sealed partial class ReadTools
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The panes that matched.</returns>
-    [McpServerTool(Name = "tmux_search_panes", ReadOnly = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
         "Find which panes are showing text matching a regular expression. This is the "
         + "tool for 'which pane has the error', 'where is the build running', or any "
-        + "question about what a pane CONTAINS — the tmux_list_* tools only see names "
+        + "question about what a pane CONTAINS — list tools only see names "
         + "and sizes.")]
     public async Task<SearchResult> SearchPanesAsync(
-        [Description("A .NET regular expression to look for, at most 4096 UTF-8 bytes.")]
+        [Description("A .NET regular expression to look for, at most 999 UTF-8 bytes.")]
         string pattern,
         [Description("A session id such as $0, or its name. Omit to search every session.")]
         string? session = null,
@@ -200,7 +198,9 @@ public sealed partial class ReadTools
 
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<Pane> panes = string.IsNullOrWhiteSpace(session)
-            ? await server.GetPanesAsync(cancellationToken).ConfigureAwait(false)
+            ? await TmuxAvailability
+                .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
+                .ConfigureAwait(false)
             : await (await TmuxTargets.SessionAsync(server, session, cancellationToken)
                     .ConfigureAwait(false))
                 .GetPanesAsync(cancellationToken)
@@ -215,6 +215,7 @@ public sealed partial class ReadTools
             panes.Count,
             _policy.MaxLines,
             _policy.MaxBytes);
+        var workBudget = new SearchWorkBudget(MaximumSearchWorkBytes);
         int panesSearched = 0;
         bool truncated = false;
         foreach (Pane pane in panes)
@@ -233,6 +234,12 @@ public sealed partial class ReadTools
             }
 
             panesSearched++;
+
+            // The same rows a capture would answer with. Searching the raw
+            // ones made this server's own bookkeeping findable through the
+            // tool the instructions name first for reading a pane, while the
+            // other two read paths hid it.
+            lines = PaneText.Scrub(lines, pane.Width);
             int visibleTop = lines.Count - pane.Height;
             SearchPaneBudgetOutcome outcome = AddSearchMatches(
                 budget,
@@ -243,6 +250,7 @@ public sealed partial class ReadTools
                 Math.Max(visibleTop, 0),
                 regex,
                 maxMatchesPerPane,
+                workBudget,
                 cancellationToken);
             truncated |= outcome != SearchPaneBudgetOutcome.Complete;
             if (outcome == SearchPaneBudgetOutcome.GlobalLimit)
@@ -254,6 +262,21 @@ public sealed partial class ReadTools
         return budget.Build(panesSearched, truncated);
     }
 
+    // A line count below one asked for nothing and got an empty result marked
+    // truncated, which reads as "tmux dropped your output" rather than as a
+    // bad argument.
+    private static int ResolveMaxLines(int? requested, ServerPolicy policy)
+    {
+        if (requested is int lines && lines < 1)
+        {
+            throw new McpException(
+                $"maxLines must be at least 1; {lines} asks for no output at all. "
+                + $"Omit it for the server default of {policy.MaxLines} lines.");
+        }
+
+        return requested ?? policy.MaxLines;
+    }
+
     /// <summary>Compiles a caller's pattern, refusing one that cannot be run safely.</summary>
     /// <remarks>
     /// The timeout is the point. A pattern a model wrote can backtrack for
@@ -262,15 +285,24 @@ public sealed partial class ReadTools
     /// </remarks>
     internal static Regex CompilePattern(string pattern, bool ignoreCase)
     {
-        RegexOptions options = RegexOptions.CultureInvariant
+        RegexOptions options = RegexOptions.CultureInvariant | RegexOptions.NonBacktracking
             | (ignoreCase ? RegexOptions.IgnoreCase : RegexOptions.None);
         try
         {
             return new Regex(pattern, options, TimeSpan.FromSeconds(1));
         }
+        catch (NotSupportedException)
+        {
+            // The .NET enum name told the caller nothing they could act on.
+            throw new McpException(
+                $"'{pattern}' uses a construct this server cannot match in linear time. "
+                + "Lookarounds, backreferences and atomic groups are refused; character "
+                + "classes, quantifiers, alternation, anchors and named groups all work.");
+        }
         catch (ArgumentException error)
         {
-            throw new McpException($"'{pattern}' is not a valid regular expression: {error.Message}");
+            throw new McpException(
+                $"'{pattern}' is not a valid regular expression: {error.Message}");
         }
     }
 
@@ -287,7 +319,7 @@ public sealed partial class ReadTools
     /// <summary>Rejects a pattern too large to compile or report within policy.</summary>
     internal static void ValidateSearchPatternBudget(string pattern, int resultMaxBytes)
     {
-        int patternMaxBytes = Math.Min(MaximumSearchPatternBytes, resultMaxBytes);
+        int patternMaxBytes = Math.Min(MaximumRegexPatternBytes, resultMaxBytes);
         int patternBytes = System.Text.Encoding.UTF8.GetByteCount(pattern);
         if (patternBytes > patternMaxBytes)
         {
@@ -311,15 +343,42 @@ public sealed partial class ReadTools
         int maxMatchesPerPane,
         CancellationToken cancellationToken = default)
     {
+        return AddSearchMatches(
+            budget,
+            paneId,
+            windowId,
+            sessionId,
+            lines,
+            visibleTop,
+            regex,
+            maxMatchesPerPane,
+            new SearchWorkBudget(MaximumSearchWorkBytes),
+            cancellationToken);
+    }
+
+    private static SearchPaneBudgetOutcome AddSearchMatches(
+        SearchResultBudget budget,
+        string paneId,
+        string windowId,
+        string sessionId,
+        IReadOnlyList<string> lines,
+        int visibleTop,
+        Regex regex,
+        int maxMatchesPerPane,
+        SearchWorkBudget workBudget,
+        CancellationToken cancellationToken)
+    {
         List<MatchedLine> matched = [];
         SearchPaneBudgetOutcome outcome = SearchPaneBudgetOutcome.Complete;
         for (int index = 0; index < lines.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            string line = lines[index];
+            workBudget.Consume(System.Text.Encoding.UTF8.GetByteCount(line));
             bool matches;
             try
             {
-                matches = regex.IsMatch(lines[index]);
+                matches = regex.IsMatch(line);
             }
             catch (RegexMatchTimeoutException)
             {
@@ -344,7 +403,7 @@ public sealed partial class ReadTools
                 windowId,
                 sessionId,
                 matched,
-                new MatchedLine(index - visibleTop, lines[index]));
+                new MatchedLine(index - visibleTop, line));
             if (added == SearchMatchBudgetOutcome.GlobalLimit)
             {
                 outcome = SearchPaneBudgetOutcome.GlobalLimit;
@@ -365,6 +424,34 @@ public sealed partial class ReadTools
 
         budget.Commit(paneId, windowId, sessionId, matched);
         return outcome;
+    }
+}
+
+/// <summary>A deterministic ceiling for candidate text examined by pane search.</summary>
+internal sealed class SearchWorkBudget
+{
+    private int _remainingBytes;
+    private readonly string _failure;
+
+    internal SearchWorkBudget(
+        int maximumBytes,
+        string failure = "Pane search matching work limit exceeded; narrow the session or history.")
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumBytes);
+        ArgumentException.ThrowIfNullOrWhiteSpace(failure);
+        _remainingBytes = maximumBytes;
+        _failure = failure;
+    }
+
+    internal void Consume(int bytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(bytes);
+        if (bytes > _remainingBytes)
+        {
+            throw new McpException(_failure);
+        }
+
+        _remainingBytes -= bytes;
     }
 }
 
