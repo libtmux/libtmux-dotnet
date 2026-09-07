@@ -12,6 +12,16 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+## [0.0.0-alpha.11] — 2026-09-07
+
+### Added
+
 - `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
   one immutable capability registry. Every tool carries conservative protocol
   annotations. Its `_meta` capability object and the static
@@ -671,7 +681,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.10...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.11...HEAD
+[0.0.0-alpha.11]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.11
 [0.0.0-alpha.10]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.10
 [0.0.0-alpha.9]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.9
 [0.0.0-alpha.8]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.8
