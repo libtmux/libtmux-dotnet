@@ -707,8 +707,14 @@ public sealed class McpProtocolTests
         try
         {
             // The server has to exist, because that is when tmux stores the
-            // escaped spelling this pins around.
+            // escaped spelling this pins around. Name the binary rather than
+            // let PATH answer: the version matrix points LIBTMUX_TMUX at the
+            // tmux under test while PATH still holds whichever one the machine
+            // installed, and a client cannot talk to a server of the other.
             Server seeded = Server.Open(new ServerConnectionOptions(
+                tmuxBinaryPath: McpStartup.ResolveExecutablePath(
+                    environment["LIBTMUX_TMUX"]!,
+                    environment["PATH"]),
                 socketName: name,
                 childEnvironment: environment));
             await seeded.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
