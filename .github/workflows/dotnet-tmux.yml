@@ -29,6 +29,7 @@ jobs:
   matrix:
     name: tmux ${{ matrix.tmux }} on ${{ matrix.framework }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       # One lane failing says something about that tmux version, which is only
       # readable when the other lanes still run.
@@ -111,6 +112,7 @@ jobs:
   advisory:
     name: tmux master (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # What tmux master does is a question about time, not about a commit: it
     # moves under this library rather than with it. Running it weekly answers
@@ -174,6 +176,7 @@ jobs:
     needs: [matrix]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Report whether every supported tmux passed
         run: |

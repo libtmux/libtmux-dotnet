@@ -18,6 +18,17 @@ version.
 
 ### Removed
 
+### Development
+
+- **Every CI job carries a timeout.** A job that stopped making progress ran to
+  GitHub's six-hour ceiling; the advisory macOS lane reached fifty minutes
+  against a median under two. Each job now fails in minutes instead. (#24)
+
+- **The advisory macOS lane runs after merge, not on every pull request.** It is
+  `continue-on-error`, so it never gated a merge — it only spent macOS minutes
+  at ten times the Linux rate. Pushes to master and manual dispatch still
+  exercise the platform. (#24)
+
 ## [0.0.0-alpha.11] — 2026-09-07
 
 ### Added
