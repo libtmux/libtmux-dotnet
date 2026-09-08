@@ -215,6 +215,10 @@ QueryDocument document = QueryExtensions.Translate<Session>(
         && session.Attached);
 ```
 
+You write C# and tmux receives tmux. The catalog carries the pair for all
+twelve queryable fields — `Session.Name` is `session_name`,
+`Client.IsControlClient` is `client_control_mode` — and it is closed:
+
 The document carries stable wire names: `Session.Name` is `session_name` and
 `Client.IsControlClient` is `client_control_mode`. The catalog is closed over
 twelve queryable fields:
