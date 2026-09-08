@@ -12,6 +12,19 @@ version.
 
 ### Added
 
+- This port's guides and examples now publish to libtmux.org at
+  `/en/dotnet/latest/`, a path the site's port switcher and every page's
+  sidebar already linked and which returned 403 until now. libtmux.org's own
+  assembly builds the tree, reading this checkout for the sources its examples
+  quote. (#21)
+
+- `docfx.json` at the repository root, which extracts `LibTmux`,
+  `LibTmux.Query.Json`, and `LibTmux.Workspace` from their XML documentation
+  comments for the API reference libtmux.org publishes at
+  `/en/reference/dotnet/`. `LibTmux.Mcp` is excluded: it packs as a tool and
+  ships no assembly to reference, so its documented surface is the MCP tool
+  list in `docs/mcp/tools.md`. (#21)
+
 ### Fixed
 
 ### Changed
@@ -691,6 +704,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Query.Json` — `System.Text.Json` for query documents.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
+
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.10...HEAD
 
 [Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.11...HEAD
 [0.0.0-alpha.11]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.11
