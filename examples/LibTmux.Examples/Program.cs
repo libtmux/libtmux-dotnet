@@ -57,6 +57,8 @@ internal static class Program
             ExampleCase example = ExampleCase.Discover().Single(
                 example => string.Equals(
                     $"{example.Topic}.{example.Id}",
+                    // The example case keeps its own name; only the arena
+                    // artifact id below is the cross-port one.
                     "OneShot.ConnectAndBuild",
                     StringComparison.Ordinal));
             await example.RunAsync();
@@ -164,7 +166,7 @@ internal static class Program
                 || string.IsNullOrWhiteSpace(socketPath)
                 || string.IsNullOrWhiteSpace(tmuxBinaryPath)
                 || !Path.IsPathFullyQualified(tmuxBinaryPath)
-                || !string.Equals(artifact, "OneShot.ConnectAndBuild", StringComparison.Ordinal))
+                || !string.Equals(artifact, "csharp-one-shot", StringComparison.Ordinal))
             {
                 Console.Error.WriteLine("The arena contract is incomplete or mismatched.");
                 return null;

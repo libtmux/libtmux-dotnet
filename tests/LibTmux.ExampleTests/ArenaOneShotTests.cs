@@ -10,7 +10,7 @@ namespace LibTmux.ExampleTests;
 [UnsupportedOSPlatform("windows")]
 public sealed class ArenaOneShotTests
 {
-    private const string Artifact = "OneShot.ConnectAndBuild";
+    private const string Artifact = "csharp-one-shot";
     private const string Challenge = "borrowed \"challenge\"";
     private const string ExecutableInvocation = "arena-client";
 
