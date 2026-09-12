@@ -165,7 +165,34 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
                 }
                 Human(row["name"]?.ToString() ?? "", "subject", newline: false);
                 Human("  " + path, "information");
+                if (invocation.Flag("full") && row["config"] is JsonObject document) WorkspaceDetails(document);
             }
+        }
+    }
+
+    private void WorkspaceDetails(JsonObject document)
+    {
+        if (document["windows"] is not JsonArray windows) return;
+        IAnsiConsole console = HumanConsole(context.Output);
+        for (int index = 0; index < windows.Count; index++)
+        {
+            if (windows[index] is not JsonObject window) continue;
+            string title = window["window_name"]?.ToString() ?? $"window {index}";
+            if (window["layout"] is JsonValue layout) title += $" [{layout}]";
+            Tree tree = new(new Text(SafeText(title), new Style(Color.Cyan1, decoration: Decoration.Bold)));
+            if (window["panes"] is JsonArray panes)
+            {
+                for (int paneIndex = 0; paneIndex < panes.Count; paneIndex++)
+                {
+                    JsonNode? command = panes[paneIndex] is JsonObject pane ? pane["shell_command"] : panes[paneIndex];
+                    if (command is JsonArray commands) command = commands.FirstOrDefault();
+                    if (command is JsonObject action) command = action["cmd"];
+                    string label = $"pane {paneIndex}";
+                    if (command is JsonValue value && value.TryGetValue(out string? text) && !string.IsNullOrEmpty(text)) label += ": " + text;
+                    tree.AddNode(new Text(SafeText(label), new Style(Color.Cyan)));
+                }
+            }
+            console.Write(new Padder(tree, new Padding(2, 0, 0, 0)) { Expand = false });
         }
     }
 
@@ -312,12 +339,13 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
     internal void Human(string text, string role, bool newline = true, TextWriter? writer = null)
     {
         writer ??= context.Output;
-        bool color = UseColor(writer);
         Color tint = role switch { "error" => Color.Red, "warning" => Color.Yellow, "subject" => Color.Magenta1, "heading" => Color.Cyan1, "information" => Color.Cyan, _ => Color.Green };
-        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = color ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
-        string safe = string.Concat(text.Select(character => char.IsControl(character) && character is not '\n' and not '\t' ? $"\\u{(int)character:x4}" : character.ToString()));
-        console.Write(new Text(safe + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
+        HumanConsole(writer).Write(new Text(SafeText(text) + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
     }
+
+    private IAnsiConsole HumanConsole(TextWriter writer) => AnsiConsole.Create(new AnsiConsoleSettings { Ansi = UseColor(writer) ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
+
+    private static string SafeText(string text) => string.Concat(text.Select(character => char.IsControl(character) && character is not '\n' and not '\t' ? $"\\u{(int)character:x4}" : character.ToString()));
 
     private bool UseColor(TextWriter writer)
     {

@@ -64,7 +64,7 @@ internal sealed class CommandLine
         }
         Command list = Add(Root, "ls", "List local and global workspace files.");
         Flag(list, "tree", "--tree", "Group workspaces by directory.");
-        Flag(list, "full", "--full", "Include complete configuration documents.");
+        Flag(list, "full", "--full", "Show windows and each pane's first command; include complete configuration in JSON.");
         Command search = Add(Root, "search", "Search workspace names and configuration fields.");
         Arguments(search, "patterns", "query", ArgumentArity.ZeroOrMore);
         Option<string[]> field = new("--field", "-f") { Description = "Restrict matching to name, session/s, path/p, window/w or pane.", AllowMultipleArgumentsPerToken = false };
