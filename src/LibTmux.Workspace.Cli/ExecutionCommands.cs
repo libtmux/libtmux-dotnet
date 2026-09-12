@@ -17,13 +17,39 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     {
         string? socket = invocation.Text("socket_path");
         string? name = invocation.Text("socket_name");
-        if (socket is null && name is null && context.Environment.GetValueOrDefault("TMUX") is string current)
-        {
-            int last = current.LastIndexOf(',');
-            int previous = last > 0 ? current.LastIndexOf(',', last - 1) : -1;
-            if (previous > 0) socket = current[..previous];
-        }
+        if (socket is null && name is null) socket = CurrentSocket(out _);
+        if (socket is not null) socket = Path.GetFullPath(socket, context.Directory);
         return new ServerConnectionOptions(tmuxBinaryPath: context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
+    }
+
+    private string? CurrentSocket(out int processId)
+    {
+        processId = 0;
+        if (context.Environment.GetValueOrDefault("TMUX") is not string current) return null;
+        int last = current.LastIndexOf(',');
+        int previous = last > 0 ? current.LastIndexOf(',', last - 1) : -1;
+        if (previous <= 0
+            || !int.TryParse(current.AsSpan(previous + 1, last - previous - 1), NumberStyles.None, CultureInfo.InvariantCulture, out processId)
+            || processId <= 0
+            || !int.TryParse(current.AsSpan(last + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int session)
+            || session < 0) return null;
+        return current[..previous];
+    }
+
+    private async Task<string?> AppendTargetAsync()
+    {
+        if (!invocation.Flag("append")) return null;
+        string? pane = context.Environment.GetValueOrDefault("TMUX_PANE");
+        string? socket = CurrentSocket(out int processId);
+        if (socket is null || !PaneId.TryParse(pane, out _)) throw new CliException("session-required", "Append requires TMUX and TMUX_PANE from a current tmux session.");
+        Server current = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Connection().TmuxBinaryPath, socketPath: Path.GetFullPath(socket, context.Directory), childEnvironment: context.Environment));
+        string[] query = ["display-message", "-p", "-t", pane!, "#{pid}:#{start_time}"];
+        TmuxCommandResult identity = await current.ExecuteCommandAsync(query, context.CancellationToken).ConfigureAwait(false);
+        if (identity.ExitCode != 0) throw new CliException("session-required", "The current tmux pane is unavailable.");
+        string generation = Encoding.UTF8.GetString(identity.StandardOutput.Span).TrimEnd('\n');
+        if (!generation.StartsWith(processId.ToString(CultureInfo.InvariantCulture) + ":", StringComparison.Ordinal)) throw new CliException("stale-environment", "The server recorded in TMUX has been replaced.");
+        if (generation != (await Command(query).ConfigureAwait(false)).TrimEnd('\n')) throw new CliException("endpoint-mismatch", "Append cannot select a different server from the current tmux pane.");
+        return pane;
     }
 
     internal async Task<int> LoadAsync()
@@ -35,10 +61,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             JsonObject document = DocumentStore.Read(path);
             return (Path: path, Document: document, Plan: WorkspacePlan.Parse(document, path, _documents, invocation.Text("session_name")));
         }).ToArray();
+        string? appendTarget = await AppendTargetAsync().ConfigureAwait(false);
         if (inputs.Any(input => input.Document["plugins"] is not null || input.Document["workspace_builder"] is not null))
             return await new ProcessCommands(context, invocation, output).BridgeLoadAsync().ConfigureAwait(false);
-        string? appendTarget = invocation.Flag("append") ? context.Environment.GetValueOrDefault("TMUX_PANE") : null;
-        if (invocation.Flag("append") && string.IsNullOrEmpty(appendTarget)) throw new CliException("session-required", "Append requires TMUX_PANE in a current tmux session.");
         string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);
         string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
         JsonArray results = [];

@@ -84,6 +84,68 @@ public sealed class RegressionTests : IDisposable
         Assert.False(limit.IsCancellationRequested);
     }
 
+    [Theory]
+    [InlineData("inherited")]
+    [InlineData("same-path")]
+    [InlineData("other-path")]
+    [InlineData("other-name")]
+    [InlineData("restarted")]
+    public async Task Append_authenticates_the_current_panes_server(string selection)
+    {
+        string socket = Path.Combine(_root, "current,with,commas");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_TMPDIR"] = _root };
+        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        Server current = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: socket, configurationFile: "/dev/null", childEnvironment: environment));
+        Server other = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketName: "other", configurationFile: "/dev/null", childEnvironment: environment));
+        try
+        {
+            string pane = await Execute(current, "new-session", "-d", "-s", "current", "-P", "-F", "#{pane_id}");
+            Assert.Equal(pane, await Execute(other, "new-session", "-d", "-s", "other", "-P", "-F", "#{pane_id}"));
+            environment["TMUX"] = await Execute(current, "display-message", "-p", "#{socket_path},#{pid},0");
+            environment["TMUX_PANE"] = pane;
+            if (selection == "restarted")
+            {
+                await current.KillAsync(cancellationToken: TestContext.Current.CancellationToken);
+                Assert.Equal(pane, await Execute(current, "new-session", "-d", "-s", "replacement", "-P", "-F", "#{pane_id}"));
+                Assert.NotEqual(environment["TMUX"], await Execute(current, "display-message", "-p", "#{socket_path},#{pid},0"));
+            }
+            string file = Path.Combine(_root, "append.yaml");
+            await File.WriteAllTextAsync(file, "session_name: append\nwindows: [{window_name: added, panes: [null]}]", TestContext.Current.CancellationToken);
+            string[] endpoint = selection switch
+            {
+                "same-path" => ["-S", socket],
+                "other-path" => ["-S", await Execute(other, "display-message", "-p", "#{socket_path}")],
+                "other-name" => ["-L", "other"],
+                _ => [],
+            };
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", file, "--append", "--json", .. endpoint], output, error, _root, environment, TestContext.Current.CancellationToken);
+            bool mismatch = selection.StartsWith("other", StringComparison.Ordinal) || selection == "restarted";
+            Assert.Equal(mismatch ? 1 : 0, code);
+            if (mismatch)
+            {
+                Assert.Empty(output.ToString());
+                Assert.Equal(selection == "restarted" ? "stale-environment" : "endpoint-mismatch", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+            }
+            else Assert.Equal("appended", JsonNode.Parse(output.ToString())!["results"]![0]!["status"]!.ToString());
+            Assert.Equal(mismatch ? "1" : "2", await Execute(current, "display-message", "-p", "#{session_windows}"));
+            Assert.Equal("1", await Execute(other, "display-message", "-p", "#{session_windows}"));
+        }
+        finally
+        {
+            if (await current.IsAliveAsync(TestContext.Current.CancellationToken)) await current.KillAsync(cancellationToken: TestContext.Current.CancellationToken);
+            if (await other.IsAliveAsync(TestContext.Current.CancellationToken)) await other.KillAsync(cancellationToken: TestContext.Current.CancellationToken);
+        }
+    }
+
+    private static async Task<string> Execute(Server server, params string[] arguments)
+    {
+        TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
+        Assert.Equal(0, result.ExitCode);
+        return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
+    }
+
     private CliContext Context(TextWriter output) => new(output, TextWriter.Null, _root, System.Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => entry.Value?.ToString(), StringComparer.Ordinal), TestContext.Current.CancellationToken);
 
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
