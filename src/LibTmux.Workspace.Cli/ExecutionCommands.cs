@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
+using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -11,53 +12,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     private static readonly string[] InterpreterSuffixes = ["python", "ruby", "node"];
     private readonly DocumentStore _documents = new(context);
     private Server? _server;
-    private Session? _appendSession;
+    private ServerGeneration? _loadGeneration;
     private Server Server => _server ??= Server.Open(Connection());
 
     internal ServerConnectionOptions Connection()
     {
         string? socket = invocation.Text("socket_path");
         string? name = invocation.Text("socket_name");
-        if (socket is null && name is null) socket = CurrentSocket(out _);
+        if (socket is null && name is null) socket = LoadHandoff.CurrentSocket(context, out _);
         if (socket is not null) socket = Path.GetFullPath(socket, context.Directory);
         return new ServerConnectionOptions(tmuxBinaryPath: context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
-    }
-
-    private string? CurrentSocket(out int processId)
-    {
-        processId = 0;
-        if (context.Environment.GetValueOrDefault("TMUX") is not string current) return null;
-        int last = current.LastIndexOf(',');
-        int previous = last > 0 ? current.LastIndexOf(',', last - 1) : -1;
-        if (previous <= 0
-            || !int.TryParse(current.AsSpan(previous + 1, last - previous - 1), NumberStyles.None, CultureInfo.InvariantCulture, out processId)
-            || processId <= 0
-            || !int.TryParse(current.AsSpan(last + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int session)
-            || session < 0) return null;
-        return current[..previous];
-    }
-
-    private async Task<(Session Session, string Name)?> AppendTargetAsync()
-    {
-        if (!invocation.Flag("append")) return null;
-        string? pane = context.Environment.GetValueOrDefault("TMUX_PANE");
-        string? socket = CurrentSocket(out int processId);
-        if (socket is null || !PaneId.TryParse(pane, out PaneId paneId)) throw new CliException("session-required", "Append requires TMUX and TMUX_PANE from a current tmux session.");
-        Server current = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Connection().TmuxBinaryPath, socketPath: Path.GetFullPath(socket, context.Directory), childEnvironment: context.Environment));
-        string[] query = ["display-message", "-p", "-t", pane!, "#{pid}:#{start_time}"];
-        TmuxCommandResult identity = await current.ExecuteCommandAsync(query, context.CancellationToken).ConfigureAwait(false);
-        if (identity.ExitCode != 0) throw new CliException("session-required", "The current tmux pane is unavailable.");
-        string generation = Encoding.UTF8.GetString(identity.StandardOutput.Span).TrimEnd('\n');
-        if (!generation.StartsWith(processId.ToString(CultureInfo.InvariantCulture) + ":", StringComparison.Ordinal)) throw new CliException("stale-environment", "The server recorded in TMUX has been replaced.");
-        _server = await Server.ConnectAsync(Connection(), context.CancellationToken).ConfigureAwait(false);
-        ServerGeneration selected = _server.Generation!.Value;
-        if (generation != string.Create(CultureInfo.InvariantCulture, $"{selected.ProcessId}:{selected.StartTime}")) throw new CliException("endpoint-mismatch", "Append cannot select a different server from the current tmux pane.");
-        Pane currentPane = await _server.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
-        TmuxCommandResult resolved = await currentPane.ExecuteCommandAsync(["display-message", "-p", "#{session_id}\t#{session_name}"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
-        string[] fields = Encoding.UTF8.GetString(resolved.StandardOutput.Span).TrimEnd('\n').Split('\t', 2);
-        if (resolved.ExitCode != 0 || fields.Length != 2 || !SessionId.TryParse(fields[0], out SessionId sessionId)) throw new CliException("session-required", "The current tmux pane has no session.");
-        _appendSession = await _server.GetSessionAsync(sessionId, context.CancellationToken).ConfigureAwait(false);
-        return (_appendSession, fields[1]);
     }
 
     internal async Task<int> LoadAsync()
@@ -73,10 +37,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             return (Path: path, Document: document, Plan: WorkspacePlan.Parse(document, path, _documents, index == files.Length - 1 ? invocation.Text("session_name") : null));
         }).ToArray();
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
-        if (extensions && invocation.Flag("append")) throw new CliException("unsupported-append-extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
-        (Session Session, string Name)? appendTarget = await AppendTargetAsync().ConfigureAwait(false);
+        LoadHandoff handoff = new(context, invocation, output);
+        await handoff.ResolveAsync(Connection()).ConfigureAwait(false);
+        if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("unsupported-append-extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
+        if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported-attached-extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
+        _server = handoff.Server;
+        _loadGeneration = _server?.Generation;
+        (Session Session, string Name)? appendTarget = handoff.Mode == LoadMode.Append ? (handoff.CurrentSession!, handoff.CurrentSessionName!) : null;
         if (extensions)
-            return await new ProcessCommands(context, invocation, output).BridgeLoadAsync().ConfigureAwait(false);
+            return await new ProcessCommands(context, invocation, output).BridgeLoadAsync(handoff.Mode == LoadMode.Detached).ConfigureAwait(false);
+        Session? finalSession = null;
         string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);
         string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
         JsonArray results = [];
@@ -87,6 +57,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             string stage = "workspace-started";
             var input = inputs[index];
             string? session = null;
+            Session? ownedSession = null;
             string sessionName = input.Plan.Name;
             string? completedStage = null;
             bool created = false;
@@ -112,7 +83,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + input.Plan.Name], context.CancellationToken).ConfigureAwait(false);
                     if (exists.ExitCode == 0)
                     {
-                        session = await Field("=" + input.Plan.Name + ":", "session_id").ConfigureAwait(false);
+                        string[] identity = (await Command(["display-message", "-p", "-t", "=" + input.Plan.Name + ":", "#{session_id}\t#{pid}:#{start_time}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                        session = identity[0];
+                        finalSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identity[1])).ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
                         if (!invocation.Machine) output.Human("Using existing session " + input.Plan.Name, "success");
@@ -124,12 +97,13 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 if (session is null)
                 {
                     stage = "session-created";
-                    List<string> start = ["new-session", "-d", "-s", input.Plan.Name, "-c", input.Plan.Directory, "-x", columns, "-y", rows, "-P", "-F", "#{session_id}\t#{window_id}"];
+                    List<string> start = ["new-session", "-d", "-s", input.Plan.Name, "-c", input.Plan.Directory, "-x", columns, "-y", rows, "-P", "-F", "#{session_id}\t#{window_id}\t#{pid}:#{start_time}"];
                     foreach (var variable in input.Plan.Environment) start.AddRange(["-e", variable.Key + "=" + variable.Value]);
                     string[] identifiers = (await Change(start).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
                     session = identifiers[0];
                     bootstrap = identifiers[1];
                     created = true;
+                    finalSession = ownedSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identifiers[2])).ConfigureAwait(false);
                     int temporaryIndex = 99999;
                     while (input.Plan.Windows.Any(window => window.Index == temporaryIndex)) temporaryIndex++;
                     await Change(["move-window", "-s", bootstrap, "-t", session + ":" + temporaryIndex.ToString(CultureInfo.InvariantCulture)]).ConfigureAwait(false);
@@ -223,14 +197,24 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or StaleServerGenerationException or ArgumentException or IOException or UnauthorizedAccessException)
             {
                 bool removed = false;
-                if (stage == "before-script" && created && session is not null)
+                string? cleanupError = null;
+                if (stage == "before-script" && ownedSession is not null)
                 {
                     using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
-                    TmuxCommandResult deletion = await Server.ExecuteCommandAsync(["kill-session", "-t", session], cleanup.Token).ConfigureAwait(false);
-                    removed = deletion.ExitCode == 0;
+                    try
+                    {
+                        TmuxCommandResult deletion = await ownedSession.ExecuteCommandAsync(["kill-session"], cancellationToken: cleanup.Token).ConfigureAwait(false);
+                        removed = deletion.ExitCode == 0;
+                        if (!removed) cleanupError = string.Join("\n", deletion.StandardErrorLines);
+                    }
+                    catch (Exception deletion) when (deletion is LibTmuxException or StaleServerGenerationException or OperationCanceledException or IOException or UnauthorizedAccessException)
+                    {
+                        cleanupError = deletion.Message;
+                    }
                 }
                 string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
+                if (cleanupError is not null) errors[^1]!["cleanup_error"] = cleanupError;
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
                 try
@@ -251,15 +235,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         {
             await output.EventAsync("completed", completed).ConfigureAwait(false);
             if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(completed).ConfigureAwait(false);
-            await output.FinishProgressAsync().ConfigureAwait(false);
+            await output.HandoffAsync().ConfigureAwait(false);
+            if (finalSession is not null) await handoff.CompleteAsync(finalSession).ConfigureAwait(false);
         }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException)
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException or CliException or LibTmuxException or StaleServerGenerationException)
         {
-            await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, completed).ConfigureAwait(false);
-            return failure is OperationCanceledException ? 130 : 1;
+            string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "attach-failed";
+            string recorded = "Recorded load results:\n" + string.Join("\n", results.Select(result => $"  {result!["session_name"]} ({result["session_id"]}, {result["status"]})"));
+            await output.DiagnosticAsync(code, failure.Message, completed, recorded).ConfigureAwait(false);
+            return failure is OperationCanceledException ? 130 : failure is CliException status ? status.ExitCode : 1;
         }
-        if (!invocation.Flag("detached") && !invocation.Flag("append") && results.LastOrDefault()?["session_id"]?.ToString() is string target)
-            return await new ProcessCommands(context, invocation, output).AttachAsync(target, Connection()).ConfigureAwait(false);
         return 0;
     }
 
@@ -334,11 +319,22 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         return "=" + name + ":";
     }
 
+    private async Task<Session> BindSessionAsync(string id, ServerGeneration generation)
+    {
+        if (_loadGeneration is ServerGeneration expected && generation != expected)
+            throw new StaleServerGenerationException("The load server changed before session selection.", expected, generation);
+        _server = await Server.ConnectAsync(context.CancellationToken).ConfigureAwait(false);
+        if (_server.Generation != generation)
+            throw new StaleServerGenerationException("The load server changed after session selection.", generation, _server.Generation!.Value);
+        _loadGeneration = generation;
+        return await _server.GetSessionAsync(SessionId.Parse(id), context.CancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<string> Command(IReadOnlyList<string> arguments)
     {
-        TmuxCommandResult result = _appendSession is null
+        TmuxCommandResult result = _loadGeneration is not ServerGeneration generation
             ? await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false)
-            : await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = _appendSession.Generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
+            : await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0) throw new CliException("tmux-failed", string.Join("\n", result.StandardErrorLines));
         return Encoding.UTF8.GetString(result.StandardOutput.Span);
     }
