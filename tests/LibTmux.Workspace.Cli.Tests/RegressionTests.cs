@@ -22,6 +22,38 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Theory]
+    [InlineData("directory")]
+    [InlineData("fifo")]
+    [InlineData("device")]
+    [InlineData("symlink")]
+    public async Task Log_destination_failure_precedes_backend_work(string kind)
+    {
+        string file = Path.Combine(_root, "workspace.yaml");
+        string marker = Path.Combine(_root, "backend-called");
+        string backend = Path.Combine(_root, "backend");
+        string destination = kind == "directory" ? _root : kind == "device" ? "/dev/null" : Path.Combine(_root, kind);
+        await File.WriteAllTextAsync(file, "session_name: logging\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(backend, "#!/bin/sh\nprintf called > '" + marker + "'\nexit 1\n", TestContext.Current.CancellationToken);
+        File.SetUnixFileMode(backend, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (kind == "fifo")
+        {
+            using System.Diagnostics.Process process = System.Diagnostics.Process.Start("mkfifo", destination)!;
+            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(0, process.ExitCode);
+        }
+        if (kind == "symlink") File.CreateSymbolicLink(destination, file);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["LIBTMUX_TMUX"] = backend };
+        using StringWriter output = new();
+        using StringWriter error = new();
+        int code = await CliRunner.RunAsync(["load", file, "-d", "--log-file", destination, "--json"], output, error, _root, environment, TestContext.Current.CancellationToken);
+        Assert.False(File.Exists(marker));
+        Assert.Equal(1, code);
+        Assert.Empty(output.ToString());
+        Assert.Equal("log-file-unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+        Assert.Equal("session_name: logging\nwindows: [{panes: [null]}]", await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("./working")]
     [InlineData("absolute")]
@@ -41,10 +73,16 @@ public sealed class RegressionTests : IDisposable
         };
         if (start is not null) document["start_directory"] = start == "absolute" ? directory : start;
         await File.WriteAllTextAsync(file, document.ToJsonString(), TestContext.Current.CancellationToken);
+        string log = Path.Combine(_root, "operation.ndjson");
+        if (start is not null)
+        {
+            await File.WriteAllTextAsync(log, "{\"preserved\":true}\n", TestContext.Current.CancellationToken);
+            File.SetUnixFileMode(log, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+        }
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
-            var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
+            var result = await Run("--log-level", "debug", "load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson", "--log-file", "operation.ndjson");
             Assert.True(result.Code == 0, result.Error + result.Output);
             JsonNode[] events = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.True(Array.FindIndex(events, item => item["event"]!.ToString() == "session-created") < Array.FindIndex(events, item => item["event"]!.ToString() == "script-output"));
@@ -53,6 +91,12 @@ public sealed class RegressionTests : IDisposable
             TmuxCommandResult pane = await server.ExecuteCommandAsync(["display-message", "-p", "-t", sessionId + ":", "#{pane_current_path}"], TestContext.Current.CancellationToken);
             Assert.Equal(0, pane.ExitCode);
             Assert.Equal(expectedDirectory, System.Text.Encoding.UTF8.GetString(pane.StandardOutput.Span).TrimEnd('\n'));
+            Assert.True(File.Exists(log));
+            JsonNode[] logged = (await File.ReadAllLinesAsync(log, TestContext.Current.CancellationToken)).Select(line => JsonNode.Parse(line)!).ToArray();
+            if (start is not null) { Assert.True(logged[0]["preserved"]!.GetValue<bool>()); logged = logged[1..]; }
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | (start is null ? 0 : UnixFileMode.GroupRead), File.GetUnixFileMode(log));
+            Assert.Equal(events.Select(item => item["event"]!.ToString()), logged.Select(item => item["event"]!.ToString()));
+            Assert.Equal("debug", logged.Single(item => item["event"]!.ToString() == "script-output")["severity"]!.ToString());
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
@@ -72,6 +116,43 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Python_bridge_leaves_log_file_ownership_with_the_native_cli(bool equals)
+    {
+        string file = Path.Combine(_root, "extension.yaml");
+        string python = Path.Combine(_root, "python");
+        string trace = Path.Combine(_root, "arguments");
+        string log = Path.Combine(_root, "bridge.ndjson");
+        await File.WriteAllTextAsync(file, "session_name: bridge\nplugins: [example]\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(python, $$"""
+            #!/bin/sh
+            if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
+            printf '%s\n' "$@" > '{{trace}}'
+            printf 'bridge \342\230\203\033[31m\n'
+            printf 'warning\rline\n' >&2
+            """, TestContext.Current.CancellationToken);
+        File.SetUnixFileMode(python, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        string[] level = equals ? ["--log-level=debug"] : ["--log-level", "debug"];
+        string[] destination = equals ? ["--log-file=bridge.ndjson"] : ["--log-file", "bridge.ndjson"];
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_WORKSPACE_PYTHON"] = python };
+        using StringWriter output = new();
+        using StringWriter error = new();
+        int code = await CliRunner.RunAsync([.. level, "load", file, "-d", .. destination, "--json"], output, error, _root, environment, TestContext.Current.CancellationToken);
+        Assert.Equal(0, code);
+        Assert.Empty(error.ToString());
+        Assert.Equal("ok", JsonNode.Parse(output.ToString())!["status"]!.ToString());
+        Assert.Equal(["load", file, "-d"], (await File.ReadAllLinesAsync(trace, TestContext.Current.CancellationToken))[3..]);
+        string text = await File.ReadAllTextAsync(log, TestContext.Current.CancellationToken);
+        Assert.DoesNotContain('\u001b', text);
+        JsonNode[] records = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+        Assert.Equal("started", records[0]["event"]!.ToString());
+        Assert.Equal("completed", records[^1]["event"]!.ToString());
+        Assert.Contains(records, item => item["event"]!.ToString() == "script-output" && item["data"]!["stream"]!.ToString() == "stdout" && item["data"]!["text"]!.ToString().Contains('\u2603'));
+        Assert.Contains(records, item => item["event"]!.ToString() == "script-output" && item["data"]!["stream"]!.ToString() == "stderr");
+    }
+
     [Fact]
     public async Task Child_pipe_failure_finishes_without_waiting_for_full_child_output()
     {
@@ -82,6 +163,96 @@ public sealed class RegressionTests : IDisposable
         Exception? error = await Record.ExceptionAsync(() => ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "while :; do printf 'long-output-line\\n'; done"], _root, true));
         Assert.IsType<IOException>(error);
         Assert.False(limit.IsCancellationRequested);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Child_output_waits_for_async_writes_and_cancels_them(bool fileSink)
+    {
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using BlockingWriter blocked = new();
+        CliContext context = Context(fileSink ? TextWriter.Null : blocked) with { CancellationToken = cancellation.Token };
+        await using Output output = new(context, new CommandLine().Parse(["--log-level", "debug", "shell", "-c", "print()", "--ndjson"]), fileSink ? blocked : null);
+        Task<ChildResult> child = ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "while :; do printf 'output\\n'; done"], _root, true);
+        try
+        {
+            await blocked.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            Assert.False(child.IsCompleted);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => child.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            blocked.Release.TrySetResult();
+            try { await child; } catch (OperationCanceledException) { }
+        }
+    }
+
+    [Theory]
+    [InlineData("success", false)]
+    [InlineData("success", true)]
+    [InlineData("script", true)]
+    [InlineData("cancel", true)]
+    public async Task Late_log_failure_preserves_the_workspace_result(string outcome, bool brokenError)
+    {
+        string socket = Path.Combine(_root, "logging.socket");
+        string file = Path.Combine(_root, "logging.yaml");
+        string script = outcome == "script" ? "/bin/false" : outcome == "cancel" ? "/bin/sh -c 'printf ready; sleep 60'" : "/bin/echo ready";
+        await File.WriteAllTextAsync(file, "session_name: logging\nbefore_script: " + script + "\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using CancellingWriter stdout = new(outcome == "cancel" ? cancellation : null);
+        using StringWriter stderr = brokenError ? new BrokenWriter() : new StringWriter();
+        CliContext context = Context(stdout) with { Error = stderr, CancellationToken = cancellation.Token };
+        Invocation invocation = new CommandLine().Parse(["--log-level", "debug", "load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson"]);
+        await using Output output = new(context, invocation, new FailingLogWriter(outcome == "success" ? "script-output" : "failed"));
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            int code = await new ExecutionCommands(context, invocation, output).LoadAsync();
+            Assert.Equal(outcome == "success" ? 0 : outcome == "cancel" ? 130 : 1, code);
+            JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+            JsonNode terminal = Assert.Single(events, item => item["event"]!.ToString() is "completed" or "failed");
+            Assert.Equal(outcome == "success" ? "ok" : "error", terminal["data"]!["status"]!.ToString());
+            Assert.Equal(outcome == "success", await server.IsAliveAsync(TestContext.Current.CancellationToken));
+            if (!brokenError)
+            {
+                string diagnostic = Assert.Single(stderr.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+                Assert.Equal("log-file-write-failed", JsonNode.Parse(diagnostic)!["code"]!.ToString());
+            }
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Terminal_output_failure_reports_the_completed_workspace(bool ndjson, bool cancelled)
+    {
+        string socket = Path.Combine(_root, "terminal-output.socket");
+        string file = Path.Combine(_root, "terminal-output.yaml");
+        await File.WriteAllTextAsync(file, "session_name: published\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using TerminalWriter output = new(ndjson, cancelled ? cancellation : null);
+        using StringWriter error = new();
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", ndjson ? "--ndjson" : "--json"], output, error, _root, cancellationToken: cancellation.Token);
+            Assert.Equal(cancelled ? 130 : 1, code);
+            JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
+            Assert.Equal(cancelled ? "cancelled" : "output-failed", diagnostic["code"]!.ToString());
+            JsonNode effects = Assert.IsAssignableFrom<JsonNode>(diagnostic["effects"]);
+            Assert.Equal("created", effects["results"]![0]!["status"]!.ToString());
+            string session = effects["results"]![0]!["session_id"]!.ToString();
+            Assert.Equal(0, (await server.ExecuteCommandAsync(["has-session", "-t", session], TestContext.Current.CancellationToken)).ExitCode);
+            JsonNode[] records = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+            Assert.Single(records, item => ndjson ? item["event"]?.ToString() is "completed" or "failed" : item["status"] is not null);
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
     [Theory]
@@ -379,6 +550,22 @@ public sealed class RegressionTests : IDisposable
 
     private sealed class CancellingWriter(CancellationTokenSource? cancellation, string eventName = "script-output") : StringWriter
     {
+        private bool _pending;
+        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            base.WriteLine(value.ToString());
+            _pending |= value.Span.Contains(("\"event\":\"" + eventName + "\"").AsSpan(), StringComparison.Ordinal);
+            return Task.CompletedTask;
+        }
+
+        public override Task FlushAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_pending) { _pending = false; cancellation?.Cancel(); }
+            return Task.CompletedTask;
+        }
+
         public override void WriteLine(string? value)
         {
             base.WriteLine(value);
@@ -399,6 +586,47 @@ public sealed class RegressionTests : IDisposable
     private sealed class BrokenWriter : StringWriter
     {
         public override void WriteLine(string? value) => throw new IOException("reader closed");
+        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default) => throw new IOException("reader closed");
+    }
+
+    private sealed class BlockingWriter : StringWriter
+    {
+        internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        {
+            Started.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+        }
+    }
+
+    private sealed class FailingLogWriter(string trigger) : StringWriter
+    {
+        private bool _failed;
+        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        {
+            _failed |= value.Span.Contains(("\"event\":\"" + trigger + "\"").AsSpan(), StringComparison.Ordinal);
+            return _failed ? Task.FromException(new IOException("log file full")) : base.WriteLineAsync(value, cancellationToken);
+        }
+        public override ValueTask DisposeAsync() => _failed ? ValueTask.FromException(new IOException("log flush failed")) : base.DisposeAsync();
+    }
+
+    private sealed class TerminalWriter(bool ndjson, CancellationTokenSource? cancellation) : StringWriter
+    {
+        private bool _terminal;
+        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        {
+            JsonNode record = JsonNode.Parse(value.ToString())!;
+            _terminal = ndjson ? record["event"]?.ToString() == "completed" : record["status"]?.ToString() == "ok";
+            return base.WriteLineAsync(value, cancellationToken);
+        }
+        public override Task FlushAsync(CancellationToken cancellationToken)
+        {
+            if (!_terminal) return base.FlushAsync(cancellationToken);
+            cancellation?.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new IOException("terminal output closed");
+        }
     }
 
     public void Dispose() => Directory.Delete(_root, true);

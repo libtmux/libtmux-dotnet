@@ -27,14 +27,22 @@ internal sealed class CliException(string code, string message, int exitCode = 1
     internal int ExitCode { get; } = exitCode;
 }
 
-internal sealed class Output(CliContext context, Invocation invocation)
+internal sealed class Output(CliContext context, Invocation invocation, TextWriter? log = null) : IAsyncDisposable
 {
     private int _sequence;
+    private readonly SemaphoreSlim _writes = new(1, 1);
+    private TextWriter? _log = log;
     internal bool Machine => invocation.Machine;
 
     internal void Result(object? value, string? status = null)
     {
         if (Machine) Json(context.Output, value);
+        else Human(status ?? JsonSerializer.Serialize(value), "success");
+    }
+
+    internal async ValueTask ResultAsync(object? value, string? status = null, CancellationToken? cancellationToken = null)
+    {
+        if (Machine) await JsonAsync(context.Output, value, cancellationToken ?? context.CancellationToken).ConfigureAwait(false);
         else Human(status ?? JsonSerializer.Serialize(value), "success");
     }
 
@@ -60,21 +68,105 @@ internal sealed class Output(CliContext context, Invocation invocation)
         }
     }
 
-    internal void Event(string name, object? data = null)
+    internal async ValueTask EventAsync(string name, object? data = null, CancellationToken? cancellationToken = null)
     {
-        if (invocation.Flag("ndjson")) Json(context.Output, new { schema_version = 1, command = invocation.Command, @event = name, sequence = ++_sequence, data });
+        CancellationToken token = cancellationToken ?? context.CancellationToken;
+        await _writes.WaitAsync(token).ConfigureAwait(false);
+        try { await EventCoreAsync(name, data, token).ConfigureAwait(false); }
+        finally { _writes.Release(); }
     }
 
-    internal void Diagnostic(string code, string message)
+    private async ValueTask EventCoreAsync(string name, object? data, CancellationToken token)
     {
-        if (Machine) Json(context.Error, new { code, message });
-        else Human(message, "error", writer: context.Error);
+        int sequence = ++_sequence;
+        string severity = name == "script-output" ? "debug" : name == "failed" ? "error" : "info";
+        await LogAsync(new { schema_version = 1, command = invocation.Command, @event = name, sequence, data, severity }, severity, token).ConfigureAwait(false);
+        if (invocation.Flag("ndjson")) await JsonAsync(context.Output, new { schema_version = 1, command = invocation.Command, @event = name, sequence, data }, token).ConfigureAwait(false);
     }
 
-    internal void Warning(string code, string message)
+    internal async ValueTask ScriptOutputAsync(string channel, string text)
     {
-        if (Machine) Json(context.Error, new { code, message, severity = "warning" });
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try
+        {
+            await EventCoreAsync("script-output", new { stream = channel, text, encoding = "utf-8-replacement" }, context.CancellationToken).ConfigureAwait(false);
+            if (!Machine) Human(text, "secondary", newline: false, writer: context.Error);
+        }
+        finally { _writes.Release(); }
+    }
+
+    internal async ValueTask DiagnosticAsync(string code, string message, object? effects = null)
+    {
+        using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
+        bool entered = false;
+        try
+        {
+            await _writes.WaitAsync(reporting.Token).ConfigureAwait(false);
+            entered = true;
+            await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "error" }, "error", reporting.Token).ConfigureAwait(false);
+            if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { code, message } : new { code, message, effects }, reporting.Token).ConfigureAwait(false);
+            else Human(message, "error", writer: context.Error);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException) { }
+        finally { if (entered) _writes.Release(); }
+    }
+
+    internal async ValueTask WarningAsync(string code, string message)
+    {
+        if (!Enabled("warning")) return;
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try
+        {
+            await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "warning" }, "warning", context.CancellationToken).ConfigureAwait(false);
+            await WarningCoreAsync(code, message, context.CancellationToken).ConfigureAwait(false);
+        }
+        finally { _writes.Release(); }
+    }
+
+    private async ValueTask WarningCoreAsync(string code, string message, CancellationToken token)
+    {
+        if (Machine) await JsonAsync(context.Error, new { code, message, severity = "warning" }, token).ConfigureAwait(false);
         else Human(message, "warning", writer: context.Error);
+    }
+
+    private bool Enabled(string severity)
+    {
+        static int Rank(string level) => level switch { "debug" => 0, "info" => 1, "warning" => 2, "error" => 3, "critical" => 4, _ => 2 };
+        return Rank(severity) >= Rank(invocation.Text("log_level") ?? "warning");
+    }
+
+    private async ValueTask LogAsync(object record, string severity, CancellationToken token)
+    {
+        if (_log is not TextWriter writer || !Enabled(severity)) return;
+        try { await JsonAsync(writer, record, token).ConfigureAwait(false); }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            _log = null;
+            try { await writer.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception closing) when (closing is IOException or UnauthorizedAccessException) { }
+            await ReportLogFailureAsync(failure).ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask ReportLogFailureAsync(Exception failure)
+    {
+        using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
+        try { await WarningCoreAsync("log-file-write-failed", "Log file output stopped: " + failure.Message, reporting.Token).ConfigureAwait(false); }
+        catch (Exception secondary) when (secondary is IOException or UnauthorizedAccessException or OperationCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_log is TextWriter writer)
+        {
+            _log = null;
+            try { await writer.DisposeAsync().ConfigureAwait(false); }
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+            {
+                await ReportLogFailureAsync(failure).ConfigureAwait(false);
+            }
+        }
+        _writes.Dispose();
     }
 
     internal void Human(string text, string role, bool newline = true, TextWriter? writer = null)
@@ -91,5 +183,11 @@ internal sealed class Output(CliContext context, Invocation invocation)
     {
         writer.WriteLine(JsonSerializer.Serialize(value));
         writer.Flush();
+    }
+
+    private static async ValueTask JsonAsync(TextWriter writer, object? value, CancellationToken token)
+    {
+        await writer.WriteLineAsync(JsonSerializer.Serialize(value).AsMemory(), token).ConfigureAwait(false);
+        await writer.FlushAsync(token).ConfigureAwait(false);
     }
 }

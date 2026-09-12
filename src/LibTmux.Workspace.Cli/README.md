@@ -53,6 +53,10 @@ Machine freeze, conversion and import return the document without writing a gues
 
 `--color auto|always|never` controls human color. Nonempty `NO_COLOR` wins over forced color; machine output has no terminal color escapes. Discovery uses `TMUXP_CONFIGDIR`, XDG configuration and the legacy tmuxp directory. `TMUXINATOR_CONFIG` selects the importer directory. `LIBTMUX_TMUX` can select an explicit tmux executable.
 
+`--log-level debug|info|warning|error|critical` filters optional warnings and file records; the default is `warning`. Command failures remain visible at every level. On Linux x64, `load --log-file PATH` appends UTF-8 JSON lines. Select `info` for lifecycle records or `debug` to include script output. Relative paths use the invocation directory. New files allow only owner read/write; existing content and permissions are preserved. Directories, pipes, devices and symbolic links are rejected. Other platforms currently reject `--log-file` because their native file layouts are not verified.
+
+A log destination that cannot be opened fails before tmux or Python runs. A later file-write failure disables that log and reports one secondary diagnostic; workspace execution retains its own result, error or cancellation. Log output contains escaped data and receives no terminal colors. Python delegation leaves the log file under native ownership.
+
 Search uses .NET regular expressions with a one-second match timeout. Basic patterns, field aliases and tmuxp search flags are supported; Python-specific regex syntax and some Unicode character classes differ. Invalid expressions return usage status 2.
 
 Python shell code and workspace extensions require tmuxp **1.74.0**. Set `TMUX_WORKSPACE_PYTHON` to the compatible Python executable. Child stdout and stderr are drained concurrently; retained output is capped at 64 Ki characters per stream and truncation is explicit. Streaming output decodes UTF-8 with replacement for invalid bytes.
