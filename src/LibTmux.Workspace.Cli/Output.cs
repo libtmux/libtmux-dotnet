@@ -50,7 +50,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
         try
         {
-            if (_progress is not null) update(_progress);
+            update(_progress);
             await DrawProgressAsync(context.CancellationToken, force).ConfigureAwait(false);
         }
         finally { _writes.Release(); }
@@ -319,7 +319,12 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         console.Write(new Text(safe + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
     }
 
-    private bool UseColor(TextWriter writer) => !Machine && string.IsNullOrEmpty(context.Environment.GetValueOrDefault("NO_COLOR")) && invocation.Text("color") != "never" && (invocation.Text("color") == "always" || !string.IsNullOrEmpty(context.Environment.GetValueOrDefault("FORCE_COLOR")) || (context.Environment.GetValueOrDefault("CLICOLOR_FORCE") is string force && force is not "" and not "0") || (context.Environment.GetValueOrDefault("CLICOLOR") != "0" && (ReferenceEquals(writer, context.Error) ? context.ErrorTerminal : context.Terminal)));
+    private bool UseColor(TextWriter writer)
+    {
+        if (Machine || !string.IsNullOrEmpty(context.Environment.GetValueOrDefault("NO_COLOR")) || invocation.Text("color") == "never") return false;
+        if (invocation.Text("color") == "always" || !string.IsNullOrEmpty(context.Environment.GetValueOrDefault("FORCE_COLOR")) || (context.Environment.GetValueOrDefault("CLICOLOR_FORCE") is string force && force is not "" and not "0")) return true;
+        return context.Environment.GetValueOrDefault("CLICOLOR") != "0" && (ReferenceEquals(writer, context.Error) ? context.ErrorTerminal : context.Terminal);
+    }
 
     private static void Json(TextWriter writer, object? value)
     {
