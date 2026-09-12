@@ -356,20 +356,32 @@ public sealed class RegressionTests : IDisposable
     [InlineData(true, "io")]
     [InlineData(true, "cancel")]
     [InlineData(true, "access")]
+    [InlineData(false, "human-io")]
+    [InlineData(false, "human-cancel")]
+    [InlineData(false, "human-access")]
     public async Task Terminal_output_failure_reports_the_completed_workspace(bool ndjson, string failure)
     {
         string socket = Path.Combine(_root, "terminal-output.socket");
         string file = Path.Combine(_root, "terminal-output.yaml");
         await File.WriteAllTextAsync(file, "session_name: published\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
         using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        bool cancelled = failure == "cancel";
-        using TerminalWriter output = new(ndjson, cancelled ? cancellation : null, failure == "access");
+        bool human = failure.StartsWith("human-", StringComparison.Ordinal);
+        bool cancelled = failure.EndsWith("cancel", StringComparison.Ordinal);
+        using TerminalWriter output = new(ndjson, cancelled ? cancellation : null, failure.EndsWith("access", StringComparison.Ordinal), human);
         using StringWriter error = new();
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
-            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", ndjson ? "--ndjson" : "--json"], output, error, _root, cancellationToken: cancellation.Token);
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", .. (human ? Array.Empty<string>() : [ndjson ? "--ndjson" : "--json"])], output, error, _root, cancellationToken: cancellation.Token);
             Assert.Equal(cancelled ? 130 : 1, code);
+            if (human)
+            {
+                Assert.Contains("Recorded load results:", error.ToString(), StringComparison.Ordinal);
+                Assert.Contains("published", error.ToString(), StringComparison.Ordinal);
+                Assert.Contains("created", error.ToString(), StringComparison.Ordinal);
+                Assert.Equal(0, (await server.ExecuteCommandAsync(["has-session", "-t", "=published"], TestContext.Current.CancellationToken)).ExitCode);
+                return;
+            }
             JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
             Assert.Equal(cancelled ? "cancelled" : "output-failed", diagnostic["code"]!.ToString());
             JsonNode effects = Assert.IsAssignableFrom<JsonNode>(diagnostic["effects"]);
@@ -909,7 +921,7 @@ public sealed class RegressionTests : IDisposable
         public override ValueTask DisposeAsync() => _failed ? ValueTask.FromException(new IOException("log flush failed")) : base.DisposeAsync();
     }
 
-    private sealed class TerminalWriter(bool ndjson, CancellationTokenSource? cancellation, bool inaccessible = false) : StringWriter
+    private sealed class TerminalWriter(bool ndjson, CancellationTokenSource? cancellation, bool inaccessible = false, bool human = false) : StringWriter
     {
         private bool _terminal;
         public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
@@ -920,7 +932,7 @@ public sealed class RegressionTests : IDisposable
         }
         public override Task FlushAsync(CancellationToken cancellationToken)
         {
-            if (!_terminal) return base.FlushAsync(cancellationToken);
+            if (!_terminal && !human) return base.FlushAsync(cancellationToken);
             cancellation?.Cancel();
             cancellationToken.ThrowIfCancellationRequested();
             throw inaccessible ? new UnauthorizedAccessException("terminal output inaccessible") : new IOException("terminal output closed");

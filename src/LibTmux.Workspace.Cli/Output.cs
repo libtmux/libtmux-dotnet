@@ -63,6 +63,33 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         finally { _writes.Release(); }
     }
 
+    internal async ValueTask PromptAsync(string text)
+    {
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false);
+            await FreshLinesAsync(context.CancellationToken).ConfigureAwait(false);
+            TextWriter destination = context.ErrorTerminal ? context.Error : context.Output;
+            Human(text, "information", newline: false, writer: destination);
+            await destination.FlushAsync(context.CancellationToken).ConfigureAwait(false);
+        }
+        finally { _writes.Release(); }
+    }
+
+    internal async ValueTask HandoffAsync()
+    {
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false);
+            await FreshLinesAsync(context.CancellationToken).ConfigureAwait(false);
+            await context.Output.FlushAsync(context.CancellationToken).ConfigureAwait(false);
+            await context.Error.FlushAsync(context.CancellationToken).ConfigureAwait(false);
+        }
+        finally { _writes.Release(); }
+    }
+
     private void CheckProgressSize()
     {
         if (_progress is null || _progress.SizeUnchanged) return;
@@ -197,7 +224,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         finally { _writes.Release(); }
     }
 
-    internal async ValueTask DiagnosticAsync(string code, string message, object? effects = null)
+    internal async ValueTask DiagnosticAsync(string code, string message, object? effects = null, string? recordedResults = null)
     {
         using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
         bool entered = false;
@@ -209,7 +236,12 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException or OperationCanceledException) { }
             await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "error" }, "error", reporting.Token).ConfigureAwait(false);
             if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { code, message } : new { code, message, effects }, reporting.Token).ConfigureAwait(false);
-            else Human(message, "error", writer: context.Error);
+            else
+            {
+                Human(message, "error", writer: context.Error);
+                if (recordedResults is not null) Human(recordedResults, "information", writer: context.Error);
+                await context.Error.FlushAsync(reporting.Token).ConfigureAwait(false);
+            }
         }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException) { }
         finally { if (entered) _writes.Release(); }
