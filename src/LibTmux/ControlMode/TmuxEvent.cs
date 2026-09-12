@@ -10,14 +10,14 @@ namespace LibTmux;
 public abstract record TmuxEvent;
 
 /// <summary>Bytes a pane wrote.</summary>
-/// <param name="PaneId">The pane that produced the output, such as <c>%0</c>.</param>
+/// <param name="PaneId">The pane that produced the output.</param>
 /// <param name="Data">
 /// The text, with tmux's escaping already decoded. It is a fragment of a
 /// stream rather than a line: tmux sends whatever it has, so a single write by
 /// the program in the pane can arrive split across events and one event can
 /// carry several lines.
 /// </param>
-public sealed record TmuxOutputEvent(string PaneId, string Data) : TmuxEvent;
+public sealed record TmuxOutputEvent(PaneId PaneId, string Data) : TmuxEvent;
 
 /// <summary>A notification this library does not parse further.</summary>
 /// <param name="Name">The notification name without its leading percent, such as <c>window-add</c>.</param>

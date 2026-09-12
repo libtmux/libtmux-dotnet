@@ -4,7 +4,7 @@ using LibTmux.Internal;
 namespace LibTmux;
 
 // Provides server connection identity and typed lookup.
-public sealed partial class Server
+public sealed partial class Server : IEquatable<Server>
 {
     private readonly TmuxConnection? _connection;
     private readonly ServerGeneration? _generation;
@@ -170,19 +170,33 @@ public sealed partial class Server
         return new Pane(this, connection, identity.Value.Generation, identity.Value.Id);
     }
 
-    /// <inheritdoc />
-    public override bool Equals(object? obj)
-    {
-        if (ReferenceEquals(this, obj))
-        {
-            return true;
-        }
+    /// <summary>Reports whether two handles reach the same server endpoint.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when both reach the same endpoint.</returns>
+    public static bool operator ==(Server? left, Server? right) =>
+        left is null ? right is null : left.Equals(right);
 
-        return obj is Server other
+    /// <summary>Reports whether two handles reach different server endpoints.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when they do not reach the same endpoint.</returns>
+    public static bool operator !=(Server? left, Server? right) => !(left == right);
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A handle that has not reached tmux has no endpoint to compare, so it
+    /// equals only itself.
+    /// </remarks>
+    public bool Equals(Server? other) =>
+        ReferenceEquals(this, other)
+        || (other is not null
             && _connection is not null
             && other._connection is not null
-            && _connection.HasSameEndpoint(other._connection);
-    }
+            && _connection.HasSameEndpoint(other._connection));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => Equals(obj as Server);
 
     /// <inheritdoc />
     public override int GetHashCode() =>

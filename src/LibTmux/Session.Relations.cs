@@ -60,6 +60,33 @@ public sealed partial class Session
     public CapturedRelation<Pane> Panes =>
         _panes ?? CapturedRelation.Uncaptured<Pane>("panes", SnapshotDepth.Server);
 
+    /// <summary>Reads one of this session's windows by identifier.</summary>
+    /// <param name="id">The window identifier to look for.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The window, or null when this session has no such window.</returns>
+    /// <remarks>
+    /// A typed identifier names exactly one window. The string overload also
+    /// accepts a window name, which two windows in one session can share, so
+    /// prefer this one where the identifier is already in hand.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Window?> GetWindowAsync(
+        WindowId id,
+        CancellationToken cancellationToken = default)
+    {
+        Server owner = RequireOwner("windows");
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+            await RelationReader.ListAsync(
+                owner,
+                "list-windows",
+                ["-t", _id.ToString()],
+                cancellationToken)
+                .ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? match = rows.FirstOrDefault(
+            row => Matches(row, "window_id", id.ToString()));
+        return match is null ? null : RelationReader.ToWindow(owner, match);
+    }
+
     /// <summary>Reads one of this session's windows by target.</summary>
     /// <param name="target">A tmux window target inside this session.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>

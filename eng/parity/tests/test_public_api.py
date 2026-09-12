@@ -418,7 +418,10 @@ def test_entities_are_immutable_handles_not_destructive_disposables() -> None:
     ):
         entity = types[type_id]
         assert {"public", "sealed"} <= set(entity["modifiers"])
-        assert entity["interfaces"] == []
+        # The invariant is disposal, not interfaces: a borrowed handle must not
+        # look like something the caller is expected to dispose. Value-equality
+        # interfaces say nothing about ownership.
+        assert not {"IDisposable", "IAsyncDisposable"} & set(entity["interfaces"])
         assert entity["ownership"] == "borrowed"
     owned = [
         entry

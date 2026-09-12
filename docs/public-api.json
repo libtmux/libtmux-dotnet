@@ -245,7 +245,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "IEquatable<Client>"
+      ],
       "ownership": "borrowed",
       "state": [],
       "summary": "An immutable client handle and snapshot.",
@@ -1018,7 +1020,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "IEquatable<Pane>"
+      ],
       "ownership": "borrowed",
       "state": [],
       "summary": "An immutable pane handle and snapshot.",
@@ -1050,7 +1054,9 @@
         "readonly"
       ],
       "baseType": "ValueType",
-      "interfaces": [],
+      "interfaces": [
+        "IComparable<PaneId>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "A generation-independent tmux pane identifier.",
@@ -1825,7 +1831,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "IEquatable<Server>"
+      ],
       "ownership": "borrowed",
       "state": [],
       "summary": "An immutable server handle and snapshot.",
@@ -1897,7 +1905,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "IEquatable<Session>"
+      ],
       "ownership": "borrowed",
       "state": [],
       "summary": "An immutable session handle and snapshot.",
@@ -1914,7 +1924,9 @@
         "readonly"
       ],
       "baseType": "ValueType",
-      "interfaces": [],
+      "interfaces": [
+        "IComparable<SessionId>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "A generation-independent tmux session identifier.",
@@ -2925,7 +2937,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "IEquatable<Window>"
+      ],
       "ownership": "borrowed",
       "state": [],
       "summary": "An immutable window handle and snapshot.",
@@ -2973,7 +2987,9 @@
         "readonly"
       ],
       "baseType": "ValueType",
-      "interfaces": [],
+      "interfaces": [
+        "IComparable<WindowId>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "A generation-independent tmux window identifier.",
@@ -25167,7 +25183,7 @@
       "summary": "Gets the error lines tmux reported."
     },
     {
-      "id": "M:LibTmux.TmuxOutputEvent.#ctor(string,string)",
+      "id": "M:LibTmux.TmuxOutputEvent.#ctor(PaneId,string)",
       "declaringType": "T:LibTmux.TmuxOutputEvent",
       "name": ".ctor",
       "kind": "constructor",
@@ -25178,14 +25194,14 @@
       "parameters": [
         {
           "name": "PaneId",
-          "type": "string"
+          "type": "PaneId"
         },
         {
           "name": "Data",
           "type": "string"
         }
       ],
-      "signature": "TmuxOutputEvent(string PaneId, string Data)",
+      "signature": "TmuxOutputEvent(PaneId PaneId, string Data)",
       "portable": true,
       "summary": "Creates TmuxOutputEvent."
     },
@@ -25197,9 +25213,9 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "string",
+      "returnType": "PaneId",
       "parameters": [],
-      "signature": "string LibTmux.TmuxOutputEvent.PaneId { get; }",
+      "signature": "PaneId LibTmux.TmuxOutputEvent.PaneId { get; }",
       "portable": true,
       "summary": "Gets PaneId."
     },
@@ -27771,6 +27787,699 @@
       "package": "LibTmux",
       "signature": "class LibTmux.TmuxWaitChannel",
       "portable": true
+    },
+    {
+      "id": "M:LibTmux.Client.op_Equality(Client?,Client?)",
+      "declaringType": "T:LibTmux.Client",
+      "name": "op_Equality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Client?"
+        },
+        {
+          "name": "right",
+          "type": "Client?"
+        }
+      ],
+      "signature": "bool operator ==(Client? left, Client? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name the same client."
+    },
+    {
+      "id": "M:LibTmux.Client.op_Inequality(Client?,Client?)",
+      "declaringType": "T:LibTmux.Client",
+      "name": "op_Inequality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Client?"
+        },
+        {
+          "name": "right",
+          "type": "Client?"
+        }
+      ],
+      "signature": "bool operator !=(Client? left, Client? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name different clients."
+    },
+    {
+      "id": "M:LibTmux.Pane.op_Equality(Pane?,Pane?)",
+      "declaringType": "T:LibTmux.Pane",
+      "name": "op_Equality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Pane?"
+        },
+        {
+          "name": "right",
+          "type": "Pane?"
+        }
+      ],
+      "signature": "bool operator ==(Pane? left, Pane? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name the same pane."
+    },
+    {
+      "id": "M:LibTmux.Pane.op_Inequality(Pane?,Pane?)",
+      "declaringType": "T:LibTmux.Pane",
+      "name": "op_Inequality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Pane?"
+        },
+        {
+          "name": "right",
+          "type": "Pane?"
+        }
+      ],
+      "signature": "bool operator !=(Pane? left, Pane? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name different panes."
+    },
+    {
+      "id": "M:LibTmux.Server.op_Equality(Server?,Server?)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "op_Equality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Server?"
+        },
+        {
+          "name": "right",
+          "type": "Server?"
+        }
+      ],
+      "signature": "bool operator ==(Server? left, Server? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles reach the same server endpoint."
+    },
+    {
+      "id": "M:LibTmux.Server.op_Inequality(Server?,Server?)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "op_Inequality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Server?"
+        },
+        {
+          "name": "right",
+          "type": "Server?"
+        }
+      ],
+      "signature": "bool operator !=(Server? left, Server? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles reach different server endpoints."
+    },
+    {
+      "id": "M:LibTmux.Session.op_Equality(Session?,Session?)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "op_Equality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Session?"
+        },
+        {
+          "name": "right",
+          "type": "Session?"
+        }
+      ],
+      "signature": "bool operator ==(Session? left, Session? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name the same session."
+    },
+    {
+      "id": "M:LibTmux.Session.op_Inequality(Session?,Session?)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "op_Inequality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Session?"
+        },
+        {
+          "name": "right",
+          "type": "Session?"
+        }
+      ],
+      "signature": "bool operator !=(Session? left, Session? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name different sessions."
+    },
+    {
+      "id": "M:LibTmux.Window.op_Equality(Window?,Window?)",
+      "declaringType": "T:LibTmux.Window",
+      "name": "op_Equality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Window?"
+        },
+        {
+          "name": "right",
+          "type": "Window?"
+        }
+      ],
+      "signature": "bool operator ==(Window? left, Window? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name the same window."
+    },
+    {
+      "id": "M:LibTmux.Window.op_Inequality(Window?,Window?)",
+      "declaringType": "T:LibTmux.Window",
+      "name": "op_Inequality",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "Window?"
+        },
+        {
+          "name": "right",
+          "type": "Window?"
+        }
+      ],
+      "signature": "bool operator !=(Window? left, Window? right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Reports whether two handles name different windows."
+    },
+    {
+      "id": "M:LibTmux.PaneId.CompareTo(PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "CompareTo",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "int",
+      "parameters": [
+        {
+          "name": "other",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "int LibTmux.PaneId.CompareTo(PaneId other)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Orders this identifier against another numerically."
+    },
+    {
+      "id": "M:LibTmux.PaneId.op_LessThan(PaneId,PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "op_LessThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "PaneId"
+        },
+        {
+          "name": "right",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "bool operator <(PaneId left, PaneId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two pane identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.PaneId.op_LessThanOrEqual(PaneId,PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "op_LessThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "PaneId"
+        },
+        {
+          "name": "right",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "bool operator <=(PaneId left, PaneId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two pane identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.PaneId.op_GreaterThan(PaneId,PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "op_GreaterThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "PaneId"
+        },
+        {
+          "name": "right",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "bool operator >(PaneId left, PaneId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two pane identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.PaneId.op_GreaterThanOrEqual(PaneId,PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "op_GreaterThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "PaneId"
+        },
+        {
+          "name": "right",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "bool operator >=(PaneId left, PaneId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two pane identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.WindowId.CompareTo(WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "CompareTo",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "int",
+      "parameters": [
+        {
+          "name": "other",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "int LibTmux.WindowId.CompareTo(WindowId other)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Orders this identifier against another numerically."
+    },
+    {
+      "id": "M:LibTmux.WindowId.op_LessThan(WindowId,WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "op_LessThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "WindowId"
+        },
+        {
+          "name": "right",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "bool operator <(WindowId left, WindowId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two window identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.WindowId.op_LessThanOrEqual(WindowId,WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "op_LessThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "WindowId"
+        },
+        {
+          "name": "right",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "bool operator <=(WindowId left, WindowId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two window identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.WindowId.op_GreaterThan(WindowId,WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "op_GreaterThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "WindowId"
+        },
+        {
+          "name": "right",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "bool operator >(WindowId left, WindowId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two window identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.WindowId.op_GreaterThanOrEqual(WindowId,WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "op_GreaterThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "WindowId"
+        },
+        {
+          "name": "right",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "bool operator >=(WindowId left, WindowId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two window identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.SessionId.CompareTo(SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "CompareTo",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "int",
+      "parameters": [
+        {
+          "name": "other",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "int LibTmux.SessionId.CompareTo(SessionId other)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Orders this identifier against another numerically."
+    },
+    {
+      "id": "M:LibTmux.SessionId.op_LessThan(SessionId,SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "op_LessThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "SessionId"
+        },
+        {
+          "name": "right",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "bool operator <(SessionId left, SessionId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two session identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.SessionId.op_LessThanOrEqual(SessionId,SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "op_LessThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "SessionId"
+        },
+        {
+          "name": "right",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "bool operator <=(SessionId left, SessionId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two session identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.SessionId.op_GreaterThan(SessionId,SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "op_GreaterThan",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "SessionId"
+        },
+        {
+          "name": "right",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "bool operator >(SessionId left, SessionId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two session identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.SessionId.op_GreaterThanOrEqual(SessionId,SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "op_GreaterThanOrEqual",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "left",
+          "type": "SessionId"
+        },
+        {
+          "name": "right",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "bool operator >=(SessionId left, SessionId right)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Compares the order two session identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.Session.GetWindowAsync(WindowId,CancellationToken)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "GetWindowAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Window?>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "WindowId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Window?> LibTmux.Session.GetWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one of this session's windows by identifier."
     }
   ]
 }
