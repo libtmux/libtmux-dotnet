@@ -48,6 +48,12 @@ internal static class CliRunner
                 renderer.Human(help.ToString(), "heading", newline: false);
                 return 0;
             }
+            if (invocation.Text("log_file") is string path)
+            {
+                TextWriter log = LogFile.Open(Path.GetFullPath(path, context.Directory));
+                await renderer.DisposeAsync().ConfigureAwait(false);
+                renderer = new Output(context, invocation, log);
+            }
             ReadCommands commands = new(context, invocation, renderer);
             switch (invocation.Command)
             {
@@ -65,12 +71,13 @@ internal static class CliRunner
             }
             return 0;
         }
-        catch (OperationCanceledException) { renderer.Diagnostic("cancelled", "Operation cancelled."); return 130; }
-        catch (CliException failure) { renderer.Diagnostic(failure.Code, failure.Message); return failure.ExitCode; }
+        catch (OperationCanceledException) { await renderer.DiagnosticAsync("cancelled", "Operation cancelled.").ConfigureAwait(false); return 130; }
+        catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or LibTmuxException)
         {
-            renderer.Diagnostic("operation-failed", failure.Message);
+            await renderer.DiagnosticAsync("operation-failed", failure.Message).ConfigureAwait(false);
             return 1;
         }
+        finally { await renderer.DisposeAsync().ConfigureAwait(false); }
     }
 }

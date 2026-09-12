@@ -62,6 +62,10 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal("/", windows[0]!["panes"]![0]!["start_directory"]!.ToString());
             Assert.True(windows[0]!["focus"]!.GetValue<bool>());
             Assert.True(windows[0]!["panes"]![1]!["focus"]!.GetValue<bool>());
+            (code, output, error) = await Run("--log-level", "error", "freeze", "native", "-S", socket, "--json");
+            Assert.Equal(0, code);
+            Assert.Empty(error);
+            Assert.Equal("native", JsonNode.Parse(output)!["session_name"]!.ToString());
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
