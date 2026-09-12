@@ -43,6 +43,12 @@ public sealed class ContractTests : IDisposable
         Assert.Equal("tmux-workspace", root["name"]!.ToString());
         Assert.Equal(9, root["commands"]!.AsArray().Count);
         Assert.Equal(2, root["commands"]!.AsArray().Single(command => command!["name"]!.ToString() == "import")!["commands"]!.AsArray().Count);
+        JsonArray options = root["commands"]!.AsArray().Single(command => command!["name"]!.ToString() == "load")!["options"]!.AsArray();
+        JsonNode lines = options.Single(option => option!["environment"]?.ToString() == "TMUXP_PROGRESS_LINES")!;
+        Assert.Equal(3, lines["default"]!.GetValue<int>());
+        Assert.Contains("TMUXP_PROGRESS_LINES", lines["description"]!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("default", options.Single(option => option!["environment"]?.ToString() == "TMUXP_PROGRESS_FORMAT")!["default"]!.ToString());
+        Assert.Contains(options, option => option!["environment"]?.ToString() == "TMUXP_PROGRESS=0");
     }
 
     [Theory]
