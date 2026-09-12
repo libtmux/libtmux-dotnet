@@ -54,6 +54,12 @@ script. The session suffix in `TMUX` does not select the destination. Append
 with Python plugins or custom builders fails before building any input or
 starting Python; use `-d` to load those extensions into a separate session.
 
+Human attachment currently requires a foreground controlling terminal on Linux x64. Inside tmux, choose `y` to switch a client, `n` to load detached, or `a` to append. `-y` refuses an ambiguous client choice. A client with independent `active-pane` focus on the invoking physical window prevents handoff; detached and append modes remain available. The invoking pane and selected daemon are authenticated before building.
+
+Before handoff, the CLI flushes output and checks the selected client again. Client changes cause a late refusal; daemon replacement prevents attachment to a reused session ID. SIGINT and SIGTERM report cancellation. Late failures print recorded load results on stderr; those records describe completed work, not a fresh topology query. A client name can still be reused after the final client observation.
+
+Attached Python extension handoff remains in development. Use `-d` or choose `n` to run those extensions detached; the effective detached choice is passed to Python.
+
 Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail before reading workspace files or running tmux or Python because supported tmux versions do not support 88-color mode.
 
 Machine freeze, conversion and import return the document without writing a guessed filename. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.

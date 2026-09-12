@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Nodes;
+using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -54,13 +55,19 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         return result.ExitCode;
     }
 
-    internal async Task<int> BridgeLoadAsync()
+    internal async Task<int> BridgeLoadAsync(bool detached)
     {
         string python = await PythonAsync().ConfigureAwait(false);
         await output.EventAsync("started", new { bridge = "tmuxp", version = "1.74.0" }).ConfigureAwait(false);
         await output.ProgressAsync(progress => progress.StartBridge(), force: true).ConfigureAwait(false);
         CliContext childContext = context with { Environment = new Dictionary<string, string?>(context.Environment, StringComparer.Ordinal) { [ProgressOptions.EnabledEnvironment] = "0" } };
-        ChildResult result = await RunProcessAsync(childContext, output, python, BridgeArguments(StripExtensions(invocation.Arguments)), context.Directory, stream: true).ConfigureAwait(false);
+        List<string> arguments = [.. StripExtensions(invocation.Arguments)];
+        if (detached && !invocation.Flag("detached"))
+        {
+            int separator = arguments.IndexOf("--");
+            arguments.Insert(separator < 0 ? arguments.Count : separator, "-d");
+        }
+        ChildResult result = await RunProcessAsync(childContext, output, python, BridgeArguments([.. arguments]), context.Directory, stream: true).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "load", status = result.ExitCode == 0 ? "ok" : "error", results = new[] { new { bridge = "tmuxp", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated } }, errors = result.ExitCode == 0 ? Array.Empty<object>() : [new { code = "bridge-failed", message = "Python workspace load failed." }] };
         try
         {
@@ -79,14 +86,13 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         return result.ExitCode;
     }
 
-    internal async Task<int> AttachAsync(string target, ServerConnectionOptions options)
+    internal async Task<int> AttachAsync(Session target)
     {
-        if (!context.Terminal) throw new CliException("terminal-required", "Attach requires a terminal. Use -d to load without attaching.");
-        List<string> args = [];
-        if (options.SocketPath is string path) args.AddRange(["-S", path]);
-        if (options.SocketName is string name) args.AddRange(["-L", name]);
-        args.AddRange([!string.IsNullOrEmpty(context.Environment.GetValueOrDefault("TMUX")) ? "switch-client" : "attach-session", "-t", target]);
-        return (await RunProcessAsync(context, output, options.TmuxBinaryPath, args, context.Directory, stream: false, interactive: true).ConfigureAwait(false)).ExitCode;
+        TmuxConnection connection = target.Server.Connection!;
+        IReadOnlyList<string> command = TmuxCommandRequest.Group(
+            TmuxGenerationGuard.Conditional(target.Generation, "workspace-server-replaced"),
+            ["attach-session", "-t", target.Id.ToString()]).EncodeArguments();
+        return (await RunProcessAsync(context, output, connection.Options.TmuxBinaryPath, [.. connection.PrefixArguments, .. command], context.Directory, stream: false, interactive: true).ConfigureAwait(false)).ExitCode;
     }
 
     private async Task<string> PythonAsync()

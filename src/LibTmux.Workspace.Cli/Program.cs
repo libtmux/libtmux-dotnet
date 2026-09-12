@@ -1,5 +1,6 @@
 using System.Collections;
 using System.CommandLine;
+using System.Runtime.InteropServices;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -9,6 +10,7 @@ internal static class Program
     {
         using CancellationTokenSource cancellation = new();
         ConsoleCancelEventHandler interrupt = (_, signal) => { signal.Cancel = true; cancellation.Cancel(); };
+        using PosixSignalRegistration? terminate = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal => { signal.Cancel = true; cancellation.Cancel(); });
         Console.CancelKeyPress += interrupt;
         try { return await CliRunner.RunAsync(args, Console.Out, Console.Error, cancellationToken: cancellation.Token).ConfigureAwait(false); }
         finally { Console.CancelKeyPress -= interrupt; }

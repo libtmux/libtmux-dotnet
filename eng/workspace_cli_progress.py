@@ -63,10 +63,14 @@ esac
             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", size[1], size[0], 0, 0))
             if output_terminal:
                 fcntl.ioctl(output_slave, termios.TIOCSWINSZ, struct.pack("HHHH", size[1], size[0], 0, 0))
+            def own_terminal():
+                os.setsid()
+                fcntl.ioctl(0, termios.TIOCSCTTY, 0)
             child = subprocess.Popen([*command, *arguments], cwd=root,
                                      env={**environment, **(variables or {})},
                                      stdin=output_slave, stdout=output_slave if output_terminal else subprocess.PIPE,
-                                     stderr=slave if terminal else subprocess.PIPE)
+                                     stderr=slave if terminal else subprocess.PIPE,
+                                     preexec_fn=own_terminal if output_terminal else None)
             os.close(slave)
             if output_terminal:
                 os.close(output_slave)

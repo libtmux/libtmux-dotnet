@@ -22,13 +22,7 @@ internal sealed class TmuxGenerationGuard(
         IReadOnlyList<string>[] guarded =
         [
             ["display-message", "-p", TmuxConnection.GenerationFormat],
-            [
-                "if-shell",
-                "-F",
-                $"#{{==:{TmuxConnection.GenerationFormat},{generationText}}}",
-                string.Empty,
-                marker,
-            ],
+            Conditional(expected, marker),
             .. commands,
         ];
 
@@ -77,6 +71,13 @@ internal sealed class TmuxGenerationGuard(
         }
 
         return TmuxCommandResultProjection.Remap(grouped, logicalArguments, remainingOutput);
+    }
+
+    internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mismatchCommand);
+        string identity = string.Create(CultureInfo.InvariantCulture, $"{expected.ProcessId}:{expected.StartTime}");
+        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{identity}}}", string.Empty, mismatchCommand];
     }
 
     private static bool TryStripGenerationPrefix(
