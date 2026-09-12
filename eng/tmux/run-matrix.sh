@@ -222,7 +222,13 @@ run_one() {
     local output_file
     output_file="$(mktemp)"
     local status=passed
+    # Part of what this proves runs tmux from inside tmux, the way a user's
+    # configuration does, which finds it by name rather than by LIBTMUX_TMUX.
+    # dotnet-tmux.yml puts the build under test on the path for that reason;
+    # its runner image has no other tmux, but a developer machine does, and
+    # reaching a different version proves nothing about this lane.
     set +e
+    PATH="$(dirname "${binary}"):${PATH}" \
     LIBTMUX_TMUX="${binary}" \
         LIBTMUX_TMUX_SOURCE_COMMIT="${source_commit}" \
         LIBTMUX_EXPECTED_TMUX_VERSION="${expected_version}" \
@@ -307,7 +313,13 @@ run_transition_one() {
     local source_commit="$4"
     local output_file
     output_file="$(mktemp)"
+    # Part of what this proves runs tmux from inside tmux, the way a user's
+    # configuration does, which finds it by name rather than by LIBTMUX_TMUX.
+    # dotnet-tmux.yml puts the build under test on the path for that reason;
+    # its runner image has no other tmux, but a developer machine does, and
+    # reaching a different version proves nothing about this lane.
     set +e
+    PATH="$(dirname "${binary}"):${PATH}" \
     LIBTMUX_TMUX="${binary}" \
         LIBTMUX_TMUX_SOURCE_COMMIT="${source_commit}" \
         LIBTMUX_EXPECTED_TMUX_VERSION="${version}" \
