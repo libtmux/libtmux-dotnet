@@ -26,12 +26,32 @@ public sealed class CommandTests : IDisposable
     [InlineData("import", "teamocil")]
     [InlineData("import", "tmuxinator")]
     [InlineData("load", "file.yaml", "-2", "-8")]
+    [InlineData("load", "file.yaml", "-2", "--88-colors")]
     public async Task Usage_failure_precedes_discovery_or_tmux(params string[] args)
     {
         (int code, string output, string error) = await Run(["--json", .. args]);
         Assert.Equal(2, code);
         Assert.Empty(output);
-        Assert.NotNull(JsonNode.Parse(error)!["code"]);
+        Assert.Equal("usage", JsonNode.Parse(error)!["code"]!.ToString());
+        if (args.Contains("-2")) Assert.Contains("cannot be combined", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("-8", "")]
+    [InlineData("-8", "--json")]
+    [InlineData("-8", "--ndjson")]
+    [InlineData("--88-colors", "")]
+    [InlineData("--88-colors", "--json")]
+    [InlineData("--88-colors", "--ndjson")]
+    public async Task Unsupported_colors_fail_before_input_discovery(string colors, string mode)
+    {
+        string[] outputMode = mode.Length == 0 ? [] : [mode];
+        var result = await Run(["load", "missing.yaml", colors, .. outputMode]);
+        Assert.Equal(2, result.Code);
+        Assert.Empty(result.Output);
+        if (mode.Length > 0) Assert.Equal("unsupported-color-mode", JsonNode.Parse(result.Error)!["code"]!.ToString());
+        Assert.Contains("88-color", result.Error, StringComparison.Ordinal);
+        Assert.Contains("-2", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -34,7 +34,7 @@ internal sealed class CommandLine
         Flag(load, "detached", "-d", "Load without attaching.");
         Flag(load, "append", "--append", "Append windows to the current session.", ["-a"]);
         Flag(load, "colors256", "-2", "Tell tmux the terminal supports 256 colors.");
-        Flag(load, "colors88", "-8", "Tell tmux the terminal supports 88 colors.");
+        Flag(load, "colors88", "-8", "Reject unsupported 88-color mode; use -2 for 256 colors.", ["--88-colors"]);
         Value(load, "log_file", "--log-file", "Write operation diagnostics to this file.");
         Value(load, "progress_format", "--progress-format", "Progress preset or token template.");
         Option<int?> lines = new("--progress-lines") { Description = "Script panel lines; 0 disables the panel and -1 uses terminal height." };
