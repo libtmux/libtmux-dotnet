@@ -8,9 +8,9 @@ namespace LibTmux.ExampleTests;
 /// <summary>Runs the arena entrypoint against a tmux server the example does not own.</summary>
 [Collection("Examples")]
 [UnsupportedOSPlatform("windows")]
-public sealed class ArenaOneShotTests
+public sealed class ArenaTests
 {
-    private const string Artifact = "csharp-one-shot";
+    private const string OneShotArtifact = "csharp-one-shot";
     private const string Challenge = "borrowed \"challenge\"";
     private const string ExecutableInvocation = "arena-client";
 
@@ -21,8 +21,9 @@ public sealed class ArenaOneShotTests
             TestContext.Current.CancellationToken);
 
         ExampleRun run = await RunAsync(
+            OneShotArtifact,
             BorrowedArena.BuildEnvironment(
-                ("LIBTMUX_ARENA_ARTIFACT", Artifact),
+                ("LIBTMUX_ARENA_ARTIFACT", OneShotArtifact),
                 ("LIBTMUX_SOCKET_PATH", arena.SocketPath),
                 ("LIBTMUX_TMUX_BIN", arena.TmuxBinaryPath)));
 
@@ -32,6 +33,25 @@ public sealed class ArenaOneShotTests
         Assert.DoesNotContain(
             await arena.Server.GetSessionsAsync(TestContext.Current.CancellationToken),
             session => session.Name == "build");
+    }
+
+    [Fact]
+    public async Task An_unknown_artifact_id_is_rejected_before_anything_is_touched()
+    {
+        await using BorrowedArena arena = await BorrowedArena.StartAsync(
+            TestContext.Current.CancellationToken);
+
+        ExampleRun run = await RunAsync(
+            "csharp-does-not-exist",
+            BorrowedArena.BuildEnvironment(
+                ("LIBTMUX_ARENA_DESCRIPTOR", "borrow"),
+                ("LIBTMUX_ARENA_ARTIFACT", "csharp-does-not-exist"),
+                ("LIBTMUX_SOCKET_PATH", arena.SocketPath),
+                ("LIBTMUX_TMUX_BIN", arena.TmuxBinaryPath)));
+
+        Assert.NotEqual(0, run.ExitCode);
+        Assert.DoesNotContain("LIBTMUX_ARENA_EVIDENCE=", run.StandardOutput, StringComparison.Ordinal);
+        Assert.True(await arena.Server.IsAliveAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -53,9 +73,10 @@ public sealed class ArenaOneShotTests
         })
         {
             ExampleRun run = await RunAsync(
+                OneShotArtifact,
                 BorrowedArena.BuildEnvironment(
                     ("LIBTMUX_ARENA_DESCRIPTOR", "borrow"),
-                    ("LIBTMUX_ARENA_ARTIFACT", Artifact),
+                    ("LIBTMUX_ARENA_ARTIFACT", OneShotArtifact),
                     ("LIBTMUX_SOCKET_PATH", arena.SocketPath),
                     ("LIBTMUX_TMUX_BIN", arena.TmuxBinaryPath),
                     (name, value)));
@@ -77,9 +98,10 @@ public sealed class ArenaOneShotTests
             TestContext.Current.CancellationToken);
 
         ExampleRun run = await RunAsync(
+            OneShotArtifact,
             BorrowedArena.BuildEnvironment(
                 ("LIBTMUX_ARENA_DESCRIPTOR", " "),
-                ("LIBTMUX_ARENA_ARTIFACT", Artifact),
+                ("LIBTMUX_ARENA_ARTIFACT", OneShotArtifact),
                 ("LIBTMUX_SOCKET_PATH", arena.SocketPath),
                 ("LIBTMUX_TMUX_BIN", arena.TmuxBinaryPath)));
 
@@ -87,7 +109,7 @@ public sealed class ArenaOneShotTests
         using JsonDocument evidence = JsonDocument.Parse(ArenaEvidence(run.StandardOutput));
         JsonElement root = evidence.RootElement;
         Assert.Equal(1, root.GetProperty("schema").GetInt32());
-        Assert.Equal(Artifact, root.GetProperty("artifact").GetString());
+        Assert.Equal(OneShotArtifact, root.GetProperty("artifact").GetString());
         Assert.Equal(Challenge, root.GetProperty("challenge").GetString());
         Assert.Equal(arena.ProcessId, root.GetProperty("server_pid").GetInt32());
         Assert.Equal(arena.SocketPath, root.GetProperty("socket_path").GetString());
@@ -107,6 +129,34 @@ public sealed class ArenaOneShotTests
             session => session.Name == "build");
     }
 
+    [Fact]
+    public async Task An_activated_arena_runs_any_selected_example_without_stopping_its_server()
+    {
+        const string artifact = "csharp-show-hierarchy";
+        await using BorrowedArena arena = await BorrowedArena.StartAsync(
+            TestContext.Current.CancellationToken);
+
+        ExampleRun run = await RunAsync(
+            artifact,
+            BorrowedArena.BuildEnvironment(
+                ("LIBTMUX_ARENA_DESCRIPTOR", " "),
+                ("LIBTMUX_ARENA_ARTIFACT", artifact),
+                ("LIBTMUX_SOCKET_PATH", arena.SocketPath),
+                ("LIBTMUX_TMUX_BIN", arena.TmuxBinaryPath)));
+
+        Assert.Equal(0, run.ExitCode);
+        using JsonDocument evidence = JsonDocument.Parse(ArenaEvidence(run.StandardOutput));
+        JsonElement root = evidence.RootElement;
+        Assert.Equal(artifact, root.GetProperty("artifact").GetString());
+        Assert.Equal(arena.SocketPath, root.GetProperty("socket_path").GetString());
+
+        // Unlike the one-shot body above, which self-connects and never
+        // touches the injected Server, ShowHierarchy takes the Server
+        // ExampleNamespace hands it directly -- proving that handle is the
+        // lent one, and that it outlives the namespace's own disposal.
+        Assert.True(await arena.Server.IsAliveAsync(TestContext.Current.CancellationToken));
+    }
+
     private static string ArenaEvidence(string output)
     {
         const string marker = "LIBTMUX_ARENA_EVIDENCE=";
@@ -118,6 +168,7 @@ public sealed class ArenaOneShotTests
     }
 
     private static async Task<ExampleRun> RunAsync(
+        string artifact,
         IReadOnlyDictionary<string, string?> environment)
     {
         ProcessStartInfo startInfo = new(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
@@ -127,7 +178,8 @@ public sealed class ArenaOneShotTests
             UseShellExecute = false,
         };
         startInfo.ArgumentList.Add(typeof(ExampleCase).Assembly.Location);
-        startInfo.ArgumentList.Add("--arena-one-shot");
+        startInfo.ArgumentList.Add("--arena");
+        startInfo.ArgumentList.Add(artifact);
         startInfo.Environment.Remove("TMUX");
         startInfo.Environment.Remove("TMUX_PANE");
         foreach ((string name, string? value) in environment)
