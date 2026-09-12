@@ -254,16 +254,53 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER }}
 
+      - name: Unpack the packages for the SBOM
+        # Syft's .NET catalogers read deps.json files and assembly metadata, not
+        # the .nupkg archive around them, so scanning the packed files found
+        # nothing and every SBOM before this one listed zero components.
+        run: |
+          set -euo pipefail
+          for package in artifacts/packages/*.nupkg; do
+            name="$(basename "${package}" .nupkg)"
+            mkdir -p "artifacts/sbom-input/${name}"
+            unzip -q "${package}" -d "artifacts/sbom-input/${name}"
+          done
+
       - name: Generate an SBOM for the packages
         # A consumer deciding whether to take this needs to know what comes with
         # it. The SBOM describes the packed artifacts rather than the tree, so it
         # lists what actually ships.
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        env:
+          # The file catalogers add one entry per file, named by its path, which
+          # buries the packages and records where the runner unpacked them.
+          SYFT_SELECT_CATALOGERS: '-file'
         with:
-          path: artifacts/packages
+          path: artifacts/sbom-input
           format: cyclonedx-json
           artifact-name: sbom-cyclonedx.json
           output-file: artifacts/sbom-cyclonedx.json
+
+      - name: Prove the SBOM names every package
+        # An SBOM with nothing in it passes every other check, which is how the
+        # empty ones shipped. Each package is named from its own nuspec, so one
+        # missing from the document stops the release before anything is pushed.
+        run: |
+          set -euo pipefail
+          missing=0
+          for package in artifacts/packages/*.nupkg; do
+            # Read the nuspec whole, then match. A grep that stops at the first
+            # match can kill unzip mid-write, and pipefail fails the release.
+            nuspec="$(unzip -p "${package}" '*.nuspec')"
+            id="$(grep -m 1 -oP '(?<=<id>)[^<]+' <<< "${nuspec}")"
+            if ! jq -e --arg id "${id}" \
+              'any(.components[]?; .type == "library" and .name == $id)' \
+              artifacts/sbom-cyclonedx.json > /dev/null; then
+              echo "::error::The SBOM does not name ${id}."
+              missing=1
+            fi
+          done
+          exit "${missing}"
 
       - name: Attest what produced these packages
         # Signed provenance says which workflow, at which commit, on which
