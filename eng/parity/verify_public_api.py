@@ -16,6 +16,12 @@ PACKAGES_PATH = pathlib.Path(__file__).parents[2] / "Directory.Packages.props"
 SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src"
 PACKAGE_IDS = ["LibTmux", "LibTmux.Query.Json"]
 COMPONENT_IDS = set(range(1, 19))
+DISPOSAL_INTERFACES = {
+    "IDisposable",
+    "IAsyncDisposable",
+    "System.IDisposable",
+    "System.IAsyncDisposable",
+}
 ENTITY_IDS = {
     "T:LibTmux.Server",
     "T:LibTmux.Session",
@@ -1009,7 +1015,7 @@ def validate_ownership(
         entity = types[entity_id]
         if not {"public", "sealed"} <= set(entity.get("modifiers", [])):
             violations.append(f"invalid entity modifiers: {entity_id}")
-        if entity.get("interfaces"):
+        if DISPOSAL_INTERFACES & set(entity.get("interfaces", [])):
             violations.append(f"listed entity is disposable: {entity_id}")
         if entity.get("ownership") != "borrowed":
             violations.append(f"invalid entity ownership: {entity_id}")
