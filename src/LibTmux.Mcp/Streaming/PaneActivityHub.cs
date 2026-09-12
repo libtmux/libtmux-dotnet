@@ -276,7 +276,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
     private sealed class SessionWatch(SessionWatchKey key, PaneActivityHub hub) : IAsyncDisposable
     {
         private readonly SemaphoreSlim _gate = new(1, 1);
-        private readonly Dictionary<string, PaneSignal> _signals = new(StringComparer.Ordinal);
+        private readonly Dictionary<PaneId, PaneSignal> _signals = [];
         private readonly object _signalGate = new();
         private WatchRun? _run;
         private bool _retired;
@@ -402,7 +402,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     switch (observed)
                     {
                         case TmuxOutputEvent output:
-                            OnPaneOutput(output.PaneId.ToString());
+                            OnPaneOutput(output.PaneId);
                             break;
                         case TmuxExitEvent exit when hub._logger is not null:
                             Log.ControlClientEnded(hub._logger, key.SessionId, exit.Reason);
@@ -513,6 +513,14 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
         internal Task? CaptureSignal(string paneId)
         {
+            // Only tmux issues these, so text that is not one names no pane the
+            // stream can ever report. Answering null sends the caller to the
+            // polling path rather than to a wait nothing will end.
+            if (!PaneId.TryParse(paneId, out PaneId pane))
+            {
+                return null;
+            }
+
             lock (_signalGate)
             {
                 if (!IsStreaming)
@@ -520,17 +528,17 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     return null;
                 }
 
-                if (!_signals.TryGetValue(paneId, out PaneSignal? signal))
+                if (!_signals.TryGetValue(pane, out PaneSignal? signal))
                 {
                     signal = new PaneSignal();
-                    _signals.Add(paneId, signal);
+                    _signals.Add(pane, signal);
                 }
 
                 return signal.Current;
             }
         }
 
-        private void OnPaneOutput(string paneId)
+        private void OnPaneOutput(PaneId paneId)
         {
             lock (_signalGate)
             {

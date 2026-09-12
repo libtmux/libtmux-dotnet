@@ -49,6 +49,12 @@ public sealed class PaneActivityHubLifecycleTests
         IAsyncDisposable firstLease = await hub.WatchAsync("$1", Start, token);
         Assert.True(hub.IsStreaming);
         object signal = Assert.IsAssignableFrom<object>(hub.CaptureSignal("%1"));
+
+        // Signals are keyed by the typed identifier, so text that is not one
+        // names no pane the stream can report. It must reach the polling path
+        // rather than a wait nothing will end.
+        Assert.Null(hub.CaptureSignal("not-a-pane"));
+        Assert.Null(hub.CaptureSignal("@1"));
         first.Emit(new TmuxOutputEvent(new PaneId(1), "changed"));
         Assert.True(await hub.WaitForActivityAsync(
             "%1",
