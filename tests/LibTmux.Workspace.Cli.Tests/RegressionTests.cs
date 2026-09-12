@@ -188,12 +188,13 @@ public sealed class RegressionTests : IDisposable
     [InlineData("script")]
     [InlineData("options")]
     [InlineData("cancel")]
+    [InlineData("next-input")]
     public async Task Partial_load_reports_completed_inputs_and_owned_session_state(string failure)
     {
         string socket = Path.Combine(_root, "partial.socket");
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        using CancellingWriter output = new(failure == "cancel" ? cancellation : null);
+        using CancellingWriter output = new(failure is "cancel" or "next-input" ? cancellation : null, failure == "next-input" ? "workspace-completed" : "script-output");
         using StringWriter error = new();
         string[] files = ["complete", "failed", "unscheduled"];
         for (int index = 0; index < files.Length; index++)
@@ -212,7 +213,7 @@ public sealed class RegressionTests : IDisposable
         {
             await Execute(server, "new-session", "-d", "-s", "keeper");
             int code = await CliRunner.RunAsync(["load", .. files, "-d", "-S", socket, "--ndjson"], output, error, _root, cancellationToken: cancellation.Token);
-            Assert.Equal(failure == "cancel" ? 130 : 1, code);
+            Assert.Equal(failure is "cancel" or "next-input" ? 130 : 1, code);
             JsonNode[] events = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.Equal(Enumerable.Range(1, events.Length), events.Select(item => item["sequence"]!.GetValue<int>()));
             Assert.Single(events, item => item["event"]!.ToString() is "failed" or "completed");
@@ -222,22 +223,71 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("complete", Assert.Single(summary["results"]!.AsArray())!["session_name"]!.ToString());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal(1, issue["input_index"]!.GetValue<int>());
-            Assert.True(issue["created"]!.GetValue<bool>());
-            Assert.Equal(failure != "options", issue["removed"]!.GetValue<bool>());
-            Assert.Equal(failure == "options" ? "session-options" : "before-script", issue["failed_stage"]!.ToString());
-            Assert.Equal("session-created", issue["completed_stage"]?.ToString());
+            Assert.Equal(failure != "next-input", issue["created"]!.GetValue<bool>());
+            Assert.Equal(failure is "script" or "cancel", issue["removed"]!.GetValue<bool>());
+            Assert.Equal(failure switch { "options" => "session-options", "next-input" => "workspace-started", _ => "before-script" }, issue["failed_stage"]!.ToString());
+            Assert.Equal(failure == "next-input" ? null : "session-created", issue["completed_stage"]?.ToString());
             string[] expected = failure == "options" ? ["complete", "failed", "keeper"] : ["complete", "keeper"];
             Assert.Equal(expected, (await Execute(server, "list-sessions", "-F", "#{session_name}")).Split('\n').Order(StringComparer.Ordinal));
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
-    private sealed class CancellingWriter(CancellationTokenSource? cancellation) : StringWriter
+    [Fact]
+    public async Task Multi_input_session_override_changes_only_the_final_workspace()
+    {
+        string socket = Path.Combine(_root, "override.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        string[] paths = [Path.Combine(_root, "first.yaml"), Path.Combine(_root, "second.yaml")];
+        for (int index = 0; index < paths.Length; index++) await File.WriteAllTextAsync(paths[index], "session_name: " + Path.GetFileNameWithoutExtension(paths[index]) + "\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        try
+        {
+            var result = await Run("load", paths[0], paths[1], "-s", "renamed", "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.Equal(0, result.Code);
+            JsonArray results = JsonNode.Parse(result.Output)!["results"]!.AsArray();
+            string[] expectedNames = ["first", "renamed"];
+            Assert.Equal(expectedNames, results.Select(item => item!["session_name"]!.ToString()));
+            Assert.All(results, item => Assert.Equal("created", item!["status"]!.ToString()));
+            Assert.Equal("first\nrenamed", await Execute(server, "list-sessions", "-F", "#{session_name}"));
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    [Fact]
+    public async Task First_append_failure_reports_retained_borrowed_session_changes()
+    {
+        string socket = Path.Combine(_root, "borrowed.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            string pane = await Execute(server, "new-session", "-d", "-s", "borrowed", "-P", "-F", "#{pane_id}");
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0"), ["TMUX_PANE"] = pane,
+            };
+            string file = Path.Combine(_root, "borrowed.yaml");
+            await File.WriteAllTextAsync(file, "session_name: unused\nwindows: [{options_after: {invalid-option: value}, panes: [null]}]", TestContext.Current.CancellationToken);
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", file, "--append", "-S", socket, "--json"], output, error, _root, environment, TestContext.Current.CancellationToken);
+            Assert.Equal(1, code);
+            JsonNode summary = JsonNode.Parse(output.ToString())!;
+            Assert.Equal("partial", summary["status"]!.ToString());
+            JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
+            Assert.False(issue["created"]!.GetValue<bool>());
+            Assert.False(issue["removed"]!.GetValue<bool>());
+            Assert.True(issue["changed"]!.GetValue<bool>());
+            Assert.Equal("2", await Execute(server, "display-message", "-p", "#{session_windows}"));
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    private sealed class CancellingWriter(CancellationTokenSource? cancellation, string eventName = "script-output") : StringWriter
     {
         public override void WriteLine(string? value)
         {
             base.WriteLine(value);
-            if (value?.Contains("\"event\":\"script-output\"", StringComparison.Ordinal) == true) cancellation?.Cancel();
+            if (value?.Contains("\"event\":\"" + eventName + "\"", StringComparison.Ordinal) == true) cancellation?.Cancel();
         }
     }
 
