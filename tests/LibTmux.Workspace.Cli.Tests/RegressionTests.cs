@@ -318,6 +318,65 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Unsupported_colors_do_not_run_tmux_or_python(bool extensions)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "colors.socket");
+        string file = Path.Combine(_root, "colors.yaml");
+        string trace = Path.Combine(_root, "executed-arguments");
+        string pythonTrace = Path.Combine(_root, "python-arguments");
+        string wrapper = Path.Combine(_root, "runtime-wrapper");
+        string python = Path.Combine(_root, "python-wrapper");
+        await File.WriteAllTextAsync(wrapper, "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TRACE\"\nexec \"$REAL_TMUX\" \"$@\"\n", token);
+        await File.WriteAllTextAsync(python, "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$PYTHON_TRACE\"\nexit 1\n", token);
+        File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        File.SetUnixFileMode(python, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await File.WriteAllTextAsync(file, "session_name: colors\nwindows: [{panes: [null]}]\n" + (extensions ? "plugins: [example.Plugin]\n" : ""), token);
+        string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["LIBTMUX_TMUX"] = wrapper,
+            ["TMUX_WORKSPACE_PYTHON"] = python,
+            ["REAL_TMUX"] = binary,
+            ["TRACE"] = trace,
+            ["PYTHON_TRACE"] = pythonTrace,
+        };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "keeper");
+            string[] topology = ["list-panes", "-a", "-F", "#{session_id}:#{window_id}:#{pane_id}"];
+            string before = await Execute(server, topology);
+            foreach (string colors in new[] { "-8", "--88-colors" })
+                foreach (string mode in new[] { "", "--json", "--ndjson" })
+                {
+                    using StringWriter output = new();
+                    using StringWriter error = new();
+                    string[] outputMode = mode.Length == 0 ? [] : [mode];
+                    int code = await CliRunner.RunAsync(["load", file, colors, "-d", "-S", socket, .. outputMode], output, error, _root, environment, token);
+                    Assert.False(File.Exists(trace), "Rejected color mode ran tmux.");
+                    Assert.False(File.Exists(pythonTrace), "Rejected color mode ran Python.");
+                    Assert.Equal(before, await Execute(server, topology));
+                    Assert.Equal(2, code);
+                    Assert.Empty(output.ToString());
+                    Assert.Contains("88-color", error.ToString(), StringComparison.Ordinal);
+                }
+            if (!extensions)
+            {
+                using StringWriter output = new();
+                using StringWriter error = new();
+                int code = await CliRunner.RunAsync(["load", file, "-2", "-d", "-S", socket, "--json"], output, error, _root, environment, token);
+                Assert.True(code == 0, error.ToString());
+                Assert.Contains("-2", (await File.ReadAllTextAsync(trace, token)).Split('\n'));
+                Assert.Equal("colors\nkeeper", await Execute(server, "list-sessions", "-F", "#{session_name}"));
+            }
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     private sealed class CancellingWriter(CancellationTokenSource? cancellation, string eventName = "script-output") : StringWriter
     {
         public override void WriteLine(string? value)
