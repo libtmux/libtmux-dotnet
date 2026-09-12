@@ -137,6 +137,20 @@ Console.WriteLine($"{window.Name} -> {renamed.Name}");
 
 Asking tmux again is `RefreshAsync`.
 
+A replacement is still the same window, and comparing says so. Identity is the
+server generation plus the typed ID, never the state a handle captured, so two
+handles that read different names still name one window — and one read from a
+restarted server does not, even where tmux reused the number:
+
+```csharp run
+Window sameWindow = await window.RenameAsync("integration", ct);
+Console.WriteLine($"{window == sameWindow} {window.Name} {sameWindow.Name}");
+
+// Identifiers order the way tmux issued them, oldest first.
+IEnumerable<Window> oldest = (await session.GetWindowsAsync(ct)).OrderBy(each => each.Id);
+Console.WriteLine(string.Join(", ", oldest.Select(each => each.Id)));
+```
+
 ## Running something, and reading it back
 
 ```csharp run
