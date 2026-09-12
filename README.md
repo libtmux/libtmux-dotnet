@@ -27,6 +27,24 @@ await pane.SendTextAsync("dotnet test");
 ```
 <!-- endsnippet -->
 
+`ConnectAsync` attaches to a tmux server that is already running, which is the
+usual case on a developer's machine and the case the example suite sets up
+before it runs the snippet above. On a machine with no server up it reports
+`server generation discovery failed`. To start one and own its lifetime, and to
+reach a server on a socket of your own rather than the one a person is working
+in:
+
+```csharp
+var options = new ServerConnectionOptions(socketName: "my-tool");
+await using OwnedServerScope owned = await Server.CreateOwnedAsync(options);
+
+// A tmux server with no sessions exits at once, so the scope holds an
+// endpoint. Creating the first session through it starts the server for real;
+// call ConnectAsync afterwards for a materialized Server to query.
+Session session = await owned.Value.CreateSessionAsync(new NewSessionRequest(name: "build"));
+Server server = await Server.ConnectAsync(options);
+```
+
 ## Is this for you?
 
 **Yes, if you want to** drive a real terminal from code — build a dev
