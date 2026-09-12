@@ -140,7 +140,10 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
 
     private static string Field(string name) => name.ToLowerInvariant() switch
     {
-        "s" or "session" or "session_name" => "session_name", "p" => "path", "w" => "window", "n" => "name",
+        "s" or "session" or "session_name" => "session_name",
+        "p" => "path",
+        "w" => "window",
+        "n" => "name",
         "name" or "path" or "window" or "pane" => name.ToLowerInvariant(),
         _ => throw new CliException("invalid-field", $"Unknown search field '{name}'.", 2),
     };

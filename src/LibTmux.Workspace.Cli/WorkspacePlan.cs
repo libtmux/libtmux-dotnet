@@ -28,7 +28,9 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         Keys(builder, BuilderKeys, "workspace_builder_options");
         string readiness = (Text(builder, "pane_readiness") ?? "auto").ToLowerInvariant() switch
         {
-            "auto" => "auto", "always" or "true" or "on" or "yes" or "1" => "always", "never" or "false" or "off" or "no" or "0" => "never",
+            "auto" => "auto",
+            "always" or "true" or "on" or "yes" or "1" => "always",
+            "never" or "false" or "off" or "no" or "0" => "never",
             _ => throw Invalid("pane_readiness must be auto, always or never."),
         };
         List<WindowPlan> plans = [];
