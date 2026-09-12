@@ -21,19 +21,25 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(0, commands[3].After);
     }
 
-    [Fact]
-    public async Task Before_script_uses_direct_argv_session_directory_and_created_session()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("./working")]
+    [InlineData("absolute")]
+    public async Task Before_script_uses_direct_argv_session_directory_and_created_session(string? start)
     {
         string socket = Path.Combine(_root, "script.socket");
-        string directory = Path.Combine(_root, "working");
+        string configDirectory = Path.Combine(_root, "config");
+        string directory = Path.Combine(configDirectory, "working");
         Directory.CreateDirectory(directory);
-        string file = Path.Combine(_root, "script.json");
+        string expectedDirectory = start is null ? _root : directory;
+        string file = Path.Combine(configDirectory, "script.json");
         JsonObject document = new()
         {
-            ["session_name"] = "script", ["start_directory"] = directory,
-            ["before_script"] = "/bin/sh -c 'test -S \"" + socket + "\" && test \"$(pwd)\" = \"" + directory + "\" && printf ready'",
+            ["session_name"] = "script",
+            ["before_script"] = "/bin/sh -c 'test -S \"" + socket + "\" && test \"$(pwd)\" = \"" + expectedDirectory + "\" && printf ready'",
             ["windows"] = new JsonArray(new JsonObject { ["panes"] = new JsonArray((JsonNode?)null) }),
         };
+        if (start is not null) document["start_directory"] = start == "absolute" ? directory : start;
         await File.WriteAllTextAsync(file, document.ToJsonString(), TestContext.Current.CancellationToken);
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
@@ -43,6 +49,10 @@ public sealed class RegressionTests : IDisposable
             JsonNode[] events = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.True(Array.FindIndex(events, item => item["event"]!.ToString() == "session-created") < Array.FindIndex(events, item => item["event"]!.ToString() == "script-output"));
             Assert.Single(events, item => item["event"]!.ToString() == "completed");
+            string sessionId = events.Single(item => item["event"]!.ToString() == "session-created")["data"]!["session_id"]!.ToString();
+            TmuxCommandResult pane = await server.ExecuteCommandAsync(["display-message", "-p", "-t", sessionId + ":", "#{pane_current_path}"], TestContext.Current.CancellationToken);
+            Assert.Equal(0, pane.ExitCode);
+            Assert.Equal(expectedDirectory, System.Text.Encoding.UTF8.GetString(pane.StandardOutput.Span).TrimEnd('\n'));
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }

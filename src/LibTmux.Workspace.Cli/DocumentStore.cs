@@ -11,6 +11,8 @@ internal sealed class DocumentStore(CliContext context)
 {
     private static readonly string[] Extensions = [".yaml", ".yml", ".json"];
 
+    internal string WorkingDirectory => context.Directory;
+
     internal string GlobalDirectory => Candidates().FirstOrDefault(Directory.Exists) ?? Path.Combine(context.Home, ".tmuxp");
 
     internal string[] Candidates() => new[] { context.Environment.GetValueOrDefault("TMUXP_CONFIGDIR"), Path.Combine(context.Environment.GetValueOrDefault("XDG_CONFIG_HOME") ?? Path.Combine(context.Home, ".config"), "tmuxp"), Path.Combine(context.Home, ".tmuxp") }.Where(value => value is not null).Select(value => Expand(value!)).ToArray();
