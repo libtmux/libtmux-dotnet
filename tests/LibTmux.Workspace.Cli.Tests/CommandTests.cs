@@ -29,7 +29,7 @@ public sealed class CommandTests : IDisposable
     [InlineData("load", "file.yaml", "-2", "--88-colors")]
     public async Task Usage_failure_precedes_discovery_or_tmux(params string[] args)
     {
-        (int code, string output, string error) = await Run(["--json", .. args]);
+        (int code, string output, string error) = await Run(["--log-level", "critical", "--json", .. args]);
         Assert.Equal(2, code);
         Assert.Empty(output);
         Assert.Equal("usage", JsonNode.Parse(error)!["code"]!.ToString());
