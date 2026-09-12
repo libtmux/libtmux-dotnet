@@ -20,6 +20,11 @@ version.
 
 ### Development
 
+- **The release SBOM lists what the packages contain.** `release.yml` scanned
+  the `.nupkg` files themselves, which syft's .NET catalogers do not open, so
+  every SBOM through `0.0.0-alpha.12` listed no components. It now scans the
+  unpacked packages and stops the release if the SBOM omits one. (#27)
+
 ## [0.0.0-alpha.12] — 2026-09-12
 
 ### Added
