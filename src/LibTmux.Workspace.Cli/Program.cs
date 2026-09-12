@@ -4,6 +4,13 @@ using System.Runtime.InteropServices;
 
 namespace LibTmux.Workspace.Cli;
 
+/// <summary>Runs the tmux workspace CLI.</summary>
+/// <remarks>
+/// Unix terminals left in application cursor-key mode by a raw
+/// <see cref="Console" /> touch are restored on every exit path, success,
+/// failure, or cancellation alike, so a workspace load or shell session never
+/// leaves a caller's terminal behaving strangely afterward.
+/// </remarks>
 internal static class Program
 {
     private static async Task<int> Main(string[] args)
