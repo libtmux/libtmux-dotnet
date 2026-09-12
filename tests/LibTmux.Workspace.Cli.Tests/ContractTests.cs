@@ -80,6 +80,17 @@ public sealed class ContractTests : IDisposable
     }
 
     [Fact]
+    public async Task Installed_command_identity_and_machine_version_use_one_native_graph()
+    {
+        var result = await Run("--help");
+        Assert.Contains("tmux-workspace [", result.Output, StringComparison.Ordinal);
+        Assert.Equal(1, result.Output.Split("--version", StringSplitOptions.None).Length - 1);
+        result = await Run("--version", "--json");
+        Assert.Equal("tmux-workspace", JsonNode.Parse(result.Output)!["name"]!.ToString());
+        Assert.NotEmpty(JsonNode.Parse(result.Output)!["version"]!.ToString());
+    }
+
+    [Fact]
     public void Editor_tokenizer_preserves_quoted_arguments_without_shell_expansion()
     {
         string[] expected = ["editor", "a b", "$(never)", "", "c d"];

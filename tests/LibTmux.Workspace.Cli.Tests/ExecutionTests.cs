@@ -40,7 +40,7 @@ public sealed class ExecutionTests : IDisposable
                 window_index: 4
                 panes: [["printf ready"]]
             """, token);
-        Server server = Server.Open(new ServerConnectionOptions(socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
             (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
