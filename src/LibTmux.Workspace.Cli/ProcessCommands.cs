@@ -14,7 +14,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         string[] editor = SplitArguments(context.Environment.GetValueOrDefault("EDITOR") ?? "vim");
         if (editor.Length == 0) throw new CliException("editor-required", "EDITOR must name an executable.");
         ChildResult result = await RunProcessAsync(context, output, editor[0], [.. editor.Skip(1), path], context.Directory, stream: false, interactive: !invocation.Machine).ConfigureAwait(false);
-        output.Result(new { schema_version = 1, command = "edit", status = result.ExitCode == 0 ? "ok" : "error", path, child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated }, $"Editor exited with status {result.ExitCode}.");
+        await output.ResultAsync(new { schema_version = 1, command = "edit", status = result.ExitCode == 0 ? "ok" : "error", path, child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated }, $"Editor exited with status {result.ExitCode}.").ConfigureAwait(false);
         return result.ExitCode;
     }
 
@@ -37,7 +37,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
             ["tmux"] = tmux,
             ["redaction"] = "Home is masked in named paths. Environment values and raw server options are omitted.",
         };
-        if (invocation.Machine) output.Result(result);
+        if (invocation.Machine) await output.ResultAsync(result).ConfigureAwait(false);
         else foreach (var item in result) { output.Human(item.Key + ": ", "heading", false); output.Human(item.Value?.ToString() ?? "", "information"); }
     }
 
@@ -49,19 +49,27 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         string[] args = StripExtensions(invocation.Arguments);
         ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(args), context.Directory, stream: !interactive, interactive: interactive).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "shell", status = result.ExitCode == 0 ? "ok" : "error", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated, encoding = "utf-8-replacement" };
-        if (invocation.Flag("ndjson")) output.Event(result.ExitCode == 0 ? "completed" : "failed", summary);
-        else output.Result(summary, result.StandardOutput);
+        await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
+        if (!invocation.Flag("ndjson")) await output.ResultAsync(summary, result.StandardOutput).ConfigureAwait(false);
         return result.ExitCode;
     }
 
     internal async Task<int> BridgeLoadAsync()
     {
         string python = await PythonAsync().ConfigureAwait(false);
-        output.Event("started", new { bridge = "tmuxp", version = "1.74.0" });
+        await output.EventAsync("started", new { bridge = "tmuxp", version = "1.74.0" }).ConfigureAwait(false);
         ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(StripExtensions(invocation.Arguments)), context.Directory, stream: true).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "load", status = result.ExitCode == 0 ? "ok" : "error", results = new[] { new { bridge = "tmuxp", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated } }, errors = result.ExitCode == 0 ? Array.Empty<object>() : [new { code = "bridge-failed", message = "Python workspace load failed." }] };
-        if (invocation.Flag("ndjson")) output.Event(result.ExitCode == 0 ? "completed" : "failed", summary);
-        else output.Result(summary);
+        try
+        {
+            await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
+            if (!invocation.Flag("ndjson")) await output.ResultAsync(summary).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (failure is IOException or OperationCanceledException)
+        {
+            await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, summary).ConfigureAwait(false);
+            if (result.ExitCode == 0) return failure is OperationCanceledException ? 130 : 1;
+        }
         return result.ExitCode;
     }
 
@@ -88,9 +96,10 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         List<string> result = [];
         for (int index = 0; index < args.Length; index++)
         {
+            if (args[index] == "--") { result.AddRange(args[index..]); break; }
             if (args[index] is "--json" or "--ndjson") continue;
-            if (args[index] == "--color") { index++; continue; }
-            if (args[index].StartsWith("--color=", StringComparison.Ordinal)) continue;
+            if (args[index] is "--color" or "--log-level" or "--log-file") { index++; continue; }
+            if (args[index].StartsWith("--color=", StringComparison.Ordinal) || args[index].StartsWith("--log-level=", StringComparison.Ordinal) || args[index].StartsWith("--log-file=", StringComparison.Ordinal)) continue;
             result.Add(args[index]);
         }
         return result.ToArray();
@@ -108,7 +117,6 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         try { process.Start(); }
         catch (System.ComponentModel.Win32Exception failure) { throw new CliException("executable-unavailable", $"Cannot start '{executable}': {failure.Message}"); }
         if (!interactive) process.StandardInput.Close();
-        object sync = new();
         bool truncated = false;
         async Task<string> Drain(StreamReader reader, string channel)
         {
@@ -118,17 +126,10 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
             while ((count = await reader.ReadAsync(buffer, context.CancellationToken).ConfigureAwait(false)) > 0)
             {
                 string value = new(buffer, 0, count);
-                lock (sync)
-                {
-                    int available = Math.Max(0, 65536 - retained.Length);
-                    retained.Append(value.AsSpan(0, Math.Min(count, available)));
-                    if (count > available) truncated = true;
-                    if (stream)
-                    {
-                        output.Event("script-output", new { stream = channel, text = value, encoding = "utf-8-replacement" });
-                        if (!output.Machine) output.Human(value, "secondary", newline: false, writer: context.Error);
-                    }
-                }
+                int available = Math.Max(0, 65536 - retained.Length);
+                retained.Append(value.AsSpan(0, Math.Min(count, available)));
+                if (count > available) truncated = true;
+                if (stream) await output.ScriptOutputAsync(channel, value).ConfigureAwait(false);
             }
             return retained.ToString();
         }

@@ -70,7 +70,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
         JsonArray results = [];
         JsonArray errors = [];
-        output.Event("started", new { inputs = inputs.Length });
+        await output.EventAsync("started", new { inputs = inputs.Length }).ConfigureAwait(false);
         for (int index = 0; index < inputs.Length; index++)
         {
             string stage = "workspace-started";
@@ -89,7 +89,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             try
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
-                output.Event(stage = "workspace-started", new { input_index = index, input = input.Path });
+                await output.EventAsync(stage = "workspace-started", new { input_index = index, input = input.Path }).ConfigureAwait(false);
                 if (appendTarget is not null)
                 {
                     session = await Field(appendTarget, "session_id").ConfigureAwait(false);
@@ -102,7 +102,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     {
                         session = await Field("=" + input.Plan.Name + ":", "session_id").ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
-                        output.Event("workspace-completed", new { input_index = index, session_id = session, status = "reused" });
+                        await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
                         continue;
                     }
                 }
@@ -119,7 +119,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     int temporaryIndex = 99999;
                     while (input.Plan.Windows.Any(window => window.Index == temporaryIndex)) temporaryIndex++;
                     await Change(["move-window", "-s", bootstrap, "-t", session + ":" + temporaryIndex.ToString(CultureInfo.InvariantCulture)]).ConfigureAwait(false);
-                    output.Event(stage, new { input_index = index, session_id = session, session_name = input.Plan.Name });
+                    await output.EventAsync(stage, new { input_index = index, session_id = session, session_name = input.Plan.Name }).ConfigureAwait(false);
                     completedStage = stage;
                 }
                 if (input.Plan.BeforeScript is string script)
@@ -152,7 +152,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     firstWindow ??= windowId;
                     if (window.Focus) focusedWindow = windowId;
                     foreach (var option in window.Options) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
-                    output.Event(stage, new { input_index = index, session_id = session, window_id = windowId, window_name = window.Name });
+                    await output.EventAsync(stage, new { input_index = index, session_id = session, window_id = windowId, window_name = window.Name }).ConfigureAwait(false);
                     completedStage = stage;
                     string? focusedPane = null;
                     for (int paneIndex = 0; paneIndex < window.Panes.Length; paneIndex++)
@@ -165,7 +165,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             paneId = (await Change(split).ConfigureAwait(false)).TrimEnd('\n');
                             await Change(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
                         }
-                        output.Event(stage = "pane-created", new { input_index = index, window_id = windowId, pane_id = paneId });
+                        await output.EventAsync(stage = "pane-created", new { input_index = index, window_id = windowId, pane_id = paneId }).ConfigureAwait(false);
                         completedStage = stage;
                         if (pane.Focus) focusedPane = paneId;
                         if (pane.Commands.Length > 0 && pane.Shell is null && (input.Plan.Readiness == "always" || (input.Plan.Readiness == "auto" && (await Field(paneId, "pane_current_command").ConfigureAwait(false)).EndsWith("zsh", StringComparison.Ordinal))))
@@ -197,10 +197,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 if (bootstrap is not null) await Change(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
                 if ((focusedWindow ?? firstWindow) is string active) await Change(["select-window", "-t", active]).ConfigureAwait(false);
                 results.Add(Result(index, input.Path, session, sessionName, created ? "created" : "appended"));
-                output.Event(stage = "workspace-completed", new { input_index = index, session_id = session });
+                await output.EventAsync(stage = "workspace-completed", new { input_index = index, session_id = session }).ConfigureAwait(false);
                 if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }
             }
-            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException)
+            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException or IOException)
             {
                 bool removed = false;
                 if (stage == "before-script" && created && session is not null)
@@ -209,18 +209,34 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult deletion = await Server.ExecuteCommandAsync(["kill-session", "-t", session], cleanup.Token).ConfigureAwait(false);
                     removed = deletion.ExitCode == 0;
                 }
-                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : "tmux-failed";
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is IOException ? "output-failed" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
-                if (invocation.Flag("ndjson")) output.Event("failed", summary);
-                else output.Result(summary);
-                output.Diagnostic(code, failure.Message);
+                using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
+                try
+                {
+                    await output.EventAsync("failed", summary, reporting.Token).ConfigureAwait(false);
+                    if (!invocation.Flag("ndjson")) await output.ResultAsync(summary, cancellationToken: reporting.Token).ConfigureAwait(false);
+                    await output.DiagnosticAsync(code, failure.Message).ConfigureAwait(false);
+                }
+                catch (Exception interrupted) when (interrupted is IOException or OperationCanceledException)
+                {
+                    await output.DiagnosticAsync(code, failure.Message, summary).ConfigureAwait(false);
+                }
                 return failure is OperationCanceledException ? 130 : 1;
             }
         }
         var completed = new { schema_version = 1, command = "load", status = "ok", results, errors };
-        if (invocation.Flag("ndjson")) output.Event("completed", completed);
-        else if (invocation.Machine) output.Result(completed);
+        try
+        {
+            await output.EventAsync("completed", completed).ConfigureAwait(false);
+            if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(completed).ConfigureAwait(false);
+        }
+        catch (Exception failure) when (failure is IOException or OperationCanceledException)
+        {
+            await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, completed).ConfigureAwait(false);
+            return failure is OperationCanceledException ? 130 : 1;
+        }
         if (!invocation.Flag("detached") && !invocation.Flag("append") && results.LastOrDefault()?["session_id"]?.ToString() is string target)
             return await new ProcessCommands(context, invocation, output).AttachAsync(target, Connection()).ConfigureAwait(false);
         return 0;
@@ -267,7 +283,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         document["windows"] = windows;
         string format = invocation.Text("workspace_format") ?? "yaml";
         new ReadCommands(context, invocation, output).SaveOrPrint(document, format, document["session_name"] + "." + format);
-        if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) output.Warning("capture-lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.");
+        if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture-lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
 
     private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["completed_stage"] = "workspace-completed" };
