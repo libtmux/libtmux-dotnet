@@ -167,7 +167,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         output.Event(stage = "pane-created", new { input_index = index, window_id = windowId, pane_id = paneId });
                         completedStage = stage;
                         if (pane.Focus) focusedPane = paneId;
-                        if (pane.Shell is null && (input.Plan.Readiness == "always" || (input.Plan.Readiness == "auto" && (await Field(paneId, "pane_current_command").ConfigureAwait(false)).EndsWith("zsh", StringComparison.Ordinal))))
+                        if (pane.Commands.Length > 0 && pane.Shell is null && (input.Plan.Readiness == "always" || (input.Plan.Readiness == "auto" && (await Field(paneId, "pane_current_command").ConfigureAwait(false)).EndsWith("zsh", StringComparison.Ordinal))))
                         {
                             long started = System.Diagnostics.Stopwatch.GetTimestamp();
                             while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(2))
