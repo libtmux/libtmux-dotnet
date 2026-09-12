@@ -49,6 +49,7 @@
     <InternalsVisibleTo Include="LibTmux.UnitTests" />
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
     <InternalsVisibleTo Include="LibTmux.Mcp" />
+    <InternalsVisibleTo Include="LibTmux.Workspace.Cli" />
     <InternalsVisibleTo Include="LibTmux.Query.Json" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
