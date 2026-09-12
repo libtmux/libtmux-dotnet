@@ -50,7 +50,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(args), context.Directory, stream: !interactive, interactive: interactive).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "shell", status = result.ExitCode == 0 ? "ok" : "error", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated, encoding = "utf-8-replacement" };
         await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
-        if (!invocation.Flag("ndjson")) await output.ResultAsync(summary, result.StandardOutput).ConfigureAwait(false);
+        if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(summary).ConfigureAwait(false);
         return result.ExitCode;
     }
 
@@ -58,14 +58,20 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
     {
         string python = await PythonAsync().ConfigureAwait(false);
         await output.EventAsync("started", new { bridge = "tmuxp", version = "1.74.0" }).ConfigureAwait(false);
-        ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(StripExtensions(invocation.Arguments)), context.Directory, stream: true).ConfigureAwait(false);
+        await output.ProgressAsync(progress => progress.StartBridge(), force: true).ConfigureAwait(false);
+        CliContext childContext = context with { Environment = new Dictionary<string, string?>(context.Environment, StringComparer.Ordinal) { [ProgressOptions.EnabledEnvironment] = "0" } };
+        ChildResult result = await RunProcessAsync(childContext, output, python, BridgeArguments(StripExtensions(invocation.Arguments)), context.Directory, stream: true).ConfigureAwait(false);
         var summary = new { schema_version = 1, command = "load", status = result.ExitCode == 0 ? "ok" : "error", results = new[] { new { bridge = "tmuxp", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated } }, errors = result.ExitCode == 0 ? Array.Empty<object>() : [new { code = "bridge-failed", message = "Python workspace load failed." }] };
         try
         {
             await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
-            if (!invocation.Flag("ndjson")) await output.ResultAsync(summary).ConfigureAwait(false);
+            if (invocation.Machine)
+            {
+                if (!invocation.Flag("ndjson")) await output.ResultAsync(summary).ConfigureAwait(false);
+            }
+            else output.Human(result.ExitCode == 0 ? "Loaded Python workspace extensions." : "Python workspace extensions failed.", result.ExitCode == 0 ? "success" : "error");
         }
-        catch (Exception failure) when (failure is IOException or OperationCanceledException)
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, summary).ConfigureAwait(false);
             if (result.ExitCode == 0) return failure is OperationCanceledException ? 130 : 1;
@@ -97,9 +103,9 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         for (int index = 0; index < args.Length; index++)
         {
             if (args[index] == "--") { result.AddRange(args[index..]); break; }
-            if (args[index] is "--json" or "--ndjson") continue;
-            if (args[index] is "--color" or "--log-level" or "--log-file") { index++; continue; }
-            if (args[index].StartsWith("--color=", StringComparison.Ordinal) || args[index].StartsWith("--log-level=", StringComparison.Ordinal) || args[index].StartsWith("--log-file=", StringComparison.Ordinal)) continue;
+            if (args[index] is "--json" or "--ndjson" or "--no-progress") continue;
+            if (args[index] is "--color" or "--log-level" or "--log-file" or "--progress-format" or "--progress-lines") { index++; continue; }
+            if (args[index].StartsWith("--color=", StringComparison.Ordinal) || args[index].StartsWith("--log-level=", StringComparison.Ordinal) || args[index].StartsWith("--log-file=", StringComparison.Ordinal) || args[index].StartsWith("--progress-format=", StringComparison.Ordinal) || args[index].StartsWith("--progress-lines=", StringComparison.Ordinal)) continue;
             result.Add(args[index]);
         }
         return result.ToArray();
@@ -150,7 +156,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); } catch (Exception failure) when (failure is OperationCanceledException or IOException) { }
+            try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); } catch (Exception failure) when (failure is OperationCanceledException or IOException or UnauthorizedAccessException) { }
             throw;
         }
         return new ChildResult(process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false), truncated);

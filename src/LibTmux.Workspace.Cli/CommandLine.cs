@@ -10,6 +10,7 @@ internal sealed class CommandLine
     private readonly Dictionary<Command, string> _names = [];
     private readonly List<Argument> _arguments = [];
     private readonly Dictionary<Option, string[]> _choices = [];
+    private readonly Dictionary<Option, (string Variable, object Default)> _environmentBindings = [];
 
     internal CommandLine()
     {
@@ -36,11 +37,12 @@ internal sealed class CommandLine
         Flag(load, "colors256", "-2", "Tell tmux the terminal supports 256 colors.");
         Flag(load, "colors88", "-8", "Reject unsupported 88-color mode; use -2 for 256 colors.", ["--88-colors"]);
         Value(load, "log_file", "--log-file", "Write operation diagnostics to this file.");
-        Value(load, "progress_format", "--progress-format", "Progress preset or token template.");
+        Value(load, "progress_format", "--progress-format", "Terminal progress: default, minimal, window, pane, verbose, or a bare named token template.", environment: ProgressOptions.FormatEnvironment, fallback: ProgressOptions.DefaultFormat);
         Option<int?> lines = new("--progress-lines") { Description = "Script panel lines; 0 disables the panel and -1 uses terminal height." };
         load.Options.Add(lines);
+        BindEnvironment(lines, ProgressOptions.LinesEnvironment, ProgressOptions.DefaultLines);
         _readers[load].Add(("progress_lines", result => result.GetValue(lines)));
-        Flag(load, "no_progress", "--no-progress", "Disable animated progress.");
+        Flag(load, "no_progress", "--no-progress", "Disable terminal progress updates.", environment: ProgressOptions.EnabledEnvironment + "=0");
 
         Command freeze = Add(Root, "freeze", "Capture a live session as a workspace.");
         Arguments(freeze, "sessions", "session-name", ArgumentArity.ZeroOrOne);
@@ -161,19 +163,27 @@ internal sealed class CommandLine
         }
     }
 
-    private void Flag(Command command, string key, string name, string description, string[]? aliases = null, bool recursive = false)
+    private void Flag(Command command, string key, string name, string description, string[]? aliases = null, bool recursive = false, string? environment = null)
     {
         Option<bool> option = new(name, aliases ?? []) { Description = description, Recursive = recursive };
         command.Options.Add(option);
+        if (environment is not null) BindEnvironment(option, environment, false);
         _readers[command].Add((key, result => result.GetValue(option)));
     }
 
-    private void Value(Command command, string key, string name, string description, string? value = null, string[]? choices = null, string[]? aliases = null, bool recursive = false)
+    private void Value(Command command, string key, string name, string description, string? value = null, string[]? choices = null, string[]? aliases = null, bool recursive = false, string? environment = null, object? fallback = null)
     {
         Option<string?> option = new(name, aliases ?? []) { Description = description, DefaultValueFactory = _ => value, Recursive = recursive };
         if (choices is not null) { option.AcceptOnlyFromAmong(choices); _choices[option] = choices; }
         command.Options.Add(option);
+        if (environment is not null && fallback is not null) BindEnvironment(option, environment, fallback);
         _readers[command].Add((key, result => result.GetValue(option)));
+    }
+
+    private void BindEnvironment(Option option, string variable, object fallback)
+    {
+        _environmentBindings[option] = (variable, fallback);
+        option.Description += $" Env: {variable}. Default: {fallback}.";
     }
 
     private void Endpoint(Command command)
@@ -200,7 +210,7 @@ internal sealed class CommandLine
             description = command.Description,
             aliases = command.Aliases,
             arguments = command.Arguments.Select(argument => new { name = argument.Name, type = argument.ValueType.Name, minimum = argument.Arity.MinimumNumberOfValues, maximum = argument.Arity.MaximumNumberOfValues }),
-            options = command.Options.Select(option => new { name = option.Name, aliases = option.Aliases, description = option.Description, type = option.ValueType.Name, minimum = option.Arity.MinimumNumberOfValues, maximum = option.Arity.MaximumNumberOfValues, recursive = option.Recursive, required = option.Required, @default = option.HasDefaultValue ? option.GetDefaultValue() : null, choices = _choices.GetValueOrDefault(option) ?? [] }),
+            options = command.Options.Select(option => new { name = option.Name, aliases = option.Aliases, description = option.Description, type = option.ValueType.Name, minimum = option.Arity.MinimumNumberOfValues, maximum = option.Arity.MaximumNumberOfValues, recursive = option.Recursive, required = option.Required, @default = _environmentBindings.TryGetValue(option, out var binding) ? binding.Default : option.HasDefaultValue ? option.GetDefaultValue() : null, environment = _environmentBindings.GetValueOrDefault(option).Variable, choices = _choices.GetValueOrDefault(option) ?? [] }),
             commands = command.Subcommands.Select(child => Describe(child)),
         };
     }

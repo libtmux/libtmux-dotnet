@@ -56,6 +56,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     {
         if (invocation.Flag("colors88")) throw new CliException("unsupported-color-mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
         if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("mode-required", "Machine load requires -d or --append.", 2);
+        output.PrepareProgress();
         string[] files = invocation.Many("files");
         var inputs = files.Select((file, index) =>
         {
@@ -103,9 +104,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         session = await Field("=" + input.Plan.Name + ":", "session_id").ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
+                        if (!invocation.Machine) output.Human("Using existing session " + input.Plan.Name, "success");
                         continue;
                     }
                 }
+                await output.ProgressAsync(progress => progress.StartWorkspace(input.Plan, sessionName), force: true).ConfigureAwait(false);
                 string? bootstrap = null;
                 if (session is null)
                 {
@@ -139,8 +142,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 completedStage = stage;
                 string? focusedWindow = null;
                 string? firstWindow = null;
+                int windowOrdinal = 0;
                 foreach (WindowPlan window in input.Plan.Windows)
                 {
+                    windowOrdinal++;
+                    await output.ProgressAsync(progress => progress.StartWindow(window, windowOrdinal)).ConfigureAwait(false);
                     stage = "window-created";
                     PanePlan first = window.Panes[0];
                     List<string> args = ["new-window", "-d", "-P", "-F", "#{window_id}\t#{pane_id}", "-t", session + ":" + (appendTarget is null ? window.Index?.ToString(CultureInfo.InvariantCulture) : null)];
@@ -158,6 +164,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     for (int paneIndex = 0; paneIndex < window.Panes.Length; paneIndex++)
                     {
                         PanePlan pane = window.Panes[paneIndex];
+                        await output.ProgressAsync(progress => progress.StartPane(paneIndex + 1)).ConfigureAwait(false);
                         if (paneIndex > 0)
                         {
                             List<string> split = ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", windowId];
@@ -186,12 +193,14 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             await Task.Delay(TimeSpan.FromSeconds(command.After), context.CancellationToken).ConfigureAwait(false);
                             completedStage = stage;
                         }
+                        await output.ProgressAsync(progress => progress.CompletePane()).ConfigureAwait(false);
                     }
                     stage = "window-finalized";
                     if (window.Layout is not null) await Change(["select-layout", "-t", windowId, window.Layout]).ConfigureAwait(false);
                     foreach (var option in window.OptionsAfter) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     if (focusedPane is not null) await Change(["select-pane", "-t", focusedPane]).ConfigureAwait(false);
                     completedStage = stage;
+                    await output.ProgressAsync(progress => progress.CompleteWindow(), force: true).ConfigureAwait(false);
                 }
                 stage = "workspace-finalized";
                 if (bootstrap is not null) await Change(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
@@ -200,7 +209,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 await output.EventAsync(stage = "workspace-completed", new { input_index = index, session_id = session }).ConfigureAwait(false);
                 if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }
             }
-            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException or IOException)
+            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException or IOException or UnauthorizedAccessException)
             {
                 bool removed = false;
                 if (stage == "before-script" && created && session is not null)
@@ -209,7 +218,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult deletion = await Server.ExecuteCommandAsync(["kill-session", "-t", session], cleanup.Token).ConfigureAwait(false);
                     removed = deletion.ExitCode == 0;
                 }
-                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is IOException ? "output-failed" : "tmux-failed";
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
@@ -219,7 +228,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (!invocation.Flag("ndjson")) await output.ResultAsync(summary, cancellationToken: reporting.Token).ConfigureAwait(false);
                     await output.DiagnosticAsync(code, failure.Message).ConfigureAwait(false);
                 }
-                catch (Exception interrupted) when (interrupted is IOException or OperationCanceledException)
+                catch (Exception interrupted) when (interrupted is IOException or UnauthorizedAccessException or OperationCanceledException)
                 {
                     await output.DiagnosticAsync(code, failure.Message, summary).ConfigureAwait(false);
                 }
@@ -231,8 +240,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         {
             await output.EventAsync("completed", completed).ConfigureAwait(false);
             if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(completed).ConfigureAwait(false);
+            await output.FinishProgressAsync().ConfigureAwait(false);
         }
-        catch (Exception failure) when (failure is IOException or OperationCanceledException)
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, completed).ConfigureAwait(false);
             return failure is OperationCanceledException ? 130 : 1;
