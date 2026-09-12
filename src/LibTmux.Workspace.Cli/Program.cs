@@ -73,6 +73,7 @@ internal static class CliRunner
         }
         catch (OperationCanceledException) { await renderer.DiagnosticAsync("cancelled", "Operation cancelled.").ConfigureAwait(false); return 130; }
         catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
+        catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale-server", failure.Message).ConfigureAwait(false); return 1; }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or LibTmuxException)
         {
             await renderer.DiagnosticAsync("operation-failed", failure.Message).ConfigureAwait(false);
