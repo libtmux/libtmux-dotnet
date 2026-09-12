@@ -12,13 +12,57 @@ version.
 
 ### Added
 
+- `Session.GetWindowAsync` accepts a `WindowId`. The string overload matches
+  `window_id` or `window_name`, and two windows in one session can share a
+  name; the typed overload matches the identifier alone. (#25)
+
 ### Fixed
 
+- **`==` on `Server`, `Session`, `Window`, `Pane` and `Client` now compares
+  identity rather than reference.** Equality for these has always been the
+  server generation plus the typed ID, and `Equals` implemented it, but neither
+  operator existed — so two handles read for the same tmux object answered
+  `true` from `Equals` and `false` from `==`. All five now carry `==`, `!=` and
+  `IEquatable<T>`. (#25)
+
+- `SessionId`, `WindowId` and `PaneId` no longer throw when sorted. They are
+  record structs, which carry equality and no ordering, so `OrderBy` and
+  `Array.Sort` failed at run time with `InvalidOperationException` reporting
+  only that two elements could not be compared. All three implement
+  `IComparable<T>` and `<`, `<=`, `>`, `>=`, ordering by the number tmux
+  issued. (#25)
+
 ### Changed
+
+- **`TmuxOutputEvent.PaneId` is a `PaneId`, not a `string`.**
+
+  - Previous behaviour: the property named `PaneId` was typed `string`, so
+    matching pane output to a handle meant parsing the text back.
+  - New behaviour: it is a `PaneId`. An `%output` line whose first word is not
+    a pane identifier arrives as a `TmuxNotificationEvent`, named but unparsed,
+    because a throwing parse in the pump faults the whole event stream rather
+    than one event.
+  - Reason: control mode is where output is correlated to a held handle, and it
+    was the one place the typed model stopped.
+  - Recommended action: drop any `PaneId.Parse` at the call site; compare with
+    `pane.Id` directly.
+
+  (#25)
+
+- `PaneActivityHub` keys pane wakeups by `PaneId`. The map was keyed by text, so
+  every `%output` event rendered the identifier back to a string to look one up
+  — an allocation per chunk a pane wrote. `CaptureSignal` now returns `null` for
+  text that is not a pane identifier, which sends the caller to the polling path
+  rather than to a wait nothing will end. (#25)
 
 ### Removed
 
 ### Development
+
+- The listed-entity validator tests disposal rather than every interface. It
+  read any interface on `Server`, `Session`, `Window`, `Pane` or `Client` as
+  "listed entity is disposable", while the check after it already tested public
+  `Dispose` and `DisposeAsync` members. (#25)
 
 - **Every CI job carries a timeout.** A job that stopped making progress ran to
   GitHub's six-hour ceiling; the advisory macOS lane reached fifty minutes
