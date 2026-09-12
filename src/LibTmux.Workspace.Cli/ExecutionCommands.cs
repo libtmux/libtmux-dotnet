@@ -54,6 +54,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     internal async Task<int> LoadAsync()
     {
+        if (invocation.Flag("colors88")) throw new CliException("unsupported-color-mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
         if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("mode-required", "Machine load requires -d or --append.", 2);
         string[] files = invocation.Many("files");
         var inputs = files.Select((file, index) =>
@@ -298,7 +299,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private async Task<string> Command(IReadOnlyList<string> arguments)
     {
-        TmuxCommandResult result = await Server.ExecuteCommandAsync(invocation.Flag("colors88") ? ["-8", .. arguments] : arguments, context.CancellationToken).ConfigureAwait(false);
+        TmuxCommandResult result = await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0) throw new CliException("tmux-failed", string.Join("\n", result.StandardErrorLines));
         return Encoding.UTF8.GetString(result.StandardOutput.Span);
     }
