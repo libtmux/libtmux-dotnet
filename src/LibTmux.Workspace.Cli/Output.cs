@@ -314,7 +314,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         writer ??= context.Output;
         bool color = UseColor(writer);
         Color tint = role switch { "error" => Color.Red, "warning" => Color.Yellow, "subject" => Color.Magenta1, "heading" => Color.Cyan1, "information" => Color.Cyan, _ => Color.Green };
-        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = color ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer) });
+        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = color ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
         string safe = string.Concat(text.Select(character => char.IsControl(character) && character is not '\n' and not '\t' ? $"\\u{(int)character:x4}" : character.ToString()));
         console.Write(new Text(safe + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
     }

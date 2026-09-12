@@ -55,6 +55,7 @@ internal sealed partial class ProgressDisplay : IDisposable
         {
             Ansi = color ? AnsiSupport.Yes : AnsiSupport.No,
             ColorSystem = ColorSystemSupport.Standard,
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
             Out = new FrameOutput(_frame, Math.Max(1, width - 1), height)
         });
     }
