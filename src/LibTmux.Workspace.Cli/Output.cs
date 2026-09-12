@@ -8,6 +8,17 @@ internal sealed record CliContext(TextWriter Output, TextWriter Error, string Di
 {
     internal string Home => Environment.GetValueOrDefault("HOME") ?? System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
     internal bool Terminal => ReferenceEquals(Output, Console.Out) && !Console.IsOutputRedirected;
+
+    internal string Executable(string name)
+    {
+        if (name.Contains(Path.DirectorySeparatorChar) || name.Contains(Path.AltDirectorySeparatorChar)) return Path.GetFullPath(name, Directory);
+        foreach (string folder in (Environment.GetValueOrDefault("PATH") ?? "").Split(Path.PathSeparator))
+        {
+            string candidate = Path.GetFullPath(Path.Combine(folder, name), Directory);
+            if (File.Exists(candidate) && !System.IO.Directory.Exists(candidate) && (OperatingSystem.IsWindows() || (File.GetUnixFileMode(candidate) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0)) return candidate;
+        }
+        throw new CliException("executable-unavailable", $"Executable '{name}' was not found on PATH.");
+    }
 }
 
 internal sealed class CliException(string code, string message, int exitCode = 1) : Exception(message)

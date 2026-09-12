@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Help;
 using System.CommandLine.Parsing;
 
 namespace LibTmux.Workspace.Cli;
@@ -12,7 +13,8 @@ internal sealed class CommandLine
 
     internal CommandLine()
     {
-        Root = new RootCommand("Manage tmux workspaces from YAML and JSON.");
+        Root = new Command("tmux-workspace", "Manage tmux workspaces from YAML and JSON.");
+        Root.Options.Add(new HelpOption());
         Root.SetAction(_ => 0);
         _names[Root] = "";
         _readers[Root] = [];
@@ -90,7 +92,7 @@ internal sealed class CommandLine
         }
     }
 
-    internal RootCommand Root { get; }
+    internal Command Root { get; }
 
     internal Invocation Parse(string[] args)
     {
