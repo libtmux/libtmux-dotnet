@@ -85,8 +85,8 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         List<string> args = [];
         if (options.SocketPath is string path) args.AddRange(["-S", path]);
         if (options.SocketName is string name) args.AddRange(["-L", name]);
-        args.AddRange([context.Environment.ContainsKey("TMUX") ? "switch-client" : "attach-session", "-t", target]);
-        return (await RunProcessAsync(context, output, "tmux", args, context.Directory, stream: false, interactive: true).ConfigureAwait(false)).ExitCode;
+        args.AddRange([!string.IsNullOrEmpty(context.Environment.GetValueOrDefault("TMUX")) ? "switch-client" : "attach-session", "-t", target]);
+        return (await RunProcessAsync(context, output, options.TmuxBinaryPath, args, context.Directory, stream: false, interactive: true).ConfigureAwait(false)).ExitCode;
     }
 
     private async Task<string> PythonAsync()

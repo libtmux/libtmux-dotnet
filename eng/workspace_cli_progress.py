@@ -192,18 +192,16 @@ esac
                 assert result["stdout"] == "Using existing session first-input\nUsing existing session second-input\n"
             check("reused-inputs", arguments, reused)
 
-            binaries = root / "bin"
-            binaries.mkdir()
-            (binaries / "tmux").symlink_to(wrapper)
             def handoff(result):
                 assert result["exit_code"] == 0 and "attach-session" in result["tmux_argv"], "interactive handoff was not reached"
                 assert "INTERACTIVE-HANDOFF" in result["stderr"]
                 assert 0 <= result["stderr"].rfind("\x1b[2K") < result["stderr"].index("INTERACTIVE-HANDOFF"), "progress was not cleared before handoff"
                 assert "HANDOFF-PROGRESS" not in result["stdout"], "progress used stdout's terminal"
-            arguments = document("handoff")
-            arguments.remove("-d")
-            check("clear-before-interactive-handoff", [*arguments, "--progress-format", "HANDOFF-PROGRESS"], handoff, output_terminal=True,
-                  variables={"PROGRESS_ATTACH": "1", "PATH": str(binaries) + os.pathsep + environment["PATH"]})
+            for name, variables in [("handoff", {}), ("handoff-empty-context", {"TMUX": ""})]:
+                arguments = document(name)
+                arguments.remove("-d")
+                check("clear-before-" + name, [*arguments, "--progress-format", "HANDOFF-PROGRESS"], handoff, output_terminal=True,
+                      variables={"PROGRESS_ATTACH": "1", **variables})
             check("active-environment-preflight", load, invalid_environment, variables={"TMUXP_PROGRESS_LINES": "invalid"})
             for name, extra, variables, terminal in [
                 ("flag-disabled", ["--no-progress"], {}, True),
