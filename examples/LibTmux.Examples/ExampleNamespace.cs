@@ -5,8 +5,10 @@ namespace LibTmux.Examples;
 
 /// <summary>An isolated tmux server an example connects to without naming it.</summary>
 /// <remarks>
-/// Disposal kills the server, so the socket must never be the one a bare tmux
-/// uses: a namespace named <c>default</c> would kill the developer's own.
+/// Disposal kills the server only when this namespace started it, so the
+/// socket must never be the one a bare tmux uses: a namespace named
+/// <c>default</c> would kill the developer's own. A server this namespace
+/// only borrowed -- the arena's lent server -- is left running.
 ///
 /// Both routes to a socket are moved. <c>TMUX_TMPDIR</c> places a <c>-L</c>
 /// name; the temporary directory places a <c>-S</c> path, which ignores
@@ -45,7 +47,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
 
     private readonly string _directory;
     private readonly string _entered;
-    private readonly OwnedServerScope _server;
+    private readonly OwnedServerScope? _owned;
     private readonly IReadOnlyList<(string Name, string? Value)> _restore;
     private int _disposed;
 
@@ -53,21 +55,24 @@ public sealed class ExampleNamespace : IAsyncDisposable
         string socketName,
         string directory,
         string entered,
-        OwnedServerScope server,
+        Server server,
+        OwnedServerScope? owned,
         IReadOnlyList<(string Name, string? Value)> restore)
     {
         SocketName = socketName;
         _directory = directory;
         _entered = entered;
-        _server = server;
+        Server = server;
+        _owned = owned;
         _restore = restore;
     }
 
-    /// <summary>Gets the socket this example's server is listening on.</summary>
+    /// <summary>Gets the socket this example's server is reachable on.</summary>
+    /// <remarks>A name under an owned server; the lent socket path under the arena.</remarks>
     public string SocketName { get; }
 
     /// <summary>Gets the server this example may reach.</summary>
-    public Server Server => _server.Value;
+    public Server Server { get; }
 
     /// <summary>Gets the session waiting on that server.</summary>
     public Session Session { get; private set; } = null!;
@@ -141,7 +146,76 @@ public sealed class ExampleNamespace : IAsyncDisposable
                     + "of a server that turned up somewhere else, and leaving it running.");
             }
 
-            ExampleNamespace world = new(socketName, directory, entered, server, restore);
+            ExampleNamespace world = new(socketName, directory, entered, server.Value, server, restore);
+            await world.PopulateAsync(cancellationToken);
+            return world;
+        }
+        catch
+        {
+            Environment.CurrentDirectory = entered;
+            Restore(restore);
+            TryDelete(directory);
+            throw;
+        }
+    }
+
+    /// <summary>Opens a namespace bound to a server the arena lent rather than one of its own.</summary>
+    /// <param name="name">The example's name, used only for its scratch directory.</param>
+    /// <param name="tmuxBinaryPath">The tmux executable the lending server was started with.</param>
+    /// <param name="socketPath">The socket the lending server is listening on.</param>
+    /// <param name="cancellationToken">Cancels the tmux commands.</param>
+    /// <returns>The namespace. Disposal never stops a server this namespace did not start.</returns>
+    public static async Task<ExampleNamespace> EnterArenaAsync(
+        string name,
+        string tmuxBinaryPath,
+        string socketPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tmuxBinaryPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
+        string nonce = Guid.NewGuid().ToString("N")[..8];
+        string directory = Path.Combine(SocketRoot, $"{name}-{nonce}");
+        System.IO.Directory.CreateDirectory(directory);
+
+        List<(string Name, string? Value)> restore =
+        [
+            .. Variables.Select(
+                variable => (variable, Environment.GetEnvironmentVariable(variable))),
+        ];
+
+        // TMUX and TMUX_PANE are cleared, not moved: inherited, they point a
+        // client at the server the developer is sitting in. LIBTMUX_SOCKET_PATH
+        // is set rather than cleared here: under the arena it names the lent
+        // endpoint, so a self-connecting example (one that asks for no Server
+        // parameter and dials tmux on its own) resolves through the lent
+        // socket instead of a socket this namespace never created.
+        Environment.SetEnvironmentVariable("TMUX_TMPDIR", null);
+        Environment.SetEnvironmentVariable("TMPDIR", directory);
+        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_NAME", null);
+        Environment.SetEnvironmentVariable("LIBTMUX_SOCKET_PATH", socketPath);
+        Environment.SetEnvironmentVariable(
+            "LIBTMUX_MCP_COMMAND",
+            Path.Combine(
+                AppContext.BaseDirectory,
+                OperatingSystem.IsWindows() ? "LibTmux.Mcp.exe" : "LibTmux.Mcp"));
+        Environment.SetEnvironmentVariable("TMUX", null);
+        Environment.SetEnvironmentVariable("TMUX_PANE", null);
+
+        // Panes inherit the directory the server started in, and examples type
+        // build commands.
+        string entered = Environment.CurrentDirectory;
+        Environment.CurrentDirectory = directory;
+
+        try
+        {
+            Server server = await Server.ConnectAsync(
+                new ServerConnectionOptions(
+                    tmuxBinaryPath: tmuxBinaryPath,
+                    socketPath: socketPath),
+                cancellationToken);
+
+            ExampleNamespace world = new(socketPath, directory, entered, server, owned: null, restore);
             await world.PopulateAsync(cancellationToken);
             return world;
         }
@@ -164,17 +238,28 @@ public sealed class ExampleNamespace : IAsyncDisposable
 
         try
         {
-            await _server.DisposeAsync();
+            // A server this namespace only borrowed belongs to the arena;
+            // stopping it here would kill a server this example does not own.
+            if (_owned is not null)
+            {
+                await _owned.DisposeAsync();
+            }
         }
         finally
         {
             Environment.CurrentDirectory = _entered;
             Restore(_restore);
 
-            // The socket file outlives the server that made it.
-            if (FindSocket(SocketName) is string socket)
+            if (_owned is not null)
             {
-                TryDeleteFile(socket);
+                // The socket file outlives the server that made it. Only an
+                // owned server's socket lives under SocketRoot in the first
+                // place; FindSocket would not match a lent absolute path, but
+                // the owned check also guards against ever unlinking it.
+                if (FindSocket(SocketName) is string socket)
+                {
+                    TryDeleteFile(socket);
+                }
             }
 
             TryDelete(_directory);
