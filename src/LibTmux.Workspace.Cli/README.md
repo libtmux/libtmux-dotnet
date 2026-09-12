@@ -47,6 +47,13 @@ $ artifacts/tools/tmux-workspace freeze example \
 
 Machine load requires `-d` or an explicit `--append` inside tmux. Existing sessions are reused. An interrupted or failed load reports completed effects; it does not promise rollback. A failing startup script removes only the session created for that input.
 
+Native append authenticates the inherited pane's daemon, resolves its current
+session through tmux, and retains that session across all inputs. Later native
+commands reject a replacement daemon, including global options after a startup
+script. The session suffix in `TMUX` does not select the destination. Append
+with Python plugins or custom builders fails before building any input or
+starting Python; use `-d` to load those extensions into a separate session.
+
 Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail before reading workspace files or running tmux or Python because supported tmux versions do not support 88-color mode.
 
 Machine freeze, conversion and import return the document without writing a guessed filename. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.
