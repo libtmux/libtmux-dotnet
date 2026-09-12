@@ -21,7 +21,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         name = store.Expand(name);
         if (string.IsNullOrWhiteSpace(name) || name.Any(character => char.IsControl(character) || character is ':' or '.')) throw Invalid("session_name contains a character tmux cannot preserve.");
         string fileDirectory = Path.GetDirectoryName(source)!;
-        string directory = ResolveDirectory(document, fileDirectory, store);
+        string directory = document["start_directory"] is null ? store.WorkingDirectory : ResolveDirectory(document, fileDirectory, store);
         JsonArray windows = document["windows"] as JsonArray ?? throw Invalid("windows must be a list.");
         if (windows.Count == 0) throw Invalid("At least one window is required.");
         JsonObject builder = document["workspace_builder_options"] as JsonObject ?? (document["workspace_builder_options"] is null ? [] : throw Invalid("workspace_builder_options must be a mapping."));
