@@ -98,6 +98,36 @@ public sealed class ContractTests : IDisposable
         Assert.Throws<CliException>(() => ProcessCommands.SplitArguments("editor 'unfinished"));
     }
 
+    [Fact]
+    public void Workspace_names_and_explicit_paths_have_distinct_resolution_rules()
+    {
+        string global = Path.Combine(_root, "global");
+        string local = Path.Combine(_root, "project");
+        Directory.CreateDirectory(global);
+        Directory.CreateDirectory(local);
+        File.WriteAllText(Path.Combine(global, "project.yaml"), "session_name: global");
+        File.WriteAllText(Path.Combine(global, "missing.yaml"), "session_name: global");
+        File.WriteAllText(Path.Combine(local, ".tmuxp.yaml"), "session_name: local");
+        File.WriteAllText(Path.Combine(_root, "project.yaml"), "session_name: explicit");
+        Dictionary<string, string?> environment = new(StringComparer.Ordinal) { ["HOME"] = _root, ["TMUXP_CONFIGDIR"] = global };
+        DocumentStore store = new(new CliContext(TextWriter.Null, TextWriter.Null, _root, environment, TestContext.Current.CancellationToken));
+
+        Assert.Equal(Path.Combine(global, "project.yaml"), store.Resolve("project"));
+        Assert.Equal(Path.Combine(local, ".tmuxp.yaml"), store.Resolve("./project"));
+        Assert.Equal(Path.Combine(_root, "project.yaml"), store.Resolve("project.yaml"));
+        Assert.Throws<CliException>(() => store.Resolve("missing.yaml"));
+        Assert.Equal(Path.Combine(global, "project.yaml"), store.Resolve("project", global));
+    }
+
+    [Fact]
+    public async Task Global_discovery_excludes_hidden_files()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, ".hidden.yaml"), "session_name: hidden", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_root, "visible.yaml"), "session_name: visible", TestContext.Current.CancellationToken);
+        var result = await Run("ls", "--json");
+        Assert.Single(JsonNode.Parse(result.Output)!["workspaces"]!.AsArray());
+    }
+
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
     {
         using StringWriter output = new();

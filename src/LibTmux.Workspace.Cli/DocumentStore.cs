@@ -29,7 +29,7 @@ internal sealed class DocumentStore(CliContext context)
         {
             foreach (string file in Directory.EnumerateFiles(GlobalDirectory).Order(StringComparer.Ordinal))
             {
-                if (Extensions.Contains(Path.GetExtension(file).ToLowerInvariant(), StringComparer.Ordinal)) yield return (file, "global");
+                if (!Path.GetFileName(file).StartsWith('.') && Extensions.Contains(Path.GetExtension(file).ToLowerInvariant(), StringComparer.Ordinal)) yield return (file, "global");
             }
         }
     }
@@ -37,18 +37,22 @@ internal sealed class DocumentStore(CliContext context)
     internal string Resolve(string supplied, string? sourceRoot = null)
     {
         string path = Expand(supplied);
-        if (!Path.IsPathRooted(path)) path = Path.Combine(context.Directory, path);
-        if (Directory.Exists(path))
+        bool name = !Path.IsPathRooted(path) && string.IsNullOrEmpty(Path.GetDirectoryName(path)) && !Path.HasExtension(path) && path is not "." and not "";
+        if (name)
         {
-            string? project = Extensions.Select(extension => Path.Combine(path, ".tmuxp" + extension)).FirstOrDefault(File.Exists);
-            return project ?? throw new CliException("workspace-not-found", $"No workspace file in '{supplied}'.");
+            string root = sourceRoot ?? GlobalDirectory;
+            string? candidate = Extensions.Select(extension => Path.Combine(root, path + extension)).FirstOrDefault(File.Exists);
+            if (candidate is not null) return Path.GetFullPath(candidate, context.Directory);
         }
-        if (File.Exists(path)) return Path.GetFullPath(path);
-        string root = sourceRoot ?? GlobalDirectory;
-        foreach (string suffix in new[] { "", ".yaml", ".yml", ".json" })
+        else
         {
-            string candidate = Path.Combine(root, supplied + suffix);
-            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            path = Path.GetFullPath(path, context.Directory);
+            if (Directory.Exists(path) || !Path.HasExtension(path))
+            {
+                string? project = Extensions.Select(extension => Path.Combine(path, ".tmuxp" + extension)).FirstOrDefault(File.Exists);
+                if (project is not null) return project;
+            }
+            else if (File.Exists(path)) return path;
         }
         throw new CliException("workspace-not-found", $"Workspace '{supplied}' was not found.");
     }
