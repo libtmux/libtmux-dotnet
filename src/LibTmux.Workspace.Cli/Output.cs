@@ -8,6 +8,7 @@ internal sealed record CliContext(TextWriter Output, TextWriter Error, string Di
 {
     internal string Home => Environment.GetValueOrDefault("HOME") ?? System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
     internal bool Terminal => ReferenceEquals(Output, Console.Out) && !Console.IsOutputRedirected;
+    internal bool ErrorTerminal => ReferenceEquals(Error, Console.Error) && !Console.IsErrorRedirected;
 
     internal string Executable(string name)
     {
@@ -27,12 +28,85 @@ internal sealed class CliException(string code, string message, int exitCode = 1
     internal int ExitCode { get; } = exitCode;
 }
 
-internal sealed class Output(CliContext context, Invocation invocation, TextWriter? log = null) : IAsyncDisposable
+internal sealed class Output(CliContext context, Invocation invocation, TextWriter? log = null, ProgressDisplay? progress = null) : IAsyncDisposable
 {
     private int _sequence;
     private readonly SemaphoreSlim _writes = new(1, 1);
     private TextWriter? _log = log;
+    private ProgressDisplay? _progress = progress;
+    private long _lastDraw;
+    private bool _partialOutput, _partialError;
     internal bool Machine => invocation.Machine;
+
+    internal void PrepareProgress()
+    {
+        if (context.ErrorTerminal && ProgressDisplay.ErrorSize() is { } size && ProgressOptions.Resolve(invocation, context.Environment, true) is { } options)
+            _progress = new ProgressDisplay(options, size.Width, size.Height, UseColor(context.Error), ProgressDisplay.ErrorSize);
+    }
+
+    internal async ValueTask ProgressAsync(Action<ProgressDisplay> update, bool force = false)
+    {
+        if (_progress is null) return;
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_progress is not null) update(_progress);
+            await DrawProgressAsync(context.CancellationToken, force).ConfigureAwait(false);
+        }
+        finally { _writes.Release(); }
+    }
+
+    internal async ValueTask FinishProgressAsync()
+    {
+        await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
+        try { await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false); await FreshLinesAsync(context.CancellationToken).ConfigureAwait(false); }
+        finally { _writes.Release(); }
+    }
+
+    private void CheckProgressSize()
+    {
+        if (_progress is null || _progress.SizeUnchanged) return;
+        _progress.Dispose();
+        _progress = null;
+    }
+
+    private async ValueTask DrawProgressAsync(CancellationToken token, bool force = false)
+    {
+        CheckProgressSize();
+        if (_progress is null) return;
+        if (!force && !_progress.WorkComplete && _progress.Rows > 0 && System.Diagnostics.Stopwatch.GetElapsedTime(_lastDraw) < TimeSpan.FromMilliseconds(50)) return;
+        await FreshLinesAsync(token).ConfigureAwait(false);
+        string frame = _progress.Render();
+        await context.Error.WriteAsync((_progress.ClearSequence + frame).AsMemory(), token).ConfigureAwait(false);
+        _progress.Rows = frame.Count(character => character == '\n');
+        await context.Error.FlushAsync(token).ConfigureAwait(false);
+        _lastDraw = System.Diagnostics.Stopwatch.GetTimestamp();
+    }
+
+    private async ValueTask ClearProgressAsync(CancellationToken token)
+    {
+        CheckProgressSize();
+        if (_progress is not { Rows: > 0 }) return;
+        await context.Error.WriteAsync(_progress.ClearSequence.AsMemory(), token).ConfigureAwait(false);
+        _progress.Rows = 0;
+        await context.Error.FlushAsync(token).ConfigureAwait(false);
+    }
+
+    private async ValueTask FreshLinesAsync(CancellationToken token)
+    {
+        if (_partialOutput && context.Terminal)
+        {
+            await context.Output.WriteAsync("\r\n".AsMemory(), token).ConfigureAwait(false);
+            await context.Output.FlushAsync(token).ConfigureAwait(false);
+            _partialOutput = false;
+        }
+        if (_partialError && context.ErrorTerminal)
+        {
+            await context.Error.WriteAsync("\r\n".AsMemory(), token).ConfigureAwait(false);
+            await context.Error.FlushAsync(token).ConfigureAwait(false);
+            _partialError = false;
+        }
+    }
 
     internal void Result(object? value, string? status = null)
     {
@@ -78,6 +152,13 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
 
     private async ValueTask EventCoreAsync(string name, object? data, CancellationToken token)
     {
+        if (name is "workspace-completed" or "completed" or "failed")
+        {
+            if (_progress is { Rows: > 0 }) await DrawProgressAsync(token, force: true).ConfigureAwait(false);
+            await ClearProgressAsync(token).ConfigureAwait(false);
+            await FreshLinesAsync(token).ConfigureAwait(false);
+            _progress?.Reset();
+        }
         int sequence = ++_sequence;
         string severity = name == "script-output" ? "debug" : name == "failed" ? "error" : "info";
         await LogAsync(new { schema_version = 1, command = invocation.Command, @event = name, sequence, data, severity }, severity, token).ConfigureAwait(false);
@@ -90,7 +171,28 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         try
         {
             await EventCoreAsync("script-output", new { stream = channel, text, encoding = "utf-8-replacement" }, context.CancellationToken).ConfigureAwait(false);
-            if (!Machine) Human(text, "secondary", newline: false, writer: context.Error);
+            if (!Machine)
+            {
+                CheckProgressSize();
+                if (_progress is { Panel: true })
+                {
+                    _progress.Script(channel, text);
+                    await DrawProgressAsync(context.CancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false);
+                    TextWriter destination = channel == "stdout" ? context.Output : context.Error;
+                    await destination.WriteAsync(text.AsMemory(), context.CancellationToken).ConfigureAwait(false);
+                    await destination.FlushAsync(context.CancellationToken).ConfigureAwait(false);
+                    if (text.Length > 0)
+                    {
+                        bool partial = text[^1] is not '\r' and not '\n';
+                        if (channel == "stdout") _partialOutput = partial;
+                        else _partialError = partial;
+                    }
+                }
+            }
         }
         finally { _writes.Release(); }
     }
@@ -103,6 +205,8 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         {
             await _writes.WaitAsync(reporting.Token).ConfigureAwait(false);
             entered = true;
+            try { await ClearProgressAsync(reporting.Token).ConfigureAwait(false); await FreshLinesAsync(reporting.Token).ConfigureAwait(false); }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException or OperationCanceledException) { }
             await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "error" }, "error", reporting.Token).ConfigureAwait(false);
             if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { code, message } : new { code, message, effects }, reporting.Token).ConfigureAwait(false);
             else Human(message, "error", writer: context.Error);
@@ -125,6 +229,8 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
 
     private async ValueTask WarningCoreAsync(string code, string message, CancellationToken token)
     {
+        await ClearProgressAsync(token).ConfigureAwait(false);
+        await FreshLinesAsync(token).ConfigureAwait(false);
         if (Machine) await JsonAsync(context.Error, new { code, message, severity = "warning" }, token).ConfigureAwait(false);
         else Human(message, "warning", writer: context.Error);
     }
@@ -167,17 +273,20 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             }
         }
         _writes.Dispose();
+        _progress?.Dispose();
     }
 
     internal void Human(string text, string role, bool newline = true, TextWriter? writer = null)
     {
         writer ??= context.Output;
-        bool color = !Machine && string.IsNullOrEmpty(context.Environment.GetValueOrDefault("NO_COLOR")) && invocation.Text("color") != "never" && (invocation.Text("color") == "always" || !string.IsNullOrEmpty(context.Environment.GetValueOrDefault("FORCE_COLOR")) || (context.Environment.GetValueOrDefault("CLICOLOR_FORCE") is string force && force is not "" and not "0") || (context.Environment.GetValueOrDefault("CLICOLOR") != "0" && context.Terminal));
+        bool color = UseColor(writer);
         Color tint = role switch { "error" => Color.Red, "warning" => Color.Yellow, "subject" => Color.Magenta1, "heading" => Color.Cyan1, "information" => Color.Cyan, _ => Color.Green };
         IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = color ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer) });
         string safe = string.Concat(text.Select(character => char.IsControl(character) && character is not '\n' and not '\t' ? $"\\u{(int)character:x4}" : character.ToString()));
         console.Write(new Text(safe + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
     }
+
+    private bool UseColor(TextWriter writer) => !Machine && string.IsNullOrEmpty(context.Environment.GetValueOrDefault("NO_COLOR")) && invocation.Text("color") != "never" && (invocation.Text("color") == "always" || !string.IsNullOrEmpty(context.Environment.GetValueOrDefault("FORCE_COLOR")) || (context.Environment.GetValueOrDefault("CLICOLOR_FORCE") is string force && force is not "" and not "0") || (context.Environment.GetValueOrDefault("CLICOLOR") != "0" && (ReferenceEquals(writer, context.Error) ? context.ErrorTerminal : context.Terminal)));
 
     private static void Json(TextWriter writer, object? value)
     {

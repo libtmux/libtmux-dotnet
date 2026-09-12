@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Text.Json.Nodes;
+using Spectre.Console;
 
 namespace LibTmux.Workspace.Cli.Tests;
 
@@ -8,6 +9,106 @@ public sealed class RegressionTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-regression-" + Guid.NewGuid().ToString("N"));
     public RegressionTests() => Directory.CreateDirectory(_root);
+
+    [Fact]
+    public void Progress_templates_distinguish_ordinals_from_completed_work()
+    {
+        WorkspacePlan plan = WorkspacePlan.Parse(DocumentStore.Parse("session_name: '[red]literal[/]'\nwindows: [{window_name: editor, window_index: 9, panes: [null, null]}, {panes: [null, null]}]"), Path.Combine(_root, "progress.yaml"), new DocumentStore(Context(TextWriter.Null)));
+        using ProgressDisplay display = new(new ProgressOptions("{{session}} {session} {window_index}/{window_total} {pane_index}/{pane_total} {pane_done} {session_pane_progress} {overall_percent} {unknown} {session!r} {overall_percent:03d}", 3), 80, 10, false);
+        display.StartWorkspace(plan);
+        display.StartWindow(plan.Windows[0], 1);
+        display.StartPane(2);
+        Assert.Contains(" 0 0/4 0 ", display.Format(), StringComparison.Ordinal);
+        display.CompletePane();
+        Assert.Equal("{session} [red]literal[/] 1/2 2/2 1 1/4 25 {unknown} {session!r} {overall_percent:03d}", display.Format());
+        Dictionary<string, string> presets = new()
+        {
+            ["default"] = "Loading workspace: [red]literal[/] ██░░░░░░░░ 1/2 win · 1/2 pane editor",
+            ["minimal"] = "Loading workspace: [red]literal[/] [1/2]",
+            ["window"] = "Loading workspace: [red]literal[/] ░░░░░░░░░░ 0/2",
+            ["pane"] = "Loading workspace: [red]literal[/] ██░░░░░░░░ 1/4",
+            ["verbose"] = "Loading workspace: [red]literal[/] [window 1 of 2 · pane 1 of 2] editor"
+        };
+        foreach (var preset in presets)
+        {
+            using ProgressDisplay named = new(new ProgressOptions(preset.Key, 0), 80, 10, false);
+            named.StartWorkspace(plan);
+            named.StartWindow(plan.Windows[0], 1);
+            named.StartPane(1);
+            named.CompletePane();
+            Assert.Equal(preset.Value, named.Format());
+        }
+        using ProgressDisplay totals = new(new ProgressOptions("{workspace_path}|{session}|{window}|{window_index}|{window_total}|{window_progress}|{pane_index}|{pane_total}|{pane_progress}|{progress}|{windows_done}|{windows_remaining}|{window_progress_rel}|{pane_done}|{pane_remaining}|{pane_progress_rel}|{session_pane_total}|{session_panes_done}|{session_panes_remaining}|{session_pane_progress}|{overall_percent}|{summary}|{bar}|{pane_bar}|{window_bar}|{status_icon}", 0), 80, 10, false);
+        totals.StartWorkspace(plan);
+        totals.StartWindow(plan.Windows[0], 1);
+        totals.StartPane(2);
+        totals.CompletePane();
+        Assert.Equal(plan.Source + "|[red]literal[/]|editor|1|2|1/2|2|2|2/2|1/2 win · 2/2 pane|0|2|0/2|1|1|1/2|4|1|3|1/4|25|[0 win, 1 panes]|██░░░░░░░░|██░░░░░░░░|░░░░░░░░░░|", totals.Format());
+    }
+
+    [Fact]
+    public void Progress_panels_preserve_interleaved_fragments_and_reset_delimiters()
+    {
+        WorkspacePlan plan = WorkspacePlan.Parse(DocumentStore.Parse("session_name: panel\nwindows: [{panes: [null]}]"), Path.Combine(_root, "progress.yaml"), new DocumentStore(Context(TextWriter.Null)));
+        using ProgressDisplay display = new(new ProgressOptions("HEADER", -1), 80, 8, false);
+        display.StartWorkspace(plan);
+        display.Script("stderr", "err");
+        display.Script("stdout", "out");
+        Assert.Equal("HEADER\r\nerr\r\nout\r\n", display.Render());
+        display.Script("stdout", "\r");
+        display.Script("stderr", "\r");
+        display.Script("stdout", "");
+        display.Script("stdout", "\nnext\n");
+        display.Script("stderr", "\n");
+        Assert.Equal("HEADER\r\nout\r\nerr\r\nnext\r\n", display.Render());
+        display.Script("stdout", "old\r");
+        display.StartWorkspace(plan);
+        display.Script("stdout", "\nnew\n");
+        Assert.Equal("HEADER\r\n\r\nnew\r\n", display.Render());
+        display.StartWorkspace(plan);
+        display.Script("stdout", string.Concat(Enumerable.Repeat("e\u0301🙂", 3000)));
+        string line = display.Render().Split("\r\n")[1];
+        Assert.True(line.StartsWith("e\u0301", StringComparison.Ordinal) || line.StartsWith("🙂", StringComparison.Ordinal));
+        Assert.DoesNotContain('\ufffd', line);
+        Assert.True(line.GetCellWidth() <= 79);
+    }
+
+    [Fact]
+    public void Progress_environment_is_only_validated_for_active_display()
+    {
+        CommandLine graph = new();
+        Dictionary<string, string?> environment = new() { [ProgressOptions.FormatEnvironment] = "from-env", [ProgressOptions.LinesEnvironment] = "invalid" };
+        Invocation load = graph.Parse(["load", "workspace", "-d"]);
+        Assert.Throws<CliException>(() => ProgressOptions.Resolve(load, environment, true));
+        Assert.Null(ProgressOptions.Resolve(load, environment, false));
+        Assert.Null(ProgressOptions.Resolve(graph.Parse(["load", "workspace", "-d", "--json"]), environment, true));
+        Assert.Null(ProgressOptions.Resolve(graph.Parse(["load", "workspace", "-d", "--no-progress"]), environment, true));
+        Invocation selected = graph.Parse(["load", "workspace", "-d", "--progress-lines", "0", "--progress-format", "selected"]);
+        Assert.Equal(new ProgressOptions("selected", 0), ProgressOptions.Resolve(selected, environment, true));
+        environment[ProgressOptions.LinesEnvironment] = "-1";
+        Assert.Equal(new ProgressOptions("from-env", -1), ProgressOptions.Resolve(load, environment, true));
+        environment[ProgressOptions.EnabledEnvironment] = "0";
+        Assert.Null(ProgressOptions.Resolve(selected, environment, true));
+        Assert.NotEmpty(graph.Parse(["load", "workspace", "-d", "--no-progress", "--progress-lines", "-2"]).Errors);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Progress_cleanup_failure_does_not_skip_the_primary_diagnostic(bool inaccessible)
+    {
+        using ClearFailureWriter error = new(inaccessible);
+        using StringWriter log = new();
+        CliContext context = Context(TextWriter.Null) with { Error = error };
+        Invocation invocation = new CommandLine().Parse(["load", "workspace", "-d"]);
+        ProgressDisplay progress = new(new ProgressOptions("START", 0), 80, 10, false);
+        await using Output output = new(context, invocation, log, progress);
+        await output.ProgressAsync(display => display.StartBridge(), force: true);
+        await output.DiagnosticAsync("primary-failure", "Primary operation failed.");
+        Assert.Equal(1, error.Failures);
+        Assert.Contains("Primary operation failed.", error.ToString(), StringComparison.Ordinal);
+        Assert.Equal("primary-failure", JsonNode.Parse(log.ToString())!["code"]!.ToString());
+    }
 
     [Fact]
     public void Normalization_carries_command_settings_and_defaults_to_suppressed_history()
@@ -109,41 +210,64 @@ public sealed class RegressionTests : IDisposable
         try
         {
             await server.ExecuteCommandAsync(["new-session", "-d", "-s", "bridge"], TestContext.Current.CancellationToken);
-            var result = await Run("shell", "bridge", "-S", socket, "--code", "--no-startup", "-c", "print(session.session_name)", "--json");
+            string[] arguments = ["shell", "bridge", "-S", socket, "--code", "--no-startup", "-c", "import sys; print(session.session_name); sys.stderr.write('warning-tail')"];
+            var result = await Run([.. arguments, "--json"]);
             Assert.Equal(0, result.Code);
-            Assert.Contains("bridge", JsonNode.Parse(result.Output)!["stdout"]!.ToString(), StringComparison.Ordinal);
+            JsonNode captured = JsonNode.Parse(result.Output)!;
+            Assert.Contains("bridge\n", captured["stdout"]!.ToString(), StringComparison.Ordinal);
+            Assert.Equal("warning-tail", captured["stderr"]!.ToString());
+            var human = await Run(arguments);
+            Assert.Equal(0, human.Code);
+            Assert.Equal(captured["stdout"]!.ToString(), human.Output);
+            Assert.Equal("warning-tail", human.Error);
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Python_bridge_leaves_log_file_ownership_with_the_native_cli(bool equals)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Python_bridge_leaves_native_output_options_with_the_cli(bool equals, bool machine)
     {
         string file = Path.Combine(_root, "extension.yaml");
         string python = Path.Combine(_root, "python");
         string trace = Path.Combine(_root, "arguments");
+        string childEnvironment = Path.Combine(_root, "child-environment");
         string log = Path.Combine(_root, "bridge.ndjson");
         await File.WriteAllTextAsync(file, "session_name: bridge\nplugins: [example]\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(python, $$"""
             #!/bin/sh
             if test "$1" = -c; then printf '1.74.0\n'; exit 0; fi
             printf '%s\n' "$@" > '{{trace}}'
+            printf '%s' "$TMUXP_PROGRESS" > '{{childEnvironment}}'
             printf 'bridge \342\230\203\033[31m\n'
             printf 'warning\rline\n' >&2
             """, TestContext.Current.CancellationToken);
         File.SetUnixFileMode(python, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string[] level = equals ? ["--log-level=debug"] : ["--log-level", "debug"];
         string[] destination = equals ? ["--log-file=bridge.ndjson"] : ["--log-file", "bridge.ndjson"];
-        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_WORKSPACE_PYTHON"] = python };
+        string[] progress = equals ? ["--progress-format=window", "--progress-lines=-1"] : ["--progress-format", "window", "--progress-lines", "-1"];
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_WORKSPACE_PYTHON"] = python, ["TMUXP_PROGRESS"] = "1" };
         using StringWriter output = new();
         using StringWriter error = new();
-        int code = await CliRunner.RunAsync([.. level, "load", file, "-d", .. destination, "--json"], output, error, _root, environment, TestContext.Current.CancellationToken);
+        string[] mode = machine ? ["--json"] : [];
+        int code = await CliRunner.RunAsync([.. level, "load", "-d", .. destination, .. progress, "--no-progress", .. mode, "--", file], output, error, _root, environment, TestContext.Current.CancellationToken);
         Assert.Equal(0, code);
-        Assert.Empty(error.ToString());
-        Assert.Equal("ok", JsonNode.Parse(output.ToString())!["status"]!.ToString());
-        Assert.Equal(["load", file, "-d"], (await File.ReadAllLinesAsync(trace, TestContext.Current.CancellationToken))[3..]);
+        if (machine)
+        {
+            Assert.Empty(error.ToString());
+            Assert.Equal("ok", JsonNode.Parse(output.ToString())!["status"]!.ToString());
+        }
+        else
+        {
+            Assert.Equal("bridge \u2603\u001b[31m\nLoaded Python workspace extensions.\n", output.ToString());
+            Assert.Equal("warning\rline\n", error.ToString());
+        }
+        Assert.Equal(["load", "-d", "--", file], (await File.ReadAllLinesAsync(trace, TestContext.Current.CancellationToken))[3..]);
+        Assert.Equal("0", await File.ReadAllTextAsync(childEnvironment, TestContext.Current.CancellationToken));
+        Assert.Equal("1", environment["TMUXP_PROGRESS"]);
         string text = await File.ReadAllTextAsync(log, TestContext.Current.CancellationToken);
         Assert.DoesNotContain('\u001b', text);
         JsonNode[] records = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
@@ -226,17 +350,20 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task Terminal_output_failure_reports_the_completed_workspace(bool ndjson, bool cancelled)
+    [InlineData(false, "io")]
+    [InlineData(false, "cancel")]
+    [InlineData(false, "access")]
+    [InlineData(true, "io")]
+    [InlineData(true, "cancel")]
+    [InlineData(true, "access")]
+    public async Task Terminal_output_failure_reports_the_completed_workspace(bool ndjson, string failure)
     {
         string socket = Path.Combine(_root, "terminal-output.socket");
         string file = Path.Combine(_root, "terminal-output.yaml");
         await File.WriteAllTextAsync(file, "session_name: published\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
         using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        using TerminalWriter output = new(ndjson, cancelled ? cancellation : null);
+        bool cancelled = failure == "cancel";
+        using TerminalWriter output = new(ndjson, cancelled ? cancellation : null, failure == "access");
         using StringWriter error = new();
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
@@ -583,6 +710,16 @@ public sealed class RegressionTests : IDisposable
         return (code, output.ToString(), error.ToString());
     }
 
+    private sealed class ClearFailureWriter(bool inaccessible) : StringWriter
+    {
+        internal int Failures { get; private set; }
+        public override Task WriteAsync(ReadOnlyMemory<char> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Failures == 0 && buffer.Span.Contains("\u001b[1A", StringComparison.Ordinal)) { Failures++; throw inaccessible ? new UnauthorizedAccessException("Clear failed once.") : new IOException("Clear failed once."); }
+            return base.WriteAsync(buffer, cancellationToken);
+        }
+    }
+
     private sealed class BrokenWriter : StringWriter
     {
         public override void WriteLine(string? value) => throw new IOException("reader closed");
@@ -611,7 +748,7 @@ public sealed class RegressionTests : IDisposable
         public override ValueTask DisposeAsync() => _failed ? ValueTask.FromException(new IOException("log flush failed")) : base.DisposeAsync();
     }
 
-    private sealed class TerminalWriter(bool ndjson, CancellationTokenSource? cancellation) : StringWriter
+    private sealed class TerminalWriter(bool ndjson, CancellationTokenSource? cancellation, bool inaccessible = false) : StringWriter
     {
         private bool _terminal;
         public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
@@ -625,7 +762,7 @@ public sealed class RegressionTests : IDisposable
             if (!_terminal) return base.FlushAsync(cancellationToken);
             cancellation?.Cancel();
             cancellationToken.ThrowIfCancellationRequested();
-            throw new IOException("terminal output closed");
+            throw inaccessible ? new UnauthorizedAccessException("terminal output inaccessible") : new IOException("terminal output closed");
         }
     }
 
