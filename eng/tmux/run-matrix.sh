@@ -2,6 +2,11 @@
 set -euo pipefail
 
 readonly REQUIRED_VERSIONS=(3.2a 3.3a 3.4 3.5 3.6 3.7a 3.7b 3.7c)
+# xUnit runs one collection per logical processor by default, so a lane drives
+# that many tmux servers and shells at once. dotnet-tmux.yml gets away with it
+# on a dedicated runner; anywhere else the readiness budgets are starved by the
+# suite's own concurrency and a prompt that takes under a second misses ten.
+# Override with LIBTMUX_MATRIX_MAX_THREADS when the host is idle.
 readonly FRAMEWORKS=(net10.0 net8.0)
 readonly COMPONENT_THREE_COHORT=0001
 readonly CLOSURE_COHORT=closure
@@ -242,6 +247,7 @@ run_one() {
         --framework "${framework}" \
         --no-build \
         --minimum-expected-tests 1 \
+        -- --max-threads "${LIBTMUX_MATRIX_MAX_THREADS:-2}" \
         2>&1 | tee "${output_file}"
     local test_status=${PIPESTATUS[0]}
     set -e
@@ -336,6 +342,7 @@ run_transition_one() {
         --no-build \
         --minimum-expected-tests 1 \
         --filter-method LibTmux.IntegrationTests.Versioning.VersionParityTests.BreakPane37Workaround \
+        -- --max-threads "${LIBTMUX_MATRIX_MAX_THREADS:-2}" \
         2>&1 | tee "${output_file}"
     local test_status=${PIPESTATUS[0]}
     set -e
