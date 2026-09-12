@@ -23,7 +23,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             int previous = last > 0 ? current.LastIndexOf(',', last - 1) : -1;
             if (previous > 0) socket = current[..previous];
         }
-        return new ServerConnectionOptions(tmuxBinaryPath: context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux", socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
+        return new ServerConnectionOptions(tmuxBinaryPath: context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
     }
 
     internal async Task<int> LoadAsync()
@@ -150,7 +150,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 output.Event(stage = "workspace-completed", new { input_index = index, session_id = session });
                 if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(input.Plan.Name, "subject"); }
             }
-            catch (Exception failure) when (failure is CliException or OperationCanceledException)
+            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException)
             {
                 bool removed = false;
                 if (stage == "before-script" && created && session is not null)
@@ -159,7 +159,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult deletion = await Server.ExecuteCommandAsync(["kill-session", "-t", session], cleanup.Token).ConfigureAwait(false);
                     removed = deletion.ExitCode == 0;
                 }
-                string code = failure is CliException cli ? cli.Code : "cancelled";
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["removed"] = removed });
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (created && !removed) ? "partial" : "error", results, errors };
                 if (invocation.Flag("ndjson")) output.Event("failed", summary);

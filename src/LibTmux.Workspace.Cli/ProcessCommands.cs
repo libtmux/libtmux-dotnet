@@ -100,7 +100,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
 
     internal static async Task<ChildResult> RunProcessAsync(CliContext context, Output output, string executable, IReadOnlyList<string> arguments, string directory, bool stream, bool interactive = false)
     {
-        ProcessStartInfo start = new(executable) { WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = !interactive, RedirectStandardError = !interactive, RedirectStandardInput = !interactive, StandardOutputEncoding = interactive ? null : Encoding.UTF8, StandardErrorEncoding = interactive ? null : Encoding.UTF8 };
+        ProcessStartInfo start = new(context.Executable(executable)) { WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = !interactive, RedirectStandardError = !interactive, RedirectStandardInput = !interactive, StandardOutputEncoding = interactive ? null : Encoding.UTF8, StandardErrorEncoding = interactive ? null : Encoding.UTF8 };
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
         start.Environment.Clear();
         foreach (var variable in context.Environment) start.Environment[variable.Key] = variable.Value;

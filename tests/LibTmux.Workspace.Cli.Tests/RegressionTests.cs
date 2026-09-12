@@ -35,7 +35,7 @@ public sealed class RegressionTests : IDisposable
             ["windows"] = new JsonArray(new JsonObject { ["panes"] = new JsonArray((JsonNode?)null) }),
         };
         await File.WriteAllTextAsync(file, document.ToJsonString(), TestContext.Current.CancellationToken);
-        Server server = Server.Open(new ServerConnectionOptions(socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
             var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
@@ -51,7 +51,7 @@ public sealed class RegressionTests : IDisposable
     public async Task Python_shell_bridge_executes_against_the_explicit_socket()
     {
         string socket = Path.Combine(_root, "python.socket");
-        Server server = Server.Open(new ServerConnectionOptions(socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
             await server.ExecuteCommandAsync(["new-session", "-d", "-s", "bridge"], TestContext.Current.CancellationToken);

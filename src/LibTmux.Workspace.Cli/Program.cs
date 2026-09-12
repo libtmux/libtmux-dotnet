@@ -36,7 +36,8 @@ internal static class CliRunner
             }
             if (invocation.Flag("version"))
             {
-                output.WriteLine("tmux-workspace " + typeof(CliRunner).Assembly.GetName().Version);
+                string version = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(CliRunner).Assembly)?.InformationalVersion.Split('+')[0] ?? "unknown";
+                renderer.Result(new { name = "tmux-workspace", version }, "tmux-workspace " + version);
                 return 0;
             }
             if (args.Contains("--help", StringComparer.Ordinal) || args.Contains("-h", StringComparer.Ordinal) || invocation.Command is "" or "import")
@@ -66,7 +67,7 @@ internal static class CliRunner
         }
         catch (OperationCanceledException) { renderer.Diagnostic("cancelled", "Operation cancelled."); return 130; }
         catch (CliException failure) { renderer.Diagnostic(failure.Code, failure.Message); return failure.ExitCode; }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or LibTmuxException)
         {
             renderer.Diagnostic("operation-failed", failure.Message);
             return 1;
