@@ -405,6 +405,7 @@ LibTmux.PaneDirection.Below = 1 -> LibTmux.PaneDirection
 LibTmux.PaneDirection.Left = 2 -> LibTmux.PaneDirection
 LibTmux.PaneDirection.Right = 3 -> LibTmux.PaneDirection
 LibTmux.PaneId
+LibTmux.PaneId.CompareTo(LibTmux.PaneId other) -> int
 LibTmux.PaneId.Equals(LibTmux.PaneId other) -> bool
 LibTmux.PaneId.PaneId() -> void
 LibTmux.PaneId.PaneId(int value) -> void
@@ -847,6 +848,7 @@ LibTmux.Session.Server.get -> LibTmux.Server!
 LibTmux.Session.SwitchClientAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 LibTmux.Session.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
 LibTmux.SessionId
+LibTmux.SessionId.CompareTo(LibTmux.SessionId other) -> int
 LibTmux.SessionId.Equals(LibTmux.SessionId other) -> bool
 LibTmux.SessionId.SessionId() -> void
 LibTmux.SessionId.SessionId(int value) -> void
@@ -1287,6 +1289,7 @@ LibTmux.WindowEntityKey.WindowEntityKey(LibTmux.SessionId SessionId, LibTmux.Win
 LibTmux.WindowEntityKey.WindowId.get -> LibTmux.WindowId
 LibTmux.WindowEntityKey.WindowId.init -> void
 LibTmux.WindowId
+LibTmux.WindowId.CompareTo(LibTmux.WindowId other) -> int
 LibTmux.WindowId.Equals(LibTmux.WindowId other) -> bool
 LibTmux.WindowId.Value.get -> int
 LibTmux.WindowId.WindowId() -> void
@@ -1679,7 +1682,11 @@ static LibTmux.Pane.operator ==(LibTmux.Pane? left, LibTmux.Pane? right) -> bool
 static LibTmux.PaneId.Parse(string! text) -> LibTmux.PaneId
 static LibTmux.PaneId.TryParse(string? text, out LibTmux.PaneId result) -> bool
 static LibTmux.PaneId.operator !=(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
+static LibTmux.PaneId.operator <(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
+static LibTmux.PaneId.operator <=(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
 static LibTmux.PaneId.operator ==(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
+static LibTmux.PaneId.operator >(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
+static LibTmux.PaneId.operator >=(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
 static LibTmux.PasteBufferRequest.operator !=(LibTmux.PasteBufferRequest? left, LibTmux.PasteBufferRequest? right) -> bool
 static LibTmux.PasteBufferRequest.operator ==(LibTmux.PasteBufferRequest? left, LibTmux.PasteBufferRequest? right) -> bool
 static LibTmux.PipePaneRequest.operator !=(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool
@@ -1758,7 +1765,11 @@ static LibTmux.Session.operator ==(LibTmux.Session? left, LibTmux.Session? right
 static LibTmux.SessionId.Parse(string! text) -> LibTmux.SessionId
 static LibTmux.SessionId.TryParse(string? text, out LibTmux.SessionId result) -> bool
 static LibTmux.SessionId.operator !=(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
+static LibTmux.SessionId.operator <(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
+static LibTmux.SessionId.operator <=(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
 static LibTmux.SessionId.operator ==(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
+static LibTmux.SessionId.operator >(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
+static LibTmux.SessionId.operator >=(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
 static LibTmux.SessionWindowEdge.operator !=(LibTmux.SessionWindowEdge? left, LibTmux.SessionWindowEdge? right) -> bool
 static LibTmux.SessionWindowEdge.operator ==(LibTmux.SessionWindowEdge? left, LibTmux.SessionWindowEdge? right) -> bool
 static LibTmux.SetHookRequest.operator !=(LibTmux.SetHookRequest? left, LibTmux.SetHookRequest? right) -> bool
@@ -1924,7 +1935,11 @@ static LibTmux.WindowEntityKey.operator ==(LibTmux.WindowEntityKey left, LibTmux
 static LibTmux.WindowId.Parse(string! text) -> LibTmux.WindowId
 static LibTmux.WindowId.TryParse(string? text, out LibTmux.WindowId result) -> bool
 static LibTmux.WindowId.operator !=(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
+static LibTmux.WindowId.operator <(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
+static LibTmux.WindowId.operator <=(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
 static LibTmux.WindowId.operator ==(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
+static LibTmux.WindowId.operator >(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
+static LibTmux.WindowId.operator >=(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
 virtual LibTmux.Query.QueryConstant.EqualityContract.get -> System.Type!
 virtual LibTmux.Query.QueryConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
 virtual LibTmux.Query.QueryConstant.PrintMembers(System.Text.StringBuilder! builder) -> bool

@@ -324,7 +324,7 @@ internal static class Program
 | `T:LibTmux.OwnedWindowScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary window resource and bounded cleanup. | `LibTmux` |
 | `T:LibTmux.Pane` | class | `public, sealed` | `IEquatable<Pane>` | `object` | borrowed | An immutable pane handle and snapshot. Equality: ServerGeneration and PaneId. | `LibTmux` |
 | `T:LibTmux.PaneDirection` | enum | `public` | None | `Enum` | value | Defines PaneDirection values. | `LibTmux` |
-| `T:LibTmux.PaneId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux pane identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"%","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
+| `T:LibTmux.PaneId` | record struct | `public, readonly` | `IComparable<PaneId>` | `ValueType` | value | A generation-independent tmux pane identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"%","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.PaneInputMode` | enum | `public` | None | `Enum` | value | Defines PaneInputMode values. | `LibTmux` |
 | `T:LibTmux.PaneSelectDirection` | enum | `public` | None | `Enum` | value | Defines PaneSelectDirection values. | `LibTmux` |
 | `T:LibTmux.PaneSwapDirection` | enum | `public` | None | `Enum` | value | Defines PaneSwapDirection values. | `LibTmux` |
@@ -377,7 +377,7 @@ internal static class Program
 | `T:LibTmux.ServerConnectionOptions` | record | `public, sealed` | None | `object` | value | Configures a tmux server connection without mutating process-wide state. Endpoint precedence: SocketPath, SocketName, SocketNameFactory. | `LibTmux` |
 | `T:LibTmux.ServerGeneration` | readonly record struct | `public, readonly` | None | `ValueType` | value | Identifies one tmux daemon generation. Validation: ProcessId and StartTime must both be positive; default is invalid. | `LibTmux` |
 | `T:LibTmux.Session` | class | `public, sealed` | `IEquatable<Session>` | `object` | borrowed | An immutable session handle and snapshot. Equality: ServerGeneration and SessionId. | `LibTmux` |
-| `T:LibTmux.SessionId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux session identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"$","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
+| `T:LibTmux.SessionId` | record struct | `public, readonly` | `IComparable<SessionId>` | `ValueType` | value | A generation-independent tmux session identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"$","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.SessionWindowEdge` | record | `public, sealed` | None | `ValueType` | value | Identifies one session-to-window snapshot path. | `LibTmux` |
 | `T:LibTmux.SetHookRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetHook. | `LibTmux` |
 | `T:LibTmux.SetHooksRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetHooks. Validation: sparse hook indices are nonnegative and preserved. | `LibTmux` |
@@ -433,7 +433,7 @@ internal static class Program
 | `T:LibTmux.Window` | class | `public, sealed` | `IEquatable<Window>` | `object` | borrowed | An immutable window handle and snapshot. Equality: ServerGeneration and WindowId; relation edge excluded. | `LibTmux` |
 | `T:LibTmux.WindowDirection` | enum | `public` | None | `Enum` | value | Defines WindowDirection values. | `LibTmux` |
 | `T:LibTmux.WindowEntityKey` | readonly record struct | `public, readonly` | None | `ValueType` | value | Defines equality for linked window views. | `LibTmux` |
-| `T:LibTmux.WindowId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux window identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"@","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
+| `T:LibTmux.WindowId` | record struct | `public, readonly` | `IComparable<WindowId>` | `ValueType` | value | A generation-independent tmux window identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"@","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.WindowResizeMode` | enum | `public` | None | `Enum` | value | Defines WindowResizeMode values. | `LibTmux` |
 | `T:LibTmux.WindowRotationDirection` | enum | `public` | None | `Enum` | value | Defines WindowRotationDirection values. | `LibTmux` |
 | `T:LibTmux.IControlModeSession` | interface | `public` | `System.IAsyncDisposable` | `None` | reference | A live tmux control client reporting what tmux does until disposed. | `LibTmux` |
@@ -970,9 +970,14 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.PaneId.#ctor(int)` | `PaneId(int value)` | Public | No | Portable | Creates a validated identifier. |
+| `M:LibTmux.PaneId.CompareTo(PaneId)` | `int LibTmux.PaneId.CompareTo(PaneId other)` | Public | No | Portable | Orders this identifier against another numerically. |
 | `M:LibTmux.PaneId.Parse(string)` | `static PaneId LibTmux.PaneId.Parse(string text)` | Public | Yes | Portable | Parses a prefixed identifier. |
 | `M:LibTmux.PaneId.ToString()` | `string LibTmux.PaneId.ToString()` | Public | No | Portable | Returns the canonical prefixed identifier. |
 | `M:LibTmux.PaneId.TryParse(string?,PaneId)` | `static bool LibTmux.PaneId.TryParse(string? text, out PaneId result)` | Public | Yes | Portable | Tries to parse a prefixed identifier without throwing. |
+| `M:LibTmux.PaneId.op_GreaterThan(PaneId,PaneId)` | `static bool operator >(PaneId left, PaneId right)` | Public | Yes | Portable | Compares the order two pane identifiers were handed out in. |
+| `M:LibTmux.PaneId.op_GreaterThanOrEqual(PaneId,PaneId)` | `static bool operator >=(PaneId left, PaneId right)` | Public | Yes | Portable | Compares the order two pane identifiers were handed out in. |
+| `M:LibTmux.PaneId.op_LessThan(PaneId,PaneId)` | `static bool operator <(PaneId left, PaneId right)` | Public | Yes | Portable | Compares the order two pane identifiers were handed out in. |
+| `M:LibTmux.PaneId.op_LessThanOrEqual(PaneId,PaneId)` | `static bool operator <=(PaneId left, PaneId right)` | Public | Yes | Portable | Compares the order two pane identifiers were handed out in. |
 | `P:LibTmux.PaneId.Value` | `int LibTmux.PaneId.Value { get; }` | Public | No | Portable | Gets the nonnegative numeric value. |
 
 ### `T:LibTmux.PaneInputMode`
@@ -1561,9 +1566,14 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.SessionId.#ctor(int)` | `SessionId(int value)` | Public | No | Portable | Creates a validated identifier. |
+| `M:LibTmux.SessionId.CompareTo(SessionId)` | `int LibTmux.SessionId.CompareTo(SessionId other)` | Public | No | Portable | Orders this identifier against another numerically. |
 | `M:LibTmux.SessionId.Parse(string)` | `static SessionId LibTmux.SessionId.Parse(string text)` | Public | Yes | Portable | Parses a prefixed identifier. |
 | `M:LibTmux.SessionId.ToString()` | `string LibTmux.SessionId.ToString()` | Public | No | Portable | Returns the canonical prefixed identifier. |
 | `M:LibTmux.SessionId.TryParse(string?,SessionId)` | `static bool LibTmux.SessionId.TryParse(string? text, out SessionId result)` | Public | Yes | Portable | Tries to parse a prefixed identifier without throwing. |
+| `M:LibTmux.SessionId.op_GreaterThan(SessionId,SessionId)` | `static bool operator >(SessionId left, SessionId right)` | Public | Yes | Portable | Compares the order two session identifiers were handed out in. |
+| `M:LibTmux.SessionId.op_GreaterThanOrEqual(SessionId,SessionId)` | `static bool operator >=(SessionId left, SessionId right)` | Public | Yes | Portable | Compares the order two session identifiers were handed out in. |
+| `M:LibTmux.SessionId.op_LessThan(SessionId,SessionId)` | `static bool operator <(SessionId left, SessionId right)` | Public | Yes | Portable | Compares the order two session identifiers were handed out in. |
+| `M:LibTmux.SessionId.op_LessThanOrEqual(SessionId,SessionId)` | `static bool operator <=(SessionId left, SessionId right)` | Public | Yes | Portable | Compares the order two session identifiers were handed out in. |
 | `P:LibTmux.SessionId.Value` | `int LibTmux.SessionId.Value { get; }` | Public | No | Portable | Gets the nonnegative numeric value. |
 
 ### `T:LibTmux.SessionWindowEdge`
@@ -2287,9 +2297,14 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.WindowId.#ctor(int)` | `WindowId(int value)` | Public | No | Portable | Creates a validated identifier. |
+| `M:LibTmux.WindowId.CompareTo(WindowId)` | `int LibTmux.WindowId.CompareTo(WindowId other)` | Public | No | Portable | Orders this identifier against another numerically. |
 | `M:LibTmux.WindowId.Parse(string)` | `static WindowId LibTmux.WindowId.Parse(string text)` | Public | Yes | Portable | Parses a prefixed identifier. |
 | `M:LibTmux.WindowId.ToString()` | `string LibTmux.WindowId.ToString()` | Public | No | Portable | Returns the canonical prefixed identifier. |
 | `M:LibTmux.WindowId.TryParse(string?,WindowId)` | `static bool LibTmux.WindowId.TryParse(string? text, out WindowId result)` | Public | Yes | Portable | Tries to parse a prefixed identifier without throwing. |
+| `M:LibTmux.WindowId.op_GreaterThan(WindowId,WindowId)` | `static bool operator >(WindowId left, WindowId right)` | Public | Yes | Portable | Compares the order two window identifiers were handed out in. |
+| `M:LibTmux.WindowId.op_GreaterThanOrEqual(WindowId,WindowId)` | `static bool operator >=(WindowId left, WindowId right)` | Public | Yes | Portable | Compares the order two window identifiers were handed out in. |
+| `M:LibTmux.WindowId.op_LessThan(WindowId,WindowId)` | `static bool operator <(WindowId left, WindowId right)` | Public | Yes | Portable | Compares the order two window identifiers were handed out in. |
+| `M:LibTmux.WindowId.op_LessThanOrEqual(WindowId,WindowId)` | `static bool operator <=(WindowId left, WindowId right)` | Public | Yes | Portable | Compares the order two window identifiers were handed out in. |
 | `P:LibTmux.WindowId.Value` | `int LibTmux.WindowId.Value { get; }` | Public | No | Portable | Gets the nonnegative numeric value. |
 
 ### `T:LibTmux.WindowResizeMode`
