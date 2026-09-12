@@ -17,9 +17,7 @@ public static class OneShot
     }
 
     /// <summary>Builds the hierarchy on a supplied server.</summary>
-    [Example(
-        "Build a session and window on a supplied server",
-        RunsInDefaultSuite = false)]
+    [Example("Build a session and window on a supplied server")]
     public static async Task BuildHierarchy(Server server)
     {
         ArgumentNullException.ThrowIfNull(server);
