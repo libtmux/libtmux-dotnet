@@ -87,6 +87,10 @@ version.
 
 ## [0.0.0-alpha.11] — 2026-09-07
 
+**Tagged but never published.** The release run for this tag did not reach
+its publish step, so `0.0.0-alpha.11` does not exist on nuget.org. Every change
+below ships in `0.0.0-alpha.12`; pin that instead.
+
 ### Added
 
 - `LibTmux.Mcp` advertises 45 tools, including 14 in the `manage` toolset, from
