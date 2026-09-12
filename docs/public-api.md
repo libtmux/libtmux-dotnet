@@ -294,7 +294,7 @@ internal static class Program
 | ``T:LibTmux.CapturedRelation`1`` | class | `public, sealed` | `IReadOnlyList<T>` | `object` | value | A copy-backed relation that distinguishes uncaptured from captured-empty. | `LibTmux` |
 | `T:LibTmux.ChooseTreeRequest` | record | `public, sealed` | None | `object` | value | Parameters for ChooseTree. | `LibTmux` |
 | `T:LibTmux.ChooseTreeSort` | enum | `public` | None | `Enum` | value | Defines ChooseTreeSort values. | `LibTmux` |
-| `T:LibTmux.Client` | class | `public, sealed` | None | `object` | borrowed | An immutable client handle and snapshot. Equality: ServerGeneration and Name; Tty excluded. | `LibTmux` |
+| `T:LibTmux.Client` | class | `public, sealed` | `IEquatable<Client>` | `object` | borrowed | An immutable client handle and snapshot. Equality: ServerGeneration and Name; Tty excluded. | `LibTmux` |
 | `T:LibTmux.ClientAttachment` | record | `public, sealed` | None | `object` | value | A fresh client attachment resolution. | `LibTmux` |
 | `T:LibTmux.CommandPromptRequest` | record | `public, sealed` | None | `object` | value | Parameters for CommandPrompt. | `LibTmux` |
 | `T:LibTmux.ConfirmBeforeRequest` | record | `public, sealed` | None | `object` | value | Parameters for ConfirmBefore. | `LibTmux` |
@@ -322,7 +322,7 @@ internal static class Program
 | `T:LibTmux.OwnedServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary server resource and bounded cleanup. | `LibTmux` |
 | `T:LibTmux.OwnedSessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary session resource and bounded cleanup. | `LibTmux` |
 | `T:LibTmux.OwnedWindowScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary window resource and bounded cleanup. | `LibTmux` |
-| `T:LibTmux.Pane` | class | `public, sealed` | None | `object` | borrowed | An immutable pane handle and snapshot. Equality: ServerGeneration and PaneId. | `LibTmux` |
+| `T:LibTmux.Pane` | class | `public, sealed` | `IEquatable<Pane>` | `object` | borrowed | An immutable pane handle and snapshot. Equality: ServerGeneration and PaneId. | `LibTmux` |
 | `T:LibTmux.PaneDirection` | enum | `public` | None | `Enum` | value | Defines PaneDirection values. | `LibTmux` |
 | `T:LibTmux.PaneId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux pane identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"%","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.PaneInputMode` | enum | `public` | None | `Enum` | value | Defines PaneInputMode values. | `LibTmux` |
@@ -372,11 +372,11 @@ internal static class Program
 | `T:LibTmux.SelectLayoutRequest` | record | `public, sealed` | None | `object` | value | Parameters for SelectLayout. | `LibTmux` |
 | `T:LibTmux.SelectPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SelectPane. Validation: nullable Mark and InputEnabled preserve paired positive and negative flags. | `LibTmux` |
 | `T:LibTmux.SendKeysRequest` | record | `public, sealed` | None | `object` | value | Parameters for SendKeys. | `LibTmux` |
-| `T:LibTmux.Server` | class | `public, sealed` | None | `object` | borrowed | An immutable server handle and snapshot. Equality: normalized connection endpoint. | `LibTmux` |
+| `T:LibTmux.Server` | class | `public, sealed` | `IEquatable<Server>` | `object` | borrowed | An immutable server handle and snapshot. Equality: normalized connection endpoint. | `LibTmux` |
 | `T:LibTmux.ServerAccessRequest` | record | `public, sealed` | None | `object` | value | Parameters for ServerAccess. Validation: ReadOnly and ReadWrite are mutually exclusive. | `LibTmux` |
 | `T:LibTmux.ServerConnectionOptions` | record | `public, sealed` | None | `object` | value | Configures a tmux server connection without mutating process-wide state. Endpoint precedence: SocketPath, SocketName, SocketNameFactory. | `LibTmux` |
 | `T:LibTmux.ServerGeneration` | readonly record struct | `public, readonly` | None | `ValueType` | value | Identifies one tmux daemon generation. Validation: ProcessId and StartTime must both be positive; default is invalid. | `LibTmux` |
-| `T:LibTmux.Session` | class | `public, sealed` | None | `object` | borrowed | An immutable session handle and snapshot. Equality: ServerGeneration and SessionId. | `LibTmux` |
+| `T:LibTmux.Session` | class | `public, sealed` | `IEquatable<Session>` | `object` | borrowed | An immutable session handle and snapshot. Equality: ServerGeneration and SessionId. | `LibTmux` |
 | `T:LibTmux.SessionId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux session identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"$","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.SessionWindowEdge` | record | `public, sealed` | None | `ValueType` | value | Identifies one session-to-window snapshot path. | `LibTmux` |
 | `T:LibTmux.SetHookRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetHook. | `LibTmux` |
@@ -430,7 +430,7 @@ internal static class Program
 | `T:LibTmux.UnsetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnsetOption. | `LibTmux` |
 | `T:LibTmux.UnsupportedQueryExpressionException` | class | `public, sealed` | None | `NotSupportedException` | value | Reports UnsupportedQueryExpression failure. State: Expression. | `LibTmux` |
 | `T:LibTmux.WaitForRequest` | record | `public, sealed` | None | `object` | value | Parameters for WaitFor. | `LibTmux` |
-| `T:LibTmux.Window` | class | `public, sealed` | None | `object` | borrowed | An immutable window handle and snapshot. Equality: ServerGeneration and WindowId; relation edge excluded. | `LibTmux` |
+| `T:LibTmux.Window` | class | `public, sealed` | `IEquatable<Window>` | `object` | borrowed | An immutable window handle and snapshot. Equality: ServerGeneration and WindowId; relation edge excluded. | `LibTmux` |
 | `T:LibTmux.WindowDirection` | enum | `public` | None | `Enum` | value | Defines WindowDirection values. | `LibTmux` |
 | `T:LibTmux.WindowEntityKey` | readonly record struct | `public, readonly` | None | `ValueType` | value | Defines equality for linked window views. | `LibTmux` |
 | `T:LibTmux.WindowId` | record struct | `public, readonly` | None | `ValueType` | value | A generation-independent tmux window identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"@","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
@@ -544,6 +544,8 @@ internal static class Program
 | `M:LibTmux.Client.GetAttachedWindowAsync(CancellationToken)` | `Task<Window?> LibTmux.Client.GetAttachedWindowAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Refreshes the client and resolves its attached window. |
 | `M:LibTmux.Client.RefreshAsync(CancellationToken)` | `Task<Client> LibTmux.Client.RefreshAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Refresh. |
 | `M:LibTmux.Client.ResolveAttachmentAsync(CancellationToken)` | `Task<ClientAttachment?> LibTmux.Client.ResolveAttachmentAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Resolves session, window, and pane from one fresh client read. |
+| `M:LibTmux.Client.op_Equality(Client?,Client?)` | `static bool operator ==(Client? left, Client? right)` | Public | Yes | Portable | Reports whether two handles name the same client. |
+| `M:LibTmux.Client.op_Inequality(Client?,Client?)` | `static bool operator !=(Client? left, Client? right)` | Public | Yes | Portable | Reports whether two handles name different clients. |
 | `P:LibTmux.Client.AttachedSessionId` | `SessionId? LibTmux.Client.AttachedSessionId { get; }` | Public | No | Portable | Gets the captured AttachedSessionId value. |
 | `P:LibTmux.Client.Generation` | `ServerGeneration LibTmux.Client.Generation { get; }` | Public | No | Portable | Gets the captured Generation value. |
 | `P:LibTmux.Client.IsControlClient` | `bool LibTmux.Client.IsControlClient { get; }` | Public | No | Portable | Gets the captured IsControlClient value. |
@@ -935,6 +937,8 @@ internal static class Program
 | `M:LibTmux.Pane.SetWidthAsync(int,CancellationToken)` | `Task<Pane> LibTmux.Pane.SetWidthAsync(int width, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SetWidth. |
 | `M:LibTmux.Pane.SplitAsync(SplitPaneRequest?,CancellationToken)` | `Task<Pane> LibTmux.Pane.SplitAsync(SplitPaneRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Split. |
 | `M:LibTmux.Pane.SwapAsync(SwapPaneRequest,CancellationToken)` | `Task LibTmux.Pane.SwapAsync(SwapPaneRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Swap. |
+| `M:LibTmux.Pane.op_Equality(Pane?,Pane?)` | `static bool operator ==(Pane? left, Pane? right)` | Public | Yes | Portable | Reports whether two handles name the same pane. |
+| `M:LibTmux.Pane.op_Inequality(Pane?,Pane?)` | `static bool operator !=(Pane? left, Pane? right)` | Public | Yes | Portable | Reports whether two handles name different panes. |
 | `P:LibTmux.Pane.AtBottom` | `bool LibTmux.Pane.AtBottom { get; }` | Public | No | Portable | Gets the captured AtBottom value. |
 | `P:LibTmux.Pane.AtLeft` | `bool LibTmux.Pane.AtLeft { get; }` | Public | No | Portable | Gets the captured AtLeft value. |
 | `P:LibTmux.Pane.AtRight` | `bool LibTmux.Pane.AtRight { get; }` | Public | No | Portable | Gets the captured AtRight value. |
@@ -1462,6 +1466,8 @@ internal static class Program
 | `M:LibTmux.Server.SwitchClientAsync(string,CancellationToken)` | `Task LibTmux.Server.SwitchClientAsync(string targetSession, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SwitchClient. |
 | `M:LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest,CancellationToken)` | `Task LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs UnbindKey. |
 | `M:LibTmux.Server.WaitForAsync(WaitForRequest,CancellationToken)` | `Task LibTmux.Server.WaitForAsync(WaitForRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs WaitFor. |
+| `M:LibTmux.Server.op_Equality(Server?,Server?)` | `static bool operator ==(Server? left, Server? right)` | Public | Yes | Portable | Reports whether two handles reach the same server endpoint. |
+| `M:LibTmux.Server.op_Inequality(Server?,Server?)` | `static bool operator !=(Server? left, Server? right)` | Public | Yes | Portable | Reports whether two handles reach different server endpoints. |
 | `P:LibTmux.Server.Clients` | `CapturedRelation<Client> LibTmux.Server.Clients { get; }` | Public | No | Portable | Gets the captured Clients value. |
 | `P:LibTmux.Server.ConnectionOptions` | `ServerConnectionOptions LibTmux.Server.ConnectionOptions { get; }` | Public | No | Portable | Gets the captured ConnectionOptions value. |
 | `P:LibTmux.Server.Environment` | `TmuxEnvironment LibTmux.Server.Environment { get; }` | Public | No | Portable | Gets the captured Environment value. |
@@ -1534,6 +1540,8 @@ internal static class Program
 | `M:LibTmux.Session.SelectPreviousWindowAsync(CancellationToken)` | `Task<Window> LibTmux.Session.SelectPreviousWindowAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SelectPreviousWindow. |
 | `M:LibTmux.Session.SelectWindowAsync(string,CancellationToken)` | `Task<Window> LibTmux.Session.SelectWindowAsync(string target, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SelectWindow. |
 | `M:LibTmux.Session.SwitchClientAsync(CancellationToken)` | `Task<Session> LibTmux.Session.SwitchClientAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SwitchClient. |
+| `M:LibTmux.Session.op_Equality(Session?,Session?)` | `static bool operator ==(Session? left, Session? right)` | Public | Yes | Portable | Reports whether two handles name the same session. |
+| `M:LibTmux.Session.op_Inequality(Session?,Session?)` | `static bool operator !=(Session? left, Session? right)` | Public | Yes | Portable | Reports whether two handles name different sessions. |
 | `P:LibTmux.Session.ActivePane` | `Pane? LibTmux.Session.ActivePane { get; }` | Public | No | Portable | Gets the captured ActivePane value. |
 | `P:LibTmux.Session.ActiveWindow` | `Window? LibTmux.Session.ActiveWindow { get; }` | Public | No | Portable | Gets the captured ActiveWindow value. |
 | `P:LibTmux.Session.Attached` | `bool LibTmux.Session.Attached { get; }` | Public | No | Portable | Gets the captured Attached value. |
@@ -2240,6 +2248,8 @@ internal static class Program
 | `M:LibTmux.Window.SplitPaneAsync(SplitPaneRequest?,CancellationToken)` | `Task<Pane> LibTmux.Window.SplitPaneAsync(SplitPaneRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SplitPane. |
 | `M:LibTmux.Window.SwapAsync(WindowId,bool,CancellationToken)` | `Task LibTmux.Window.SwapAsync(WindowId target, bool detach = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Swap. |
 | `M:LibTmux.Window.UnlinkAsync(bool,CancellationToken)` | `Task LibTmux.Window.UnlinkAsync(bool killIfLast = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Unlink. |
+| `M:LibTmux.Window.op_Equality(Window?,Window?)` | `static bool operator ==(Window? left, Window? right)` | Public | Yes | Portable | Reports whether two handles name the same window. |
+| `M:LibTmux.Window.op_Inequality(Window?,Window?)` | `static bool operator !=(Window? left, Window? right)` | Public | Yes | Portable | Reports whether two handles name different windows. |
 | `P:LibTmux.Window.ActivePane` | `Pane? LibTmux.Window.ActivePane { get; }` | Public | No | Portable | Gets the captured ActivePane value. |
 | `P:LibTmux.Window.Edge` | `SessionWindowEdge LibTmux.Window.Edge { get; }` | Public | No | Portable | Gets the captured Edge value. |
 | `P:LibTmux.Window.EntityKey` | `WindowEntityKey LibTmux.Window.EntityKey { get; }` | Public | No | Portable | Gets the captured EntityKey value. |

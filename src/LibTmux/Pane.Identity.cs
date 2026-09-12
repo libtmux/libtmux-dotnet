@@ -4,7 +4,7 @@ using LibTmux.Internal;
 namespace LibTmux;
 
 // Provides typed pane identity.
-public sealed partial class Pane
+public sealed partial class Pane : IEquatable<Pane>
 {
     private readonly PaneId _id;
     private readonly ServerGeneration _generation;
@@ -57,9 +57,25 @@ public sealed partial class Pane
     /// <summary>Gets the server generation captured with this pane.</summary>
     public ServerGeneration Generation => _generation;
 
+    /// <summary>Reports whether two handles name the same pane.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when both name the same pane on the same server generation.</returns>
+    public static bool operator ==(Pane? left, Pane? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    /// <summary>Reports whether two handles name different panes.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when they do not name the same pane.</returns>
+    public static bool operator !=(Pane? left, Pane? right) => !(left == right);
+
     /// <inheritdoc />
-    public override bool Equals(object? obj) =>
-        obj is Pane other && _generation == other._generation && _id == other._id;
+    public bool Equals(Pane? other) =>
+        other is not null && _generation == other._generation && _id == other._id;
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => Equals(obj as Pane);
 
     /// <inheritdoc />
     public override int GetHashCode() => HashCode.Combine(_generation, _id);

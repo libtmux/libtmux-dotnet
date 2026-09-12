@@ -9,7 +9,7 @@ namespace LibTmux;
 /// fields say where it was and the resolving methods say where it is. Both are
 /// useful, and conflating them would make one of them a lie.
 /// </remarks>
-public sealed partial class Client
+public sealed partial class Client : IEquatable<Client>
 {
     private readonly Server? _owner;
     private readonly TmuxCommandDispatcher _commandDispatcher;
@@ -168,11 +168,27 @@ public sealed partial class Client
         CancellationToken cancellationToken = default) =>
         (await ResolveAttachmentAsync(cancellationToken).ConfigureAwait(false))?.Pane;
 
+    /// <summary>Reports whether two handles name the same client.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when both name the same client on the same server generation.</returns>
+    public static bool operator ==(Client? left, Client? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    /// <summary>Reports whether two handles name different clients.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when they do not name the same client.</returns>
+    public static bool operator !=(Client? left, Client? right) => !(left == right);
+
     /// <inheritdoc />
-    public override bool Equals(object? obj) =>
-        obj is Client other
+    public bool Equals(Client? other) =>
+        other is not null
         && _generation == other._generation
         && string.Equals(Name, other.Name, StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => Equals(obj as Client);
 
     /// <inheritdoc />
     public override int GetHashCode() =>

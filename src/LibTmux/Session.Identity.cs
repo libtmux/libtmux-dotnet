@@ -4,7 +4,7 @@ using LibTmux.Internal;
 namespace LibTmux;
 
 // Provides typed session identity.
-public sealed partial class Session
+public sealed partial class Session : IEquatable<Session>
 {
     private readonly SessionId _id;
     private readonly ServerGeneration _generation;
@@ -57,9 +57,25 @@ public sealed partial class Session
     /// <summary>Gets the server generation captured with this session.</summary>
     public ServerGeneration Generation => _generation;
 
+    /// <summary>Reports whether two handles name the same session.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when both name the same session on the same server generation.</returns>
+    public static bool operator ==(Session? left, Session? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    /// <summary>Reports whether two handles name different sessions.</summary>
+    /// <param name="left">The first handle.</param>
+    /// <param name="right">The second handle.</param>
+    /// <returns><see langword="true" /> when they do not name the same session.</returns>
+    public static bool operator !=(Session? left, Session? right) => !(left == right);
+
     /// <inheritdoc />
-    public override bool Equals(object? obj) =>
-        obj is Session other && _generation == other._generation && _id == other._id;
+    public bool Equals(Session? other) =>
+        other is not null && _generation == other._generation && _id == other._id;
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => Equals(obj as Session);
 
     /// <inheritdoc />
     public override int GetHashCode() => HashCode.Combine(_generation, _id);

@@ -186,6 +186,8 @@ modes differ.
 | `LibTmux.Client.GetAttachedWindowAsync(System.Threading.CancellationToken)` | Reads the window this client is showing now. |
 | `LibTmux.Client.RefreshAsync(System.Threading.CancellationToken)` | Re-reads this client from tmux. |
 | `LibTmux.Client.ResolveAttachmentAsync(System.Threading.CancellationToken)` | Reads where this client is looking now. |
+| `LibTmux.Client.op_Equality(LibTmux.Client,LibTmux.Client)` | Reports whether two handles name the same client. |
+| `LibTmux.Client.op_Inequality(LibTmux.Client,LibTmux.Client)` | Reports whether two handles name different clients. |
 | `LibTmux.ClientAttachment.#ctor(LibTmux.Session,LibTmux.Window,LibTmux.Pane)` | What one client is looking at. |
 | `LibTmux.CommandPromptRequest.#ctor(System.String,System.String,System.String,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Nullable{LibTmux.PromptType},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a command prompt. |
 | `LibTmux.ConfirmBeforeRequest.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,System.Boolean,System.String)` | Initializes a confirmation. |
@@ -251,6 +253,8 @@ modes differ.
 | `LibTmux.Pane.SetWidthAsync(System.Int32,System.Threading.CancellationToken)` | Sets this pane's width. |
 | `LibTmux.Pane.SplitAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)` | Splits this pane. |
 | `LibTmux.Pane.SwapAsync(LibTmux.SwapPaneRequest,System.Threading.CancellationToken)` | Swaps this pane with another. |
+| `LibTmux.Pane.op_Equality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name the same pane. |
+| `LibTmux.Pane.op_Inequality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name different panes. |
 | `LibTmux.PaneId.#ctor(System.Int32)` | Initializes a pane identifier. |
 | `LibTmux.PaneId.Parse(System.String)` | Parses a prefixed pane identifier. |
 | `LibTmux.PaneId.ToString` | Returns the canonical prefixed identifier. |
@@ -355,6 +359,8 @@ modes differ.
 | `LibTmux.Server.SwitchClientAsync(System.String,System.Threading.CancellationToken)` | Switches the caller's client to another session. |
 | `LibTmux.Server.UnbindKeyAsync(LibTmux.UnbindKeyRequest,System.Threading.CancellationToken)` | Removes a key binding. |
 | `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, or locks a tmux channel. |
+| `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
+| `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
 | `LibTmux.ServerAccessRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean,System.Boolean)` | Initializes an access change. |
 | `LibTmux.ServerConnectionOptions.#ctor(System.String,System.String,System.String,System.Func{System.String},System.String,LibTmux.TmuxColorMode,System.Func{LibTmux.Server,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},Microsoft.Extensions.Logging.ILogger)` | Initializes connection options. |
 | `LibTmux.ServerGeneration.#ctor(System.Int32,System.Int64)` | Initializes a server generation. |
@@ -379,6 +385,8 @@ modes differ.
 | `LibTmux.Session.SelectPreviousWindowAsync(System.Threading.CancellationToken)` | Selects the previous window. |
 | `LibTmux.Session.SelectWindowAsync(System.String,System.Threading.CancellationToken)` | Selects a window in this session. |
 | `LibTmux.Session.SwitchClientAsync(System.Threading.CancellationToken)` | Switches the current client to this session. |
+| `LibTmux.Session.op_Equality(LibTmux.Session,LibTmux.Session)` | Reports whether two handles name the same session. |
+| `LibTmux.Session.op_Inequality(LibTmux.Session,LibTmux.Session)` | Reports whether two handles name different sessions. |
 | `LibTmux.SessionId.#ctor(System.Int32)` | Initializes a session identifier. |
 | `LibTmux.SessionId.Parse(System.String)` | Parses a prefixed session identifier. |
 | `LibTmux.SessionId.ToString` | Returns the canonical prefixed identifier. |
@@ -594,6 +602,8 @@ modes differ.
 | `LibTmux.Window.SplitPaneAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)` | Splits a pane in this window. |
 | `LibTmux.Window.SwapAsync(LibTmux.WindowId,System.Boolean,System.Threading.CancellationToken)` | Swaps this window with another. |
 | `LibTmux.Window.UnlinkAsync(System.Boolean,System.Threading.CancellationToken)` | Removes this window's link to the session it was read through. |
+| `LibTmux.Window.op_Equality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name the same window. |
+| `LibTmux.Window.op_Inequality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name different windows. |
 | `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window as it appears inside one session. |
 | `LibTmux.WindowId.#ctor(System.Int32)` | Initializes a window identifier. |
 | `LibTmux.WindowId.Parse(System.String)` | Parses a prefixed window identifier. |
