@@ -73,7 +73,8 @@ internal sealed class DocumentStore(CliContext context)
         try
         {
             YamlStream stream = new();
-            stream.Load(new StringReader(text));
+            using StringReader reader = new(text);
+            stream.Load(reader);
             if (stream.Documents.Count != 1) throw new CliException("invalid-config", "Expected one YAML or JSON document.");
             return FromYaml(stream.Documents[0].RootNode) as JsonObject ?? throw new CliException("invalid-config", "The workspace document must be a mapping.");
         }
