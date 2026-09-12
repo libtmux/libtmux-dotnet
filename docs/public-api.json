@@ -28450,6 +28450,36 @@
       "portable": true,
       "platformAnnotations": [],
       "summary": "Compares the order two session identifiers were handed out in."
+    },
+    {
+      "id": "M:LibTmux.Session.GetWindowAsync(WindowId,CancellationToken)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "GetWindowAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Window?>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "WindowId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Window?> LibTmux.Session.GetWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one of this session's windows by identifier."
     }
   ]
 }

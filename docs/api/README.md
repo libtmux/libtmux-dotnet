@@ -376,6 +376,7 @@ modes differ.
 | `LibTmux.Session.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this session. |
 | `LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the session holding the pane this process runs in. |
 | `LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)` | Reads this session's panes from tmux. |
+| `LibTmux.Session.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one of this session's windows by identifier. |
 | `LibTmux.Session.GetWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one of this session's windows by target. |
 | `LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)` | Reads this session's windows from tmux. |
 | `LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)` | Stops this session. |
