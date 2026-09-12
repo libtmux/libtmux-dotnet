@@ -263,7 +263,8 @@ public sealed class RegressionTests : IDisposable
             string pane = await Execute(server, "new-session", "-d", "-s", "borrowed", "-P", "-F", "#{pane_id}");
             Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
             {
-                ["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0"), ["TMUX_PANE"] = pane,
+                ["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0"),
+                ["TMUX_PANE"] = pane,
             };
             string file = Path.Combine(_root, "borrowed.yaml");
             await File.WriteAllTextAsync(file, "session_name: unused\nwindows: [{options_after: {invalid-option: value}, panes: [null]}]", TestContext.Current.CancellationToken);
@@ -280,6 +281,41 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("2", await Execute(server, "display-message", "-p", "#{session_windows}"));
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    [Theory]
+    [InlineData("always")]
+    [InlineData("auto")]
+    public async Task Blank_panes_skip_readiness_probes(string readiness)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "blank.socket");
+        string file = Path.Combine(_root, "blank.yaml");
+        string trace = Path.Combine(_root, "tmux-arguments");
+        string wrapper = Path.Combine(_root, "tmux-wrapper");
+        await File.WriteAllTextAsync(wrapper, "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TRACE\"\nexec \"$REAL_TMUX\" \"$@\"\n", token);
+        File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await File.WriteAllTextAsync(file, "session_name: blank\nworkspace_builder_options: {pane_readiness: " + readiness + "}\noptions: {default-command: 'sleep 30'}\nwindows: [{panes: [null, null]}]\n", token);
+        string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["LIBTMUX_TMUX"] = wrapper,
+            ["REAL_TMUX"] = binary,
+            ["TRACE"] = trace,
+        };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, environment, token);
+            Assert.True(code == 0, error.ToString());
+            string arguments = await File.ReadAllTextAsync(trace, token);
+            Assert.DoesNotContain("#{pane_current_command}", arguments, StringComparison.Ordinal);
+            Assert.DoesNotContain("#{cursor_x},#{cursor_y}", arguments, StringComparison.Ordinal);
+            Assert.Equal("2", await Execute(server, "display-message", "-p", "-t", "=blank:", "#{window_panes}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
     private sealed class CancellingWriter(CancellationTokenSource? cancellation, string eventName = "script-output") : StringWriter
