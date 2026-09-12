@@ -72,7 +72,16 @@ A log destination that cannot be opened fails before tmux or Python runs. A late
 
 Human `load` shows event-driven progress on a stderr terminal with verified geometry on Linux x64. `--progress-format` selects `default`, `minimal`, `window`, `pane`, `verbose`, or a literal template such as `{session}: {session_pane_progress}`. Bare named tokens and `{{`/`}}` escapes are supported; other fields remain literal. Explicit flags override `TMUXP_PROGRESS_FORMAT` and `TMUXP_PROGRESS_LINES`; defaults are `default` and 3 lines. `--no-progress`, `TMUXP_PROGRESS=0`, `TERM=dumb`, machine output and redirected stderr disable drawing. Progress environment values are validated only when drawing is active.
 
-`--progress-lines 0` forwards decoded script stdout/stderr to their original destinations; positive values show a bounded tail, and `-1` uses available terminal rows. `NO_COLOR` removes styling while keeping terminal updates. Pane counters advance after command delivery and configured delays; opaque Python extensions show a generic activity label. Frames clear before results, diagnostics and attachment. On terminal resize, drawing stops and the old frame remains; raw output resumes. Other platforms currently omit drawing. The owned Console writers do not provide a hard deadline for terminal or filesystem writes.
+`--progress-lines 0` forwards decoded script stdout/stderr to their original
+destinations; positive values show a bounded tail of terminal streams, and `-1`
+uses available terminal rows. Redirected stdout receives decoded script output
+directly at every panel size. `NO_COLOR` removes styling while keeping terminal
+updates. Pane counters advance after command delivery and configured delays;
+opaque Python extensions show a generic activity label. Frames clear before
+results, diagnostics and attachment. On terminal resize, drawing stops and the
+old frame remains; raw output resumes. Other platforms currently omit drawing.
+The owned Console writers do not provide a hard deadline for terminal or
+filesystem writes.
 
 Search uses .NET regular expressions with a one-second match timeout. Basic patterns, field aliases and tmuxp search flags are supported; Python-specific regex syntax and some Unicode character classes differ. Invalid expressions return usage status 2.
 
