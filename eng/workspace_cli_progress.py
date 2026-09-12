@@ -219,6 +219,18 @@ esac
             script = "import os; os.write(1, 'out\\x1b[31m尾'.encode()); os.write(2, 'err尾'.encode())"
             check("raw-panel-zero", [*document("raw-zero", script), "--progress-lines", "0"], raw)
             check("raw-redirected", document("raw-pipe", script), raw, terminal=False)
+            def routed(result):
+                assert result["exit_code"] == 0
+                assert result["stdout"] == "out\x1b[31m尾Loaded raw-active\n", "active progress diverted or changed piped stdout"
+                assert "ROUTING" in result["stderr"] and "err尾" in result["stderr"], "stderr progress or script tail was lost"
+                assert "out" not in result["stderr"], "piped stdout was also copied into the panel"
+            check("raw-active-panel", [*document("raw-active", script), "--progress-format", "ROUTING"], routed)
+            def terminal_panel(result):
+                assert result["exit_code"] == 0
+                assert "ROUTING" in result["stderr"] and "err尾" in result["stderr"]
+                assert "out\\u001b[31m尾" in result["stderr"], "terminal stdout was lost from the panel"
+                assert "out" not in result["stdout"], "terminal stdout bypassed the panel"
+            check("terminal-output-panel", [*document("raw-terminal", script), "--progress-format", "ROUTING"], terminal_panel, output_terminal=True)
             check("script-failure", document("failed", "import sys; print('before failure'); sys.exit(7)"), failure)
 
             def panel(result):
@@ -227,7 +239,7 @@ esac
                 assert "tail-" not in result["stdout"], "panel output escaped to stdout"
                 assert result["stderr"].count("PANEL") < 20, "script chunks caused excessive redraws"
                 assert "\x1b[36m" not in result["stderr"], "NO_COLOR was ignored"
-            script = "import os; [os.write(1, ('tail-%d ' % i + 'x'*128 + '\\n').encode()) for i in range(6000)]"
+            script = "import os; [os.write(2, ('tail-%d ' % i + 'x'*128 + '\\n').encode()) for i in range(6000)]"
             check("bounded-coalesced-panel", [*document("panel", script), "--progress-format", "PANEL", "--progress-lines", "-1"], panel, size=(20, 5))
 
             release = root / "resize-release"

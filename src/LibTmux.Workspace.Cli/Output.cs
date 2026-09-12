@@ -201,14 +201,15 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             if (!Machine)
             {
                 CheckProgressSize();
-                if (_progress is { Panel: true })
+                bool redirectedOutput = channel == "stdout" && !context.Terminal;
+                if (_progress is { Panel: true } && !redirectedOutput)
                 {
                     _progress.Script(channel, text);
                     await DrawProgressAsync(context.CancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false);
+                    if (!redirectedOutput) await ClearProgressAsync(context.CancellationToken).ConfigureAwait(false);
                     TextWriter destination = channel == "stdout" ? context.Output : context.Error;
                     await destination.WriteAsync(text.AsMemory(), context.CancellationToken).ConfigureAwait(false);
                     await destination.FlushAsync(context.CancellationToken).ConfigureAwait(false);
