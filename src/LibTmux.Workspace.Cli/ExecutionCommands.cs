@@ -11,6 +11,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     private static readonly string[] InterpreterSuffixes = ["python", "ruby", "node"];
     private readonly DocumentStore _documents = new(context);
     private Server? _server;
+    private Session? _appendSession;
     private Server Server => _server ??= Server.Open(Connection());
 
     internal ServerConnectionOptions Connection()
@@ -36,20 +37,27 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         return current[..previous];
     }
 
-    private async Task<string?> AppendTargetAsync()
+    private async Task<(Session Session, string Name)?> AppendTargetAsync()
     {
         if (!invocation.Flag("append")) return null;
         string? pane = context.Environment.GetValueOrDefault("TMUX_PANE");
         string? socket = CurrentSocket(out int processId);
-        if (socket is null || !PaneId.TryParse(pane, out _)) throw new CliException("session-required", "Append requires TMUX and TMUX_PANE from a current tmux session.");
+        if (socket is null || !PaneId.TryParse(pane, out PaneId paneId)) throw new CliException("session-required", "Append requires TMUX and TMUX_PANE from a current tmux session.");
         Server current = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Connection().TmuxBinaryPath, socketPath: Path.GetFullPath(socket, context.Directory), childEnvironment: context.Environment));
         string[] query = ["display-message", "-p", "-t", pane!, "#{pid}:#{start_time}"];
         TmuxCommandResult identity = await current.ExecuteCommandAsync(query, context.CancellationToken).ConfigureAwait(false);
         if (identity.ExitCode != 0) throw new CliException("session-required", "The current tmux pane is unavailable.");
         string generation = Encoding.UTF8.GetString(identity.StandardOutput.Span).TrimEnd('\n');
         if (!generation.StartsWith(processId.ToString(CultureInfo.InvariantCulture) + ":", StringComparison.Ordinal)) throw new CliException("stale-environment", "The server recorded in TMUX has been replaced.");
-        if (generation != (await Command(query).ConfigureAwait(false)).TrimEnd('\n')) throw new CliException("endpoint-mismatch", "Append cannot select a different server from the current tmux pane.");
-        return pane;
+        _server = await Server.ConnectAsync(Connection(), context.CancellationToken).ConfigureAwait(false);
+        ServerGeneration selected = _server.Generation!.Value;
+        if (generation != string.Create(CultureInfo.InvariantCulture, $"{selected.ProcessId}:{selected.StartTime}")) throw new CliException("endpoint-mismatch", "Append cannot select a different server from the current tmux pane.");
+        Pane currentPane = await _server.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
+        TmuxCommandResult resolved = await currentPane.ExecuteCommandAsync(["display-message", "-p", "#{session_id}\t#{session_name}"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
+        string[] fields = Encoding.UTF8.GetString(resolved.StandardOutput.Span).TrimEnd('\n').Split('\t', 2);
+        if (resolved.ExitCode != 0 || fields.Length != 2 || !SessionId.TryParse(fields[0], out SessionId sessionId)) throw new CliException("session-required", "The current tmux pane has no session.");
+        _appendSession = await _server.GetSessionAsync(sessionId, context.CancellationToken).ConfigureAwait(false);
+        return (_appendSession, fields[1]);
     }
 
     internal async Task<int> LoadAsync()
@@ -64,8 +72,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             JsonObject document = DocumentStore.Read(path);
             return (Path: path, Document: document, Plan: WorkspacePlan.Parse(document, path, _documents, index == files.Length - 1 ? invocation.Text("session_name") : null));
         }).ToArray();
-        string? appendTarget = await AppendTargetAsync().ConfigureAwait(false);
-        if (inputs.Any(input => input.Document["plugins"] is not null || input.Document["workspace_builder"] is not null))
+        bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
+        if (extensions && invocation.Flag("append")) throw new CliException("unsupported-append-extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
+        (Session Session, string Name)? appendTarget = await AppendTargetAsync().ConfigureAwait(false);
+        if (extensions)
             return await new ProcessCommands(context, invocation, output).BridgeLoadAsync().ConfigureAwait(false);
         string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);
         string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
@@ -91,10 +101,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
                 await output.EventAsync(stage = "workspace-started", new { input_index = index, input = input.Path }).ConfigureAwait(false);
-                if (appendTarget is not null)
+                if (appendTarget is { } retained)
                 {
-                    session = await Field(appendTarget, "session_id").ConfigureAwait(false);
-                    sessionName = await Field(appendTarget, "session_name").ConfigureAwait(false);
+                    session = retained.Session.Id.ToString();
+                    sessionName = retained.Name;
+                    await Command(["has-session", "-t", session]).ConfigureAwait(false);
                 }
                 else
                 {
@@ -209,7 +220,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 await output.EventAsync(stage = "workspace-completed", new { input_index = index, session_id = session }).ConfigureAwait(false);
                 if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }
             }
-            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException or IOException or UnauthorizedAccessException)
+            catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or StaleServerGenerationException or ArgumentException or IOException or UnauthorizedAccessException)
             {
                 bool removed = false;
                 if (stage == "before-script" && created && session is not null)
@@ -218,7 +229,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult deletion = await Server.ExecuteCommandAsync(["kill-session", "-t", session], cleanup.Token).ConfigureAwait(false);
                     removed = deletion.ExitCode == 0;
                 }
-                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
@@ -325,7 +336,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private async Task<string> Command(IReadOnlyList<string> arguments)
     {
-        TmuxCommandResult result = await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false);
+        TmuxCommandResult result = _appendSession is null
+            ? await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false)
+            : await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = _appendSession.Generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0) throw new CliException("tmux-failed", string.Join("\n", result.StandardErrorLines));
         return Encoding.UTF8.GetString(result.StandardOutput.Span);
     }

@@ -442,6 +442,167 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("move-during")]
+    [InlineData("moved-before")]
+    [InlineData("linked")]
+    public async Task Append_retains_tmuxs_resolved_session_across_inputs(string topology)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "retained.socket");
+        string tmux = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            string pane = await Execute(server, "new-session", "-d", "-s", "original", "-P", "-F", "#{pane_id}");
+            string window = await Execute(server, "display-message", "-p", "-t", pane, "#{window_id}");
+            await Execute(server, "new-window", "-d", "-t", "=original:", "-n", "keep-original");
+            await Execute(server, "new-session", "-d", "-s", "other");
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(server, "display-message", "-p", "-t", pane, "#{socket_path},#{pid},#{session_id}"),
+                ["TMUX_PANE"] = pane,
+            };
+            environment["TMUX"] = environment["TMUX"]!.Replace(",$", ",", StringComparison.Ordinal);
+            if (topology is "moved-before" or "linked")
+                await Execute(server, topology == "linked" ? "link-window" : "move-window", "-s", window, "-t", "=other:");
+            Server observed = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: socket, childEnvironment: environment));
+            string selected = await Execute(observed, "display-message", "-p", "-t", pane, "#{session_id}");
+            string selectedName = await Execute(observed, "display-message", "-p", "-t", pane, "#{session_name}");
+            if (topology == "moved-before") Assert.Equal("other", selectedName);
+            string[] paths = [Path.Combine(_root, "first.json"), Path.Combine(_root, "second.json")];
+            for (int index = 0; index < paths.Length; index++)
+            {
+                JsonObject document = DocumentStore.Parse("session_name: ignored\nwindows: [{window_name: appended-" + index + ", panes: [null]}]");
+                if (topology == "moved-before")
+                {
+                    document["plugins"] = new JsonArray();
+                    document["workspace_builder"] = null;
+                }
+                if (index == 0 && topology == "move-during")
+                {
+                    string script = Path.Combine(_root, "move-window");
+                    await File.WriteAllTextAsync(script, "#!/bin/sh\nexec \"$REAL_TMUX\" -S \"$CURRENT_SOCKET\" move-window -s \"$CURRENT_WINDOW\" -t '=other:'\n", token);
+                    File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                    document["before_script"] = script;
+                    environment["REAL_TMUX"] = tmux;
+                    environment["CURRENT_SOCKET"] = socket;
+                    environment["CURRENT_WINDOW"] = window;
+                }
+                await File.WriteAllTextAsync(paths[index], document.ToJsonString(), token);
+            }
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", .. paths, "--append", "--json", "-S", socket], output, error, _root, environment, token);
+            Assert.True(code == 0, error.ToString());
+            JsonArray results = JsonNode.Parse(output.ToString())!["results"]!.AsArray();
+            Assert.Equal(2, results.Count);
+            Assert.All(results, result =>
+            {
+                Assert.Equal(selected, result!["session_id"]!.ToString());
+                Assert.Equal(selectedName, result["session_name"]!.ToString());
+            });
+            string appended = await Execute(server, "list-windows", "-t", selected, "-F", "#{window_name}");
+            Assert.Contains("appended-0", appended, StringComparison.Ordinal);
+            Assert.Contains("appended-1", appended, StringComparison.Ordinal);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    [Fact]
+    public async Task Append_refuses_retargeted_daemon_before_global_mutation()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string currentSocket = Path.Combine(_root, "owned.socket");
+        string otherSocket = Path.Combine(_root, "other.socket");
+        string selectedSocket = Path.Combine(_root, "selected.socket");
+        string tmux = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Server current = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: currentSocket, configurationFile: "/dev/null"));
+        Server other = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: otherSocket, configurationFile: "/dev/null"));
+        try
+        {
+            string pane = await Execute(current, "new-session", "-d", "-s", "borrowed", "-P", "-F", "#{pane_id}");
+            Assert.Equal(pane, await Execute(other, "new-session", "-d", "-s", "unrelated", "-P", "-F", "#{pane_id}"));
+            File.CreateSymbolicLink(selectedSocket, currentSocket);
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(current, "display-message", "-p", "#{socket_path},#{pid},0"),
+                ["TMUX_PANE"] = pane,
+                ["SELECTED_SOCKET"] = selectedSocket,
+                ["OTHER_SOCKET"] = otherSocket,
+            };
+            string script = Path.Combine(_root, "retarget");
+            await File.WriteAllTextAsync(script, "#!/bin/sh\nexec ln -sfn \"$OTHER_SOCKET\" \"$SELECTED_SOCKET\"\n", token);
+            File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            string first = Path.Combine(_root, "first.json");
+            string second = Path.Combine(_root, "second.json");
+            JsonObject document = DocumentStore.Parse("session_name: unused\nwindows: [{window_name: completed, panes: [null]}]");
+            await File.WriteAllTextAsync(first, document.ToJsonString(), token);
+            document["before_script"] = script;
+            document["global_options"] = new JsonObject { ["@must-not-change"] = "bad" };
+            await File.WriteAllTextAsync(second, document.ToJsonString(), token);
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", first, second, "--append", "--json", "-S", selectedSocket], output, error, _root, environment, token);
+            string untouched = await Execute(other, "show-options", "-gqv", "@must-not-change");
+            Assert.True(code == 1 && untouched.Length == 0, $"Exit {code}, unrelated option '{untouched}', result {output}, error {error}");
+            JsonNode summary = JsonNode.Parse(output.ToString())!;
+            Assert.Equal("partial", summary["status"]!.ToString());
+            Assert.Single(summary["results"]!.AsArray());
+            JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
+            Assert.Equal("stale-server", issue["code"]!.ToString());
+            Assert.Equal("session-options", issue["failed_stage"]!.ToString());
+            Assert.False(issue["created"]!.GetValue<bool>());
+            Assert.False(issue["removed"]!.GetValue<bool>());
+            Assert.Equal("2", await Execute(current, "display-message", "-p", "#{session_windows}"));
+            Assert.Equal("1", await Execute(other, "display-message", "-p", "#{session_windows}"));
+            Assert.Empty(await Execute(current, "show-options", "-gqv", "@must-not-change"));
+        }
+        finally
+        {
+            if (await current.IsAliveAsync(token)) await current.KillAsync(cancellationToken: token);
+            if (await other.IsAliveAsync(token)) await other.KillAsync(cancellationToken: token);
+        }
+    }
+
+    [Theory]
+    [InlineData("plugins: [example.Plugin]")]
+    [InlineData("workspace_builder: example.Builder")]
+    public async Task Append_refuses_python_delegation_before_running_any_input(string extension)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "python-append.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            string pane = await Execute(server, "new-session", "-d", "-s", "borrowed", "-P", "-F", "#{pane_id}");
+            string python = Path.Combine(_root, "python-sentinel");
+            string trace = Path.Combine(_root, "python-trace");
+            await File.WriteAllTextAsync(python, "#!/bin/sh\nprintf 'python\\n' >> \"$PYTHON_TRACE\"\nif test \"$1\" = -c; then printf '1.74.0\\n'; fi\n", token);
+            File.SetUnixFileMode(python, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0"),
+                ["TMUX_PANE"] = pane,
+                ["TMUX_WORKSPACE_PYTHON"] = python,
+                ["PYTHON_TRACE"] = trace,
+            };
+            string first = Path.Combine(_root, "native.yaml");
+            string second = Path.Combine(_root, "extension.yaml");
+            const string native = "session_name: ignored\nwindows: [{panes: [null]}]\n";
+            await File.WriteAllTextAsync(first, native, token);
+            await File.WriteAllTextAsync(second, native + extension, token);
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", first, second, "--append", "--ndjson", "-S", socket], output, error, _root, environment, token);
+            Assert.True(code == 2 && !File.Exists(trace), $"Exit {code}, Python invoked {File.Exists(trace)}, output {output}, error {error}");
+            Assert.Empty(output.ToString());
+            Assert.Equal("unsupported-append-extensions", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+            Assert.Equal("1", await Execute(server, "display-message", "-p", "#{session_windows}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     private static async Task<string> Execute(Server server, params string[] arguments)
     {
         TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
