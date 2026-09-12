@@ -402,7 +402,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     switch (observed)
                     {
                         case TmuxOutputEvent output:
-                            OnPaneOutput(output.PaneId);
+                            OnPaneOutput(output.PaneId.ToString());
                             break;
                         case TmuxExitEvent exit when hub._logger is not null:
                             Log.ControlClientEnded(hub._logger, key.SessionId, exit.Reason);

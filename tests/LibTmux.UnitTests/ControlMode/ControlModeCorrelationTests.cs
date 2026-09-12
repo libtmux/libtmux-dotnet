@@ -45,6 +45,48 @@ public sealed class ControlModeCorrelationTests
     }
 
     [Fact]
+    public async Task Output_carries_a_typed_pane_id_and_never_faults_on_a_bad_one()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+
+        process.EmitNotification("output", "%7", "hello");
+
+        // tmux will not write these, but the pump reads whatever arrives on a
+        // pipe. Parsing must degrade, not throw: a faulted Events stream loses
+        // every later event too.
+        process.EmitNotification("output", "not-a-pane-id", "hostile");
+        process.EmitNotification("output", "%", "truncated");
+        process.EmitNotification("output", "%99999999999999999999", "overflow");
+        process.EmitNotification("output", "@3", "wrong-prefix");
+        process.EmitNotification("window-add", "@1");
+        process.CloseInput();
+
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent each in session.Events.WithCancellation(token))
+        {
+            observed.Add(each);
+        }
+
+        TmuxOutputEvent output = Assert.Single(observed.OfType<TmuxOutputEvent>());
+        Assert.Equal(new PaneId(7), output.PaneId);
+        Assert.Equal("hello", output.Data);
+
+        // Everything unparsable arrived, named but not interpreted.
+        string[] unparsed =
+        [
+            .. observed.OfType<TmuxNotificationEvent>()
+                .Where(each => string.Equals(each.Name, "output", StringComparison.Ordinal))
+                .Select(each => each.Arguments[0]),
+        ];
+        Assert.Equal(
+            ["not-a-pane-id", "%", "%99999999999999999999", "@3"],
+            unparsed);
+    }
+
+    [Fact]
     public async Task A_failed_command_keeps_its_typed_diagnostics()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -660,7 +702,11 @@ public sealed class ControlModeCorrelationTests
                 failed: true,
                 $"parse error: unknown command: {sentinel}");
 
-        internal void EmitNotification(string name) => _output.Writer.TryWrite($"%{name}");
+        internal void EmitNotification(string name, params string[] arguments) =>
+            _output.Writer.TryWrite(
+                arguments.Length == 0
+                    ? $"%{name}"
+                    : $"%{name} {string.Join(' ', arguments)}");
 
         internal void EmitProtocolLine(string line) => _output.Writer.TryWrite(line);
 

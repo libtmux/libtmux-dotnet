@@ -635,8 +635,12 @@ internal sealed class ControlModeSession : IControlModeSession
 
     private static TmuxEvent ToEvent(string name, IReadOnlyList<string> arguments)
     {
-        if (!string.Equals(name, "output", StringComparison.Ordinal) || arguments.Count == 0)
+        if (!string.Equals(name, "output", StringComparison.Ordinal)
+            || arguments.Count == 0
+            || !PaneId.TryParse(arguments[0], out PaneId pane))
         {
+            // The pump must not throw: a hostile or unrecognized %output line
+            // arrives named but unparsed rather than faulting the whole stream.
             return new TmuxNotificationEvent(name, arguments);
         }
 
@@ -646,7 +650,7 @@ internal sealed class ControlModeSession : IControlModeSession
         string payload = arguments.Count == 1
             ? string.Empty
             : string.Join(' ', arguments.Skip(1));
-        return new TmuxOutputEvent(arguments[0], OptionParser.DecodeEscapes(payload));
+        return new TmuxOutputEvent(pane, OptionParser.DecodeEscapes(payload));
     }
 
     private string WithStandardError(string message)

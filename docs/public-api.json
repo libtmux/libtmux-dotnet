@@ -25177,7 +25177,7 @@
       "summary": "Gets the error lines tmux reported."
     },
     {
-      "id": "M:LibTmux.TmuxOutputEvent.#ctor(string,string)",
+      "id": "M:LibTmux.TmuxOutputEvent.#ctor(PaneId,string)",
       "declaringType": "T:LibTmux.TmuxOutputEvent",
       "name": ".ctor",
       "kind": "constructor",
@@ -25188,14 +25188,14 @@
       "parameters": [
         {
           "name": "PaneId",
-          "type": "string"
+          "type": "PaneId"
         },
         {
           "name": "Data",
           "type": "string"
         }
       ],
-      "signature": "TmuxOutputEvent(string PaneId, string Data)",
+      "signature": "TmuxOutputEvent(PaneId PaneId, string Data)",
       "portable": true,
       "summary": "Creates TmuxOutputEvent."
     },
@@ -25207,9 +25207,9 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "string",
+      "returnType": "PaneId",
       "parameters": [],
-      "signature": "string LibTmux.TmuxOutputEvent.PaneId { get; }",
+      "signature": "PaneId LibTmux.TmuxOutputEvent.PaneId { get; }",
       "portable": true,
       "summary": "Gets PaneId."
     },

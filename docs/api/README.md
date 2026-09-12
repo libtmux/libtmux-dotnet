@@ -539,7 +539,7 @@ modes differ.
 | `LibTmux.TmuxOptions.GetAsync(LibTmux.GetOptionRequest,System.Threading.CancellationToken)` | Reads one option. |
 | `LibTmux.TmuxOptions.SetAsync(LibTmux.SetOptionRequest,System.Threading.CancellationToken)` | Sets one option. |
 | `LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest,System.Threading.CancellationToken)` | Unsets one option, returning it to what it inherits. |
-| `LibTmux.TmuxOutputEvent.#ctor(System.String,System.String)` | Bytes a pane wrote. |
+| `LibTmux.TmuxOutputEvent.#ctor(LibTmux.PaneId,System.String)` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneException.#ctor(System.String,LibTmux.PaneId,System.Exception)` | Initializes the exception for one pane. |
 | `LibTmux.TmuxSessionExistsException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one taken session name. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},LibTmux.TmuxDispatchState,System.Exception)` | Initializes a transport exception that knows whether tmux was started. |
@@ -1101,7 +1101,7 @@ modes differ.
 | `LibTmux.TmuxOptionValue.State` | Gets whether the value is absent, a flag, or ordinary text. |
 | `LibTmux.TmuxOptions.Scope` | Gets the scope these options are read and written in by default. |
 | `LibTmux.TmuxOutputEvent.Data` | The text, with tmux's escaping already decoded. It is a fragment of a stream rather than a line: tmux sends whatever it has, so a single write by the program in the pane can arrive split across events and one event can carry several lines. |
-| `LibTmux.TmuxOutputEvent.PaneId` | The pane that produced the output, such as %0. |
+| `LibTmux.TmuxOutputEvent.PaneId` | The pane that produced the output. |
 | `LibTmux.TmuxPaneException.PaneId` | Gets the pane the request named. |
 | `LibTmux.TmuxSessionExistsException.SessionName` | Gets the session name that is already in use. |
 | `LibTmux.TmuxTransportException.Arguments` | Gets the logical tmux arguments. |

@@ -2074,9 +2074,9 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.TmuxOutputEvent.#ctor(string,string)` | `TmuxOutputEvent(string PaneId, string Data)` | Public | No | Portable | Creates TmuxOutputEvent. |
+| `M:LibTmux.TmuxOutputEvent.#ctor(PaneId,string)` | `TmuxOutputEvent(PaneId PaneId, string Data)` | Public | No | Portable | Creates TmuxOutputEvent. |
 | `P:LibTmux.TmuxOutputEvent.Data` | `string LibTmux.TmuxOutputEvent.Data { get; }` | Public | No | Portable | Gets Data. |
-| `P:LibTmux.TmuxOutputEvent.PaneId` | `string LibTmux.TmuxOutputEvent.PaneId { get; }` | Public | No | Portable | Gets PaneId. |
+| `P:LibTmux.TmuxOutputEvent.PaneId` | `PaneId LibTmux.TmuxOutputEvent.PaneId { get; }` | Public | No | Portable | Gets PaneId. |
 
 ### `T:LibTmux.TmuxPaneException`
 

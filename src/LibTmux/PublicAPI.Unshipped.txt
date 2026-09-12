@@ -1149,11 +1149,11 @@ LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest! request, System.Threa
 LibTmux.TmuxOutputEvent
 LibTmux.TmuxOutputEvent.Data.get -> string!
 LibTmux.TmuxOutputEvent.Data.init -> void
-LibTmux.TmuxOutputEvent.Deconstruct(out string! PaneId, out string! Data) -> void
+LibTmux.TmuxOutputEvent.Deconstruct(out LibTmux.PaneId PaneId, out string! Data) -> void
 LibTmux.TmuxOutputEvent.Equals(LibTmux.TmuxOutputEvent? other) -> bool
-LibTmux.TmuxOutputEvent.PaneId.get -> string!
+LibTmux.TmuxOutputEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxOutputEvent.PaneId.init -> void
-LibTmux.TmuxOutputEvent.TmuxOutputEvent(string! PaneId, string! Data) -> void
+LibTmux.TmuxOutputEvent.TmuxOutputEvent(LibTmux.PaneId PaneId, string! Data) -> void
 LibTmux.TmuxPaneException
 LibTmux.TmuxPaneException.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneException.TmuxPaneException(string! message, LibTmux.PaneId paneId, System.Exception? innerException = null) -> void
