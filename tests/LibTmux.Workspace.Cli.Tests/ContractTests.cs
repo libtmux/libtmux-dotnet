@@ -34,6 +34,66 @@ public sealed class ContractTests : IDisposable
         Assert.Equal("~/dev.yaml", row["path"]!.ToString());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Full_list_shows_windows_layouts_and_pane_commands_without_tmux(bool tree)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "dev.yaml"), FullListDocument, TestContext.Current.CancellationToken);
+        string[] arguments = ["ls", .. tree ? new[] { "--tree" } : []];
+        var brief = await Run(arguments);
+        Assert.Equal(0, brief.Code);
+        Assert.DoesNotContain("editor", brief.Output, StringComparison.Ordinal);
+
+        var full = await Run([.. arguments, "--full", "--color", "never"]);
+        Assert.Equal(0, full.Code);
+        Assert.Empty(full.Error);
+        Assert.Contains("~/dev.yaml", full.Output, StringComparison.Ordinal);
+        Assert.Contains("editor [even-horizontal]", full.Output, StringComparison.Ordinal);
+        Assert.Contains("pane 0: echo [red]literal[/]", full.Output, StringComparison.Ordinal);
+        Assert.Contains("pane 1: echo structured", full.Output, StringComparison.Ordinal);
+        Assert.Contains("pane 2: echo scalar", full.Output, StringComparison.Ordinal);
+        Assert.Contains("pane 3: echo nested", full.Output, StringComparison.Ordinal);
+        Assert.Contains("pane 4: echo \\u001b[31mcontrol", full.Output, StringComparison.Ordinal);
+        string[] lines = full.Output.Split('\n').Select(line => line.Trim()).ToArray();
+        int unnamed = Array.IndexOf(lines, "window 1");
+        Assert.True(unnamed >= 0);
+        Assert.EndsWith("pane 0", lines[unnamed + 1], StringComparison.Ordinal);
+        Assert.Contains("empty", lines);
+        Assert.DoesNotContain("\u001b", full.Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--json")]
+    [InlineData("--ndjson")]
+    public async Task Full_list_preserves_complete_machine_configuration(string mode)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "dev.yaml"), FullListDocument, TestContext.Current.CancellationToken);
+        var result = await Run("ls", "--tree", "--full", mode);
+        Assert.Equal(0, result.Code);
+        Assert.Empty(result.Error);
+        JsonNode output = JsonNode.Parse(result.Output)!;
+        JsonNode row = mode == "--json" ? output["workspaces"]![0]! : output;
+        Assert.True(JsonNode.DeepEquals(DocumentStore.Parse(FullListDocument), row["config"]));
+        Assert.DoesNotContain("\u001b", result.Output, StringComparison.Ordinal);
+    }
+
+    private const string FullListDocument = """
+        session_name: project
+        windows:
+          - window_name: editor
+            layout: even-horizontal
+            panes:
+              - 'echo [red]literal[/]'
+              - shell_command: [{cmd: echo structured, enter: false}]
+              - shell_command: echo scalar
+              - [echo nested, echo next]
+              - "echo \e[31mcontrol"
+          - panes: [null]
+          - window_name: empty
+            panes: []
+        """;
+
     [Fact]
     public async Task Export_uses_command_graph_and_needs_no_tmux()
     {
