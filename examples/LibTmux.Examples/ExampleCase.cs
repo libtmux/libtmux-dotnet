@@ -32,6 +32,42 @@ public sealed class ExampleCase
 
     private MethodInfo Method { get; }
 
+    /// <summary>Maps each example to the cross-port artifact id the arena runs it as.</summary>
+    /// <remarks>
+    /// One table rather than a literal at each caller. Every example
+    /// <see cref="Discover"/> returns carries exactly one entry here, and the
+    /// reverse holds too; <c>ArenaArtifactTests</c> checks both directions.
+    /// </remarks>
+    public static IReadOnlyDictionary<string, string> ArenaArtifactsByCase { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Chaining.ManyCommandsOneProcess"] = "csharp-many-commands-one-process",
+            ["Chaining.ReadBackFromAChain"] = "csharp-read-back-from-a-chain",
+            ["ControlMode.NoticeDroppedEvents"] = "csharp-notice-dropped-events",
+            ["ControlMode.WatchForWindowAdd"] = "csharp-watch-for-window-add",
+            ["Mcp.ConnectToSelectedSurface"] = "csharp-connect-to-selected-surface",
+            ["Mcp.HostTheToolsYourself"] = "csharp-host-the-tools-yourself",
+            ["Mcp.KeepTheNewestLines"] = "csharp-keep-the-newest-lines",
+            ["Mcp.ReadCapabilities"] = "csharp-read-capabilities",
+            ["Mcp.ReadOnlyWhatIsNew"] = "csharp-read-only-what-is-new",
+            ["Mcp.ReadSeveralFacts"] = "csharp-read-several-facts",
+            ["Mcp.RunAndReadExitStatus"] = "csharp-run-and-read-exit-status",
+            // The pre-existing cross-port id for the connect-with-no-ceremony
+            // idiom; every other id below is the example's own name in kebab
+            // case.
+            ["OneShot.BuildHierarchy"] = "csharp-build-hierarchy",
+            ["OneShot.ConnectAndBuild"] = "csharp-one-shot",
+            ["OneShot.CreateWindow"] = "csharp-create-window",
+            ["Tour.FilterWhatIsThere"] = "csharp-filter-what-is-there",
+            ["Tour.ReactToAnEvent"] = "csharp-react-to-an-event",
+            ["Tour.ReadAndWriteOptions"] = "csharp-read-and-write-options",
+            ["Tour.RunACommand"] = "csharp-run-a-command",
+            ["Tour.ShowHierarchy"] = "csharp-show-hierarchy",
+        };
+
+    /// <summary>Gets the cross-port artifact id the arena runs this example as.</summary>
+    public string? ArenaArtifact => ArenaArtifactsByCase.GetValueOrDefault($"{Topic}.{Id}");
+
     /// <summary>Finds the ordinary tmux examples, in a stable order.</summary>
     /// <returns>The default-suite examples, ordered by topic and then by name.</returns>
     public static IReadOnlyList<ExampleCase> Discover() =>
@@ -46,13 +82,40 @@ public sealed class ExampleCase
             .ThenBy(example => example.Id, StringComparer.Ordinal),
     ];
 
+    /// <summary>Finds the example the arena should run for an artifact id.</summary>
+    /// <param name="artifact">The artifact id the arena supervisor named.</param>
+    /// <returns>The matching example, or null when no example claims that id.</returns>
+    public static ExampleCase? FindByArenaArtifact(string artifact) =>
+        Discover().FirstOrDefault(
+            example => string.Equals(example.ArenaArtifact, artifact, StringComparison.Ordinal));
+
     /// <summary>Runs the example against a tmux server of its own.</summary>
     /// <param name="cancellationToken">Cancels the example and its tmux commands.</param>
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    public async Task RunAsync(CancellationToken cancellationToken = default) =>
+        await RunAsync(await ExampleNamespace.EnterAsync(Id, cancellationToken), cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <summary>Runs the example against a server the arena lent rather than one of its own.</summary>
+    /// <param name="tmuxBinaryPath">The tmux executable the lending server was started with.</param>
+    /// <param name="socketPath">The socket the lending server is listening on.</param>
+    /// <param name="cancellationToken">Cancels the example and its tmux commands.</param>
+    /// <remarks>Disposal never stops the lent server; only an owned one is stopped.</remarks>
+    public async Task RunUnderArenaAsync(
+        string tmuxBinaryPath,
+        string socketPath,
+        CancellationToken cancellationToken = default) =>
+        await RunAsync(
+                await ExampleNamespace.EnterArenaAsync(
+                    Id,
+                    tmuxBinaryPath,
+                    socketPath,
+                    cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private async Task RunAsync(ExampleNamespace world, CancellationToken cancellationToken)
     {
-        await using ExampleNamespace world = await ExampleNamespace.EnterAsync(
-            Id,
-            cancellationToken);
+        await using ExampleNamespace disposesWorld = world;
 
         ParameterInfo[] parameters = Method.GetParameters();
         await using ExampleMcpConnection? mcp = parameters.Any(
