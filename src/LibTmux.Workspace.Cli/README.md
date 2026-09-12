@@ -59,7 +59,7 @@ Python shell code and workspace extensions require tmuxp **1.74.0**. Set `TMUX_W
 
 ## Validation and benchmarks
 
-The CLI tests target both supported .NET runtimes and use private tmux sockets. Python shell integration requires the pinned optional runtime. Test collections run sequentially. The installed-tool benchmark verifies every leaf, topology, directories and NDJSON framing before reporting timings:
+The CLI tests target both supported .NET runtimes and use private tmux sockets. Python shell integration requires the pinned optional runtime. Test collections run sequentially. The installed-tool benchmark verifies every leaf, topology, directories and NDJSON framing before reporting timings. It compares against tmuxp 1.74.0 using the same fixture and subprocess timing boundaries; both freeze measurements write YAML files. Results include individual samples, median, range and standard deviation. `--reference-python` selects the pinned comparison runtime.
 
 ```console
 $ python3 eng/workspace_cli_benchmark.py artifacts/tools/tmux-workspace \
