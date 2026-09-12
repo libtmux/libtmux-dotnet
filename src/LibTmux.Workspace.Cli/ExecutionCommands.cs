@@ -74,18 +74,24 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         {
             var input = inputs[index];
             string? session = null;
+            string sessionName = input.Plan.Name;
+            string? completedStage = null;
             bool created = false;
             try
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
                 output.Event(stage = "workspace-started", new { input_index = index, input = input.Path });
-                if (appendTarget is not null) session = await Field(appendTarget, "session_id").ConfigureAwait(false);
+                if (appendTarget is not null)
+                {
+                    session = await Field(appendTarget, "session_id").ConfigureAwait(false);
+                    sessionName = await Field(appendTarget, "session_name").ConfigureAwait(false);
+                }
                 else
                 {
                     TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + input.Plan.Name], context.CancellationToken).ConfigureAwait(false);
                     if (exists.ExitCode == 0)
                     {
-                        session = await Field("=" + input.Plan.Name, "session_id").ConfigureAwait(false);
+                        session = await Field("=" + input.Plan.Name + ":", "session_id").ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         output.Event("workspace-completed", new { input_index = index, session_id = session, status = "reused" });
                         continue;
@@ -105,6 +111,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     while (input.Plan.Windows.Any(window => window.Index == temporaryIndex)) temporaryIndex++;
                     await Command(["move-window", "-s", bootstrap, "-t", session + ":" + temporaryIndex.ToString(CultureInfo.InvariantCulture)]).ConfigureAwait(false);
                     output.Event(stage, new { input_index = index, session_id = session, session_name = input.Plan.Name });
+                    completedStage = stage;
                 }
                 if (input.Plan.BeforeScript is string script)
                 {
@@ -114,10 +121,13 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (scriptArguments[0].StartsWith('.')) scriptArguments[0] = Path.GetFullPath(scriptArguments[0], Path.GetDirectoryName(input.Path)!);
                     ChildResult child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true).ConfigureAwait(false);
                     if (child.ExitCode != 0) throw new CliException("script-failed", $"before_script exited with status {child.ExitCode}.");
+                    completedStage = stage;
                 }
+                stage = "session-options";
                 foreach (var option in input.Plan.GlobalOptions) await Command(["set-option", "-g", option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                 foreach (var option in input.Plan.Options) await Command(["set-option", "-t", session, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                 foreach (var variable in input.Plan.Environment) await Command(["set-environment", "-t", session, variable.Key, variable.Value]).ConfigureAwait(false);
+                completedStage = stage;
                 string? focusedWindow = null;
                 string? firstWindow = null;
                 foreach (WindowPlan window in input.Plan.Windows)
@@ -134,6 +144,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (window.Focus) focusedWindow = windowId;
                     foreach (var option in window.Options) await Command(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     output.Event(stage, new { input_index = index, session_id = session, window_id = windowId, window_name = window.Name });
+                    completedStage = stage;
                     string? focusedPane = null;
                     for (int paneIndex = 0; paneIndex < window.Panes.Length; paneIndex++)
                     {
@@ -146,6 +157,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             await Command(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
                         }
                         output.Event(stage = "pane-created", new { input_index = index, window_id = windowId, pane_id = paneId });
+                        completedStage = stage;
                         if (pane.Focus) focusedPane = paneId;
                         if (pane.Shell is null && (input.Plan.Readiness == "always" || (input.Plan.Readiness == "auto" && (await Field(paneId, "pane_current_command").ConfigureAwait(false)).EndsWith("zsh", StringComparison.Ordinal))))
                         {
@@ -163,17 +175,21 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             await Command(["send-keys", "-t", paneId, "-l", "--", command.Text]).ConfigureAwait(false);
                             if (command.Enter) await Command(["send-keys", "-t", paneId, "Enter"]).ConfigureAwait(false);
                             await Task.Delay(TimeSpan.FromSeconds(command.After), context.CancellationToken).ConfigureAwait(false);
+                            completedStage = stage;
                         }
                     }
+                    stage = "window-finalized";
                     if (window.Layout is not null) await Command(["select-layout", "-t", windowId, window.Layout]).ConfigureAwait(false);
                     foreach (var option in window.OptionsAfter) await Command(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     if (focusedPane is not null) await Command(["select-pane", "-t", focusedPane]).ConfigureAwait(false);
+                    completedStage = stage;
                 }
+                stage = "workspace-finalized";
                 if (bootstrap is not null) await Command(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
                 if ((focusedWindow ?? firstWindow) is string active) await Command(["select-window", "-t", active]).ConfigureAwait(false);
-                results.Add(Result(index, input.Path, session, input.Plan.Name, created ? "created" : "appended"));
+                results.Add(Result(index, input.Path, session, sessionName, created ? "created" : "appended"));
                 output.Event(stage = "workspace-completed", new { input_index = index, session_id = session });
-                if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(input.Plan.Name, "subject"); }
+                if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }
             }
             catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or ArgumentException)
             {
@@ -185,7 +201,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     removed = deletion.ExitCode == 0;
                 }
                 string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : "tmux-failed";
-                errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["removed"] = removed });
+                errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["removed"] = removed });
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (created && !removed) ? "partial" : "error", results, errors };
                 if (invocation.Flag("ndjson")) output.Event("failed", summary);
                 else output.Result(summary);
@@ -203,11 +219,12 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     internal async Task FreezeAsync()
     {
-        string? target = invocation.Many("sessions").FirstOrDefault() ?? context.Environment.GetValueOrDefault("TMUX_PANE");
+        string? supplied = invocation.Many("sessions").FirstOrDefault();
+        string? target = supplied is null ? context.Environment.GetValueOrDefault("TMUX_PANE") : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
         {
             string[] sessions = (await Command(["list-sessions", "-F", "#{session_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            target = sessions.Length == 1 ? sessions[0] : new ReadCommands(context, invocation, output).Prompt("Session name: ");
+            target = sessions.Length == 1 ? sessions[0] : await NamedSessionTarget(new ReadCommands(context, invocation, output).Prompt("Session name: ")).ConfigureAwait(false);
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
         JsonObject document = new() { ["session_name"] = await Field(session, "session_name").ConfigureAwait(false) };
@@ -263,6 +280,13 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     }
 
     private async Task<string> Field(string target, string field) => (await Command(["display-message", "-p", "-t", target, "#{" + field + "}"]).ConfigureAwait(false)).TrimEnd('\n');
+
+    private async Task<string> NamedSessionTarget(string name)
+    {
+        TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + name], context.CancellationToken).ConfigureAwait(false);
+        if (exists.ExitCode != 0) throw new CliException("session-not-found", $"Session '{name}' was not found.");
+        return "=" + name + ":";
+    }
 
     private async Task<string> Command(IReadOnlyList<string> arguments)
     {

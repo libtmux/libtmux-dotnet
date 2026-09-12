@@ -128,7 +128,12 @@ public sealed class RegressionTests : IDisposable
                 Assert.Empty(output.ToString());
                 Assert.Equal(selection == "restarted" ? "stale-environment" : "endpoint-mismatch", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             }
-            else Assert.Equal("appended", JsonNode.Parse(output.ToString())!["results"]![0]!["status"]!.ToString());
+            else
+            {
+                JsonNode result = JsonNode.Parse(output.ToString())!["results"]![0]!;
+                Assert.Equal("appended", result["status"]!.ToString());
+                Assert.Equal("current", result["session_name"]!.ToString());
+            }
             Assert.Equal(mismatch ? "1" : "2", await Execute(current, "display-message", "-p", "#{session_windows}"));
             Assert.Equal("1", await Execute(other, "display-message", "-p", "#{session_windows}"));
         }
@@ -144,6 +149,96 @@ public sealed class RegressionTests : IDisposable
         TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
         Assert.Equal(0, result.ExitCode);
         return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
+    }
+
+    [Theory]
+    [InlineData("reuse")]
+    [InlineData("freeze")]
+    public async Task Session_lookup_requires_the_exact_name(string command)
+    {
+        string socket = Path.Combine(_root, "exact.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "existing-long");
+            if (command == "reuse")
+            {
+                string sessionId = await Execute(server, "new-session", "-d", "-s", "existing", "-P", "-F", "#{session_id}");
+                string file = Path.Combine(_root, "reuse.yaml");
+                await File.WriteAllTextAsync(file, "session_name: existing\nbefore_script: /bin/false\nwindows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+                var result = await Run("load", file, "-d", "-S", socket, "--json");
+                Assert.True(result.Code == 0, result.Error + result.Output);
+                Assert.Equal("reused", JsonNode.Parse(result.Output)!["results"]![0]!["status"]!.ToString());
+                Assert.Equal(sessionId, JsonNode.Parse(result.Output)!["results"]![0]!["session_id"]!.ToString());
+                Assert.Equal("1", await Execute(server, "display-message", "-p", "-t", "=existing:", "#{session_windows}"));
+            }
+            else
+            {
+                var result = await Run("freeze", "existing", "-S", socket, "--json");
+                Assert.Equal(1, result.Code);
+                Assert.Empty(result.Output);
+                Assert.Equal("session-not-found", JsonNode.Parse(result.Error)!["code"]!.ToString());
+            }
+            Assert.Equal("1", await Execute(server, "display-message", "-p", "-t", "=existing-long:", "#{session_windows}"));
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    [Theory]
+    [InlineData("script")]
+    [InlineData("options")]
+    [InlineData("cancel")]
+    public async Task Partial_load_reports_completed_inputs_and_owned_session_state(string failure)
+    {
+        string socket = Path.Combine(_root, "partial.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        using CancellingWriter output = new(failure == "cancel" ? cancellation : null);
+        using StringWriter error = new();
+        string[] files = ["complete", "failed", "unscheduled"];
+        for (int index = 0; index < files.Length; index++)
+        {
+            string name = files[index];
+            files[index] = Path.Combine(_root, name + ".yaml");
+            string invalid = failure switch
+            {
+                "script" => "before_script: /bin/false\n",
+                "cancel" => "before_script: /bin/sh -c 'printf ready; sleep 60'\n",
+                _ => "options: {invalid-option: value}\n",
+            };
+            await File.WriteAllTextAsync(files[index], "session_name: " + name + "\n" + (index == 1 ? invalid : "") + "windows: [{panes: [null]}]", TestContext.Current.CancellationToken);
+        }
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "keeper");
+            int code = await CliRunner.RunAsync(["load", .. files, "-d", "-S", socket, "--ndjson"], output, error, _root, cancellationToken: cancellation.Token);
+            Assert.Equal(failure == "cancel" ? 130 : 1, code);
+            JsonNode[] events = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+            Assert.Equal(Enumerable.Range(1, events.Length), events.Select(item => item["sequence"]!.GetValue<int>()));
+            Assert.Single(events, item => item["event"]!.ToString() is "failed" or "completed");
+            Assert.Equal("failed", events[^1]["event"]!.ToString());
+            JsonNode summary = events[^1]["data"]!;
+            Assert.Equal("partial", summary["status"]!.ToString());
+            Assert.Equal("complete", Assert.Single(summary["results"]!.AsArray())!["session_name"]!.ToString());
+            JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
+            Assert.Equal(1, issue["input_index"]!.GetValue<int>());
+            Assert.True(issue["created"]!.GetValue<bool>());
+            Assert.Equal(failure != "options", issue["removed"]!.GetValue<bool>());
+            Assert.Equal(failure == "options" ? "session-options" : "before-script", issue["failed_stage"]!.ToString());
+            Assert.Equal("session-created", issue["completed_stage"]?.ToString());
+            string[] expected = failure == "options" ? ["complete", "failed", "keeper"] : ["complete", "keeper"];
+            Assert.Equal(expected, (await Execute(server, "list-sessions", "-F", "#{session_name}")).Split('\n').Order(StringComparer.Ordinal));
+        }
+        finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    private sealed class CancellingWriter(CancellationTokenSource? cancellation) : StringWriter
+    {
+        public override void WriteLine(string? value)
+        {
+            base.WriteLine(value);
+            if (value?.Contains("\"event\":\"script-output\"", StringComparison.Ordinal) == true) cancellation?.Cancel();
+        }
     }
 
     private CliContext Context(TextWriter output) => new(output, TextWriter.Null, _root, System.Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => entry.Value?.ToString(), StringComparer.Ordinal), TestContext.Current.CancellationToken);
