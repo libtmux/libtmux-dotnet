@@ -41,6 +41,34 @@ $ artifacts/tools/tmux-workspace freeze example \
     --json
 ```
 
+## Inspect a workspace through MCP
+
+Loaded workspaces are ordinary tmux sessions. The separate
+[LibTmux.Mcp tool](../LibTmux.Mcp/README.md#point-a-client-at-it) can inspect
+them when both commands select the same socket.
+
+After the detached load above, configure your MCP client to launch
+`libtmux-mcp` with `LIBTMUX_SOCKET=workspace-example` and
+`LIBTMUX_TOOLSETS=inspect` in its environment. When loading with `-S`, set
+`LIBTMUX_SOCKET_PATH` to that absolute path instead of `LIBTMUX_SOCKET`.
+For named sockets, give both processes the same `TMUX_TMPDIR`; if selecting a
+tmux executable explicitly, give both the same `LIBTMUX_TMUX`.
+
+Discover tools with `tools/list`, then call `list_sessions`, `list_windows`
+with its `session` argument, and `list_panes`. Retain the returned stable IDs.
+Use `capture_pane` with `paneId` and a bounded `maxLines` for visible text.
+Captures return projected lines with trailing empty rows removed;
+`snapshot_pane` also reports cursor and pane state. `capture_since` first
+establishes a cursor without returning text; pass that cursor back to read
+new output.
+
+Use `wait_for_text` with `paneId`, regular-expression `patterns`, and bounded
+`timeoutSeconds` to wait for new output. Other inspections remain responsive
+while the wait is pending. `tmux://capabilities` reports the selected endpoint
+and effective tools. Closing the MCP connection cancels pending work and
+leaves this separately loaded tmux session running. See the
+[MCP tool reference](../../docs/mcp/tools.md) for exact schemas.
+
 ## Commands and output
 
 `load`, `freeze`, `convert`, `import teamocil`, `import tmuxinator`, `ls`, `search`, `edit`, `debug-info` and `shell` accept inherited `--json` and `--ndjson`. NDJSON wins when both flags are present. Explicit `--help` prints human help. Machine diagnostics are JSON lines on stderr.
