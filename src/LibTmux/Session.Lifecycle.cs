@@ -11,17 +11,11 @@ public sealed partial class Session
     private const string GroupKillCapability = "kill_session_group";
 
     /// <summary>Gets the session name captured with this handle.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
     public string Name =>
         ReadSnapshot("session_name")
         ?? throw new IncompleteSnapshotException("name", SnapshotDepth.Sessions);
 
     /// <summary>Gets whether a client was attached when this session was read.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
     /// <remarks>
     /// This is captured state rather than a live one: it says what tmux
     /// reported when the handle was made, which is what makes a reading of a
@@ -35,8 +29,7 @@ public sealed partial class Session
 
     /// <summary>Gets the server that owns this session.</summary>
     /// <remarks>
-    /// Every handle reached through a server carries it, whether the handle was
-    /// materialized from a listing or resolved from an identifier.
+    /// Reading this uses the owner captured with the entity.
     /// </remarks>
     public Server Server => RequireOwner("server");
 
@@ -87,10 +80,6 @@ public sealed partial class Session
     /// <param name="clearAlerts">Whether alerts are cleared in every window instead.</param>
     /// <param name="group">Whether every session in this session's group is stopped.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <exception cref="IncompleteSnapshotException">
-    /// <paramref name="group" /> is set on a handle resolved by identifier,
-    /// which carries no server to read a version from.
-    /// </exception>
     /// <remarks>
     /// Group stopping arrived in tmux 3.7. Older servers reject the flag and
     /// stop nothing at all, so against those the request is logged and the flag

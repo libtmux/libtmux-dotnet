@@ -10,41 +10,33 @@ public sealed partial class Session
     private Func<CapturedRelation<Window>>? _windows;
     private CapturedRelation<Pane>? _panes;
 
-    /// <summary>Gets the active window recorded when this session was read.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <summary>Gets the captured active window, or an uncaptured relation.</summary>
+    /// <remarks>
+    /// Reading this is local. A session reached through an inactive window
+    /// carries that window's row, so its active window was not captured.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public Window ActiveWindow
-    {
-        get
-        {
-            if (!WindowId.TryParse(ReadSnapshot("window_id"), out WindowId id))
-            {
-                throw new IncompleteSnapshotException("active window", SnapshotDepth.Sessions);
-            }
+    public CapturedRelation<Window> ActiveWindow =>
+        ReadSnapshot("window_active") == "1"
+            ? CapturedRelation.Capture(
+                [ReadActiveWindow()],
+                "active window",
+                SnapshotDepth.Sessions)
+            : CapturedRelation.Uncaptured<Window>("active window", SnapshotDepth.Sessions);
 
-            return new Window(RequireOwner("windows"), RequireConnection(), _generation, id);
-        }
-    }
-
-    /// <summary>Gets the active pane recorded when this session was read.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <summary>Gets the captured active pane, or an uncaptured relation.</summary>
+    /// <remarks>
+    /// Reading this is local. The row must describe the active pane in the
+    /// session's active window; other rows leave this relation uncaptured.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public Pane ActivePane
-    {
-        get
-        {
-            if (!PaneId.TryParse(ReadSnapshot("pane_id"), out PaneId id))
-            {
-                throw new IncompleteSnapshotException("active pane", SnapshotDepth.Sessions);
-            }
-
-            return new Pane(RequireOwner("panes"), RequireConnection(), _generation, id);
-        }
-    }
+    public CapturedRelation<Pane> ActivePane =>
+        ReadSnapshot("window_active") == "1" && ReadSnapshot("pane_active") == "1"
+            ? CapturedRelation.Capture(
+                [ReadActivePane()],
+                "active pane",
+                SnapshotDepth.Sessions)
+            : CapturedRelation.Uncaptured<Pane>("active pane", SnapshotDepth.Sessions);
 
     /// <summary>Gets the windows the capture found in this session.</summary>
     /// <remarks>
@@ -60,6 +52,34 @@ public sealed partial class Session
     public CapturedRelation<Pane> Panes =>
         _panes ?? CapturedRelation.Uncaptured<Pane>("panes", SnapshotDepth.Server);
 
+    /// <summary>Reads one window in this session, throwing when it is absent.</summary>
+    /// <param name="id">The window identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The materialized window in this session.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">This session has no matching window.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Window> GetWindowAsync(
+        WindowId id,
+        CancellationToken cancellationToken = default) =>
+        await FindWindowAsync(id, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException(
+            $"Session {_id} has no window '{id}'.", id.ToString());
+
+    /// <summary>Reads one window in this session, throwing when it is absent.</summary>
+    /// <param name="target">The window identifier or name.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The materialized window in this session.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">This session has no matching window.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Window> GetWindowAsync(
+        string target,
+        CancellationToken cancellationToken = default) =>
+        await FindWindowAsync(target, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException(
+            $"Session {_id} has no window '{target}'.", target);
+
     /// <summary>Reads one of this session's windows by identifier.</summary>
     /// <param name="id">The window identifier to look for.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
@@ -70,7 +90,7 @@ public sealed partial class Session
     /// prefer this one where the identifier is already in hand.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public async Task<Window?> GetWindowAsync(
+    public async Task<Window?> FindWindowAsync(
         WindowId id,
         CancellationToken cancellationToken = default)
     {
@@ -97,7 +117,7 @@ public sealed partial class Session
     /// is, and tmux resolving it elsewhere is not an answer to that.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public async Task<Window?> GetWindowAsync(
+    public async Task<Window?> FindWindowAsync(
         string target,
         CancellationToken cancellationToken = default)
     {
@@ -159,12 +179,28 @@ public sealed partial class Session
         return this;
     }
 
+    [UnsupportedOSPlatform("windows")]
+    private Window ReadActiveWindow()
+    {
+        CapturedRelation<Window> windows = Windows;
+        Window? captured = windows.IsCaptured
+            ? windows.FirstOrDefault(window => window.Id.ToString() == ReadSnapshot("window_id"))
+            : null;
+        return captured ?? RelationReader.ToWindow(RequireOwner("active window"), RawFormatFields);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private Pane ReadActivePane()
+    {
+        CapturedRelation<Pane> panes = Panes;
+        Pane? captured = panes.IsCaptured
+            ? panes.FirstOrDefault(pane => pane.Id.ToString() == ReadSnapshot("pane_id"))
+            : null;
+        return captured ?? RelationReader.ToPane(RequireOwner("active pane"), RawFormatFields);
+    }
+
     private Server RequireOwner(string relation) =>
         _owner ?? throw new IncompleteSnapshotException(relation, SnapshotDepth.Server);
-
-    private TmuxConnection RequireConnection() =>
-        RequireOwner("connection").Connection
-        ?? throw new IncompleteSnapshotException("connection", SnapshotDepth.Server);
 
     private string? ReadSnapshot(string wireName) =>
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)

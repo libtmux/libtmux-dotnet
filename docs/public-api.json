@@ -10037,7 +10037,7 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets one pane or throws TmuxObjectNotFoundException."
+      "summary": "Reads materialized scalar state, throwing TmuxObjectNotFoundException when absent."
     },
     {
       "id": "M:LibTmux.Server.GetPanesAsync(CancellationToken)",
@@ -10125,7 +10125,7 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets one session or throws TmuxObjectNotFoundException."
+      "summary": "Reads materialized scalar state, throwing TmuxObjectNotFoundException when absent."
     },
     {
       "id": "M:LibTmux.Server.GetSessionsAsync(CancellationToken)",
@@ -10182,7 +10182,7 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets one canonical session-scoped window view or throws TmuxObjectNotFoundException."
+      "summary": "Reads materialized scalar state, throwing TmuxObjectNotFoundException when absent."
     },
     {
       "id": "M:LibTmux.Server.GetWindowsAsync(CancellationToken)",
@@ -11337,7 +11337,7 @@
       "package": "LibTmux",
       "static": false,
       "genericParameters": [],
-      "returnType": "Task<Window?>",
+      "returnType": "Task<Window>",
       "parameters": [
         {
           "name": "target",
@@ -11349,14 +11349,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task<Window?> LibTmux.Session.GetWindowAsync(string target, CancellationToken cancellationToken = default)",
+      "signature": "Task<Window> LibTmux.Session.GetWindowAsync(string target, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets one session-scoped window view."
+      "summary": "Reads one window in this session, throwing TmuxObjectNotFoundException when absent."
     },
     {
       "id": "M:LibTmux.Session.GetWindowsAsync(CancellationToken)",
@@ -14955,7 +14955,7 @@
       "package": "LibTmux",
       "static": false,
       "genericParameters": [],
-      "returnType": "Task<Pane?>",
+      "returnType": "Task<Pane>",
       "parameters": [
         {
           "name": "target",
@@ -14967,14 +14967,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task<Pane?> LibTmux.Window.GetPaneAsync(string target, CancellationToken cancellationToken = default)",
+      "signature": "Task<Pane> LibTmux.Window.GetPaneAsync(string target, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets one pane in this window."
+      "summary": "Reads one pane in this window, throwing TmuxObjectNotFoundException when absent."
     },
     {
       "id": "M:LibTmux.Window.GetPanesAsync(CancellationToken)",
@@ -21061,11 +21061,15 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "Pane?",
+      "returnType": "CapturedRelation<Pane>",
       "parameters": [],
-      "signature": "Pane? LibTmux.Session.ActivePane { get; }",
-      "portable": true,
-      "summary": "Gets the captured ActivePane value."
+      "signature": "CapturedRelation<Pane> LibTmux.Session.ActivePane { get; }",
+      "portable": false,
+      "summary": "Gets the captured active child, or an uncaptured relation.",
+      "performsIO": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ]
     },
     {
       "id": "P:LibTmux.Session.ActiveWindow",
@@ -21075,11 +21079,15 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "Window?",
+      "returnType": "CapturedRelation<Window>",
       "parameters": [],
-      "signature": "Window? LibTmux.Session.ActiveWindow { get; }",
-      "portable": true,
-      "summary": "Gets the captured ActiveWindow value."
+      "signature": "CapturedRelation<Window> LibTmux.Session.ActiveWindow { get; }",
+      "portable": false,
+      "summary": "Gets the captured active child, or an uncaptured relation.",
+      "performsIO": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ]
     },
     {
       "id": "P:LibTmux.Session.Attached",
@@ -23035,11 +23043,15 @@
       "visibility": "public",
       "package": "LibTmux",
       "static": false,
-      "returnType": "Pane?",
+      "returnType": "CapturedRelation<Pane>",
       "parameters": [],
-      "signature": "Pane? LibTmux.Window.ActivePane { get; }",
-      "portable": true,
-      "summary": "Gets the captured ActivePane value."
+      "signature": "CapturedRelation<Pane> LibTmux.Window.ActivePane { get; }",
+      "portable": false,
+      "summary": "Gets the captured active child, or an uncaptured relation.",
+      "performsIO": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ]
     },
     {
       "id": "P:LibTmux.Window.Edge",
@@ -28460,6 +28472,96 @@
       "package": "LibTmux",
       "static": false,
       "genericParameters": [],
+      "returnType": "Task<Window>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "WindowId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Window> LibTmux.Session.GetWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one window in this session, throwing TmuxObjectNotFoundException when absent."
+    },
+    {
+      "id": "M:LibTmux.Server.FindPaneAsync(PaneId,CancellationToken)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "FindPaneAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Pane?>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "PaneId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Pane?> LibTmux.Server.FindPaneAsync(PaneId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads materialized scalar state, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Server.FindSessionAsync(SessionId,CancellationToken)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "FindSessionAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Session?>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "SessionId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Session?> LibTmux.Server.FindSessionAsync(SessionId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads materialized scalar state, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Server.FindWindowAsync(WindowId,CancellationToken)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "FindWindowAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
       "returnType": "Task<Window?>",
       "parameters": [
         {
@@ -28472,14 +28574,104 @@
           "default": "default"
         }
       ],
-      "signature": "Task<Window?> LibTmux.Session.GetWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
+      "signature": "Task<Window?> LibTmux.Server.FindWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Reads one of this session's windows by identifier."
+      "summary": "Reads materialized scalar state, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Session.FindWindowAsync(string,CancellationToken)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "FindWindowAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Window?>",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Window?> LibTmux.Session.FindWindowAsync(string target, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one window in this session, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Session.FindWindowAsync(WindowId,CancellationToken)",
+      "declaringType": "T:LibTmux.Session",
+      "name": "FindWindowAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Window?>",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "WindowId"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Window?> LibTmux.Session.FindWindowAsync(WindowId id, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one window in this session, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Window.FindPaneAsync(string,CancellationToken)",
+      "declaringType": "T:LibTmux.Window",
+      "name": "FindPaneAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<Pane?>",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<Pane?> LibTmux.Window.FindPaneAsync(string target, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Reads one pane in this window, returning null only when a successful lookup finds no match."
     }
   ]
 }

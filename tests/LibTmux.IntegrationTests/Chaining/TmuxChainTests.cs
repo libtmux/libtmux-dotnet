@@ -946,9 +946,7 @@ public sealed class TmuxChainTests
         Window window = (await server.GetWindowsAsync(token))
             .First(candidate => candidate.Name != "link-target");
 
-        // Linking names its source as the session the window was read through,
-        // which a window resolved by identifier alone does not know, so the
-        // command is built from the handle.
+        // A link names the session and index captured with the window.
         await new LinkWindowRequest("link-target", detach: true).ExecuteAsync(window, token);
 
         // The same window now appears under both sessions, which is what a

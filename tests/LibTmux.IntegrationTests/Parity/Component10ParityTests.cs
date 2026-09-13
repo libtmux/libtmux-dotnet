@@ -199,12 +199,12 @@ public sealed class Component10ParityTests
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
         await session.SelectWindowAsync("second", token);
-        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Single().Id == second;
         await session.SelectPreviousWindowAsync(token);
-        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Id != second;
+        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Single().Id != second;
         await session.SelectNextWindowAsync(token);
         return selected && moved
-            && (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+            && (await session.RefreshAsync(token)).ActiveWindow.Single().Id == second;
     }
 
     private static async Task<bool> ProvesKillWindowAsync(Session session, CancellationToken token)

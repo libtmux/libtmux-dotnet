@@ -177,7 +177,7 @@ public sealed class Component11ParityTests
         // A Python __getitem__ or get() becomes a named lookup that answers
         // null rather than raising on an absent pane.
         return found?.Id == only.Id
-            && await window.GetPaneAsync("%9999", token) is null
+            && await window.FindPaneAsync("%9999", token) is null
             && typeof(Window).GetProperties().All(property => property.Name != "Item");
     }
 

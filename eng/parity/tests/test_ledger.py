@@ -261,15 +261,15 @@ def test_list_error_policies_are_member_specific() -> None:
         (
             "libtmux.server:Server.attached_sessions",
             "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)",
-        ): (("list-sessions",), "return_empty_on_any_list_failure"),
+        ): (("list-sessions",), "throw"),
         (
             "libtmux.server:Server.clients",
             "M:LibTmux.Server.GetClientsAsync(CancellationToken)",
-        ): (("list-clients",), "return_empty_on_any_list_failure"),
+        ): (("list-clients",), "throw"),
         (
             "libtmux.server:Server.panes",
             "M:LibTmux.Server.GetPanesAsync(CancellationToken)",
-        ): (("list-panes",), "return_empty_on_missing_daemon_or_socket"),
+        ): (("list-panes",), "throw"),
         (
             "libtmux.server:Server.search_panes",
             ("M:LibTmux.Server.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)"),
@@ -288,11 +288,11 @@ def test_list_error_policies_are_member_specific() -> None:
         (
             "libtmux.server:Server.sessions",
             "M:LibTmux.Server.GetSessionsAsync(CancellationToken)",
-        ): (("list-sessions",), "return_empty_on_any_list_failure"),
+        ): (("list-sessions",), "throw"),
         (
             "libtmux.server:Server.windows",
             "M:LibTmux.Server.GetWindowsAsync(CancellationToken)",
-        ): (("list-windows",), "return_empty_on_missing_daemon_or_socket"),
+        ): (("list-windows",), "throw"),
         (
             "libtmux.session:Session.panes",
             "M:LibTmux.Session.GetPanesAsync(CancellationToken)",
@@ -317,7 +317,7 @@ def test_list_error_policies_are_member_specific() -> None:
             "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)",
         ): (
             ("list-windows", "list-sessions"),
-            "return_empty_if_either_list_fails",
+            "throw",
         ),
         (
             "libtmux.window:Window.panes",

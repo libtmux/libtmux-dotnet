@@ -101,7 +101,7 @@ internal sealed class ServerSnapshot
                 return session.WithCaptured(
                     () => Relation(windowsBySession[session.Id], "windows", depth),
                     Relation(
-                        [.. panes.Where(pane => Owns(paneRows, pane, "session_id", session.Id.ToString()))],
+                        [.. panes.Where(pane => Field(pane.RawFormatFields, "session_id") == session.Id.ToString())],
                         "panes",
                         depth,
                         depth >= SnapshotDepth.Panes));
@@ -126,12 +126,14 @@ internal sealed class ServerSnapshot
                 ];
                 return window.WithCaptured(
                     Relation(
-                        [.. panes.Where(pane => Owns(paneRows, pane, "window_id", window.Id.ToString()))],
+                        [.. panes.Where(pane => Field(pane.RawFormatFields, "window_id") == window.Id.ToString()
+                            && Field(pane.RawFormatFields, "session_id") == Field(row, "session_id"))],
                         "panes",
                         depth,
                         depth >= SnapshotDepth.Panes),
                     Relation(linked, "linked sessions", depth),
-                    edge);
+                    edge,
+                    sessionsById.GetValueOrDefault(window.EntityKey.SessionId));
             }),
         ];
         foreach (Window window in windows)
@@ -140,6 +142,15 @@ internal sealed class ServerSnapshot
                 && windowsBySession.TryGetValue(edge.SessionId, out List<Window>? owned))
             {
                 owned.Add(window);
+            }
+        }
+
+        var windowsByKey = windows.ToDictionary(window => window.EntityKey);
+        foreach (Pane pane in panes)
+        {
+            if (windowsByKey.TryGetValue(pane.Window.EntityKey, out Window? window))
+            {
+                pane.WithCaptured(window);
             }
         }
 
@@ -158,14 +169,6 @@ internal sealed class ServerSnapshot
         captured
             ? CapturedRelation.Capture(items, relation, depth)
             : CapturedRelation.Uncaptured<T>(relation, depth);
-
-    private static bool Owns(
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows,
-        Pane pane,
-        string wireName,
-        string owner) =>
-        rows.Any(row =>
-            Field(row, "pane_id") == pane.Id.ToString() && Field(row, wireName) == owner);
 
     private static SessionWindowEdge[] BuildEdges(
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows)

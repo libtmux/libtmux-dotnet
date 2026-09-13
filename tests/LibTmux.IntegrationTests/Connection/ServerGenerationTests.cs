@@ -352,6 +352,13 @@ public sealed class ServerGenerationTests
                     new PaneId(int.MaxValue),
                     TestContext.Current.CancellationToken));
         Assert.Equal($"%{int.MaxValue}", missing.Target);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Assert.Null(await server.FindSessionAsync(new SessionId(int.MaxValue), token));
+        Assert.Null(await server.FindWindowAsync(new WindowId(int.MaxValue), token));
+        Assert.Null(await server.FindPaneAsync(new PaneId(int.MaxValue), token));
+        Assert.Equal(session.Name, (await server.FindSessionAsync(session.Id, token))?.Name);
+        Assert.Equal(window.Width, (await server.FindWindowAsync(window.Id, token))?.Width);
+        Assert.Equal(pane.Width, (await server.FindPaneAsync(pane.Id, token))?.Width);
     }
 
     [UnixFact]

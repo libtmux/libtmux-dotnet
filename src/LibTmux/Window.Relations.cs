@@ -11,24 +11,21 @@ public sealed partial class Window
     private CapturedRelation<Pane>? _panes;
     private CapturedRelation<Session>? _linkedSessions;
     private SessionWindowEdge? _edge;
+    private Session? _capturedSession;
 
-    /// <summary>Gets the active pane recorded when this window was read.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier rather than materialized.
-    /// </exception>
+    /// <summary>Gets the captured active pane, or an uncaptured relation.</summary>
+    /// <remarks>
+    /// Reading this is local. A window reached through an inactive pane
+    /// carries that pane's row, so its active pane was not captured.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public Pane ActivePane
-    {
-        get
-        {
-            if (!PaneId.TryParse(ReadSnapshot("pane_id"), out PaneId id))
-            {
-                throw new IncompleteSnapshotException("active pane", SnapshotDepth.Windows);
-            }
-
-            return new Pane(RequireOwner("active pane"), RequireConnection(), _generation, id);
-        }
-    }
+    public CapturedRelation<Pane> ActivePane =>
+        ReadSnapshot("pane_active") == "1"
+            ? CapturedRelation.Capture(
+                [ReadActivePane()],
+                "active pane",
+                SnapshotDepth.Windows)
+            : CapturedRelation.Uncaptured<Pane>("active pane", SnapshotDepth.Windows);
 
     /// <summary>Gets the panes the capture found in this window.</summary>
     /// <remarks>Reading this never reaches tmux.</remarks>
@@ -42,9 +39,6 @@ public sealed partial class Window
         ?? CapturedRelation.Uncaptured<Session>("linked sessions", SnapshotDepth.Server);
 
     /// <summary>Gets where this window sits in the session it was read from.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier rather than materialized.
-    /// </exception>
     /// <remarks>
     /// A window linked into several sessions has one edge per session. This is
     /// the edge for the session this handle was read through, which is why the
@@ -70,9 +64,6 @@ public sealed partial class Window
     }
 
     /// <summary>Gets the session and window this handle names together.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier rather than materialized.
-    /// </exception>
     /// <remarks>
     /// tmux links one window into several sessions at different indexes, so a
     /// window identifier alone does not name a place in the hierarchy.
@@ -103,7 +94,9 @@ public sealed partial class Window
             await RelationReader.ListAsync(
                     owner,
                     "list-panes",
-                    ["-t", _id.ToString()],
+                    ["-t", RelationReader.CapturedSession(_snapshot) is SessionId session
+                        ? TmuxTarget.In(session, _id).Value
+                        : _id.ToString()],
                     cancellationToken)
                 .ConfigureAwait(false);
         return [.. rows.Select(row => RelationReader.ToPane(owner, row))];
@@ -148,20 +141,28 @@ public sealed partial class Window
     internal Window WithCaptured(
         CapturedRelation<Pane> panes,
         CapturedRelation<Session> linkedSessions,
-        SessionWindowEdge? edge)
+        SessionWindowEdge? edge,
+        Session? session)
     {
         _panes = panes;
         _linkedSessions = linkedSessions;
         _edge = edge;
+        _capturedSession = session;
         return this;
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private Pane ReadActivePane()
+    {
+        CapturedRelation<Pane> panes = Panes;
+        Pane? captured = panes.IsCaptured
+            ? panes.FirstOrDefault(pane => pane.Id.ToString() == ReadSnapshot("pane_id"))
+            : null;
+        return captured ?? RelationReader.ToPane(RequireOwner("active pane"), RawFormatFields);
     }
 
     private Server RequireOwner(string relation) =>
         _owner ?? throw new IncompleteSnapshotException(relation, SnapshotDepth.Server);
-
-    private TmuxConnection RequireConnection() =>
-        RequireOwner("connection").Connection
-        ?? throw new IncompleteSnapshotException("connection", SnapshotDepth.Server);
 
     private string? ReadSnapshot(string wireName) =>
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)
