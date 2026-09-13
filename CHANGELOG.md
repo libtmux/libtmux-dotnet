@@ -23,8 +23,20 @@ version.
 - Captured parent handles retain their state and exact window placement.
   Snapshots preserve a window linked at multiple indices in the same session,
   with the correct active window and pane parents. (#28)
-- `RawFormatFields` on sessions, windows and panes no longer permits changes to
-  captured values through a mutable dictionary cast. (#28)
+- `RawFormatFields` on sessions, windows, panes and clients no longer permits
+  changes to captured values through a mutable dictionary cast. (#28)
+- `Window.GetPanesAsync` and `RefreshAsync` no longer read the wrong
+  placement's rows for a window linked into its own session at a second
+  index. Both now target the session and the captured index; tmux resolves a
+  session-and-id target to whichever placement is current or lowest, not the
+  one a handle was read at. (#28)
+- `Pane.Session`, `Pane.Window` and `Window.Session` throw
+  `IncompleteSnapshotException` again instead of `System.IO.InvalidDataException`
+  when the handle carries no captured parent identity, so a
+  `catch (LibTmuxException)` sees the failure as before. (#28)
+- The MCP tools answer "there are none" for an absent tmux daemon again.
+  Matching moved from a command exception's message, which never carried
+  tmux's own wording, to its standard error. (#28)
 
 ### Changed
 
