@@ -59,6 +59,7 @@ LEGACY_ENVIRONMENT_KEYS = {
 }
 COMPONENT_THREE_COHORT = "0001"
 CLOSURE_COHORT = "closure"
+WORKSPACE_COHORT = "workspace"
 MARKED_COHORT_ENVIRONMENT_KEYS = LEGACY_ENVIRONMENT_KEYS | {
     "capabilityCohort",
     "evaluatedCommitTree",
@@ -386,7 +387,10 @@ def _validate_transcripts(root: pathlib.Path) -> None:
 
 def _validate_decision_transcripts(root: pathlib.Path) -> None:
     environment = load_json(root / "environment.json")
-    if environment.get("capabilityCohort") != COMPONENT_THREE_COHORT:
+    if environment.get("capabilityCohort") not in {
+        COMPONENT_THREE_COHORT,
+        WORKSPACE_COHORT,
+    }:
         return
     transcript_root = root / "protocol-transcripts"
     present = {path.name for path in transcript_root.glob("*.txt")}
@@ -444,6 +448,10 @@ def _validate_environment(
         or environment["frameworks"] != list(REQUIRED_FRAMEWORKS)
         or not isinstance(environment["includeMasterAdvisory"], bool)
         or required_versions not in KNOWN_REQUIRED_TMUX_VERSION_SETS
+        or (
+            capability_cohort == WORKSPACE_COHORT
+            and required_versions != REQUIRED_TMUX_VERSIONS
+        )
         or environment["platform"] not in {"linux", "macos"}
         or environment["redactionProof"] is not True
         or environment["sdkVersion"] != "10.0.302"
@@ -461,16 +469,23 @@ def _validate_environment(
         )
     ):
         raise EvidenceValidationError("environment observations are invalid")
-    if capability_cohort not in {None, COMPONENT_THREE_COHORT, CLOSURE_COHORT}:
+    if capability_cohort not in {
+        None,
+        COMPONENT_THREE_COHORT,
+        CLOSURE_COHORT,
+        WORKSPACE_COHORT,
+    }:
         raise EvidenceValidationError("capability cohort observations are invalid")
     if (
         capability_cohort is not None
         and environment["includeMasterAdvisory"] is not False
     ):
         raise EvidenceValidationError("capability cohort observations are invalid")
-    if (capability_cohort == COMPONENT_THREE_COHORT and transition_commits is None) or (
-        capability_cohort != COMPONENT_THREE_COHORT and transition_commits is not None
-    ):
+    requires_transition = capability_cohort in {
+        COMPONENT_THREE_COHORT,
+        WORKSPACE_COHORT,
+    }
+    if requires_transition != (transition_commits is not None):
         raise EvidenceValidationError("capability cohort observations are invalid")
     return (
         commit,
@@ -546,7 +561,7 @@ def _validate_matrix_rows(
     if not required.issubset(observed):
         raise EvidenceValidationError("a required matrix row is missing")
     if (
-        capability_cohort in {COMPONENT_THREE_COHORT, CLOSURE_COHORT}
+        capability_cohort in {COMPONENT_THREE_COHORT, CLOSURE_COHORT, WORKSPACE_COHORT}
         and set(observed) != required
     ):
         raise EvidenceValidationError(
