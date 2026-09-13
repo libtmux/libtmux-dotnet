@@ -80,7 +80,9 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
     {
         string directory = teamocil ? Path.Combine(context.Home, ".teamocil") : _documents.Expand(context.Environment.GetValueOrDefault("TMUXINATOR_CONFIG") ?? Path.Combine(context.Home, ".tmuxinator"));
         string path = _documents.Resolve(invocation.Many("files")[0], directory);
-        JsonObject document = ImportCommands.Convert(DocumentStore.Read(path), teamocil);
+        string content = File.ReadAllText(path);
+        if (!teamocil && content.Contains("<%", StringComparison.Ordinal)) throw new CliException("invalid-config", "Tmuxinator ERB templates require expanded YAML or JSON before import.");
+        JsonObject document = ImportCommands.Convert(DocumentStore.Parse(content), teamocil);
         document["session_name"] ??= Path.GetFileNameWithoutExtension(path);
         document["start_directory"] = Path.GetFullPath(_documents.Expand(WorkspacePlan.Text(document, "start_directory") ?? context.Directory), context.Directory);
         if (WorkspacePlan.Text(document, "config") is string config) document["config"] = Path.GetFullPath(_documents.Expand(config), context.Directory);

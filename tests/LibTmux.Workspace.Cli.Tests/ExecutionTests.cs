@@ -221,6 +221,46 @@ public sealed class ExecutionTests : IDisposable
     }
 
     [Theory]
+    [InlineData("yaml", "root", false)]
+    [InlineData("yaml", "root", true)]
+    [InlineData("yaml", "command", false)]
+    [InlineData("yaml", "command", true)]
+    [InlineData("json", "root", false)]
+    [InlineData("json", "root", true)]
+    [InlineData("json", "command", false)]
+    [InlineData("json", "command", true)]
+    public async Task Tmuxinator_templates_fail_before_publication_without_changing_conversion(string format, string field, bool save)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const string template = "<%= 1 + 1 %>";
+        string root = field == "root" ? template : ".";
+        string command = field == "command" ? template : "echo ready";
+        string content = format == "json"
+            ? $$"""{"name":"imported","root":"{{root}}","windows":[{"main":"{{command}}"}]}"""
+            : $"name: imported\nroot: '{root}'\nwindows: [{{main: '{command}'}}]\n";
+        string source = Path.Combine(_root, "template." + format);
+        string destination = Path.Combine(_root, "existing.json");
+        await File.WriteAllTextAsync(source, content, token);
+        await File.WriteAllTextAsync(destination, "retain existing document", token);
+
+        (int converted, string document, string conversionError) = await Run("convert", source, "--json");
+        Assert.Equal(0, converted);
+        Assert.Empty(conversionError);
+        JsonNode value = JsonNode.Parse(document)!;
+        Assert.Equal(template, (field == "root" ? value["root"] : value["windows"]![0]!["main"])!.ToString());
+
+        string[] arguments = ["import", "tmuxinator", source, "--json", .. save ? new[] { "--save-to", destination, "--force" } : []];
+        (int code, string output, string error) = await Run(arguments);
+
+        Assert.Equal(1, code);
+        Assert.Empty(output);
+        Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+        Assert.Contains("ERB", JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.Ordinal);
+        Assert.Equal(content, await File.ReadAllTextAsync(source, token));
+        Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
+    }
+
+    [Theory]
     [InlineData("tmuxinator", "name: imported\npre: echo launcher\npre_window: echo pane\nwindows: [{main: echo ready}]", "pre")]
     [InlineData("teamocil", "name: imported\nwindows: [{name: main, filters: {after: echo after}, panes: [null]}]", "filters")]
     [InlineData("teamocil", "name: imported\nwindows: [{name: main, clear: true, panes: [null]}]", "clear")]
