@@ -47,6 +47,8 @@ $ artifacts/tools/tmux-workspace freeze example \
 
 Machine load requires `-d` or an explicit `--append` inside tmux. Existing sessions are reused. An interrupted or failed load reports completed effects; it does not promise rollback. A failing startup script removes only the session created for that input.
 
+Every input layout is checked before scripts or topology changes. Custom layouts require a valid checksum, a bounded cell tree, and enough cells for the configured panes. tmux still handles geometry and trims extra cells. Named layouts accept native unique prefixes; `main-h` and `main-v` become ambiguous when mirrored layouts are available on tmux 3.5 and newer. Version-sensitive names use the selected daemon version, with client-version fallback only when that endpoint has no running server.
+
 Native append authenticates the inherited pane's daemon, resolves its current
 session through tmux, and retains that session across all inputs. Later native
 commands reject a replacement daemon, including global options after a startup
