@@ -94,6 +94,21 @@ Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail b
 
 Machine freeze, conversion and import return the document without writing a guessed filename. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.
 
+Imports validate the translated workspace before printing or saving it.
+Teamocil command groups, window options and the first requested window/pane
+focus are preserved. Tmuxinator window command arrays stay in one pane;
+explicit pane lists create separate panes. `pre_window` groups run in each
+pane, and window `pre` groups retain their conditional command ordering.
+Synchronization preserves the source's before/after command timing.
+
+Relative project roots use the import invocation directory. Tmuxinator window
+roots then use that project root; Teamocil window roots use the invocation
+directory. A missing session name defaults to the source filename stem.
+Unsupported fields, including launcher hooks, project `pre`, Teamocil filters
+or `clear`, and named tmuxinator pane titles, are refused before any destination
+is written. Move those behaviors into an explicit supported workspace workflow
+before importing; pane commands cannot reproduce launcher lifecycle hooks.
+
 `--color auto|always|never` controls human color. Nonempty `NO_COLOR` wins over forced color; machine formats disable color styling. Current .NET Console initialization can still prefix stdout on a PTY with keypad control bytes. Discovery uses `TMUXP_CONFIGDIR`, XDG configuration and the legacy tmuxp directory. `TMUXINATOR_CONFIG` selects the importer directory. `LIBTMUX_TMUX` can select an explicit tmux executable.
 
 `--log-level debug|info|warning|error|critical` filters optional warnings and file records; the default is `warning`. Command failures remain visible at every level. On Linux x64, `load --log-file PATH` appends UTF-8 JSON lines. Select `info` for lifecycle records or `debug` to include script output. Relative paths use the invocation directory. New files allow only owner read/write; existing content and permissions are preserved. Directories, pipes, devices and symbolic links are rejected. Other platforms currently reject `--log-file` because their native file layouts are not verified.
