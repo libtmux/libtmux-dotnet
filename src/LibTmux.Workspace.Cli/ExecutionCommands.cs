@@ -165,7 +165,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         await output.ProgressAsync(progress => progress.StartPane(paneIndex + 1)).ConfigureAwait(false);
                         if (paneIndex > 0)
                         {
-                            List<string> split = ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", windowId];
+                            List<string> split = ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", paneId];
                             PaneArguments(split, pane);
                             paneId = (await Change(split).ConfigureAwait(false)).TrimEnd('\n');
                             await Change(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
