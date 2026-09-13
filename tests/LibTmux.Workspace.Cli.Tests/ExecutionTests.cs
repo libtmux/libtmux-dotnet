@@ -85,7 +85,230 @@ public sealed class ExecutionTests : IDisposable
         JsonNode result = JsonNode.Parse(output)!;
         Assert.Equal("project", result["session_name"]!.ToString());
         Assert.Equal("editor", result["windows"]![0]!["window_name"]!.ToString());
-        Assert.Equal(2, result["windows"]![0]!["panes"]!.AsArray().Count);
+        Assert.Single(result["windows"]![0]!["panes"]!.AsArray());
+        Assert.Equal("echo hello", result["windows"]![0]!["panes"]![0]!["shell_command"]![0]!.ToString());
+    }
+
+    [Fact]
+    public async Task Imported_teamocil_preserves_commands_options_and_first_focus()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string source = Path.Combine(_root, "teamocil.yaml");
+        string destination = Path.Combine(_root, "imported.json");
+        string marker = Path.Combine(_root, "import-marker");
+        string socket = Path.Combine(_root, "tmux");
+        await File.WriteAllTextAsync(source, $$"""
+            session:
+              name: imported
+              windows:
+                - name: original
+                  root: {{_root}}
+                  focus: true
+                  layout: even-horizontal
+                  options: {automatic-rename: false}
+                  panes:
+                    - commands:
+                        - IMPORT_TEST_VALUE=preserved
+                        - printf %s "$IMPORT_TEST_VALUE" > '{{marker}}'
+                    - commands: []
+                      focus: true
+                    - commands: []
+                      focus: true
+                - name: later
+                  focus: true
+                  panes: [null]
+            """, token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        async Task<string> Native(params string[] arguments)
+        {
+            TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
+            Assert.Equal(0, result.ExitCode);
+            return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
+        }
+        try
+        {
+            await Native("new-session", "-d", "-s", "keeper", "/bin/sleep 120");
+            string keeper = await Native("list-panes", "-t", "keeper", "-F", "#{pid}|#{session_id}|#{window_id}|#{pane_id}|#{pane_pid}");
+            Assert.NotEmpty(keeper);
+            (int code, _, string error) = await Run("import", "teamocil", source, "--save-to", destination, "--workspace-format", "json", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            string records;
+            (code, records, error) = await Run("load", destination, "-d", "-S", socket, "--ndjson");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
+            Assert.Equal("preserved", await File.ReadAllTextAsync(marker, token));
+            Assert.Equal("original", await Native("display-message", "-p", "-t", "imported", "#{window_name}"));
+            JsonNode[] created = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").ToArray();
+            Assert.Equal(4, created.Length);
+            Assert.Equal(created[1]["data"]!["pane_id"]!.ToString(), await Native("display-message", "-p", "-t", "imported:original", "#{pane_id}"));
+            Assert.Equal("off", await Native("show-options", "-w", "-v", "-t", "imported:original", "automatic-rename"));
+            Assert.Equal(keeper, await Native("list-panes", "-t", "keeper", "-F", "#{pid}|#{session_id}|#{window_id}|#{pane_id}|#{pane_pid}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    [Theory]
+    [InlineData("tmuxinator", "name: imported\npre: echo launcher\npre_window: echo pane\nwindows: [{main: echo ready}]", "pre")]
+    [InlineData("teamocil", "name: imported\nwindows: [{name: main, filters: {after: echo after}, panes: [null]}]", "filters")]
+    [InlineData("teamocil", "name: imported\nwindows: [{name: main, clear: true, panes: [null]}]", "clear")]
+    [InlineData("tmuxinator", "name: imported\nwindows: [{main: {panes: [{title: echo ready}]}}]", "pane")]
+    [InlineData("teamocil", "name: imported\nwindows: [{name: main, panes: [{commands: [42]}]}]", "commands")]
+    [InlineData("teamocil", "name: imported\nwindows: [{name: main, options: {automatic-rename: []}, panes: [null]}]", "scalar")]
+    [InlineData("tmuxinator", "name: imported\nproject_name: other\nwindows: [{main: null}]", "Conflicting")]
+    [InlineData("tmuxinator", "name: imported\nwindows: [{main: {pre: echo ignored}}]", "pre")]
+    [InlineData("tmuxinator", "name: imported\nwindows: [{main: {synchronize: sometimes, panes: [null]}}]", "synchronize")]
+    [InlineData("teamocil", "name: imported\nwindows: [{name: main, layout: invalid-layout, panes: [null]}]", "Layout")]
+    [InlineData("teamocil", "name: imported\nwindows: []", "window")]
+    public async Task Import_refuses_unrepresentable_or_invalid_source_before_saving(string kind, string content, string diagnostic)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string source = Path.Combine(_root, "source.yaml");
+        string destination = Path.Combine(_root, "existing.json");
+        await File.WriteAllTextAsync(source, content, token);
+        await File.WriteAllTextAsync(destination, "retain existing document", token);
+
+        (int code, string output, string error) = await Run("import", kind, source, "--save-to", destination, "--force", "--json");
+
+        Assert.Equal(1, code);
+        Assert.Empty(output);
+        Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+        Assert.Contains(diagnostic, JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Imported_tmuxinator_preserves_same_pane_commands_and_prefix_groups(bool split)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string marker = Path.Combine(_root, "prefix-marker");
+        string source = Path.Combine(_root, "tmuxinator.json");
+        string destination = Path.Combine(_root, "imported.json");
+        string socket = Path.Combine(_root, "tmux");
+        JsonArray commands = [$"printf %s \"$IMPORT_PREFIX_TEST\" > '{marker}'", $"printf %s :end >> '{marker}'"];
+        JsonNode window = split ? new JsonObject
+        {
+            ["pre"] = new JsonArray("IMPORT_PREFIX_TEST=\"${IMPORT_PREFIX_TEST}:window\"", "IMPORT_PREFIX_TEST=\"${IMPORT_PREFIX_TEST}:ready\""),
+            ["panes"] = new JsonArray(commands, null),
+            ["synchronize"] = "after",
+        } : commands;
+        JsonObject document = new()
+        {
+            ["name"] = "prefixes",
+            ["pre_window"] = new JsonArray("IMPORT_PREFIX_TEST=first", "IMPORT_PREFIX_TEST=\"${IMPORT_PREFIX_TEST}:second\""),
+            ["windows"] = new JsonArray(new JsonObject { ["main"] = window }),
+        };
+        await File.WriteAllTextAsync(source, document.ToJsonString(), token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            (int code, _, string error) = await Run("import", "tmuxinator", source, "--save-to", destination, "--workspace-format", "json", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            (code, _, error) = await Run("load", destination, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
+            string expected = split ? "first:second:window:ready:end" : "first:second:end";
+            for (int attempt = 0; attempt < 100 && await File.ReadAllTextAsync(marker, token) != expected; attempt++) await Task.Delay(20, token);
+            Assert.Equal(expected, await File.ReadAllTextAsync(marker, token));
+            TmuxCommandResult panes = await server.ExecuteCommandAsync(["list-panes", "-t", "prefixes:main", "-F", "#{pane_id}"], token);
+            Assert.Equal(0, panes.ExitCode);
+            Assert.Equal(split ? 2 : 1, System.Text.Encoding.UTF8.GetString(panes.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
+            if (split)
+            {
+                TmuxCommandResult option = await server.ExecuteCommandAsync(["show-options", "-w", "-v", "-t", "prefixes:main", "synchronize-panes"], token);
+                Assert.Equal(0, option.ExitCode);
+                Assert.Equal("on\n", System.Text.Encoding.UTF8.GetString(option.StandardOutput.Span));
+            }
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    [Theory]
+    [InlineData("teamocil")]
+    [InlineData("tmuxinator")]
+    public async Task Import_preserves_relative_roots_when_source_and_destination_move(string kind)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string sources = Directory.CreateDirectory(Path.Combine(_root, "sources")).FullName;
+        string saved = Directory.CreateDirectory(Path.Combine(_root, "saved")).FullName;
+        Directory.CreateDirectory(Path.Combine(_root, "project", "child"));
+        Directory.CreateDirectory(Path.Combine(_root, "child"));
+        string expected = Path.Combine(_root, kind == "teamocil" ? "child" : "project/child");
+        string identity = Guid.NewGuid().ToString("N");
+        await File.WriteAllTextAsync(Path.Combine(expected, "directory-identity"), identity, token);
+        string source = Path.Combine(sources, "inferred-name.yaml");
+        string destination = Path.Combine(saved, "workspace.json");
+        string socket = Path.Combine(_root, "tmux");
+        await File.WriteAllTextAsync(source, kind == "teamocil"
+            ? "root: project\nwindows: [{name: main, root: child, panes: [null]}]"
+            : "root: project\npre: ''\nwindows: [{main: {root: child, panes: [null]}}]", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            (code, _, error) = await Run("load", destination, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            TmuxCommandResult path = await server.ExecuteCommandAsync(["display-message", "-p", "-t", "inferred-name:main", "#{pane_current_path}"], token);
+            Assert.Equal(0, path.ExitCode);
+            string observed = System.Text.Encoding.UTF8.GetString(path.StandardOutput.Span).TrimEnd('\n');
+            Assert.Equal(identity, await File.ReadAllTextAsync(Path.Combine(observed, "directory-identity"), token));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    [Theory]
+    [InlineData("teamocil", "before")]
+    [InlineData("tmuxinator", "before")]
+    [InlineData("tmuxinator", "after")]
+    public async Task Imported_synchronization_preserves_native_command_delivery(string kind, string phase)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string source = Path.Combine(_root, "sync.json");
+        string destination = Path.Combine(_root, "imported.json");
+        string socket = Path.Combine(_root, "tmux");
+        string first = $"printf A >> '{_root}'/\"$TMUX_PANE\"";
+        string second = $"printf B >> '{_root}'/\"$TMUX_PANE\"";
+        JsonObject window = kind == "teamocil"
+            ? new JsonObject { ["name"] = "main", ["options"] = new JsonObject { ["synchronize-panes"] = true }, ["panes"] = new JsonArray(first, second) }
+            : new JsonObject { ["main"] = new JsonObject { ["synchronize"] = phase, ["panes"] = new JsonArray(first, second) } };
+        JsonObject document = new() { ["name"] = "synchronized", ["windows"] = new JsonArray(window) };
+        await File.WriteAllTextAsync(source, document.ToJsonString(), token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            string records;
+            (code, records, error) = await Run("load", destination, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            string[] panes = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["data"]!["pane_id"]!.ToString()).ToArray();
+            Assert.Equal(2, panes.Length);
+            string[] expected = [phase == "before" ? "AB" : "A", "B"];
+            for (int index = 0; index < panes.Length; index++)
+            {
+                string marker = Path.Combine(_root, panes[index]);
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    if (File.Exists(marker) && await File.ReadAllTextAsync(marker, token) == expected[index]) break;
+                    await Task.Delay(20, token);
+                }
+                Assert.Equal(expected[index], await File.ReadAllTextAsync(marker, token));
+            }
+            TmuxCommandResult option = await server.ExecuteCommandAsync(["show-options", "-w", "-v", "-t", "synchronized:main", "synchronize-panes"], token);
+            Assert.Equal(0, option.ExitCode);
+            Assert.Equal("on\n", System.Text.Encoding.UTF8.GetString(option.StandardOutput.Span));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
     [Fact]
