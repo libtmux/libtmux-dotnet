@@ -221,23 +221,32 @@ public sealed class ExecutionTests : IDisposable
     }
 
     [Theory]
-    [InlineData("yaml", "root", false)]
-    [InlineData("yaml", "root", true)]
-    [InlineData("yaml", "command", false)]
-    [InlineData("yaml", "command", true)]
-    [InlineData("json", "root", false)]
-    [InlineData("json", "root", true)]
-    [InlineData("json", "command", false)]
-    [InlineData("json", "command", true)]
-    public async Task Tmuxinator_templates_fail_before_publication_without_changing_conversion(string format, string field, bool save)
+    [InlineData("tmuxinator", "yaml", "root", false)]
+    [InlineData("tmuxinator", "yaml", "root", true)]
+    [InlineData("tmuxinator", "yaml", "command", false)]
+    [InlineData("tmuxinator", "yaml", "command", true)]
+    [InlineData("tmuxinator", "yaml", "key", false)]
+    [InlineData("tmuxinator", "json", "root", false)]
+    [InlineData("tmuxinator", "json", "root", true)]
+    [InlineData("tmuxinator", "json", "command", false)]
+    [InlineData("tmuxinator", "json", "command", true)]
+    [InlineData("tmuxinator", "json", "key", false)]
+    [InlineData("teamocil", "yaml", "command", false)]
+    [InlineData("teamocil", "json", "command", true)]
+    public async Task Tmuxinator_templates_fail_before_publication_and_teamocil_preserves_them(string kind, string format, string field, bool save)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         const string template = "<%= 1 + 1 %>";
         string root = field == "root" ? template : ".";
         string command = field == "command" ? template : "echo ready";
-        string content = format == "json"
-            ? $$"""{"name":"imported","root":"{{root}}","windows":[{"main":"{{command}}"}]}"""
-            : $"name: imported\nroot: '{root}'\nwindows: [{{main: '{command}'}}]\n";
+        string key = field == "key" ? template : "main";
+        string content = kind == "tmuxinator"
+            ? format == "json"
+                ? $$"""{"name":"imported","root":"{{root}}","windows":[{"{{key}}":"{{command}}"}]}"""
+                : $"name: imported\nroot: '{root}'\nwindows: [{{'{key}': '{command}'}}]\n"
+            : format == "json"
+                ? $$"""{"name":"imported","windows":[{"name":"main","panes":["{{command}}"]}]}"""
+                : $"name: imported\nwindows: [{{name: main, panes: ['{command}']}}]\n";
         string source = Path.Combine(_root, "template." + format);
         string destination = Path.Combine(_root, "existing.json");
         await File.WriteAllTextAsync(source, content, token);
@@ -247,17 +256,38 @@ public sealed class ExecutionTests : IDisposable
         Assert.Equal(0, converted);
         Assert.Empty(conversionError);
         JsonNode value = JsonNode.Parse(document)!;
-        Assert.Equal(template, (field == "root" ? value["root"] : value["windows"]![0]!["main"])!.ToString());
+        JsonObject window = value["windows"]!.AsArray()[0]!.AsObject();
+        string observed = field switch
+        {
+            "root" => value["root"]!.ToString(),
+            "key" => window.Single().Key,
+            _ when kind == "tmuxinator" => window["main"]!.ToString(),
+            _ => window["panes"]![0]!.ToString(),
+        };
+        Assert.Equal(template, observed);
 
-        string[] arguments = ["import", "tmuxinator", source, "--json", .. save ? new[] { "--save-to", destination, "--force" } : []];
+        string[] saveArguments = !save ? [] : kind == "teamocil" ? ["--save-to", destination, "--force", "--workspace-format", "json"] : ["--save-to", destination, "--force"];
+        string[] arguments = ["import", kind, source, "--json", .. saveArguments];
         (int code, string output, string error) = await Run(arguments);
 
-        Assert.Equal(1, code);
-        Assert.Empty(output);
-        Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
-        Assert.Contains("ERB", JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.Ordinal);
-        Assert.Equal(content, await File.ReadAllTextAsync(source, token));
-        Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
+        if (kind == "tmuxinator")
+        {
+            Assert.Equal(1, code);
+            Assert.Empty(output);
+            Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+            Assert.Contains("ERB", JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.Equal(content, await File.ReadAllTextAsync(source, token));
+            Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
+        }
+        else
+        {
+            // Teamocil evaluates no templates, so this markup must survive
+            // verbatim rather than being refused like tmuxinator's.
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            JsonNode imported = save ? JsonNode.Parse(await File.ReadAllTextAsync(destination, token))! : JsonNode.Parse(output)!;
+            Assert.Equal(template, imported["windows"]![0]!["panes"]![0]!["shell_command"]!.ToString());
+        }
     }
 
     [Theory]
