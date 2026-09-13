@@ -10,6 +10,77 @@ public sealed class ExecutionTests : IDisposable
 
     public ExecutionTests() => Directory.CreateDirectory(_root);
 
+    [Theory]
+    [InlineData(2, "none")]
+    [InlineData(3, "none")]
+    [InlineData(4, "none")]
+    [InlineData(3, "before")]
+    [InlineData(3, "after")]
+    public async Task Native_load_preserves_pane_creation_order(int count, string synchronization)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "tmux");
+        string file = Path.Combine(_root, "ordered.json");
+        JsonArray panes = [];
+        for (int index = 0; index < count; index++) panes.Add(new JsonObject
+        {
+            ["shell_command"] = $"printf {(char)('A' + index)} >> '{_root}'/\"$TMUX_PANE\"",
+            ["focus"] = index == 1,
+        });
+        JsonObject options = new() { ["pane-base-index"] = 7 };
+        if (synchronization == "before") options["synchronize-panes"] = true;
+        JsonObject window = new() { ["window_name"] = "main", ["layout"] = "even-horizontal", ["options"] = options, ["panes"] = panes };
+        if (synchronization == "after") window["options_after"] = new JsonObject { ["synchronize-panes"] = true };
+        JsonObject document = new() { ["session_name"] = "ordered", ["windows"] = new JsonArray(window) };
+        await File.WriteAllTextAsync(file, document.ToJsonString(), token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        async Task<string> Native(params string[] arguments)
+        {
+            TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
+            Assert.Equal(0, result.ExitCode);
+            return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
+        }
+        try
+        {
+            await Native("new-session", "-d", "-s", "keeper", "/bin/sleep 120");
+            string keeper = await Native("list-panes", "-t", "keeper", "-F", "#{pid}|#{session_id}|#{window_id}|#{pane_id}|#{pane_pid}");
+            Assert.NotEmpty(keeper);
+            (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
+            Assert.Empty(error);
+            Assert.Equal(0, code);
+            string[] created = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["data"]!["pane_id"]!.ToString()).ToArray();
+            Assert.Equal(count, created.Length);
+            for (int index = 0; index < count; index++)
+            {
+                string expected = synchronization == "before" ? new string(Enumerable.Range(index, count - index).Select(value => (char)('A' + value)).ToArray()) : ((char)('A' + index)).ToString();
+                string marker = Path.Combine(_root, created[index]);
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    if (File.Exists(marker) && await File.ReadAllTextAsync(marker, token) == expected) break;
+                    await Task.Delay(20, token);
+                }
+                Assert.Equal(expected, await File.ReadAllTextAsync(marker, token));
+            }
+            Assert.Equal(created[1], await Native("display-message", "-p", "-t", "ordered:main", "#{pane_id}"));
+            Assert.Equal(synchronization == "none" ? "off" : "on", await Native("show-options", "-wAv", "-t", "ordered:main", "synchronize-panes"));
+            Assert.Equal(keeper, await Native("list-panes", "-t", "keeper", "-F", "#{pid}|#{session_id}|#{window_id}|#{pane_id}|#{pane_pid}"));
+            string[][] actual = (await Native("list-panes", "-t", "ordered:main", "-F", "#{pane_id}|#{pane_index}|#{pane_left}|#{pane_top}|#{pane_width}|#{window_width}")).Split('\n').Select(line => line.Split('|')).ToArray();
+            Assert.Equal(created, actual.Select(fields => fields[0]));
+            int left = 0;
+            for (int index = 0; index < count; index++)
+            {
+                int[] fields = actual[index][1..].Select(value => int.Parse(value, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                Assert.Equal(index + 7, fields[0]);
+                Assert.Equal(left, fields[1]);
+                Assert.Equal(0, fields[2]);
+                Assert.True(fields[3] > 0);
+                left += fields[3] + 1;
+                if (index == count - 1) Assert.Equal(fields[4], left - 1);
+            }
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     [Fact]
     public async Task Native_load_and_capture_preserve_index_directory_environment_and_focus()
     {
