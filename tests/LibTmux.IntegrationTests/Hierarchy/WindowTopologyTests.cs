@@ -64,6 +64,45 @@ public sealed class WindowTopologyTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Same_session_window_links_keep_each_placements_live_reads_apart()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window first = await TestHierarchy.RequireFirstWindowAsync(session, token);
+        int originalIndex = first.Index;
+
+        // Link the window into its own session a second time. Both
+        // placements now answer to the same window id, so a target naming
+        // only the session and that id cannot tell them apart.
+        await first.LinkAsync(new LinkWindowRequest(session.Id.ToString(), "7"), token);
+
+        Window[] placements =
+        [
+            .. (await session.GetWindowsAsync(token))
+                .Where(window => window.Id == first.Id)
+                .OrderBy(window => window.Index),
+        ];
+        Assert.Equal([originalIndex, 7], placements.Select(window => window.Index));
+        Window atOriginalIndex = placements[0];
+        Window atSecondIndex = placements[1];
+
+        // Each handle's live reads answer for the index it was read at, not
+        // whichever placement tmux's window-id target ranks best.
+        Assert.Equal(
+            originalIndex,
+            Assert.Single(await atOriginalIndex.GetPanesAsync(token)).Window.Index);
+        Assert.Equal(7, Assert.Single(await atSecondIndex.GetPanesAsync(token)).Window.Index);
+        Assert.Equal(originalIndex, (await atOriginalIndex.RefreshAsync(token)).Index);
+        Assert.Equal(7, (await atSecondIndex.RefreshAsync(token)).Index);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task New_split_move_link_swap_resize_rotate_and_respawn_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

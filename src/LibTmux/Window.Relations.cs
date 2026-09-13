@@ -12,6 +12,7 @@ public sealed partial class Window
     private CapturedRelation<Session>? _linkedSessions;
     private SessionWindowEdge? _edge;
     private Session? _capturedSession;
+    private CapturedRelation<Pane>? _activePane;
 
     /// <summary>Gets the captured active pane, or an uncaptured relation.</summary>
     /// <remarks>
@@ -20,7 +21,7 @@ public sealed partial class Window
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public CapturedRelation<Pane> ActivePane =>
-        ReadSnapshot("pane_active") == "1"
+        _activePane ??= ReadSnapshot("pane_active") == "1"
             ? CapturedRelation.Capture(
                 [ReadActivePane()],
                 "active pane",
@@ -74,13 +75,33 @@ public sealed partial class Window
             : throw new IncompleteSnapshotException("entity key", SnapshotDepth.Windows);
 
     private int ReadIndex() =>
+        TryReadIndex(out int index)
+            ? index
+            : throw new IncompleteSnapshotException("window index", SnapshotDepth.Windows);
+
+    private bool TryReadIndex(out int index) =>
         int.TryParse(
             ReadSnapshot("window_index"),
             NumberStyles.None,
             CultureInfo.InvariantCulture,
-            out int index)
-            ? index
-            : throw new IncompleteSnapshotException("window index", SnapshotDepth.Windows);
+            out index);
+
+    /// <summary>Names this window scoped to the session it was captured in.</summary>
+    /// <remarks>
+    /// A window linked into its captured session at another index too shares
+    /// its id with that placement, so this prefers the session and the
+    /// captured index, which names the placement uniquely: tmux's window-id
+    /// target would resolve to whichever placement it ranks best, not the one
+    /// this handle was read at. Falling back to the session and the window id
+    /// when the index was not captured still narrows a bare identifier to the
+    /// session this handle can prove.
+    /// </remarks>
+    private TmuxTarget? ScopedTarget() =>
+        RelationReader.CapturedSession(_snapshot) is not SessionId session
+            ? null
+            : TryReadIndex(out int index)
+                ? TmuxTarget.In(session, index)
+                : TmuxTarget.In(session, _id);
 
     /// <summary>Reads this window's panes from tmux.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
@@ -94,9 +115,7 @@ public sealed partial class Window
             await RelationReader.ListAsync(
                     owner,
                     "list-panes",
-                    ["-t", RelationReader.CapturedSession(_snapshot) is SessionId session
-                        ? TmuxTarget.In(session, _id).Value
-                        : _id.ToString()],
+                    ["-t", ScopedTarget()?.Value ?? _id.ToString()],
                     cancellationToken)
                 .ConfigureAwait(false);
         return [.. rows.Select(row => RelationReader.ToPane(owner, row))];
