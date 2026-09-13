@@ -63,7 +63,29 @@ public sealed class SessionWindowLookupTests
 
         // tmux would resolve this identifier globally. The question asked is
         // which of THIS session's windows it is, and the answer is none.
-        Assert.Null(await first.GetWindowAsync(elsewhere.Id, token));
+        TmuxObjectNotFoundException missing = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => first.GetWindowAsync(elsewhere.Id, token));
+        Assert.Equal(elsewhere.Id.ToString(), missing.Target);
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => first.GetWindowAsync(elsewhere.Id.ToString(), token));
+        Assert.Null(await first.FindWindowAsync(elsewhere.Id, token));
+        Assert.Null(await first.FindWindowAsync(elsewhere.Id.ToString(), token));
+    }
+
+    [UnixFact]
+    public async Task A_required_pane_lookup_reports_absence()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Window window = await server.GetWindowAsync(new WindowId(0), token);
+
+        TmuxObjectNotFoundException missing = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => window.GetPaneAsync("%9999", token));
+        Assert.Equal("%9999", missing.Target);
+        Assert.Null(await window.FindPaneAsync("%9999", token));
+        Assert.Equal(80, (await window.GetPaneAsync("0", token)).Width);
+        Assert.Equal(80, (await window.FindPaneAsync("0", token))?.Width);
     }
 
     [UnixFact]

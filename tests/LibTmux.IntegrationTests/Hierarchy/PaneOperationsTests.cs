@@ -533,8 +533,6 @@ public sealed class PaneOperationsTests
         Server server = await ConnectAsync(raw, token);
         Pane materialized = await FirstPaneAsync(server, token);
 
-        // A handle resolved by identifier carries no snapshot, so reaching a
-        // scope must not depend on one.
         Pane resolved = await server.GetPaneAsync(materialized.Id, token);
 
         await resolved.Hooks.GetAllAsync(cancellationToken: token);

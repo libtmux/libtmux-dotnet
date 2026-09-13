@@ -140,6 +140,53 @@ Asking tmux again is `RefreshAsync`. A whole hierarchy in one read is
 Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
 ```
 
+### Lookups and captured relations
+
+`GetSessionAsync`, `GetWindowAsync`, and `GetPaneAsync` return materialized
+objects. Their names, dimensions, indexes and other scalar properties are local
+reads. `Get…Async` throws `TmuxObjectNotFoundException` for an absent entity;
+`Find…Async` returns `null` only after a successful lookup finds no match.
+Both preserve command, transport, cancellation and stale-generation failures.
+Session and window lookups stay within their owner.
+
+<!-- snippet: ReadCapturedState -->
+```csharp
+Window created = await session.CreateWindowAsync(new NewWindowRequest(name: "lookup"), ct);
+Window read = await server.GetWindowAsync(created.Id, ct);
+Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
+
+Window? missing = await session.FindWindowAsync("not-created", ct);
+Console.WriteLine($"missing {missing is null}");
+
+Session current = await session.RefreshAsync(ct);
+if (current.ActiveWindow.IsCaptured)
+{
+    Window active = current.ActiveWindow.Single();
+    Console.WriteLine($"active {active.Name}");
+}
+```
+<!-- endsnippet -->
+
+`Session.ActiveWindow`, `Session.ActivePane` and `Window.ActivePane` expose
+`CapturedRelation<T>`. Check `IsCaptured` before calling `Single()`. A session
+reached through an inactive window has that window's row, so its own active
+window may be uncaptured. `RefreshAsync` captures the entity's current active
+child. `CaptureSnapshotAsync(SnapshotDepth.Panes)` also preserves the captured
+parent and child graph. Reading any of these properties performs no I/O.
+
+### Migrating from identity-only lookups
+
+- Remove a `RefreshAsync` used only to make a lookup's scalar properties
+  readable. Keep it when current state is needed later.
+- Replace a nullable `Session.GetWindowAsync` or `Window.GetPaneAsync` call
+  with `FindWindowAsync` or `FindPaneAsync`. Required `Get…Async` calls throw
+  on absence.
+- Replace `session.ActiveWindow.Name` with
+  `session.ActiveWindow.Single().Name` when the capture is known. Use
+  `IsCaptured` when walking a partial hierarchy.
+- Catch listing failures where earlier releases returned an empty inventory.
+  A stopped daemon is an error; an empty successful read remains an empty list.
+
 ## Running something, and reading it back
 
 ```csharp run

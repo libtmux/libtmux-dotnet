@@ -153,7 +153,8 @@ public sealed class PaneSendKeysDispatchTests
             new Server(connection, Generation, "tmux 3.7"),
             connection,
             Generation,
-            new PaneId(1));
+            new PaneId(1),
+            new Dictionary<string, string?>());
     }
 
     private static TmuxCommandResult Success(IReadOnlyList<string> arguments)

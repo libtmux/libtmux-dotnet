@@ -1478,7 +1478,7 @@ def error_policies(
                             "M:LibTmux.Server.GetAttachedSessionsAsync("
                             "CancellationToken)"
                         ),
-                        "failureDisposition": "return_empty_on_any_list_failure",
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.attached_sessions",
                         "tmuxCommands": ["list-sessions"],
                     },
@@ -1486,7 +1486,7 @@ def error_policies(
                         "csharpMemberId": (
                             "M:LibTmux.Server.GetClientsAsync(CancellationToken)"
                         ),
-                        "failureDisposition": "return_empty_on_any_list_failure",
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.clients",
                         "tmuxCommands": ["list-clients"],
                     },
@@ -1494,9 +1494,7 @@ def error_policies(
                         "csharpMemberId": (
                             "M:LibTmux.Server.GetPanesAsync(CancellationToken)"
                         ),
-                        "failureDisposition": (
-                            "return_empty_on_missing_daemon_or_socket"
-                        ),
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.panes",
                         "tmuxCommands": ["list-panes"],
                     },
@@ -1531,7 +1529,7 @@ def error_policies(
                         "csharpMemberId": (
                             "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
                         ),
-                        "failureDisposition": "return_empty_on_any_list_failure",
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.sessions",
                         "tmuxCommands": ["list-sessions"],
                     },
@@ -1539,9 +1537,7 @@ def error_policies(
                         "csharpMemberId": (
                             "M:LibTmux.Server.GetWindowsAsync(CancellationToken)"
                         ),
-                        "failureDisposition": (
-                            "return_empty_on_missing_daemon_or_socket"
-                        ),
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.windows",
                         "tmuxCommands": ["list-windows"],
                     },
@@ -1583,7 +1579,7 @@ def error_policies(
                         "csharpMemberId": (
                             "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)"
                         ),
-                        "failureDisposition": "return_empty_if_either_list_fails",
+                        "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.window:Window.linked_sessions",
                         "tmuxCommands": ["list-windows", "list-sessions"],
                     },
