@@ -12,9 +12,34 @@ version.
 
 ### Added
 
+- `FindSessionAsync`, `FindWindowAsync` and `FindPaneAsync` return `null` only
+  when a successful lookup finds no match. Use the server or scoped finder when
+  absence is expected. (#28)
+- `Server.ThrowIfDeadAsync` provides the liveness guard under a C# name.
+  `RaiseIfDeadAsync` remains as an obsolete forwarding alias. (#28)
+
 ### Fixed
 
+- `Server.GetSessionAsync`, `GetWindowAsync` and `GetPaneAsync` return captured
+  scalar fields that can be read without a follow-up refresh. (#28)
+- Captured parent handles retain their state and exact window placement.
+  Snapshots preserve a window linked at multiple indices in the same session,
+  with the correct active window and pane parents. (#28)
+- `RawFormatFields` on sessions, windows and panes no longer permits changes to
+  captured values through a mutable dictionary cast. (#28)
+
 ### Changed
+
+- **`Session.GetWindowAsync` and `Window.GetPaneAsync` now require a match.**
+  They throw `TmuxObjectNotFoundException` when absent; use `FindWindowAsync` or
+  `FindPaneAsync` for nullable results. (#28)
+- **Active-child properties expose whether their state was captured.**
+  `Session.ActiveWindow`, `Session.ActivePane` and `Window.ActivePane` return
+  `CapturedRelation`; check `IsCaptured` before reading the relation.
+  (#28)
+- **Live listings throw when the read fails, including when no daemon is
+  running.** Handle read failures explicitly; an empty collection now means a
+  successful read found no objects. (#28)
 
 ### Removed
 
