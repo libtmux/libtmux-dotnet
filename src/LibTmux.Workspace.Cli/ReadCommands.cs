@@ -81,6 +81,15 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         string directory = teamocil ? Path.Combine(context.Home, ".teamocil") : _documents.Expand(context.Environment.GetValueOrDefault("TMUXINATOR_CONFIG") ?? Path.Combine(context.Home, ".tmuxinator"));
         string path = _documents.Resolve(invocation.Many("files")[0], directory);
         JsonObject document = ImportCommands.Convert(DocumentStore.Read(path), teamocil);
+        document["session_name"] ??= Path.GetFileNameWithoutExtension(path);
+        document["start_directory"] = Path.GetFullPath(_documents.Expand(WorkspacePlan.Text(document, "start_directory") ?? context.Directory), context.Directory);
+        if (WorkspacePlan.Text(document, "config") is string config) document["config"] = Path.GetFullPath(_documents.Expand(config), context.Directory);
+        if (teamocil)
+        {
+            foreach (JsonObject window in document["windows"]!.AsArray().Cast<JsonObject>())
+                if (WorkspacePlan.Text(window, "start_directory") is string root) window["start_directory"] = Path.GetFullPath(_documents.Expand(root), context.Directory);
+        }
+        _ = WorkspacePlan.Parse(document, path, _documents);
         string format = invocation.Text("workspace_format") ?? "yaml";
         SaveOrPrint(document, format, Path.Combine(context.Directory, Path.GetFileNameWithoutExtension(path) + "." + format));
     }
