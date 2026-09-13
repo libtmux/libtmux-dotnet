@@ -110,10 +110,13 @@ roots then use that project root; Teamocil window roots use the invocation
 directory. A missing session name defaults to the source filename stem.
 Unsupported fields, including launcher hooks, project `pre`, Teamocil filters
 or `clear`, and named tmuxinator pane titles, are refused before any destination
-is written. Tmuxinator ERB templates require expanded YAML or JSON before
-import; generic conversion preserves their document data. Move unsupported
-behaviors into an explicit supported workspace workflow before importing;
-pane commands cannot reproduce launcher lifecycle hooks.
+is written. Tmuxinator ERB templates are refused before output or overwrite,
+because Tmuxinator expands them through Ruby before parsing and no native
+reader does; expand them to YAML or JSON first, since generic conversion still
+preserves the raw template text. Teamocil evaluates no templates, so the same
+`<%` markup in a Teamocil source is ordinary text and is preserved literally.
+Move unsupported behaviors into an explicit supported workspace workflow
+before importing; pane commands cannot reproduce launcher lifecycle hooks.
 
 `--color auto|always|never` controls human color. Nonempty `NO_COLOR` wins over forced color; machine formats disable color styling. Current .NET Console initialization can still prefix stdout on a PTY with keypad control bytes. Discovery uses `TMUXP_CONFIGDIR`, XDG configuration and the legacy tmuxp directory. `TMUXINATOR_CONFIG` selects the importer directory. `LIBTMUX_TMUX` can select an explicit tmux executable.
 
