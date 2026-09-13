@@ -185,8 +185,9 @@ parent and child graph. Reading any of these properties performs no I/O.
 - Replace `session.ActiveWindow.Name` with
   `session.ActiveWindow.Single().Name` when the capture is known. Use
   `IsCaptured` when walking a partial hierarchy.
-- Replace `RaiseIfDeadAsync` with `ThrowIfDeadAsync`. The old guard remains an
-  obsolete forwarding alias with the same failure behavior.
+- Replace `RaiseIfDeadAsync` with `ThrowIfDeadAsync`. The failure behavior is
+  unchanged; the old name is gone rather than deprecated, because alpha
+  releases carry no deprecation period.
 - Catch listing failures where earlier releases returned an empty inventory.
   A stopped daemon is an error; an empty successful read remains an empty list.
 

@@ -351,7 +351,6 @@ modes differ.
 | `LibTmux.Server.LockClientAsync(System.String,System.Threading.CancellationToken)` | Locks one client. |
 | `LibTmux.Server.Open(LibTmux.ServerConnectionOptions)` | Opens an unmaterialized server connection handle. |
 | `LibTmux.Server.OpenWaitChannel(System.String)` | Opens a wait on a channel that survives a timed attempt. |
-| `LibTmux.Server.RaiseIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.RefreshClientAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Redraws one client. |
 | `LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest,System.Threading.CancellationToken)` | Runs a shell command and reports what it printed. |
 | `LibTmux.Server.SaveBufferAsync(System.String,System.String,System.Boolean,System.Threading.CancellationToken)` | Writes a paste buffer to a file. |

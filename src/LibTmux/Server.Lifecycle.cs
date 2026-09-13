@@ -54,14 +54,6 @@ public sealed partial class Server
         TmuxCommandFailure.ThrowIfFailed(result, "list-sessions");
     }
 
-    /// <summary>Throws unless a tmux server is answering.</summary>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <remarks>Use <see cref="ThrowIfDeadAsync"/> for new code.</remarks>
-    [Obsolete("Use ThrowIfDeadAsync instead.")]
-    [UnsupportedOSPlatform("windows")]
-    public Task RaiseIfDeadAsync(CancellationToken cancellationToken = default) =>
-        ThrowIfDeadAsync(cancellationToken);
-
     /// <summary>Stops the tmux server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <remarks>

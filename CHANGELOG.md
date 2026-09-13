@@ -15,8 +15,6 @@ version.
 - `FindSessionAsync`, `FindWindowAsync` and `FindPaneAsync` return `null` only
   when a successful lookup finds no match. Use the server or scoped finder when
   absence is expected. (#28)
-- `Server.ThrowIfDeadAsync` provides the liveness guard under a C# name.
-  `RaiseIfDeadAsync` remains as an obsolete forwarding alias. (#28)
 
 ### Fixed
 
@@ -40,6 +38,10 @@ version.
 - **Live listings throw when the read fails, including when no daemon is
   running.** Handle read failures explicitly; an empty collection now means a
   successful read found no objects. (#28)
+- **`Server.RaiseIfDeadAsync` is now `Server.ThrowIfDeadAsync`.** The guard
+  throws, and `Throw` is what a .NET API calls that. No forwarding alias is
+  kept: alpha releases carry no deprecation period, and the old name has never
+  appeared in a shipped public API. (#28)
 
 ### Removed
 

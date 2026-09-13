@@ -10475,32 +10475,6 @@
       "summary": "Opens an unmaterialized connection handle without starting a process."
     },
     {
-      "id": "M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "RaiseIfDeadAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "genericParameters": [],
-      "returnType": "Task",
-      "parameters": [
-        {
-          "name": "cancellationToken",
-          "type": "CancellationToken",
-          "default": "default"
-        }
-      ],
-      "signature": "Task LibTmux.Server.RaiseIfDeadAsync(CancellationToken cancellationToken = default)",
-      "performsIO": true,
-      "processBacked": true,
-      "portable": false,
-      "platformAnnotations": [
-        "UnsupportedOSPlatform(\"windows\")"
-      ],
-      "summary": "Compatibility alias for ThrowIfDeadAsync; obsolete."
-    },
-    {
       "id": "M:LibTmux.Server.RefreshClientAsync(string?,bool,CancellationToken)",
       "declaringType": "T:LibTmux.Server",
       "name": "RefreshClientAsync",
