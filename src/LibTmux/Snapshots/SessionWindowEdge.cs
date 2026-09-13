@@ -2,9 +2,9 @@ namespace LibTmux;
 
 /// <summary>Places one window at one index inside one session.</summary>
 /// <remarks>
-/// A window linked into several sessions has one edge per session, so the
-/// index belongs to the edge rather than to the window. The ordinal stays
-/// null until a snapshot orders a session's edges.
+/// A window can occupy several indexes in the same session or be linked into
+/// several sessions. Each indexed placement has its own edge. The ordinal
+/// stays null until a snapshot orders a session's edges.
 /// </remarks>
 public sealed record SessionWindowEdge
 {

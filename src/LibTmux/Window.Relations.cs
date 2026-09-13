@@ -40,9 +40,9 @@ public sealed partial class Window
 
     /// <summary>Gets where this window sits in the session it was read from.</summary>
     /// <remarks>
-    /// A window linked into several sessions has one edge per session. This is
-    /// the edge for the session this handle was read through, which is why the
-    /// handle can answer it at all.
+    /// A window has one edge per indexed placement, including multiple indexes
+    /// within one session. This is the edge for the session and index captured
+    /// by this handle.
     /// </remarks>
     public SessionWindowEdge Edge
     {
