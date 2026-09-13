@@ -1,6 +1,6 @@
 namespace LibTmux.Internal;
 
-internal readonly record struct TmuxTarget(string Value, SessionId? Session = null)
+internal readonly record struct TmuxTarget(string Value, SessionId? Session = null, int? Index = null)
 {
     internal static TmuxTarget From(SessionId id) => new(id.ToString());
 
@@ -31,7 +31,7 @@ internal readonly record struct TmuxTarget(string Value, SessionId? Session = nu
     /// more than one index.
     /// </remarks>
     internal static TmuxTarget In(SessionId session, int windowIndex) =>
-        new($"{session}:{windowIndex}", session);
+        new($"{session}:{windowIndex}", session, windowIndex);
 
     /// <summary>Names a pane inside one session.</summary>
     /// <remarks>

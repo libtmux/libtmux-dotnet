@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -136,10 +137,28 @@ internal sealed class MaterializationQuery
             }
 
             first ??= row;
-            if (inSession is not TmuxTarget scoped
-                || scoped.Session is not SessionId session
-                || row.TryGetValue("session_id", out string? rowSession)
-                    && string.Equals(rowSession, session.ToString(), StringComparison.Ordinal))
+            if (inSession is not TmuxTarget scoped || scoped.Session is not SessionId session)
+            {
+                return row;
+            }
+
+            if (!row.TryGetValue("session_id", out string? rowSession)
+                || !string.Equals(rowSession, session.ToString(), StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // The scoped target also names an index when one was captured, so
+            // a window linked into this session at another index too is not
+            // mistaken for the placement this read is scoped to.
+            if (scoped.Index is not int index
+                || (row.TryGetValue("window_index", out string? rowIndex)
+                    && int.TryParse(
+                        rowIndex,
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out int parsedIndex)
+                    && parsedIndex == index))
             {
                 return row;
             }
