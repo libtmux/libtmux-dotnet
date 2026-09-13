@@ -415,7 +415,12 @@ public sealed class RegressionTests : IDisposable
             environment["TMUX_PANE"] = pane;
             if (selection == "restarted")
             {
+                using System.Diagnostics.Process original = System.Diagnostics.Process.GetProcessById(
+                    int.Parse(await Execute(current, "display-message", "-p", "#{pid}"), System.Globalization.CultureInfo.InvariantCulture));
                 await current.KillAsync(cancellationToken: TestContext.Current.CancellationToken);
+                using CancellationTokenSource stopped = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+                stopped.CancelAfter(TimeSpan.FromSeconds(5));
+                await original.WaitForExitAsync(stopped.Token);
                 Assert.Equal(pane, await Execute(current, "new-session", "-d", "-s", "replacement", "-P", "-F", "#{pane_id}"));
                 Assert.NotEqual(environment["TMUX"], await Execute(current, "display-message", "-p", "#{socket_path},#{pid},0"));
             }
@@ -618,7 +623,7 @@ public sealed class RegressionTests : IDisposable
     private static async Task<string> Execute(Server server, params string[] arguments)
     {
         TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
-        Assert.Equal(0, result.ExitCode);
+        Assert.True(result.ExitCode == 0, $"tmux {string.Join(' ', arguments)} exited {result.ExitCode}: {System.Text.Encoding.UTF8.GetString(result.StandardError.Span)}");
         return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
     }
 
