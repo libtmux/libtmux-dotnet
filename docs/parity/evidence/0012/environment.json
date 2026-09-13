@@ -1,0 +1,29 @@
+{
+  "evaluatedCommit": "f213d880d67e99763d1ec701dd0b5211e37a13a6",
+  "frameworks": [
+    "net10.0",
+    "net8.0"
+  ],
+  "includeMasterAdvisory": false,
+  "platform": "linux",
+  "redactionProof": true,
+  "schemaVersion": 1,
+  "sdkVersion": "10.0.302",
+  "sourceState": "clean",
+  "sourceTreeFingerprint": "943c1dbfe2e83bfcb48f9cad982023939207b1021339eae5e1928a7999d85133",
+  "tmuxVersions": [
+    "3.2a",
+    "3.3a",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7a",
+    "3.7b",
+    "3.7c"
+  ],
+  "capabilityCohort": "workspace",
+  "evaluatedCommitTree": "7a7b5b360fea98230d869fe91a07f34394214d17",
+  "transitionTmuxSourceCommits": {
+    "3.7": "81f88f8517c9fc5371b56cf117530c6b477c96ac"
+  }
+}

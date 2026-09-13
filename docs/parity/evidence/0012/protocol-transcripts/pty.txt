@@ -1,0 +1,2 @@
+event=pty-attach state=visible
+event=pty-detach state=gone
