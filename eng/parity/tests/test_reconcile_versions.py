@@ -318,6 +318,7 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "hook_scope_pane_window_set": "HookScopePaneWindowSet",
         "hook_scope_pane_window_show": "HookScopePaneWindowShow",
         "kill_session_group": "KillSessionGroup",
+        "layout_mirrors": "LayoutMirrors",
         "list_keys_format": "ListKeysFormat",
         "new_pane_command": "NewPaneCommand",
         "option_dollar_double_escape": "OptionDollarDoubleEscape",

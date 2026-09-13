@@ -27,6 +27,7 @@ public sealed partial class Server
         return new TmuxChain(
             connection.ServerDispatcher,
             [],
-            connection.ExecuteGuardedGroupAsync);
+            connection.ExecuteGuardedGroupAsync,
+            ValidateChainedLayoutsAsync);
     }
 }

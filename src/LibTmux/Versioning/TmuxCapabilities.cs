@@ -46,6 +46,7 @@ internal static class TmuxCapabilities
     [
         "copy_mode_page_down",
         "display_menu_mouse",
+        "layout_mirrors",
     ];
     private static readonly string[] Added36 =
     [

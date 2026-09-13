@@ -43,7 +43,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         }
         await ResolveCurrentAsync(options).ConfigureAwait(false);
         if (Mode == LoadMode.Append) return;
-        IReadOnlyList<Client> clients = await Server!.GetClientsStrictAsync(context.CancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
         RefuseIndependent(clients);
         Client[] eligible = clients.Where(Eligible).OrderBy(client => client.Name, StringComparer.Ordinal).ToArray();
         if (eligible.Length == 0) throw new CliException("client-required", "No ordinary client is viewing the invoking pane. Use -d or --append.");
@@ -76,7 +76,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         string? socket = CurrentSocket(context, out int processId);
         if (socket is null || !PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId paneId))
             throw new CliException("session-required", "Load requires TMUX and TMUX_PANE from the current tmux pane. Use -d outside tmux.");
-        Server inherited = LibTmux.Server.Open(new ServerConnectionOptions(tmuxBinaryPath: options.TmuxBinaryPath, socketPath: Path.GetFullPath(socket, context.Directory), childEnvironment: context.Environment));
+        Server inherited = LibTmux.Server.Open(new ServerConnectionOptions { TmuxBinaryPath = options.TmuxBinaryPath, SocketPath = Path.GetFullPath(socket, context.Directory), ChildEnvironment = context.Environment });
         TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", "-t", paneId.ToString(), "#{pid}:#{start_time}"], context.CancellationToken).ConfigureAwait(false);
         string generation = Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n');
         if (observed.ExitCode != 0) throw new CliException("session-required", "The current tmux pane is unavailable.");
@@ -124,7 +124,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             Pane current = await _pane!.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
             if (current.RawFormatFields.GetValueOrDefault("pane_tty") != _tty || current.RawFormatFields.GetValueOrDefault("window_id") != _window)
                 throw new CliException("pane-changed", "The invoking pane changed before handoff.");
-            IReadOnlyList<Client> clients = await Server!.GetClientsStrictAsync(context.CancellationToken).ConfigureAwait(false);
+            IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
             RefuseIndependent(clients);
             Client? selected = clients.FirstOrDefault(client => client.Name == _client!.Name);
             string[] identity = ["client_pid", "client_created", "client_tty", "session_id", "window_id", "pane_id"];

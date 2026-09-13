@@ -189,6 +189,17 @@
       }
     },
     {
+      "capability": "layout_mirrors",
+      "evidenceStatus": "pending",
+      "introducedIn": "3.5",
+      "namedRealServerTest": "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::LayoutMirrors",
+      "removedIn": "unknown",
+      "tmuxSourceEndpoints": {
+        "3.2a": "https://github.com/tmux/tmux/tree/3.2a",
+        "3.7b": "https://github.com/tmux/tmux/tree/3.7b"
+      }
+    },
+    {
       "capability": "missing_target_format_safety",
       "evidence": {
         "capabilityCohort": "0001",

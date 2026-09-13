@@ -918,6 +918,7 @@ LibTmux.Server.StartServerAsync(System.Threading.CancellationToken cancellationT
 LibTmux.Server.SuspendClientAsync(string? targetClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.SwitchClientAsync(string! targetSession, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Server.ValidateLayoutsAsync(System.Collections.Generic.IEnumerable<(string! Layout, int PaneCount)>! layouts, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Version.get -> LibTmux.TmuxVersion?
 LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!

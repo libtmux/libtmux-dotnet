@@ -21,7 +21,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string? name = invocation.Text("socket_name");
         if (socket is null && name is null) socket = LoadHandoff.CurrentSocket(context, out _);
         if (socket is not null) socket = Path.GetFullPath(socket, context.Directory);
-        return new ServerConnectionOptions(tmuxBinaryPath: context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
+        return new ServerConnectionOptions { TmuxBinaryPath = context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), SocketName = name, SocketPath = socket, ConfigurationFile = invocation.Text("tmux_config"), ColorMode = invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, ChildEnvironment = context.Environment };
     }
 
     internal async Task<int> LoadAsync()

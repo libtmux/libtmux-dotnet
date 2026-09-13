@@ -44,11 +44,6 @@
         "resolved": "18.9.0",
         "contentHash": "MtegCIKGuG0r/LCdIjoR1HgzCGIUBhR3aNdbtQpts5vMXQuqBDZ2Jsd2uFKoHFM2XrQV6ZrDf3F5oLi3SLTp8w=="
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA=="
-      },
       "Microsoft.Testing.Extensions.Telemetry": {
         "type": "Transitive",
         "resolved": "2.3.3",
@@ -174,18 +169,24 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.11, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
       "libtmux.workspace.cli": {
         "type": "Project",
         "dependencies": {
-          "LibTmux.Workspace": "[0.0.0-alpha.11, )",
+          "LibTmux.Workspace": "[0.0.0-alpha.14, )",
           "Spectre.Console": "[0.57.2, )",
           "System.CommandLine": "[2.0.12, )",
           "YamlDotNet": "[18.1.0, )"
         }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
@@ -260,11 +261,6 @@
         "type": "Transitive",
         "resolved": "18.9.0",
         "contentHash": "MtegCIKGuG0r/LCdIjoR1HgzCGIUBhR3aNdbtQpts5vMXQuqBDZ2Jsd2uFKoHFM2XrQV6ZrDf3F5oLi3SLTp8w=="
-      },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "cjWrLkJXK0rs4zofsK4bSdg+jhDLTaxrkXu4gS6Y7MAlCvRyNNgwY/lJi5RDlQOnSZweHqoyvgvbdvQsRIW+hg=="
       },
       "Microsoft.Testing.Extensions.Telemetry": {
         "type": "Transitive",
@@ -391,18 +387,24 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.11, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
       "libtmux.workspace.cli": {
         "type": "Project",
         "dependencies": {
-          "LibTmux.Workspace": "[0.0.0-alpha.11, )",
+          "LibTmux.Workspace": "[0.0.0-alpha.14, )",
           "Spectre.Console": "[0.57.2, )",
           "System.CommandLine": "[2.0.12, )",
           "YamlDotNet": "[18.1.0, )"
         }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "cjWrLkJXK0rs4zofsK4bSdg+jhDLTaxrkXu4gS6Y7MAlCvRyNNgwY/lJi5RDlQOnSZweHqoyvgvbdvQsRIW+hg=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",

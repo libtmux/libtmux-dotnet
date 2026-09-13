@@ -72,7 +72,8 @@ COMMAND_GATE_CAPABILITIES = {
     "split_window_appearance",
     "split_window_empty",
 }
-REQUIRED_CAPABILITIES = PROTOCOL_CAPABILITIES | COMMAND_GATE_CAPABILITIES
+LAYOUT_CAPABILITIES = {"layout_mirrors"}
+REQUIRED_CAPABILITIES = PROTOCOL_CAPABILITIES | COMMAND_GATE_CAPABILITIES | LAYOUT_CAPABILITIES
 VERSION_PARITY_TEST = (
     "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
 )
@@ -105,6 +106,7 @@ VERSION_PARITY_METHODS = {
     "hook_scope_pane_window_set": "HookScopePaneWindowSet",
     "hook_scope_pane_window_show": "HookScopePaneWindowShow",
     "kill_session_group": "KillSessionGroup",
+    "layout_mirrors": "LayoutMirrors",
     "list_keys_format": "ListKeysFormat",
     "new_pane_command": "NewPaneCommand",
     "option_dollar_double_escape": "OptionDollarDoubleEscape",

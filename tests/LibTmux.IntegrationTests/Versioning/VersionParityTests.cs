@@ -113,6 +113,51 @@ public sealed class VersionParityTests
     }
 
     [UnixFact]
+    public async Task LayoutMirrors()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string directory = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test");
+        Directory.CreateDirectory(directory);
+        Server server = Server.Open(new ServerConnectionOptions {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketPath = Path.Combine(directory, "layout-proof-" + Guid.NewGuid().ToString("N")),
+            ConfigurationFile = "/dev/null" });
+        try
+        {
+            Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "layout-proof" }, token);
+            server = session.Server;
+            Window window = Assert.Single(await session.GetWindowsAsync(token));
+            TmuxVersion version = server.Version!.Value;
+            TmuxCapabilityState mirrors = TmuxCapabilities.GetState(version, "layout_mirrors");
+            string accepted = mirrors switch
+            {
+                TmuxCapabilityState.Supported => "main-horizontal-mirrored",
+                TmuxCapabilityState.Unsupported => "main-h",
+                _ => "main-horizontal",
+            };
+            string rejected = mirrors == TmuxCapabilityState.Supported ? "main-h" : "main-horizontal-mirrored";
+            window = await window.SelectLayoutAsync(new SelectLayoutRequest { Layout = accepted }, token);
+            TmuxCommandResult before = await server.ExecuteCommandAsync(
+                ["display-message", "-p", "-t", window.Id.ToString(), "#{pid}:#{start_time}\t#{window_layout}"], token);
+
+            TmuxWindowException failure = await Assert.ThrowsAsync<TmuxWindowException>(() =>
+                window.SelectLayoutAsync(new SelectLayoutRequest { Layout = rejected }, token));
+
+            Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
+            TmuxCommandResult after = await server.ExecuteCommandAsync(
+                ["display-message", "-p", "-t", window.Id.ToString(), "#{pid}:#{start_time}\t#{window_layout}"], token);
+            Assert.Equal(0, before.ExitCode);
+            Assert.Equal(0, after.ExitCode);
+            Assert.Equal(before.StandardOutputLines, after.StandardOutputLines);
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(CommandTimeout);
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
+    [UnixFact]
     public async Task ControlNotifications()
     {
         await using RawTmuxTestContext context = await StartAsync();

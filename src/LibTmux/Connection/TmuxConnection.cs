@@ -127,6 +127,9 @@ internal sealed class TmuxConnection
         }
     }
 
+    internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
+        _dialect.EnsureVerifiedAsync(cancellationToken);
+
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {
         ValidateLiveGeneration(generation);
