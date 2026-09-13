@@ -16,13 +16,26 @@ public sealed partial class Pane
     public Server Server => RequireOwner("server");
 
     /// <summary>Gets the session containing this pane.</summary>
+    /// <exception cref="IncompleteSnapshotException">
+    /// The pane carries no captured session identity.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Session Session =>
-        _capturedWindow?.Session ?? RelationReader.ToSession(Server, RawFormatFields);
+        _capturedWindow?.Session
+        ?? (SessionId.TryParse(ReadSnapshot("session_id"), out _)
+            ? RelationReader.ToSession(Server, RawFormatFields)
+            : throw new IncompleteSnapshotException("session", SnapshotDepth.Server));
 
     /// <summary>Gets the window containing this pane, with captured scalar state.</summary>
+    /// <exception cref="IncompleteSnapshotException">
+    /// The pane carries no captured window identity.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public Window Window => _capturedWindow ?? RelationReader.ToWindow(Server, RawFormatFields);
+    public Window Window =>
+        _capturedWindow
+        ?? (WindowId.TryParse(ReadSnapshot("window_id"), out _)
+            ? RelationReader.ToWindow(Server, RawFormatFields)
+            : throw new IncompleteSnapshotException("window", SnapshotDepth.Server));
 
     internal void WithCaptured(Window window) => _capturedWindow = window;
 

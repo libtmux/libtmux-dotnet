@@ -33,9 +33,15 @@ public sealed partial class Window
     public Server Server => RequireOwner("server");
 
     /// <summary>Gets the session this window was read through.</summary>
+    /// <exception cref="IncompleteSnapshotException">
+    /// The window carries no captured session identity.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Session Session =>
-        _capturedSession ?? RelationReader.ToSession(RequireOwner("session"), RawFormatFields);
+        _capturedSession
+        ?? (SessionId.TryParse(ReadSnapshot("session_id"), out _)
+            ? RelationReader.ToSession(RequireOwner("session"), RawFormatFields)
+            : throw new IncompleteSnapshotException("session", SnapshotDepth.Windows));
 
     /// <summary>Re-reads this window from tmux.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
