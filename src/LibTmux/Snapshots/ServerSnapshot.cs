@@ -148,14 +148,20 @@ internal sealed class ServerSnapshot
             }
         }
 
-        var windowsByPlacement = windows.ToDictionary(window => (window.EntityKey, window.Index));
-        foreach (Pane pane in panes)
+        // Each window's own Panes relation was already filtered to its exact
+        // placement above (session_id, window_id and window_index all
+        // matched), so walking it back here assigns every pane's parent
+        // without re-deriving the placement from the pane's row a second
+        // time. Skipped below Panes depth, where every window's relation is
+        // uncaptured rather than empty.
+        if (depth >= SnapshotDepth.Panes)
         {
-            Window capturedWindow = pane.Window;
-            if (windowsByPlacement.TryGetValue(
-                    (capturedWindow.EntityKey, capturedWindow.Index), out Window? window))
+            foreach (Window window in windows)
             {
-                pane.WithCaptured(window);
+                foreach (Pane pane in window.Panes)
+                {
+                    pane.WithCaptured(window);
+                }
             }
         }
 
