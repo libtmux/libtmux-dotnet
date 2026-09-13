@@ -12,7 +12,26 @@ version.
 
 ### Added
 
+- Ship `tmux-workspace` as a .NET tool. It discovers, loads, captures, converts
+  and imports tmuxp workspaces, with `--json` and `--ndjson` machine output,
+  terminal load progress and generated shell completion. (#26)
+
 ### Fixed
+
+- `import tmuxinator` refuses ERB templates before printing or saving a
+  workspace, because Tmuxinator expands them through Ruby before parsing and no
+  native reader does. Teamocil evaluates no templates, so `import teamocil`
+  keeps the same markup as ordinary text. Generic document conversion
+  preserves template data either way. (#26)
+- Keep panes in configuration order when loading three or more panes, retaining
+  their command delivery, focus and synchronization. (#26)
+- Workspace imports preserve pane command groups, window options, focus and
+  synchronization timing, and validate translated documents before saving.
+  Unsupported lifecycle fields fail without replacing an existing destination.
+  (#26)
+- Validate custom layouts and native layout names before workspace scripts or
+  topology changes. Version-sensitive names use the running daemon, and typed
+  command chains preflight all layouts through their execution connection. (#26)
 
 ### Changed
 
