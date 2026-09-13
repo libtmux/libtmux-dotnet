@@ -68,7 +68,7 @@
     "ownedScopeDisposal": "IAsyncDisposable with bounded observable cleanup",
     "nativeWindowsTmux": "unsupported",
     "rawCommand": "public result; internal transport",
-    "listFailurePolicy": "member-specific",
+    "listFailurePolicy": "strict",
     "requestCollections": "defensive immutable copies"
   },
   "query": {
@@ -9788,8 +9788,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns attached sessions or captured empty on any list-command failure.",
-      "listErrorPolicy": "empty-on-any-list-command-failure"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Server.GetBufferAsync(string?,CancellationToken)",
@@ -9903,8 +9903,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns clients or captured empty on any list-command failure.",
-      "listErrorPolicy": "empty-on-any-list-command-failure"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Server.GetCommandsAsync(string?,CancellationToken)",
@@ -10063,8 +10063,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns server-wide panes, suppressing only missing-daemon or missing-socket failures.",
-      "listErrorPolicy": "empty-on-missing-daemon-or-socket"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Server.GetPromptHistoryAsync(PromptType?,CancellationToken)",
@@ -10151,8 +10151,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns a captured empty list on any underlying list-command failure.",
-      "listErrorPolicy": "empty-on-any-list-command-failure"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Server.GetWindowAsync(WindowId,CancellationToken)",
@@ -10208,8 +10208,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns server-wide window views, suppressing only missing-daemon or missing-socket failures.",
-      "listErrorPolicy": "empty-on-missing-daemon-or-socket"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Server.HasSessionAsync(string,bool,CancellationToken)",
@@ -14943,8 +14943,8 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Returns captured empty when either required listing fails.",
-      "listErrorPolicy": "empty-if-either-required-list-fails"
+      "summary": "Reads the live collection and preserves failures, including an absent daemon.",
+      "listErrorPolicy": "loud"
     },
     {
       "id": "M:LibTmux.Window.GetPaneAsync(string,CancellationToken)",

@@ -119,6 +119,13 @@ foreach (Window each in await session.GetWindowsAsync(ct))
 }
 ```
 
+Live listings throw when the read fails, including when the daemon has stopped
+or the socket is inaccessible. An empty list means the read succeeded and
+matched nothing. Catch the relevant exception when absence is acceptable;
+`IsAliveAsync` is the explicit convenience that returns `false` on library
+failures. Raw `ExecuteCommandAsync` keeps completed nonzero exit codes in its
+`TmuxCommandResult`.
+
 A handle says what it read, and that stays true. Operations that change what an
 object is hand back a replacement:
 

@@ -565,16 +565,16 @@ def test_entity_equality_is_generation_bound_and_relation_aware() -> None:
 
 
 def test_list_failure_policy_is_frozen_per_accessor() -> None:
-    """Distinguish lenient inventories, missing-daemon suppression, and loud search."""
+    """Keep live listings strict, including absent-daemon failures."""
     members = public_api_members()
     expected = {
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetClientsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)": "empty-on-missing-daemon-or-socket",
-        "M:LibTmux.Server.GetPanesAsync(CancellationToken)": "empty-on-missing-daemon-or-socket",
+        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetClientsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetPanesAsync(CancellationToken)": "loud",
         "M:LibTmux.Session.GetWindowsAsync(CancellationToken)": "loud",
-        "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)": "empty-if-either-required-list-fails",
+        "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)": "loud",
     }
     assert {
         member_id: members[member_id]["listErrorPolicy"] for member_id in expected
