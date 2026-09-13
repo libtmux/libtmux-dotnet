@@ -765,7 +765,6 @@ LibTmux.Server.LockClientAsync(string? targetClient = null, System.Threading.Can
 LibTmux.Server.OpenWaitChannel(string! channel) -> LibTmux.TmuxWaitChannel!
 LibTmux.Server.Options.get -> LibTmux.TmuxOptions!
 LibTmux.Server.Panes.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
-LibTmux.Server.RaiseIfDeadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
 LibTmux.Server.SaveBufferAsync(string! path, string? name = null, bool append = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
