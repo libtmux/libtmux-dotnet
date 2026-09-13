@@ -75,6 +75,10 @@ leaves this separately loaded tmux session running. See the
 
 Machine load requires `-d` or an explicit `--append` inside tmux. Existing sessions are reused. An interrupted or failed load reports completed effects; it does not promise rollback. A failing startup script removes only the session created for that input.
 
+Load creates panes in configuration order, including windows with three or
+more panes. `pane-base-index` changes their starting index; explicit focus
+still selects the configured pane.
+
 Every input layout is checked before scripts or topology changes. Custom layouts require a valid checksum, a bounded cell tree, and enough cells for the configured panes. tmux still handles geometry and trims extra cells. Named layouts accept native unique prefixes; `main-h` and `main-v` become ambiguous when mirrored layouts are available on tmux 3.5 and newer. Version-sensitive names use the selected daemon version, with client-version fallback only when that endpoint has no running server.
 
 Native append authenticates the inherited pane's daemon, resolves its current
