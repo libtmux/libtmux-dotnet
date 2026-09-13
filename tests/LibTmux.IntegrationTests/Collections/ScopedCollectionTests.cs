@@ -106,18 +106,27 @@ public sealed class ScopedCollectionTests
         Server server = await ConnectAsync(raw, token);
 
         Assert.True(await server.IsAliveAsync(token));
+        await server.ThrowIfDeadAsync(token);
+#pragma warning disable CS0618
+        await server.RaiseIfDeadAsync(token);
+#pragma warning restore CS0618
         await raw.ExecuteAsync(["kill-server"], token);
 
         await Assert.ThrowsAsync<TmuxCommandException>(() => server.GetSessionsAsync(token));
         Assert.False(await server.IsAliveAsync(token));
 
         TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
-            async () => await server.RaiseIfDeadAsync(token));
+            async () => await server.ThrowIfDeadAsync(token));
 
         Assert.NotEqual(0, failure.Result.ExitCode);
         Assert.Contains(
             failure.Result.StandardErrorLines,
             static line => line.Contains("no server running", StringComparison.Ordinal));
+#pragma warning disable CS0618
+        TmuxCommandException compatibility = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.RaiseIfDeadAsync(token));
+#pragma warning restore CS0618
+        Assert.Equal(failure.Result.ExitCode, compatibility.Result.ExitCode);
     }
 
     private static async Task AssertListingFailuresAsync(Server server, CancellationToken token)
