@@ -165,7 +165,7 @@ modes differ.
 | `LibTmux.WaitForRequest` | Describes one wait-for invocation. |
 | `LibTmux.Window` | Represents an immutable window handle and snapshot. |
 | `LibTmux.WindowDirection` | Defines relative window placement. |
-| `LibTmux.WindowEntityKey` | Identifies one window as it appears inside one session. |
+| `LibTmux.WindowEntityKey` | Identifies one window linked into one session. |
 | `LibTmux.WindowId` | Represents a generation-independent tmux window identifier. |
 | `LibTmux.WindowResizeMode` | Names how a window is resized against its clients. |
 | `LibTmux.WindowRotationDirection` | Names which way a window's panes rotate. |
@@ -622,7 +622,7 @@ modes differ.
 | `LibTmux.Window.UnlinkAsync(System.Boolean,System.Threading.CancellationToken)` | Removes this window's link to the session it was read through. |
 | `LibTmux.Window.op_Equality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name the same window. |
 | `LibTmux.Window.op_Inequality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name different windows. |
-| `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window as it appears inside one session. |
+| `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window linked into one session. |
 | `LibTmux.WindowId.#ctor(System.Int32)` | Initializes a window identifier. |
 | `LibTmux.WindowId.CompareTo(LibTmux.WindowId)` | Orders this identifier against another numerically. |
 | `LibTmux.WindowId.Parse(System.String)` | Parses a prefixed window identifier. |

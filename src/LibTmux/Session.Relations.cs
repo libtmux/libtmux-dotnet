@@ -184,7 +184,8 @@ public sealed partial class Session
     {
         CapturedRelation<Window> windows = Windows;
         Window? captured = windows.IsCaptured
-            ? windows.FirstOrDefault(window => window.Id.ToString() == ReadSnapshot("window_id"))
+            ? windows.FirstOrDefault(window => window.Id.ToString() == ReadSnapshot("window_id")
+                && window.RawFormatFields.GetValueOrDefault("window_index") == ReadSnapshot("window_index"))
             : null;
         return captured ?? RelationReader.ToWindow(RequireOwner("active window"), RawFormatFields);
     }
@@ -194,7 +195,8 @@ public sealed partial class Session
     {
         CapturedRelation<Pane> panes = Panes;
         Pane? captured = panes.IsCaptured
-            ? panes.FirstOrDefault(pane => pane.Id.ToString() == ReadSnapshot("pane_id"))
+            ? panes.FirstOrDefault(pane => pane.Id.ToString() == ReadSnapshot("pane_id")
+                && pane.RawFormatFields.GetValueOrDefault("window_index") == ReadSnapshot("window_index"))
             : null;
         return captured ?? RelationReader.ToPane(RequireOwner("active pane"), RawFormatFields);
     }
