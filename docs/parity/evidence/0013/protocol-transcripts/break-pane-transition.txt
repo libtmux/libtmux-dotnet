@@ -1,0 +1,4 @@
+event=break-pane-transition framework=net10.0 tmux-source-commit=81f88f8517c9fc5371b56cf117530c6b477c96ac tmux-version=3.7 workaround=applied outcome=passed
+event=break-pane-transition framework=net10.0 tmux-source-commit=0e418b62d259ce8da8970f75732cc6632ee4c3a0 tmux-version=3.7a workaround=omitted outcome=passed
+event=break-pane-transition framework=net8.0 tmux-source-commit=81f88f8517c9fc5371b56cf117530c6b477c96ac tmux-version=3.7 workaround=applied outcome=passed
+event=break-pane-transition framework=net8.0 tmux-source-commit=0e418b62d259ce8da8970f75732cc6632ee4c3a0 tmux-version=3.7a workaround=omitted outcome=passed
