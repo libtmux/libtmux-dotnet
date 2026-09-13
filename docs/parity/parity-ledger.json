@@ -7371,7 +7371,7 @@
       "implementationStatus": "implemented",
       "module": "libtmux.session",
       "pythonSymbolId": "libtmux.session:Session.get_by_id",
-      "replacement": "M:LibTmux.Session.FindWindowAsync(string,CancellationToken)",
+      "replacement": "M:LibTmux.Session.GetWindowAsync(string,CancellationToken)",
       "sourceUrl": "https://github.com/tmux-python/libtmux/blob/c4a980b/src/libtmux/session.py",
       "testPath": "tests/LibTmux.IntegrationTests/Parity/Component10ParityTests.cs",
       "tmuxVersions": "3.2a-3.7b"
