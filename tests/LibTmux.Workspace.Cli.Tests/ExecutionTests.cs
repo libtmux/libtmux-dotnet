@@ -48,7 +48,11 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal(0, code);
             Assert.Equal("ok", JsonNode.Parse(output)!["status"]!.ToString());
             for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
-            Assert.Equal("pane", await File.ReadAllTextAsync(marker, token));
+            try { Assert.Equal("pane", await File.ReadAllTextAsync(marker, token)); }
+            catch (FileNotFoundException failure)
+            {
+                throw new FileNotFoundException(failure.Message + "\n" + await MarkerDiagnostics(server, marker, token), failure.FileName, failure);
+            }
             (code, output, error) = await Run("freeze", "native", "-S", socket, "--json");
             Assert.Equal("capture-lossy", JsonNode.Parse(error)!["code"]!.ToString());
             Assert.Equal(0, code);
@@ -130,6 +134,38 @@ public sealed class ExecutionTests : IDisposable
         Assert.Equal(1, code);
         Assert.Empty(output.ToString());
         Assert.Equal("invalid-config", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+    }
+
+    private static async Task<string> MarkerDiagnostics(Server server, string marker, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
+        List<string> observations = [$"Marker exists: {File.Exists(marker)}"];
+        async Task<string?> Observe(string label, params string[] arguments)
+        {
+            try
+            {
+                TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, timeout.Token);
+                string stdout = System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span);
+                string stderr = System.Text.Encoding.UTF8.GetString(result.StandardError.Span);
+                observations.Add($"{label} (exit {result.ExitCode}):\n{stdout}{stderr}");
+                return result.ExitCode == 0 ? stdout : null;
+            }
+            catch (Exception failure)
+            {
+                observations.Add($"{label}: {failure.GetType().Name}: {failure.Message}");
+                return null;
+            }
+        }
+        await Observe("Daemon version", "display-message", "-p", "#{version}");
+        string? panes = await Observe("Panes (id, session, window, index, command, dead)",
+            "list-panes", "-a", "-F", "#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}\t#{pane_current_command}\t#{pane_dead}");
+        foreach (string row in (panes ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string paneId = row.Split('\t')[0];
+            await Observe("Capture " + paneId, "capture-pane", "-p", "-t", paneId);
+        }
+        return string.Join('\n', observations);
     }
 
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
