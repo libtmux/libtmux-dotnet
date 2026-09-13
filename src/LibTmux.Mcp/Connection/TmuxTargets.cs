@@ -50,19 +50,20 @@ internal static class TmuxTargets
 
         RaiseIfAbsent(server);
 
-        // Listed rather than resolved by id. Resolving by id answers a pane
-        // that knows its own identity and nothing else, so reading its options
-        // or its server throws; listing materializes the relations the tools
-        // actually use, and still costs one tmux call.
-        IReadOnlyList<Pane> panes = await TmuxAvailability
-            .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
-            .ConfigureAwait(false);
-        foreach (Pane candidate in panes)
-        {
-            if (candidate.Id == parsed)
+        // Resolved by id rather than listed. A captured lookup now answers the
+        // same relations a listing row does, and it costs tmux one pane
+        // instead of every pane on the server.
+        IReadOnlyList<Pane> found = await TmuxAvailability
+            .OrEmptyAsync(server, async () =>
             {
-                return candidate;
-            }
+                Pane? pane = await server.FindPaneAsync(parsed, cancellationToken)
+                    .ConfigureAwait(false);
+                return pane is null ? [] : (IReadOnlyList<Pane>)[pane];
+            })
+            .ConfigureAwait(false);
+        if (found is [Pane match])
+        {
+            return match;
         }
 
         throw new McpException(
