@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -58,7 +59,12 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
                 string? shell = Text(pane, "shell") ?? Text(window, "window_shell");
                 panePlans.Add(new PanePlan(ResolveDirectory(pane, windowDirectory, store), shell is null ? null : store.Expand(shell), Boolean(pane, "focus", false), Mapping(pane["environment"] ?? window["environment"], store), commands));
             }
-            plans.Add(new WindowPlan(Text(window, "window_name") is string windowName ? store.Expand(windowName) : null, index, Text(window, "layout"), Boolean(window, "focus", false), Mapping(window["options"], store), Mapping(window["options_after"], store), panePlans.ToArray()));
+            string? layout = Text(window, "layout");
+            if (layout is not null && !TmuxLayoutSyntax.IsValidCandidate(layout, panePlans.Count))
+            {
+                throw Invalid($"Layout '{layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
+            }
+            plans.Add(new WindowPlan(Text(window, "window_name") is string windowName ? store.Expand(windowName) : null, index, layout, Boolean(window, "focus", false), Mapping(window["options"], store), Mapping(window["options_after"], store), panePlans.ToArray()));
         }
         return new WorkspacePlan(name, source, directory, Text(document, "before_script") is string script ? store.Expand(script) : null, readiness, Mapping(document["options"], store), Mapping(document["global_options"], store), Mapping(document["environment"], store), plans.ToArray());
     }

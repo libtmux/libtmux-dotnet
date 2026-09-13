@@ -43,6 +43,19 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported-attached-extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
         _server = handoff.Server;
         _loadGeneration = _server?.Generation;
+        try
+        {
+            await Server.ValidateLayoutsAsync(
+                    inputs.SelectMany(static input => input.Plan.Windows)
+                        .Where(static window => window.Layout is not null)
+                        .Select(static window => (window.Layout!, window.Panes.Length)),
+                    context.CancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ArgumentException error)
+        {
+            throw new CliException("invalid-config", error.Message);
+        }
         (Session Session, string Name)? appendTarget = handoff.Mode == LoadMode.Append ? (handoff.CurrentSession!, handoff.CurrentSessionName!) : null;
         if (extensions)
             return await new ProcessCommands(context, invocation, output).BridgeLoadAsync(handoff.Mode == LoadMode.Detached).ConfigureAwait(false);

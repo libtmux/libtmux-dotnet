@@ -73,6 +73,19 @@ public sealed class WorkspaceBuilder
             throw new WorkspaceFormatException("The workspace describes no windows.");
         }
 
+        try
+        {
+            await _server.ValidateLayoutsAsync(
+                    workspace.Windows.Where(static window => window.Layout is not null)
+                        .Select(static window => (window.Layout!, Math.Max(1, window.Panes.Count))),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ArgumentException error)
+        {
+            throw new WorkspaceFormatException(error.Message);
+        }
+
         Session? session = null;
         List<Window> windows = [];
         List<string> unsupported = [];

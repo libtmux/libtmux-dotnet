@@ -97,6 +97,41 @@ public sealed class ExecutionTests : IDisposable
         Assert.False(File.Exists(socket));
     }
 
+    [Theory]
+    [InlineData("32d2,80x24,0,0{}", 1)]
+    [InlineData("ffff,80x24,0,0,0", 1)]
+    [InlineData("b25d,80x24,0,0,0", 2)]
+    public async Task Later_invalid_layout_is_refused_before_backend_resolution(string layout, int paneCount)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string first = Path.Combine(_root, "first.yaml");
+        string second = Path.Combine(_root, "second.json");
+        await File.WriteAllTextAsync(first, "session_name: first\nbefore_script: /bin/false\nwindows: [{panes: [null]}]", token);
+        JsonArray panes = [];
+        for (int index = 0; index < paneCount; index++) panes.Add((JsonNode?)null);
+        JsonObject document = new()
+        {
+            ["session_name"] = "second",
+            ["windows"] = new JsonArray(new JsonObject { ["layout"] = layout, ["panes"] = panes }),
+        };
+        await File.WriteAllTextAsync(second, document.ToJsonString(), token);
+        Dictionary<string, string?> environment = new()
+        {
+            ["HOME"] = _root,
+            ["PATH"] = "/usr/bin:/bin",
+            ["LIBTMUX_TMUX"] = Path.Combine(_root, "missing-tmux"),
+        };
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(["load", first, second, "-d", "--json"],
+            output, error, _root, environment, token);
+
+        Assert.Equal(1, code);
+        Assert.Empty(output.ToString());
+        Assert.Equal("invalid-config", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+    }
+
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
     {
         using StringWriter output = new();
