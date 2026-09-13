@@ -32,7 +32,8 @@ public static class Tour
     {
         #region ReadCapturedState
         Window created = await session.CreateWindowAsync(new NewWindowRequest(name: "lookup"), ct);
-        Window read = await server.GetWindowAsync(created.Id, ct);
+        Server connected = await server.ConnectAsync(ct);
+        Window read = await connected.GetWindowAsync(created.Id, ct);
         Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
 
         Window? missing = await session.FindWindowAsync("not-created", ct);

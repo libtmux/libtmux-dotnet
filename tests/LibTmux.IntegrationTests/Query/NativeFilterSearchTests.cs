@@ -60,7 +60,7 @@ public sealed class NativeFilterSearchTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task A_failed_search_throws_where_a_listing_would_report_empty()
+    public async Task Searches_and_listings_preserve_read_failures()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
@@ -68,11 +68,9 @@ public sealed class NativeFilterSearchTests
         Server server = await ConnectAsync(raw, token);
         await raw.ExecuteAsync(["kill-server"], token);
 
-        // A caller who asked a question deserves to know it went unanswered,
-        // while a listing may honestly report that nothing is there.
         await Assert.ThrowsAnyAsync<LibTmuxException>(
             () => server.SearchSessionsAsync(new UnsafeTmuxFilter("1"), token));
-        Assert.Empty(await server.GetSessionsAsync(token));
+        await Assert.ThrowsAnyAsync<LibTmuxException>(() => server.GetSessionsAsync(token));
     }
 
     private static Task<Server> ConnectAsync(
