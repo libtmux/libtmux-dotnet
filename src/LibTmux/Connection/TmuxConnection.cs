@@ -97,6 +97,9 @@ internal sealed class TmuxConnection
         CancellationToken cancellationToken) =>
         _dialect.DiscoverAsync(cancellationToken);
 
+    internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
+        _dialect.EnsureVerifiedAsync(cancellationToken);
+
     internal Task<(ServerGeneration Generation, SessionId Id)?> FindSessionAsync(
         SessionId id,
         CancellationToken cancellationToken) =>

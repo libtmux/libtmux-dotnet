@@ -25,9 +25,8 @@ public static partial class TmuxChaining
     /// <param name="window">The window the layout applies to.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
     /// <remarks>
-    /// This takes the window because a layout name is checked against the ones
-    /// the running tmux knows, and an unrecognised name takes the whole server
-    /// down on tmux 3.3a. Batching a layout must not skip that check.
+    /// Checks syntax without reaching tmux. Version-sensitive layout names are
+    /// checked against the daemon when the chain executes.
     /// </remarks>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="TmuxWindowException">The layout is one tmux may not recognise.</exception>
@@ -38,6 +37,7 @@ public static partial class TmuxChaining
         return Command([.. window.BuildSelectLayoutArguments(request)]) with
         {
             RequiredGeneration = window.Generation,
+            LayoutWindowId = request.Layout is null ? null : window.Id,
         };
     }
 
