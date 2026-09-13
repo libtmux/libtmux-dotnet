@@ -35,15 +35,13 @@ public sealed class SessionWindowLookupTests
         Assert.Equal(wanted.Id.ToString(), renamed.Name);
         Assert.True(renamed.Index < wanted.Index);
 
-        Window? byId = await session.GetWindowAsync(wanted.Id, token);
-        Assert.NotNull(byId);
+        Window byId = await session.GetWindowAsync(wanted.Id, token);
         Assert.Equal(wanted.Id, byId.Id);
         Assert.Equal(wanted, byId);
 
         // The string overload is the ambiguous one, and still reaches the
         // decoy by that same text. Both behaviors are deliberate.
-        Window? byText = await session.GetWindowAsync(wanted.Id.ToString(), token);
-        Assert.NotNull(byText);
+        Window byText = await session.GetWindowAsync(wanted.Id.ToString(), token);
         Assert.Equal(decoy.Id, byText.Id);
     }
 
