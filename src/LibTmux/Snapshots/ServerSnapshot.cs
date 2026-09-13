@@ -116,18 +116,21 @@ internal sealed class ServerSnapshot
                 Window window = RelationReader.ToWindow(server, row);
                 SessionWindowEdge? edge = edges.FirstOrDefault(candidate =>
                     candidate.WindowId == window.Id
-                    && candidate.SessionId.ToString() == Field(row, "session_id"));
+                    && candidate.SessionId.ToString() == Field(row, "session_id")
+                    && candidate.WindowIndex == window.Index);
                 Session[] linked =
                 [
                     .. edges
                         .Where(candidate => candidate.WindowId == window.Id)
                         .Select(candidate => sessionsById.GetValueOrDefault(candidate.SessionId))
-                        .OfType<Session>(),
+                        .OfType<Session>()
+                        .DistinctBy(session => session.Id),
                 ];
                 return window.WithCaptured(
                     Relation(
                         [.. panes.Where(pane => Field(pane.RawFormatFields, "window_id") == window.Id.ToString()
-                            && Field(pane.RawFormatFields, "session_id") == Field(row, "session_id"))],
+                            && Field(pane.RawFormatFields, "session_id") == Field(row, "session_id")
+                            && Field(pane.RawFormatFields, "window_index") == Field(row, "window_index"))],
                         "panes",
                         depth,
                         depth >= SnapshotDepth.Panes),
@@ -145,10 +148,12 @@ internal sealed class ServerSnapshot
             }
         }
 
-        var windowsByKey = windows.ToDictionary(window => window.EntityKey);
+        var windowsByPlacement = windows.ToDictionary(window => (window.EntityKey, window.Index));
         foreach (Pane pane in panes)
         {
-            if (windowsByKey.TryGetValue(pane.Window.EntityKey, out Window? window))
+            Window capturedWindow = pane.Window;
+            if (windowsByPlacement.TryGetValue(
+                    (capturedWindow.EntityKey, capturedWindow.Index), out Window? window))
             {
                 pane.WithCaptured(window);
             }

@@ -7,6 +7,40 @@ namespace LibTmux.IntegrationTests.Snapshots;
 [UnsupportedOSPlatform("windows")]
 public sealed class HierarchySnapshotTests
 {
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(SnapshotDepth.Windows)]
+    [InlineData(SnapshotDepth.Panes)]
+    public async Task Repeated_window_links_in_one_session_preserve_each_placement(
+        SnapshotDepth depth)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        await raw.ExecuteAsync(["link-window", "-s", "@0", "-t", $"{raw.SessionName}:7"], token);
+        await raw.ExecuteAsync(["select-window", "-t", $"{raw.SessionName}:7"], token);
+
+        Server snapshot = await server.CaptureSnapshotAsync(depth, token);
+        Session session = Assert.Single(snapshot.Sessions);
+        Window[] windows = [.. session.Windows.OrderBy(window => window.Index)];
+        Assert.Equal([0, 7], windows.Select(window => window.Index));
+        Assert.All(windows, window => Assert.Equal(window.Index, window.Edge.WindowIndex));
+        Assert.Equal(7, session.ActiveWindow.Single().Index);
+        Assert.All(windows, window => Assert.Single(window.LinkedSessions));
+        if (depth == SnapshotDepth.Panes)
+        {
+            Assert.All(windows, window =>
+            {
+                Pane pane = Assert.Single(window.Panes);
+                Assert.Same(window, pane.Window);
+                Assert.Equal(window.Index, pane.Window.Index);
+            });
+            Assert.Equal(7, session.ActivePane.Single().Window.Index);
+        }
+    }
+
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
