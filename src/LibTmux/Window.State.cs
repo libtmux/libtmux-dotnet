@@ -50,9 +50,7 @@ public sealed partial class Window
                 "list-windows",
                 "window_id",
                 _id.ToString(),
-                RelationReader.CapturedSession(_snapshot) is SessionId session
-                    ? TmuxTarget.In(session, _id)
-                    : null,
+                ScopedTarget(),
                 cancellationToken)
             .ConfigureAwait(false)
             ?? throw new TmuxObjectNotFoundException(
