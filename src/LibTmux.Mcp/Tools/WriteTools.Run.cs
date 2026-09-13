@@ -686,7 +686,7 @@ internal sealed partial class WriteTools
             // Strict materialization authenticates every row against the
             // captured generation before absence or pane_dead is interpreted.
             IReadOnlyList<Pane> panes = await server
-                .GetPanesStrictAsync(CancellationToken.None)
+                .GetPanesAsync(CancellationToken.None)
                 .ConfigureAwait(false);
             Pane[] matches =
             [

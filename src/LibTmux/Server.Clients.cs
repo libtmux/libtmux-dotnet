@@ -12,26 +12,9 @@ public sealed partial class Server
     /// <summary>Reads the clients attached to this server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The clients tmux reports.</returns>
-    /// <remarks>
-    /// A server with no clients is the ordinary case rather than a failure, so
-    /// this answers empty when tmux cannot list them.
-    /// </remarks>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Client>> GetClientsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await GetClientsStrictAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (LibTmuxException)
-        {
-            return [];
-        }
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal async Task<IReadOnlyList<Client>> GetClientsStrictAsync(
         CancellationToken cancellationToken = default)
     {
         ServerGeneration generation = _generation
