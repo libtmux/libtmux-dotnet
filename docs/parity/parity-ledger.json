@@ -6714,7 +6714,7 @@
       "behavior": "Preserve method Server.raise_if_dead",
       "component": "server",
       "componentId": 10,
-      "csharpDestination": "M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)",
+      "csharpDestination": "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)",
       "destinationStatus": "approved",
       "evidenceStatus": "verified",
       "implementationStatus": "implemented",

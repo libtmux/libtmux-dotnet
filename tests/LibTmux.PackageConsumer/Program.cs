@@ -109,6 +109,7 @@ internal static class Program
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
 
         Server server = scope.Session.Server;
+        await server.ThrowIfDeadAsync();
         Window read = await server.GetWindowAsync(scope.Window.Id);
         Pane active = read.ActivePane.Single();
         if (read.Name != scope.Window.Name

@@ -176,7 +176,7 @@ def test_error_policies_freeze_command_specific_behavior() -> None:
             "tmuxCommand": "list-sessions",
         },
         {
-            "csharpMemberId": "M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)",
+            "csharpMemberId": "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)",
             "disposition": "throw",
             "sourceSymbolId": "libtmux.server:Server.raise_if_dead",
             "thrownFailures": [

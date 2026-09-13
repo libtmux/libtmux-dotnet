@@ -10498,7 +10498,7 @@
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs RaiseIfDead."
+      "summary": "Compatibility alias for ThrowIfDeadAsync; obsolete."
     },
     {
       "id": "M:LibTmux.Server.RefreshClientAsync(string?,bool,CancellationToken)",
@@ -28642,6 +28642,32 @@
         "UnsupportedOSPlatform(\"windows\")"
       ],
       "summary": "Reads one window in this session, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "ThrowIfDeadAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task",
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task LibTmux.Server.ThrowIfDeadAsync(CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Throws unless a tmux server is answering."
     },
     {
       "id": "M:LibTmux.Window.FindPaneAsync(string,CancellationToken)",

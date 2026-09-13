@@ -365,6 +365,7 @@ modes differ.
 | `LibTmux.Server.StartServerAsync(System.Threading.CancellationToken)` | Starts the tmux server without creating a session. |
 | `LibTmux.Server.SuspendClientAsync(System.String,System.Threading.CancellationToken)` | Suspends one client. |
 | `LibTmux.Server.SwitchClientAsync(System.String,System.Threading.CancellationToken)` | Switches the caller's client to another session. |
+| `LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.UnbindKeyAsync(LibTmux.UnbindKeyRequest,System.Threading.CancellationToken)` | Removes a key binding. |
 | `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, or locks a tmux channel. |
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |

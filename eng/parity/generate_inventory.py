@@ -1620,7 +1620,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)"
+                            "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)"
                         ),
                         "disposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.raise_if_dead",
