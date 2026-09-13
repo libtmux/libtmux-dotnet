@@ -151,9 +151,17 @@ internal sealed class ServerSnapshot
         var windowsByPlacement = windows.ToDictionary(window => (window.EntityKey, window.Index));
         foreach (Pane pane in panes)
         {
-            Window capturedWindow = pane.Window;
-            if (windowsByPlacement.TryGetValue(
-                    (capturedWindow.EntityKey, capturedWindow.Index), out Window? window))
+            // Read the placement off the pane's own row rather than
+            // materializing a throwaway window just to ask it back.
+            if (SessionId.TryParse(Field(pane.RawFormatFields, "session_id"), out SessionId sessionId)
+                && WindowId.TryParse(Field(pane.RawFormatFields, "window_id"), out WindowId windowId)
+                && int.TryParse(
+                    Field(pane.RawFormatFields, "window_index"),
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int windowIndex)
+                && windowsByPlacement.TryGetValue(
+                    (new WindowEntityKey(sessionId, windowId), windowIndex), out Window? window))
             {
                 pane.WithCaptured(window);
             }
