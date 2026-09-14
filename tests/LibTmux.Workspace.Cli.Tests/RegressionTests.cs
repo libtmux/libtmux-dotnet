@@ -346,7 +346,10 @@ public sealed class RegressionTests : IDisposable
         CliContext context = Context(sink) with { CancellationToken = limit.Token };
         await using Output output = new(context, new CommandLine().Parse(["shell", "-c", "print()", "--ndjson"]));
 
-        Exception? error = await Record.ExceptionAsync(() => ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "printf 'failing\\n' >&2; while :; do printf 'long-output-line\\n'; done"], _root, true));
+        Task<ChildResult> child = ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "printf 'failing\\n' >&2; while :; do printf 'long-output-line\\n'; done"], _root, true);
+        await sink.Blocked.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        sink.Release.TrySetException(new ObjectDisposedException("sink"));
+        Exception? error = await Record.ExceptionAsync(() => child);
 
         Assert.True(sink.Discarded, "the teardown drain never failed");
         Assert.IsType<IOException>(error);
@@ -1045,14 +1048,25 @@ public sealed class RegressionTests : IDisposable
 
     private sealed class ChannelWriter : StringWriter
     {
-        private bool _failed, _drained;
+        private bool _failed;
+        internal TaskCompletionSource Blocked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal bool Discarded { get; private set; }
-        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        public override async Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
         {
-            if (!_failed && value.Span.Contains("\"stream\":\"stderr\"", StringComparison.Ordinal)) { _failed = true; return Task.FromException(new IOException("reader closed")); }
-            if (!_failed || !_drained) { _drained = _failed; return base.WriteLineAsync(value, cancellationToken); }
-            Discarded = true;
-            return Task.FromException(new ObjectDisposedException("sink"));
+            if (!_failed && value.Span.Contains("\"stream\":\"stderr\"", StringComparison.Ordinal))
+            {
+                _failed = true;
+                throw new IOException("reader closed");
+            }
+            if (!_failed)
+            {
+                await base.WriteLineAsync(value, cancellationToken);
+                return;
+            }
+            Blocked.TrySetResult();
+            try { await Release.Task; }
+            catch { Discarded = true; throw; }
         }
     }
 
