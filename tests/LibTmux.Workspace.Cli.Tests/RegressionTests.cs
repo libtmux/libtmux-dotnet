@@ -111,6 +111,26 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Fact]
+    public async Task Resized_progress_erases_its_frame_before_the_display_is_dropped()
+    {
+        using StringWriter error = new();
+        CliContext context = Context(TextWriter.Null) with { Error = error };
+        Invocation invocation = new CommandLine().Parse(["load", "workspace", "-d"]);
+        (int Width, int Height) terminal = (80, 10);
+        ProgressDisplay progress = new(new ProgressOptions("START", 0), terminal.Width, terminal.Height, false, () => terminal);
+        await using Output output = new(context, invocation, null, progress);
+        await output.ProgressAsync(display => display.StartBridge(), force: true);
+        string painted = progress.ClearSequence;
+        Assert.NotEmpty(painted);
+        error.GetStringBuilder().Clear();
+        terminal = (100, 10);
+
+        await output.HandoffAsync();
+
+        Assert.Equal(painted, error.ToString());
+    }
+
+    [Fact]
     public void Normalization_carries_command_settings_and_defaults_to_suppressed_history()
     {
         JsonObject document = DocumentStore.Parse("session_name: state\nwindows: [{panes: [{shell_command: [{cmd: first, enter: false, sleep_after: 1}, second, {cmd: third, sleep_after: 0}, fourth]}]}]");
