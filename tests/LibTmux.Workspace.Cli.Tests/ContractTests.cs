@@ -168,6 +168,15 @@ public sealed class ContractTests : IDisposable
     }
 
     [Fact]
+    public async Task Help_shortcut_stops_at_the_argument_separator()
+    {
+        var result = await Run("load", "--json", "-d", "--", "-h");
+        Assert.Equal(1, result.Code);
+        Assert.Empty(result.Output);
+        Assert.Equal("workspace-not-found", JsonNode.Parse(result.Error)!["code"]!.ToString());
+    }
+
+    [Fact]
     public async Task Installed_command_identity_and_machine_version_use_one_native_graph()
     {
         var result = await Run("--help");
