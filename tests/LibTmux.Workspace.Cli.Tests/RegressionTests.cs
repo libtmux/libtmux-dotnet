@@ -728,31 +728,40 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Theory]
-    [InlineData("absolute")]
-    [InlineData("nested")]
-    public async Task Frozen_default_destination_stays_inside_the_working_directory(string escape)
+    [InlineData("captured")]
+    [InlineData("escape")]
+    public async Task Frozen_capture_writes_only_where_save_to_names(string session)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string working = Path.Combine(_root, "working");
         string outside = Path.Combine(_root, "outside");
         Directory.CreateDirectory(working);
         Directory.CreateDirectory(outside);
-        string name = escape == "absolute" ? Path.Combine(outside, "captured") : "outside/captured";
+        string name = session == "captured" ? "captured" : Path.Combine(outside, "captured");
         string socket = Path.Combine(_root, "destination.socket");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", name);
-            Assert.Equal(name, await Execute(server, "display-message", "-p", "#{session_name}"));
             using StringWriter output = new();
             using StringWriter error = new();
 
             int code = await CliRunner.RunAsync(["freeze", "-S", socket, "--yes"], output, error, working, environment, token);
 
-            Assert.Empty(Directory.GetFiles(outside));
             Assert.Equal(2, code);
             Assert.Contains("--save-to", error.ToString(), StringComparison.Ordinal);
+            Assert.Empty(Directory.GetFiles(outside));
+            Assert.Empty(Directory.GetFiles(working));
+
+            string asked = Path.Combine(working, "asked.yaml");
+            using StringWriter saved = new();
+            using StringWriter savedError = new();
+            code = await CliRunner.RunAsync(["freeze", "-S", socket, "--yes", "--save-to", asked], saved, savedError, working, environment, token);
+
+            Assert.Equal(0, code);
+            Assert.Equal([asked], Directory.GetFiles(working));
+            Assert.Contains("session_name", await File.ReadAllTextAsync(asked, token), StringComparison.Ordinal);
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
