@@ -691,6 +691,51 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Theory]
+    [InlineData("same")]
+    [InlineData("other")]
+    public async Task Frozen_pane_environment_selects_only_its_own_server(string endpoint)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string inherited = Path.Combine(_root, "inherited.socket");
+        string selected = Path.Combine(_root, "selected.socket");
+        Server inheritedServer = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: inherited, configurationFile: "/dev/null"));
+        Server selectedServer = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: selected, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(inheritedServer, "new-session", "-d", "-s", "inherited-first");
+            await Execute(inheritedServer, "new-session", "-d", "-s", "inherited-second");
+            await Execute(selectedServer, "new-session", "-d", "-s", "selected-first");
+            await Execute(selectedServer, "new-session", "-d", "-s", "selected-second");
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(inheritedServer, "display-message", "-p", "#{socket_path},#{pid},0"),
+                ["TMUX_PANE"] = await Execute(inheritedServer, "display-message", "-p", "-t", "=inherited-second:", "#{pane_id}"),
+            };
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["freeze", "-S", endpoint == "same" ? inherited : selected, "--json"], output, error, _root, environment, token);
+
+            if (endpoint == "same")
+            {
+                Assert.Equal(0, code);
+                Assert.Equal("inherited-second", JsonNode.Parse(output.ToString())!["session_name"]!.ToString());
+            }
+            else
+            {
+                Assert.Empty(output.ToString());
+                Assert.Equal("input-required", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+                Assert.Equal(1, code);
+            }
+        }
+        finally
+        {
+            if (await inheritedServer.IsAliveAsync(token)) await inheritedServer.KillAsync(cancellationToken: token);
+            if (await selectedServer.IsAliveAsync(token)) await selectedServer.KillAsync(cancellationToken: token);
+        }
+    }
+
+    [Theory]
     [InlineData("script")]
     [InlineData("options")]
     [InlineData("cancel")]

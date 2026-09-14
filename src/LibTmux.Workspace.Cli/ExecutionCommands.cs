@@ -264,7 +264,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     internal async Task FreezeAsync()
     {
         string? supplied = invocation.Many("sessions").FirstOrDefault();
-        string? target = supplied is null ? context.Environment.GetValueOrDefault("TMUX_PANE") : await NamedSessionTarget(supplied).ConfigureAwait(false);
+        string? target = supplied is null ? await CurrentPaneTarget().ConfigureAwait(false) : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
         {
             string[] sessions = (await Command(["list-sessions", "-F", "#{session_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -327,6 +327,13 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     }
 
     private async Task<string> Field(string target, string field) => (await Command(["display-message", "-p", "-t", target, "#{" + field + "}"]).ConfigureAwait(false)).TrimEnd('\n');
+
+    private async Task<string?> CurrentPaneTarget()
+    {
+        if (LoadHandoff.CurrentSocket(context, out int processId) is null || !PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId pane)) return null;
+        string running = (await Command(["display-message", "-p", "#{pid}"]).ConfigureAwait(false)).TrimEnd('\n');
+        return running == processId.ToString(CultureInfo.InvariantCulture) ? pane.ToString() : null;
+    }
 
     private async Task<string> NamedSessionTarget(string name)
     {
