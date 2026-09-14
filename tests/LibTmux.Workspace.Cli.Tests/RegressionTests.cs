@@ -661,6 +661,36 @@ public sealed class RegressionTests : IDisposable
     }
 
     [Theory]
+    [InlineData("absolute")]
+    [InlineData("relative")]
+    public async Task Frozen_default_destination_stays_inside_the_working_directory(string escape)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string working = Path.Combine(_root, "working");
+        string outside = Path.Combine(_root, "outside");
+        Directory.CreateDirectory(working);
+        Directory.CreateDirectory(outside);
+        string name = escape == "absolute" ? Path.Combine(outside, "captured") : "../outside/captured";
+        string socket = Path.Combine(_root, "destination.socket");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", name);
+            Assert.Equal(name, await Execute(server, "display-message", "-p", "#{session_name}"));
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["freeze", "-S", socket, "--yes"], output, error, working, environment, token);
+
+            Assert.Empty(Directory.GetFiles(outside));
+            Assert.Equal(2, code);
+            Assert.Contains("--save-to", error.ToString(), StringComparison.Ordinal);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    [Theory]
     [InlineData("script")]
     [InlineData("options")]
     [InlineData("cancel")]
