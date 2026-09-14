@@ -23,6 +23,28 @@ public sealed class ContractTests : IDisposable
     }
 
     [Fact]
+    public async Task Word_search_bounds_the_whole_alternation()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(_root, "one.yaml"), "session_name: alpha\nwindows: []\n", token);
+        await File.WriteAllTextAsync(Path.Combine(_root, "two.yaml"), "session_name: alphax\nwindows: []\n", token);
+        await File.WriteAllTextAsync(Path.Combine(_root, "three.yaml"), "session_name: unbeta\nwindows: []\n", token);
+        var result = await Run("search", "s:alpha|beta", "--word-regexp", "--json");
+        Assert.Equal(0, result.Code);
+        Assert.Equal("alpha", Assert.Single(JsonNode.Parse(result.Output)!.AsArray())!["session_name"]!.ToString());
+    }
+
+    [Fact]
+    public async Task Search_reports_a_pattern_that_outruns_its_match_budget()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "one.yaml"), "session_name: " + new string('a', 40) + "b\nwindows: []\n", TestContext.Current.CancellationToken);
+        var result = await Run("search", "s:(a+)+$", "--json");
+        Assert.Equal(2, result.Code);
+        Assert.Empty(result.Output);
+        Assert.Equal("pattern-timeout", JsonNode.Parse(result.Error)!["code"]!.ToString());
+    }
+
+    [Fact]
     public async Task List_includes_reference_metadata_and_private_paths()
     {
         await File.WriteAllTextAsync(Path.Combine(_root, "dev.yaml"), "session_name: project\nwindows: []\n", TestContext.Current.CancellationToken);
