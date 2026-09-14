@@ -289,6 +289,22 @@ public sealed class RegressionTests : IDisposable
         Assert.False(limit.IsCancellationRequested);
     }
 
+    [Fact]
+    public async Task Child_teardown_failure_keeps_the_failure_that_started_it()
+    {
+        using CancellationTokenSource limit = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        limit.CancelAfter(TimeSpan.FromSeconds(3));
+        ChannelWriter sink = new();
+        CliContext context = Context(sink) with { CancellationToken = limit.Token };
+        await using Output output = new(context, new CommandLine().Parse(["shell", "-c", "print()", "--ndjson"]));
+
+        Exception? error = await Record.ExceptionAsync(() => ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "printf 'failing\\n' >&2; while :; do printf 'long-output-line\\n'; done"], _root, true));
+
+        Assert.True(sink.Discarded, "the teardown drain never failed");
+        Assert.IsType<IOException>(error);
+        Assert.False(limit.IsCancellationRequested);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -977,6 +993,19 @@ public sealed class RegressionTests : IDisposable
     {
         public override void WriteLine(string? value) => throw new IOException("reader closed");
         public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default) => throw new IOException("reader closed");
+    }
+
+    private sealed class ChannelWriter : StringWriter
+    {
+        private bool _failed, _drained;
+        internal bool Discarded { get; private set; }
+        public override Task WriteLineAsync(ReadOnlyMemory<char> value, CancellationToken cancellationToken = default)
+        {
+            if (!_failed && value.Span.Contains("\"stream\":\"stderr\"", StringComparison.Ordinal)) { _failed = true; return Task.FromException(new IOException("reader closed")); }
+            if (!_failed || !_drained) { _drained = _failed; return base.WriteLineAsync(value, cancellationToken); }
+            Discarded = true;
+            return Task.FromException(new ObjectDisposedException("sink"));
+        }
     }
 
     private sealed class BlockingWriter : StringWriter
