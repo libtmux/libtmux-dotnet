@@ -321,8 +321,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private string Dimension(string primary, string fallback, int value)
     {
-        string raw = context.Environment.GetValueOrDefault(primary) ?? context.Environment.GetValueOrDefault(fallback) ?? value.ToString(CultureInfo.InvariantCulture);
-        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", primary + " must be an integer from 1 through 65535.", 2);
+        string? supplied = context.Environment.GetValueOrDefault(primary);
+        string variable = supplied is null ? fallback : primary;
+        string raw = supplied ?? context.Environment.GetValueOrDefault(fallback) ?? value.ToString(CultureInfo.InvariantCulture);
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", variable + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 

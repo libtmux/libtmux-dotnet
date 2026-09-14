@@ -130,6 +130,34 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(painted, error.ToString());
     }
 
+    [Theory]
+    [InlineData("TMUXP_DEFAULT_COLUMNS")]
+    [InlineData("COLUMNS")]
+    public async Task Invalid_dimension_names_the_variable_that_carried_it(string variable)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string file = Path.Combine(_root, "dimension.yaml");
+        await File.WriteAllTextAsync(file, "session_name: dimension\nwindows: [{panes: [null]}]", token);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["LIBTMUX_TMUX"] = Path.Combine(_root, "missing-tmux"),
+            ["TMUX"] = null,
+            ["TMUX_PANE"] = null,
+            ["TMUXP_DEFAULT_COLUMNS"] = variable == "TMUXP_DEFAULT_COLUMNS" ? "wide" : null,
+            ["COLUMNS"] = "wide",
+        };
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(["load", file, "-d", "--json"], output, error, _root, environment, token);
+
+        Assert.Equal(2, code);
+        Assert.Empty(output.ToString());
+        JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
+        Assert.Equal("invalid-dimension", diagnostic["code"]!.ToString());
+        Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Normalization_carries_command_settings_and_defaults_to_suppressed_history()
     {
