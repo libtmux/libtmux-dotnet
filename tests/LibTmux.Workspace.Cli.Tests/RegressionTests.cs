@@ -66,9 +66,9 @@ public sealed class RegressionTests : IDisposable
         display.Script("stdout", "\nnew\n");
         Assert.Equal("HEADER\r\n\r\nnew\r\n", display.Render());
         display.StartWorkspace(plan);
-        display.Script("stdout", string.Concat(Enumerable.Repeat("e\u0301🙂", 3000)));
+        display.Script("stdout", string.Concat(Enumerable.Repeat("e\u0301\U0001F642", 3000)));
         string line = display.Render().Split("\r\n")[1];
-        Assert.True(line.StartsWith("e\u0301", StringComparison.Ordinal) || line.StartsWith("🙂", StringComparison.Ordinal));
+        Assert.True(line.StartsWith("e\u0301", StringComparison.Ordinal) || line.StartsWith("\U0001F642", StringComparison.Ordinal));
         Assert.DoesNotContain('\ufffd', line);
         Assert.True(line.GetCellWidth() <= 79);
     }
