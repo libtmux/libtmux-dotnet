@@ -98,10 +98,10 @@ Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail b
 
 Machine freeze, conversion and import return the document without writing a guessed filename. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.
 
-Human freeze without `--save-to` derives `<session-name>.<format>` in the
-invocation directory. tmux accepts a slash in a session name, so a name that is
-not a plain file name is refused with `--save-to` as the way through rather
-than written outside that directory.
+Freeze derives no filename of its own. Without `--save-to` it needs `--json`
+or `--ndjson` and returns the document; a human capture with neither is a usage
+refusal. A session name is data from a live server — tmux accepts a slash in
+one — so it never selects where a capture lands.
 
 Freeze reads the invoking pane from `TMUX_PANE` only when `TMUX` names the
 selected endpoint, because pane identifiers are numbered per server. Against
