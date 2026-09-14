@@ -14,7 +14,9 @@ version.
 
 - Ship `tmux-workspace` as a .NET tool. It discovers, loads, captures, converts
   and imports tmuxp workspaces, with `--json` and `--ndjson` machine output,
-  terminal load progress and generated shell completion. (#26)
+  terminal load progress and generated shell completion. `freeze` writes only
+  where `--save-to` names it to, and otherwise returns the document in machine
+  output. (#26)
 
 ### Fixed
 

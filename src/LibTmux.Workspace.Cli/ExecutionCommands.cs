@@ -263,6 +263,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     internal async Task FreezeAsync()
     {
+        if (!invocation.Machine && invocation.Text("save_to") is null)
+            throw new CliException("destination-required", "Capture needs a destination. Pass --save-to, or use --json or --ndjson for the document.", 2);
         string? supplied = invocation.Many("sessions").FirstOrDefault();
         string? target = supplied is null ? await CurrentPaneTarget().ConfigureAwait(false) : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
@@ -301,10 +303,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         document["windows"] = windows;
         string format = invocation.Text("workspace_format") ?? "yaml";
-        string suggested = document["session_name"] + "." + format;
-        if (!invocation.Machine && invocation.Text("save_to") is null && Path.GetFileName(suggested) != suggested)
-            throw new CliException("unsafe-destination", $"Session '{document["session_name"]}' does not name a workspace file. Pass --save-to with a destination.", 2);
-        new ReadCommands(context, invocation, output).SaveOrPrint(document, format, suggested);
+        new ReadCommands(context, invocation, output).SaveOrPrint(document, format);
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture-lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
 
