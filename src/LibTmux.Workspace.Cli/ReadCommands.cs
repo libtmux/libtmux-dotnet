@@ -34,36 +34,43 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             catch (ArgumentException error) { throw new CliException("invalid-pattern", error.Message, 2); }
         }).ToArray();
         List<JsonObject> matches = [];
-        foreach ((string path, string source) in _documents.Discover())
+        try
         {
-            JsonObject document;
-            try { document = DocumentStore.Read(path); }
-            catch (Exception error) when (error is CliException or IOException) { document = []; }
-            Dictionary<string, string[]> fields = Fields(document, Private(path));
-            bool[] found = expressions.Select(expression => expression.Fields.Any(field => fields[field].Any(value => expression.Regex.IsMatch(value)))).ToArray();
-            bool match = invocation.Flag("any") ? found.Any(value => value) : found.All(value => value);
-            if (invocation.Flag("invert")) match = !match;
-            if (!match) continue;
-            JsonObject record = new() { ["name"] = fields["name"][0], ["path"] = fields["path"][0], ["session_name"] = fields["session_name"][0], ["source"] = source };
-            JsonObject details = [];
-            foreach (var expression in expressions)
+            foreach ((string path, string source) in _documents.Discover())
             {
-                foreach (string field in expression.Fields)
+                JsonObject document;
+                try { document = DocumentStore.Read(path); }
+                catch (Exception error) when (error is CliException or IOException) { document = []; }
+                Dictionary<string, string[]> fields = Fields(document, Private(path));
+                bool[] found = expressions.Select(expression => expression.Fields.Any(field => fields[field].Any(value => expression.Regex.IsMatch(value)))).ToArray();
+                bool match = invocation.Flag("any") ? found.Any(value => value) : found.All(value => value);
+                if (invocation.Flag("invert")) match = !match;
+                if (!match) continue;
+                JsonObject record = new() { ["name"] = fields["name"][0], ["path"] = fields["path"][0], ["session_name"] = fields["session_name"][0], ["source"] = source };
+                JsonObject details = [];
+                foreach (var expression in expressions)
                 {
-                    foreach (string value in fields[field])
+                    foreach (string field in expression.Fields)
                     {
-                        Match occurrence = expression.Regex.Match(value);
-                        if (occurrence.Success)
+                        foreach (string value in fields[field])
                         {
-                            if (details[field] is not JsonArray) details[field] = new JsonArray();
-                            details[field]!.AsArray().Add(occurrence.Value);
+                            Match occurrence = expression.Regex.Match(value);
+                            if (occurrence.Success)
+                            {
+                                if (details[field] is not JsonArray) details[field] = new JsonArray();
+                                details[field]!.AsArray().Add(occurrence.Value);
+                            }
                         }
                     }
                 }
+                record["matched_fields"] = new JsonArray(details.Select(pair => JsonValue.Create(pair.Key)).ToArray());
+                record["matches"] = details;
+                matches.Add(record);
             }
-            record["matched_fields"] = new JsonArray(details.Select(pair => JsonValue.Create(pair.Key)).ToArray());
-            record["matches"] = details;
-            matches.Add(record);
+        }
+        catch (RegexMatchTimeoutException failure)
+        {
+            throw new CliException("pattern-timeout", $"Pattern '{failure.Pattern}' exceeded the match time limit. Simplify it, or match it literally with --fixed-strings.", 2);
         }
         output.Records(matches);
     }
