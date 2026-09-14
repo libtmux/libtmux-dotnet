@@ -160,9 +160,13 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         }
         catch
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            try { await Task.WhenAll(stdout, stderr).ConfigureAwait(false); } catch (Exception failure) when (failure is OperationCanceledException or IOException or UnauthorizedAccessException) { }
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            }
+            catch { }
             throw;
         }
         return new ChildResult(process.ExitCode, await stdout.ConfigureAwait(false), await stderr.ConfigureAwait(false), truncated);
