@@ -301,7 +301,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         document["windows"] = windows;
         string format = invocation.Text("workspace_format") ?? "yaml";
-        new ReadCommands(context, invocation, output).SaveOrPrint(document, format, document["session_name"] + "." + format);
+        string suggested = document["session_name"] + "." + format;
+        if (!invocation.Machine && invocation.Text("save_to") is null && Path.GetFileName(suggested) != suggested)
+            throw new CliException("unsafe-destination", $"Session '{document["session_name"]}' does not name a workspace file. Pass --save-to with a destination.", 2);
+        new ReadCommands(context, invocation, output).SaveOrPrint(document, format, suggested);
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture-lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
 
