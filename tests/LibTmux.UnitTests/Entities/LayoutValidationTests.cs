@@ -67,6 +67,22 @@ public sealed class LayoutValidationTests
     }
 
     [Theory]
+    [InlineData("no server running on /tmp/tmux-1000/named", true)]
+    [InlineData("error connecting to /tmp/tmux-1000/named (No such file or directory)", true)]
+    [InlineData("error connecting to /tmp/tmux-1000/named (Connection refused)", true)]
+    [InlineData("error connecting to /tmp/tmux-1000/named (Permission denied)", false)]
+    [InlineData("no server running on named", false)]
+    [InlineData("unexpected daemon failure", false)]
+    public async Task A_named_socket_accepts_any_cold_socket_root(string error, bool cold)
+    {
+        Server server = CreateServer("3.3a", request => Result(request, 1, error: error + "\n"), materialized: false, socketName: "named");
+        Assert.Null(server.Connection!.ResolvedSocket.SocketPath);
+        Task validation = server.ValidateLayoutsAsync([("main-h", 1)], TestContext.Current.CancellationToken);
+        if (cold) await validation;
+        else await Assert.ThrowsAsync<TmuxCommandException>(() => validation);
+    }
+
+    [Theory]
     [InlineData("91:901\tgarbage\n")]
     [InlineData("3.7c\n")]
     [InlineData("91:901\t3.7c\n91:901\t3.7c\n")]
@@ -162,9 +178,9 @@ public sealed class LayoutValidationTests
         Assert.Equal(raw, typed with { Arguments = typed.Arguments });
     }
 
-    private static Server CreateServer(string client, Func<TmuxCommandRequest, TmuxCommandResult> execute, bool materialized = true)
+    private static Server CreateServer(string client, Func<TmuxCommandRequest, TmuxCommandResult> execute, bool materialized = true, string? socketName = null)
     {
-        var connection = new TmuxConnection(new ServerConnectionOptions(socketPath: Socket), (request, _) =>
+        var connection = new TmuxConnection(socketName is null ? new ServerConnectionOptions(socketPath: Socket) : new ServerConnectionOptions(socketName: socketName), (request, _) =>
             Task.FromResult(request.LogicalArguments is ["-V"]
                 ? Result(request, 0, $"tmux {client}\n") : execute(request)));
         return new Server(connection, materialized ? Generation : null, $"tmux {client}");
