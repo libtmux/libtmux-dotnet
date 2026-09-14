@@ -34,6 +34,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
     private readonly SemaphoreSlim _writes = new(1, 1);
     private TextWriter? _log = log;
     private ProgressDisplay? _progress = progress;
+    private IAnsiConsole? _outputConsole, _errorConsole;
     private long _lastDraw;
     private bool _partialOutput, _partialError;
     internal bool Machine => invocation.Machine;
@@ -348,9 +349,23 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         HumanConsole(writer).Write(new Text(SafeText(text) + (newline ? "\n" : ""), new Style(tint, decoration: role is "heading" or "subject" ? Decoration.Bold : Decoration.None)));
     }
 
-    private IAnsiConsole HumanConsole(TextWriter writer) => AnsiConsole.Create(new AnsiConsoleSettings { Ansi = UseColor(writer) ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
+    private IAnsiConsole HumanConsole(TextWriter writer) => ReferenceEquals(writer, context.Output) ? _outputConsole ??= CreateConsole(writer)
+        : ReferenceEquals(writer, context.Error) ? _errorConsole ??= CreateConsole(writer) : CreateConsole(writer);
 
-    private static string SafeText(string text) => string.Concat(text.Select(character => char.IsControl(character) && character is not '\n' and not '\t' ? $"\\u{(int)character:x4}" : character.ToString()));
+    private IAnsiConsole CreateConsole(TextWriter writer) => AnsiConsole.Create(new AnsiConsoleSettings { Ansi = UseColor(writer) ? AnsiSupport.Yes : AnsiSupport.No, ColorSystem = ColorSystemSupport.Standard, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
+
+    private static string SafeText(string text)
+    {
+        static bool Escaped(char character) => char.IsControl(character) && character is not '\n' and not '\t';
+        if (!text.Any(Escaped)) return text;
+        System.Text.StringBuilder safe = new(text.Length);
+        foreach (char character in text)
+        {
+            if (Escaped(character)) safe.Append(System.Globalization.CultureInfo.InvariantCulture, $"\\u{(int)character:x4}");
+            else safe.Append(character);
+        }
+        return safe.ToString();
+    }
 
     private bool UseColor(TextWriter writer)
     {
