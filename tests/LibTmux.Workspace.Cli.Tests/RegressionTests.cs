@@ -331,7 +331,7 @@ public sealed class RegressionTests : IDisposable
         using CancellationTokenSource limit = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         limit.CancelAfter(TimeSpan.FromSeconds(3));
         CliContext context = Context(new BrokenWriter()) with { CancellationToken = limit.Token };
-        Output output = new(context, new CommandLine().Parse(["shell", "-c", "print()", "--ndjson"]));
+        await using Output output = new(context, new CommandLine().Parse(["shell", "-c", "print()", "--ndjson"]));
         Exception? error = await Record.ExceptionAsync(() => ProcessCommands.RunProcessAsync(context, output, "/bin/sh", ["-c", "while :; do printf 'long-output-line\\n'; done"], _root, true));
         Assert.IsType<IOException>(error);
         Assert.False(limit.IsCancellationRequested);
