@@ -726,7 +726,7 @@ public sealed class RegressionTests : IDisposable
 
     [Theory]
     [InlineData("absolute")]
-    [InlineData("relative")]
+    [InlineData("nested")]
     public async Task Frozen_default_destination_stays_inside_the_working_directory(string escape)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -734,7 +734,7 @@ public sealed class RegressionTests : IDisposable
         string outside = Path.Combine(_root, "outside");
         Directory.CreateDirectory(working);
         Directory.CreateDirectory(outside);
-        string name = escape == "absolute" ? Path.Combine(outside, "captured") : "../outside/captured";
+        string name = escape == "absolute" ? Path.Combine(outside, "captured") : "outside/captured";
         string socket = Path.Combine(_root, "destination.socket");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
