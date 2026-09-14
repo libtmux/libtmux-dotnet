@@ -171,7 +171,7 @@ internal sealed partial class ProgressDisplay : IDisposable
 
     private string Clip(string text)
     {
-        string safe = string.Concat(text.Select(character => char.IsControl(character) ? $"\\u{(int)character:x4}" : character.ToString()));
+        string safe = Escape(text);
         TextElementEnumerator elements = StringInfo.GetTextElementEnumerator(safe);
         StringBuilder clipped = new();
         int cells = 0;
@@ -183,6 +183,18 @@ internal sealed partial class ProgressDisplay : IDisposable
             clipped.Append(element);
         }
         return clipped.ToString();
+    }
+
+    private static string Escape(string text)
+    {
+        if (!text.Any(char.IsControl)) return text;
+        StringBuilder safe = new(text.Length);
+        foreach (char character in text)
+        {
+            if (char.IsControl(character)) safe.Append(CultureInfo.InvariantCulture, $"\\u{(int)character:x4}");
+            else safe.Append(character);
+        }
+        return safe.ToString();
     }
 
     public void Dispose() => _frame.Dispose();
