@@ -27,7 +27,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             bool prefix = parts.Length == 2 && SearchFields.Contains(parts[0], StringComparer.OrdinalIgnoreCase);
             string pattern = prefix ? parts[1] : term;
             if (invocation.Flag("fixed")) pattern = Regex.Escape(pattern);
-            if (invocation.Flag("word")) pattern = "\\b" + pattern + "\\b";
+            if (invocation.Flag("word")) pattern = "\\b(?:" + pattern + ")\\b";
             RegexOptions flags = RegexOptions.CultureInvariant;
             if (invocation.Flag("ignore_case") || (invocation.Flag("smart_case") && !(prefix ? parts[1] : term).Any(char.IsUpper))) flags |= RegexOptions.IgnoreCase;
             try { return (Fields: prefix ? new[] { Field(parts[0]) } : selected, Regex: new Regex(pattern, flags, TimeSpan.FromSeconds(1))); }
