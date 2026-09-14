@@ -139,6 +139,47 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
+    public async Task Every_resource_and_prompt_says_what_it_answers()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
+
+        IList<McpClientResource> resources =
+            await harness.Client.ListResourcesAsync(cancellationToken: token);
+        IList<McpClientResourceTemplate> templates =
+            await harness.Client.ListResourceTemplatesAsync(cancellationToken: token);
+        IList<McpClientPrompt> prompts =
+            await harness.Client.ListPromptsAsync(cancellationToken: token);
+
+        Assert.NotEmpty(resources);
+        Assert.NotEmpty(templates);
+        Assert.NotEmpty(prompts);
+
+        foreach (McpClientResource resource in resources)
+        {
+            Assert.False(
+                string.IsNullOrWhiteSpace(resource.Description),
+                $"{resource.Uri} has no description");
+        }
+
+        foreach (McpClientResourceTemplate template in templates)
+        {
+            Assert.False(
+                string.IsNullOrWhiteSpace(template.Description),
+                $"{template.UriTemplate} has no description");
+        }
+
+        foreach (McpClientPrompt prompt in prompts)
+        {
+            Assert.False(
+                string.IsNullOrWhiteSpace(prompt.Description),
+                $"{prompt.Name} has no description");
+        }
+    }
+
+    [UnixFact]
+    public async Task A_result_arrives_as_structured_content()
+
     public async Task The_wire_surface_is_the_pinned_cross_port_inventory()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
