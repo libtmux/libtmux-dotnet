@@ -33,7 +33,7 @@ public sealed class ExecutionTests : IDisposable
         if (synchronization == "after") window["options_after"] = new JsonObject { ["synchronize-panes"] = true };
         JsonObject document = new() { ["session_name"] = "ordered", ["windows"] = new JsonArray(window) };
         await File.WriteAllTextAsync(file, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         async Task<string> Native(params string[] arguments)
         {
             TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
@@ -189,7 +189,7 @@ public sealed class ExecutionTests : IDisposable
                   focus: true
                   panes: [null]
             """, token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         async Task<string> Native(params string[] arguments)
         {
             TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, token);
@@ -343,7 +343,7 @@ public sealed class ExecutionTests : IDisposable
             ["windows"] = new JsonArray(new JsonObject { ["main"] = window }),
         };
         await File.WriteAllTextAsync(source, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", "tmuxinator", source, "--save-to", destination, "--workspace-format", "json", "--json");
@@ -388,7 +388,7 @@ public sealed class ExecutionTests : IDisposable
         await File.WriteAllTextAsync(source, kind == "teamocil"
             ? "root: project\nwindows: [{name: main, root: child, panes: [null]}]"
             : "root: project\npre: ''\nwindows: [{main: {root: child, panes: [null]}}]", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");
@@ -422,7 +422,7 @@ public sealed class ExecutionTests : IDisposable
             : new JsonObject { ["main"] = new JsonObject { ["synchronize"] = phase, ["panes"] = new JsonArray(first, second) } };
         JsonObject document = new() { ["name"] = "synchronized", ["windows"] = new JsonArray(window) };
         await File.WriteAllTextAsync(source, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, _, string error) = await Run("import", kind, source, "--save-to", destination, "--workspace-format", "json", "--json");

@@ -737,7 +737,7 @@ public sealed class RegressionTests : IDisposable
         string name = escape == "absolute" ? Path.Combine(outside, "captured") : "outside/captured";
         string socket = Path.Combine(_root, "destination.socket");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", name);
@@ -762,8 +762,8 @@ public sealed class RegressionTests : IDisposable
         CancellationToken token = TestContext.Current.CancellationToken;
         string inherited = Path.Combine(_root, "inherited.socket");
         string selected = Path.Combine(_root, "selected.socket");
-        Server inheritedServer = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: inherited, configurationFile: "/dev/null"));
-        Server selectedServer = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: selected, configurationFile: "/dev/null"));
+        Server inheritedServer = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = inherited, ConfigurationFile = "/dev/null" });
+        Server selectedServer = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = selected, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(inheritedServer, "new-session", "-d", "-s", "inherited-first");

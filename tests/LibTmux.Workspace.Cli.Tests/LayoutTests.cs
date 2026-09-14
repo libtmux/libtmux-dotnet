@@ -48,9 +48,9 @@ public sealed class LayoutTests : IDisposable
             ["windows"] = new JsonArray(new JsonObject { ["layout"] = layout, ["panes"] = panes }),
         };
         await File.WriteAllTextAsync(file, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { 
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             Session keeper = await server.CreateSessionAsync(new NewSessionRequest("keeper", command: "/bin/sh"), token);
