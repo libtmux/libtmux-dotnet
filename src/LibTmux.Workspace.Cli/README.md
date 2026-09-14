@@ -71,7 +71,7 @@ leaves this separately loaded tmux session running. See the
 
 ## Commands and output
 
-`load`, `freeze`, `convert`, `import teamocil`, `import tmuxinator`, `ls`, `search`, `edit`, `debug-info` and `shell` accept inherited `--json` and `--ndjson`. NDJSON wins when both flags are present. Explicit `--help` prints human help. Machine diagnostics are JSON lines on stderr.
+`load`, `freeze`, `convert`, `import teamocil`, `import tmuxinator`, `ls`, `search`, `edit`, `debug-info` and `shell` accept inherited `--json` and `--ndjson`. NDJSON wins when both flags are present. Explicit `--help` prints human help, and `--` ends option scanning, so a workspace file named `-h` is loaded rather than treated as a help request. Machine diagnostics are JSON lines on stderr.
 
 Machine load requires `-d` or an explicit `--append` inside tmux. Existing sessions are reused. An interrupted or failed load reports completed effects; it does not promise rollback. A failing startup script removes only the session created for that input.
 
@@ -97,6 +97,16 @@ Attached Python extension handoff remains in development. Use `-d` or choose `n`
 Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail before reading workspace files or running tmux or Python because supported tmux versions do not support 88-color mode.
 
 Machine freeze, conversion and import return the document without writing a guessed filename. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.
+
+Human freeze without `--save-to` derives `<session-name>.<format>` in the
+invocation directory. tmux accepts a slash in a session name, so a name that is
+not a plain file name is refused with `--save-to` as the way through rather
+than written outside that directory.
+
+Freeze reads the invoking pane from `TMUX_PANE` only when `TMUX` names the
+selected endpoint, because pane identifiers are numbered per server. Against
+another endpoint it captures that endpoint's only session, or asks for a
+session name.
 
 Imports validate the translated workspace before printing or saving it.
 Teamocil command groups, window options and the first requested window/pane
@@ -132,12 +142,13 @@ uses available terminal rows. Redirected stdout receives decoded script output
 directly at every panel size. `NO_COLOR` removes styling while keeping terminal
 updates. Pane counters advance after command delivery and configured delays;
 opaque Python extensions show a generic activity label. Frames clear before
-results, diagnostics and attachment. On terminal resize, drawing stops and the
-old frame remains; raw output resumes. Other platforms currently omit drawing.
+results, diagnostics and attachment. On terminal resize, the painted frame is
+erased and drawing stops; raw output resumes. Other platforms currently omit
+drawing.
 The owned Console writers do not provide a hard deadline for terminal or
 filesystem writes.
 
-Search uses .NET regular expressions with a one-second match timeout. Basic patterns, field aliases and tmuxp search flags are supported; Python-specific regex syntax and some Unicode character classes differ. Invalid expressions return usage status 2.
+Search uses .NET regular expressions with a one-second match timeout. Basic patterns, field aliases and tmuxp search flags are supported; Python-specific regex syntax and some Unicode character classes differ. Invalid expressions return usage status 2, and so does a pattern that spends the match timeout, which names the pattern and offers `--fixed-strings`. `--word-regexp` bounds the whole pattern, so every branch of an alternation matches as a word.
 
 Python shell code and workspace extensions require tmuxp **1.74.0**. Set `TMUX_WORKSPACE_PYTHON` to the compatible Python executable. Child stdout and stderr are drained concurrently; retained output is capped at 64 Ki characters per stream and truncation is explicit. Streaming output decodes UTF-8 with replacement for invalid bytes.
 
