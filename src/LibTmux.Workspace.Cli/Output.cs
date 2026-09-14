@@ -90,16 +90,21 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         finally { _writes.Release(); }
     }
 
-    private void CheckProgressSize()
+    private async ValueTask CheckProgressSizeAsync(CancellationToken token)
     {
         if (_progress is null || _progress.SizeUnchanged) return;
+        if (_progress.Rows > 0)
+        {
+            await context.Error.WriteAsync(_progress.ClearSequence.AsMemory(), token).ConfigureAwait(false);
+            await context.Error.FlushAsync(token).ConfigureAwait(false);
+        }
         _progress.Dispose();
         _progress = null;
     }
 
     private async ValueTask DrawProgressAsync(CancellationToken token, bool force = false)
     {
-        CheckProgressSize();
+        await CheckProgressSizeAsync(token).ConfigureAwait(false);
         if (_progress is null) return;
         if (!force && !_progress.WorkComplete && _progress.Rows > 0 && System.Diagnostics.Stopwatch.GetElapsedTime(_lastDraw) < TimeSpan.FromMilliseconds(50)) return;
         await FreshLinesAsync(token).ConfigureAwait(false);
@@ -112,7 +117,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
 
     private async ValueTask ClearProgressAsync(CancellationToken token)
     {
-        CheckProgressSize();
+        await CheckProgressSizeAsync(token).ConfigureAwait(false);
         if (_progress is not { Rows: > 0 }) return;
         await context.Error.WriteAsync(_progress.ClearSequence.AsMemory(), token).ConfigureAwait(false);
         _progress.Rows = 0;
@@ -227,7 +232,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             await EventCoreAsync("script-output", new { stream = channel, text, encoding = "utf-8-replacement" }, context.CancellationToken).ConfigureAwait(false);
             if (!Machine)
             {
-                CheckProgressSize();
+                await CheckProgressSizeAsync(context.CancellationToken).ConfigureAwait(false);
                 bool redirectedOutput = channel == "stdout" && !context.Terminal;
                 if (_progress is { Panel: true } && !redirectedOutput)
                 {
