@@ -49,7 +49,8 @@ internal static class CliRunner
                 renderer.Result(new { name = "tmux-workspace", version }, "tmux-workspace " + version);
                 return 0;
             }
-            if (args.Contains("--help", StringComparer.Ordinal) || args.Contains("-h", StringComparer.Ordinal) || invocation.Command is "" or "import")
+            string[] options = [.. args.TakeWhile(static argument => argument != "--")];
+            if (options.Contains("--help", StringComparer.Ordinal) || options.Contains("-h", StringComparer.Ordinal) || invocation.Command is "" or "import")
             {
                 using StringWriter help = new();
                 ParseResult parsed = args.Length == 0 || invocation.Command == "import" ? graph.Root.Parse([.. args, "--help"]) : invocation.Parsed;
