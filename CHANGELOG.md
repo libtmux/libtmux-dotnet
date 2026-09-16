@@ -37,6 +37,11 @@ version.
 - The MCP tools answer "there are none" for an absent tmux daemon again.
   Matching moved from a command exception's message, which never carried
   tmux's own wording, to its standard error. (#28)
+- `Server.Version` reports tmux's rolling `next-X.Y` development build instead
+  of `null`, and `TmuxCapabilities` resolves it by ordering instead of
+  answering `Unknown` for every capability. A `next` build is a real tmux the
+  library will be run against; refusing to answer for it was the library
+  declining to work on the release in progress. (#28)
 
 ### Changed
 

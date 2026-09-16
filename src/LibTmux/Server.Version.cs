@@ -11,8 +11,7 @@ public sealed partial class Server
             const string prefix = "tmux ";
             if (RawVersion is null
                 || !RawVersion.StartsWith(prefix, StringComparison.Ordinal)
-                || !TmuxVersion.TryParse(RawVersion[prefix.Length..], out TmuxVersion version)
-                || string.Equals(version.Suffix, "next", StringComparison.Ordinal))
+                || !TmuxVersion.TryParse(RawVersion[prefix.Length..], out TmuxVersion version))
             {
                 return null;
             }
