@@ -122,6 +122,27 @@ public sealed class WorkspaceBuilderTests
         Assert.Empty(result.Unsupported);
     }
 
+    [Theory]
+    [InlineData("32d2,80x24,0,0{}")]
+    [InlineData("ffff,80x24,0,0,0")]
+    [InlineData("b25d,80x24,0,0,0")]
+    public async Task Invalid_later_layout_is_refused_before_workspace_creation(string layout)
+    {
+        Server server = Server.Open(new ServerConnectionOptions(
+            tmuxBinaryPath: "/tmp/libtmux-dotnet-test/missing-layout-backend",
+            socketPath: "/tmp/libtmux-dotnet-test/unused-layout-socket"));
+        WorkspaceFile workspace = WorkspaceFile.Parse($$"""
+            session_name: invalid-layout
+            windows:
+              - panes: [null]
+              - layout: "{{layout}}"
+                panes: [null, null]
+            """);
+
+        await Assert.ThrowsAsync<WorkspaceFormatException>(() =>
+            new WorkspaceBuilder(server).BuildAsync(workspace, TestContext.Current.CancellationToken));
+    }
+
     [UnixFact]
     public async Task What_tmux_cannot_do_is_reported_rather_than_dropped()
     {
@@ -135,9 +156,10 @@ public sealed class WorkspaceBuilderTests
             session_name: libtmux-unsupported
             windows:
               - window_name: only
-                layout: "0000,not-a-layout"
+                layout: "79f5,80x24,0,0{39x23,0,0,0,40x24,40,0,1}"
                 panes:
                   - echo hello
+                  - echo other
             """);
 
         WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
@@ -148,7 +170,7 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal("libtmux-unsupported", result.Session.Name);
         Assert.Contains(
             result.Unsupported,
-            message => message.Contains("0000,not-a-layout", StringComparison.Ordinal));
+            message => message.Contains("79f5,80x24,0,0{39x23,0,0,0,40x24,40,0,1}", StringComparison.Ordinal));
     }
 
     [UnixFact]

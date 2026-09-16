@@ -78,6 +78,29 @@ jobs:
       - name: Build
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
 
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Prepare the Python compatibility runtime
+        run: |
+          uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
+          uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
+          echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
+
+      - name: Workspace CLI tests
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+        run: |
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          dotnet test \
+            --project tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
+            --configuration Release \
+            --framework "${MATRIX_FRAMEWORK}" \
+            --no-build \
+            --fail-skips on \
+            --minimum-expected-tests 80
+
       - name: Integration tests
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
@@ -100,7 +123,8 @@ jobs:
         # workflow runs them. The floor on the count is what stops a filter
         # that excluded more than that from passing quietly.
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \
@@ -159,7 +183,8 @@ jobs:
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \

@@ -33,6 +33,7 @@ public sealed record TmuxCommand
             ArgumentException.ThrowIfNullOrEmpty(value);
             ValidateToken(value, nameof(Name));
             _name = value;
+            LayoutWindowId = null;
         }
     }
 
@@ -55,6 +56,7 @@ public sealed record TmuxCommand
             }
 
             _arguments = Array.AsReadOnly(copy);
+            LayoutWindowId = null;
         }
     }
 
@@ -84,6 +86,9 @@ public sealed record TmuxCommand
     /// </remarks>
     public ServerGeneration? RequiredGeneration { get; init; }
 
+    // A raw replacement of Name or Arguments leaves the typed request behind.
+    internal WindowId? LayoutWindowId { get; init; }
+
     /// <summary>Returns this command the way tmux receives it.</summary>
     /// <returns>The command name followed by its arguments.</returns>
     public IReadOnlyList<string> ToArguments() => [Name, .. Arguments];
@@ -93,6 +98,7 @@ public sealed record TmuxCommand
         other is not null
         && string.Equals(Name, other.Name, StringComparison.Ordinal)
         && RequiredGeneration == other.RequiredGeneration
+        && LayoutWindowId == other.LayoutWindowId
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -101,6 +107,7 @@ public sealed record TmuxCommand
         var hash = new HashCode();
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(RequiredGeneration);
+        hash.Add(LayoutWindowId);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

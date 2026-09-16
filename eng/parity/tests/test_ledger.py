@@ -446,16 +446,24 @@ def test_version_deltas_target_the_planned_production_suite() -> None:
     )
 
 
-def test_wrapper_policy_rows_stay_pending_until_their_owner_lands() -> None:
-    """Separate cohort-verified protocol observations from wrapper-policy rows."""
+def test_wrapper_policy_rows_require_native_owner_evidence() -> None:
+    """Require owner-specific proof before publishing verified policy rows."""
     rows = load_document("version-deltas.json")["capabilities"]
     policy_rows = [row for row in rows if "policyOwnerComponents" in row]
     protocol_rows = [row for row in rows if "policyOwnerComponents" not in row]
 
     assert policy_rows
     assert protocol_rows
-    assert all(row["evidenceStatus"] == "pending" for row in policy_rows)
-    assert all("evidence" not in row for row in policy_rows)
+    assert all(
+        "evidence" not in row
+        for row in policy_rows
+        if row["evidenceStatus"] == "pending"
+    )
+    assert all(
+        row["evidence"]["capabilityCohort"] in {"closure", "workspace"}
+        for row in policy_rows
+        if row["evidenceStatus"] == "verified"
+    )
     assert all(
         row["evidence"]["capabilityCohort"]
         for row in protocol_rows

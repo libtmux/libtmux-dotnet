@@ -47,11 +47,10 @@ def load_generator() -> dict[str, t.Any]:
 
 
 def seed_document() -> dict[str, t.Any]:
-    """Return an isolated copy of the checked-in seed document."""
-    path = pathlib.Path(__file__).parents[3] / "docs" / "parity" / "version-deltas.json"
+    """Build a pending seed without previously admitted publication evidence."""
     return t.cast(
         dict[str, t.Any],
-        json.loads(path.read_text(encoding="utf-8")),
+        load_generator()["version_deltas"](),
     )
 
 
@@ -318,6 +317,7 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "hook_scope_pane_window_set": "HookScopePaneWindowSet",
         "hook_scope_pane_window_show": "HookScopePaneWindowShow",
         "kill_session_group": "KillSessionGroup",
+        "layout_mirrors": "LayoutMirrors",
         "list_keys_format": "ListKeysFormat",
         "new_pane_command": "NewPaneCommand",
         "option_dollar_double_escape": "OptionDollarDoubleEscape",
@@ -391,6 +391,60 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         capability: VERSION_PARITY_TEST + method
         for capability, method in expected_methods.items()
     }
+
+
+def test_cohorts_map_to_current_native_test_methods() -> None:
+    """Verify declared membership against the actual integration test sources."""
+    namespace = load_reconciler()
+    repository = pathlib.Path(__file__).parents[3]
+    tests = {
+        test
+        for mapping in namespace["EVIDENCE_COHORT_TESTS"].values()
+        for methods in mapping.values()
+        for test in methods
+    }
+
+    namespace["_verify_capability_tests"](
+        repository, "c" * 40, sorted(tests), "uncommitted"
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "valid"),
+    [
+        (
+            '[Fact(\n Skip = "Unix only",\n SkipUnless = nameof(IsUnix))]\n'
+            "public async Task Mapped() { }",
+            True,
+        ),
+        (
+            '[Theory]\n[InlineData(\n "value")]\npublic void Mapped() { }',
+            True,
+        ),
+        ("public Task Mapped() { }", False),
+        ("[Fact]\npublic Task Different() { }", False),
+        (
+            "[Fact]\npublic Task Different() { }\npublic Task Mapped() { }",
+            False,
+        ),
+        ("[Factually]\npublic Task Mapped() { }", False),
+    ],
+)
+def test_mapped_test_attributes_can_span_lines(
+    tmp_path: pathlib.Path, source: str, valid: bool
+) -> None:
+    """Accept multiline attributes while still requiring the mapped test method."""
+    namespace = load_reconciler()
+    (tmp_path / "EvidenceTests.cs").write_text(source, encoding="utf-8")
+    arguments = (tmp_path, "c" * 40, ["EvidenceTests.cs::Mapped"], "uncommitted")
+
+    if valid:
+        namespace["_verify_capability_tests"](*arguments)
+    else:
+        with pytest.raises(
+            namespace["VersionReconciliationError"], match="mapped capability test"
+        ):
+            namespace["_verify_capability_tests"](*arguments)
 
 
 def test_uncommitted_evidence_uses_fingerprinted_worktree_test(
@@ -612,6 +666,89 @@ def test_closure_cohort_uses_only_exact_wrapper_policy_proofs(
     assert {
         row["capability"]: tuple(row["evidence"]["tests"]) for row in policies
     } == mapping
+
+
+def test_workspace_cohort_reconciles_exact_complete_native_proofs(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Admit fresh layout, protocol, and wrapper proofs without changing old cohorts."""
+    namespace = load_reconciler()
+    cohorts = namespace["EVIDENCE_COHORT_TESTS"]
+    assert len(cohorts[CAPABILITY_COHORT]) == 7
+    assert len(cohorts[CLOSURE_COHORT]) == 35
+    mapping = cohorts["workspace"]
+    assert mapping == {
+        **cohorts[CAPABILITY_COHORT],
+        **cohorts[CLOSURE_COHORT],
+        "layout_mirrors": (VERSION_PARITY_TEST + "LayoutMirrors",),
+    }
+    assert set(mapping) == namespace["REQUIRED_CAPABILITIES"]
+    results, _mapping, _commit = write_fixture(tmp_path, matrix_rows())
+    commit = write_policy_test_source(tmp_path, mapping)
+    write_rows(results, matrix_rows(commit))
+    write_environment(results, tmp_path)
+    environment_path = results.with_name("environment.json")
+    environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    environment["capabilityCohort"] = "workspace"
+    environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
+    document_path = tmp_path / "version-deltas.json"
+    incomplete = {
+        key: value for key, value in mapping.items() if key != "layout_mirrors"
+    }
+    raw_policy = {
+        **mapping,
+        "break_pane_3_7_workaround": (VERSION_PARITY_TEST + "BreakPane37Workaround",),
+    }
+    for invalid_mapping in (incomplete, raw_policy):
+        with pytest.raises(
+            namespace["VersionReconciliationError"],
+            match="workspace capability mapping is not exact",
+        ):
+            namespace["reconcile"](
+                copy.deepcopy(seed_document()),
+                results,
+                repository=tmp_path,
+                document_path=document_path,
+                capability_tests=invalid_mapping,
+            )
+    reconciled = namespace["reconcile"](
+        copy.deepcopy(seed_document()),
+        results,
+        repository=tmp_path,
+        document_path=document_path,
+    )
+    assert len(reconciled["capabilities"]) == 43
+    assert {row["evidenceStatus"] for row in reconciled["capabilities"]} == {"verified"}
+    assert {
+        row["capability"]: tuple(row["evidence"]["tests"])
+        for row in reconciled["capabilities"]
+    } == mapping
+    document_path.write_text(json.dumps(reconciled) + "\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "--quiet", "-m", "fresh evidence"],
+        check=True,
+    )
+    assert (
+        namespace["validate_persisted_evidence"](
+            reconciled, repository=tmp_path, document_path=document_path
+        )
+        == []
+    )
+    tampered = copy.deepcopy(reconciled)
+    layout = next(
+        row for row in tampered["capabilities"] if row["capability"] == "layout_mirrors"
+    )
+    layout["evidence"]["tests"] = [VERSION_PARITY_TEST + "AttachmentAccounting"]
+    assert namespace["validate"](tampered)
+    assert namespace["validate_persisted_evidence"](
+        tampered, repository=tmp_path, document_path=document_path
+    )
+    source = tmp_path / VERSION_PARITY_TEST.split("::", maxsplit=1)[0]
+    source.write_text(source.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    assert "persisted source content fingerprint differs" in namespace[
+        "validate_persisted_evidence"
+    ](reconciled, repository=tmp_path, document_path=document_path)
 
 
 def test_closure_cohort_rejects_raw_version_parity_policy_tests(
@@ -1130,6 +1267,22 @@ def test_generator_preserves_valid_reconciliation(tmp_path: pathlib.Path) -> Non
 
     assert json.loads(version_path.read_text(encoding="utf-8")) == reconciled
     assert generator["documents_are_current"]() is True
+
+
+def test_seed_document_starts_without_published_evidence() -> None:
+    """Keep fixture admission independent of previously published results."""
+    rows = seed_document()["capabilities"]
+
+    assert rows
+    assert all(row["evidenceStatus"] == "pending" for row in rows)
+    assert all("evidence" not in row for row in rows)
+
+
+def test_checked_in_document_is_valid() -> None:
+    """Validate the publication artifact separately from fixture seeds."""
+    namespace = load_reconciler()
+
+    assert namespace["validate"](namespace["load_document"]()) == []
 
 
 def test_document_validation_rejects_duplicate_and_nonobject_rows() -> None:
