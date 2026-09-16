@@ -225,7 +225,18 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         int sequence = ++_sequence;
         string severity = name == "script-output" ? "debug" : name == "failed" ? "error" : "info";
         await LogAsync(new { schema_version = 1, command = invocation.Command, @event = name, sequence, data, severity }, severity, token).ConfigureAwait(false);
-        if (invocation.Flag("ndjson")) await JsonAsync(context.Output, new { schema_version = 1, command = invocation.Command, @event = name, sequence, data }, token).ConfigureAwait(false);
+        if (invocation.Flag("ndjson")) await JsonAsync(context.Output, FlatRecord(name, sequence, data), token).ConfigureAwait(false);
+    }
+
+    // The --ndjson contract is flat: an event's own fields sit at the top
+    // level of the record next to schema_version/command/event/sequence,
+    // never nested under a "data" key.
+    private JsonObject FlatRecord(string name, int sequence, object? data)
+    {
+        JsonObject record = new() { ["schema_version"] = 1, ["command"] = invocation.Command, ["event"] = name, ["sequence"] = sequence };
+        if (data is not null && JsonSerializer.SerializeToNode(data) is JsonObject fields)
+            foreach (KeyValuePair<string, JsonNode?> field in fields) record[field.Key] = field.Value?.DeepClone();
+        return record;
     }
 
     internal async ValueTask ScriptOutputAsync(string channel, string text)
