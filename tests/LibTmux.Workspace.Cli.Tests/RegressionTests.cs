@@ -1114,6 +1114,29 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
+    // O5: an all-whitespace session_name was refused with "contains a
+    // character tmux cannot preserve", which is false -- tmux preserves
+    // spaces fine. Keep refusing (a whitespace-only name is indistinguishable
+    // from none), but say why; and give the colon/period refusal (H8: tmux
+    // uses both as target separators, so the session could never be
+    // addressed) its own accurate wording instead of sharing this one.
+    [Theory]
+    [InlineData("   ", "session_name must contain a non-whitespace character.")]
+    [InlineData("a:b", "session_name must not contain ':' or '.', which tmux uses as target separators.")]
+    [InlineData("a.b", "session_name must not contain ':' or '.', which tmux uses as target separators.")]
+    public async Task Invalid_session_names_report_what_is_actually_wrong(string name, string expectedMessage)
+    {
+        string file = Path.Combine(_root, "invalid-name-" + name.GetHashCode(StringComparison.Ordinal) + ".yaml");
+        await File.WriteAllTextAsync(file, "session_name: \"" + name + "\"\nwindows: [{panes: [null]}]\n", TestContext.Current.CancellationToken);
+        var result = await Run("load", file, "-d", "--json");
+        Assert.Equal(1, result.Code);
+        Assert.Empty(result.Output);
+        JsonNode error = JsonNode.Parse(result.Error)!;
+        Assert.Equal("invalid-config", error["code"]!.ToString());
+        Assert.Equal(expectedMessage, error["message"]!.ToString());
+        Assert.DoesNotContain("cannot preserve", error["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
     private CliContext Context(TextWriter output) => new(output, TextWriter.Null, _root, System.Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => entry.Value?.ToString(), StringComparer.Ordinal), TestContext.Current.CancellationToken);
 
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)

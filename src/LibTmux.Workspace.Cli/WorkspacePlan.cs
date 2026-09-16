@@ -20,7 +20,14 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         Keys(document, RootKeys, "workspace");
         string name = overrideName ?? Text(document, "session_name") ?? throw Invalid("session_name is required.");
         name = store.Expand(name);
-        if (string.IsNullOrWhiteSpace(name) || name.Any(character => char.IsControl(character) || character is ':' or '.')) throw Invalid("session_name contains a character tmux cannot preserve.");
+        // Each refusal states what actually breaks: tmux preserves whitespace
+        // and control characters in a session name (an empty/blank name is
+        // refused only because it would be indistinguishable from none), but
+        // ':' and '.' are target-spec separators, so a name containing one
+        // can never be addressed afterward (H8).
+        if (string.IsNullOrWhiteSpace(name)) throw Invalid("session_name must contain a non-whitespace character.");
+        if (name.Any(char.IsControl)) throw Invalid("session_name must not contain control characters, which corrupt tmux's own session listings.");
+        if (name.Any(character => character is ':' or '.')) throw Invalid("session_name must not contain ':' or '.', which tmux uses as target separators.");
         string fileDirectory = Path.GetDirectoryName(source)!;
         string directory = document["start_directory"] is null ? store.WorkingDirectory : ResolveDirectory(document, fileDirectory, store);
         JsonArray windows = document["windows"] as JsonArray ?? throw Invalid("windows must be a list.");
