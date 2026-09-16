@@ -9,7 +9,7 @@ internal static partial class LogFile
     internal static StreamWriter Open(string path)
     {
         if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
-            throw new CliException("log-file-unsupported", "Log files currently require Linux x64.");
+            throw new CliException("log_file_unsupported", "Log files currently require Linux x64.");
         const int writeOnly = 1, create = 0x40, noControllingTerminal = 0x100, append = 0x400, nonBlocking = 0x800, closeOnExec = 0x80000, noFollow = 0x20000;
         const uint ownerReadWrite = 0x180, fileTypeMask = 0xF000, regularFile = 0x8000;
         SafeFileHandle? handle = null;
@@ -26,7 +26,7 @@ internal static partial class LogFile
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException)
         {
             handle?.Dispose();
-            throw new CliException("log-file-unavailable", $"Cannot open log file '{path}': {failure.Message}");
+            throw new CliException("log_file_unavailable", $"Cannot open log file '{path}': {failure.Message}");
         }
     }
 

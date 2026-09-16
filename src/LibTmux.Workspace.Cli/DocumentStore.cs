@@ -56,7 +56,7 @@ internal sealed class DocumentStore(CliContext context)
             }
             else if (File.Exists(path)) return path;
         }
-        throw new CliException("workspace-not-found", $"Workspace '{supplied}' was not found.");
+        throw new CliException("workspace_not_found", $"Workspace '{supplied}' was not found.");
     }
 
     internal string Expand(string value)
@@ -69,16 +69,16 @@ internal sealed class DocumentStore(CliContext context)
 
     internal static JsonObject Parse(string text)
     {
-        if (text.Length > 1_048_576) throw new CliException("invalid-config", "Workspace exceeds the 1 MiB character limit.");
+        if (text.Length > 1_048_576) throw new CliException("invalid_workspace", "Workspace exceeds the 1 MiB character limit.");
         try
         {
             YamlStream stream = new();
             using StringReader reader = new(text);
             stream.Load(reader);
-            if (stream.Documents.Count != 1) throw new CliException("invalid-config", "Expected one YAML or JSON document.");
-            return FromYaml(stream.Documents[0].RootNode) as JsonObject ?? throw new CliException("invalid-config", "The workspace document must be a mapping.");
+            if (stream.Documents.Count != 1) throw new CliException("invalid_workspace", "Expected one YAML or JSON document.");
+            return FromYaml(stream.Documents[0].RootNode) as JsonObject ?? throw new CliException("invalid_workspace", "The workspace document must be a mapping.");
         }
-        catch (YamlException failure) { throw new CliException("invalid-config", failure.Message); }
+        catch (YamlException failure) { throw new CliException("invalid_workspace", failure.Message); }
     }
 
     private static JsonNode? FromYaml(YamlNode node)
@@ -86,12 +86,28 @@ internal sealed class DocumentStore(CliContext context)
         if (node is YamlMappingNode mapping)
         {
             JsonObject result = [];
+            List<JsonObject> merges = [];
             foreach ((YamlNode key, YamlNode value) in mapping.Children)
             {
-                if (key is not YamlScalarNode scalar || scalar.Value is null) throw new CliException("invalid-config", "Mapping keys must be strings.");
-                if (result.ContainsKey(scalar.Value)) throw new CliException("invalid-config", $"Duplicate key '{scalar.Value}'.");
+                if (key is not YamlScalarNode scalar || scalar.Value is null) throw new CliException("invalid_workspace", "Mapping keys must be strings.");
+                // SPEC 3 S5: `<<: *anchor` / `<<: [*a, *b]` merge keys.
+                // Explicit keys in this mapping always win; among merge
+                // sources, the earlier one wins, per yaml.org/type/merge.html.
+                if (scalar.Value == "<<")
+                {
+                    foreach (YamlNode source in value is YamlSequenceNode list ? list.Children : [value])
+                    {
+                        if (FromYaml(source) is not JsonObject merged) throw new CliException("invalid_workspace", "'<<' must reference a mapping or a list of mappings.");
+                        merges.Add(merged);
+                    }
+                    continue;
+                }
+                if (result.ContainsKey(scalar.Value)) throw new CliException("invalid_workspace", $"Duplicate key '{scalar.Value}'.");
                 result.Add(scalar.Value, FromYaml(value));
             }
+            foreach (JsonObject merged in merges)
+                foreach ((string key, JsonNode? mergedValue) in merged)
+                    if (!result.ContainsKey(key)) result.Add(key, mergedValue?.DeepClone());
             return result;
         }
         if (node is YamlSequenceNode sequence) return new JsonArray(sequence.Children.Select(FromYaml).ToArray());
@@ -122,7 +138,7 @@ internal sealed class DocumentStore(CliContext context)
 
     internal static void Save(string path, JsonNode document, string format, bool force)
     {
-        if (File.Exists(path) && !force) throw new CliException("destination-exists", $"'{path}' exists; use --force to replace it.");
+        if (File.Exists(path) && !force) throw new CliException("destination_exists", $"'{path}' exists; use --force to replace it.");
         string target = Path.GetFullPath(path);
         string temporary = Path.Combine(Path.GetDirectoryName(target)!, ".tmux-workspace-" + Guid.NewGuid().ToString("N"));
         try

@@ -36,7 +36,7 @@ internal static class CommandDocumentation
             "bash" => "_tmux_workspace() { COMPREPLY=( $(compgen -W '" + vocabulary + "' -- \"${COMP_WORDS[COMP_CWORD]}\") ); }\ncomplete -F _tmux_workspace tmux-workspace\n",
             "zsh" => "#compdef tmux-workspace\n_arguments '*:argument:(" + vocabulary + ")'\n",
             "fish" => string.Join('\n', words.Select(word => "complete -c tmux-workspace -f -a '" + word + "'")) + "\n",
-            _ => throw new CliException("invalid-format", "Unknown documentation format.", 2),
+            _ => throw new CliException("invalid_format", "Unknown documentation format.", 2),
         };
     }
 }

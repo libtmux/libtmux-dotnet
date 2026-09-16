@@ -145,7 +145,7 @@ public sealed class ExecutionTests : IDisposable
                 throw new FileNotFoundException(failure.Message + "\n" + await MarkerDiagnostics(server, marker, token), failure.FileName, failure);
             }
             (code, output, error) = await Run("freeze", "native", "-S", socket, "--json");
-            Assert.Equal("capture-lossy", JsonNode.Parse(error)!["code"]!.ToString());
+            Assert.Equal("capture_lossy", JsonNode.Parse(error)!["code"]!.ToString());
             Assert.Equal(0, code);
             JsonNode capture = JsonNode.Parse(output)!;
             Assert.Equal("native", capture["session_name"]!.ToString());
@@ -176,7 +176,7 @@ public sealed class ExecutionTests : IDisposable
         string socket = Path.Combine(_root, "shell-omit.socket");
         string file = Path.Combine(_root, "shell-omit.yaml");
         await File.WriteAllTextAsync(file, "session_name: shellomit\nwindows: [{panes: [null, {shell_command: 'sleep 60'}]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -210,7 +210,7 @@ public sealed class ExecutionTests : IDisposable
         string socket = Path.Combine(_root, "shell-mismatch.socket");
         string file = Path.Combine(_root, "shell-mismatch.yaml");
         await File.WriteAllTextAsync(file, "session_name: shellmismatch\nwindows: [{panes: [null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             // An empty server exits by default, taking any pre-set global
@@ -366,7 +366,7 @@ public sealed class ExecutionTests : IDisposable
         {
             Assert.Equal(1, code);
             Assert.Empty(output);
-            Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+            Assert.Equal("invalid_workspace", JsonNode.Parse(error)!["code"]!.ToString());
             Assert.Contains("ERB", JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.Ordinal);
             Assert.Equal(content, await File.ReadAllTextAsync(source, token));
             Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
@@ -404,9 +404,14 @@ public sealed class ExecutionTests : IDisposable
 
         (int code, string output, string error) = await Run("import", kind, source, "--save-to", destination, "--force", "--json");
 
+        // SPEC 3 S14: "filters" and "clear" are teamocil fields this importer
+        // does not recognize at all (unsupported_key); every other case here
+        // is a recognized field with a value or combination this importer
+        // cannot represent (invalid_workspace).
+        string expectedCode = diagnostic is "filters" or "clear" ? "unsupported_key" : "invalid_workspace";
         Assert.Equal(1, code);
         Assert.Empty(output);
-        Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+        Assert.Equal(expectedCode, JsonNode.Parse(error)!["code"]!.ToString());
         Assert.Contains(diagnostic, JsonNode.Parse(error)!["message"]!.ToString(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal("retain existing document", await File.ReadAllTextAsync(destination, token));
     }
@@ -552,7 +557,7 @@ public sealed class ExecutionTests : IDisposable
         (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "--json");
         Assert.Equal(1, code);
         Assert.Empty(output);
-        Assert.Equal("invalid-config", JsonNode.Parse(error)!["code"]!.ToString());
+        Assert.Equal("unsupported_key", JsonNode.Parse(error)!["code"]!.ToString());
         Assert.False(File.Exists(socket));
     }
 
@@ -588,7 +593,7 @@ public sealed class ExecutionTests : IDisposable
 
         Assert.Equal(1, code);
         Assert.Empty(output.ToString());
-        Assert.Equal("invalid-config", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+        Assert.Equal("invalid_workspace", JsonNode.Parse(error.ToString())!["code"]!.ToString());
     }
 
     private static async Task<string> MarkerDiagnostics(Server server, string marker, CancellationToken cancellationToken)

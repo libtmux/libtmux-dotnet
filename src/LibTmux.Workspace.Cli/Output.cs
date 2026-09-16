@@ -18,7 +18,7 @@ internal sealed record CliContext(TextWriter Output, TextWriter Error, string Di
             string candidate = Path.GetFullPath(Path.Combine(folder, name), Directory);
             if (File.Exists(candidate) && !System.IO.Directory.Exists(candidate) && (OperatingSystem.IsWindows() || (File.GetUnixFileMode(candidate) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0)) return candidate;
         }
-        throw new CliException("executable-unavailable", $"Executable '{name}' was not found on PATH.");
+        throw new CliException("executable_unavailable", $"Executable '{name}' was not found on PATH.");
     }
 }
 
@@ -282,7 +282,9 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             try { await ClearProgressAsync(reporting.Token).ConfigureAwait(false); await FreshLinesAsync(reporting.Token).ConfigureAwait(false); }
             catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException or OperationCanceledException) { }
             await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "error" }, "error", reporting.Token).ConfigureAwait(false);
-            if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { code, message } : new { code, message, effects }, reporting.Token).ConfigureAwait(false);
+            // SPEC 3 S14: the stderr error record is {schema_version, code,
+            // message}; extra fields such as "effects" ride alongside them.
+            if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { schema_version = 1, code, message } : new { schema_version = 1, code, message, effects }, reporting.Token).ConfigureAwait(false);
             else
             {
                 Human(message, "error", writer: context.Error);
@@ -336,7 +338,7 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
     private async ValueTask ReportLogFailureAsync(Exception failure)
     {
         using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
-        try { await WarningCoreAsync("log-file-write-failed", "Log file output stopped: " + failure.Message, reporting.Token).ConfigureAwait(false); }
+        try { await WarningCoreAsync("log_file_write_failed", "Log file output stopped: " + failure.Message, reporting.Token).ConfigureAwait(false); }
         catch (Exception secondary) when (secondary is IOException or UnauthorizedAccessException or OperationCanceledException) { }
     }
 

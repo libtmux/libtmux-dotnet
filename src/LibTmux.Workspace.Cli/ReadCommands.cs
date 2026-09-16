@@ -17,7 +17,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
     internal void Search()
     {
         string[] terms = invocation.Many("patterns");
-        if (terms.Length == 0) throw new CliException("missing-pattern", "At least one search pattern is required.", 2);
+        if (terms.Length == 0) throw new CliException("missing_pattern", "At least one search pattern is required.", 2);
         string[] selected = invocation.Many("fields");
         if (selected.Length == 0) selected = ["name", "session_name", "path", "window", "pane"];
         selected = selected.Select(Field).Distinct(StringComparer.Ordinal).ToArray();
@@ -31,7 +31,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             RegexOptions flags = RegexOptions.CultureInvariant;
             if (invocation.Flag("ignore_case") || (invocation.Flag("smart_case") && !(prefix ? parts[1] : term).Any(char.IsUpper))) flags |= RegexOptions.IgnoreCase;
             try { return (Fields: prefix ? new[] { Field(parts[0]) } : selected, Regex: new Regex(pattern, flags, TimeSpan.FromSeconds(1))); }
-            catch (ArgumentException error) { throw new CliException("invalid-pattern", error.Message, 2); }
+            catch (ArgumentException error) { throw new CliException("invalid_pattern", error.Message, 2); }
         }).ToArray();
         List<JsonObject> matches = [];
         try
@@ -70,7 +70,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         }
         catch (RegexMatchTimeoutException failure)
         {
-            throw new CliException("pattern-timeout", $"Pattern '{failure.Pattern}' exceeded the match time limit. Simplify it, or match it literally with --fixed-strings.", 2);
+            throw new CliException("pattern_timeout", $"Pattern '{failure.Pattern}' exceeded the match time limit. Simplify it, or match it literally with --fixed-strings.", 2);
         }
         output.Records(matches);
     }
@@ -88,7 +88,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         string directory = teamocil ? Path.Combine(context.Home, ".teamocil") : _documents.Expand(context.Environment.GetValueOrDefault("TMUXINATOR_CONFIG") ?? Path.Combine(context.Home, ".tmuxinator"));
         string path = _documents.Resolve(invocation.Many("files")[0], directory);
         string content = File.ReadAllText(path);
-        if (!teamocil && content.Contains("<%", StringComparison.Ordinal)) throw new CliException("invalid-config", "Tmuxinator ERB templates require expanded YAML or JSON before import.");
+        if (!teamocil && content.Contains("<%", StringComparison.Ordinal)) throw new CliException("invalid_workspace", "Tmuxinator ERB templates require expanded YAML or JSON before import.");
         JsonObject document = ImportCommands.Convert(DocumentStore.Parse(content), teamocil);
         document["session_name"] ??= Path.GetFileNameWithoutExtension(path);
         document["start_directory"] = Path.GetFullPath(_documents.Expand(WorkspacePlan.Text(document, "start_directory") ?? context.Directory), context.Directory);
@@ -128,16 +128,16 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
 
     internal bool Confirm(string message)
     {
-        if (invocation.Machine) throw new CliException("confirmation-required", message);
+        if (invocation.Machine) throw new CliException("confirmation_required", message);
         string answer = Prompt(message + " [y/N] ");
         return answer.Equals("y", StringComparison.OrdinalIgnoreCase) || answer.Equals("yes", StringComparison.OrdinalIgnoreCase);
     }
 
     internal string Prompt(string message)
     {
-        if (!context.Terminal) throw new CliException("input-required", message + " Supply explicit arguments for noninteractive use.");
+        if (!context.Terminal) throw new CliException("input_required", message + " Supply explicit arguments for noninteractive use.");
         context.Error.Write(message);
-        return Console.ReadLine() ?? throw new CliException("input-closed", "Input closed before a response was received.");
+        return Console.ReadLine() ?? throw new CliException("input_closed", "Input closed before a response was received.");
     }
 
     private JsonObject Describe(string path, string source)
@@ -166,7 +166,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         "w" => "window",
         "n" => "name",
         "name" or "path" or "window" or "pane" => name.ToLowerInvariant(),
-        _ => throw new CliException("invalid-field", $"Unknown search field '{name}'.", 2),
+        _ => throw new CliException("invalid_field", $"Unknown search field '{name}'.", 2),
     };
 
     private static Dictionary<string, string[]> Fields(JsonObject document, string path)

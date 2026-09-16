@@ -156,8 +156,95 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(2, code);
         Assert.Empty(output.ToString());
         JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
-        Assert.Equal("invalid-dimension", diagnostic["code"]!.ToString());
+        Assert.Equal("invalid_dimension", diagnostic["code"]!.ToString());
         Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
+    // SPEC 3 S5: `<<: *anchor` / `<<: [*a, *b]` merge keys, with explicit
+    // keys overriding merged ones, at every mapping level.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Merge_keys_resolve_with_explicit_keys_winning(bool explicitFirst)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "merge.socket");
+        string file = Path.Combine(_root, "merge.yaml");
+        string second = explicitFirst
+            ? "  - window_name: b\n    <<: *base\n"
+            : "  - <<: *base\n    window_name: b\n";
+        await File.WriteAllTextAsync(
+            file,
+            "session_name: merged\nwindows:\n  - &base\n    window_name: a\n    panes: [null]\n" + second,
+            token);
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
+        try
+        {
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], TextWriter.Null, TextWriter.Null, _root, null, token);
+
+            Assert.Equal(0, code);
+            Assert.Equal("a\nb", await Execute(server, "list-windows", "-t", "merged", "-F", "#{window_name}"));
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
+    // SPEC 3 S6: a key starting with "x-", at any level, is inert -- accepted
+    // and ignored at load, while an unrelated unknown key is still refused
+    // and the refusal names the "x-" escape hatch.
+    [Fact]
+    public async Task Extension_keys_are_inert_and_the_refusal_names_the_escape()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string accepted = Path.Combine(_root, "x-ok.yaml");
+        await File.WriteAllTextAsync(
+            accepted,
+            "session_name: xok\nx-defaults: &shared\n  x-note: unused\nwindows: [{window_name: main, x-window-note: unused, panes: [null]}]",
+            token);
+        string refused = Path.Combine(_root, "x-bad.yaml");
+        await File.WriteAllTextAsync(refused, "session_name: xbad\nbogus_top_level_key: 1\nwindows: [{panes: [null]}]", token);
+        using StringWriter okOutput = new();
+        using StringWriter okError = new();
+        using StringWriter badOutput = new();
+        using StringWriter badError = new();
+
+        int okCode = await CliRunner.RunAsync(["load", accepted, "-d", "--json"], okOutput, okError, _root, null, token);
+        int badCode = await CliRunner.RunAsync(["load", refused, "-d", "--json"], badOutput, badError, _root, null, token);
+
+        Assert.Equal(0, okCode);
+        Assert.Empty(okError.ToString());
+        Assert.Equal(1, badCode);
+        JsonNode diagnostic = JsonNode.Parse(badError.ToString())!;
+        Assert.Equal("unsupported_key", diagnostic["code"]!.ToString());
+        Assert.Contains("'x-'", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
+    }
+
+    // SPEC 3 S14: a missing tmux executable is tmux_unavailable, distinct
+    // from the generic executable_unavailable shared by EDITOR/before_script.
+    [Fact]
+    public async Task Missing_tmux_executable_reports_its_own_code()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string file = Path.Combine(_root, "unreachable.yaml");
+        await File.WriteAllTextAsync(file, "session_name: unreachable\nwindows: [{panes: [null]}]", token);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["TMUX"] = null,
+            ["TMUX_PANE"] = null,
+            ["LIBTMUX_TMUX"] = null,
+            ["PATH"] = _root,
+        };
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(["load", file, "-d", "--json"], output, error, _root, environment, token);
+
+        Assert.Equal(1, code);
+        Assert.Empty(output.ToString());
+        Assert.Equal("tmux_unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
     }
 
     // SPEC 3 S1/A1: a session built without asking the terminal its size gets
@@ -183,7 +270,7 @@ public sealed class RegressionTests : IDisposable
             ["COLUMNS"] = "123",
             ["LINES"] = "40",
         };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "keeper");
@@ -217,7 +304,7 @@ public sealed class RegressionTests : IDisposable
             ["TMUXP_DEFAULT_COLUMNS"] = "200",
             ["TMUXP_DEFAULT_ROWS"] = "50",
         };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "keeper");
@@ -277,7 +364,7 @@ public sealed class RegressionTests : IDisposable
         Assert.False(File.Exists(marker));
         Assert.Equal(1, code);
         Assert.Empty(output.ToString());
-        Assert.Equal("log-file-unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+        Assert.Equal("log_file_unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
         Assert.Equal("session_name: logging\nwindows: [{panes: [null]}]", await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
     }
 
@@ -338,7 +425,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "contract.socket");
         string file = Path.Combine(_root, "contract.yaml");
         await File.WriteAllTextAsync(file, "session_name: contract\nwindows: [{window_name: only, panes: [null, null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
@@ -538,7 +625,7 @@ public sealed class RegressionTests : IDisposable
             if (!brokenError)
             {
                 string diagnostic = Assert.Single(stderr.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
-                Assert.Equal("log-file-write-failed", JsonNode.Parse(diagnostic)!["code"]!.ToString());
+                Assert.Equal("log_file_write_failed", JsonNode.Parse(diagnostic)!["code"]!.ToString());
             }
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
@@ -559,7 +646,7 @@ public sealed class RegressionTests : IDisposable
         CliContext context = Context(stdout) with { Error = stderr, CancellationToken = cancellation.Token };
         Invocation invocation = new CommandLine().Parse(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson"]);
         await using Output output = new(context, invocation);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             int code = await new ExecutionCommands(context, invocation, output).LoadAsync();
@@ -608,7 +695,7 @@ public sealed class RegressionTests : IDisposable
                 return;
             }
             JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
-            Assert.Equal(cancelled ? "cancelled" : "output-failed", diagnostic["code"]!.ToString());
+            Assert.Equal(cancelled ? "interrupted" : "output_failed", diagnostic["code"]!.ToString());
             JsonNode effects = Assert.IsAssignableFrom<JsonNode>(diagnostic["effects"]);
             Assert.Equal("created", effects["results"]![0]!["status"]!.ToString());
             string session = effects["results"]![0]!["session_id"]!.ToString();
@@ -632,7 +719,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "append-focus.socket");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_TMPDIR"] = _root };
         string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: socket, configurationFile: "/dev/null", childEnvironment: environment));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketPath = socket, ConfigurationFile = "/dev/null", ChildEnvironment = environment });
         try
         {
             string pane = await Execute(server, "new-session", "-d", "-s", "home", "-n", "homewin", "-P", "-F", "#{pane_id}");
@@ -703,7 +790,7 @@ public sealed class RegressionTests : IDisposable
             if (mismatch)
             {
                 Assert.Empty(output.ToString());
-                Assert.Equal(selection == "restarted" ? "stale-environment" : "endpoint-mismatch", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+                Assert.Equal(selection == "restarted" ? "stale_environment" : "endpoint_mismatch", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             }
             else
             {
@@ -829,7 +916,7 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("partial", summary["status"]!.ToString());
             Assert.Single(summary["results"]!.AsArray());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
-            Assert.Equal("stale-server", issue["code"]!.ToString());
+            Assert.Equal("stale_server", issue["code"]!.ToString());
             Assert.Equal("session-options", issue["failed_stage"]!.ToString());
             Assert.False(issue["created"]!.GetValue<bool>());
             Assert.False(issue["removed"]!.GetValue<bool>());
@@ -876,7 +963,7 @@ public sealed class RegressionTests : IDisposable
             int code = await CliRunner.RunAsync(["load", first, second, "--append", "--ndjson", "-S", socket], output, error, _root, environment, token);
             Assert.True(code == 2 && !File.Exists(trace), $"Exit {code}, Python invoked {File.Exists(trace)}, output {output}, error {error}");
             Assert.Empty(output.ToString());
-            Assert.Equal("unsupported-append-extensions", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+            Assert.Equal("unsupported_append_extensions", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             Assert.Equal("1", await Execute(server, "display-message", "-p", "#{session_windows}"));
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
@@ -915,7 +1002,7 @@ public sealed class RegressionTests : IDisposable
                 var result = await Run("freeze", "existing", "-S", socket, "--json");
                 Assert.Equal(1, result.Code);
                 Assert.Empty(result.Output);
-                Assert.Equal("session-not-found", JsonNode.Parse(result.Error)!["code"]!.ToString());
+                Assert.Equal("session_not_found", JsonNode.Parse(result.Error)!["code"]!.ToString());
             }
             Assert.Equal("1", await Execute(server, "display-message", "-p", "-t", "=existing-long:", "#{session_windows}"));
         }
@@ -971,7 +1058,7 @@ public sealed class RegressionTests : IDisposable
         Directory.CreateDirectory(working);
         string socket = Path.Combine(_root, "explicit.socket");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "explicit");
@@ -1027,7 +1114,7 @@ public sealed class RegressionTests : IDisposable
             else
             {
                 Assert.Empty(output.ToString());
-                Assert.Equal("input-required", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+                Assert.Equal("input_required", JsonNode.Parse(error.ToString())!["code"]!.ToString());
                 Assert.Equal(1, code);
             }
         }
@@ -1270,7 +1357,7 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(1, result.Code);
         Assert.Empty(result.Output);
         JsonNode error = JsonNode.Parse(result.Error)!;
-        Assert.Equal("invalid-config", error["code"]!.ToString());
+        Assert.Equal("invalid_workspace", error["code"]!.ToString());
         Assert.Equal(expectedMessage, error["message"]!.ToString());
         Assert.DoesNotContain("cannot preserve", error["message"]!.ToString(), StringComparison.Ordinal);
     }

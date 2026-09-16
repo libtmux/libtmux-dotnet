@@ -69,7 +69,7 @@ public sealed class LayoutTests : IDisposable
             if (!expected && !geometry)
             {
                 Assert.Empty(output.ToString());
-                Assert.Equal("invalid-config", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+                Assert.Equal("invalid_workspace", JsonNode.Parse(error.ToString())!["code"]!.ToString());
                 Assert.False(File.Exists(marker));
                 Assert.Single(await server.GetSessionsAsync(token));
             }

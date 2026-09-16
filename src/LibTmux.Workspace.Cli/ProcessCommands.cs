@@ -13,7 +13,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
     {
         string path = new DocumentStore(context).Resolve(invocation.Many("files")[0]);
         string[] editor = SplitArguments(context.Environment.GetValueOrDefault("EDITOR") ?? "vim");
-        if (editor.Length == 0) throw new CliException("editor-required", "EDITOR must name an executable.");
+        if (editor.Length == 0) throw new CliException("editor_required", "EDITOR must name an executable.");
         ChildResult result = await RunProcessAsync(context, output, editor[0], [.. editor.Skip(1), path], context.Directory, stream: false, interactive: !invocation.Machine).ConfigureAwait(false);
         await output.ResultAsync(new { schema_version = 1, command = "edit", status = result.ExitCode == 0 ? "ok" : "error", path, child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated }, $"Editor exited with status {result.ExitCode}.").ConfigureAwait(false);
         return result.ExitCode;
@@ -45,7 +45,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
     internal async Task<int> ShellAsync()
     {
         bool interactive = invocation.Text("code") is null;
-        if (interactive && (invocation.Machine || !context.Terminal)) throw new CliException("terminal-required", "An interactive Python shell requires a terminal. Use -c for machine output.", 2);
+        if (interactive && (invocation.Machine || !context.Terminal)) throw new CliException("terminal_required", "An interactive Python shell requires a terminal. Use -c for machine output.", 2);
         string python = await PythonAsync().ConfigureAwait(false);
         string[] args = StripExtensions(invocation.Arguments);
         ChildResult result = await RunProcessAsync(context, output, python, BridgeArguments(args), context.Directory, stream: !interactive, interactive: interactive).ConfigureAwait(false);
@@ -68,7 +68,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
             arguments.Insert(separator < 0 ? arguments.Count : separator, "-d");
         }
         ChildResult result = await RunProcessAsync(childContext, output, python, BridgeArguments([.. arguments]), context.Directory, stream: true).ConfigureAwait(false);
-        var summary = new { schema_version = 1, command = "load", status = result.ExitCode == 0 ? "ok" : "error", results = new[] { new { bridge = "tmuxp", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated } }, errors = result.ExitCode == 0 ? Array.Empty<object>() : [new { code = "bridge-failed", message = "Python workspace load failed." }] };
+        var summary = new { schema_version = 1, command = "load", status = result.ExitCode == 0 ? "ok" : "error", results = new[] { new { bridge = "tmuxp", child_status = result.ExitCode, stdout = result.StandardOutput, stderr = result.StandardError, truncated = result.Truncated } }, errors = result.ExitCode == 0 ? Array.Empty<object>() : [new { code = "bridge_failed", message = "Python workspace load failed." }] };
         try
         {
             await output.EventAsync(result.ExitCode == 0 ? "completed" : "failed", summary).ConfigureAwait(false);
@@ -80,7 +80,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
-            await output.DiagnosticAsync(failure is OperationCanceledException ? "cancelled" : "output-failed", failure.Message, summary).ConfigureAwait(false);
+            await output.DiagnosticAsync(failure is OperationCanceledException ? "interrupted" : "output_failed", failure.Message, summary).ConfigureAwait(false);
             if (result.ExitCode == 0) return failure is OperationCanceledException ? 130 : 1;
         }
         return result.ExitCode;
@@ -99,7 +99,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
     {
         string python = context.Environment.GetValueOrDefault("TMUX_WORKSPACE_PYTHON") ?? "python3";
         ChildResult check = await RunProcessAsync(context, output, python, ["-c", "import importlib.metadata; print(importlib.metadata.version('tmuxp'))"], context.Directory, stream: false).ConfigureAwait(false);
-        if (check.ExitCode != 0 || check.StandardOutput.Trim() != "1.74.0") throw new CliException("unsupported-runtime", "Python compatibility requires tmuxp 1.74.0. Set TMUX_WORKSPACE_PYTHON to its Python executable.");
+        if (check.ExitCode != 0 || check.StandardOutput.Trim() != "1.74.0") throw new CliException("unsupported_runtime", "Python compatibility requires tmuxp 1.74.0. Set TMUX_WORKSPACE_PYTHON to its Python executable.");
         return python;
     }
 
@@ -127,7 +127,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         foreach (var variable in context.Environment) start.Environment[variable.Key] = variable.Value;
         using Process process = new() { StartInfo = start };
         try { process.Start(); }
-        catch (System.ComponentModel.Win32Exception failure) { throw new CliException("executable-unavailable", $"Cannot start '{executable}': {failure.Message}"); }
+        catch (System.ComponentModel.Win32Exception failure) { throw new CliException("executable_unavailable", $"Cannot start '{executable}': {failure.Message}"); }
         if (!interactive) process.StandardInput.Close();
         bool truncated = false;
         async Task<string> Drain(StreamReader reader, string channel)
@@ -188,7 +188,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
             else if (char.IsWhiteSpace(character)) { if (started) { result.Add(word.ToString()); word.Clear(); started = false; } }
             else { word.Append(character); started = true; }
         }
-        if (escaped || quote != '\0') throw new CliException("invalid-editor", "EDITOR contains an unfinished quote or escape.", 2);
+        if (escaped || quote != '\0') throw new CliException("invalid_editor", "EDITOR contains an unfinished quote or escape.", 2);
         if (started) result.Add(word.ToString());
         return result.ToArray();
     }
