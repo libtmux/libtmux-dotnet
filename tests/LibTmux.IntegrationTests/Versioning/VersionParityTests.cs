@@ -679,7 +679,13 @@ public sealed class VersionParityTests
             case "server_access_command":
                 RawTmuxResult access = await RequireSuccessAsync(context, ["server-access", "-l"]);
                 Assert.Single(access.StandardOutputLines);
-                Assert.Matches("^[^ ]+ \\(W\\)$", access.StandardOutputLines[0]);
+                // tmux 3.8 added group-based access control (its args string
+                // gained `g`), so a listed entry carries a `U` or `G` marker
+                // beside the `R`/`W` mode it always had: `d (W)` became
+                // `d (U,W)`. Both spellings are correct for the release that
+                // prints them, and this gate only asks that the owner is listed
+                // with write access, not which release's spelling it used.
+                Assert.Matches("^[^ ]+ \\((?:[UG],)?W\\)$", access.StandardOutputLines[0]);
                 break;
             case "show_prompt_history_command":
                 await ExercisePromptHistoryAsync(context, clear: false);
