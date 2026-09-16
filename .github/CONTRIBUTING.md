@@ -230,6 +230,10 @@ $ uv run python eng/parity/verify_capabilities.py
 ```
 
 ```console
+$ uv run python eng/parity/verify_version_literals.py
+```
+
+```console
 $ uv run python eng/parity/verify_workflows.py
 ```
 
@@ -386,7 +390,13 @@ $ uv run python eng/parity/verify_tmux_versions.py
 **A version-dependent behaviour needs a row in the ledger.** Anything that
 differs between 3.2a and 3.7c goes through the capability model, and each
 difference names the test that proves it in
-[`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json).
+[`docs/parity/version-deltas.json`](../docs/parity/version-deltas.json). A
+gate on a raw `TmuxVersion.Parse("...")` comparison anywhere else in
+`src/LibTmux`, instead of `TmuxCapabilities.IsSupported` or `Supports(...)`,
+fails `verify_version_literals.py`: it re-derives an answer the table already
+has, and the two can disagree without either side noticing. A handful of
+exceptions are named by exact text in that script, each with the tag evidence
+that makes it not a capability.
 
 **A public API addition changes both enforced contracts.** Update the Roslyn
 analyzer baseline (`PublicAPI.Unshipped.txt`) and the type and member records in
