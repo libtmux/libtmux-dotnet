@@ -233,6 +233,22 @@ public sealed class WindowTopologyTests
             await Assert.ThrowsAsync<TmuxWindowException>(() => mirrored);
         }
 
+        // tmux 3.8 made #{window_layout} JSON for a non-control client, and
+        // select-layout accepts that dump back -- read this window's own
+        // current layout and feed it straight back in, rather than
+        // fabricating one, since the string is opaque either way.
+        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
+        TmuxCommandResult dumped = await server.ExecuteCommandAsync(
+            ["display-message", "-p", "-t", window.Id.ToString(), "#{window_layout}"],
+            token);
+        Assert.Equal(0, dumped.ExitCode);
+        string dumpedLayout = Assert.Single(dumped.StandardOutputLines);
+        Assert.Equal(jsonLayoutsKnown, dumpedLayout.StartsWith('{'));
+        Window restored = await window.SelectLayoutAsync(
+            new SelectLayoutRequest(dumpedLayout),
+            token);
+        Assert.Equal(window.Id, restored.Id);
+
         Assert.NotEmpty(await server.GetSessionsAsync(token));
         Window cycled = await window.SelectNextLayoutAsync(token);
         Assert.Equal(window.Id, (await cycled.SelectPreviousLayoutAsync(token)).Id);

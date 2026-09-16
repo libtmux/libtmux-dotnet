@@ -42,6 +42,11 @@ version.
   answering `Unknown` for every capability. A `next` build is a real tmux the
   library will be run against; refusing to answer for it was the library
   declining to work on the release in progress. (#28)
+- `Window.SelectLayoutAsync` accepts the JSON layout tmux 3.8+ hands back
+  from `#{window_layout}` on a plain (non-control) client, from a server new
+  enough to have produced one. It previously refused any layout that did not
+  match the classic checksum-prefixed grammar, so replaying a captured
+  layout on a fresh window failed with `TmuxWindowException`. (#28)
 
 ### Changed
 
