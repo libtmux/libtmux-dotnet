@@ -147,9 +147,8 @@ public sealed class ExecutionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
-    // SPEC 5: freeze must omit shell_command for a pane still running the
-    // session's default shell (an empty array, round-tripping faithfully),
-    // and keep it -- as an array -- for a pane running anything else.
+    // freeze omits shell_command (an empty array) for the default
+    // shell and keeps it, as an array, for anything else.
     [Fact]
     public async Task Freeze_omits_the_default_shell_and_keeps_other_commands()
     {
@@ -181,12 +180,9 @@ public sealed class ExecutionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
-    // Reproduces the macOS shape on Linux: default-shell names one shell
-    // while the pane's actual process is a different, still-ordinary
-    // interactive shell. On macOS this happens for free because /bin/sh is
-    // bash under the hood; here default-command forces the same mismatch.
-    // A basename(default-shell) comparison alone misses this and freezes
-    // shell_command: ["bash"] for a pane that had no command at all.
+    // Reproduces the macOS shape (default-shell: /bin/sh, pane runs bash)
+    // on Linux via default-command, since basename(default-shell) alone
+    // misses it.
     [Fact]
     public async Task Freeze_recognizes_an_ordinary_shell_that_differs_from_default_shells_name()
     {
@@ -197,10 +193,8 @@ public sealed class ExecutionTests : IDisposable
         Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
         try
         {
-            // A server with no sessions exits by default, taking any global
-            // option set before that with it, so start a throwaway session
-            // first and only then set the overrides the real load below
-            // inherits.
+            // An empty server exits by default, taking any pre-set global
+            // option with it, so a throwaway session comes first.
             await server.ExecuteCommandAsync(["new-session", "-d", "-s", "__bootstrap__"], token);
             await server.ExecuteCommandAsync(["set-option", "-g", "default-shell", "/bin/sh"], token);
             await server.ExecuteCommandAsync(["set-option", "-g", "default-command", "/bin/bash -i"], token);

@@ -185,9 +185,8 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             if (windows[index] is not JsonObject window) continue;
             string title = window["window_name"]?.ToString() ?? $"window {index}";
             if (window["layout"] is JsonValue layout) title += $" [{layout}]";
-            // Decoration is gated on UseColor because ColorSystemSupport.NoColors
-            // (see CreateConsole) suppresses the tint but not a decoration: an
-            // unconditional Decoration.Bold still writes ESC[1m under --color never.
+            // ColorSystemSupport.NoColors (see CreateConsole) suppresses the
+            // tint but not a bare Decoration.Bold, so gate it here too.
             Tree tree = new(new Text(SafeText(title), new Style(Color.Cyan1, decoration: UseColor(context.Output) ? Decoration.Bold : Decoration.None)));
             if (window["panes"] is JsonArray panes)
             {
@@ -369,11 +368,9 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
     private IAnsiConsole HumanConsole(TextWriter writer) => ReferenceEquals(writer, context.Output) ? _outputConsole ??= CreateConsole(writer)
         : ReferenceEquals(writer, context.Error) ? _errorConsole ??= CreateConsole(writer) : CreateConsole(writer);
 
-    // Ansi is always Yes: Spectre's fallback for AnsiSupport.No calls
-    // System.Console.ForegroundColor/ResetColor() directly against the real
-    // console on a terminal, bypassing this writer entirely and leaking
-    // colour (and terminal-mode escapes) even when colour was asked off.
-    // ColorSystem carries the actual on/off decision instead.
+    // Ansi is always Yes: AnsiSupport.No falls back to System.Console's own
+    // color API, which writes straight to the real console. ColorSystem
+    // carries the on/off decision instead.
     private IAnsiConsole CreateConsole(TextWriter writer) => AnsiConsole.Create(new AnsiConsoleSettings { Ansi = AnsiSupport.Yes, ColorSystem = UseColor(writer) ? ColorSystemSupport.Standard : ColorSystemSupport.NoColors, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
 
     private static string SafeText(string text)

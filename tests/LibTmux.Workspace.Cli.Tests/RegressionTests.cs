@@ -252,9 +252,8 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
-    // The --ndjson event contract (cross-port SPEC 2): records are flat (no
-    // "data" nesting), and window/pane creation is paired with a matching
-    // completion event so a consumer tracking progress learns what finished.
+    // ndjson records are flat, and window/pane creation is paired with a
+    // matching completion event.
     [Fact]
     public async Task Ndjson_events_are_flat_and_report_pane_and_window_completion()
     {
@@ -468,11 +467,8 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
-    // Cancellation mid-window (not mid-load, which the QA pass already
-    // covers): the session is left in place by design, but the temporary
-    // bootstrap window used to hold the session open while options apply is
-    // pure scaffolding, never part of the user's document, and should not
-    // survive a cancellation any more than a successful load leaves it.
+    // Cancellation mid-window (not mid-load): the session stays by design,
+    // but the bootstrap window is scaffolding and should not survive either.
     [Fact]
     public async Task Cancellation_mid_window_still_removes_the_bootstrap_window()
     {
@@ -851,9 +847,8 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
-    // M1: an explicit --save-to is itself the user's consent to write there.
-    // Requiring --yes on top of it blocks the ordinary "freeze this session
-    // into a script-controlled path" flow in anything without a terminal.
+    // M1: --save-to is itself consent; requiring --yes too blocks freeze in
+    // anything without a terminal.
     [Fact]
     public async Task Explicit_save_to_needs_no_confirmation_flag()
     {
@@ -1147,12 +1142,8 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
-    // O5: an all-whitespace session_name was refused with "contains a
-    // character tmux cannot preserve", which is false -- tmux preserves
-    // spaces fine. Keep refusing (a whitespace-only name is indistinguishable
-    // from none), but say why; and give the colon/period refusal (H8: tmux
-    // uses both as target separators, so the session could never be
-    // addressed) its own accurate wording instead of sharing this one.
+    // O5/H8: each refusal keeps failing; only the message changes to the
+    // real reason -- see WorkspacePlan.cs.
     [Theory]
     [InlineData("   ", "session_name must contain a non-whitespace character.")]
     [InlineData("a:b", "session_name must not contain ':' or '.', which tmux uses as target separators.")]
@@ -1180,20 +1171,9 @@ public sealed class RegressionTests : IDisposable
         return (code, output.ToString(), error.ToString());
     }
 
-    // H7: on a real terminal, `--color never` must write no colour (no SGR
-    // escape) at all. A StringWriter cannot witness this: CliContext.Terminal
-    // requires ReferenceEquals(Output, Console.Out) with
-    // Console.IsOutputRedirected false, which only a real pty gives the
-    // process. Spectre's fallback for AnsiSupport.No calls
-    // System.Console.ForegroundColor/ResetColor() directly against the real
-    // console, bypassing whatever TextWriter the CLI was given, so only a
-    // pty-attached child process observes the leak.
-    //
-    // This does not assert the output is free of every escape: a bare .NET
-    // process attached to a pty writes ESC[?1h/ESC= (keypad mode) before any
-    // of this CLI's code runs at all -- reproduced with a one-line program
-    // that never touches Spectre or System.Console.Out -- so that is runtime
-    // behaviour outside this CLI's control, not a colour violation.
+    // H7: needs a real pty -- a StringWriter can't produce
+    // Console.IsOutputRedirected == false. ESC[?1h/ESC= keypad-mode escapes
+    // are excluded below: runtime behaviour on any pty, not colour.
     [Fact]
     public async Task Version_on_a_real_terminal_writes_no_colour_under_color_never()
     {
@@ -1202,10 +1182,8 @@ public sealed class RegressionTests : IDisposable
         Assert.False(ContainsSgrEscape(rendered), $"Expected no SGR (colour) escape codes, got: {rendered}");
     }
 
-    // An SGR sequence is CSI (ESC [) then digits/semicolons then 'm'. This
-    // deliberately excludes other CSI sequences such as progress redraw's
-    // ESC[2K/ESC[1A (erase line / cursor up, not colour) and the keypad-mode
-    // ESC[?1h noted above.
+    // SGR is CSI + digits/semicolons + 'm'; excludes ESC[2K/ESC[1A (progress
+    // redraw) and ESC[?1h (keypad mode), neither of which is colour.
     private static bool ContainsSgrEscape(string text)
     {
         for (int index = text.IndexOf("[", StringComparison.Ordinal); index >= 0; index = text.IndexOf("[", index + 1, StringComparison.Ordinal))
