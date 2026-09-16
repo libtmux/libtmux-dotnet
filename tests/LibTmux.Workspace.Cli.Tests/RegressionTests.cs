@@ -818,6 +818,39 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // M1: an explicit --save-to is itself the user's consent to write there.
+    // Requiring --yes on top of it blocks the ordinary "freeze this session
+    // into a script-controlled path" flow in anything without a terminal.
+    [Fact]
+    public async Task Explicit_save_to_needs_no_confirmation_flag()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string working = Path.Combine(_root, "explicit-save-to");
+        Directory.CreateDirectory(working);
+        string socket = Path.Combine(_root, "explicit.socket");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX"] = null, ["TMUX_PANE"] = null };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "explicit");
+            string destination = Path.Combine(working, "explicit.yaml");
+
+            using StringWriter firstOutput = new();
+            using StringWriter firstError = new();
+            int firstCode = await CliRunner.RunAsync(["freeze", "-S", socket, "--save-to", destination], firstOutput, firstError, working, environment, token);
+            Assert.Equal(0, firstCode);
+            Assert.Contains("session_name", await File.ReadAllTextAsync(destination, token), StringComparison.Ordinal);
+
+            // A second run against the same path needs --force for the
+            // pre-existing file, same as ever, but still no --yes.
+            using StringWriter secondOutput = new();
+            using StringWriter secondError = new();
+            int secondCode = await CliRunner.RunAsync(["freeze", "-S", socket, "--save-to", destination, "--force"], secondOutput, secondError, working, environment, token);
+            Assert.Equal(0, secondCode);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     [Theory]
     [InlineData("same")]
     [InlineData("other")]
