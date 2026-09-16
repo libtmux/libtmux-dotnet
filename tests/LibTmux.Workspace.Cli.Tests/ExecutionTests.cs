@@ -131,7 +131,9 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal("native", capture["session_name"]!.ToString());
             JsonArray windows = capture["windows"]!.AsArray();
             Assert.Equal(2, windows.Count);
-            Assert.Equal("off", windows[0]!["options"]!["automatic-rename"]!.ToString());
+            // SPEC 3: freeze writes window options under options_after, since
+            // automatic-rename: off only holds if applied after the panes exist.
+            Assert.Equal("off", windows[0]!["options_after"]!["automatic-rename"]!.ToString());
             Assert.Equal(0, windows[0]!["window_index"]!.GetValue<int>());
             Assert.Equal(4, windows[1]!["window_index"]!.GetValue<int>());
             Assert.Equal("/", windows[0]!["panes"]![0]!["start_directory"]!.ToString());
