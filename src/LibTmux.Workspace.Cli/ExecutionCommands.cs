@@ -10,6 +10,12 @@ namespace LibTmux.Workspace.Cli;
 internal sealed class ExecutionCommands(CliContext context, Invocation invocation, Output output)
 {
     private static readonly string[] InterpreterSuffixes = ["python", "ruby", "node"];
+    // On macOS, /bin/sh is bash, so a pane's reported command can differ from
+    // basename(default-shell) while still being an ordinary interactive
+    // shell and not an explicit command -- e.g. default-shell: /bin/sh,
+    // pane_current_command: bash. Recognize the common shell names directly;
+    // the default-shell comparison remains for anything more exotic.
+    private static readonly string[] OrdinaryShellNames = ["sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "fish", "csh", "tcsh"];
     private readonly DocumentStore _documents = new(context);
     private Server? _server;
     private ServerGeneration? _loadGeneration;
@@ -325,7 +331,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             foreach (string pane in (await Command(["list-panes", "-t", window, "-F", "#{pane_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 string currentCommand = await Field(pane, "pane_current_command").ConfigureAwait(false);
-                bool skipCommand = currentCommand.TrimStart('-') == defaultShell || InterpreterSuffixes.Any(suffix => currentCommand.EndsWith(suffix, StringComparison.Ordinal));
+                string trimmedCommand = currentCommand.TrimStart('-');
+                bool skipCommand = OrdinaryShellNames.Contains(trimmedCommand, StringComparer.Ordinal) || trimmedCommand == defaultShell || InterpreterSuffixes.Any(suffix => currentCommand.EndsWith(suffix, StringComparison.Ordinal));
                 panes.Add(new JsonObject { ["start_directory"] = await Field(pane, "pane_current_path").ConfigureAwait(false), ["focus"] = await Field(pane, "pane_active").ConfigureAwait(false) == "1", ["shell_command"] = skipCommand ? new JsonArray() : new JsonArray(currentCommand) });
             }
             captured["panes"] = panes;

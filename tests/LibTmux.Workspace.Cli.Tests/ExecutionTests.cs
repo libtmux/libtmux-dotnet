@@ -181,6 +181,49 @@ public sealed class ExecutionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // Reproduces the macOS shape on Linux: default-shell names one shell
+    // while the pane's actual process is a different, still-ordinary
+    // interactive shell. On macOS this happens for free because /bin/sh is
+    // bash under the hood; here default-command forces the same mismatch.
+    // A basename(default-shell) comparison alone misses this and freezes
+    // shell_command: ["bash"] for a pane that had no command at all.
+    [Fact]
+    public async Task Freeze_recognizes_an_ordinary_shell_that_differs_from_default_shells_name()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "shell-mismatch.socket");
+        string file = Path.Combine(_root, "shell-mismatch.yaml");
+        await File.WriteAllTextAsync(file, "session_name: shellmismatch\nwindows: [{panes: [null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            // A server with no sessions exits by default, taking any global
+            // option set before that with it, so start a throwaway session
+            // first and only then set the overrides the real load below
+            // inherits.
+            await server.ExecuteCommandAsync(["new-session", "-d", "-s", "__bootstrap__"], token);
+            await server.ExecuteCommandAsync(["set-option", "-g", "default-shell", "/bin/sh"], token);
+            await server.ExecuteCommandAsync(["set-option", "-g", "default-command", "/bin/bash -i"], token);
+
+            (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.Equal(0, code);
+            Assert.Empty(error);
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                string current = await server.ExecuteCommandAsync(["display-message", "-p", "-t", "shellmismatch:0.0", "#{pane_current_command}"], token) is { ExitCode: 0 } result
+                    ? System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n')
+                    : "";
+                if (current == "bash") break;
+                await Task.Delay(20, token);
+            }
+            (code, output, error) = await Run("freeze", "shellmismatch", "-S", socket, "--json");
+            Assert.Equal(0, code);
+            JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
+            Assert.Empty(panes[0]!["shell_command"]!.AsArray());
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     [Fact]
     public async Task Import_transforms_native_documents_without_a_python_runtime()
     {
