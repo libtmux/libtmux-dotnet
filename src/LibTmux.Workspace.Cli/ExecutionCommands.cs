@@ -81,6 +81,18 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             string? completedStage = null;
             bool created = false;
             bool changed = false;
+            // Declared out here, not inside the try, so the catch block below
+            // can still kill it: it is scaffolding to hold the session open
+            // while options apply, never part of the user's document, and a
+            // cancellation or failure partway through the window loop must
+            // not leave it behind any more than a successful load does.
+            string? bootstrap = null;
+            // True only once the document's own first window exists. Killing
+            // the bootstrap window before that would kill the session with
+            // it -- tmux drops a session when its last window goes -- which
+            // would silently contradict "leave the half-built session in
+            // place" for a failure at session-options or earlier.
+            bool windowCreated = false;
             async Task<string> Change(IReadOnlyList<string> arguments)
             {
                 string result = await Command(arguments).ConfigureAwait(false);
@@ -129,7 +141,6 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     }
                 }
                 await output.ProgressAsync(progress => progress.StartWorkspace(input.Plan, sessionName), force: true).ConfigureAwait(false);
-                string? bootstrap = null;
                 if (session is null)
                 {
                     stage = "session-created";
@@ -174,6 +185,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (window.Name is not null) args.AddRange(["-n", window.Name]);
                     PaneArguments(args, first);
                     string[] identifiers = (await Change(args).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                    windowCreated = true;
                     string windowId = identifiers[0];
                     string paneId = identifiers[1];
                     firstWindow ??= windowId;
@@ -252,6 +264,17 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     {
                         cleanupError = deletion.Message;
                     }
+                }
+                // The bootstrap window is scaffolding, not user content: a
+                // cancellation or failure that leaves the rest of the session
+                // in place (by design) should still not leave this behind.
+                // Best-effort and silent -- the reported failure is about the
+                // load, not about this cleanup.
+                if (!removed && bootstrap is not null && windowCreated)
+                {
+                    using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
+                    try { await Server.ExecuteCommandAsync(["kill-window", "-t", bootstrap], cleanup.Token).ConfigureAwait(false); }
+                    catch (Exception deletion) when (deletion is LibTmuxException or StaleServerGenerationException or OperationCanceledException or IOException or UnauthorizedAccessException) { }
                 }
                 string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
