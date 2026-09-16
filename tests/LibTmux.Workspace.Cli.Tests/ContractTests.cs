@@ -41,7 +41,7 @@ public sealed class ContractTests : IDisposable
         var result = await Run("search", "s:(a+)+$", "--json");
         Assert.Equal(2, result.Code);
         Assert.Empty(result.Output);
-        Assert.Equal("pattern-timeout", JsonNode.Parse(result.Error)!["code"]!.ToString());
+        Assert.Equal("pattern_timeout", JsonNode.Parse(result.Error)!["code"]!.ToString());
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public sealed class ContractTests : IDisposable
         var result = await Run("load", "--json", "-d", "--", "-h");
         Assert.Equal(1, result.Code);
         Assert.Empty(result.Output);
-        Assert.Equal("workspace-not-found", JsonNode.Parse(result.Error)!["code"]!.ToString());
+        Assert.Equal("workspace_not_found", JsonNode.Parse(result.Error)!["code"]!.ToString());
     }
 
     [Fact]

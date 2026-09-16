@@ -24,13 +24,27 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string? name = invocation.Text("socket_name");
         if (socket is null && name is null) socket = LoadHandoff.CurrentSocket(context, out _);
         if (socket is not null) socket = Path.GetFullPath(socket, context.Directory);
-        return new ServerConnectionOptions(tmuxBinaryPath: context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux"), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
+        return new ServerConnectionOptions(tmuxBinaryPath: TmuxExecutable(), socketName: name, socketPath: socket, configurationFile: invocation.Text("tmux_config"), colorMode: invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, childEnvironment: context.Environment);
+    }
+
+    // SPEC 3 S14: a missing tmux executable is its own tmux_unavailable code,
+    // not the generic executable_unavailable shared with EDITOR/before_script.
+    private string TmuxExecutable()
+    {
+        try
+        {
+            return context.Executable(context.Environment.GetValueOrDefault("LIBTMUX_TMUX") ?? "tmux");
+        }
+        catch (CliException failure) when (failure.Code == "executable_unavailable")
+        {
+            throw new CliException("tmux_unavailable", failure.Message);
+        }
     }
 
     internal async Task<int> LoadAsync()
     {
-        if (invocation.Flag("colors88")) throw new CliException("unsupported-color-mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
-        if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("mode-required", "Machine load requires -d or --append.", 2);
+        if (invocation.Flag("colors88")) throw new CliException("unsupported_color_mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
+        if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("mode_required", "Machine load requires -d or --append.", 2);
         output.PrepareProgress();
         string[] files = invocation.Many("files");
         var inputs = files.Select((file, index) =>
@@ -42,8 +56,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
         LoadHandoff handoff = new(context, invocation, output);
         await handoff.ResolveAsync(Connection()).ConfigureAwait(false);
-        if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("unsupported-append-extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
-        if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported-attached-extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
+        if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("unsupported_append_extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
+        if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported_attached_extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
         _server = handoff.Server;
         _loadGeneration = _server?.Generation;
         try
@@ -57,7 +71,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         catch (ArgumentException error)
         {
-            throw new CliException("invalid-config", error.Message);
+            throw new CliException("invalid_workspace", error.Message);
         }
         (Session Session, string Name)? appendTarget = handoff.Mode == LoadMode.Append ? (handoff.CurrentSession!, handoff.CurrentSessionName!) : null;
         if (extensions)
@@ -150,10 +164,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 {
                     stage = "before-script";
                     string[] scriptArguments = ProcessCommands.SplitArguments(script);
-                    if (scriptArguments.Length == 0) throw new CliException("invalid-config", "before_script must name an executable.");
+                    if (scriptArguments.Length == 0) throw new CliException("invalid_workspace", "before_script must name an executable.");
                     if (scriptArguments[0].StartsWith('.')) scriptArguments[0] = Path.GetFullPath(scriptArguments[0], Path.GetDirectoryName(input.Path)!);
                     ChildResult child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true).ConfigureAwait(false);
-                    if (child.ExitCode != 0) throw new CliException("script-failed", $"before_script exited with status {child.ExitCode}.");
+                    if (child.ExitCode != 0) throw new CliException("script_failed", $"before_script exited with status {child.ExitCode}.");
                     completedStage = stage;
                 }
                 stage = "session-options";
@@ -267,7 +281,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     try { await Server.ExecuteCommandAsync(["kill-window", "-t", bootstrap], cleanup.Token).ConfigureAwait(false); }
                     catch (Exception deletion) when (deletion is LibTmuxException or StaleServerGenerationException or OperationCanceledException or IOException or UnauthorizedAccessException) { }
                 }
-                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "tmux-failed";
+                string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "tmux_failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 if (cleanupError is not null) errors[^1]!["cleanup_error"] = cleanupError;
                 var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
@@ -295,7 +309,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or OperationCanceledException or CliException or LibTmuxException or StaleServerGenerationException)
         {
-            string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "cancelled" : failure is StaleServerGenerationException ? "stale-server" : failure is IOException or UnauthorizedAccessException ? "output-failed" : "attach-failed";
+            string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "attach_failed";
             string recorded = "Recorded load results:\n" + string.Join("\n", results.Select(result => $"  {result!["session_name"]} ({result["session_id"]}, {result["status"]})"));
             await output.DiagnosticAsync(code, failure.Message, completed, recorded).ConfigureAwait(false);
             return failure is OperationCanceledException ? 130 : failure is CliException status ? status.ExitCode : 1;
@@ -306,7 +320,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     internal async Task FreezeAsync()
     {
         if (!invocation.Machine && invocation.Text("save_to") is null)
-            throw new CliException("destination-required", "Capture needs a destination. Pass --save-to, or use --json or --ndjson for the document.", 2);
+            throw new CliException("destination_required", "Capture needs a destination. Pass --save-to, or use --json or --ndjson for the document.", 2);
         string? supplied = invocation.Many("sessions").FirstOrDefault();
         string? target = supplied is null ? await CurrentPaneTarget().ConfigureAwait(false) : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
@@ -354,7 +368,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         document["windows"] = windows;
         string format = invocation.Text("workspace_format") ?? "yaml";
         new ReadCommands(context, invocation, output).SaveOrPrint(document, format);
-        if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture-lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
+        if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture_lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
 
     private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["completed_stage"] = "workspace-completed" };
@@ -390,7 +404,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string? supplied = context.Environment.GetValueOrDefault(primary);
         string variable = supplied is null ? fallback : primary;
         string raw = supplied ?? context.Environment.GetValueOrDefault(fallback) ?? value.ToString(CultureInfo.InvariantCulture);
-        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", variable + " must be an integer from 1 through 65535.", 2);
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid_dimension", variable + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 
@@ -398,7 +412,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     {
         string? raw = context.Environment.GetValueOrDefault(name);
         if (string.IsNullOrEmpty(raw)) return current;
-        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", name + " must be an integer from 1 through 65535.", 2);
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid_dimension", name + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 
@@ -414,7 +428,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     private async Task<string> NamedSessionTarget(string name)
     {
         TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + name], context.CancellationToken).ConfigureAwait(false);
-        if (exists.ExitCode != 0) throw new CliException("session-not-found", $"Session '{name}' was not found.");
+        if (exists.ExitCode != 0) throw new CliException("session_not_found", $"Session '{name}' was not found.");
         return "=" + name + ":";
     }
 
@@ -434,7 +448,15 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         TmuxCommandResult result = _loadGeneration is not ServerGeneration generation
             ? await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false)
             : await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
-        if (result.ExitCode != 0) throw new CliException("tmux-failed", string.Join("\n", result.StandardErrorLines));
+        if (result.ExitCode != 0)
+        {
+            // No trailing "exited N: " separator when tmux wrote nothing.
+            string stderr = string.Join("\n", result.StandardErrorLines);
+            throw new CliException(
+                "tmux_failed",
+                stderr.Length == 0 ? $"tmux exited {result.ExitCode}" : $"tmux exited {result.ExitCode}: {stderr}");
+        }
+
         return Encoding.UTF8.GetString(result.StandardOutput.Span);
     }
 }

@@ -164,8 +164,10 @@ internal static class ImportCommands
     private static void Keys(JsonObject source, string scope, params string[] allowed)
     {
         foreach ((string key, JsonNode? value) in source)
-            if (value is not null && !allowed.Contains(key, StringComparer.Ordinal)) throw Invalid($"Unsupported imported {scope} field '{key}'.");
+            if (value is not null && !allowed.Contains(key, StringComparer.Ordinal)) throw Unsupported($"Unsupported imported {scope} field '{key}'.");
     }
 
-    private static CliException Invalid(string message) => new("invalid-config", message);
+    private static CliException Invalid(string message) => new("invalid_workspace", message);
+
+    private static CliException Unsupported(string message) => new("unsupported_key", message);
 }

@@ -85,19 +85,19 @@ internal static class CliRunner
                 case "import tmuxinator": commands.Import(false); break;
                 case "load" when !OperatingSystem.IsWindows(): return await new ExecutionCommands(context, invocation, renderer).LoadAsync().ConfigureAwait(false);
                 case "freeze" when !OperatingSystem.IsWindows(): await new ExecutionCommands(context, invocation, renderer).FreezeAsync().ConfigureAwait(false); break;
-                case "load" or "freeze": throw new CliException("unsupported-platform", "Native tmux workspace execution requires Unix.");
+                case "load" or "freeze": throw new CliException("unsupported_platform", "Native tmux workspace execution requires Unix.");
                 case "edit": return await new ProcessCommands(context, invocation, renderer).EditAsync().ConfigureAwait(false);
                 case "shell": return await new ProcessCommands(context, invocation, renderer).ShellAsync().ConfigureAwait(false);
                 case "debug-info": await new ProcessCommands(context, invocation, renderer).DebugAsync().ConfigureAwait(false); break;
             }
             return 0;
         }
-        catch (OperationCanceledException) { await renderer.DiagnosticAsync("cancelled", "Operation cancelled.").ConfigureAwait(false); return 130; }
+        catch (OperationCanceledException) { await renderer.DiagnosticAsync("interrupted", "Operation cancelled.").ConfigureAwait(false); return 130; }
         catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
-        catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale-server", failure.Message).ConfigureAwait(false); return 1; }
+        catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale_server", failure.Message).ConfigureAwait(false); return 1; }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or LibTmuxException)
         {
-            await renderer.DiagnosticAsync("operation-failed", failure.Message).ConfigureAwait(false);
+            await renderer.DiagnosticAsync("operation_failed", failure.Message).ConfigureAwait(false);
             return 1;
         }
         finally { await renderer.DisposeAsync().ConfigureAwait(false); }
