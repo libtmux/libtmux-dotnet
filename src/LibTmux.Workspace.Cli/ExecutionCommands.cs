@@ -231,7 +231,12 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 }
                 stage = "workspace-finalized";
                 if (bootstrap is not null) await Change(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
-                if ((focusedWindow ?? firstWindow) is string active) await Change(["select-window", "-t", active]).ConfigureAwait(false);
+                // SPEC 3 S10: appending must not move the client off its
+                // current window unless an appended window sets focus: true --
+                // firstWindow is only the fallback for a session load builds
+                // fresh, never for one the user already owns.
+                string? active = appendTarget is not null ? focusedWindow : focusedWindow ?? firstWindow;
+                if (active is not null) await Change(["select-window", "-t", active]).ConfigureAwait(false);
                 results.Add(Result(index, input.Path, session, sessionName, created ? "created" : "appended"));
                 await output.EventAsync(stage = "workspace-completed", new { input_index = index, session_id = session }).ConfigureAwait(false);
                 if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }

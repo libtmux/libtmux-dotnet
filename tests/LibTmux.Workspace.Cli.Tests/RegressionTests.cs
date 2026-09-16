@@ -619,6 +619,43 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // SPEC 3 S10/D6: appending windows to a session the user already owns must
+    // not move them off the window they were looking at -- that is a session
+    // load builds fresh, not one it is borrowing. An appended window that asks
+    // for focus is the one exception.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Append_moves_the_client_only_when_a_window_requests_focus(bool focus)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "append-focus.socket");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["TMUX_TMPDIR"] = _root };
+        string tmux = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: tmux, socketPath: socket, configurationFile: "/dev/null", childEnvironment: environment));
+        try
+        {
+            string pane = await Execute(server, "new-session", "-d", "-s", "home", "-n", "homewin", "-P", "-F", "#{pane_id}");
+            environment["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0");
+            environment["TMUX_PANE"] = pane;
+            string file = Path.Combine(_root, "append-focus.yaml");
+            await File.WriteAllTextAsync(file, "session_name: irrelevant\nwindows: [{window_name: extra1, panes: [null]}, {window_name: extra2, focus: " + (focus ? "true" : "false") + ", panes: [null]}]", token);
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["load", file, "--append", "--json"], output, error, _root, environment, token);
+
+            Assert.Equal(0, code);
+            Assert.Empty(error.ToString());
+            Assert.Equal(focus ? "extra2" : "homewin", await Execute(server, "display-message", "-p", "-t", "home:", "#{window_name}"));
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
     [Theory]
     [InlineData("inherited")]
     [InlineData("same-path")]
