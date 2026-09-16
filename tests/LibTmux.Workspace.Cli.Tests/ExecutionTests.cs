@@ -147,6 +147,40 @@ public sealed class ExecutionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // SPEC 5: freeze must omit shell_command for a pane still running the
+    // session's default shell (an empty array, round-tripping faithfully),
+    // and keep it -- as an array -- for a pane running anything else.
+    [Fact]
+    public async Task Freeze_omits_the_default_shell_and_keeps_other_commands()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "shell-omit.socket");
+        string file = Path.Combine(_root, "shell-omit.yaml");
+        await File.WriteAllTextAsync(file, "session_name: shellomit\nwindows: [{panes: [null, {shell_command: 'sleep 60'}]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.Equal(0, code);
+            Assert.Empty(error);
+            for (int attempt = 0; attempt < 100; attempt++)
+            {
+                string current = await server.ExecuteCommandAsync(["display-message", "-p", "-t", "shellomit:0.1", "#{pane_current_command}"], token) is { ExitCode: 0 } result
+                    ? System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n')
+                    : "";
+                if (current == "sleep") break;
+                await Task.Delay(20, token);
+            }
+            (code, output, error) = await Run("freeze", "shellomit", "-S", socket, "--json");
+            Assert.Equal(0, code);
+            JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
+            Assert.Equal(2, panes.Count);
+            Assert.Empty(panes[0]!["shell_command"]!.AsArray());
+            Assert.Equal(["sleep"], panes[1]!["shell_command"]!.AsArray().Select(node => node!.ToString()));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     [Fact]
     public async Task Import_transforms_native_documents_without_a_python_runtime()
     {
