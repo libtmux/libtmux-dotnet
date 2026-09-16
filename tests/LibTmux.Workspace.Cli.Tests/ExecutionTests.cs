@@ -6,6 +6,27 @@ namespace LibTmux.Workspace.Cli.Tests;
 [UnsupportedOSPlatform("windows")]
 public sealed class ExecutionTests : IDisposable
 {
+    // A pane writes its marker with `printf ... > file`, and the shell creates
+    // the file before printf fills it, so waiting for existence can read back
+    // an empty file. Wait for content.
+    private static async Task<string> MarkerAsync(string marker, CancellationToken token)
+    {
+        for (int attempt = 0; attempt < 250; attempt++)
+        {
+            try
+            {
+                if (File.Exists(marker))
+                {
+                    string observed = await File.ReadAllTextAsync(marker, token);
+                    if (observed.Length > 0) return observed;
+                }
+            }
+            catch (IOException) { }
+            await Task.Delay(20, token);
+        }
+        return File.Exists(marker) ? await File.ReadAllTextAsync(marker, token) : "";
+    }
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test", "cli-live-" + Guid.NewGuid().ToString("N"));
 
     public ExecutionTests() => Directory.CreateDirectory(_root);
@@ -118,8 +139,7 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal("", error);
             Assert.Equal(0, code);
             Assert.Equal("ok", JsonNode.Parse(output)!["status"]!.ToString());
-            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
-            try { Assert.Equal("pane", await File.ReadAllTextAsync(marker, token)); }
+            try { Assert.Equal("pane", await MarkerAsync(marker, token)); }
             catch (FileNotFoundException failure)
             {
                 throw new FileNotFoundException(failure.Message + "\n" + await MarkerDiagnostics(server, marker, token), failure.FileName, failure);
@@ -281,8 +301,7 @@ public sealed class ExecutionTests : IDisposable
             (code, records, error) = await Run("load", destination, "-d", "-S", socket, "--ndjson");
             Assert.Empty(error);
             Assert.Equal(0, code);
-            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
-            Assert.Equal("preserved", await File.ReadAllTextAsync(marker, token));
+            Assert.Equal("preserved", await MarkerAsync(marker, token));
             Assert.Equal("original", await Native("display-message", "-p", "-t", "imported", "#{window_name}"));
             JsonNode[] created = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").ToArray();
             Assert.Equal(4, created.Length);
@@ -425,10 +444,9 @@ public sealed class ExecutionTests : IDisposable
             (code, _, error) = await Run("load", destination, "-d", "-S", socket, "-f", "/dev/null", "--json");
             Assert.Empty(error);
             Assert.Equal(0, code);
-            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++) await Task.Delay(20, token);
             string expected = split ? "first:second:window:ready:end" : "first:second:end";
-            for (int attempt = 0; attempt < 100 && await File.ReadAllTextAsync(marker, token) != expected; attempt++) await Task.Delay(20, token);
-            Assert.Equal(expected, await File.ReadAllTextAsync(marker, token));
+            for (int attempt = 0; attempt < 250 && await MarkerAsync(marker, token) != expected; attempt++) await Task.Delay(20, token);
+            Assert.Equal(expected, await MarkerAsync(marker, token));
             TmuxCommandResult panes = await server.ExecuteCommandAsync(["list-panes", "-t", "prefixes:main", "-F", "#{pane_id}"], token);
             Assert.Equal(0, panes.ExitCode);
             Assert.Equal(split ? 2 : 1, System.Text.Encoding.UTF8.GetString(panes.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
