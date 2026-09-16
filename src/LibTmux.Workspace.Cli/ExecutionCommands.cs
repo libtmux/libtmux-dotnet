@@ -312,7 +312,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 string option = row.Split(' ', 2)[0];
                 options[option] = (await Command(["show-options", "-w", "-t", window, "-v", option]).ConfigureAwait(false)).TrimEnd('\n');
             }
-            captured["options"] = options;
+            // SPEC 3: automatic-rename: off only holds if it is applied after
+            // the panes exist, so freeze writes window options under
+            // options_after, matching tmuxp freeze and load's own boundary.
+            captured["options_after"] = options;
             JsonArray panes = [];
             foreach (string pane in (await Command(["list-panes", "-t", window, "-F", "#{pane_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
