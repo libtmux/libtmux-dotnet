@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 
@@ -123,7 +125,49 @@ internal sealed class DocumentStore(CliContext context)
         return JsonValue.Create(raw ?? "");
     }
 
-    internal static string Encode(JsonNode document, string format) => format == "json" ? document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n" : new SerializerBuilder().Build().Serialize(ToObject(document));
+    internal static string Encode(JsonNode document, string format) => format == "json"
+        ? document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n"
+        : new SerializerBuilder().WithTypeConverter(QuotingStringConverter.Instance).Build().Serialize(ToObject(document));
+
+    // SPEC 3 S4: quote every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2
+    // resolver would otherwise read back as bool, null, int or float, so a
+    // window named "yes" or "1.0" round-trips as the string it is.
+    private sealed class QuotingStringConverter : IYamlTypeConverter
+    {
+        internal static readonly QuotingStringConverter Instance = new();
+        private static readonly HashSet<string> Literals = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "", "y", "n", "yes", "no", "true", "false", "on", "off", "null", "~",
+        };
+        private static readonly Regex Ambiguous = new(
+            @"^(?:
+                [-+]?(0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|[0-9][0-9_]*)                 # int
+                |[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+                                    # sexagesimal int
+                |[-+]?(\.[0-9][0-9_]*|[0-9][0-9_]*\.[0-9_]*)([eE][-+]?[0-9]+)?        # decimal float
+                |[-+]?[0-9][0-9_]*[eE][-+]?[0-9]+                                    # bare-exponent float
+                |[-+]?[0-9][0-9_]*(:[0-5]?[0-9])+\.[0-9_]*                           # sexagesimal float
+                |[-+]?\.inf|\.nan                                                    # infinity / not-a-number
+            )$",
+            RegexOptions.IgnorePatternWhitespace | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        public bool Accepts(Type type) => type == typeof(string);
+
+        public object? ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer) =>
+            throw new NotSupportedException("Reading goes through DocumentStore.FromYaml, not this serializer.");
+
+        public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
+        {
+            string text = (string)value!;
+            bool quote = Literals.Contains(text) || Ambiguous.IsMatch(text);
+            emitter.Emit(new Scalar(
+                AnchorName.Empty,
+                TagName.Empty,
+                text,
+                quote ? ScalarStyle.DoubleQuoted : ScalarStyle.Any,
+                !quote,
+                quote));
+        }
+    }
 
     private static object? ToObject(JsonNode? node) => node switch
     {

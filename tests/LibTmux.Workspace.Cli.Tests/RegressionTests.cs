@@ -160,6 +160,29 @@ public sealed class RegressionTests : IDisposable
         Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
     }
 
+    // SPEC 3 S4: every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2
+    // resolver would read as bool, null, int or float must round-trip as the
+    // same string through convert's YAML emitter. Verified separately
+    // against `uvx tmuxp 1.74.0`, which reads this port's emitted YAML back
+    // with every one of these names unchanged.
+    [Fact]
+    public void Emitted_yaml_quotes_every_ambiguous_scalar()
+    {
+        string[] names = ["yes", "Yes", "1.0", "null", "Null", "on", "off", "08", "0x1F", "0o7", "1e3", ".inf", ".nan", "1_000", "1:30", "~", "true", "false", "y", "n", ""];
+        JsonObject document = new()
+        {
+            ["session_name"] = "quoting",
+            ["windows"] = new JsonArray(
+                [.. names.Select(name => (JsonNode)new JsonObject { ["window_name"] = name, ["panes"] = new JsonArray((JsonNode?)null) })]),
+        };
+
+        string yaml = DocumentStore.Encode(document, "yaml");
+        JsonObject reloaded = DocumentStore.Parse(yaml);
+
+        string[] roundTripped = [.. reloaded["windows"]!.AsArray().Select(window => window!["window_name"]!.ToString())];
+        Assert.Equal(names, roundTripped);
+    }
+
     // SPEC 3 S5: `<<: *anchor` / `<<: [*a, *b]` merge keys, with explicit
     // keys overriding merged ones, at every mapping level.
     [Theory]
