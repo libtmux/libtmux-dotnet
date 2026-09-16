@@ -216,10 +216,7 @@ internal sealed class MaterializationQuery
             .CreateEntityDispatcher(generation)
             .ExecuteAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
-        if (result.ExitCode != 0)
-        {
-            throw new TmuxCommandException($"{arguments[0]} failed.", result);
-        }
+        TmuxCommandFailure.ThrowIfFailed(result, arguments[0]);
 
         try
         {

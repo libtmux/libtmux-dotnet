@@ -193,8 +193,11 @@ public sealed partial class Server
     /// <returns>A scope that stops the server when disposed.</returns>
     /// <remarks>
     /// The scope holds an endpoint rather than a materialized server, because
-    /// a tmux server with no sessions exits at once. Creating the first session
-    /// through the endpoint both starts it for real and materializes it.
+    /// a tmux server with no sessions exits at once. <see cref="OwnedServerScope.Value" />
+    /// stays this same unmaterialized handle even after a session is created
+    /// through it: read the session returned by that call
+    /// (<c>session.Server</c>) instead of <c>owned.Value</c> to get a handle
+    /// that can list sessions, windows, and panes.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(

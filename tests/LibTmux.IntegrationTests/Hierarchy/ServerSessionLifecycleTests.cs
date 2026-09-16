@@ -58,6 +58,32 @@ public sealed class ServerSessionLifecycleTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Owned_server_handle_stays_unmaterialized_but_names_the_workaround()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using OwnedServerScope owned = await Server.CreateOwnedAsync(IsolatedOptions(), token);
+        Session session = await owned.Value.CreateSessionAsync(
+            new NewSessionRequest(name: "main"),
+            token);
+
+        // Regression for DOTNET-1: CreateOwnedAsync's own doc used to say
+        // creating the first session through the endpoint "materializes" it.
+        // It does not - owned.Value stays the unmaterialized endpoint, and
+        // reading a relation through it must name the cause and the
+        // workaround rather than failing with a bare "no tmux version".
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => owned.Value.GetSessionsAsync(token));
+        Assert.Contains("session.Server", failure.Message, StringComparison.Ordinal);
+
+        // The workaround the message names actually works.
+        IReadOnlyList<Session> sessions = await session.Server.GetSessionsAsync(token);
+        Assert.Contains(sessions, candidate => candidate.Id == session.Id);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task New_session_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -366,6 +392,12 @@ public sealed class ServerSessionLifecycleTests
                 socketPath: raw.SocketPath,
                 configurationFile: "/dev/null"),
             token);
+
+    private static ServerConnectionOptions IsolatedOptions() =>
+        new(
+            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: $"ltcs-owned-{Guid.NewGuid():N}",
+            configurationFile: "/dev/null");
 
     private static async Task<RawTmuxResult> RequireRawSuccessAsync(
         RawTmuxTestContext raw,

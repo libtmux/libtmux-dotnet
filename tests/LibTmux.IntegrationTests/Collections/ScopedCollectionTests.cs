@@ -109,7 +109,14 @@ public sealed class ScopedCollectionTests
         await server.ThrowIfDeadAsync(token);
         await raw.ExecuteAsync(["kill-server"], token);
 
-        await Assert.ThrowsAsync<TmuxCommandException>(() => server.GetSessionsAsync(token));
+        TmuxCommandException listingFailure = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.GetSessionsAsync(token));
+
+        // A listing failure's message must carry tmux's own reason, not just
+        // "list-sessions failed." with the reason reachable only through
+        // .Result.StandardErrorLines, matching every one-shot mutation's
+        // TmuxCommandFailure.ThrowIfFailed.
+        Assert.Contains("no server running", listingFailure.Message, StringComparison.Ordinal);
         Assert.False(await server.IsAliveAsync(token));
 
         TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(

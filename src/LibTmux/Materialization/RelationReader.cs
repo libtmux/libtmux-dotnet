@@ -103,7 +103,12 @@ internal static class RelationReader
     private static TmuxVersion ParseVersion(Server owner)
     {
         string raw = owner.RawVersion
-            ?? throw new InvalidOperationException("The server reported no tmux version.");
+            ?? throw new InvalidOperationException(
+                "This server handle has not discovered a live tmux server yet, so it "
+                + "carries no version to read relations with. CreateOwnedAsync returns a "
+                + "handle in exactly this state until a session exists: read through "
+                + "session.Server (the handle CreateSessionAsync returns) instead, or call "
+                + "ConnectAsync() again once a session exists.");
         return TmuxVersion.Parse(
             raw.StartsWith("tmux ", StringComparison.Ordinal) ? raw[5..] : raw);
     }
