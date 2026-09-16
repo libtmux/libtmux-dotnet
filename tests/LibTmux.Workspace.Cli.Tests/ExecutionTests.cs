@@ -48,7 +48,7 @@ public sealed class ExecutionTests : IDisposable
             (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
             Assert.Empty(error);
             Assert.Equal(0, code);
-            string[] created = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["data"]!["pane_id"]!.ToString()).ToArray();
+            string[] created = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["pane_id"]!.ToString()).ToArray();
             Assert.Equal(count, created.Length);
             for (int index = 0; index < count; index++)
             {
@@ -213,7 +213,7 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal("original", await Native("display-message", "-p", "-t", "imported", "#{window_name}"));
             JsonNode[] created = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").ToArray();
             Assert.Equal(4, created.Length);
-            Assert.Equal(created[1]["data"]!["pane_id"]!.ToString(), await Native("display-message", "-p", "-t", "imported:original", "#{pane_id}"));
+            Assert.Equal(created[1]["pane_id"]!.ToString(), await Native("display-message", "-p", "-t", "imported:original", "#{pane_id}"));
             Assert.Equal("off", await Native("show-options", "-w", "-v", "-t", "imported:original", "automatic-rename"));
             Assert.Equal(keeper, await Native("list-panes", "-t", "keeper", "-F", "#{pid}|#{session_id}|#{window_id}|#{pane_id}|#{pane_pid}"));
         }
@@ -432,7 +432,7 @@ public sealed class ExecutionTests : IDisposable
             (code, records, error) = await Run("load", destination, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
             Assert.Empty(error);
             Assert.Equal(0, code);
-            string[] panes = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["data"]!["pane_id"]!.ToString()).ToArray();
+            string[] panes = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["pane_id"]!.ToString()).ToArray();
             Assert.Equal(2, panes.Length);
             string[] expected = [phase == "before" ? "AB" : "A", "B"];
             for (int index = 0; index < panes.Length; index++)

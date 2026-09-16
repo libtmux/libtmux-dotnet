@@ -238,7 +238,7 @@ public sealed class RegressionTests : IDisposable
             JsonNode[] events = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.True(Array.FindIndex(events, item => item["event"]!.ToString() == "session-created") < Array.FindIndex(events, item => item["event"]!.ToString() == "script-output"));
             Assert.Single(events, item => item["event"]!.ToString() == "completed");
-            string sessionId = events.Single(item => item["event"]!.ToString() == "session-created")["data"]!["session_id"]!.ToString();
+            string sessionId = events.Single(item => item["event"]!.ToString() == "session-created")["session_id"]!.ToString();
             TmuxCommandResult pane = await server.ExecuteCommandAsync(["display-message", "-p", "-t", sessionId + ":", "#{pane_current_path}"], TestContext.Current.CancellationToken);
             Assert.Equal(0, pane.ExitCode);
             Assert.Equal(expectedDirectory, System.Text.Encoding.UTF8.GetString(pane.StandardOutput.Span).TrimEnd('\n'));
@@ -250,6 +250,56 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("debug", logged.Single(item => item["event"]!.ToString() == "script-output")["severity"]!.ToString());
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
+    }
+
+    // The --ndjson event contract (cross-port SPEC 2): records are flat (no
+    // "data" nesting), and window/pane creation is paired with a matching
+    // completion event so a consumer tracking progress learns what finished.
+    [Fact]
+    public async Task Ndjson_events_are_flat_and_report_pane_and_window_completion()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "contract.socket");
+        string file = Path.Combine(_root, "contract.yaml");
+        await File.WriteAllTextAsync(file, "session_name: contract\nwindows: [{window_name: only, panes: [null, null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson");
+            Assert.Empty(result.Error);
+            Assert.Equal(0, result.Code);
+            JsonNode[] events = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+
+            Assert.All(events, item => Assert.Null(item["data"]));
+            Assert.Equal(1, events.Single(item => item["event"]!.ToString() == "started")["inputs"]!.GetValue<int>());
+
+            JsonNode windowCreated = events.Single(item => item["event"]!.ToString() == "window-created");
+            Assert.Equal(0, windowCreated["input_index"]!.GetValue<int>());
+            Assert.NotNull(windowCreated["session_id"]);
+            Assert.NotNull(windowCreated["window_id"]);
+            Assert.Equal(1, windowCreated["window_index"]!.GetValue<int>());
+
+            JsonNode[] paneCreated = [.. events.Where(item => item["event"]!.ToString() == "pane-created")];
+            Assert.Equal(2, paneCreated.Length);
+            Assert.Equal([1, 2], paneCreated.Select(item => item["pane_index"]!.GetValue<int>()));
+            Assert.All(paneCreated, item => Assert.Equal(0, item["input_index"]!.GetValue<int>()));
+            Assert.All(paneCreated, item => Assert.Equal(windowCreated["session_id"]!.ToString(), item["session_id"]!.ToString()));
+            Assert.All(paneCreated, item => Assert.Equal(windowCreated["window_id"]!.ToString(), item["window_id"]!.ToString()));
+            Assert.All(paneCreated, item => Assert.Equal(1, item["window_index"]!.GetValue<int>()));
+
+            JsonNode[] paneCompleted = [.. events.Where(item => item["event"]!.ToString() == "pane-completed")];
+            Assert.Equal(paneCreated.Select(item => item["pane_id"]!.ToString()), paneCompleted.Select(item => item["pane_id"]!.ToString()));
+
+            JsonNode windowCompleted = events.Single(item => item["event"]!.ToString() == "window-completed");
+            Assert.Equal(windowCreated["window_id"]!.ToString(), windowCompleted["window_id"]!.ToString());
+
+            int windowCompletedIndex = Array.IndexOf(events, windowCompleted);
+            int lastPaneCompletedIndex = Array.IndexOf(events, paneCompleted[^1]);
+            int workspaceCompletedIndex = Array.FindIndex(events, item => item["event"]!.ToString() == "workspace-completed");
+            Assert.True(lastPaneCompletedIndex < windowCompletedIndex, "pane-completed must precede window-completed.");
+            Assert.True(windowCompletedIndex < workspaceCompletedIndex, "window-completed must precede workspace-completed.");
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
     [Fact]
@@ -407,7 +457,7 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal(outcome == "success" ? 0 : outcome == "cancel" ? 130 : 1, code);
             JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             JsonNode terminal = Assert.Single(events, item => item["event"]!.ToString() is "completed" or "failed");
-            Assert.Equal(outcome == "success" ? "ok" : "error", terminal["data"]!["status"]!.ToString());
+            Assert.Equal(outcome == "success" ? "ok" : "error", terminal["status"]!.ToString());
             Assert.Equal(outcome == "success", await server.IsAliveAsync(TestContext.Current.CancellationToken));
             if (!brokenError)
             {
@@ -847,7 +897,7 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal(Enumerable.Range(1, events.Length), events.Select(item => item["sequence"]!.GetValue<int>()));
             Assert.Single(events, item => item["event"]!.ToString() is "failed" or "completed");
             Assert.Equal("failed", events[^1]["event"]!.ToString());
-            JsonNode summary = events[^1]["data"]!;
+            JsonNode summary = events[^1];
             Assert.Equal("partial", summary["status"]!.ToString());
             Assert.Equal("complete", Assert.Single(summary["results"]!.AsArray())!["session_name"]!.ToString());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
