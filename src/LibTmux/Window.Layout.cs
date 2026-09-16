@@ -9,7 +9,12 @@ public sealed partial class Window
 {
     // tmux 3.3a crashes its entire server when layout_parse rejects a name, so
     // a layout is checked here rather than by the server. These five are known
-    // to every supported version; the mirrored pair arrived in 3.5.
+    // to every supported version; the mirrored pair arrived in 3.5. tmux 3.8
+    // added a second dumped form (#{window_layout} became JSON for a
+    // non-control client), and select-layout accepts both back -- measured, a
+    // JSON string round-trips byte-identical -- so a JSON-shaped layout is
+    // trusted the same way a checksum-prefixed one is, once the connected
+    // tmux is new enough to have produced it.
     private static readonly string[] UniversalLayouts =
     [
         "even-horizontal",
@@ -174,6 +179,13 @@ public sealed partial class Window
             return;
         }
 
+        bool jsonLayoutsKnown = owner.Version is TmuxVersion jsonVersion
+            && jsonVersion >= TmuxVersion.Parse("3.8");
+        if (jsonLayoutsKnown && HasJsonLayoutPrefix(layout))
+        {
+            return;
+        }
+
         throw new TmuxWindowException(
             $"{owner.RawVersion} does not know the layout '{layout}'.",
             _id,
@@ -187,4 +199,9 @@ public sealed partial class Window
         && char.IsAsciiHexDigit(layout[1])
         && char.IsAsciiHexDigit(layout[2])
         && char.IsAsciiHexDigit(layout[3]);
+
+    // The value is an opaque token tmux handed the caller, never parsed here
+    // -- only recognised as tmux's own JSON dump so it is not mistaken for an
+    // unknown layout name.
+    private static bool HasJsonLayoutPrefix(string layout) => layout[0] == '{';
 }

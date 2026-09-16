@@ -96,6 +96,30 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Fact]
+    public async Task Json_layouts_are_refused_before_dispatch_below_3_8()
+    {
+        int dispatches = 0;
+        Window window = CreateWindow(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.7c");
+
+        // tmux's window_layout format became JSON at 3.8, so a JSON-shaped
+        // layout is only trusted from a server that could have produced one.
+        // Below that it is refused the same way an unknown name is: before
+        // it ever reaches tmux.
+        await Assert.ThrowsAsync<TmuxWindowException>(() =>
+            window.SelectLayoutAsync(
+                new SelectLayoutRequest("{\"V\":2,\"L\":{\"t\":\"p\"}}"),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
     public async Task Reset_second_mutation_failure_is_unknown()
     {
         int mutations = 0;
@@ -431,10 +455,11 @@ public sealed class CompositeMutationDispatchTests
     }
 
     private static Window CreateWindow(
-        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
+        string rawVersion = "tmux 3.7")
     {
         TmuxConnection connection = CreateConnection(execute);
-        var server = new Server(connection, Generation, "tmux 3.7");
+        var server = new Server(connection, Generation, rawVersion);
         return new Window(
             server,
             connection,
