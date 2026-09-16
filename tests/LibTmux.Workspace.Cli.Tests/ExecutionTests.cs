@@ -174,7 +174,7 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal(0, code);
             JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
             Assert.Equal(2, panes.Count);
-            Assert.Empty(panes[0]!["shell_command"]!.AsArray());
+            Assert.Null(panes[0]!["shell_command"]);
             Assert.Equal(["sleep"], panes[1]!["shell_command"]!.AsArray().Select(node => node!.ToString()));
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
@@ -213,7 +213,7 @@ public sealed class ExecutionTests : IDisposable
             (code, output, error) = await Run("freeze", "shellmismatch", "-S", socket, "--json");
             Assert.Equal(0, code);
             JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
-            Assert.Empty(panes[0]!["shell_command"]!.AsArray());
+            Assert.Null(panes[0]!["shell_command"]);
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }

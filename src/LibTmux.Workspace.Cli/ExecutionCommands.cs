@@ -337,7 +337,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 string currentCommand = await Field(pane, "pane_current_command").ConfigureAwait(false);
                 string trimmedCommand = currentCommand.TrimStart('-');
                 bool skipCommand = OrdinaryShellNames.Contains(trimmedCommand, StringComparer.Ordinal) || trimmedCommand == defaultShell || InterpreterSuffixes.Any(suffix => currentCommand.EndsWith(suffix, StringComparison.Ordinal));
-                panes.Add(new JsonObject { ["start_directory"] = await Field(pane, "pane_current_path").ConfigureAwait(false), ["focus"] = await Field(pane, "pane_active").ConfigureAwait(false) == "1", ["shell_command"] = skipCommand ? new JsonArray() : new JsonArray(currentCommand) });
+                JsonObject capturedPane = new() { ["start_directory"] = await Field(pane, "pane_current_path").ConfigureAwait(false), ["focus"] = await Field(pane, "pane_active").ConfigureAwait(false) == "1" };
+                if (!skipCommand) capturedPane["shell_command"] = new JsonArray(currentCommand);
+                panes.Add(capturedPane);
             }
             captured["panes"] = panes;
             windows.Add(captured);
