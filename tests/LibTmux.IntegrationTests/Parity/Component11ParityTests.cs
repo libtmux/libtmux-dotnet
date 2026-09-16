@@ -172,12 +172,12 @@ public sealed class Component11ParityTests
     private static async Task<bool> ProvesPaneLookupAsync(Window window, CancellationToken token)
     {
         Pane only = await TestHierarchy.RequireFirstPaneAsync(window, token);
-        Pane? found = await window.GetPaneAsync(only.Id.ToString(), token);
+        Pane? found = await window.FindPaneAsync(only.Id.ToString(), token);
 
         // A Python __getitem__ or get() becomes a named lookup that answers
         // null rather than raising on an absent pane.
         return found?.Id == only.Id
-            && await window.GetPaneAsync("%9999", token) is null
+            && await window.FindPaneAsync("%9999", token) is null
             && typeof(Window).GetProperties().All(property => property.Name != "Item");
     }
 

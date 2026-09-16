@@ -81,7 +81,7 @@ public sealed class Component10ParityTests
                 && session.Name.Length > 0
                 && ReferenceEquals(session.Server, server),
             "libtmux.server:Server.is_alive" => await server.IsAliveAsync(token),
-            "libtmux.server:Server.raise_if_dead" => await ProvesRaiseIfDeadAsync(server, token),
+            "libtmux.server:Server.raise_if_dead" => await ProvesThrowIfDeadAsync(server, token),
             "libtmux.server:Server.start_server" => await ProvesStartServerAsync(token),
             "libtmux.server:Server.has_session" =>
                 await server.HasSessionAsync(session.Name, true, token)
@@ -130,14 +130,14 @@ public sealed class Component10ParityTests
         Assert.True(proved, $"Parity behavior was not proved for {pythonSymbolId}.");
     }
 
-    private static async Task<bool> ProvesRaiseIfDeadAsync(Server server, CancellationToken token)
+    private static async Task<bool> ProvesThrowIfDeadAsync(Server server, CancellationToken token)
     {
-        await server.RaiseIfDeadAsync(token);
+        await server.ThrowIfDeadAsync(token);
 
         // The probe is the loud counterpart to IsAliveAsync, so a socket with
         // no daemon behind it has to raise rather than answer.
         Server absent = Server.Open(IsolatedOptions());
-        await Assert.ThrowsAsync<TmuxCommandException>(() => absent.RaiseIfDeadAsync(token));
+        await Assert.ThrowsAsync<TmuxCommandException>(() => absent.ThrowIfDeadAsync(token));
         return !await absent.IsAliveAsync(token);
     }
 
@@ -199,12 +199,12 @@ public sealed class Component10ParityTests
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
         await session.SelectWindowAsync("second", token);
-        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Single().Id == second;
         await session.SelectPreviousWindowAsync(token);
-        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Id != second;
+        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Single().Id != second;
         await session.SelectNextWindowAsync(token);
         return selected && moved
-            && (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+            && (await session.RefreshAsync(token)).ActiveWindow.Single().Id == second;
     }
 
     private static async Task<bool> ProvesKillWindowAsync(Session session, CancellationToken token)

@@ -909,17 +909,19 @@ public sealed class GenerationGuardTests
         var server = new Server(connection, generation, "tmux 3.7");
         var successor = new Server(connection, new ServerGeneration(61, 401), "tmux 3.7");
 
-        var session = new Session(server, connection, generation, new SessionId(1));
-        var equalSession = new Session(server, connection, generation, new SessionId(1));
+        IReadOnlyDictionary<string, string?> fields = new Dictionary<string, string?>();
+        var session = new Session(server, connection, generation, new SessionId(1), fields);
+        var equalSession = new Session(server, connection, generation, new SessionId(1), fields);
         var successorSession = new Session(
             successor,
             connection,
             new ServerGeneration(61, 401),
-            new SessionId(1));
-        var window = new Window(server, connection, generation, new WindowId(2));
-        var equalWindow = new Window(server, connection, generation, new WindowId(2));
-        var pane = new Pane(server, connection, generation, new PaneId(3));
-        var equalPane = new Pane(server, connection, generation, new PaneId(3));
+            new SessionId(1),
+            fields);
+        var window = new Window(server, connection, generation, new WindowId(2), fields);
+        var equalWindow = new Window(server, connection, generation, new WindowId(2), fields);
+        var pane = new Pane(server, connection, generation, new PaneId(3), fields);
+        var equalPane = new Pane(server, connection, generation, new PaneId(3), fields);
 
         Assert.Equal(session, equalSession);
         Assert.Equal(session.GetHashCode(), equalSession.GetHashCode());

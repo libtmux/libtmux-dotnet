@@ -84,7 +84,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Session> sessions = await _inner
-            .GetSessionsStrictAsync(cancellationToken)
+            .GetSessionsAsync(cancellationToken)
             .ConfigureAwait(false);
         if (sessions.Count != 1)
         {
@@ -112,7 +112,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Window> windows = await _inner
-            .GetWindowsStrictAsync(cancellationToken)
+            .GetWindowsAsync(cancellationToken)
             .ConfigureAwait(false);
         return [.. windows.Select(window => new PsmuxWindow(this, window))];
     }
@@ -134,7 +134,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Pane> panes = await _inner
-            .GetPanesStrictAsync(cancellationToken)
+            .GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
         return [.. panes.Select(pane => new PsmuxPane(this, pane))];
     }

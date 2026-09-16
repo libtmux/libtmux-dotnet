@@ -40,14 +40,14 @@ internal sealed partial class WriteTools
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            Pane? active = session.ActivePane;
+            Pane active = session.ActivePane.Single();
             string landed = await TmuxTargets
                 .StartDirectoryNoteAsync(active, startDirectory, cancellationToken)
                 .ConfigureAwait(false);
             return new ActionResult(
                 $"Created session {session.Id}.{landed}",
-                PaneId: active?.Id.ToString(),
-                WindowId: session.ActiveWindow?.Id.ToString(),
+                PaneId: active.Id.ToString(),
+                WindowId: session.ActiveWindow.Single().Id.ToString(),
                 SessionId: session.Id.ToString());
         }
         catch (TmuxSessionExistsException)
@@ -82,12 +82,13 @@ internal sealed partial class WriteTools
                 cancellationToken)
             .ConfigureAwait(false);
 
+        Pane active = window.ActivePane.Single();
         string landed = await TmuxTargets
-            .StartDirectoryNoteAsync(window.ActivePane, startDirectory, cancellationToken)
+            .StartDirectoryNoteAsync(active, startDirectory, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
             $"Created window {window.Id} in {owner.Id}.{landed}",
-            PaneId: window.ActivePane?.Id.ToString(),
+            PaneId: active.Id.ToString(),
             WindowId: window.Id.ToString(),
             SessionId: owner.Id.ToString());
     }

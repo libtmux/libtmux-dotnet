@@ -101,7 +101,7 @@ internal sealed class ServerSnapshot
                 return session.WithCaptured(
                     () => Relation(windowsBySession[session.Id], "windows", depth),
                     Relation(
-                        [.. panes.Where(pane => Owns(paneRows, pane, "session_id", session.Id.ToString()))],
+                        [.. panes.Where(pane => Field(pane.RawFormatFields, "session_id") == session.Id.ToString())],
                         "panes",
                         depth,
                         depth >= SnapshotDepth.Panes));
@@ -116,22 +116,27 @@ internal sealed class ServerSnapshot
                 Window window = RelationReader.ToWindow(server, row);
                 SessionWindowEdge? edge = edges.FirstOrDefault(candidate =>
                     candidate.WindowId == window.Id
-                    && candidate.SessionId.ToString() == Field(row, "session_id"));
+                    && candidate.SessionId.ToString() == Field(row, "session_id")
+                    && candidate.WindowIndex == window.Index);
                 Session[] linked =
                 [
                     .. edges
                         .Where(candidate => candidate.WindowId == window.Id)
                         .Select(candidate => sessionsById.GetValueOrDefault(candidate.SessionId))
-                        .OfType<Session>(),
+                        .OfType<Session>()
+                        .DistinctBy(session => session.Id),
                 ];
                 return window.WithCaptured(
                     Relation(
-                        [.. panes.Where(pane => Owns(paneRows, pane, "window_id", window.Id.ToString()))],
+                        [.. panes.Where(pane => Field(pane.RawFormatFields, "window_id") == window.Id.ToString()
+                            && Field(pane.RawFormatFields, "session_id") == Field(row, "session_id")
+                            && Field(pane.RawFormatFields, "window_index") == Field(row, "window_index"))],
                         "panes",
                         depth,
                         depth >= SnapshotDepth.Panes),
                     Relation(linked, "linked sessions", depth),
-                    edge);
+                    edge,
+                    sessionsById.GetValueOrDefault(window.EntityKey.SessionId));
             }),
         ];
         foreach (Window window in windows)
@@ -140,6 +145,23 @@ internal sealed class ServerSnapshot
                 && windowsBySession.TryGetValue(edge.SessionId, out List<Window>? owned))
             {
                 owned.Add(window);
+            }
+        }
+
+        // Each window's own Panes relation was already filtered to its exact
+        // placement above (session_id, window_id and window_index all
+        // matched), so walking it back here assigns every pane's parent
+        // without re-deriving the placement from the pane's row a second
+        // time. Skipped below Panes depth, where every window's relation is
+        // uncaptured rather than empty.
+        if (depth >= SnapshotDepth.Panes)
+        {
+            foreach (Window window in windows)
+            {
+                foreach (Pane pane in window.Panes)
+                {
+                    pane.WithCaptured(window);
+                }
             }
         }
 
@@ -158,14 +180,6 @@ internal sealed class ServerSnapshot
         captured
             ? CapturedRelation.Capture(items, relation, depth)
             : CapturedRelation.Uncaptured<T>(relation, depth);
-
-    private static bool Owns(
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows,
-        Pane pane,
-        string wireName,
-        string owner) =>
-        rows.Any(row =>
-            Field(row, "pane_id") == pane.Id.ToString() && Field(row, wireName) == owner);
 
     private static SessionWindowEdge[] BuildEdges(
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows)

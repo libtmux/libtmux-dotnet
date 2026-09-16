@@ -98,14 +98,9 @@ public static partial class TmuxChaining
     /// <param name="window">The window being linked.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
     /// <remarks>
-    /// This takes the window because the link's source is the session that
-    /// window was read through, which a window resolved by identifier alone
-    /// does not know.
+    /// The source names the session and index captured with the window.
     /// </remarks>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier, so its source link is unknown.
-    /// </exception>
     public static TmuxCommand ToCommand(this LinkWindowRequest request, Window window)
     {
         ArgumentNullException.ThrowIfNull(request);

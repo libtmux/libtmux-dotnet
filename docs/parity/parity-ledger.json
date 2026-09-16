@@ -1463,7 +1463,7 @@
       "implementationStatus": "implemented",
       "module": "libtmux.exc",
       "pythonSymbolId": "libtmux.exc:NoActiveWindow",
-      "replacement": "nullable Session.ActiveWindow and nullable client attachment results",
+      "replacement": "captured Session.ActiveWindow and nullable client attachment results",
       "sourceUrl": "https://github.com/tmux-python/libtmux/blob/c4a980b/src/libtmux/exc.py",
       "testPath": "tests/LibTmux.IntegrationTests/Parity/Component17ParityTests.cs",
       "tmuxVersions": "3.2a-3.7b"
@@ -6714,7 +6714,7 @@
       "behavior": "Preserve method Server.raise_if_dead",
       "component": "server",
       "componentId": 10,
-      "csharpDestination": "M:LibTmux.Server.RaiseIfDeadAsync(CancellationToken)",
+      "csharpDestination": "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)",
       "destinationStatus": "approved",
       "evidenceStatus": "verified",
       "implementationStatus": "implemented",

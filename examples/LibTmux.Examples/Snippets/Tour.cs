@@ -26,6 +26,28 @@ public static class Tour
         }
     }
 
+    /// <summary>Reads a materialized window and checks optional capture state.</summary>
+    [Example("Read captured state and find a window")]
+    public static async Task ReadCapturedState(Server server, Session session, CancellationToken ct)
+    {
+        #region ReadCapturedState
+        Window created = await session.CreateWindowAsync(new NewWindowRequest(name: "lookup"), ct);
+        Server connected = await server.ConnectAsync(ct);
+        Window read = await connected.GetWindowAsync(created.Id, ct);
+        Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
+
+        Window? missing = await session.FindWindowAsync("not-created", ct);
+        Console.WriteLine($"missing {missing is null}");
+
+        Session current = await session.RefreshAsync(ct);
+        if (current.ActiveWindow.IsCaptured)
+        {
+            Window active = current.ActiveWindow.Single();
+            Console.WriteLine($"active {active.Name}");
+        }
+        #endregion
+    }
+
     /// <summary>Types a command into a pane and waits for what it printed.</summary>
     [Example("Type into a pane and wait for what it printed")]
     public static async Task RunACommand(Pane pane)

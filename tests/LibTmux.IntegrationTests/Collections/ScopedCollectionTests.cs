@@ -51,7 +51,7 @@ public sealed class ScopedCollectionTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task A_dead_server_lists_empty_rather_than_throwing()
+    public async Task A_dead_server_preserves_listing_failures()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
@@ -59,34 +59,24 @@ public sealed class ScopedCollectionTests
         Server server = await ConnectAsync(raw, token);
         await raw.ExecuteAsync(["kill-server"], token);
 
-        // A listing answers "what is there", so an absent daemon is an empty
-        // answer rather than a failure the caller must handle.
-        Assert.Empty(await server.GetSessionsAsync(token));
-        Assert.Empty(await server.GetAttachedSessionsAsync(token));
-        Assert.Empty(await server.GetWindowsAsync(token));
-        Assert.Empty(await server.GetPanesAsync(token));
+        await AssertListingFailuresAsync(server, token);
     }
 
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task List_accessors_are_lenient_on_tmux_errors()
+    public async Task Listings_preserve_permission_and_invalid_socket_failures()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        // A permission-denied socket is a live server refusing -- a different
-        // failure route than an exited daemon -- so leniency is proved on both.
         File.SetUnixFileMode(raw.SocketPath, UnixFileMode.None);
         try
         {
-            Assert.Empty(await server.GetSessionsAsync(token));
-            Assert.Empty(await server.GetAttachedSessionsAsync(token));
-            Assert.Empty(await server.GetWindowsAsync(token));
-            Assert.Empty(await server.GetPanesAsync(token));
+            await AssertListingFailuresAsync(server, token);
         }
         finally
         {
@@ -101,10 +91,7 @@ public sealed class ScopedCollectionTests
         File.Delete(raw.SocketPath);
         File.WriteAllText(raw.SocketPath, string.Empty);
 
-        Assert.Empty(await server.GetSessionsAsync(token));
-        Assert.Empty(await server.GetAttachedSessionsAsync(token));
-        Assert.Empty(await server.GetWindowsAsync(token));
-        Assert.Empty(await server.GetPanesAsync(token));
+        await AssertListingFailuresAsync(server, token);
     }
 
     [Fact(
@@ -119,21 +106,36 @@ public sealed class ScopedCollectionTests
         Server server = await ConnectAsync(raw, token);
 
         Assert.True(await server.IsAliveAsync(token));
+        await server.ThrowIfDeadAsync(token);
         await raw.ExecuteAsync(["kill-server"], token);
 
-        // An empty listing is what a server with no sessions returns too, so
-        // the caller who needs the difference has to ask a question leniency
-        // cannot answer. What the lenient path discarded is here in full.
-        Assert.Empty(await server.GetSessionsAsync(token));
+        await Assert.ThrowsAsync<TmuxCommandException>(() => server.GetSessionsAsync(token));
         Assert.False(await server.IsAliveAsync(token));
 
         TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
-            async () => await server.RaiseIfDeadAsync(token));
+            async () => await server.ThrowIfDeadAsync(token));
 
         Assert.NotEqual(0, failure.Result.ExitCode);
         Assert.Contains(
             failure.Result.StandardErrorLines,
             static line => line.Contains("no server running", StringComparison.Ordinal));
+    }
+
+    private static async Task AssertListingFailuresAsync(Server server, CancellationToken token)
+    {
+        foreach (Func<Task> list in new Func<Task>[]
+        {
+            () => server.GetSessionsAsync(token),
+            () => server.GetAttachedSessionsAsync(token),
+            () => server.GetWindowsAsync(token),
+            () => server.GetPanesAsync(token),
+            () => server.GetClientsAsync(token),
+        })
+        {
+            TmuxCommandException error = await Assert.ThrowsAsync<TmuxCommandException>(list);
+            Assert.NotEqual(0, error.Result.ExitCode);
+            Assert.NotEmpty(error.Result.StandardErrorLines);
+        }
     }
 
     private static Task<Server> ConnectAsync(

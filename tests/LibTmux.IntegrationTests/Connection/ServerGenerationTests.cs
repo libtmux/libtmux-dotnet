@@ -110,6 +110,19 @@ public sealed class ServerGenerationTests
         Assert.Equal(expected, lookup.Expected);
         Assert.Equal(actual, lookup.Actual);
 
+        foreach (Func<Task> findMissing in new Func<Task>[]
+        {
+            () => firstServer.FindSessionAsync(new SessionId(int.MaxValue)),
+            () => firstServer.FindWindowAsync(new WindowId(int.MaxValue)),
+            () => firstServer.FindPaneAsync(new PaneId(int.MaxValue)),
+        })
+        {
+            StaleServerGenerationException missing =
+                await Assert.ThrowsAsync<StaleServerGenerationException>(findMissing);
+            Assert.Equal(expected, missing.Expected);
+            Assert.Equal(actual, missing.Actual);
+        }
+
         StaleServerGenerationException error =
             await Assert.ThrowsAsync<StaleServerGenerationException>(
                 () => staleSession.ExecuteCommandAsync(
@@ -352,6 +365,13 @@ public sealed class ServerGenerationTests
                     new PaneId(int.MaxValue),
                     TestContext.Current.CancellationToken));
         Assert.Equal($"%{int.MaxValue}", missing.Target);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Assert.Null(await server.FindSessionAsync(new SessionId(int.MaxValue), token));
+        Assert.Null(await server.FindWindowAsync(new WindowId(int.MaxValue), token));
+        Assert.Null(await server.FindPaneAsync(new PaneId(int.MaxValue), token));
+        Assert.Equal(session.Name, (await server.FindSessionAsync(session.Id, token))?.Name);
+        Assert.Equal(window.Width, (await server.FindWindowAsync(window.Id, token))?.Width);
+        Assert.Equal(pane.Width, (await server.FindPaneAsync(pane.Id, token))?.Width);
     }
 
     [UnixFact]
@@ -370,10 +390,19 @@ public sealed class ServerGenerationTests
             TestContext.Current.CancellationToken);
         Assert.Equal(0, stopped.ExitCode);
 
-        await Assert.ThrowsAsync<TmuxCommandException>(
-            () => server.GetSessionAsync(
-                new SessionId(0),
-                TestContext.Current.CancellationToken));
+        CancellationToken token = TestContext.Current.CancellationToken;
+        foreach (Func<Task> lookup in new Func<Task>[]
+        {
+            () => server.GetSessionAsync(new SessionId(0), token),
+            () => server.GetWindowAsync(new WindowId(0), token),
+            () => server.GetPaneAsync(new PaneId(0), token),
+            () => server.FindSessionAsync(new SessionId(0), token),
+            () => server.FindWindowAsync(new WindowId(0), token),
+            () => server.FindPaneAsync(new PaneId(0), token),
+        })
+        {
+            await Assert.ThrowsAsync<TmuxCommandException>(lookup);
+        }
     }
 
     [UnixFact]

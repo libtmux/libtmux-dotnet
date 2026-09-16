@@ -7,6 +7,8 @@ namespace LibTmux;
 
 public sealed partial class Pane
 {
+    private const string DisplayMessageClientCapability = "display_message_client";
+
     /// <summary>Builds the arguments a popup request sends.</summary>
     /// <remarks>
     /// Popup options arrived in tmux 3.3 and the key policy in 3.6, so this
@@ -222,14 +224,13 @@ public sealed partial class Pane
         ArgumentNullException.ThrowIfNull(request);
         Server owner = Server;
         if (request.TargetClient is not null
-            && owner.Version is TmuxVersion version
-            && version < TmuxVersion.Parse("3.3a"))
+            && !Supports(owner, DisplayMessageClientCapability))
         {
             // tmux 3.2a declares the flag without a value, so naming a client
             // there would silently address a different one.
             throw new TmuxVersionTooLowException(
-                "Naming a display-message client requires tmux 3.3a.",
-                TmuxVersion.Parse("3.3a"),
+                "Naming a display-message client requires tmux 3.3.",
+                TmuxVersion.Parse("3.3"),
                 owner.Version ?? default);
         }
 

@@ -1316,9 +1316,9 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         string requestedPaneId = await ResolvePaneInputIdAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Pane> panes = await server.GetPanesStrictAsync(cancellationToken)
+        IReadOnlyList<Pane> panes = await server.GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Client> clients = await server.GetClientsStrictAsync(cancellationToken)
+        IReadOnlyList<Client> clients = await server.GetClientsAsync(cancellationToken)
             .ConfigureAwait(false);
         string? socketPath = await TmuxTargets.SocketPathAsync(server, cancellationToken)
             .ConfigureAwait(false);

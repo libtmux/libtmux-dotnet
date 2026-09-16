@@ -108,6 +108,21 @@ internal static class Program
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
 
+        Server server = scope.Session.Server;
+        await server.ThrowIfDeadAsync();
+        Window read = await server.GetWindowAsync(scope.Window.Id);
+        Pane active = read.ActivePane.Single();
+        if (read.Name != scope.Window.Name
+            || read.Session.Name != scope.Session.Name
+            || read.Width <= 0
+            || active.Width <= 0
+            || active.Window.Name != read.Name
+            || await server.FindPaneAsync(new PaneId(int.MaxValue)) is not null
+            || await scope.Session.FindWindowAsync("not-created") is not null)
+        {
+            throw new InvalidOperationException("The packed lookup lost captured state or absence.");
+        }
+
         await scope.Pane.SendTextAsync("echo consumed-from-the-package");
         string text = await TmuxWait.UntilAsync(
             async token => string.Join(

@@ -9,7 +9,6 @@ internal sealed class TmuxConnection
     internal const string GenerationFormat = "#{pid}:#{start_time}";
     private readonly MultiplexerDialect _dialect;
     private readonly TmuxEndpointIdentity _endpointIdentity;
-    private readonly TmuxEntityLookup _entityLookup;
     private readonly string? _resolvedSocketName;
     private readonly string? _resolvedSocketPath;
 
@@ -55,7 +54,6 @@ internal sealed class TmuxConnection
                 Options.TmuxBinaryPath)
             : new PsmuxDialect(send, sendVersion, Options, _resolvedSocketName);
 
-        _entityLookup = new TmuxEntityLookup(ExecuteSingleAsync);
         CommandContext = Options.Logger is ILogger logger
             ? new TmuxCommandContext(logger, Options.SocketName ?? Options.SocketPath)
             : null;
@@ -96,21 +94,6 @@ internal sealed class TmuxConnection
     internal Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
         CancellationToken cancellationToken) =>
         _dialect.DiscoverAsync(cancellationToken);
-
-    internal Task<(ServerGeneration Generation, SessionId Id)?> FindSessionAsync(
-        SessionId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindSessionAsync(id, cancellationToken);
-
-    internal Task<(ServerGeneration Generation, WindowId Id)?> FindWindowAsync(
-        WindowId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindWindowAsync(id, cancellationToken);
-
-    internal Task<(ServerGeneration Generation, PaneId Id)?> FindPaneAsync(
-        PaneId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindPaneAsync(id, cancellationToken);
 
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {

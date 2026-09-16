@@ -133,7 +133,8 @@ public sealed class Component16ParityTests
         string capability = clearing
             ? ServerUtilities.ClearPromptHistoryCapability
             : ServerUtilities.ShowPromptHistoryCapability;
-        if (!TmuxCapabilities.IsSupported(server.Version!.Value, capability))
+        TmuxVersion version = Assert.NotNull(server.Version);
+        if (!TmuxCapabilities.IsSupported(version, capability))
         {
             // The command does not exist yet, so nothing is sent.
             await Assert.ThrowsAsync<TmuxVersionTooLowException>(
@@ -268,9 +269,8 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesServerAccessAsync(Server server, CancellationToken token)
     {
-        if (!TmuxCapabilities.IsSupported(
-            server.Version!.Value,
-            ServerUtilities.ServerAccessCapability))
+        TmuxVersion version = Assert.NotNull(server.Version);
+        if (!TmuxCapabilities.IsSupported(version, ServerUtilities.ServerAccessCapability))
         {
             await Assert.ThrowsAsync<TmuxVersionTooLowException>(
                 () => server.ConfigureAccessAsync(new ServerAccessRequest(list: true), token));

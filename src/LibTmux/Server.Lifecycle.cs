@@ -47,7 +47,7 @@ public sealed partial class Server
     /// <summary>Throws unless a tmux server is answering.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public async Task RaiseIfDeadAsync(CancellationToken cancellationToken = default)
+    public async Task ThrowIfDeadAsync(CancellationToken cancellationToken = default)
     {
         TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
             .ConfigureAwait(false);

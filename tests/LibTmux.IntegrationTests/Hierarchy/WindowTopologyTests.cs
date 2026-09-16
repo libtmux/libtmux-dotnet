@@ -29,9 +29,13 @@ public sealed class WindowTopologyTests
 
         // The same window now holds a different index in each session, so a
         // handle's Index is the index of the session it was read through.
-        Window inGuest = (await guest.GetWindowsAsync(token))
-            .Single(window => window.Id == shared.Id);
+        Window inGuest = await guest.GetWindowAsync(shared.Id, token);
         Assert.Equal(9, inGuest.Index);
+        Assert.Equal("guest", inGuest.Session.Name);
+        Assert.Equal(guest.Id, inGuest.ActivePane.Single().Session.Id);
+        Assert.Equal(9, inGuest.ActivePane.Single().Window.Index);
+        Assert.Equal(guest.Id, (await inGuest.GetPanesAsync(token))[0].Session.Id);
+        Assert.Equal(home.Id, (await shared.GetPanesAsync(token))[0].Session.Id);
         Assert.Equal(homeIndex, (await shared.RefreshAsync(token)).Index);
 
         Window moved = await inGuest.MoveAsync(new MoveWindowRequest("3"), token);
@@ -54,6 +58,45 @@ public sealed class WindowTopologyTests
 
         Assert.DoesNotContain(await guest.GetWindowsAsync(token), w => w.Id == shared.Id);
         Assert.Contains(await home.GetWindowsAsync(token), w => w.Id == shared.Id);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Same_session_window_links_keep_each_placements_live_reads_apart()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window first = await TestHierarchy.RequireFirstWindowAsync(session, token);
+        int originalIndex = first.Index;
+
+        // Link the window into its own session a second time. Both
+        // placements now answer to the same window id, so a target naming
+        // only the session and that id cannot tell them apart.
+        await first.LinkAsync(new LinkWindowRequest(session.Id.ToString(), "7"), token);
+
+        Window[] placements =
+        [
+            .. (await session.GetWindowsAsync(token))
+                .Where(window => window.Id == first.Id)
+                .OrderBy(window => window.Index),
+        ];
+        Assert.Equal([originalIndex, 7], placements.Select(window => window.Index));
+        Window atOriginalIndex = placements[0];
+        Window atSecondIndex = placements[1];
+
+        // Each handle's live reads answer for the index it was read at, not
+        // whichever placement tmux's window-id target ranks best.
+        Assert.Equal(
+            originalIndex,
+            Assert.Single(await atOriginalIndex.GetPanesAsync(token)).Window.Index);
+        Assert.Equal(7, Assert.Single(await atSecondIndex.GetPanesAsync(token)).Window.Index);
+        Assert.Equal(originalIndex, (await atOriginalIndex.RefreshAsync(token)).Index);
+        Assert.Equal(7, (await atSecondIndex.RefreshAsync(token)).Index);
     }
 
     [Fact(
@@ -189,6 +232,22 @@ public sealed class WindowTopologyTests
         {
             await Assert.ThrowsAsync<TmuxWindowException>(() => mirrored);
         }
+
+        // tmux 3.8 made #{window_layout} JSON for a non-control client, and
+        // select-layout accepts that dump back -- read this window's own
+        // current layout and feed it straight back in, rather than
+        // fabricating one, since the string is opaque either way.
+        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
+        TmuxCommandResult dumped = await server.ExecuteCommandAsync(
+            ["display-message", "-p", "-t", window.Id.ToString(), "#{window_layout}"],
+            token);
+        Assert.Equal(0, dumped.ExitCode);
+        string dumpedLayout = Assert.Single(dumped.StandardOutputLines);
+        Assert.Equal(jsonLayoutsKnown, dumpedLayout.StartsWith('{'));
+        Window restored = await window.SelectLayoutAsync(
+            new SelectLayoutRequest(dumpedLayout),
+            token);
+        Assert.Equal(window.Id, restored.Id);
 
         Assert.NotEmpty(await server.GetSessionsAsync(token));
         Window cycled = await window.SelectNextLayoutAsync(token);

@@ -165,7 +165,7 @@ public sealed class MaterializationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task Materialized_handles_carry_their_snapshot_while_lookups_do_not()
+    public async Task Listings_and_lookups_both_carry_captured_scalar_state()
     {
         await using Fixture fixture = await Fixture.StartAsync();
         IReadOnlyDictionary<string, string?> row = await fixture.FetchSessionAsync();
@@ -177,9 +177,8 @@ public sealed class MaterializationTests
 
         Assert.NotNull(materialized.Snapshot);
         Assert.Equal(row["session_name"], materialized.Snapshot!["session_name"]);
-        // A handle resolved by identifier never pretends to hold fields it
-        // did not read.
-        Assert.Null(resolved.Snapshot);
+        Assert.Equal(materialized.Name, resolved.Name);
+        Assert.Equal(materialized.Attached, resolved.Attached);
         Assert.Equal(materialized.Id, resolved.Id);
     }
 

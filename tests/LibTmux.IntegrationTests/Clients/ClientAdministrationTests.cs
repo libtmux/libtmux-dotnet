@@ -35,6 +35,30 @@ public sealed class ClientAdministrationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Captured_fields_cannot_be_rewritten_through_the_public_dictionary()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        await using ControlModeClientScope attached = await ControlModeClientScope.StartAsync(
+            raw,
+            token);
+
+        Client client = Assert.Single(
+            await server.GetClientsAsync(token),
+            candidate => candidate.Name == attached.ClientName);
+        string original = client.Name;
+        var fields = Assert.IsAssignableFrom<IDictionary<string, string?>>(client.RawFormatFields);
+
+        Assert.Throws<NotSupportedException>(() => fields["client_name"] = "spoofed");
+        Assert.Equal(original, client.Name);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Detached_client_resolves_nullable_attachment()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

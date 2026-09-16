@@ -12,9 +12,68 @@ version.
 
 ### Added
 
+- `FindSessionAsync`, `FindWindowAsync` and `FindPaneAsync` return `null` only
+  when a successful lookup finds no match. Use the server or scoped finder when
+  absence is expected. (#28)
+
 ### Fixed
 
+- `Server.GetSessionAsync`, `GetWindowAsync` and `GetPaneAsync` return captured
+  scalar fields that can be read without a follow-up refresh. (#28)
+- Captured parent handles retain their state and exact window placement.
+  Snapshots preserve a window linked at multiple indices in the same session,
+  with the correct active window and pane parents. (#28)
+- `RawFormatFields` on sessions, windows, panes and clients no longer permits
+  changes to captured values through a mutable dictionary cast. (#28)
+- `Window.GetPanesAsync` and `RefreshAsync` no longer read the wrong
+  placement's rows for a window linked into its own session at a second
+  index. Both now target the session and the captured index; tmux resolves a
+  session-and-id target to whichever placement is current or lowest, not the
+  one a handle was read at. (#28)
+- `Pane.Session`, `Pane.Window` and `Window.Session` throw
+  `IncompleteSnapshotException` again instead of `System.IO.InvalidDataException`
+  when the handle carries no captured parent identity, so a
+  `catch (LibTmuxException)` sees the failure as before. (#28)
+- The MCP tools answer "there are none" for an absent tmux daemon again.
+  Matching moved from a command exception's message, which never carried
+  tmux's own wording, to its standard error. (#28)
+- `Server.Version` reports tmux's rolling `next-X.Y` development build instead
+  of `null`, and `TmuxCapabilities` resolves it by ordering instead of
+  answering `Unknown` for every capability. A `next` build is a real tmux the
+  library will be run against; refusing to answer for it was the library
+  declining to work on the release in progress. (#28)
+- `Window.SelectLayoutAsync` accepts the JSON layout tmux 3.8+ hands back
+  from `#{window_layout}` on a plain (non-control) client, from a server new
+  enough to have produced one. It previously refused any layout that did not
+  match the classic checksum-prefixed grammar, so replaying a captured
+  layout on a fresh window failed with `TmuxWindowException`. (#28)
+- `Pane.DisplayMessageAsync` and `Window.DisplayMessageAsync` require tmux
+  3.3, not 3.3a, before naming a `-c` target client. tmux's own history
+  shows the flag already takes a value at 3.3; the 3.3a floor rejected a
+  real 3.3 server that already supported it, one release later than
+  `Server.DisplayMessageAsync` and the capability ledger already had it.
+  (#28)
+- `TmuxVersionTooLowException.RequiredVersion` reads `3.3`, not `3.3a`, for
+  `command-prompt`'s format and prompt-type flags and for the whole
+  `server-access`, `show-prompt-history` and `clear-prompt-history`
+  commands. Each landed in 3.3 itself. (#28)
+
 ### Changed
+
+- **`Session.GetWindowAsync` and `Window.GetPaneAsync` now require a match.**
+  They throw `TmuxObjectNotFoundException` when absent; use `FindWindowAsync` or
+  `FindPaneAsync` for nullable results. (#28)
+- **Active-child properties expose whether their state was captured.**
+  `Session.ActiveWindow`, `Session.ActivePane` and `Window.ActivePane` return
+  `CapturedRelation`; check `IsCaptured` before reading the relation.
+  (#28)
+- **Live listings throw when the read fails, including when no daemon is
+  running.** Handle read failures explicitly; an empty collection now means a
+  successful read found no objects. (#28)
+- **`Server.RaiseIfDeadAsync` is now `Server.ThrowIfDeadAsync`.** The guard
+  throws, and `Throw` is what a .NET API calls that. No forwarding alias is
+  kept: alpha releases carry no deprecation period, and the old name has never
+  appeared in a shipped public API. (#28)
 
 ### Removed
 

@@ -156,8 +156,6 @@ public sealed class ServerSessionLifecycleTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
 
-        // ActiveWindow is served from the session's own captured fields, which
-        // carry the active window's identity but not that window's fields.
         WindowId second = (await session.GetWindowsAsync(token))
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
@@ -167,7 +165,7 @@ public sealed class ServerSessionLifecycleTests
         Assert.Equal(second, (await session.SelectWindowAsync("second", token)).Id);
         Assert.NotEqual(second, (await session.SelectPreviousWindowAsync(token)).Id);
         Assert.Equal(second, (await session.SelectNextWindowAsync(token)).Id);
-        Assert.Equal(second, (await session.RefreshAsync(token)).ActiveWindow.Id);
+        Assert.Equal(second, (await session.RefreshAsync(token)).ActiveWindow.Single().Id);
 
         // tmux accepts ':' inside a window name, so the target stays anchored
         // to this session; tmux 3.7 alone refuses such a name (3.7a restored it).
@@ -209,8 +207,8 @@ public sealed class ServerSessionLifecycleTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         string target = session.Id.ToString();
 
-        WindowId firstWindow = session.ActiveWindow.Id;
-        PaneId firstPane = session.ActivePane.Id;
+        WindowId firstWindow = session.ActiveWindow.Single().Id;
+        PaneId firstPane = session.ActivePane.Single().Id;
 
         // The change is made behind the library's back, so nothing the handle
         // did could have refreshed it as a side effect.
@@ -220,14 +218,14 @@ public sealed class ServerSessionLifecycleTests
         await RequireRawSuccessAsync(raw, ["select-pane", "-t", $"{target}:outside.1"], token);
 
         // The original handle is a record of what was read, not a live view.
-        Assert.Equal(firstWindow, session.ActiveWindow.Id);
-        Assert.Equal(firstPane, session.ActivePane.Id);
+        Assert.Equal(firstWindow, session.ActiveWindow.Single().Id);
+        Assert.Equal(firstPane, session.ActivePane.Single().Id);
 
         Session refreshed = await session.RefreshAsync(token);
 
         Assert.Equal(session.Id, refreshed.Id);
-        Assert.NotEqual(firstWindow, refreshed.ActiveWindow.Id);
-        Assert.NotEqual(firstPane, refreshed.ActivePane.Id);
+        Assert.NotEqual(firstWindow, refreshed.ActiveWindow.Single().Id);
+        Assert.NotEqual(firstPane, refreshed.ActivePane.Single().Id);
 
         // The refreshed relations name the objects tmux actually selected.
         RawTmuxResult active = await RequireRawSuccessAsync(
@@ -235,7 +233,7 @@ public sealed class ServerSessionLifecycleTests
             ["display-message", "-p", "-t", target, "#{window_id} #{pane_id}"],
             token);
         Assert.Equal(
-            $"{refreshed.ActiveWindow.Id} {refreshed.ActivePane.Id}",
+            $"{refreshed.ActiveWindow.Single().Id} {refreshed.ActivePane.Single().Id}",
             active.StandardOutputLines[0]);
     }
 
