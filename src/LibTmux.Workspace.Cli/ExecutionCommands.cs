@@ -63,8 +63,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         if (extensions)
             return await new ProcessCommands(context, invocation, output).BridgeLoadAsync(handoff.Mode == LoadMode.Detached).ConfigureAwait(false);
         Session? finalSession = null;
-        string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);
-        string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
+        (string? columns, string? rows) = SessionSize();
         JsonArray results = [];
         JsonArray errors = [];
         await output.EventAsync("started", new { inputs = inputs.Length }).ConfigureAwait(false);
@@ -131,7 +130,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 if (session is null)
                 {
                     stage = "session-created";
-                    List<string> start = ["new-session", "-d", "-s", input.Plan.Name, "-c", input.Plan.Directory, "-x", columns, "-y", rows, "-P", "-F", "#{session_id}\t#{window_id}\t#{pid}:#{start_time}"];
+                    List<string> start = ["new-session", "-d", "-s", input.Plan.Name, "-c", input.Plan.Directory];
+                    if (columns is not null) start.AddRange(["-x", columns]);
+                    if (rows is not null) start.AddRange(["-y", rows]);
+                    start.AddRange(["-P", "-F", "#{session_id}\t#{window_id}\t#{pid}:#{start_time}"]);
                     foreach (var variable in input.Plan.Environment) start.AddRange(["-e", variable.Key + "=" + variable.Value]);
                     string[] identifiers = (await Change(start).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
                     session = identifiers[0];
@@ -361,12 +363,37 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private static string OptionValue(string value) => value switch { "true" => "on", "false" => "off", _ => value };
 
+    // SPEC 3 S1: mirrors tmuxp (and go's sessionDimensions) so an attached
+    // load sizes the session to the terminal it was run from, instead of a
+    // fixed 80x24 that tmux stretches once a client attaches -- which is what
+    // put every main-pane layout at the wrong ratio (A1).
+    private (string? Columns, string? Rows) SessionSize()
+    {
+        string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);
+        string rows = Dimension("TMUXP_DEFAULT_ROWS", "ROWS", 24);
+        if (context.Environment.TryGetValue("TMUXP_DETECT_TERMINAL_SIZE", out string? detect) && detect != "1") return (null, null);
+        if (context.Terminal && ProgressDisplay.StandardOutputSize() is { } size)
+        {
+            columns = size.Width.ToString(CultureInfo.InvariantCulture);
+            rows = size.Height.ToString(CultureInfo.InvariantCulture);
+        }
+        return (DimensionOverride("COLUMNS", columns), DimensionOverride("LINES", rows));
+    }
+
     private string Dimension(string primary, string fallback, int value)
     {
         string? supplied = context.Environment.GetValueOrDefault(primary);
         string variable = supplied is null ? fallback : primary;
         string raw = supplied ?? context.Environment.GetValueOrDefault(fallback) ?? value.ToString(CultureInfo.InvariantCulture);
         if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", variable + " must be an integer from 1 through 65535.", 2);
+        return raw;
+    }
+
+    private string DimensionOverride(string name, string current)
+    {
+        string? raw = context.Environment.GetValueOrDefault(name);
+        if (string.IsNullOrEmpty(raw)) return current;
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid-dimension", name + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 

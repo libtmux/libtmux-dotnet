@@ -160,6 +160,83 @@ public sealed class RegressionTests : IDisposable
         Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
     }
 
+    // SPEC 3 S1/A1: a session built without asking the terminal its size gets
+    // stretched once a client attaches -- main-pane layouts come out at the
+    // wrong ratio (A1), and typing into a pane that is about to be resized by
+    // that stretch can lose the keystrokes under zsh (A3). COLUMNS/LINES is
+    // the only terminal size this harness can fake without a real pty; it
+    // must win over TMUXP_DEFAULT_COLUMNS/ROWS, matching go's sessionDimensions.
+    [Fact]
+    public async Task Session_size_prefers_COLUMNS_and_LINES_over_the_configured_default()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "sized.socket");
+        string file = Path.Combine(_root, "sized.yaml");
+        await File.WriteAllTextAsync(file, "session_name: sized\nwindows: [{panes: [null]}]", token);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["TMUX"] = null,
+            ["TMUX_PANE"] = null,
+            ["TMUXP_DETECT_TERMINAL_SIZE"] = "1",
+            ["TMUXP_DEFAULT_COLUMNS"] = "200",
+            ["TMUXP_DEFAULT_ROWS"] = "50",
+            ["COLUMNS"] = "123",
+            ["LINES"] = "40",
+        };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "keeper");
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, environment, token);
+
+            Assert.Equal(0, code);
+            Assert.Equal("123x40", await Execute(server, "display-message", "-p", "-t", "=sized:", "#{window_width}x#{window_height}"));
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
+    [Fact]
+    public async Task Disabled_terminal_detection_passes_no_session_size()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "unsized.socket");
+        string file = Path.Combine(_root, "unsized.yaml");
+        await File.WriteAllTextAsync(file, "session_name: unsized\nwindows: [{panes: [null]}]", token);
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["TMUX"] = null,
+            ["TMUX_PANE"] = null,
+            ["TMUXP_DETECT_TERMINAL_SIZE"] = "0",
+            ["TMUXP_DEFAULT_COLUMNS"] = "200",
+            ["TMUXP_DEFAULT_ROWS"] = "50",
+        };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "keeper");
+            await Execute(server, "set-option", "-g", "default-size", "45x11");
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, environment, token);
+
+            Assert.Equal(0, code);
+            Assert.Equal("45x11", await Execute(server, "display-message", "-p", "-t", "=unsized:", "#{window_width}x#{window_height}"));
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
     [Fact]
     public void Normalization_carries_command_settings_and_defaults_to_suppressed_history()
     {

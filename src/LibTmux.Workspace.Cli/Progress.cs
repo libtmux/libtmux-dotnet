@@ -68,11 +68,17 @@ internal sealed partial class ProgressDisplay : IDisposable
     internal bool SizeUnchanged => _readSize is null || _readSize() == _size;
     internal string ClearSequence => string.Concat(Enumerable.Repeat("\u001b[1A\r\u001b[2K", Rows));
 
-    internal static (int Width, int Height)? ErrorSize()
+    internal static (int Width, int Height)? ErrorSize() => DescriptorSize(2);
+
+    // SPEC 3 S1: load sizes the session from stdout's own terminal, not the
+    // progress bar's stderr one, so it must read a different descriptor.
+    internal static (int Width, int Height)? StandardOutputSize() => DescriptorSize(1);
+
+    private static (int Width, int Height)? DescriptorSize(int descriptor)
     {
         if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64) return null;
         const nuint TerminalWindowSize = 0x5413;
-        return ReadWindowSize(2, TerminalWindowSize, out WindowSize size) == 0 && size.Columns >= 2 && size.Rows >= 2 ? (size.Columns, size.Rows) : null;
+        return ReadWindowSize(descriptor, TerminalWindowSize, out WindowSize size) == 0 && size.Columns >= 2 && size.Rows >= 2 ? (size.Columns, size.Rows) : null;
     }
 
     [StructLayout(LayoutKind.Sequential)]
