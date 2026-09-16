@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Text.Json.Nodes;
 using Spectre.Console;
 
@@ -1037,6 +1039,81 @@ public sealed class RegressionTests : IDisposable
         using StringWriter error = new();
         int code = await CliRunner.RunAsync(args, output, error, _root, cancellationToken: TestContext.Current.CancellationToken);
         return (code, output.ToString(), error.ToString());
+    }
+
+    // H7: on a real terminal, `--color never` must write no colour (no SGR
+    // escape) at all. A StringWriter cannot witness this: CliContext.Terminal
+    // requires ReferenceEquals(Output, Console.Out) with
+    // Console.IsOutputRedirected false, which only a real pty gives the
+    // process. Spectre's fallback for AnsiSupport.No calls
+    // System.Console.ForegroundColor/ResetColor() directly against the real
+    // console, bypassing whatever TextWriter the CLI was given, so only a
+    // pty-attached child process observes the leak.
+    //
+    // This does not assert the output is free of every escape: a bare .NET
+    // process attached to a pty writes ESC[?1h/ESC= (keypad mode) before any
+    // of this CLI's code runs at all -- reproduced with a one-line program
+    // that never touches Spectre or System.Console.Out -- so that is runtime
+    // behaviour outside this CLI's control, not a colour violation.
+    [Fact]
+    public async Task Version_on_a_real_terminal_writes_no_colour_under_color_never()
+    {
+        string rendered = await RunCliUnderPtyAsync(["--version", "--color", "never"], TestContext.Current.CancellationToken);
+        Assert.Contains("tmux-workspace", rendered, StringComparison.Ordinal);
+        Assert.False(ContainsSgrEscape(rendered), $"Expected no SGR (colour) escape codes, got: {rendered}");
+    }
+
+    // An SGR sequence is CSI (ESC [) then digits/semicolons then 'm'. This
+    // deliberately excludes other CSI sequences such as progress redraw's
+    // ESC[2K/ESC[1A (erase line / cursor up, not colour) and the keypad-mode
+    // ESC[?1h noted above.
+    private static bool ContainsSgrEscape(string text)
+    {
+        for (int index = text.IndexOf("[", StringComparison.Ordinal); index >= 0; index = text.IndexOf("[", index + 1, StringComparison.Ordinal))
+        {
+            int cursor = index + 2;
+            while (cursor < text.Length && (char.IsAsciiDigit(text[cursor]) || text[cursor] == ';')) cursor++;
+            if (cursor < text.Length && text[cursor] == 'm') return true;
+        }
+        return false;
+    }
+
+    private static async Task<string> RunCliUnderPtyAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    {
+        StringBuilder command = new(PtyShellQuote("dotnet"));
+        command.Append(' ').Append(PtyShellQuote(WorkspaceCliAssemblyPath()));
+        foreach (string argument in arguments) command.Append(' ').Append(PtyShellQuote(argument));
+        ProcessStartInfo startInfo = new("/usr/bin/script")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("-q");
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add("-c");
+        startInfo.ArgumentList.Add(command.ToString());
+        startInfo.ArgumentList.Add("/dev/null");
+        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("The PTY launcher did not start.");
+        process.StandardInput.Close();
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
+        await process.WaitForExitAsync(linked.Token);
+        return await stdout.WaitAsync(linked.Token);
+    }
+
+    private static string PtyShellQuote(string value) => $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
+
+    private static string WorkspaceCliAssemblyPath()
+    {
+        DirectoryInfo frameworkDirectory = new(AppContext.BaseDirectory);
+        DirectoryInfo configurationDirectory = frameworkDirectory.Parent ?? throw new InvalidOperationException("The test output has no configuration directory.");
+        DirectoryInfo repositoryRoot = configurationDirectory.Parent?.Parent?.Parent?.Parent ?? throw new InvalidOperationException("The test output is outside the repository.");
+        string path = Path.Combine(repositoryRoot.FullName, "src", "LibTmux.Workspace.Cli", "bin", configurationDirectory.Name, frameworkDirectory.Name, "LibTmux.Workspace.Cli.dll");
+        return File.Exists(path) ? path : throw new FileNotFoundException("The workspace CLI was not built.", path);
     }
 
     private sealed class ClearFailureWriter(bool inaccessible) : StringWriter
