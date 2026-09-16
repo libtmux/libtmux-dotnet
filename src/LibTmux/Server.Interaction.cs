@@ -24,8 +24,8 @@ public sealed partial class Server
             && !Supports(ServerUtilities.CommandPromptBackgroundCapability))
         {
             throw new TmuxVersionTooLowException(
-                "Expanding a command prompt as a format, or naming what it asks for, requires tmux 3.3a.",
-                TmuxVersion.Parse("3.3a"),
+                "Expanding a command prompt as a format, or naming what it asks for, requires tmux 3.3.",
+                TmuxVersion.Parse("3.3"),
                 Version ?? default);
         }
 

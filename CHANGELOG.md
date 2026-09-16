@@ -47,6 +47,16 @@ version.
   enough to have produced one. It previously refused any layout that did not
   match the classic checksum-prefixed grammar, so replaying a captured
   layout on a fresh window failed with `TmuxWindowException`. (#28)
+- `Pane.DisplayMessageAsync` and `Window.DisplayMessageAsync` require tmux
+  3.3, not 3.3a, before naming a `-c` target client. tmux's own history
+  shows the flag already takes a value at 3.3; the 3.3a floor rejected a
+  real 3.3 server that already supported it, one release later than
+  `Server.DisplayMessageAsync` and the capability ledger already had it.
+  (#28)
+- `TmuxVersionTooLowException.RequiredVersion` reads `3.3`, not `3.3a`, for
+  `command-prompt`'s format and prompt-type flags and for the whole
+  `server-access`, `show-prompt-history` and `clear-prompt-history`
+  commands. Each landed in 3.3 itself. (#28)
 
 ### Changed
 
