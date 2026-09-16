@@ -400,7 +400,7 @@ public sealed class VersionParityTests
         await AssertCommandSurfaceAsync(context, version, gate);
         if (TmuxCapabilities.IsSupported(version, capability))
         {
-            await ExerciseSupportedBehaviorAsync(context, capability);
+            await ExerciseSupportedBehaviorAsync(context, version, capability);
         }
     }
 
@@ -481,6 +481,7 @@ public sealed class VersionParityTests
 
     private static async Task ExerciseSupportedBehaviorAsync(
         RawTmuxTestContext context,
+        TmuxVersion version,
         string capability)
     {
         switch (capability)
@@ -708,7 +709,14 @@ public sealed class VersionParityTests
                 RawTmuxResult emptyIdentity = await RequireSuccessAsync(
                     context,
                     ["display-message", "-p", "-t", emptyPane, "#{pane_pid}"]);
-                Assert.Equal(["0"], emptyIdentity.StandardOutputLines);
+
+                // tmux 3.8 stopped reporting 0 for a pane with no process;
+                // #{pane_pid} is an empty string instead, which a trailing
+                // newline alone projects to no lines at all.
+                string[] expectedEmptyPanePid = version < TmuxVersion.Parse("3.8")
+                    ? ["0"]
+                    : [];
+                Assert.Equal(expectedEmptyPanePid, emptyIdentity.StandardOutputLines);
                 await WriteEmptyPaneInputAsync(context, emptyPane, "libtmux-empty-input\n");
                 RawTmuxResult emptyContents = await RequireSuccessAsync(
                     context,
