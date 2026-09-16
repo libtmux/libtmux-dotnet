@@ -26,6 +26,15 @@ public sealed partial class Window
     /// <summary>Gets the window width captured with this handle.</summary>
     public int Width => ReadCapturedInt("window_width", "width");
 
+    /// <summary>Gets the layout string captured with this handle.</summary>
+    /// <remarks>
+    /// Restoring this through <see cref="SelectLayoutAsync" /> can rotate
+    /// which pane lands in which position; see that method's remarks for when.
+    /// </remarks>
+    public string Layout =>
+        ReadSnapshot("window_layout")
+        ?? throw new IncompleteSnapshotException("layout", SnapshotDepth.Windows);
+
     /// <summary>Gets the server that owns this window.</summary>
     /// <remarks>
     /// Reading this uses the owner captured with the entity.

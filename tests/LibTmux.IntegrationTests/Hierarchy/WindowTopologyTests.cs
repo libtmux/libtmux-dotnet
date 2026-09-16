@@ -204,6 +204,19 @@ public sealed class WindowTopologyTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "layouts"), token);
         await window.SplitPaneAsync(cancellationToken: token);
+        window = await window.RefreshAsync(token);
+
+        // Pane.Left and Pane.Top read directly, not only through the raw
+        // wire names in RawFormatFields.
+        foreach (Pane pane in await window.GetPanesAsync(token))
+        {
+            Assert.Equal(
+                pane.RawFormatFields["pane_left"],
+                pane.Left.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(
+                pane.RawFormatFields["pane_top"],
+                pane.Top.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
 
         // tmux 3.3a crashes its whole server on a layout it cannot parse,
         // taking every session on the socket with it, so the name never
@@ -235,19 +248,26 @@ public sealed class WindowTopologyTests
 
         // tmux 3.8 made #{window_layout} JSON for a non-control client, and
         // select-layout accepts that dump back -- read this window's own
-        // current layout and feed it straight back in, rather than
-        // fabricating one, since the string is opaque either way.
+        // current layout through the typed property and feed it
+        // straight back in, rather than fabricating one, since the string is
+        // opaque either way.
         bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
-        TmuxCommandResult dumped = await server.ExecuteCommandAsync(
-            ["display-message", "-p", "-t", window.Id.ToString(), "#{window_layout}"],
-            token);
-        Assert.Equal(0, dumped.ExitCode);
-        string dumpedLayout = Assert.Single(dumped.StandardOutputLines);
+        Window read = await window.RefreshAsync(token);
+        string dumpedLayout = read.Layout;
+        Assert.Equal(read.RawFormatFields["window_layout"], dumpedLayout);
         Assert.Equal(jsonLayoutsKnown, dumpedLayout.StartsWith('{'));
         Window restored = await window.SelectLayoutAsync(
             new SelectLayoutRequest(dumpedLayout),
             token);
         Assert.Equal(window.Id, restored.Id);
+
+        // Only the JSON form (3.8+) is documented to restore byte-identical;
+        // the classic form can restore the same shape under a different
+        // string on 3.7 and earlier.
+        if (jsonLayoutsKnown)
+        {
+            Assert.Equal(dumpedLayout, restored.Layout);
+        }
 
         Assert.NotEmpty(await server.GetSessionsAsync(token));
         Window cycled = await window.SelectNextLayoutAsync(token);

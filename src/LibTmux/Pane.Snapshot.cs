@@ -24,6 +24,12 @@ public sealed partial class Pane
     /// <summary>Gets the pane width captured with this handle.</summary>
     public int Width => ReadCapturedInt("pane_width", "width");
 
+    /// <summary>Gets the pane's left offset, in cells, from its window's edge.</summary>
+    public int Left => ReadCapturedInt("pane_left", "left");
+
+    /// <summary>Gets the pane's top offset, in cells, from its window's edge.</summary>
+    public int Top => ReadCapturedInt("pane_top", "top");
+
     /// <summary>Gets the index this pane holds in its window.</summary>
     public int Index => ReadCapturedInt("pane_index", "index");
 

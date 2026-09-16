@@ -112,6 +112,15 @@ public sealed partial class Window
     /// <exception cref="TmuxWindowException">
     /// The layout is one tmux may not recognise.
     /// </exception>
+    /// <remarks>
+    /// Feeding a previously captured <see cref="Layout" /> back restores the
+    /// same pane sizes on every version, but on tmux 3.7 and earlier it can
+    /// rotate which pane lands in which position - measured by hand, not a
+    /// hypothetical. tmux 3.8 and newer accepts the JSON form of the layout
+    /// (from a plain, non-control client) and restores the exact arrangement,
+    /// including which pane id sits where; the classic checksum-prefixed form
+    /// never carries pane ids and so cannot.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> SelectLayoutAsync(
         SelectLayoutRequest? request = null,
