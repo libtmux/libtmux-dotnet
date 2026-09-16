@@ -58,6 +58,14 @@ public sealed partial class Server
         {
             await session.WaitForReadyAsync(cancellationToken).ConfigureAwait(false);
             await session.VerifyAttachedGenerationAsync(cancellationToken).ConfigureAwait(false);
+
+            // A control client keeps the classic window_layout form unless
+            // told otherwise, disagreeing with the JSON form a plain
+            // client's snapshot reads on tmux 3.8+ (the shape the Go and
+            // TypeScript ports also measured); earlier tmux ignores the flag.
+            await session
+                .SendAsync(TmuxCommand.Create("refresh-client", "-f", "new-layouts"), cancellationToken)
+                .ConfigureAwait(false);
             return session;
         }
         catch (Exception startupFailure)
