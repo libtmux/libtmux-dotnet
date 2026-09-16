@@ -10,11 +10,8 @@ namespace LibTmux.Workspace.Cli;
 internal sealed class ExecutionCommands(CliContext context, Invocation invocation, Output output)
 {
     private static readonly string[] InterpreterSuffixes = ["python", "ruby", "node"];
-    // On macOS, /bin/sh is bash, so a pane's reported command can differ from
-    // basename(default-shell) while still being an ordinary interactive
-    // shell and not an explicit command -- e.g. default-shell: /bin/sh,
-    // pane_current_command: bash. Recognize the common shell names directly;
-    // the default-shell comparison remains for anything more exotic.
+    // macOS's /bin/sh is bash, so pane_current_command can differ from
+    // basename(default-shell) for an ordinary shell.
     private static readonly string[] OrdinaryShellNames = ["sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "fish", "csh", "tcsh"];
     private readonly DocumentStore _documents = new(context);
     private Server? _server;
@@ -81,17 +78,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             string? completedStage = null;
             bool created = false;
             bool changed = false;
-            // Declared out here, not inside the try, so the catch block below
-            // can still kill it: it is scaffolding to hold the session open
-            // while options apply, never part of the user's document, and a
-            // cancellation or failure partway through the window loop must
-            // not leave it behind any more than a successful load does.
+            // Declared here, not in the try, so the catch block can also kill
+            // it: scaffolding, never part of the user's document.
             string? bootstrap = null;
-            // True only once the document's own first window exists. Killing
-            // the bootstrap window before that would kill the session with
-            // it -- tmux drops a session when its last window goes -- which
-            // would silently contradict "leave the half-built session in
-            // place" for a failure at session-options or earlier.
+            // True once the document's own first window exists. Bootstrap is
+            // the only window before that; killing it would kill the session.
             bool windowCreated = false;
             async Task<string> Change(IReadOnlyList<string> arguments)
             {
@@ -99,12 +90,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 changed = true;
                 return result;
             }
-            // Resolved once per session, not per pane: session-options is not
-            // yet applied when the first pane is created, and a live
-            // #{pane_current_command} read immediately after new-window or
-            // split-window is a race against the shell exec'ing, not a
-            // dependable signal. default-shell is a static session option, so
-            // reading it once here cannot lose that race.
+            // Resolved once per session: default-shell is static, unlike a
+            // live pane_current_command read, which races the shell starting.
             bool readinessResolved = false;
             string? readinessShell = null;
             async Task<string?> ReadinessShellAsync()
@@ -265,11 +252,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         cleanupError = deletion.Message;
                     }
                 }
-                // The bootstrap window is scaffolding, not user content: a
-                // cancellation or failure that leaves the rest of the session
-                // in place (by design) should still not leave this behind.
-                // Best-effort and silent -- the reported failure is about the
-                // load, not about this cleanup.
+                // Bootstrap is scaffolding, not user content, so it still gets
+                // cleaned up here. Best-effort and silent.
                 if (!removed && bootstrap is not null && windowCreated)
                 {
                     using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
@@ -325,10 +309,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
         JsonObject document = new() { ["session_name"] = await Field(session, "session_name").ConfigureAwait(false) };
-        // SPEC 5: omit shell_command for a pane still running the session's
-        // default shell, so reloading it does not run that shell inside
-        // itself. A leading '-' marks a login-shell invocation of the same
-        // binary (e.g. "-zsh"), tmux's own convention.
+        // Omit shell_command for the session's own default shell.
+        // A leading '-' marks a login-shell invocation of the same binary.
         string defaultShell = Path.GetFileName(await Field(session, "default-shell").ConfigureAwait(false));
         JsonArray windows = [];
         foreach (string window in (await Command(["list-windows", "-t", session, "-F", "#{window_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -346,9 +328,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 string option = row.Split(' ', 2)[0];
                 options[option] = (await Command(["show-options", "-w", "-t", window, "-v", option]).ConfigureAwait(false)).TrimEnd('\n');
             }
-            // SPEC 3: automatic-rename: off only holds if it is applied after
-            // the panes exist, so freeze writes window options under
-            // options_after, matching tmuxp freeze and load's own boundary.
+            // options_after matches load's own boundary for
+            // automatic-rename: off, which only holds applied after panes exist.
             captured["options_after"] = options;
             JsonArray panes = [];
             foreach (string pane in (await Command(["list-panes", "-t", window, "-F", "#{pane_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))

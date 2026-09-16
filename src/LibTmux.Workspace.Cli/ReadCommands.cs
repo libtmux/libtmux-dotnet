@@ -113,9 +113,8 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             else output.Result(document);
             return;
         }
-        // An explicit --save-to is the user's own consent to write there; the
-        // prompt below is for a destination this command picked on its own
-        // (suggested, or asked for interactively), not one the user named.
+        // An explicit --save-to is itself consent; the prompt below is only
+        // for a destination this command picked on its own.
         bool explicitDestination = destination is not null;
         destination ??= suggested;
         if (destination is null) destination = Prompt("Save to: ");

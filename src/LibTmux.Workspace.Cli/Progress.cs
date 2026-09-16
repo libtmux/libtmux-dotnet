@@ -51,9 +51,8 @@ internal sealed partial class ProgressDisplay : IDisposable
         _options = options;
         _size = (width, height);
         _readSize = readSize;
-        // Ansi is always Yes: see the matching comment on Output.CreateConsole.
-        // AnsiSupport.No would make Spectre write colour straight to the real
-        // console instead of into _frame, defeating the buffering here.
+        // Ansi is always Yes: see Output.CreateConsole. AnsiSupport.No would
+        // write colour to the real console instead of into _frame.
         _console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Ansi = AnsiSupport.Yes,
