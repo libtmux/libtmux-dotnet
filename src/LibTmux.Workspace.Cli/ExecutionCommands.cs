@@ -296,6 +296,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
         JsonObject document = new() { ["session_name"] = await Field(session, "session_name").ConfigureAwait(false) };
+        // SPEC 5: omit shell_command for a pane still running the session's
+        // default shell, so reloading it does not run that shell inside
+        // itself. A leading '-' marks a login-shell invocation of the same
+        // binary (e.g. "-zsh"), tmux's own convention.
+        string defaultShell = Path.GetFileName(await Field(session, "default-shell").ConfigureAwait(false));
         JsonArray windows = [];
         foreach (string window in (await Command(["list-windows", "-t", session, "-F", "#{window_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -320,7 +325,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             foreach (string pane in (await Command(["list-panes", "-t", window, "-F", "#{pane_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
                 string currentCommand = await Field(pane, "pane_current_command").ConfigureAwait(false);
-                bool skipCommand = currentCommand.StartsWith('-') || InterpreterSuffixes.Any(suffix => currentCommand.EndsWith(suffix, StringComparison.Ordinal));
+                bool skipCommand = currentCommand.TrimStart('-') == defaultShell || InterpreterSuffixes.Any(suffix => currentCommand.EndsWith(suffix, StringComparison.Ordinal));
                 panes.Add(new JsonObject { ["start_directory"] = await Field(pane, "pane_current_path").ConfigureAwait(false), ["focus"] = await Field(pane, "pane_active").ConfigureAwait(false) == "1", ["shell_command"] = skipCommand ? new JsonArray() : new JsonArray(currentCommand) });
             }
             captured["panes"] = panes;
