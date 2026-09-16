@@ -133,6 +133,30 @@ public sealed class ContractTests : IDisposable
         Assert.Contains(options, option => option!["environment"]?.ToString() == "TMUXP_PROGRESS=0");
     }
 
+    // SPEC 3 C2: fish offered every subcommand's flags on every subcommand --
+    // `load --<Tab>` showed 38 instead of load's own 11. Each `complete` line
+    // must name the exact subcommand path it belongs to.
+    [Fact]
+    public async Task Fish_completion_scopes_flags_to_their_own_subcommand()
+    {
+        var result = await Run("--generate", "fish");
+        Assert.Equal(0, result.Code);
+        string[] lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.All(lines, line => Assert.StartsWith("complete -c tmux-workspace -f -n ", line, StringComparison.Ordinal));
+        string[] loadLines = [.. lines.Where(line => line.Contains("__fish_seen_subcommand_from load;", StringComparison.Ordinal))];
+        Assert.NotEmpty(loadLines);
+        // --bpython/--pdb belong to shell, --fixed-strings/--any to search,
+        // --force/--save-to to freeze/convert/import: none are load's.
+        Assert.All(loadLines, line => Assert.DoesNotContain("bpython", line, StringComparison.Ordinal));
+        Assert.All(loadLines, line => Assert.DoesNotContain("fixed-strings", line, StringComparison.Ordinal));
+        Assert.All(loadLines, line => Assert.DoesNotContain("-l force", line, StringComparison.Ordinal));
+        Assert.Contains(loadLines, line => line.Contains(" -l append ", StringComparison.Ordinal));
+        Assert.Contains(loadLines, line => line.Contains(" -s d ", StringComparison.Ordinal));
+        // json/ndjson/color are recursive: always available, not scoped to
+        // any one subcommand's own condition.
+        Assert.Contains(lines, line => line.Contains("-n 'true'", StringComparison.Ordinal) && line.Contains(" -l json ", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("load", "file", "--progress-lines", "-2")]
     [InlineData("shell", "--pdb", "--ipython")]
