@@ -468,6 +468,39 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // Cancellation mid-window (not mid-load, which the QA pass already
+    // covers): the session is left in place by design, but the temporary
+    // bootstrap window used to hold the session open while options apply is
+    // pure scaffolding, never part of the user's document, and should not
+    // survive a cancellation any more than a successful load leaves it.
+    [Fact]
+    public async Task Cancellation_mid_window_still_removes_the_bootstrap_window()
+    {
+        CancellationToken outer = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "mid-window.socket");
+        string file = Path.Combine(_root, "mid-window.yaml");
+        await File.WriteAllTextAsync(file, "session_name: midwindow\nwindows: [{window_name: only, panes: [null, null]}]\n", outer);
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(outer);
+        using CancellingWriter stdout = new(cancellation, "pane-created");
+        using StringWriter stderr = new();
+        CliContext context = Context(stdout) with { Error = stderr, CancellationToken = cancellation.Token };
+        Invocation invocation = new CommandLine().Parse(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson"]);
+        await using Output output = new(context, invocation);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            int code = await new ExecutionCommands(context, invocation, output).LoadAsync();
+            Assert.Equal(130, code);
+            JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+            Assert.DoesNotContain(events, item => item["event"]!.ToString() == "window-completed");
+            TmuxCommandResult listed = await server.ExecuteCommandAsync(["list-windows", "-t", "midwindow", "-F", "#{window_name}"], outer);
+            Assert.Equal(0, listed.ExitCode);
+            string[] windows = System.Text.Encoding.UTF8.GetString(listed.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(["only"], windows);
+        }
+        finally { if (await server.IsAliveAsync(outer)) await server.KillAsync(cancellationToken: outer); }
+    }
+
     [Theory]
     [InlineData(false, "io")]
     [InlineData(false, "cancel")]
