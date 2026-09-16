@@ -113,10 +113,14 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             else output.Result(document);
             return;
         }
+        // An explicit --save-to is the user's own consent to write there; the
+        // prompt below is for a destination this command picked on its own
+        // (suggested, or asked for interactively), not one the user named.
+        bool explicitDestination = destination is not null;
         destination ??= suggested;
         if (destination is null) destination = Prompt("Save to: ");
         if (!Path.IsPathRooted(destination)) destination = Path.Combine(context.Directory, destination);
-        if (!invocation.Flag("yes") && !invocation.Machine && !Confirm($"Save workspace to '{destination}'?")) return;
+        if (!explicitDestination && !invocation.Flag("yes") && !invocation.Machine && !Confirm($"Save workspace to '{destination}'?")) return;
         DocumentStore.Save(destination, document, format, invocation.Flag("force"));
         if (invocation.Machine || !invocation.Flag("quiet")) output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", destination, format, warnings = invocation.Command == "freeze" ? CaptureWarnings : [] }, $"Saved {destination}");
     }
