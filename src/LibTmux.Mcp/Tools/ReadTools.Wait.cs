@@ -40,11 +40,14 @@ internal sealed partial class ReadTools
         string? paneId = null,
         [Description(
             "Regular expressions to wait for. Only output arriving AFTER this call "
-            + "counts — text already on screen never matches, so a pattern visible in "
-            + "the returned tail can still time out. Omit or pass an empty list to "
-            + "return as soon as the pane prints anything new. Across both pattern "
-            + "lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at most "
-            + "999 bytes.")]
+            + "counts as a match — text already on screen never triggers one, which is "
+            + "what keeps this from firing on a command's own echo. If a pattern is "
+            + "already on screen when this is called and nothing new ever matches, the "
+            + "result says outcome PresentAtEntry rather than Timeout, so a tail that "
+            + "contains the pattern is never reported as a plain timeout. Omit or pass "
+            + "an empty list to return as soon as the pane prints anything new. Across "
+            + "both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each entry "
+            + "is at most 999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -87,6 +90,15 @@ internal sealed partial class ReadTools
         TailCursor cursor = TailCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
 
+        // Checked once, up front, against what was already on screen when
+        // this call started - never against anything read since, which is
+        // what keeps this from matching a command's own echo. Recorded so a
+        // Timeout that only ever saw this same, unchanging text can say so
+        // instead of silently returning a tail that contains it.
+        string? matchedAtEntry = wanted.Length == 0
+            ? null
+            : Match(wanted, PaneText.Scrub(first.Lines, pane.Width), matchingWork, cancellationToken);
+
         while (true)
         {
             TimeSpan remaining = budget - elapsed.Elapsed;
@@ -95,8 +107,8 @@ internal sealed partial class ReadTools
                 return await FinishAsync(
                         pane,
                         id,
-                        WaitOutcome.Timeout,
-                        null,
+                        matchedAtEntry is null ? WaitOutcome.Timeout : WaitOutcome.PresentAtEntry,
+                        matchedAtEntry,
                         elapsed,
                         budget,
                         cancellationToken)
@@ -178,8 +190,8 @@ internal sealed partial class ReadTools
                 return await FinishAsync(
                         pane,
                         id,
-                        WaitOutcome.Timeout,
-                        null,
+                        matchedAtEntry is null ? WaitOutcome.Timeout : WaitOutcome.PresentAtEntry,
+                        matchedAtEntry,
                         elapsed,
                         budget,
                         cancellationToken)

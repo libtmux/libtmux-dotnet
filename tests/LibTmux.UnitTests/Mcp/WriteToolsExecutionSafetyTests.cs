@@ -2459,6 +2459,31 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Wait_for_a_pattern_already_on_screen_reports_present_at_entry_not_timeout()
+    {
+        string[] staticRows = ["ALREADY_HERE_MARKER"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // The pattern never arrives as new output, so this must answer
+        // PresentAtEntry rather than a Timeout whose own returned tail
+        // visibly contains the match it says it never found.
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["ALREADY_HERE_MARKER"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.Equal("ALREADY_HERE_MARKER", result.MatchedPattern);
+        Assert.Contains("ALREADY_HERE_MARKER", result.Tail.Lines);
+    }
+
+    [Fact]
     public async Task Read_since_busy_retry_falls_back_to_a_new_stable_cursor()
     {
         await using var fixture = new ToolFixture();
