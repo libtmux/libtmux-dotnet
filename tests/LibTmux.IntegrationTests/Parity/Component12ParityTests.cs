@@ -361,12 +361,26 @@ public sealed class Component12ParityTests
 
     private static async Task<bool> ProvesOverlayNeedsClientAsync(Pane pane, CancellationToken token)
     {
-        // Both overlays need a client, and the test process has none, so the
-        // behaviour to prove is that tmux's refusal reaches the caller.
+        // Both need a client on every supported tmux below 3.8, and the test
+        // process has none, so the behaviour to prove is that tmux's refusal
+        // reaches the caller. tmux 3.8 converted display-panes from an
+        // overlay into a mode -- it can run inside another pane and no
+        // longer needs one -- so display-popup is the one still gated here.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => pane.DisplayPopupAsync(cancellationToken: token));
-        await Assert.ThrowsAsync<TmuxCommandException>(
-            () => pane.DisplayPaneNumbersAsync(cancellationToken: token));
+
+        bool displayPanesStillAnOverlay = pane.Server.Version is not TmuxVersion version
+            || version < TmuxVersion.Parse("3.8");
+        if (displayPanesStillAnOverlay)
+        {
+            await Assert.ThrowsAsync<TmuxCommandException>(
+                () => pane.DisplayPaneNumbersAsync(cancellationToken: token));
+        }
+        else
+        {
+            await pane.DisplayPaneNumbersAsync(cancellationToken: token);
+        }
+
         return true;
     }
 
