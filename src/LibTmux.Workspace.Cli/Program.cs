@@ -13,7 +13,25 @@ internal static class Program
         using PosixSignalRegistration? terminate = OperatingSystem.IsWindows() ? null : PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal => { signal.Cancel = true; cancellation.Cancel(); });
         Console.CancelKeyPress += interrupt;
         try { return await CliRunner.RunAsync(args, Console.Out, Console.Error, cancellationToken: cancellation.Token).ConfigureAwait(false); }
-        finally { Console.CancelKeyPress -= interrupt; }
+        finally
+        {
+            Console.CancelKeyPress -= interrupt;
+            if (!OperatingSystem.IsWindows()) RestoreTerminalModes();
+        }
+    }
+
+    // Touching System.Console on Unix enables application cursor-key and
+    // keypad mode (DECCKM, DECKPAM) with no matching reset -- reproduced with
+    // a process that writes via a raw libc call instead, which stays clean.
+    // Undo it on every exit path, success, failure or cancellation alike.
+    private static void RestoreTerminalModes()
+    {
+        try
+        {
+            if (!Console.IsOutputRedirected) Console.Out.Write("[?1l>");
+            if (!Console.IsErrorRedirected) Console.Error.Write("[?1l>");
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) { }
     }
 }
 
