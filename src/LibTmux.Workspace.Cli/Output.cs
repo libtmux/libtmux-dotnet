@@ -282,8 +282,8 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
             try { await ClearProgressAsync(reporting.Token).ConfigureAwait(false); await FreshLinesAsync(reporting.Token).ConfigureAwait(false); }
             catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException or OperationCanceledException) { }
             await LogAsync(new { schema_version = 1, command = invocation.Command, code, message, severity = "error" }, "error", reporting.Token).ConfigureAwait(false);
-            // SPEC 3 S14: the stderr error record is {schema_version, code,
-            // message}; extra fields such as "effects" ride alongside them.
+            // The stderr error record is {schema_version, code, message};
+            // extra fields such as "effects" ride alongside them.
             if (Machine) await JsonAsync(context.Error, effects is null ? (object)new { schema_version = 1, code, message } : new { schema_version = 1, code, message, effects }, reporting.Token).ConfigureAwait(false);
             else
             {

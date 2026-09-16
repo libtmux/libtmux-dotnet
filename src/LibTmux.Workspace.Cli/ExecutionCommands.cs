@@ -27,8 +27,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         return new ServerConnectionOptions { TmuxBinaryPath = TmuxExecutable(), SocketName = name, SocketPath = socket, ConfigurationFile = invocation.Text("tmux_config"), ColorMode = invocation.Flag("colors256") ? TmuxColorMode.Colors256 : TmuxColorMode.Default, ChildEnvironment = context.Environment };
     }
 
-    // SPEC 3 S14: a missing tmux executable is its own tmux_unavailable code,
-    // not the generic executable_unavailable shared with EDITOR/before_script.
+    // A missing tmux executable is its own tmux_unavailable code, not the
+    // generic executable_unavailable shared with EDITOR/before_script.
     private string TmuxExecutable()
     {
         try
@@ -245,10 +245,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 }
                 stage = "workspace-finalized";
                 if (bootstrap is not null) await Change(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
-                // SPEC 3 S10: appending must not move the client off its
-                // current window unless an appended window sets focus: true --
-                // firstWindow is only the fallback for a session load builds
-                // fresh, never for one the user already owns.
+                // Appending must not move the client off its current window
+                // unless an appended window sets focus: true -- firstWindow
+                // is only the fallback for a session load builds fresh, never
+                // for one the user already owns.
                 string? active = appendTarget is not null ? focusedWindow : focusedWindow ?? firstWindow;
                 if (active is not null) await Change(["select-window", "-t", active]).ConfigureAwait(false);
                 results.Add(Result(index, input.Path, session, sessionName, created ? "created" : "appended"));
@@ -382,10 +382,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private static string OptionValue(string value) => value switch { "true" => "on", "false" => "off", _ => value };
 
-    // SPEC 3 S1: mirrors tmuxp (and go's sessionDimensions) so an attached
-    // load sizes the session to the terminal it was run from, instead of a
-    // fixed 80x24 that tmux stretches once a client attaches -- which is what
-    // put every main-pane layout at the wrong ratio (A1).
+    // Mirrors tmuxp so an attached load sizes the session to the terminal it
+    // was run from, instead of a fixed 80x24 that tmux stretches once a
+    // client attaches -- which is what put every main-pane layout at the
+    // wrong ratio.
     private (string? Columns, string? Rows) SessionSize()
     {
         string columns = Dimension("TMUXP_DEFAULT_COLUMNS", "COLUMNS", 80);

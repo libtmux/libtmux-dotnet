@@ -40,9 +40,9 @@ internal static class CommandDocumentation
         };
     }
 
-    // SPEC 3 C2: `load --<Tab>` in fish offered every subcommand's flags,
-    // not just load's own 11 -- scope each `complete` line to the
-    // subcommand path it belongs to, the way fish's own completions do.
+    // `load --<Tab>` in fish offered every subcommand's flags, not just
+    // load's own 11 -- scope each `complete` line to the subcommand path it
+    // belongs to, the way fish's own completions do.
     private static string Fish(Command root)
     {
         static string LongOrShort(string flag) => flag.StartsWith("--", StringComparison.Ordinal)

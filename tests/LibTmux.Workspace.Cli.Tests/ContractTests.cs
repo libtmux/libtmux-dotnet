@@ -133,9 +133,9 @@ public sealed class ContractTests : IDisposable
         Assert.Contains(options, option => option!["environment"]?.ToString() == "TMUXP_PROGRESS=0");
     }
 
-    // SPEC 3 C2: fish offered every subcommand's flags on every subcommand --
-    // `load --<Tab>` showed 38 instead of load's own 11. Each `complete` line
-    // must name the exact subcommand path it belongs to.
+    // fish offered every subcommand's flags on every subcommand -- `load
+    // --<Tab>` showed 38 instead of load's own 11. Each `complete` line must
+    // name the exact subcommand path it belongs to.
     [Fact]
     public async Task Fish_completion_scopes_flags_to_their_own_subcommand()
     {

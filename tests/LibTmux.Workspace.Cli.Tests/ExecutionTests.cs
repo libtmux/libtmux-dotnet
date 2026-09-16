@@ -404,9 +404,9 @@ public sealed class ExecutionTests : IDisposable
 
         (int code, string output, string error) = await Run("import", kind, source, "--save-to", destination, "--force", "--json");
 
-        // SPEC 3 S14: "filters" and "clear" are teamocil fields this importer
-        // does not recognize at all (unsupported_key); every other case here
-        // is a recognized field with a value or combination this importer
+        // "filters" and "clear" are teamocil fields this importer does not
+        // recognize at all (unsupported_key); every other case here is a
+        // recognized field with a value or combination this importer
         // cannot represent (invalid_workspace).
         string expectedCode = diagnostic is "filters" or "clear" ? "unsupported_key" : "invalid_workspace";
         Assert.Equal(1, code);

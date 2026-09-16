@@ -70,8 +70,8 @@ internal sealed partial class ProgressDisplay : IDisposable
 
     internal static (int Width, int Height)? ErrorSize() => DescriptorSize(2);
 
-    // SPEC 3 S1: load sizes the session from stdout's own terminal, not the
-    // progress bar's stderr one, so it must read a different descriptor.
+    // load sizes the session from stdout's own terminal, not the progress
+    // bar's stderr one, so it must read a different descriptor.
     internal static (int Width, int Height)? StandardOutputSize() => DescriptorSize(1);
 
     private static (int Width, int Height)? DescriptorSize(int descriptor)
