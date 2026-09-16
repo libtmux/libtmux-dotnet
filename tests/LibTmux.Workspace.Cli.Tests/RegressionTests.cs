@@ -1182,6 +1182,26 @@ public sealed class RegressionTests : IDisposable
         Assert.False(ContainsSgrEscape(rendered), $"Expected no SGR (colour) escape codes, got: {rendered}");
     }
 
+    // Console on Unix enables application cursor-key and keypad mode
+    // (DECCKM, DECKPAM) the moment any Console member is touched, with no
+    // matching reset -- reproduced with a program using a raw libc write()
+    // instead of System.Console, which stays clean. Every command restores it.
+    [Fact]
+    public async Task Version_on_a_real_terminal_restores_cursor_and_keypad_mode()
+    {
+        string rendered = await RunCliUnderPtyAsync(["--version", "--color", "never"], TestContext.Current.CancellationToken);
+        AssertModeRestored(rendered, "[?1h", "[?1l");
+        AssertModeRestored(rendered, "=", ">");
+    }
+
+    private static void AssertModeRestored(string text, string set, string reset)
+    {
+        int lastSet = text.LastIndexOf(set, StringComparison.Ordinal);
+        int lastReset = text.LastIndexOf(reset, StringComparison.Ordinal);
+        Assert.True(lastSet >= 0, $"Expected at least one {set} to reproduce the leak, found none in: {text}");
+        Assert.True(lastReset > lastSet, $"Expected {reset} after the last {set}, in: {text}");
+    }
+
     // SGR is CSI + digits/semicolons + 'm'; excludes ESC[2K/ESC[1A (progress
     // redraw) and ESC[?1h (keypad mode), neither of which is colour.
     private static bool ContainsSgrEscape(string text)
