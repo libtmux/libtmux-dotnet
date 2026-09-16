@@ -437,10 +437,13 @@ internal static class Program
 | `T:LibTmux.WindowResizeMode` | enum | `public` | None | `Enum` | value | Defines WindowResizeMode values. | `LibTmux` |
 | `T:LibTmux.WindowRotationDirection` | enum | `public` | None | `Enum` | value | Defines WindowRotationDirection values. | `LibTmux` |
 | `T:LibTmux.IControlModeSession` | interface | `public` | `System.IAsyncDisposable` | `None` | reference | A live tmux control client reporting what tmux does until disposed. | `LibTmux` |
+| `T:LibTmux.PaneObservation` | static class | `public, static` | None | `object` | value | Narrows a control client's event stream to one pane, and ends it cleanly. | `LibTmux` |
+| `T:LibTmux.ControlModeSubscriptions` | static class | `public, static` | None | `object` | value | Subscribes a control client to a format changing. | `LibTmux` |
 | `T:LibTmux.ControlModeCommandException` | class | `public, sealed` | None | `LibTmuxException` | reference | Reports a command rejected by a live tmux control client. State: Command, OutputLines, ErrorLines. | `LibTmux` |
 | `T:LibTmux.TmuxEvent` | record | `public, abstract` | None | `object` | value | One thing a tmux control client reported without being asked. | `LibTmux` |
 | `T:LibTmux.TmuxEventsDroppedEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | A loss marker emitted when the bounded control-event buffer overflows. | `LibTmux` |
 | `T:LibTmux.TmuxOutputEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | Bytes a pane wrote, with tmux's escaping decoded. | `LibTmux` |
+| `T:LibTmux.TmuxPaneGoneEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | The pane a PaneObservation.WatchAsync stream was watching left its window's arrangement. | `LibTmux` |
 | `T:LibTmux.TmuxNotificationEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | A tmux notification carried by name with its words unparsed. | `LibTmux` |
 | `T:LibTmux.TmuxExitEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | The control client ended; always the last event in the stream. | `LibTmux` |
 | `T:LibTmux.TmuxCommand` | record | `public, sealed` | None | `object` | value | One tmux command and the arguments it carries. | `LibTmux` |
@@ -601,6 +604,12 @@ internal static class Program
 | `P:LibTmux.ControlModeCommandException.Command` | `TmuxCommand LibTmux.ControlModeCommandException.Command { get; }` | Public | No | Portable | Gets the command tmux rejected. |
 | `P:LibTmux.ControlModeCommandException.ErrorLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.ErrorLines { get; }` | Public | No | Portable | Gets the error lines tmux reported. |
 | `P:LibTmux.ControlModeCommandException.OutputLines` | `IReadOnlyList<string> LibTmux.ControlModeCommandException.OutputLines { get; }` | Public | No | Portable | Gets output produced before tmux rejected the command. |
+
+### `T:LibTmux.ControlModeSubscriptions`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ControlModeSubscriptions.SubscribeSessionAsync(IControlModeSession,string,string,System.Threading.CancellationToken)` | `static Task<IReadOnlyList<string>> LibTmux.ControlModeSubscriptions.SubscribeSessionAsync(this IControlModeSession session, string name, string format, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Subscribes to a session-scoped format changing. |
 
 ### `T:LibTmux.CopyModeRequest`
 
@@ -948,11 +957,13 @@ internal static class Program
 | `P:LibTmux.Pane.Hooks` | `TmuxHooks LibTmux.Pane.Hooks { get; }` | Public | No | Portable | Gets the captured Hooks value. |
 | `P:LibTmux.Pane.Id` | `PaneId LibTmux.Pane.Id { get; }` | Public | No | Portable | Gets the captured Id value. |
 | `P:LibTmux.Pane.Index` | `int LibTmux.Pane.Index { get; }` | Public | No | Portable | Gets the captured Index value. |
+| `P:LibTmux.Pane.Left` | `int LibTmux.Pane.Left { get; }` | Public | No | Portable | Gets the captured Left value. |
 | `P:LibTmux.Pane.Options` | `TmuxOptions LibTmux.Pane.Options { get; }` | Public | No | Portable | Gets the captured Options value. |
 | `P:LibTmux.Pane.RawFormatFields` | `IReadOnlyDictionary<string,string?> LibTmux.Pane.RawFormatFields { get; }` | Public | No | Portable | Gets copied raw tmux format tokens captured for this snapshot. |
 | `P:LibTmux.Pane.Server` | `Server LibTmux.Pane.Server { get; }` | Public | No | Portable | Gets the captured Server value. |
 | `P:LibTmux.Pane.Session` | `Session LibTmux.Pane.Session { get; }` | Public | No | Portable | Gets the captured Session value. |
 | `P:LibTmux.Pane.Title` | `string? LibTmux.Pane.Title { get; }` | Public | No | Portable | Gets the captured Title value. |
+| `P:LibTmux.Pane.Top` | `int LibTmux.Pane.Top { get; }` | Public | No | Portable | Gets the captured Top value. |
 | `P:LibTmux.Pane.Width` | `int LibTmux.Pane.Width { get; }` | Public | No | Portable | Gets the captured Width value. |
 | `P:LibTmux.Pane.Window` | `Window LibTmux.Pane.Window { get; }` | Public | No | Portable | Gets the captured Window value. |
 
@@ -986,6 +997,12 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `F:LibTmux.PaneInputMode.Disable` | `Disable = 1` | Public | Implicit | Portable | The Disable value. Value: `1`. |
 | `F:LibTmux.PaneInputMode.Enable` | `Enable = 0` | Public | Implicit | Portable | The Enable value. Value: `0`. |
+
+### `T:LibTmux.PaneObservation`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.PaneObservation.WatchAsync(IControlModeSession,Pane,System.Threading.CancellationToken)` | `static IAsyncEnumerable<TmuxEvent> LibTmux.PaneObservation.WatchAsync(this IControlModeSession session, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Watches one pane's output until it ends. |
 
 ### `T:LibTmux.PaneSelectDirection`
 
@@ -2101,6 +2118,13 @@ internal static class Program
 | `M:LibTmux.TmuxPaneException.#ctor(string,PaneId,Exception?)` | `TmuxPaneException(string message, PaneId paneId, Exception? innerException = null)` | Public | No | Portable | Creates TmuxPaneException. |
 | `P:LibTmux.TmuxPaneException.PaneId` | `PaneId LibTmux.TmuxPaneException.PaneId { get; }` | Public | No | Portable | Gets PaneId. |
 
+### `T:LibTmux.TmuxPaneGoneEvent`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxPaneGoneEvent.#ctor(PaneId)` | `TmuxPaneGoneEvent(PaneId PaneId)` | Public | No | Portable | Creates TmuxPaneGoneEvent. |
+| `P:LibTmux.TmuxPaneGoneEvent.PaneId` | `PaneId LibTmux.TmuxPaneGoneEvent.PaneId { get; }` | Public | No | Portable | Gets the pane that is gone. |
+
 ### `T:LibTmux.TmuxSessionExistsException`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -2275,6 +2299,7 @@ internal static class Program
 | `P:LibTmux.Window.Hooks` | `TmuxHooks LibTmux.Window.Hooks { get; }` | Public | No | Portable | Gets the captured Hooks value. |
 | `P:LibTmux.Window.Id` | `WindowId LibTmux.Window.Id { get; }` | Public | No | Portable | Gets the captured Id value. |
 | `P:LibTmux.Window.Index` | `int LibTmux.Window.Index { get; }` | Public | No | Portable | Gets the captured Index value. |
+| `P:LibTmux.Window.Layout` | `string LibTmux.Window.Layout { get; }` | Public | No | Portable | Gets the captured Layout value. |
 | `P:LibTmux.Window.LinkedSessions` | `CapturedRelation<Session> LibTmux.Window.LinkedSessions { get; }` | Public | No | Portable | Gets the captured LinkedSessions value. |
 | `P:LibTmux.Window.Name` | `string LibTmux.Window.Name { get; }` | Public | No | Portable | Gets the captured Name value. |
 | `P:LibTmux.Window.Options` | `TmuxOptions LibTmux.Window.Options { get; }` | Public | No | Portable | Gets the captured Options value. |

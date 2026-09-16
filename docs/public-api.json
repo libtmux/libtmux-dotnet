@@ -3055,6 +3055,38 @@
       "summary": "A live tmux control client reporting what tmux does until disposed."
     },
     {
+      "id": "T:LibTmux.PaneObservation",
+      "namespace": "LibTmux",
+      "name": "PaneObservation",
+      "kind": "static class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "static"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "Narrows a control client's event stream to one pane, and ends it cleanly."
+    },
+    {
+      "id": "T:LibTmux.ControlModeSubscriptions",
+      "namespace": "LibTmux",
+      "name": "ControlModeSubscriptions",
+      "kind": "static class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "static"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "Subscribes a control client to a format changing."
+    },
+    {
       "id": "T:LibTmux.ControlModeCommandException",
       "namespace": "LibTmux",
       "name": "ControlModeCommandException",
@@ -3121,6 +3153,22 @@
       "ownership": "value",
       "state": [],
       "summary": "Bytes a pane wrote, with tmux's escaping decoded."
+    },
+    {
+      "id": "T:LibTmux.TmuxPaneGoneEvent",
+      "namespace": "LibTmux",
+      "name": "TmuxPaneGoneEvent",
+      "kind": "record",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "LibTmux.TmuxEvent",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "The pane a PaneObservation.WatchAsync stream was watching left its window's arrangement."
     },
     {
       "id": "T:LibTmux.TmuxNotificationEvent",
@@ -18970,6 +19018,34 @@
       "summary": "Gets the captured Title value."
     },
     {
+      "id": "P:LibTmux.Pane.Left",
+      "declaringType": "T:LibTmux.Pane",
+      "name": "Left",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "int",
+      "parameters": [],
+      "signature": "int LibTmux.Pane.Left { get; }",
+      "portable": true,
+      "summary": "Gets the captured Left value."
+    },
+    {
+      "id": "P:LibTmux.Pane.Top",
+      "declaringType": "T:LibTmux.Pane",
+      "name": "Top",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "int",
+      "parameters": [],
+      "signature": "int LibTmux.Pane.Top { get; }",
+      "portable": true,
+      "summary": "Gets the captured Top value."
+    },
+    {
       "id": "P:LibTmux.Pane.Width",
       "declaringType": "T:LibTmux.Pane",
       "name": "Width",
@@ -23238,6 +23314,20 @@
       "summary": "Gets the captured Width value."
     },
     {
+      "id": "P:LibTmux.Window.Layout",
+      "declaringType": "T:LibTmux.Window",
+      "name": "Layout",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "string",
+      "parameters": [],
+      "signature": "string LibTmux.Window.Layout { get; }",
+      "portable": true,
+      "summary": "Gets the captured Layout value."
+    },
+    {
       "id": "P:LibTmux.WindowEntityKey.SessionId",
       "declaringType": "T:LibTmux.WindowEntityKey",
       "name": "SessionId",
@@ -25040,6 +25130,99 @@
       "summary": "Starts a tmux control client and keeps it running."
     },
     {
+      "id": "T:LibTmux.PaneObservation",
+      "declaringType": "T:LibTmux.PaneObservation",
+      "name": "PaneObservation",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "static class LibTmux.PaneObservation",
+      "portable": true
+    },
+    {
+      "id": "M:LibTmux.PaneObservation.WatchAsync(IControlModeSession,Pane,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.PaneObservation",
+      "name": "WatchAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "IAsyncEnumerable<TmuxEvent>",
+      "parameters": [
+        {
+          "name": "session",
+          "type": "IControlModeSession",
+          "modifier": "this"
+        },
+        {
+          "name": "pane",
+          "type": "Pane"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "IAsyncEnumerable<TmuxEvent> LibTmux.PaneObservation.WatchAsync(this IControlModeSession session, Pane pane, CancellationToken cancellationToken = default)",
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Watches one pane's output until it ends."
+    },
+    {
+      "id": "T:LibTmux.ControlModeSubscriptions",
+      "declaringType": "T:LibTmux.ControlModeSubscriptions",
+      "name": "ControlModeSubscriptions",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "static class LibTmux.ControlModeSubscriptions",
+      "portable": true
+    },
+    {
+      "id": "M:LibTmux.ControlModeSubscriptions.SubscribeSessionAsync(IControlModeSession,string,string,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.ControlModeSubscriptions",
+      "name": "SubscribeSessionAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<IReadOnlyList<string>>",
+      "parameters": [
+        {
+          "name": "session",
+          "type": "IControlModeSession",
+          "modifier": "this"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "format",
+          "type": "string"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task<IReadOnlyList<string>> LibTmux.ControlModeSubscriptions.SubscribeSessionAsync(this IControlModeSession session, string name, string format, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Subscribes to a session-scoped format changing."
+    },
+    {
       "id": "P:LibTmux.IControlModeSession.Events",
       "declaringType": "T:LibTmux.IControlModeSession",
       "name": "Events",
@@ -25218,6 +25401,49 @@
       "signature": "string LibTmux.TmuxOutputEvent.Data { get; }",
       "portable": true,
       "summary": "Gets Data."
+    },
+    {
+      "id": "T:LibTmux.TmuxPaneGoneEvent",
+      "declaringType": "T:LibTmux.TmuxPaneGoneEvent",
+      "name": "TmuxPaneGoneEvent",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "record LibTmux.TmuxPaneGoneEvent",
+      "portable": true
+    },
+    {
+      "id": "M:LibTmux.TmuxPaneGoneEvent.#ctor(PaneId)",
+      "declaringType": "T:LibTmux.TmuxPaneGoneEvent",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxPaneGoneEvent",
+      "parameters": [
+        {
+          "name": "PaneId",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "TmuxPaneGoneEvent(PaneId PaneId)",
+      "portable": true,
+      "summary": "Creates TmuxPaneGoneEvent."
+    },
+    {
+      "id": "P:LibTmux.TmuxPaneGoneEvent.PaneId",
+      "declaringType": "T:LibTmux.TmuxPaneGoneEvent",
+      "name": "PaneId",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "PaneId",
+      "parameters": [],
+      "signature": "PaneId LibTmux.TmuxPaneGoneEvent.PaneId { get; }",
+      "portable": true,
+      "summary": "Gets the pane that is gone."
     },
     {
       "id": "M:LibTmux.TmuxNotificationEvent.#ctor(string,System.Collections.Generic.IReadOnlyList{string})",

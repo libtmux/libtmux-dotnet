@@ -23,6 +23,7 @@ modes differ.
 | `LibTmux.CommandPromptRequest` | Describes one command-prompt invocation. |
 | `LibTmux.ConfirmBeforeRequest` | Describes one confirm-before invocation. |
 | `LibTmux.ControlModeCommandException` | Reports a command rejected by a live tmux control client. |
+| `LibTmux.ControlModeSubscriptions` | Subscribes a control client to a format changing. |
 | `LibTmux.CopyModeRequest` | Describes one copy-mode invocation. |
 | `LibTmux.DisplayMenuRequest` | Describes one display-menu invocation. |
 | `LibTmux.DisplayMessageRequest` | Describes one display-message invocation. |
@@ -52,6 +53,7 @@ modes differ.
 | `LibTmux.PaneDirection` | Defines pane placement directions. |
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
+| `LibTmux.PaneObservation` | Narrows a control client's event stream to one pane, and ends it cleanly. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
 | `LibTmux.PaneSwapDirection` | Names which neighbouring pane a swap uses. |
 | `LibTmux.PasteBufferRequest` | Describes one paste-buffer invocation. |
@@ -150,6 +152,7 @@ modes differ.
 | `LibTmux.TmuxOptions` | The options of one server, session, window, or pane. |
 | `LibTmux.TmuxOutputEvent` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneException` | Thrown when a pane operation is refused before tmux sees it. |
+| `LibTmux.TmuxPaneGoneEvent` | The pane a stream was watching left its window's arrangement. |
 | `LibTmux.TmuxSessionExistsException` | Thrown when a session name is already taken. |
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
@@ -192,6 +195,7 @@ modes differ.
 | `LibTmux.CommandPromptRequest.#ctor(System.String,System.String,System.String,System.String,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Nullable{LibTmux.PromptType},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a command prompt. |
 | `LibTmux.ConfirmBeforeRequest.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,System.Boolean,System.String)` | Initializes a confirmation. |
 | `LibTmux.ControlModeCommandException.#ctor(System.String,LibTmux.TmuxCommand,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a control-mode command exception. |
+| `LibTmux.ControlModeSubscriptions.SubscribeSessionAsync(LibTmux.IControlModeSession,System.String,System.String,System.Threading.CancellationToken)` | Subscribes to a session-scoped format changing. |
 | `LibTmux.CopyModeRequest.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.String)` | Initializes a copy-mode request. |
 | `LibTmux.DisplayMenuRequest.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.TmuxMenuItem},System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.Boolean,System.Boolean)` | Initializes a menu. |
 | `LibTmux.DisplayMessageRequest.#ctor(System.String,System.Boolean,System.String,System.Boolean,System.Boolean,System.Boolean,System.String,System.Nullable{System.TimeSpan},System.Boolean,System.Boolean)` | Initializes a display-message request. |
@@ -264,6 +268,7 @@ modes differ.
 | `LibTmux.PaneId.op_GreaterThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no earlier than another. |
 | `LibTmux.PaneId.op_LessThan(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out before another. |
 | `LibTmux.PaneId.op_LessThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no later than another. |
+| `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)` | Watches one pane's output until it ends. |
 | `LibTmux.PasteBufferRequest.#ctor(System.String,System.Boolean,System.Boolean,System.Boolean,System.String,System.Boolean)` | Initializes a buffer-paste request. |
 | `LibTmux.PipePaneRequest.#ctor(System.String,System.Boolean,System.Boolean,System.Boolean)` | Initializes a pane-piping request. |
 | `LibTmux.PsmuxCaptureOptions.#ctor(System.Nullable{LibTmux.CapturePanePosition},System.Nullable{LibTmux.CapturePanePosition},System.Boolean,System.Boolean)` | Initializes a bounded psmux capture. |
@@ -557,6 +562,7 @@ modes differ.
 | `LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest,System.Threading.CancellationToken)` | Unsets one option, returning it to what it inherits. |
 | `LibTmux.TmuxOutputEvent.#ctor(LibTmux.PaneId,System.String)` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneException.#ctor(System.String,LibTmux.PaneId,System.Exception)` | Initializes the exception for one pane. |
+| `LibTmux.TmuxPaneGoneEvent.#ctor(LibTmux.PaneId)` | The pane a stream was watching left its window's arrangement. |
 | `LibTmux.TmuxSessionExistsException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one taken session name. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},LibTmux.TmuxDispatchState,System.Exception)` | Initializes a transport exception that knows whether tmux was started. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a transport exception whose dispatch state is unknown. |
@@ -852,11 +858,13 @@ modes differ.
 | `LibTmux.Pane.Hooks` | Gets the hooks of this pane. |
 | `LibTmux.Pane.Id` | Gets the pane identifier. |
 | `LibTmux.Pane.Index` | Gets the index this pane holds in its window. |
+| `LibTmux.Pane.Left` | Gets the pane's left offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Options` | Gets the options of this pane. |
 | `LibTmux.Pane.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Pane.Server` | Gets the server that owns this pane. |
 | `LibTmux.Pane.Session` | Gets the session containing this pane. |
 | `LibTmux.Pane.Title` | Gets the pane title captured with this handle. |
+| `LibTmux.Pane.Top` | Gets the pane's top offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
@@ -1098,7 +1106,7 @@ modes differ.
 | `LibTmux.TmuxEnvironmentEntry.Value` | Gets the value, or null when the variable is marked removed. |
 | `LibTmux.TmuxEventsDroppedEvent.Count` | The events discarded since the previous loss report. |
 | `LibTmux.TmuxEventsDroppedEvent.TotalDropped` | The events discarded over this control client's lifetime. |
-| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit and names a reason when the server went away underneath the client. |
+| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null there is tmux's own silence, not something this library failed to capture. |
 | `LibTmux.TmuxHook.Name` | Gets the hook name, without an index. |
 | `LibTmux.TmuxHook.Values` | Gets the commands it runs, in the order tmux reported. |
 | `LibTmux.TmuxHookEntry.Command` | Gets the tmux command, as tmux prints it. |
@@ -1125,6 +1133,7 @@ modes differ.
 | `LibTmux.TmuxOutputEvent.Data` | The text, with tmux's escaping already decoded. It is a fragment of a stream rather than a line: tmux sends whatever it has, so a single write by the program in the pane can arrive split across events and one event can carry several lines. |
 | `LibTmux.TmuxOutputEvent.PaneId` | The pane that produced the output. |
 | `LibTmux.TmuxPaneException.PaneId` | Gets the pane the request named. |
+| `LibTmux.TmuxPaneGoneEvent.PaneId` | The pane that is gone. |
 | `LibTmux.TmuxSessionExistsException.SessionName` | Gets the session name that is already in use. |
 | `LibTmux.TmuxTransportException.Arguments` | Gets the logical tmux arguments. |
 | `LibTmux.TmuxVersion.IsValid` | Gets whether this value contains a parsed tmux version. |
@@ -1159,6 +1168,7 @@ modes differ.
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |
 | `LibTmux.Window.Id` | Gets the window identifier. |
 | `LibTmux.Window.Index` | Gets the index this window holds in its session. |
+| `LibTmux.Window.Layout` | Gets the layout string captured with this handle. |
 | `LibTmux.Window.LinkedSessions` | Gets the sessions the capture found this window linked into. |
 | `LibTmux.Window.Name` | Gets the window name captured with this handle. |
 | `LibTmux.Window.Options` | Gets the options of this window. |
