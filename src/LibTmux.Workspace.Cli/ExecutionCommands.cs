@@ -44,7 +44,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     internal async Task<int> LoadAsync()
     {
         if (invocation.Flag("colors88")) throw new CliException("unsupported_color_mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
-        if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("mode_required", "Machine load requires -d or --append.", 2);
+        if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("usage", "Machine load requires -d or --append.", 2);
         output.PrepareProgress();
         string[] files = invocation.Many("files");
         var inputs = files.Select((file, index) =>
