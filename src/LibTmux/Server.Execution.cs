@@ -54,7 +54,11 @@ public sealed partial class Server
 
     /// <summary>Runs a shell command and reports what it printed.</summary>
     /// <param name="request">What to run, and how.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <param name="cancellationToken">
+    /// Cancels waiting for tmux's reply. tmux itself is not told: the server,
+    /// not this process, owns <c>run-shell</c>'s spawned command, so cancelling
+    /// stops this call from waiting on it, not the command from running.
+    /// </param>
     /// <returns>What the command printed, or null when tmux did not wait for it.</returns>
     /// <remarks>
     /// The directory flag arrived in tmux 3.4, the error-output flag in 3.6,

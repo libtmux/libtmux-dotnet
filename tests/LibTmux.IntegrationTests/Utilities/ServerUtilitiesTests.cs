@@ -58,6 +58,64 @@ public sealed class ServerUtilitiesTests
     }
 
     [UnixFact]
+    public async Task Cancelling_RunShellAsync_stops_waiting_but_not_the_tmux_side_command()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+
+        string prefix = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-runshell-cancel-{Guid.NewGuid():N}");
+        string started = $"{prefix}-started";
+        string marker = $"{prefix}-done";
+        try
+        {
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            // run-shell's spawned command is owned by the tmux server, not
+            // this client, so cancelling the wait must not stop it from
+            // finishing.
+            Task pending = server.RunShellAsync(
+                new RunShellRequest($"touch {started}; sleep 3; touch {marker}"),
+                cts.Token);
+
+            // TmuxOperationCanceledException reports cancellation *after* a
+            // client started, and carries that client's process id; cancelling
+            // before the start is a plain OperationCanceledException instead.
+            // Cancelling on a timer races a loaded machine for which of the two
+            // a caller gets, so wait for the command's own first act to prove
+            // tmux is running it, and only then cancel.
+            for (int attempt = 0; attempt < 200 && !File.Exists(started); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), token);
+            }
+
+            Assert.True(File.Exists(started), "tmux never started run-shell's command");
+            await cts.CancelAsync();
+
+            await Assert.ThrowsAsync<TmuxOperationCanceledException>(() => pending);
+
+            Assert.False(
+                File.Exists(marker),
+                "the marker appeared before the sleep it follows could have finished");
+
+            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+
+            Assert.True(File.Exists(marker), "run-shell's command never finished on the server");
+        }
+        finally
+        {
+            File.Delete(started);
+            File.Delete(marker);
+        }
+    }
+
+    [UnixFact]
     public async Task Bind_unbind_and_list_key_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
