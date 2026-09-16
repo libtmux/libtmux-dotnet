@@ -81,6 +81,23 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 changed = true;
                 return result;
             }
+            // Resolved once per session, not per pane: session-options is not
+            // yet applied when the first pane is created, and a live
+            // #{pane_current_command} read immediately after new-window or
+            // split-window is a race against the shell exec'ing, not a
+            // dependable signal. default-shell is a static session option, so
+            // reading it once here cannot lose that race.
+            bool readinessResolved = false;
+            string? readinessShell = null;
+            async Task<string?> ReadinessShellAsync()
+            {
+                if (readinessResolved) return readinessShell;
+                readinessResolved = true;
+                if (input.Plan.Readiness == "never") return null;
+                if ((await Field(session!, "default-command").ConfigureAwait(false)).Length > 0) return null;
+                string shellName = Path.GetFileName(await Field(session!, "default-shell").ConfigureAwait(false));
+                return readinessShell = input.Plan.Readiness == "always" || shellName == "zsh" ? shellName : null;
+            }
             try
             {
                 context.CancellationToken.ThrowIfCancellationRequested();
@@ -156,7 +173,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     firstWindow ??= windowId;
                     if (window.Focus) focusedWindow = windowId;
                     foreach (var option in window.Options) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
-                    await output.EventAsync(stage, new { input_index = index, session_id = session, window_id = windowId, window_name = window.Name }).ConfigureAwait(false);
+                    await output.EventAsync(stage, new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, window_name = window.Name }).ConfigureAwait(false);
                     completedStage = stage;
                     string? focusedPane = null;
                     for (int paneIndex = 0; paneIndex < window.Panes.Length; paneIndex++)
@@ -170,15 +187,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             paneId = (await Change(split).ConfigureAwait(false)).TrimEnd('\n');
                             await Change(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
                         }
-                        await output.EventAsync(stage = "pane-created", new { input_index = index, window_id = windowId, pane_id = paneId }).ConfigureAwait(false);
+                        await output.EventAsync(stage = "pane-created", new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, pane_id = paneId, pane_index = paneIndex + 1 }).ConfigureAwait(false);
                         completedStage = stage;
                         if (pane.Focus) focusedPane = paneId;
-                        if (pane.Commands.Length > 0 && pane.Shell is null && (input.Plan.Readiness == "always" || (input.Plan.Readiness == "auto" && (await Field(paneId, "pane_current_command").ConfigureAwait(false)).EndsWith("zsh", StringComparison.Ordinal))))
+                        if (pane.Commands.Length > 0 && pane.Shell is null && await ReadinessShellAsync().ConfigureAwait(false) is string expectedShell)
                         {
                             long started = System.Diagnostics.Stopwatch.GetTimestamp();
                             while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(2))
                             {
-                                if ((await Command(["display-message", "-p", "-t", paneId, "#{cursor_x},#{cursor_y}"]).ConfigureAwait(false)).TrimEnd('\n') != "0,0") break;
+                                string[] sample = (await Command(["display-message", "-p", "-t", paneId, "#{pane_current_command}\t#{cursor_x},#{cursor_y}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                                if (sample.Length == 2 && sample[0] == expectedShell && sample[1] != "0,0") break;
                                 await Task.Delay(50, context.CancellationToken).ConfigureAwait(false);
                             }
                         }
@@ -192,6 +210,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             completedStage = stage;
                         }
                         await output.ProgressAsync(progress => progress.CompletePane()).ConfigureAwait(false);
+                        await output.EventAsync(stage = "pane-completed", new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, pane_id = paneId, pane_index = paneIndex + 1 }).ConfigureAwait(false);
+                        completedStage = stage;
                     }
                     stage = "window-finalized";
                     if (window.Layout is not null) await Change(["select-layout", "-t", windowId, window.Layout]).ConfigureAwait(false);
@@ -199,6 +219,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (focusedPane is not null) await Change(["select-pane", "-t", focusedPane]).ConfigureAwait(false);
                     completedStage = stage;
                     await output.ProgressAsync(progress => progress.CompleteWindow(), force: true).ConfigureAwait(false);
+                    await output.EventAsync(stage = "window-completed", new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal }).ConfigureAwait(false);
+                    completedStage = stage;
                 }
                 stage = "workspace-finalized";
                 if (bootstrap is not null) await Change(["kill-window", "-t", bootstrap]).ConfigureAwait(false);
