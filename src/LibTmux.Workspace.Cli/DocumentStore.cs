@@ -92,7 +92,7 @@ internal sealed class DocumentStore(CliContext context)
             foreach ((YamlNode key, YamlNode value) in mapping.Children)
             {
                 if (key is not YamlScalarNode scalar || scalar.Value is null) throw new CliException("invalid_workspace", "Mapping keys must be strings.");
-                // SPEC 3 S5: `<<: *anchor` / `<<: [*a, *b]` merge keys.
+                // Resolves `<<: *anchor` / `<<: [*a, *b]` merge keys.
                 // Explicit keys in this mapping always win; among merge
                 // sources, the earlier one wins, per yaml.org/type/merge.html.
                 if (scalar.Value == "<<")
@@ -129,8 +129,8 @@ internal sealed class DocumentStore(CliContext context)
         ? document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n"
         : new SerializerBuilder().WithTypeConverter(QuotingStringConverter.Instance).Build().Serialize(ToObject(document));
 
-    // SPEC 3 S4: quote every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2
-    // resolver would otherwise read back as bool, null, int or float, so a
+    // Quotes every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2 resolver
+    // would otherwise read back as bool, null, int or float, so a
     // window named "yes" or "1.0" round-trips as the string it is.
     private sealed class QuotingStringConverter : IYamlTypeConverter
     {

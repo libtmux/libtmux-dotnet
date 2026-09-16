@@ -130,14 +130,15 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
 
     private static void Keys(JsonObject node, string[] allowed, string scope)
     {
-        // SPEC 3 S6: a key starting with "x-", at any level, is inert.
+        // A key starting with "x-", at any level, is inert: accepted and
+        // ignored, so custom keys can pass through unchanged.
         foreach (string key in node.Select(pair => pair.Key))
             if (!key.StartsWith("x-", StringComparison.Ordinal) && !allowed.Contains(key, StringComparer.Ordinal))
                 throw Unsupported($"Unsupported {scope} key '{key}'. Prefix a custom key with 'x-' to pass it through unchanged.");
     }
 
-    // SPEC 3 S14: a malformed document, wrong type or invalid value is
-    // invalid_workspace; a refused unknown key is its own unsupported_key.
+    // A malformed document, wrong type or invalid value is invalid_workspace;
+    // a refused unknown key is its own unsupported_key.
     private static CliException Invalid(string message) => new("invalid_workspace", message);
 
     private static CliException Unsupported(string message) => new("unsupported_key", message);

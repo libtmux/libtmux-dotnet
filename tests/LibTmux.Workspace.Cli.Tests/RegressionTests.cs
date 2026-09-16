@@ -160,9 +160,9 @@ public sealed class RegressionTests : IDisposable
         Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
     }
 
-    // SPEC 3 S4: every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2
-    // resolver would read as bool, null, int or float must round-trip as the
-    // same string through convert's YAML emitter. Verified separately
+    // Every string scalar a YAML 1.1 (PyYAML/tmuxp) or 1.2 resolver would
+    // read as bool, null, int or float must round-trip as the same string
+    // through convert's YAML emitter. Verified separately
     // against `uvx tmuxp 1.74.0`, which reads this port's emitted YAML back
     // with every one of these names unchanged.
     [Fact]
@@ -183,8 +183,8 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(names, roundTripped);
     }
 
-    // SPEC 3 S5: `<<: *anchor` / `<<: [*a, *b]` merge keys, with explicit
-    // keys overriding merged ones, at every mapping level.
+    // `<<: *anchor` / `<<: [*a, *b]` merge keys, with explicit keys
+    // overriding merged ones, at every mapping level.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -215,9 +215,9 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
-    // SPEC 3 S6: a key starting with "x-", at any level, is inert -- accepted
-    // and ignored at load, while an unrelated unknown key is still refused
-    // and the refusal names the "x-" escape hatch.
+    // A key starting with "x-", at any level, is inert -- accepted and
+    // ignored at load, while an unrelated unknown key is still refused and
+    // the refusal names the "x-" escape hatch.
     [Fact]
     public async Task Extension_keys_are_inert_and_the_refusal_names_the_escape()
     {
@@ -245,8 +245,8 @@ public sealed class RegressionTests : IDisposable
         Assert.Contains("'x-'", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
     }
 
-    // SPEC 3 S14: a missing tmux executable is tmux_unavailable, distinct
-    // from the generic executable_unavailable shared by EDITOR/before_script.
+    // A missing tmux executable is tmux_unavailable, distinct from the
+    // generic executable_unavailable shared by EDITOR/before_script.
     [Fact]
     public async Task Missing_tmux_executable_reports_its_own_code()
     {
@@ -270,10 +270,10 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal("tmux_unavailable", JsonNode.Parse(error.ToString())!["code"]!.ToString());
     }
 
-    // SPEC 3 S1/A1: a session built without asking the terminal its size gets
-    // stretched once a client attaches -- main-pane layouts come out at the
-    // wrong ratio (A1), and typing into a pane that is about to be resized by
-    // that stretch can lose the keystrokes under zsh (A3). COLUMNS/LINES is
+    // A session built without asking the terminal its size gets stretched
+    // once a client attaches -- main-pane layouts come out at the wrong
+    // ratio, and typing into a pane that is about to be resized by that
+    // stretch can lose the keystrokes under zsh. COLUMNS/LINES is
     // the only terminal size this harness can fake without a real pty; it
     // must win over TMUXP_DEFAULT_COLUMNS/ROWS, matching go's sessionDimensions.
     [Fact]
@@ -729,9 +729,9 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
-    // SPEC 3 S10/D6: appending windows to a session the user already owns must
-    // not move them off the window they were looking at -- that is a session
-    // load builds fresh, not one it is borrowing. An appended window that asks
+    // Appending windows to a session the user already owns must not move
+    // them off the window they were looking at -- that is a session load
+    // builds fresh, not one it is borrowing. An appended window that asks
     // for focus is the one exception.
     [Theory]
     [InlineData(false)]
