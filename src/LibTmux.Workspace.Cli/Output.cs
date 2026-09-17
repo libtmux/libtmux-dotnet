@@ -238,12 +238,15 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         return record;
     }
 
-    internal async ValueTask ScriptOutputAsync(string channel, string text)
+    internal async ValueTask ScriptOutputAsync(string channel, string text, int? inputIndex = null)
     {
         await _writes.WaitAsync(context.CancellationToken).ConfigureAwait(false);
         try
         {
-            await EventCoreAsync("script-output", new { stream = channel, text, encoding = "utf-8-replacement" }, context.CancellationToken).ConfigureAwait(false);
+            object data = inputIndex is int index
+                ? new { stream = channel, text, encoding = "utf-8-replacement", input_index = index }
+                : new { stream = channel, text, encoding = "utf-8-replacement" };
+            await EventCoreAsync("script-output", data, context.CancellationToken).ConfigureAwait(false);
             if (!Machine)
             {
                 await CheckProgressSizeAsync(context.CancellationToken).ConfigureAwait(false);

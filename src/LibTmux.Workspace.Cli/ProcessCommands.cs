@@ -119,7 +119,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
 
     private static string[] BridgeArguments(string[] args) => ["-u", "-c", "from tmuxp.cli import cli; import sys; cli(sys.argv[1:])", .. args];
 
-    internal static async Task<ChildResult> RunProcessAsync(CliContext context, Output output, string executable, IReadOnlyList<string> arguments, string directory, bool stream, bool interactive = false)
+    internal static async Task<ChildResult> RunProcessAsync(CliContext context, Output output, string executable, IReadOnlyList<string> arguments, string directory, bool stream, bool interactive = false, int? inputIndex = null)
     {
         ProcessStartInfo start = new(context.Executable(executable)) { WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = !interactive, RedirectStandardError = !interactive, RedirectStandardInput = !interactive, StandardOutputEncoding = interactive ? null : Encoding.UTF8, StandardErrorEncoding = interactive ? null : Encoding.UTF8 };
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
@@ -141,7 +141,7 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
                 int available = Math.Max(0, 65536 - retained.Length);
                 retained.Append(value.AsSpan(0, Math.Min(count, available)));
                 if (count > available) truncated = true;
-                if (stream) await output.ScriptOutputAsync(channel, value).ConfigureAwait(false);
+                if (stream) await output.ScriptOutputAsync(channel, value, inputIndex).ConfigureAwait(false);
             }
             return retained.ToString();
         }
