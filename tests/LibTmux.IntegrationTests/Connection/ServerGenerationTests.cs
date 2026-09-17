@@ -471,6 +471,34 @@ public sealed class ServerGenerationTests
             missing.Arguments);
     }
 
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Generation_discovery_failure_carries_tmux_stderr()
+    {
+        // Regression for DOTNET2-9: every other command failure folds tmux's
+        // stderr into TmuxCommandException.Message; the generation-discovery
+        // probe GetSessionsAsync (and the other listings) run first used a
+        // fixed literal instead, losing the one reason most worth explaining
+        // -- that no server is listening on the socket at all.
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server absent = Server.Open(
+            new ServerConnectionOptions(
+                tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                socketName: $"ltcs-discovery-{Guid.NewGuid():N}",
+                configurationFile: "/dev/null"));
+
+        TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => absent.GetSessionsAsync(token));
+
+        Assert.NotEmpty(failure.Result.StandardErrorLines);
+        Assert.Contains(
+            failure.Result.StandardErrorLines[0],
+            failure.Message,
+            StringComparison.Ordinal);
+    }
+
     private static TmuxProcessTransport CreateNamedTransport(
         string tmuxBinaryPath,
         string socketRoot,

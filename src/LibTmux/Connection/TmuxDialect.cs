@@ -31,10 +31,7 @@ internal sealed class TmuxDialect : MultiplexerDialect
                     ["display-message", "-p", TmuxConnection.GenerationFormat]),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (result.ExitCode != 0 || result.StandardErrorLines.Count > 0)
-        {
-            throw new TmuxCommandException("server generation discovery failed.", result);
-        }
+        TmuxCommandFailure.ThrowIfFailed(result, "server generation discovery");
 
         if (result.StandardOutputLines.Count != 1)
         {
