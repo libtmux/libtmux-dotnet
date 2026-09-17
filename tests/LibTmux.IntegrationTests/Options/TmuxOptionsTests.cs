@@ -315,4 +315,32 @@ public sealed class TmuxOptionsTests
 
         Assert.Equal(@"a\$b", escaped.Value.Raw);
     }
+
+    [UnixFact]
+    public async Task A_dollar_sign_survives_the_round_trip_from_an_unmaterialized_owner()
+    {
+        // CreateOwnedAsync hands back a handle that never materializes, even
+        // after a session exists through it, so Options must discover the
+        // dollar-escaping answer fresh rather than freeze it from the
+        // handle's own permanently null Version -- wrong on tmux 3.4.
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+            IsolatedOptions(),
+            token);
+        await owned.Value.CreateSessionAsync(new NewSessionRequest(name: "main"), token);
+        Assert.False(owned.Value.IsMaterialized);
+
+        await owned.Value.Options.SetAsync(new SetOptionRequest("@dollar", "a$b"), token);
+        TmuxOption plain = (await owned.Value.Options.GetAsync(
+            new GetOptionRequest("@dollar"),
+            token))[0];
+
+        Assert.Equal("a$b", plain.Value.Raw);
+    }
+
+    private static ServerConnectionOptions IsolatedOptions() =>
+        new(
+            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            socketName: $"ltcs-options-{Guid.NewGuid():N}",
+            configurationFile: "/dev/null");
 }
