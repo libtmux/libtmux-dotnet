@@ -65,7 +65,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             return;
         }
 
-        // T4: when the invoking pane cannot be identified -- a run-shell key
+        // When the invoking pane cannot be identified -- a run-shell key
         // binding sets TMUX but no TMUX_PANE -- switch without picking a
         // client, and skip everything below that needs one.
         if (!await TryResolveInvokingPaneAsync().ConfigureAwait(false)) return;
@@ -191,7 +191,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             if (target.Generation != _serverGeneration) throw new StaleServerGenerationException("The workspace server changed before handoff.", _serverGeneration, target.Generation);
             if (_pane is null)
             {
-                // T4: no invoking pane was identified -- let tmux pick the
+                // No invoking pane was identified -- let tmux pick the
                 // client itself, as it does for a nested run-shell load.
                 TmuxCommandResult switched = await target.ExecuteCommandAsync(["switch-client"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
                 if (switched.ExitCode != 0) throw new CliException("attach_failed", "tmux could not switch the client.", switched.ExitCode);
