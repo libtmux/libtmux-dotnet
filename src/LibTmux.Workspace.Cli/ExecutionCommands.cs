@@ -166,7 +166,17 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     string[] scriptArguments = ProcessCommands.SplitArguments(script);
                     if (scriptArguments.Length == 0) throw new CliException("invalid_workspace", "before_script must name an executable.");
                     if (scriptArguments[0].StartsWith('.')) scriptArguments[0] = Path.GetFullPath(scriptArguments[0], Path.GetDirectoryName(input.Path)!);
-                    ChildResult child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true).ConfigureAwait(false);
+                    ChildResult child;
+                    try
+                    {
+                        child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true).ConfigureAwait(false);
+                    }
+                    catch (CliException failure) when (failure.Code == "executable_unavailable")
+                    {
+                        // A before_script that cannot start is a before_script
+                        // failure like a nonzero exit, not a missing tmux.
+                        throw new CliException("script_failed", $"before_script could not start: {failure.Message}");
+                    }
                     if (child.ExitCode != 0) throw new CliException("script_failed", $"before_script exited with status {child.ExitCode}.");
                     completedStage = stage;
                 }
