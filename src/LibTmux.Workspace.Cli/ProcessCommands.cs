@@ -39,7 +39,13 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
             ["redaction"] = "Home is masked in named paths. Environment values and raw server options are omitted.",
         };
         if (invocation.Machine) await output.ResultAsync(result).ConfigureAwait(false);
-        else foreach (var item in result) { output.Human(item.Key + ": ", "heading", false); output.Human(item.Value?.ToString() ?? "", "information"); }
+        else foreach (var item in result)
+        {
+            // schema_version identifies the --json record, not this prose.
+            if (item.Key == "schema_version") continue;
+            output.Human(item.Key + ": ", "heading", false);
+            output.Human(item.Value?.ToString() ?? "", "information");
+        }
     }
 
     internal async Task<int> ShellAsync()

@@ -944,6 +944,23 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
+    // schema_version identifies the --json record, not this prose; the human
+    // report leads with the port instead.
+    [Fact]
+    public async Task Human_debug_info_leads_with_the_port_not_the_schema()
+    {
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal);
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        int code = await CliRunner.RunAsync(["debug-info"], output, error, _root, environment, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, code);
+        string text = output.ToString();
+        Assert.DoesNotContain("schema_version", text, StringComparison.Ordinal);
+        Assert.StartsWith("port: ", text, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("inherited")]
     [InlineData("same-path")]
