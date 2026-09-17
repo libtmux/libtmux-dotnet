@@ -423,7 +423,21 @@ public sealed class RegressionTests : IDisposable
             var result = await Run("--log-level", "debug", "load", file, "-d", "-S", socket, "-f", "/dev/null", "--ndjson", "--log-file", "operation.ndjson");
             Assert.True(result.Code == 0, result.Error + result.Output);
             JsonNode[] events = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
-            Assert.True(Array.FindIndex(events, item => item["event"]!.ToString() == "session-created") < Array.FindIndex(events, item => item["event"]!.ToString() == "script-output"));
+            // A consumer needs to know when the script began, when it ended,
+            // with what status, and which input it belonged to -- go already
+            // reports all four; script-output alone did not.
+            int started = Array.FindIndex(events, item => item["event"]!.ToString() == "script-started");
+            int streamed = Array.FindIndex(events, item => item["event"]!.ToString() == "script-output");
+            int finished = Array.FindIndex(events, item => item["event"]!.ToString() == "script-completed");
+            Assert.True(Array.FindIndex(events, item => item["event"]!.ToString() == "session-created") < started);
+            Assert.True(started < streamed);
+            Assert.True(streamed < finished);
+            Assert.Equal(0, events[started]["input_index"]!.GetValue<int>());
+            Assert.Equal(0, events[streamed]["input_index"]!.GetValue<int>());
+            JsonNode completedScript = events[finished];
+            Assert.Equal(0, completedScript["input_index"]!.GetValue<int>());
+            Assert.Equal(0, completedScript["child_status"]!.GetValue<int>());
+            Assert.False(completedScript["truncated"]!.GetValue<bool>());
             Assert.Single(events, item => item["event"]!.ToString() == "completed");
             string sessionId = events.Single(item => item["event"]!.ToString() == "session-created")["session_id"]!.ToString();
             TmuxCommandResult pane = await server.ExecuteCommandAsync(["display-message", "-p", "-t", sessionId + ":", "#{pane_current_path}"], TestContext.Current.CancellationToken);

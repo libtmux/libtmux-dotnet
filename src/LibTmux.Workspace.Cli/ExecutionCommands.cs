@@ -166,17 +166,22 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     string[] scriptArguments = ProcessCommands.SplitArguments(script);
                     if (scriptArguments.Length == 0) throw new CliException("invalid_workspace", "before_script must name an executable.");
                     if (scriptArguments[0].StartsWith('.')) scriptArguments[0] = Path.GetFullPath(scriptArguments[0], Path.GetDirectoryName(input.Path)!);
+                    await output.EventAsync("script-started", new { input_index = index }).ConfigureAwait(false);
                     ChildResult child;
                     try
                     {
-                        child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true).ConfigureAwait(false);
+                        child = await ProcessCommands.RunProcessAsync(context, output, scriptArguments[0], scriptArguments[1..], input.Plan.Directory, stream: true, inputIndex: index).ConfigureAwait(false);
                     }
                     catch (CliException failure) when (failure.Code == "executable_unavailable")
                     {
+                        // Never ran, so there is nothing to report beyond the
+                        // zero-value child a start failure leaves behind.
+                        await output.EventAsync("script-completed", new { input_index = index, child_status = 0, truncated = false }).ConfigureAwait(false);
                         // A before_script that cannot start is a before_script
                         // failure like a nonzero exit, not a missing tmux.
                         throw new CliException("script_failed", $"before_script could not start: {failure.Message}");
                     }
+                    await output.EventAsync("script-completed", new { input_index = index, child_status = child.ExitCode, truncated = child.Truncated }).ConfigureAwait(false);
                     if (child.ExitCode != 0) throw new CliException("script_failed", $"before_script exited with status {child.ExitCode}.");
                     completedStage = stage;
                 }
