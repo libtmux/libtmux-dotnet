@@ -371,7 +371,7 @@ modes differ.
 | `LibTmux.Server.SwitchClientAsync(System.String,System.Threading.CancellationToken)` | Switches the caller's client to another session. |
 | `LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.UnbindKeyAsync(LibTmux.UnbindKeyRequest,System.Threading.CancellationToken)` | Removes a key binding. |
-| `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, or locks a tmux channel. |
+| `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, locks, or unlocks a tmux channel. |
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
 | `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
 | `LibTmux.ServerAccessRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean,System.Boolean)` | Initializes an access change. |
