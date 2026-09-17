@@ -313,7 +313,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 try
                 {
                     await output.EventAsync("failed", summary, reporting.Token).ConfigureAwait(false);
-                    if (!invocation.Flag("ndjson")) await output.ResultAsync(summary, cancellationToken: reporting.Token).ConfigureAwait(false);
+                    // Human mode never prints a machine record; the sentence
+                    // DiagnosticAsync writes below is the whole human report.
+                    if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(summary, cancellationToken: reporting.Token).ConfigureAwait(false);
                     await output.DiagnosticAsync(code, failure.Message).ConfigureAwait(false);
                 }
                 catch (Exception interrupted) when (interrupted is IOException or UnauthorizedAccessException or OperationCanceledException)

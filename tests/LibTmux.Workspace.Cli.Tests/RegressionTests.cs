@@ -702,6 +702,36 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
+    // Human mode never prints a machine record: a failed load's stdout must
+    // not parse as JSON at all, only the plain sentence on stderr.
+    [Fact]
+    public async Task Human_mode_before_script_failure_prints_no_machine_record()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "bsfail-human.socket");
+        string file = Path.Combine(_root, "bsfail-human.yaml");
+        await File.WriteAllTextAsync(file, "session_name: bsfailhuman\nbefore_script: /bin/false\nwindows: [{panes: [null]}]", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-y", "-S", socket, "-f", "/dev/null"], output, error, _root, null, token);
+
+            Assert.Equal(1, code);
+            string stdout = output.ToString();
+            Assert.False(stdout.TrimStart().StartsWith('{'), $"stdout printed a machine record: {stdout}");
+            Assert.DoesNotContain("schema_version", stdout, StringComparison.Ordinal);
+            Assert.Contains("before_script exited with status", error.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
     // Cancellation mid-window (not mid-load): the session stays by design,
     // but the bootstrap window is scaffolding and should not survive either.
     [Fact]
