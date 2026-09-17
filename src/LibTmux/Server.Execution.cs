@@ -57,7 +57,10 @@ public sealed partial class Server
     /// <param name="cancellationToken">
     /// Cancels waiting for tmux's reply. tmux itself is not told: the server,
     /// not this process, owns <c>run-shell</c>'s spawned command, so cancelling
-    /// stops this call from waiting on it, not the command from running.
+    /// stops this call from waiting on it, not the command from running. Nor
+    /// does stopping the whole server: <see cref="KillAsync" /> does not reap
+    /// a <c>run-shell</c> child either, so it keeps running as its own
+    /// orphaned process.
     /// </param>
     /// <returns>What the command printed, or null when tmux did not wait for it.</returns>
     /// <remarks>

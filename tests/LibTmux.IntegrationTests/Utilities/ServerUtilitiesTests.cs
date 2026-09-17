@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -112,6 +114,63 @@ public sealed class ServerUtilitiesTests
         {
             File.Delete(started);
             File.Delete(marker);
+        }
+    }
+
+    [UnixFact]
+    public async Task Killing_the_server_does_not_reap_a_run_shell_childs_process()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+
+        string pidFile = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-runshell-kill-{Guid.NewGuid():N}");
+        int childPid = -1;
+        try
+        {
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(TimeSpan.FromMilliseconds(300));
+
+            // Cancelling this call does not stop the command, and neither
+            // does stopping the server: KillAsync does not reap a run-shell
+            // child either, so it survives as its own orphan.
+            await Assert.ThrowsAsync<TmuxOperationCanceledException>(
+                () => server.RunShellAsync(
+                    new RunShellRequest($"echo $$ > {pidFile}; sleep 5"),
+                    cts.Token));
+
+            for (int attempt = 0; attempt < 50 && !File.Exists(pidFile); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+
+            Assert.True(File.Exists(pidFile), "run-shell's command never started on the server");
+            childPid = int.Parse(
+                (await File.ReadAllTextAsync(pidFile, token)).Trim(),
+                CultureInfo.InvariantCulture);
+
+            await server.KillAsync(token);
+
+            using Process child = Process.GetProcessById(childPid);
+            Assert.False(child.HasExited);
+        }
+        finally
+        {
+            File.Delete(pidFile);
+            if (childPid > 0)
+            {
+                try
+                {
+                    Process.GetProcessById(childPid).Kill();
+                }
+                catch (ArgumentException)
+                {
+                    // Already gone.
+                }
+            }
         }
     }
 
