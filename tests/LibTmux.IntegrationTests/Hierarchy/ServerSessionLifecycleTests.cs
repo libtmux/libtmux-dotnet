@@ -58,7 +58,7 @@ public sealed class ServerSessionLifecycleTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
-    public async Task Owned_server_handle_stays_unmaterialized_but_names_the_workaround()
+    public async Task Owned_server_handle_lists_what_it_started()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using OwnedServerScope owned = await Server.CreateOwnedAsync(IsolatedOptions(), token);
@@ -66,18 +66,18 @@ public sealed class ServerSessionLifecycleTests
             new NewSessionRequest(name: "main"),
             token);
 
-        // Regression for DOTNET-1: CreateOwnedAsync's own doc used to say
-        // creating the first session through the endpoint "materializes" it.
-        // It does not - owned.Value stays the unmaterialized endpoint, and
-        // reading a relation through it must name the cause and the
-        // workaround rather than failing with a bare "no tmux version".
-        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => owned.Value.GetSessionsAsync(token));
-        Assert.Contains("session.Server", failure.Message, StringComparison.Ordinal);
-
-        // The workaround the message names actually works.
-        IReadOnlyList<Session> sessions = await session.Server.GetSessionsAsync(token);
-        Assert.Contains(sessions, candidate => candidate.Id == session.Id);
+        // Regression for DOTNET-1: owned.Value stays the unmaterialized
+        // endpoint, and every listing through it used to throw "no tmux
+        // version" rather than list the server it owns.
+        Assert.False(owned.Value.IsMaterialized);
+        IReadOnlyList<Session> sessions = await owned.Value.GetSessionsAsync(token);
+        Session listed = Assert.Single(sessions);
+        Assert.Equal(session.Id, listed.Id);
+        Assert.True(listed.Server.IsMaterialized);
+        Assert.Single(await owned.Value.GetWindowsAsync(token));
+        Assert.Single(await owned.Value.GetPanesAsync(token));
+        Assert.Empty(await owned.Value.GetAttachedSessionsAsync(token));
+        Assert.Single(await listed.GetWindowsAsync(token));
     }
 
     [Fact(
