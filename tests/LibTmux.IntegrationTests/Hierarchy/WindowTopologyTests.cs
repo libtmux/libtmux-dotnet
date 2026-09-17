@@ -278,6 +278,71 @@ public sealed class WindowTopologyTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Unique_layout_prefixes_resolve_the_same_way_tmux_resolves_them()
+    {
+        // tmux's own layout_set_lookup accepts a prefix naming exactly one
+        // preset ("tile" -> tiled) and refuses one naming more than one
+        // ("even-" -> even-horizontal or even-vertical); ValidateLayout
+        // must resolve a unique prefix the same way.
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window window = await session.CreateWindowAsync(
+            new NewWindowRequest(name: "layout-prefixes"),
+            token);
+        await window.SplitPaneAsync(cancellationToken: token);
+        window = await window.RefreshAsync(token);
+
+        Window tiled = await window.SelectLayoutAsync(new SelectLayoutRequest("tile"), token);
+        Assert.Equal(window.Id, tiled.Id);
+        Window evenHorizontal = await tiled.SelectLayoutAsync(
+            new SelectLayoutRequest("even-h"),
+            token);
+        Assert.Equal(window.Id, evenHorizontal.Id);
+
+        // "even-" names both even-horizontal and even-vertical, so tmux
+        // itself refuses it; the message names the guard's reason, not the
+        // connected tmux version.
+        TmuxWindowException ambiguous = await Assert.ThrowsAsync<TmuxWindowException>(
+            () => evenHorizontal.SelectLayoutAsync(new SelectLayoutRequest("even-"), token));
+        Assert.Contains("even-horizontal", ambiguous.Message, StringComparison.Ordinal);
+        Assert.Contains("even-vertical", ambiguous.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("does not know", ambiguous.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(await server.GetSessionsAsync(token));
+
+        // main-vertical-mirrored (3.5+) shares the "main-v" prefix with
+        // main-vertical, so whether that prefix is unique depends on the
+        // connected tmux the same way the exact name's availability does.
+        bool mirroredKnown = server.Version!.Value >= TmuxVersion.Parse("3.5");
+        Task<Window> byMainVPrefix = window.SelectLayoutAsync(
+            new SelectLayoutRequest("main-v"),
+            token);
+        if (mirroredKnown)
+        {
+            TmuxWindowException mainVAmbiguous = await Assert.ThrowsAsync<TmuxWindowException>(
+                () => byMainVPrefix);
+            Assert.Contains("main-vertical", mainVAmbiguous.Message, StringComparison.Ordinal);
+            Assert.Contains("main-vertical-mirrored", mainVAmbiguous.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(window.Id, (await byMainVPrefix).Id);
+        }
+
+        // A prefix naming no preset at all still refuses before dispatch,
+        // with the version-blaming message the exact-unknown case always had.
+        TmuxWindowException unknown = await Assert.ThrowsAsync<TmuxWindowException>(
+            () => window.SelectLayoutAsync(new SelectLayoutRequest("zz"), token));
+        Assert.Contains("does not know the layout 'zz'", unknown.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(await server.GetSessionsAsync(token));
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task DisplayMessageLiteralVersionPolicy()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

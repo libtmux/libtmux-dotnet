@@ -172,8 +172,10 @@ public sealed partial class Window
         }
 
         // A layout tmux dumped begins with a four-digit hexadecimal checksum,
-        // and every version parses those. Named layouts are checked against the
-        // set the running tmux knows.
+        // and every version parses those. A name spelled out in full is
+        // always unambiguous, even when it is also a prefix of a longer
+        // preset (main-vertical of main-vertical-mirrored): tmux resolves an
+        // exact name before it ever considers a name a prefix of.
         if (HasCustomLayoutPrefix(layout)
             || UniversalLayouts.Contains(layout, StringComparer.Ordinal))
         {
@@ -183,16 +185,34 @@ public sealed partial class Window
         Server owner = RequireOwner("layout");
         bool mirroredKnown = owner.Version is TmuxVersion version
             && version >= TmuxVersion.Parse("3.5");
-        if (mirroredKnown && MirroredLayouts.Contains(layout, StringComparer.Ordinal))
-        {
-            return;
-        }
-
         bool jsonLayoutsKnown = owner.Version is TmuxVersion jsonVersion
             && jsonVersion >= TmuxVersion.Parse("3.8");
         if (jsonLayoutsKnown && HasJsonLayoutPrefix(layout))
         {
             return;
+        }
+
+        // tmux's own layout_set_lookup accepts any prefix that names exactly
+        // one preset (`tile` -> tiled, `even-h` -> even-horizontal), so a
+        // value refused above is checked once more as a prefix before it is
+        // refused for good -- an unrecognised prefix never reaches tmux.
+        string[] presets = mirroredKnown
+            ? [.. UniversalLayouts, .. MirroredLayouts]
+            : UniversalLayouts;
+        string[] prefixMatches = [.. presets.Where(
+            preset => preset.StartsWith(layout, StringComparison.Ordinal))];
+        if (prefixMatches.Length == 1)
+        {
+            return;
+        }
+
+        if (prefixMatches.Length > 1)
+        {
+            throw new TmuxWindowException(
+                $"'{layout}' matches more than one layout preset: "
+                    + $"{string.Join(", ", prefixMatches)}.",
+                _id,
+                TmuxDispatchState.NotDispatched);
         }
 
         throw new TmuxWindowException(
