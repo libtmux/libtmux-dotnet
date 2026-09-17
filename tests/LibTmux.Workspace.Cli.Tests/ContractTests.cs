@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace LibTmux.Workspace.Cli.Tests;
 
@@ -155,6 +156,49 @@ public sealed class ContractTests : IDisposable
         // json/ndjson/color are recursive: always available, not scoped to
         // any one subcommand's own condition.
         Assert.Contains(lines, line => line.Contains("-n 'true'", StringComparison.Ordinal) && line.Contains(" -l json ", StringComparison.Ordinal));
+    }
+
+    // Same bug as fish's, one shell over: bash and zsh offered one flat
+    // vocabulary shared by every subcommand, so `ls --<Tab>` offered
+    // load-only flags like --append. Each generated case branch must list
+    // only its own subcommand's flags.
+    private static string OptsForCase(string script, string label)
+    {
+        Match match = Regex.Match(script, @"(?m)^\s*" + Regex.Escape(label) + @"\)\s*opts='([^']*)'");
+        Assert.True(match.Success, $"No '{label}' case branch found in:\n{script}");
+        return match.Groups[1].Value;
+    }
+
+    [Fact]
+    public async Task Bash_completion_scopes_flags_to_their_own_subcommand()
+    {
+        var result = await Run("--generate", "bash");
+        Assert.Equal(0, result.Code);
+        string[] load = OptsForCase(result.Output, "load").Split(' ');
+        string[] ls = OptsForCase(result.Output, "ls").Split(' ');
+        Assert.Contains("--append", load);
+        Assert.DoesNotContain("--append", ls);
+        Assert.Contains("--tree", ls);
+        Assert.DoesNotContain("--tree", load);
+        // json/ndjson/color are recursive: on both, despite neither owning them.
+        Assert.Contains("--json", load);
+        Assert.Contains("--json", ls);
+    }
+
+    [Fact]
+    public async Task Zsh_completion_scopes_flags_to_their_own_subcommand()
+    {
+        var result = await Run("--generate", "zsh");
+        Assert.Equal(0, result.Code);
+        Assert.StartsWith("#compdef tmux-workspace\n", result.Output, StringComparison.Ordinal);
+        string[] load = OptsForCase(result.Output, "load").Split(' ');
+        string[] ls = OptsForCase(result.Output, "ls").Split(' ');
+        Assert.Contains("--append", load);
+        Assert.DoesNotContain("--append", ls);
+        Assert.Contains("--tree", ls);
+        Assert.DoesNotContain("--tree", load);
+        Assert.Contains("--json", load);
+        Assert.Contains("--json", ls);
     }
 
     [Theory]
