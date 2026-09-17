@@ -24,7 +24,25 @@ $ dotnet tool install LibTmux.Workspace.Cli \
     --prerelease
 ```
 
-Load a configuration on a named socket without attaching:
+Save this as `workspace.yaml`: session `example` with an `editor` window
+split `main-vertical` between `vim` and `npm test`, and a `docs` window
+whose pane starts in `docs` and runs `mkdocs serve`.
+
+```yaml
+session_name: example
+windows:
+  - window_name: editor
+    layout: main-vertical
+    panes:
+      - vim
+      - npm test
+  - window_name: docs
+    panes:
+      - start_directory: docs
+        shell_command: mkdocs serve
+```
+
+Load it on a named socket without attaching:
 
 ```console
 $ artifacts/tools/tmux-workspace load ./workspace.yaml \
