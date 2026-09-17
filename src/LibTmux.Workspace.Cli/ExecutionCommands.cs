@@ -291,10 +291,24 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     try { await Server.ExecuteCommandAsync(["kill-window", "-t", bootstrap], cleanup.Token).ConfigureAwait(false); }
                     catch (Exception deletion) when (deletion is LibTmuxException or StaleServerGenerationException or OperationCanceledException or IOException or UnauthorizedAccessException) { }
                 }
+                // A failed input still gets a results[] record: session_id is
+                // null if load never got far enough to identify one.
+                results.Add(new JsonObject
+                {
+                    ["input_index"] = index,
+                    ["input"] = input.Path,
+                    ["session_id"] = session,
+                    ["session_name"] = sessionName,
+                    ["reused"] = session is not null && !created,
+                    ["status"] = "failed",
+                });
                 string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "tmux_failed";
                 errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 if (cleanupError is not null) errors[^1]!["cleanup_error"] = cleanupError;
-                var summary = new { schema_version = 1, command = "load", status = results.Count > 0 || (changed && !removed) ? "partial" : "error", results, errors };
+                // A failed input's own results[] record (added above) must not
+                // count toward "partial" -- only a genuinely completed input does.
+                bool anySucceeded = results.Any(item => item!["status"]!.ToString() != "failed");
+                var summary = new { schema_version = 1, command = "load", status = anySucceeded || (changed && !removed) ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
                 try
                 {
