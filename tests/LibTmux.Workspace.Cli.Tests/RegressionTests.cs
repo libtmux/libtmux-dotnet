@@ -654,6 +654,46 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // A before_script that cannot even start (a bad path, not just a bad
+    // exit) is a before_script failure like any other: script_failed, exit
+    // 1, the owned session removed, the input's error entry kept. tmuxp
+    // raises BeforeLoadScriptNotExists for the same condition.
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("nonzero")]
+    public async Task Before_script_failure_removes_the_owned_session(string kind)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "bsfail-" + kind + ".socket");
+        string file = Path.Combine(_root, "bsfail-" + kind + ".yaml");
+        string script = kind == "missing" ? Path.Combine(_root, "missing-script") : "/bin/false";
+        await File.WriteAllTextAsync(file, "session_name: bsfail\nbefore_script: " + script + "\nwindows: [{panes: [null]}]", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter output = new();
+            using StringWriter error = new();
+
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, null, token);
+
+            Assert.Equal(1, code);
+            Assert.Equal("script_failed", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+            JsonNode summary = JsonNode.Parse(output.ToString())!;
+            Assert.Equal("error", summary["status"]!.ToString());
+            JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
+            Assert.Equal("script_failed", issue["code"]!.ToString());
+            Assert.Equal(0, issue["input_index"]!.GetValue<int>());
+            Assert.Equal("before-script", issue["failed_stage"]!.ToString());
+            Assert.True(issue["removed"]!.GetValue<bool>());
+            Assert.False(await server.IsAliveAsync(token));
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
+    }
+
     // Cancellation mid-window (not mid-load): the session stays by design,
     // but the bootstrap window is scaffolding and should not survive either.
     [Fact]
