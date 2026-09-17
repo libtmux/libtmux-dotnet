@@ -34,6 +34,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
     internal static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(60);
 
     private readonly ConcurrentDictionary<SessionWatchKey, SessionWatch> _watches = [];
+    private readonly ConcurrentDictionary<string, byte> _ownedControlClientNames = new(StringComparer.Ordinal);
     private readonly ILogger? _logger;
     private readonly Func<Pane, CancellationToken, Task<IControlModeSession>>? _startPaneSession;
     private bool _disposed;
@@ -53,6 +54,26 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
     /// <summary>Gets whether any session is currently watched through control mode.</summary>
     public bool IsStreaming => _watches.Values.Any(watch => watch.IsStreaming);
+
+    /// <summary>Reports whether this process opened the named control client.</summary>
+    /// <param name="clientName">A client name, such as tmux reports for <c>#{client_name}</c>.</param>
+    /// <returns><see langword="true" /> when this hub started that client.</returns>
+    /// <remarks>
+    /// tmux counts an observation client the same way it counts a human one, so
+    /// a client listing that wants to answer "is anyone actually watching"
+    /// excludes every name this method reports as owned.
+    /// </remarks>
+    public bool OwnsControlClient(string clientName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(clientName);
+        return _ownedControlClientNames.ContainsKey(clientName);
+    }
+
+    internal void RegisterOwnedControlClient(string clientName) =>
+        _ownedControlClientNames.TryAdd(clientName, 0);
+
+    internal void UnregisterOwnedControlClient(string clientName) =>
+        _ownedControlClientNames.TryRemove(clientName, out _);
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -299,6 +320,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
         {
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             IControlModeSession? starting = null;
+            string? ownedClientName = null;
             try
             {
                 if (_retired)
@@ -329,7 +351,21 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     cancellationToken)
                     .ConfigureAwait(false);
 
-                WatchRun run = new(starting);
+                // Recorded so a client listing can tell this observer apart
+                // from one a human actually attached - tmux counts both the
+                // same way, and a wait or a capture must never read as a
+                // session someone is watching.
+                IReadOnlyList<string> selfName = await starting.SendAsync(
+                        TmuxCommand.Create("display-message", "-p", "#{client_name}"),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                ownedClientName = selfName.Count > 0 ? selfName[0] : null;
+                if (ownedClientName is not null)
+                {
+                    hub.RegisterOwnedControlClient(ownedClientName);
+                }
+
+                WatchRun run = new(starting) { ClientName = ownedClientName };
                 _run = run;
                 run.Pump = PumpAsync(run);
                 starting = null;
@@ -340,6 +376,15 @@ public sealed class PaneActivityHub : IAsyncDisposable
             {
                 if (starting is not null)
                 {
+                    // Reaching here with a name already recorded means the run
+                    // never made it into a WatchRun, so DisposeRunAsync never
+                    // runs to remove it - the one path that would otherwise
+                    // leak an owned name forever.
+                    if (ownedClientName is not null)
+                    {
+                        hub.UnregisterOwnedControlClient(ownedClientName);
+                    }
+
                     try
                     {
                         await starting.DisposeAsync().ConfigureAwait(false);
@@ -455,7 +500,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
             }
         }
 
-        private static async Task DisposeRunAsync(WatchRun run)
+        private async Task DisposeRunAsync(WatchRun run)
         {
             if (Interlocked.CompareExchange(ref run.DisposalStarted, 1, 0) != 0)
             {
@@ -473,6 +518,13 @@ public sealed class PaneActivityHub : IAsyncDisposable
                 run.Disposal.TrySetException(error);
                 _ = run.Disposal.Task.Exception;
                 throw;
+            }
+            finally
+            {
+                if (run.ClientName is not null)
+                {
+                    hub.UnregisterOwnedControlClient(run.ClientName);
+                }
             }
         }
 
@@ -580,6 +632,9 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
             internal TaskCompletionSource Disposal { get; } = new(
                 TaskCreationOptions.RunContinuationsAsynchronously);
+
+            /// <summary>The name tmux gave this client, so it can be un-owned on disposal.</summary>
+            internal string? ClientName { get; init; }
 
             internal int Ended;
             internal int DisposalStarted;

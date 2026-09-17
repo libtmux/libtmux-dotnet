@@ -979,6 +979,70 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task Wait_never_matches_this_servers_own_pending_input_reprinted_as_new_bytes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // A readline redraw needs a real line editor, which the scope's
+        // default shell is not guaranteed to have.
+        Window shell = await scope.Session.CreateWindowAsync(
+            new NewWindowRequest(command: "bash --norc --noprofile -i"),
+            token);
+        string pane = (await shell.GetPanesAsync(token))[0].Id.ToString();
+
+        await mcp.Write.SendKeysAsync(
+            "echo BASH_READY_MARKER",
+            pane,
+            enter: true,
+            literal: true,
+            cancellationToken: token);
+        WaitResult ready = await mcp.Read.WaitForTextAsync(
+            pane,
+            ["BASH_READY_MARKER"],
+            timeoutSeconds: 10,
+            cancellationToken: token);
+
+        // Whether the reply landed before or after the wait attached, either
+        // outcome proves bash ran the command and is reading again.
+        Assert.True(
+            ready.Outcome is WaitOutcome.Matched or WaitOutcome.PresentAtEntry,
+            $"Expected Matched or PresentAtEntry, got {ready.Outcome}.");
+
+        string marker = $"QAMARK{Guid.NewGuid():N}"[..16];
+        await mcp.Write.SendKeysAsync(
+            $"echo {marker}",
+            pane,
+            enter: false,
+            literal: true,
+            cancellationToken: token);
+
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            pane,
+            [marker],
+            timeoutSeconds: 2,
+            cancellationToken: token);
+
+        // A readline redraw (Ctrl-L) re-prints a still-pending, never-
+        // submitted line as genuinely new terminal bytes while the wait is
+        // already attached, the same shape a starting shell's line editor
+        // produces re-printing type-ahead; neither may count as a match.
+        await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+        await mcp.Write.SendKeysAsync(
+            "C-l",
+            pane,
+            literal: false,
+            cancellationToken: token);
+
+        WaitResult result = await waiting;
+        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+    }
+
+    [UnixFact]
     public async Task A_wait_that_finds_nothing_says_so_and_says_how_long_it_waited()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -1192,6 +1256,93 @@ public sealed class TmuxToolsTests
         Assert.Null(withheld.Value);
         Assert.True(withheld.HasValue);
         Assert.True(withheld.Withheld);
+    }
+
+    [UnixFact]
+    public async Task Server_info_stops_reporting_a_version_once_its_server_exits()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(mcp.Options, token);
+
+        // The connection accessor caches this materialized handle for the
+        // life of the process, so this call is what plants the stale Version
+        // the regression reads back below.
+        TmuxServerInfo before = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+        Assert.NotNull(before.Version);
+        Assert.Equal(1, before.SessionCount);
+
+        await scope.DisposeAsync();
+
+        // Version is captured once, at connect, so it must read null once
+        // the server has exited rather than go on reporting the tmux that
+        // ran it -- otherwise indistinguishable from a live, empty server.
+        TmuxServerInfo after = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+        Assert.Null(after.Version);
+        Assert.Equal(0, after.SessionCount);
+        Assert.Equal(0, after.WindowCount);
+        Assert.Equal(0, after.PaneCount);
+    }
+
+    [UnixFact]
+    public async Task Server_info_names_a_path_selected_socket_by_its_path_not_a_name()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        TmuxTestOptions options = new(new ServerConnectionOptions(
+            tmuxBinaryPath: raw.TmuxBinaryPath,
+            socketPath: raw.SocketPath,
+            configurationFile: "/dev/null"));
+        await using McpToolFixture mcp = McpToolFixture.Create(options);
+
+        // Regression for DOTNET2-10: a path-selected socket has no -L name of
+        // its own. Reporting the path's file name as SocketName let a caller
+        // mistake it for one - passed back as socketName it resolves a
+        // completely different, name-addressed socket, not this one.
+        TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
+        Assert.Null(info.SocketName);
+        Assert.Equal(raw.SocketPath, info.SocketPath);
+    }
+
+    [UnixFact]
+    public async Task List_sessions_excludes_this_servers_own_observation_from_attached()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+        string pane = scope.Pane.Id.ToString();
+
+        Assert.False(Assert.Single(await mcp.Read.ListSessionsAsync(cancellationToken: token)).Attached);
+
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            pane,
+            ["NEVER_APPEARS_ANYWHERE"],
+            timeoutSeconds: 5,
+            cancellationToken: token);
+
+        // Poll rather than sleep a fixed amount: the control client attaches
+        // asynchronously, and this is the observable signal it is live.
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+        while (!mcp.Activity.IsStreaming && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(10), token);
+        }
+
+        Assert.True(mcp.Activity.IsStreaming);
+
+        // tmux counts this server's own wait_for_text control client the
+        // same way it counts a human's, so a session must not read as
+        // attached merely because an observation is in flight.
+        SessionInfo duringWait = Assert.Single(
+            await mcp.Read.ListSessionsAsync(cancellationToken: token));
+        Assert.False(duringWait.Attached);
+
+        WaitResult result = await waiting;
+        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
     }
 
     [UnixFact]

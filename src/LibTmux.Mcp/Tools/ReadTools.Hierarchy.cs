@@ -20,27 +20,34 @@ internal sealed partial class ReadTools
         CancellationToken cancellationToken = default)
     {
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<Session> sessions = await TmuxAvailability
-            .OrEmptyAsync(server, () => server.GetSessionsAsync(cancellationToken))
-            .ConfigureAwait(false);
-        IReadOnlyList<Window> windows = await TmuxAvailability
-            .OrEmptyAsync(server, () => server.GetWindowsAsync(cancellationToken))
-            .ConfigureAwait(false);
-        IReadOnlyList<Pane> panes = await TmuxAvailability
-            .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
-            .ConfigureAwait(false);
+
+        // The accessor caches a materialized handle per socket for the life of
+        // this process, and Version is captured once, at connect. A server
+        // that has since exited still answers every listing empty without
+        // ever correcting that capture, so Version would otherwise go on
+        // reporting a tmux that is no longer there.
+        bool alive = server.IsMaterialized
+            && await server.IsAliveAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Session> sessions = alive
+            ? await TmuxAvailability
+                .OrEmptyAsync(server, () => server.GetSessionsAsync(cancellationToken))
+                .ConfigureAwait(false)
+            : [];
+        IReadOnlyList<Window> windows = alive
+            ? await TmuxAvailability
+                .OrEmptyAsync(server, () => server.GetWindowsAsync(cancellationToken))
+                .ConfigureAwait(false)
+            : [];
+        IReadOnlyList<Pane> panes = alive
+            ? await TmuxAvailability
+                .OrEmptyAsync(server, () => server.GetPanesAsync(cancellationToken))
+                .ConfigureAwait(false)
+            : [];
 
         return new TmuxServerInfo(
-            // A path-selected socket has no name of its own, and answering null
-            // from the tool whose job is to say which socket you are on is the
-            // one thing a caller cannot work around. tmux names such a socket
-            // by its file, so that is the honest answer.
-            SocketName: server.ConnectionOptions.SocketName
-                ?? _connection.DefaultSocketName
-                ?? (server.ConnectionOptions.SocketPath is string path
-                    ? Path.GetFileName(path)
-                    : null),
-            Version: server.Version?.ToString(),
+            SocketName: server.ConnectionOptions.SocketName ?? _connection.DefaultSocketName,
+            SocketPath: server.ConnectionOptions.SocketPath,
+            Version: alive ? server.Version?.ToString() : null,
             SessionCount: sessions.Count,
             WindowCount: windows.Count,
             PaneCount: panes.Count,
@@ -68,7 +75,51 @@ internal sealed partial class ReadTools
         IReadOnlyList<Session> sessions = await TmuxAvailability
             .OrEmptyAsync(server, () => server.GetSessionsAsync(cancellationToken))
             .ConfigureAwait(false);
-        return [.. sessions.Select(SessionInfo.From)];
+        HashSet<string> humanAttached = await HumanAttachedSessionIdsAsync(server, cancellationToken)
+            .ConfigureAwait(false);
+        return [.. sessions.Select(session =>
+            SessionInfo.From(session, humanAttached.Contains(session.Id.ToString())))];
+    }
+
+    /// <summary>Reads one session.</summary>
+    /// <param name="session">A session id or name.</param>
+    /// <param name="cancellationToken">Cancels the tmux query.</param>
+    /// <returns>What the session is.</returns>
+    internal async Task<SessionInfo> GetSessionInfoAsync(
+        string session,
+        CancellationToken cancellationToken = default)
+    {
+        Server server = await ServerAsync(null, cancellationToken).ConfigureAwait(false);
+        Session found = await TmuxTargets.SessionAsync(server, session, cancellationToken)
+            .ConfigureAwait(false);
+        HashSet<string> humanAttached = await HumanAttachedSessionIdsAsync(server, cancellationToken)
+            .ConfigureAwait(false);
+        return SessionInfo.From(found, humanAttached.Contains(found.Id.ToString()));
+    }
+
+    // tmux counts a client this process opened for a wait or a capture the
+    // same way it counts a human one, so a session's true attachment is read
+    // from the client listing with every name PaneActivityHub owns excluded,
+    // rather than from the session's own attached count.
+    private async Task<HashSet<string>> HumanAttachedSessionIdsAsync(
+        Server server,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Client> clients = await TmuxAvailability
+            .OrEmptyAsync(server, () => server.GetClientsAsync(cancellationToken))
+            .ConfigureAwait(false);
+        HashSet<string> attached = new(StringComparer.Ordinal);
+        foreach (Client client in clients)
+        {
+            if (_activity.OwnsControlClient(client.Name) || client.AttachedSessionId is not SessionId id)
+            {
+                continue;
+            }
+
+            attached.Add(id.ToString());
+        }
+
+        return attached;
     }
 
     /// <summary>Lists the windows.</summary>

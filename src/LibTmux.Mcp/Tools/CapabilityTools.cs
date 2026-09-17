@@ -208,14 +208,10 @@ internal sealed class CapabilityTools
         CancellationToken cancellationToken = default) =>
         _read.ServerInfoAsync(cancellationToken: cancellationToken);
 
-    public async Task<SessionInfo> GetSessionInfoAsync(
+    public Task<SessionInfo> GetSessionInfoAsync(
         [Description("A session id or name.")] string session,
-        CancellationToken cancellationToken = default)
-    {
-        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
-        return SessionInfo.From(
-            await TmuxTargets.SessionAsync(server, session, cancellationToken).ConfigureAwait(false));
-    }
+        CancellationToken cancellationToken = default) =>
+        _read.GetSessionInfoAsync(session, cancellationToken);
 
     public async Task<WindowInfo> GetWindowInfoAsync(
         [Description("A window id.")] string windowId,

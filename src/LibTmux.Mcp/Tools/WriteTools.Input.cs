@@ -119,6 +119,10 @@ internal sealed partial class WriteTools
         }
 
         _ = await dispatch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        if (literal)
+        {
+            PaneTypedTextRegistry.Record(pane, keys);
+        }
 
         // Only literal keys are characters. With literal false the argument is
         // a key name, so counting it counted the name rather than the key —
@@ -182,6 +186,10 @@ internal sealed partial class WriteTools
                     $"Key batch step {index + 1} may have reached tmux. The pane may "
                     + "already have acted on it; do not retry the whole batch.")
                 .ConfigureAwait(false);
+            if (step.Literal)
+            {
+                PaneTypedTextRegistry.Record(pane, step.Keys);
+            }
 
             if (step.DelayMilliseconds is int delay and > 0)
             {
@@ -386,6 +394,7 @@ internal sealed partial class WriteTools
                     new PasteBufferRequest(name: buffer, bracketed: bracketed),
                     cancellationToken)
                 .ConfigureAwait(false);
+            PaneTypedTextRegistry.Record(pane, text);
         }
         catch (Exception error)
         {

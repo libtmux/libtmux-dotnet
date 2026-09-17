@@ -70,8 +70,12 @@ public sealed class PaneActivityHubLifecycleTests
         IAsyncDisposable secondLease = await hub.WatchAsync("$1", Start, token);
         Assert.True(hub.IsStreaming);
         Assert.Equal(2, starts);
-        Assert.Equal(["refresh-client -f ignore-size"], first.Commands);
-        Assert.Equal(["refresh-client -f ignore-size"], second.Commands);
+        Assert.Equal(
+            ["refresh-client -f ignore-size", "display-message -p #{client_name}"],
+            first.Commands);
+        Assert.Equal(
+            ["refresh-client -f ignore-size", "display-message -p #{client_name}"],
+            second.Commands);
 
         await firstLease.DisposeAsync();
         await secondLease.DisposeAsync();

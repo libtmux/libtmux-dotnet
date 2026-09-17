@@ -2481,6 +2481,12 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
         Assert.Equal("ALREADY_HERE_MARKER", result.MatchedPattern);
         Assert.Contains("ALREADY_HERE_MARKER", result.Tail.Lines);
+
+        // An entry match is knowable at once, so it must be reported without
+        // polling capture-pane. Exactly two captures -- the entry read and
+        // the final tail -- proves no polling loop ran, without depending on
+        // wall-clock timing.
+        Assert.Equal(2, fixture.CaptureCount);
     }
 
     [Fact]

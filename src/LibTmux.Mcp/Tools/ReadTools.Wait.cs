@@ -39,15 +39,15 @@ internal sealed partial class ReadTools
         [Description("The pane id, such as %1. Omit for the active pane.")]
         string? paneId = null,
         [Description(
-            "Regular expressions to wait for. Only output arriving AFTER this call "
-            + "counts as a match — text already on screen never triggers one, which is "
-            + "what keeps this from firing on a command's own echo. If a pattern is "
-            + "already on screen when this is called and nothing new ever matches, the "
-            + "result says outcome PresentAtEntry rather than Timeout, so a tail that "
-            + "contains the pattern is never reported as a plain timeout. Omit or pass "
-            + "an empty list to return as soon as the pane prints anything new. Across "
-            + "both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each entry "
-            + "is at most 999 bytes.")]
+            "Regular expressions to wait for. A pattern already on screen when this is "
+            + "called is answered at once as outcome PresentAtEntry, not Timeout, so a "
+            + "tail that contains it is never reported as a plain timeout. Text this "
+            + "server itself typed into the pane is never a match by itself, however new "
+            + "tmux reports it — a not-yet-submitted line, or a shell re-printing what "
+            + "was typed, cannot satisfy a wait meant for the pane's own output. Omit or "
+            + "pass an empty list to return as soon as the pane prints anything new. "
+            + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
+            + "entry is at most 999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -77,6 +77,13 @@ internal sealed partial class ReadTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
+        // The server knows every key it sent this pane, so a row that is only
+        // its own not-yet-confirmed input - never submitted, or echoed again
+        // by a redraw - is excluded before anything is matched. That is what
+        // keeps a shell re-printing what was typed from satisfying a wait the
+        // command itself never answered.
+        string? pending = PaneTypedTextRegistry.LastSent(pane);
+
         Stopwatch elapsed = Stopwatch.StartNew();
 
         // The lease turns this from a poll into a sleep: tmux reports the
@@ -92,12 +99,28 @@ internal sealed partial class ReadTools
 
         // Checked once, up front, against what was already on screen when
         // this call started - never against anything read since, which is
-        // what keeps this from matching a command's own echo. Recorded so a
-        // Timeout that only ever saw this same, unchanging text can say so
-        // instead of silently returning a tail that contains it.
+        // what keeps this from matching a command's own echo. Reported at
+        // once below rather than deferred to the deadline, so a caller never
+        // pays the full timeout for an answer already knowable.
         string? matchedAtEntry = wanted.Length == 0
             ? null
-            : Match(wanted, PaneText.Scrub(first.Lines, pane.Width), matchingWork, cancellationToken);
+            : Match(
+                wanted,
+                ExcludePending(PaneText.Scrub(first.Lines, pane.Width), pending),
+                matchingWork,
+                cancellationToken);
+        if (matchedAtEntry is not null)
+        {
+            return await FinishAsync(
+                    pane,
+                    id,
+                    WaitOutcome.PresentAtEntry,
+                    matchedAtEntry,
+                    elapsed,
+                    budget,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         while (true)
         {
@@ -107,8 +130,8 @@ internal sealed partial class ReadTools
                 return await FinishAsync(
                         pane,
                         id,
-                        matchedAtEntry is null ? WaitOutcome.Timeout : WaitOutcome.PresentAtEntry,
-                        matchedAtEntry,
+                        WaitOutcome.Timeout,
+                        null,
                         elapsed,
                         budget,
                         cancellationToken)
@@ -125,8 +148,12 @@ internal sealed partial class ReadTools
 
             // Matched against the rows the caller receives. Matching raw rows
             // let a concurrent run's payload echo satisfy a wait, and then the
-            // scrubbed tail did not contain the line that matched.
-            IReadOnlyList<string> visible = PaneText.Scrub(read.Lines, pane.Width);
+            // scrubbed tail did not contain the line that matched. A row that
+            // is only this server's own pending input is excluded the same
+            // way, however new tmux reports it.
+            IReadOnlyList<string> visible = ExcludePending(
+                PaneText.Scrub(read.Lines, pane.Width),
+                pending);
             if (visible.Count > 0)
             {
                 if (Match(stops, visible, matchingWork, cancellationToken) is string stopped)
@@ -185,13 +212,15 @@ internal sealed partial class ReadTools
             // A full-screen program repaints rather than appending, so "what is
             // new" stops meaning anything. Saying so beats waiting out the
             // whole budget for a line that will never arrive as new text.
+            // matchedAtEntry can only be null here: a non-null one already
+            // returned before this loop began.
             if (!alternate && read.State.AlternateScreen)
             {
                 return await FinishAsync(
                         pane,
                         id,
-                        matchedAtEntry is null ? WaitOutcome.Timeout : WaitOutcome.PresentAtEntry,
-                        matchedAtEntry,
+                        WaitOutcome.Timeout,
+                        null,
                         elapsed,
                         budget,
                         cancellationToken)
@@ -319,6 +348,32 @@ internal sealed partial class ReadTools
             + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
+
+    // A row this server typed is excluded by content, not by position: the
+    // kernel echoes it back on the input line, and a redraw can print it
+    // again anywhere tmux chooses to put the cursor.
+    private static IReadOnlyList<string> ExcludePending(IReadOnlyList<string> lines, string? pending)
+    {
+        if (string.IsNullOrEmpty(pending) || lines.Count == 0)
+        {
+            return lines;
+        }
+
+        List<string>? kept = null;
+        for (int row = 0; row < lines.Count; row++)
+        {
+            if (lines[row].Contains(pending, StringComparison.Ordinal))
+            {
+                kept ??= [.. lines.Take(row)];
+            }
+            else
+            {
+                kept?.Add(lines[row]);
+            }
+        }
+
+        return kept ?? lines;
+    }
 
     internal static string? Match(
         Regex[] patterns,
