@@ -55,7 +55,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         }).ToArray();
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
         LoadHandoff handoff = new(context, invocation, output);
-        await handoff.ResolveAsync(Connection()).ConfigureAwait(false);
+        await handoff.ResolveAsync(Connection(), inputs[^1].Plan.Name).ConfigureAwait(false);
         if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("unsupported_append_extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
         if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported_attached_extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
         _server = handoff.Server;
@@ -199,7 +199,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     await output.ProgressAsync(progress => progress.StartWindow(window, windowOrdinal)).ConfigureAwait(false);
                     stage = "window-created";
                     PanePlan first = window.Panes[0];
-                    List<string> args = ["new-window", "-d", "-P", "-F", "#{window_id}\t#{pane_id}", "-t", session + ":" + (appendTarget is null ? window.Index?.ToString(CultureInfo.InvariantCulture) : null)];
+                    List<string> args = ["new-window", "-d", "-P", "-F", "#{window_id}\t#{pane_id}", "-t", session + ":" + window.Index?.ToString(CultureInfo.InvariantCulture)];
                     if (window.Name is not null) args.AddRange(["-n", window.Name]);
                     PaneArguments(args, first);
                     string[] identifiers = (await Change(args).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
@@ -268,7 +268,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 if (active is not null) await Change(["select-window", "-t", active]).ConfigureAwait(false);
                 results.Add(Result(index, input.Path, session, sessionName, created ? "created" : "appended"));
                 await output.EventAsync(stage = "workspace-completed", new { input_index = index, session_id = session }).ConfigureAwait(false);
-                if (!invocation.Machine) { output.Human("Loaded ", "success", false); output.Human(sessionName, "subject"); }
+                if (!invocation.Machine) { output.Human(created ? "Loaded " : "Appended ", "success", false); output.Human(sessionName, "subject"); }
             }
             catch (Exception failure) when (failure is CliException or OperationCanceledException or LibTmuxException or StaleServerGenerationException or ArgumentException or IOException or UnauthorizedAccessException)
             {

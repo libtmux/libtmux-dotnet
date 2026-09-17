@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using LibTmux.Internal;
 using Microsoft.Win32.SafeHandles;
 
 namespace LibTmux.Workspace.Cli;
@@ -15,34 +16,60 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
     internal Server? Server { get; private set; }
     internal Session? CurrentSession { get; private set; }
     internal string? CurrentSessionName { get; private set; }
+    private ServerGeneration _serverGeneration;
     private Pane? _pane;
     private string? _tty, _window;
     private Client? _client;
 
-    internal async Task ResolveAsync(ServerConnectionOptions options)
+    internal async Task ResolveAsync(ServerConnectionOptions options, string sessionName)
     {
+        // -d always builds detached, whether or not --append was also given.
+        if (invocation.Flag("detached")) { Mode = LoadMode.Detached; return; }
         Mode = invocation.Flag("append") ? LoadMode.Append : LoadMode.Detached;
-        if (invocation.Flag("detached") && Mode != LoadMode.Append) return;
-        if (Mode != LoadMode.Append)
+
+        if (string.IsNullOrEmpty(context.Environment.GetValueOrDefault("TMUX")))
         {
-            _tty = TerminalInput.RequireForeground(context);
-            if (string.IsNullOrEmpty(context.Environment.GetValueOrDefault("TMUX")))
+            if (Mode == LoadMode.Append) throw new CliException("usage", "--append requires a current tmux pane. Use -d.", 2);
+            if (!invocation.Flag("yes") && CanPrompt() && await SessionExistsAsync(options, sessionName).ConfigureAwait(false))
             {
-                Mode = LoadMode.Attach;
-                return;
-            }
-            if (CurrentSocket(context, out _) is null || !PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out _))
-                throw new CliException("session_required", "TMUX and TMUX_PANE must identify the current tmux pane. Use -d.");
-            if (!invocation.Flag("yes"))
-            {
-                string answer = await ChooseAsync("Load workspace: [y] switch, [n] detached, [a] append: ", ["y", "n", "a"]).ConfigureAwait(false);
+                string answer = await ChooseAsync(sessionName + " is already running. Attach? [Y/n] ", ["y", "n"], "y").ConfigureAwait(false);
                 if (answer == "n") return;
-                Mode = answer == "a" ? LoadMode.Append : LoadMode.Switch;
             }
-            else Mode = LoadMode.Switch;
+            _tty = TerminalInput.RequireForeground(context);
+            Mode = LoadMode.Attach;
+            return;
         }
-        await ResolveCurrentAsync(options).ConfigureAwait(false);
-        if (Mode == LoadMode.Append) return;
+
+        await AuthenticateServerAsync(options).ConfigureAwait(false);
+
+        if (Mode == LoadMode.Append)
+        {
+            await RequireInvokingPaneAsync().ConfigureAwait(false);
+            return;
+        }
+
+        bool exists = await SessionExistsAsync(options, sessionName).ConfigureAwait(false);
+        if (!invocation.Flag("yes") && CanPrompt())
+        {
+            string answer = exists
+                ? await ChooseAsync(sessionName + " is already running. Attach? [Y/n] ", ["y", "n"], "y").ConfigureAwait(false)
+                : await ChooseAsync("Already inside tmux: switch (y), load detached (n), or append (a)? [y/n/a] ", ["y", "n", "a"], "y").ConfigureAwait(false);
+            if (answer == "n") return;
+            Mode = answer == "a" ? LoadMode.Append : LoadMode.Switch;
+        }
+        else Mode = LoadMode.Switch;
+
+        if (Mode == LoadMode.Append)
+        {
+            await RequireInvokingPaneAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // T4: when the invoking pane cannot be identified -- a run-shell key
+        // binding sets TMUX but no TMUX_PANE -- switch without picking a
+        // client, and skip everything below that needs one.
+        if (!await TryResolveInvokingPaneAsync().ConfigureAwait(false)) return;
+
         IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
         RefuseIndependent(clients);
         Client[] eligible = clients.Where(Eligible).OrderBy(client => client.Name, StringComparer.Ordinal).ToArray();
@@ -59,46 +86,90 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         }
     }
 
-    private async Task<string> ChooseAsync(string prompt, string[] choices)
+    // Prompting reads from the real terminal, so it never fires against a
+    // pipe: a script sees the same "yes" every port defaults to.
+    private static bool CanPrompt() => !Console.IsInputRedirected;
+
+    private async Task<bool> SessionExistsAsync(ServerConnectionOptions options, string sessionName)
     {
-        using SafeFileHandle input = TerminalInput.Open(context);
-        while (true)
-        {
-            await output.PromptAsync(prompt).ConfigureAwait(false);
-            string answer = (await TerminalInput.ReadLineAsync(input, context.CancellationToken).ConfigureAwait(false)).Trim().ToLowerInvariant();
-            if (choices.Contains(answer, StringComparer.Ordinal)) return answer;
-            await output.PromptAsync("Choose one of " + string.Join(", ", choices) + ".\n").ConfigureAwait(false);
-        }
+        Server probe = Server ??= LibTmux.Server.Open(options);
+        TmuxCommandResult result = await probe.ExecuteCommandAsync(["has-session", "-t", "=" + sessionName], context.CancellationToken).ConfigureAwait(false);
+        return result.ExitCode == 0;
     }
 
-    private async Task ResolveCurrentAsync(ServerConnectionOptions options)
+    // Refuses a load aimed at a different tmux server before anything is
+    // built. The current server is already known live -- its socket came
+    // from $TMUX -- so a selected endpoint this cannot reach or that reports
+    // a different generation is by definition a different server, whether or
+    // not it happens to be running yet.
+    private async Task AuthenticateServerAsync(ServerConnectionOptions options)
     {
         string? socket = CurrentSocket(context, out int processId);
-        if (socket is null || !PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId paneId))
-            throw new CliException("session_required", "Load requires TMUX and TMUX_PANE from the current tmux pane. Use -d outside tmux.");
+        if (socket is null) throw new CliException("session_required", "TMUX must identify the current tmux server. Use -d.");
         Server inherited = LibTmux.Server.Open(new ServerConnectionOptions { TmuxBinaryPath = options.TmuxBinaryPath, SocketPath = Path.GetFullPath(socket, context.Directory), ChildEnvironment = context.Environment });
-        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", "-t", paneId.ToString(), "#{pid}:#{start_time}"], context.CancellationToken).ConfigureAwait(false);
-        string generation = Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n');
+        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", TmuxConnection.GenerationFormat], context.CancellationToken).ConfigureAwait(false);
         if (observed.ExitCode != 0) throw new CliException("session_required", "The current tmux pane is unavailable.");
-        if (!generation.StartsWith(processId.ToString(CultureInfo.InvariantCulture) + ":", StringComparison.Ordinal))
+        ServerGeneration inheritedGeneration = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
+        if (inheritedGeneration.ProcessId != processId)
             throw new CliException("stale_environment", "The server recorded in TMUX has been replaced.");
-        Server = await LibTmux.Server.ConnectAsync(options, context.CancellationToken).ConfigureAwait(false);
-        ServerGeneration selected = Server.Generation!.Value;
-        if (generation != string.Create(CultureInfo.InvariantCulture, $"{selected.ProcessId}:{selected.StartTime}"))
-            throw new CliException("endpoint_mismatch", "Load cannot hand off or append to a different server from the current tmux pane. Use -d.");
-        Pane pane = await Server.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
+        Server target;
+        try
+        {
+            target = await LibTmux.Server.ConnectAsync(options, context.CancellationToken).ConfigureAwait(false);
+        }
+        catch (LibTmuxException)
+        {
+            throw new CliException("usage", "Load cannot hand off or append to a different server from the current tmux pane. Use -d.", 2);
+        }
+        if (target.Generation!.Value != inheritedGeneration)
+            throw new CliException("usage", "Load cannot hand off or append to a different server from the current tmux pane. Use -d.", 2);
+        Server = target;
+        _serverGeneration = inheritedGeneration;
+    }
+
+    private async Task RequireInvokingPaneAsync()
+    {
+        if (!PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId paneId))
+            throw new CliException("usage", "--append requires a current tmux pane. Use -d.", 2);
+        await ResolvePaneSessionAsync(paneId).ConfigureAwait(false);
+    }
+
+    private async Task<bool> TryResolveInvokingPaneAsync()
+    {
+        if (!PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId paneId)) return false;
+        await ResolvePaneSessionAsync(paneId).ConfigureAwait(false);
+        _tty = TerminalInput.RequireForeground(context);
+        Pane pane = await Server!.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
+        _pane = await pane.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
+        if (_pane.RawFormatFields.GetValueOrDefault("pane_tty") != _tty)
+            throw new CliException("pane_terminal_mismatch", "TMUX_PANE does not name the invoking terminal's pane. Use -d.");
+        _window = _pane.RawFormatFields.GetValueOrDefault("window_id")
+            ?? throw new CliException("session_required", "The invoking pane has no window.");
+        return true;
+    }
+
+    private async Task ResolvePaneSessionAsync(PaneId paneId)
+    {
+        Pane pane = await Server!.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
         TmuxCommandResult resolved = await pane.ExecuteCommandAsync(["display-message", "-p", "#{session_id}\t#{session_name}"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
         string[] fields = Encoding.UTF8.GetString(resolved.StandardOutput.Span).TrimEnd('\n').Split('\t', 2);
         if (resolved.ExitCode != 0 || fields.Length != 2 || !SessionId.TryParse(fields[0], out SessionId sessionId))
             throw new CliException("session_required", "The current tmux pane has no session.");
         CurrentSession = await Server.GetSessionAsync(sessionId, context.CancellationToken).ConfigureAwait(false);
         CurrentSessionName = fields[1];
-        if (Mode == LoadMode.Append) return;
-        _pane = await pane.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
-        if (_pane.RawFormatFields.GetValueOrDefault("pane_tty") != _tty)
-            throw new CliException("pane_terminal_mismatch", "TMUX_PANE does not name the invoking terminal's pane. Use -d.");
-        _window = _pane.RawFormatFields.GetValueOrDefault("window_id")
-            ?? throw new CliException("session_required", "The invoking pane has no window.");
+    }
+
+    private async Task<string> ChooseAsync(string prompt, string[] choices, string? defaultAnswer = null)
+    {
+        using SafeFileHandle input = TerminalInput.Open(context);
+        while (true)
+        {
+            await output.PromptAsync(prompt).ConfigureAwait(false);
+            string answer = (await TerminalInput.ReadLineAsync(input, context.CancellationToken).ConfigureAwait(false)).Trim().ToLowerInvariant();
+            if (answer.Length == 0 && defaultAnswer is not null) return defaultAnswer;
+            if (choices.Contains(answer, StringComparer.Ordinal)) return answer;
+            await output.PromptAsync("Choose one of " + string.Join(", ", choices) + ".\n").ConfigureAwait(false);
+        }
     }
 
     private static string? Field(Client client, string name) => client.RawFormatFields.GetValueOrDefault(name);
@@ -115,13 +186,20 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
     internal async Task CompleteAsync(Session target)
     {
         if (Mode is LoadMode.Detached or LoadMode.Append) return;
-        if (TerminalInput.RequireForeground(context) != _tty)
-            throw new CliException("terminal_changed", "The invoking terminal changed before attachment.");
         if (Mode == LoadMode.Switch)
         {
-            if (target.Generation != CurrentSession!.Generation)
-                throw new StaleServerGenerationException("The workspace server changed before handoff.", CurrentSession.Generation, target.Generation);
-            Pane current = await _pane!.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
+            if (target.Generation != _serverGeneration) throw new StaleServerGenerationException("The workspace server changed before handoff.", _serverGeneration, target.Generation);
+            if (_pane is null)
+            {
+                // T4: no invoking pane was identified -- let tmux pick the
+                // client itself, as it does for a nested run-shell load.
+                TmuxCommandResult switched = await target.ExecuteCommandAsync(["switch-client"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
+                if (switched.ExitCode != 0) throw new CliException("attach_failed", "tmux could not switch the client.", switched.ExitCode);
+                return;
+            }
+            if (TerminalInput.RequireForeground(context) != _tty)
+                throw new CliException("terminal_changed", "The invoking terminal changed before attachment.");
+            Pane current = await _pane.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
             if (current.RawFormatFields.GetValueOrDefault("pane_tty") != _tty || current.RawFormatFields.GetValueOrDefault("window_id") != _window)
                 throw new CliException("pane_changed", "The invoking pane changed before handoff.");
             IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
@@ -135,6 +213,8 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         }
         else
         {
+            if (TerminalInput.RequireForeground(context) != _tty)
+                throw new CliException("terminal_changed", "The invoking terminal changed before attachment.");
             int status = await new ProcessCommands(context, invocation, output).AttachAsync(target).ConfigureAwait(false);
             if (status != 0) throw new CliException("attach_failed", $"tmux attachment exited with status {status}.", status);
         }
@@ -156,10 +236,10 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         internal static string RequireForeground(CliContext context)
         {
             if (!context.Terminal || Console.IsInputRedirected)
-                throw new CliException("terminal_required", "Attachment requires terminal input and output. Use -d to load without attaching.");
+                throw new CliException("usage", "Attachment requires terminal input and output. Use -d to load without attaching.", 2);
             if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
                 throw new CliException("terminal_unsupported", "Native terminal handoff currently requires Linux x64. Use -d.");
-            if (ForegroundGroup(0) != ProcessGroup()) throw new CliException("terminal_required", "Attachment requires the foreground controlling terminal. Use -d.");
+            if (ForegroundGroup(0) != ProcessGroup()) throw new CliException("usage", "Attachment requires the foreground controlling terminal. Use -d.", 2);
             return Name();
         }
 
