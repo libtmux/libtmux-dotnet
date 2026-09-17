@@ -1071,7 +1071,7 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
-    // M1: --save-to is itself consent; requiring --yes too blocks freeze in
+    // --save-to is itself consent; requiring --yes too blocks freeze in
     // anything without a terminal.
     [Fact]
     public async Task Explicit_save_to_needs_no_confirmation_flag()
@@ -1366,8 +1366,8 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
-    // O5/H8: each refusal keeps failing; only the message changes to the
-    // real reason -- see WorkspacePlan.cs.
+    // Each refusal keeps failing; only the message changes to the real
+    // reason -- see WorkspacePlan.cs.
     [Theory]
     [InlineData("   ", "session_name must contain a non-whitespace character.")]
     [InlineData("a:b", "session_name must not contain ':' or '.', which tmux uses as target separators.")]
@@ -1395,7 +1395,7 @@ public sealed class RegressionTests : IDisposable
         return (code, output.ToString(), error.ToString());
     }
 
-    // H7: needs a real pty -- a StringWriter can't produce
+    // Needs a real pty -- a StringWriter can't produce
     // Console.IsOutputRedirected == false. ESC[?1h/ESC= keypad-mode escapes
     // are excluded below: runtime behaviour on any pty, not colour.
     [Fact]

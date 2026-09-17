@@ -21,8 +21,8 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         string name = overrideName ?? Text(document, "session_name") ?? throw Invalid("session_name is required.");
         name = store.Expand(name);
         // Each refusal states what actually breaks, not a shared "cannot
-        // preserve" claim that was false for whitespace (O5) and imprecise
-        // for ':'/'.' (H8, which are target separators).
+        // preserve" claim that was false for whitespace and imprecise for
+        // ':'/'.', which are target separators.
         if (string.IsNullOrWhiteSpace(name)) throw Invalid("session_name must contain a non-whitespace character.");
         if (name.Any(char.IsControl)) throw Invalid("session_name must not contain control characters, which corrupt tmux's own session listings.");
         if (name.Any(character => character is ':' or '.')) throw Invalid("session_name must not contain ':' or '.', which tmux uses as target separators.");
