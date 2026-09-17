@@ -371,7 +371,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture_lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
 
-    private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["completed_stage"] = "workspace-completed" };
+    private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["reused"] = status is "reused" or "appended", ["completed_stage"] = "workspace-completed" };
 
     private static void PaneArguments(List<string> arguments, PanePlan pane)
     {

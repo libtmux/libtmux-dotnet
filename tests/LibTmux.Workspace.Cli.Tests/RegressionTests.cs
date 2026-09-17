@@ -757,6 +757,9 @@ public sealed class RegressionTests : IDisposable
 
             Assert.Equal(0, code);
             Assert.Empty(error.ToString());
+            JsonNode result = JsonNode.Parse(output.ToString())!["results"]![0]!;
+            Assert.Equal("appended", result["status"]!.ToString());
+            Assert.True(result["reused"]!.GetValue<bool>());
             Assert.Equal(focus ? "extra2" : "homewin", await Execute(server, "display-message", "-p", "-t", "home:", "#{window_name}"));
         }
         finally
@@ -997,6 +1000,42 @@ public sealed class RegressionTests : IDisposable
         TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
         Assert.True(result.ExitCode == 0, $"tmux {string.Join(' ', arguments)} exited {result.ExitCode}: {System.Text.Encoding.UTF8.GetString(result.StandardError.Span)}");
         return System.Text.Encoding.UTF8.GetString(result.StandardOutput.Span).TrimEnd('\n');
+    }
+
+    // Every load --json result record carries a reused boolean alongside
+    // status: false when load created the session, true when it found and
+    // reused (or appended to) one that already existed.
+    [Fact]
+    public async Task Result_records_carry_a_reused_boolean()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "reused-flag.socket");
+        string file = Path.Combine(_root, "reused-flag.yaml");
+        await File.WriteAllTextAsync(file, "session_name: reused-flag\nwindows: [{panes: [null]}]", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter createdOutput = new();
+            using StringWriter createdError = new();
+            int createdCode = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], createdOutput, createdError, _root, null, token);
+            using StringWriter reusedOutput = new();
+            using StringWriter reusedError = new();
+            int reusedCode = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], reusedOutput, reusedError, _root, null, token);
+
+            Assert.Equal(0, createdCode);
+            Assert.Equal(0, reusedCode);
+            JsonNode created = JsonNode.Parse(createdOutput.ToString())!["results"]![0]!;
+            JsonNode reused = JsonNode.Parse(reusedOutput.ToString())!["results"]![0]!;
+            Assert.Equal("created", created["status"]!.ToString());
+            Assert.False(created["reused"]!.GetValue<bool>());
+            Assert.Equal("reused", reused["status"]!.ToString());
+            Assert.True(reused["reused"]!.GetValue<bool>());
+        }
+        finally
+        {
+            using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+            if (await server.IsAliveAsync(cleanup.Token)) await server.KillAsync(cancellationToken: cleanup.Token);
+        }
     }
 
     [Theory]
