@@ -680,6 +680,14 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("script_failed", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             JsonNode summary = JsonNode.Parse(output.ToString())!;
             Assert.Equal("error", summary["status"]!.ToString());
+            // The failed input still gets its own results[] record: same
+            // fields a completed input's record carries.
+            JsonNode record = Assert.Single(summary["results"]!.AsArray())!;
+            Assert.Equal(file, record["input"]!.ToString());
+            Assert.Equal(0, record["input_index"]!.GetValue<int>());
+            Assert.Equal("bsfail", record["session_name"]!.ToString());
+            Assert.False(string.IsNullOrEmpty(record["session_id"]!.ToString()));
+            Assert.False(record["reused"]!.GetValue<bool>());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal("script_failed", issue["code"]!.ToString());
             Assert.Equal(0, issue["input_index"]!.GetValue<int>());
@@ -980,7 +988,11 @@ public sealed class RegressionTests : IDisposable
             Assert.True(code == 1 && untouched.Length == 0, $"Exit {code}, unrelated option '{untouched}', result {output}, error {error}");
             JsonNode summary = JsonNode.Parse(output.ToString())!;
             Assert.Equal("partial", summary["status"]!.ToString());
-            Assert.Single(summary["results"]!.AsArray());
+            JsonArray completedResults = summary["results"]!.AsArray();
+            Assert.Equal(2, completedResults.Count);
+            Assert.Equal("appended", completedResults[0]!["status"]!.ToString());
+            Assert.Equal("failed", completedResults[1]!["status"]!.ToString());
+            Assert.Equal(1, completedResults[1]!["input_index"]!.GetValue<int>());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal("stale_server", issue["code"]!.ToString());
             Assert.Equal("session-options", issue["failed_stage"]!.ToString());
@@ -1263,7 +1275,12 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal("failed", events[^1]["event"]!.ToString());
             JsonNode summary = events[^1];
             Assert.Equal("partial", summary["status"]!.ToString());
-            Assert.Equal("complete", Assert.Single(summary["results"]!.AsArray())!["session_name"]!.ToString());
+            JsonArray completedResults = summary["results"]!.AsArray();
+            Assert.Equal(2, completedResults.Count);
+            Assert.Equal("complete", completedResults[0]!["session_name"]!.ToString());
+            Assert.Equal("failed", completedResults[1]!["session_name"]!.ToString());
+            Assert.Equal("failed", completedResults[1]!["status"]!.ToString());
+            Assert.Equal(1, completedResults[1]!["input_index"]!.GetValue<int>());
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal(1, issue["input_index"]!.GetValue<int>());
             Assert.Equal(failure != "next-input", issue["created"]!.GetValue<bool>());
