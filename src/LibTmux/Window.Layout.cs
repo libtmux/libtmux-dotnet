@@ -172,10 +172,9 @@ public sealed partial class Window
         }
 
         // A layout tmux dumped begins with a four-digit hexadecimal checksum,
-        // and every version parses those. A name spelled out in full is
-        // always unambiguous, even when it is also a prefix of a longer
-        // preset (main-vertical of main-vertical-mirrored): tmux resolves an
-        // exact name before it ever considers a name a prefix of.
+        // and every version parses those. A full name is unambiguous even
+        // when it also prefixes a longer preset (main-vertical,
+        // main-vertical-mirrored): tmux resolves an exact name first.
         if (HasCustomLayoutPrefix(layout)
             || UniversalLayouts.Contains(layout, StringComparer.Ordinal))
         {

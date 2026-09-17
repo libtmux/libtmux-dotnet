@@ -7,12 +7,10 @@ namespace LibTmux.Mcp;
 /// <summary>Remembers the literal text this process most recently typed into a pane.</summary>
 /// <remarks>
 /// A wait must never count the pane echoing back what this server itself
-/// typed as a fresh match: the kernel echoes keystrokes immediately, and a
-/// shell's line editor can re-print an unsubmitted buffer or redraw it later
-/// (a readline redraw, a still-starting shell), both genuinely new bytes but
-/// not output the pane produced. The remembered text is replaced by the next
-/// literal send to the same pane, submitted or not, and submitting it does
-/// not clear it.
+/// typed as a fresh match - the kernel echoes keystrokes immediately, and a
+/// shell's line editor can re-print or redraw an unsubmitted buffer later,
+/// both genuinely new bytes but not output the pane produced. The remembered
+/// text is replaced, not cleared, by the next literal send to the same pane.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
 internal static class PaneTypedTextRegistry

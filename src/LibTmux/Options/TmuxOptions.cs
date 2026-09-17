@@ -273,11 +273,10 @@ public sealed class TmuxOptions
         return result.StandardOutputLines;
     }
 
-    // The owner handed to the constructor may not have discovered a live
-    // server yet -- CreateOwnedAsync hands back that endpoint and never
-    // replaces it -- so the escaping this reply needs is resolved here,
-    // against the server the owner discovers, rather than frozen at
-    // construction against a version that handle may never carry.
+    // The owner may not have discovered a live server yet -- CreateOwnedAsync
+    // hands back an endpoint that never replaces itself -- so this resolves
+    // against whatever the owner discovers now, rather than freezing a
+    // version at construction that handle may never carry.
     private async Task<bool> ResolveDoubleEscapesDollarAsync(CancellationToken cancellationToken) =>
         _owner is null
             ? false

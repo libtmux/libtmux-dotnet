@@ -77,11 +77,10 @@ internal sealed partial class ReadTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
-        // The server knows every key it sent this pane, so a row that is only
-        // its own not-yet-confirmed input - never submitted, or echoed again
-        // by a redraw - is excluded before anything is matched. That is what
-        // keeps a shell re-printing what was typed from satisfying a wait the
-        // command itself never answered.
+        // A row that is only this server's own not-yet-confirmed input -
+        // never submitted, or echoed again by a redraw - is excluded before
+        // anything is matched, which keeps a shell re-printing what was
+        // typed from satisfying a wait the command itself never answered.
         string? pending = PaneTypedTextRegistry.LastSent(pane);
 
         Stopwatch elapsed = Stopwatch.StartNew();
@@ -97,11 +96,10 @@ internal sealed partial class ReadTools
         TailCursor cursor = TailCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
 
-        // Checked once, up front, against what was already on screen when
-        // this call started - never against anything read since, which is
-        // what keeps this from matching a command's own echo. Reported at
-        // once below rather than deferred to the deadline, so a caller never
-        // pays the full timeout for an answer already knowable.
+        // Checked once, up front, against what was already on screen -
+        // never against anything read since, which is what keeps this from
+        // matching a command's own echo - and reported at once below rather
+        // than deferred to the deadline.
         string? matchedAtEntry = wanted.Length == 0
             ? null
             : Match(
@@ -146,11 +144,10 @@ internal sealed partial class ReadTools
                 .ConfigureAwait(false);
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
-            // Matched against the rows the caller receives. Matching raw rows
-            // let a concurrent run's payload echo satisfy a wait, and then the
-            // scrubbed tail did not contain the line that matched. A row that
-            // is only this server's own pending input is excluded the same
-            // way, however new tmux reports it.
+            // Matched against the rows the caller receives, not the raw ones:
+            // a concurrent run's payload echo could otherwise satisfy a wait
+            // whose scrubbed tail never showed the line that matched. This
+            // server's own pending input is excluded the same way.
             IReadOnlyList<string> visible = ExcludePending(
                 PaneText.Scrub(read.Lines, pane.Width),
                 pending);

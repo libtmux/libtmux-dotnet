@@ -21,11 +21,9 @@ internal sealed partial class ReadTools
     {
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
 
-        // The accessor caches a materialized handle per socket for the life of
-        // this process, and Version is captured once, at connect. A server
-        // that has since exited still answers every listing empty without
-        // ever correcting that capture, so Version would otherwise go on
-        // reporting a tmux that is no longer there.
+        // The accessor caches a materialized handle per socket, and Version
+        // is captured once, at connect - so a server that has since exited
+        // would otherwise go on reporting the tmux that once answered it.
         bool alive = server.IsMaterialized
             && await server.IsAliveAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyList<Session> sessions = alive
