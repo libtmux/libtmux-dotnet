@@ -74,10 +74,23 @@ public sealed class ServerSessionLifecycleTests
         Session listed = Assert.Single(sessions);
         Assert.Equal(session.Id, listed.Id);
         Assert.True(listed.Server.IsMaterialized);
-        Assert.Single(await owned.Value.GetWindowsAsync(token));
-        Assert.Single(await owned.Value.GetPanesAsync(token));
+        IReadOnlyList<Window> windows = await owned.Value.GetWindowsAsync(token);
+        Window window = Assert.Single(windows);
+        IReadOnlyList<Pane> panes = await owned.Value.GetPanesAsync(token);
+        Pane pane = Assert.Single(panes);
         Assert.Empty(await owned.Value.GetAttachedSessionsAsync(token));
         Assert.Single(await listed.GetWindowsAsync(token));
+
+        // The same still-unmaterialized handle must discover the live server
+        // from Find*Async and GetClientsAsync too, the way the four listings
+        // above already do, rather than throwing InvalidOperationException or
+        // IncompleteSnapshotException.
+        Assert.False(owned.Value.IsMaterialized);
+        Assert.Equal(session.Id, (await owned.Value.FindSessionAsync(session.Id, token))?.Id);
+        Assert.Equal(window.Id, (await owned.Value.FindWindowAsync(window.Id, token))?.Id);
+        Assert.Equal(pane.Id, (await owned.Value.FindPaneAsync(pane.Id, token))?.Id);
+        Assert.Null(await owned.Value.FindSessionAsync(new SessionId(2147483647), token));
+        Assert.Empty(await owned.Value.GetClientsAsync(token));
     }
 
     [Fact(

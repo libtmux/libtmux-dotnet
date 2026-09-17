@@ -99,6 +99,7 @@ public sealed partial class Server : IEquatable<Server>
     /// <returns>A materialized session carrying captured scalar state.</returns>
     /// <exception cref="TmuxObjectNotFoundException">The session does not exist.</exception>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> GetSessionAsync(
         SessionId id,
@@ -111,21 +112,22 @@ public sealed partial class Server : IEquatable<Server>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A materialized session, or null after a successful read finds no match.</returns>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session?> FindSessionAsync(
         SessionId id,
         CancellationToken cancellationToken = default)
     {
-        _ = RequireMaterializedConnection();
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
-                this,
+                owner,
                 "list-sessions",
                 "session_id",
                 id.ToString(),
                 inSession: null,
                 cancellationToken)
             .ConfigureAwait(false);
-        return row is null ? null : RelationReader.ToSession(this, row);
+        return row is null ? null : RelationReader.ToSession(owner, row);
     }
 
     /// <summary>Reads one window by identifier, throwing when it is absent.</summary>
@@ -134,6 +136,7 @@ public sealed partial class Server : IEquatable<Server>
     /// <returns>A materialized window carrying captured scalar state.</returns>
     /// <exception cref="TmuxObjectNotFoundException">The window does not exist.</exception>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> GetWindowAsync(
         WindowId id,
@@ -146,21 +149,22 @@ public sealed partial class Server : IEquatable<Server>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A materialized window, or null after a successful read finds no match.</returns>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window?> FindWindowAsync(
         WindowId id,
         CancellationToken cancellationToken = default)
     {
-        _ = RequireMaterializedConnection();
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
-                this,
+                owner,
                 "list-windows",
                 "window_id",
                 id.ToString(),
                 inSession: null,
                 cancellationToken)
             .ConfigureAwait(false);
-        return row is null ? null : RelationReader.ToWindow(this, row);
+        return row is null ? null : RelationReader.ToWindow(owner, row);
     }
 
     /// <summary>Reads one pane by identifier, throwing when it is absent.</summary>
@@ -169,6 +173,7 @@ public sealed partial class Server : IEquatable<Server>
     /// <returns>A materialized pane carrying captured scalar state.</returns>
     /// <exception cref="TmuxObjectNotFoundException">The pane does not exist.</exception>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Pane> GetPaneAsync(
         PaneId id,
@@ -181,21 +186,22 @@ public sealed partial class Server : IEquatable<Server>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A materialized pane, or null after a successful read finds no match.</returns>
     /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Pane?> FindPaneAsync(
         PaneId id,
         CancellationToken cancellationToken = default)
     {
-        _ = RequireMaterializedConnection();
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
-                this,
+                owner,
                 "list-panes",
                 "pane_id",
                 id.ToString(),
                 inSession: null,
                 cancellationToken)
             .ConfigureAwait(false);
-        return row is null ? null : RelationReader.ToPane(this, row);
+        return row is null ? null : RelationReader.ToPane(owner, row);
     }
 
     /// <summary>Reports whether two handles reach the same server endpoint.</summary>
@@ -231,14 +237,4 @@ public sealed partial class Server : IEquatable<Server>
         _connection is null
             ? base.GetHashCode()
             : _connection.GetEndpointHashCode();
-
-    private TmuxConnection RequireMaterializedConnection()
-    {
-        if (_connection is null || !_generation.HasValue)
-        {
-            throw new InvalidOperationException("The server must be materialized before lookup.");
-        }
-
-        return _connection;
-    }
 }
