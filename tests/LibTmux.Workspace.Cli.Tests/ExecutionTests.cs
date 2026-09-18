@@ -170,6 +170,24 @@ public sealed class ExecutionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // A socket with no server behind it holds no session, so freeze names the
+    // one it was asked for, or says there is none, rather than passing on
+    // tmux's refusal to connect.
+    [Theory]
+    [InlineData("named")]
+    [InlineData("bare")]
+    public async Task Freeze_on_a_socket_with_no_server_reports_session_not_found(string form)
+    {
+        string socket = Path.Combine(_root, form + "-cold.socket");
+        (int code, string output, string error) = form == "named"
+            ? await Run("freeze", "nosuch", "-S", socket, "--json")
+            : await Run("freeze", "-S", socket, "--json");
+        Assert.Equal(1, code);
+        Assert.Empty(output);
+        Assert.Equal("session_not_found", JsonNode.Parse(error)!["code"]!.ToString());
+        Assert.DoesNotContain("error connecting to", error, StringComparison.Ordinal);
+    }
+
     // freeze omits shell_command (an empty array) for the default
     // shell and keeps it, as an array, for anything else.
     [Fact]
