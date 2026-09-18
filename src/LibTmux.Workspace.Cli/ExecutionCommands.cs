@@ -543,18 +543,35 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private async Task<string> Command(IReadOnlyList<string> arguments)
     {
-        TmuxCommandResult result = _loadGeneration is not ServerGeneration generation
-            ? await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false)
-            : await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
-        if (result.ExitCode != 0)
+        TmuxCommandResult result;
+        if (_loadGeneration is not ServerGeneration generation)
         {
-            // No trailing "exited N: " separator when tmux wrote nothing.
-            string stderr = string.Join("\n", result.StandardErrorLines);
-            throw new CliException(
-                "tmux_failed",
-                stderr.Length == 0 ? $"tmux exited {result.ExitCode}" : $"tmux exited {result.ExitCode}: {stderr}");
+            result = await Server.ExecuteCommandAsync(arguments, context.CancellationToken).ConfigureAwait(false);
         }
-
+        else
+        {
+            try
+            {
+                result = await Server.Chain().Then(new TmuxCommand(arguments[0], arguments.Skip(1).ToArray()) { RequiredGeneration = generation }).ExecuteAsync(context.CancellationToken).ConfigureAwait(false);
+            }
+            // Chaining is how this CLI talks to tmux, not something the user
+            // asked for, so its wording never reaches them.
+            catch (TmuxCommandException failure)
+            {
+                throw Failed(failure.Result);
+            }
+        }
+        if (result.ExitCode != 0 || result.StandardErrorLines.Count > 0) throw Failed(result);
         return Encoding.UTF8.GetString(result.StandardOutput.Span);
+    }
+
+    // No trailing "exited N: " separator when tmux wrote nothing, and no
+    // exit code when tmux reported the problem without one.
+    private static CliException Failed(TmuxCommandResult result)
+    {
+        string stderr = string.Join("\n", result.StandardErrorLines);
+        return new CliException(
+            "tmux_failed",
+            stderr.Length == 0 ? $"tmux exited {result.ExitCode}" : result.ExitCode == 0 ? $"tmux reported: {stderr}" : $"tmux exited {result.ExitCode}: {stderr}");
     }
 }
