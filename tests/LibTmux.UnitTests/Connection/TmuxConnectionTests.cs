@@ -817,12 +817,16 @@ public sealed class GenerationGuardTests
                     Encoding.UTF8.GetBytes($"unknown command: {Marker}\n")))),
             () => Marker);
 
-        await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxCommandException error = await Assert.ThrowsAsync<TmuxCommandException>(
             () => connection
                 .CreateEntityDispatcher(new ServerGeneration(46, 203))
                 .ExecuteAsync(
                     ["kill-session", "-t", "$0"],
                     TestContext.Current.CancellationToken));
+
+        // tmux answered, so the failure says so and carries what it said.
+        Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
+        Assert.Contains(Marker, string.Join('\n', error.Result.StandardErrorLines), StringComparison.Ordinal);
     }
 
     [ConnectionUnixFact]

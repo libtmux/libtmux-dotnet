@@ -303,8 +303,9 @@ public sealed partial class Session
                     string.Equals(window.Name, selectedName, StringComparison.Ordinal))];
                 return matches.Length == 1
                     ? matches[0]
-                    : throw new InvalidDataException(
-                        $"tmux did not report exactly one selected window named '{selectedName}'.");
+                    : throw new TmuxCommandException(
+                        $"tmux did not report exactly one selected window named '{selectedName}'.",
+                        result);
             });
         }
 
@@ -312,7 +313,9 @@ public sealed partial class Session
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new window identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new window identifier.",
+                        result));
 
         IReadOnlyList<Window> windows = await sequence
             .ObserveAsync(() => owner.GetWindowsAsync(cancellationToken))
@@ -336,8 +339,9 @@ public sealed partial class Session
         TmuxCommandFailure.ThrowIfFailed(result, "display-message");
         return result.StandardOutputLines.Count == 1
             ? result.StandardOutputLines[0]
-            : throw new InvalidDataException(
-                "tmux did not report exactly one expanded window name.");
+            : throw new TmuxCommandException(
+                "tmux did not report exactly one expanded window name.",
+                result);
     }
 
     internal static IEnumerable<string> BuildAttachArguments(

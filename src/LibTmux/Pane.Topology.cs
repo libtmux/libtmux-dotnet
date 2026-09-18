@@ -195,7 +195,9 @@ public sealed partial class Pane
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new window identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new window identifier.",
+                        result));
 
         // On that same version tmux keeps the name it was given only some of
         // the time, so a caller who asked for one gets it set explicitly.
@@ -578,7 +580,9 @@ public sealed partial class Pane
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         Server owner = sequence.Observe(() => Server);
         IReadOnlyDictionary<string, string?>? row = await sequence

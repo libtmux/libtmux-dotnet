@@ -35,7 +35,9 @@ internal sealed class TmuxDialect : MultiplexerDialect
 
         if (result.StandardOutputLines.Count != 1)
         {
-            throw new InvalidDataException("tmux did not report exactly one server generation.");
+            throw new TmuxCommandException(
+                "tmux did not report exactly one server generation.",
+                result);
         }
 
         return (TmuxConnection.ParseGeneration(result.StandardOutputLines[0]), rawVersion);

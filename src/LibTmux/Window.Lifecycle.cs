@@ -167,7 +167,9 @@ public sealed partial class Window
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new window identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new window identifier.",
+                        result));
 
         IReadOnlyList<Window> windows = await sequence
             .ObserveAsync(() => owner.GetWindowsAsync(cancellationToken))

@@ -338,7 +338,7 @@ public sealed class CompositeMutationDispatchTests
                 new NewSessionRequest("created"),
                 TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
     }
 
     [Fact]
@@ -396,7 +396,7 @@ public sealed class CompositeMutationDispatchTests
                 new NewWindowRequest("wanted", selectExisting: true),
                 TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
     }
 
     [Fact]
@@ -524,6 +524,14 @@ public sealed class CompositeMutationDispatchTests
         if (failure.InnerException is TmuxTransportException inner)
         {
             Assert.Equal(TmuxDispatchState.NotDispatched, inner.Dispatch);
+        }
+
+        // An unreadable answer still came from tmux, so it carries what tmux
+        // was asked and what it said.
+        if (failure.InnerException is TmuxCommandException answered)
+        {
+            Assert.Equal(TmuxDispatchState.Dispatched, answered.Dispatch);
+            Assert.NotEmpty(answered.Result.Arguments);
         }
     }
 

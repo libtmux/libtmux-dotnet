@@ -159,10 +159,14 @@ public sealed partial class Server
         {
             string id = result.StandardOutputLines.Count > 0
                 ? result.StandardOutputLines[0]
-                : throw new InvalidDataException("tmux reported no new session identifier.");
+                : throw new TmuxCommandException(
+                    "tmux reported no new session identifier.",
+                    result);
             return SessionId.TryParse(id, out SessionId parsed)
                 ? parsed
-                : throw new InvalidDataException("tmux reported a malformed session identifier.");
+                : throw new TmuxCommandException(
+                    "tmux reported a malformed session identifier.",
+                    result);
         });
 
         // Re-list directly so Name is materialized and listing errors remain failures.

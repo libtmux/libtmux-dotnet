@@ -182,7 +182,9 @@ public sealed partial class Window
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         IReadOnlyList<Pane> panes = await sequence
             .ObserveAsync(() => GetPanesAsync(cancellationToken))
@@ -271,7 +273,9 @@ public sealed partial class Window
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         IReadOnlyList<Pane> panes = await sequence
             .ObserveAsync(() => GetPanesAsync(cancellationToken))
