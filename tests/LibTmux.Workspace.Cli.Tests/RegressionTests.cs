@@ -1340,6 +1340,10 @@ public sealed class RegressionTests : IDisposable
                 Assert.True(result.Code == 1 && summary["status"]!.ToString() == "error", $"Attempt {attempt}: exit {result.Code}, {result.Output}");
                 Assert.True(summary["errors"]![0]!["removed"]!.GetValue<bool>(), $"Attempt {attempt}: {result.Output}");
                 Assert.Equal("failed", summary["results"]![0]!["status"]!.ToString());
+                // The user asked tmux for a window option, not this CLI for a
+                // chain, so only tmux's own sentence reaches them.
+                string reported = summary["errors"]![0]!["message"]!.ToString();
+                Assert.StartsWith("tmux exited 1: invalid option", reported, StringComparison.Ordinal);
                 TmuxCommandResult listed = await server.ExecuteCommandAsync(["has-session", "-t", "=rerun"], token);
                 Assert.NotEqual(0, listed.ExitCode);
             }
