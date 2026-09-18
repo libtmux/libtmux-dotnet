@@ -23,7 +23,7 @@ public sealed class InstrumentationTests
 
         await Dispatch(socket, exitCode: 0, ["list-sessions", "-F", "#{session_id}"]);
 
-        Activity span = Assert.Single(spans, each => Tag(each, "tmux.socket") == socket);
+        Activity span = Assert.Single(Snapshot(spans), each => Tag(each, "tmux.socket") == socket);
         Assert.Equal("list-sessions", span.DisplayName);
         Assert.Equal("list-sessions", Tag(span, "tmux.subcommand"));
         Assert.Equal("0", Tag(span, "tmux.exit_code"));
@@ -39,7 +39,7 @@ public sealed class InstrumentationTests
 
         await Dispatch(socket, exitCode: 1, ["kill-session"]);
 
-        Activity span = Assert.Single(spans, each => Tag(each, "tmux.socket") == socket);
+        Activity span = Assert.Single(Snapshot(spans), each => Tag(each, "tmux.socket") == socket);
         Assert.Equal("1", Tag(span, "tmux.exit_code"));
         Assert.Equal(ActivityStatusCode.Error, span.Status);
     }
@@ -57,7 +57,7 @@ public sealed class InstrumentationTests
         await Assert.ThrowsAsync<TmuxTransportException>(
             () => dispatcher.ExecuteAsync(["list-sessions"], TestContext.Current.CancellationToken));
 
-        Activity span = Assert.Single(spans, each => Tag(each, "tmux.socket") == socket);
+        Activity span = Assert.Single(Snapshot(spans), each => Tag(each, "tmux.socket") == socket);
         Assert.Equal(ActivityStatusCode.Error, span.Status);
         Assert.Equal(typeof(TmuxTransportException).FullName, Tag(span, "error.type"));
     }
@@ -71,9 +71,54 @@ public sealed class InstrumentationTests
 
         await Dispatch(socket, exitCode: 0, ["list-panes"]);
 
-        KeyValuePair<string, object?>[] tags = Assert.Single(measured);
+        KeyValuePair<string, object?>[] tags;
+        lock (measured)
+        {
+            tags = Assert.Single(measured);
+        }
+
         Assert.Equal("list-panes", tags.Single(tag => tag.Key == "tmux.subcommand").Value);
         Assert.Equal(0, tags.Single(tag => tag.Key == "tmux.exit_code").Value);
+    }
+
+    [UnixFact]
+    public async Task A_command_that_outlives_the_timeout_fails_as_dispatch_unknown()
+    {
+        var dispatcher = new TmuxCommandDispatcher(
+            static async (_, token) =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                throw new UnreachableException();
+            },
+            new TmuxCommandContext(
+                NullLogger.Instance,
+                "timeout",
+                TimeSpan.FromMilliseconds(50)));
+
+        TmuxTransportException expired = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => dispatcher.ExecuteAsync(["list-sessions"], TestContext.Current.CancellationToken));
+
+        // tmux may have run the command before it stopped answering, so a retry
+        // is not automatically safe.
+        Assert.Equal(TmuxDispatchState.Unknown, expired.Dispatch);
+        Assert.Equal(["list-sessions"], expired.Arguments);
+    }
+
+    [UnixFact]
+    public async Task A_caller_who_cancels_sees_cancellation_not_a_timeout()
+    {
+        using var caller = new CancellationTokenSource();
+        var dispatcher = new TmuxCommandDispatcher(
+            async (_, token) =>
+            {
+                await caller.CancelAsync();
+                await Task.Delay(Timeout.Infinite, token);
+                throw new UnreachableException();
+            },
+            new TmuxCommandContext(NullLogger.Instance, "cancel", TimeSpan.FromMinutes(5)));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => dispatcher.ExecuteAsync(["list-sessions"], caller.Token));
     }
 
     private static async Task Dispatch(string socket, int exitCode, string[] arguments)
@@ -89,6 +134,15 @@ public sealed class InstrumentationTests
                     [])),
             new TmuxCommandContext(NullLogger.Instance, socket));
         await dispatcher.ExecuteAsync(arguments, TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>Copies under the lock: the listener appends while the assert reads.</summary>
+    private static Activity[] Snapshot(List<Activity> spans)
+    {
+        lock (spans)
+        {
+            return [.. spans];
+        }
     }
 
     private static string? Tag(Activity activity, string name) =>

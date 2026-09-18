@@ -11119,7 +11119,7 @@
       "summary": "Creates ServerAccessRequest."
     },
     {
-      "id": "M:LibTmux.ServerConnectionOptions.#ctor(string,string?,string?,Func<string>?,string?,TmuxColorMode,Func<Server,CancellationToken,ValueTask>?,IReadOnlyDictionary<string,string?>?,ILogger?)",
+      "id": "M:LibTmux.ServerConnectionOptions.#ctor(string,string?,string?,Func<string>?,string?,TmuxColorMode,Func<Server,CancellationToken,ValueTask>?,IReadOnlyDictionary<string,string?>?,ILogger?,TimeSpan?)",
       "declaringType": "T:LibTmux.ServerConnectionOptions",
       "name": ".ctor",
       "kind": "constructor",
@@ -11172,9 +11172,14 @@
           "name": "logger",
           "type": "ILogger?",
           "default": "null"
+        },
+        {
+          "name": "commandTimeout",
+          "type": "TimeSpan?",
+          "default": "null"
         }
       ],
-      "signature": "ServerConnectionOptions(string tmuxBinaryPath = \"tmux\", string? socketName = null, string? socketPath = null, Func<string>? socketNameFactory = null, string? configurationFile = null, TmuxColorMode colorMode = TmuxColorMode.Default, Func<Server,CancellationToken,ValueTask>? initializeAsync = null, IReadOnlyDictionary<string,string?>? childEnvironment = null, ILogger? logger = null)",
+      "signature": "ServerConnectionOptions(string tmuxBinaryPath = \"tmux\", string? socketName = null, string? socketPath = null, Func<string>? socketNameFactory = null, string? configurationFile = null, TmuxColorMode colorMode = TmuxColorMode.Default, Func<Server,CancellationToken,ValueTask>? initializeAsync = null, IReadOnlyDictionary<string,string?>? childEnvironment = null, ILogger? logger = null, TimeSpan? commandTimeout = null)",
       "portable": true,
       "summary": "Creates ServerConnectionOptions."
     },
@@ -21086,6 +21091,18 @@
       "signature": "ILogger? LibTmux.ServerConnectionOptions.Logger { get; }",
       "portable": true,
       "summary": "Gets Logger."
+    },
+    {
+      "id": "P:LibTmux.ServerConnectionOptions.CommandTimeout",
+      "declaringType": "T:LibTmux.ServerConnectionOptions",
+      "name": "CommandTimeout",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; }",
+      "returnType": "TimeSpan?",
+      "portable": true,
+      "summary": "How long one tmux command may run, or null to wait indefinitely."
     },
     {
       "id": "P:LibTmux.ServerConnectionOptions.SocketName",

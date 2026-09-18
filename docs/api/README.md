@@ -376,7 +376,7 @@ modes differ.
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
 | `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
 | `LibTmux.ServerAccessRequest.#ctor(System.String,System.String,System.Boolean,System.Boolean,System.Boolean)` | Initializes an access change. |
-| `LibTmux.ServerConnectionOptions.#ctor(System.String,System.String,System.String,System.Func{System.String},System.String,LibTmux.TmuxColorMode,System.Func{LibTmux.Server,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},Microsoft.Extensions.Logging.ILogger)` | Initializes connection options. |
+| `LibTmux.ServerConnectionOptions.#ctor(System.String,System.String,System.String,System.Func{System.String},System.String,LibTmux.TmuxColorMode,System.Func{LibTmux.Server,System.Threading.CancellationToken,System.Threading.Tasks.ValueTask},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},Microsoft.Extensions.Logging.ILogger,System.Nullable{System.TimeSpan})` | Initializes connection options. |
 | `LibTmux.ServerGeneration.#ctor(System.Int32,System.Int64)` | Initializes a server generation. |
 | `LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to this session. |
 | `LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session and takes ownership of it. |
@@ -998,6 +998,7 @@ modes differ.
 | `LibTmux.ServerAccessRequest.ReadWrite` | Gets whether the granted user may also act. |
 | `LibTmux.ServerConnectionOptions.ChildEnvironment` | Gets the child-process environment overrides. |
 | `LibTmux.ServerConnectionOptions.ColorMode` | Gets the requested tmux color mode. |
+| `LibTmux.ServerConnectionOptions.CommandTimeout` | Gets how long one tmux command may run, or null to wait indefinitely. |
 | `LibTmux.ServerConnectionOptions.ConfigurationFile` | Gets the tmux configuration file. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |

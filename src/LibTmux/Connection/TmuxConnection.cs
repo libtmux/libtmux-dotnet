@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux.Internal;
 
@@ -54,9 +53,12 @@ internal sealed class TmuxConnection
                 Options.TmuxBinaryPath)
             : new PsmuxDialect(send, sendVersion, Options, _resolvedSocketName);
 
-        CommandContext = Options.Logger is ILogger logger
-            ? new TmuxCommandContext(logger, Options.SocketName ?? Options.SocketPath)
-            : null;
+        // Built whether or not a logger is set: the socket and the timeout it
+        // carries are read by tracing and dispatch, not only by logging.
+        CommandContext = new TmuxCommandContext(
+            Options.Logger,
+            Options.SocketName ?? Options.SocketPath,
+            Options.CommandTimeout);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -69,7 +71,7 @@ internal sealed class TmuxConnection
 
     internal TmuxCommandDispatcher ServerDispatcher { get; }
 
-    internal TmuxCommandContext? CommandContext { get; }
+    internal TmuxCommandContext CommandContext { get; }
 
     internal bool IsPsmux => _dialect.IsPsmux;
 

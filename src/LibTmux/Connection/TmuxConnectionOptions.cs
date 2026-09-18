@@ -46,7 +46,8 @@ public sealed record ServerConnectionOptions
         TmuxColorMode colorMode = TmuxColorMode.Default,
         Func<Server, CancellationToken, ValueTask>? initializeAsync = null,
         IReadOnlyDictionary<string, string?>? childEnvironment = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        TimeSpan? commandTimeout = null)
         : this(
             tmuxBinaryPath,
             socketName,
@@ -57,6 +58,7 @@ public sealed record ServerConnectionOptions
             initializeAsync,
             childEnvironment,
             logger,
+            commandTimeout,
             psmuxPreview: null)
     {
     }
@@ -71,6 +73,7 @@ public sealed record ServerConnectionOptions
         Func<Server, CancellationToken, ValueTask>? initializeAsync,
         IReadOnlyDictionary<string, string?>? childEnvironment,
         ILogger? logger,
+        TimeSpan? commandTimeout,
         PsmuxPreviewOptions? psmuxPreview)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tmuxBinaryPath);
@@ -92,6 +95,14 @@ public sealed record ServerConnectionOptions
         if (!Enum.IsDefined(colorMode))
         {
             throw new ArgumentOutOfRangeException(nameof(colorMode));
+        }
+
+        if (commandTimeout is TimeSpan limit && limit <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(commandTimeout),
+                limit,
+                "A command timeout runs forward.");
         }
 
         Dictionary<string, string?>? childEnvironmentCopy = null;
@@ -173,6 +184,7 @@ public sealed record ServerConnectionOptions
             ? null
             : new ReadOnlyDictionary<string, string?>(childEnvironmentCopy);
         Logger = logger;
+        CommandTimeout = commandTimeout;
         PsmuxPreview = psmuxPreview;
     }
 
@@ -192,6 +204,7 @@ public sealed record ServerConnectionOptions
             initializeAsync: null,
             childEnvironment: null,
             logger: options.Logger,
+            commandTimeout: null,
             psmuxPreview: new PsmuxPreviewOptions(
                 options.ExpectedBinarySha256,
                 options.DataDirectory));
@@ -223,6 +236,17 @@ public sealed record ServerConnectionOptions
 
     /// <summary>Gets the connection logger.</summary>
     public ILogger? Logger { get; }
+
+    /// <summary>Gets how long one tmux command may run, or null to wait indefinitely.</summary>
+    /// <remarks>
+    /// A tmux that stops answering otherwise hangs the caller until its own
+    /// cancellation token fires, and forever if it passed none. On expiry the
+    /// command throws <see cref="TmuxTransportException" /> whose
+    /// <see cref="LibTmuxException.Dispatch" /> is
+    /// <see cref="TmuxDispatchState.Unknown" />: tmux may already have acted.
+    /// A caller's own cancellation still wins, and reads as cancellation.
+    /// </remarks>
+    public TimeSpan? CommandTimeout { get; }
 
     internal PsmuxPreviewOptions? PsmuxPreview { get; }
 }

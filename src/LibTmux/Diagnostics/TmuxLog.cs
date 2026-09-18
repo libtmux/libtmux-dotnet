@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace LibTmux.Internal;
 
-/// <summary>Carries the logger a run of tmux commands is recorded through.</summary>
+/// <summary>Carries what one connection's tmux commands are recorded and bounded by.</summary>
 /// <remarks>
 /// Every tmux command a caller makes passes through one dispatcher, so what it
 /// records is decided once here rather than at each of the hundreds of call
@@ -12,18 +12,24 @@ namespace LibTmux.Internal;
 /// </remarks>
 internal sealed class TmuxCommandContext
 {
-    internal TmuxCommandContext(ILogger logger, string? socket)
+    internal TmuxCommandContext(
+        ILogger? logger,
+        string? socket,
+        TimeSpan? commandTimeout = null)
     {
-        ArgumentNullException.ThrowIfNull(logger);
         Logger = logger;
         Socket = socket;
+        CommandTimeout = commandTimeout;
     }
 
-    /// <summary>Gets the logger tmux commands are recorded through.</summary>
-    internal ILogger Logger { get; }
+    /// <summary>Gets the logger tmux commands are recorded through, when one is set.</summary>
+    internal ILogger? Logger { get; }
 
     /// <summary>Gets the socket the commands are sent to, when one is named.</summary>
     internal string? Socket { get; }
+
+    /// <summary>Gets how long one command may run before it is abandoned.</summary>
+    internal TimeSpan? CommandTimeout { get; }
 }
 
 /// <summary>Records what tmux was asked and what it answered.</summary>
