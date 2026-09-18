@@ -97,6 +97,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             // True once the document's own first window exists. Bootstrap is
             // the only window before that; killing it would kill the session.
             bool windowCreated = false;
+            // Windows added to a session this load did not create. They stay
+            // behind on failure, so the report has to name them.
+            List<string> appended = [];
             async Task<string> Change(IReadOnlyList<string> arguments)
             {
                 string result = await Command(arguments).ConfigureAwait(false);
@@ -133,6 +136,12 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     {
                         string[] identity = (await Command(["display-message", "-p", "-t", "=" + input.Plan.Name + ":", "#{session_id}\t#{pid}:#{start_time}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
                         session = identity[0];
+                        // A name that exists is not evidence the workspace
+                        // behind it does. Reuse is reported only once every
+                        // window the document declares is present.
+                        string[] absent = MissingWindows(input.Plan.Windows, await Command(["list-windows", "-t", session, "-F", "#{window_index}\t#{window_name}"]).ConfigureAwait(false));
+                        if (absent.Length > 0)
+                            throw new CliException("destination_exists", $"Session '{input.Plan.Name}' is already running without {string.Join(", ", absent)}. Remove it and load again, or load under another name.");
                         finalSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identity[1])).ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
@@ -206,6 +215,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     windowCreated = true;
                     string windowId = identifiers[0];
                     string paneId = identifiers[1];
+                    if (appendTarget is not null) appended.Add(window.Name ?? windowId);
                     firstWindow ??= windowId;
                     if (window.Focus) focusedWindow = windowId;
                     foreach (var option in window.Options) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
@@ -281,7 +291,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             {
                 bool removed = false;
                 string? cleanupError = null;
-                if (stage == "before-script" && ownedSession is not null)
+                // A session this load created is removed on every failure.
+                // Leaving a half-built one behind is what lets the next run
+                // find the name, call it reused, and report success.
+                if (ownedSession is not null)
                 {
                     using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
                     try
@@ -315,12 +328,17 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     ["status"] = "failed",
                 });
                 string code = failure is CliException cli ? cli.Code : failure is OperationCanceledException ? "interrupted" : failure is StaleServerGenerationException ? "stale_server" : failure is IOException or UnauthorizedAccessException ? "output_failed" : "tmux_failed";
-                errors.Add(new JsonObject { ["code"] = code, ["message"] = failure.Message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
+                string message = appended.Count == 0 ? failure.Message : $"{failure.Message} Windows kept in {sessionName}: {string.Join(", ", appended)}.";
+                errors.Add(new JsonObject { ["code"] = code, ["message"] = message, ["input_index"] = index, ["completed_stage"] = completedStage, ["failed_stage"] = stage, ["session_id"] = session, ["created"] = created, ["changed"] = changed, ["removed"] = removed });
                 if (cleanupError is not null) errors[^1]!["cleanup_error"] = cleanupError;
                 // A failed input's own results[] record (added above) must not
                 // count toward "partial" -- only a genuinely completed input does.
                 bool anySucceeded = results.Any(item => item!["status"]!.ToString() != "failed");
-                var summary = new { schema_version = 1, command = "load", status = anySucceeded || (changed && !removed) ? "partial" : "error", results, errors };
+                // "error" means nothing this load made survives. A session it
+                // found rather than created is still standing, so that is
+                // "partial" whether or not this load changed it.
+                bool retained = (session is not null && !created) || (changed && !removed);
+                var summary = new { schema_version = 1, command = "load", status = anySucceeded || retained ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
                 try
                 {
@@ -328,11 +346,11 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     // Human mode never prints a machine record; the sentence
                     // DiagnosticAsync writes below is the whole human report.
                     if (invocation.Machine && !invocation.Flag("ndjson")) await output.ResultAsync(summary, cancellationToken: reporting.Token).ConfigureAwait(false);
-                    await output.DiagnosticAsync(code, failure.Message).ConfigureAwait(false);
+                    await output.DiagnosticAsync(code, message).ConfigureAwait(false);
                 }
                 catch (Exception interrupted) when (interrupted is IOException or UnauthorizedAccessException or OperationCanceledException)
                 {
-                    await output.DiagnosticAsync(code, failure.Message, summary).ConfigureAwait(false);
+                    await output.DiagnosticAsync(code, message, summary).ConfigureAwait(false);
                 }
                 return failure is OperationCanceledException ? 130 : 1;
             }
@@ -411,6 +429,29 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     }
 
     private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["reused"] = status is "reused" or "appended", ["completed_stage"] = "workspace-completed" };
+
+    // Each live window answers at most one declared window, so a document
+    // that names two windows the same needs two of them present. An index
+    // identifies a window on its own; a name only when no index was given.
+    private static string[] MissingWindows(IReadOnlyList<WindowPlan> declared, string listing)
+    {
+        List<(int Index, string Name)> live = listing
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(row => row.Split('\t'))
+            .Where(fields => fields.Length == 2 && int.TryParse(fields[0], CultureInfo.InvariantCulture, out _))
+            .Select(fields => (Index: int.Parse(fields[0], CultureInfo.InvariantCulture), Name: fields[1]))
+            .ToList();
+        List<string> missing = [];
+        foreach (WindowPlan window in declared)
+        {
+            int found = window.Index is int index
+                ? live.FindIndex(candidate => candidate.Index == index)
+                : window.Name is string name ? live.FindIndex(candidate => candidate.Name == name) : live.Count > 0 ? 0 : -1;
+            if (found < 0) missing.Add(window.Name is string absent ? $"window '{absent}'" : window.Index is int position ? $"a window at index {position.ToString(CultureInfo.InvariantCulture)}" : "one of its windows");
+            else live.RemoveAt(found);
+        }
+        return missing.ToArray();
+    }
 
     private static void PaneArguments(List<string> arguments, PanePlan pane)
     {

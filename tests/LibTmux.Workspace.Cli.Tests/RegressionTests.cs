@@ -746,10 +746,10 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
-    // Cancellation mid-window (not mid-load): the session stays by design,
-    // but the bootstrap window is scaffolding and should not survive either.
+    // Cancellation mid-window leaves the session half built, so the load
+    // removes it: a name left standing is what the next run would reuse.
     [Fact]
-    public async Task Cancellation_mid_window_still_removes_the_bootstrap_window()
+    public async Task Cancellation_mid_window_removes_the_session_it_created()
     {
         CancellationToken outer = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, "mid-window.socket");
@@ -768,10 +768,9 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal(130, code);
             JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.DoesNotContain(events, item => item["event"]!.ToString() == "window-completed");
-            TmuxCommandResult listed = await server.ExecuteCommandAsync(["list-windows", "-t", "midwindow", "-F", "#{window_name}"], outer);
-            Assert.Equal(0, listed.ExitCode);
-            string[] windows = System.Text.Encoding.UTF8.GetString(listed.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            Assert.Equal(["only"], windows);
+            Assert.True(events[^1]["removed"]?.GetValue<bool>() ?? events[^1]["errors"]![0]!["removed"]!.GetValue<bool>());
+            TmuxCommandResult listed = await server.ExecuteCommandAsync(["has-session", "-t", "=midwindow"], outer);
+            Assert.NotEqual(0, listed.ExitCode);
         }
         finally { if (await server.IsAliveAsync(outer)) await server.KillAsync(cancellationToken: outer); }
     }
@@ -1289,6 +1288,62 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // Re-running a document that cannot load is the natural response to a
+    // failure. It has to fail the same way twice rather than find the wreck
+    // of the first attempt and call it a reused session.
+    [Fact]
+    public async Task Reloading_a_document_that_failed_fails_again_instead_of_reporting_success()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "rerun.socket");
+        string file = Path.Combine(_root, "rerun.yaml");
+        await File.WriteAllTextAsync(file, "session_name: rerun\nwindows:\n- {window_name: one, panes: [null]}\n- {window_name: two, options: {not-a-real-option: 1}, panes: [null]}\n- {window_name: three, panes: [null]}\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+                JsonNode summary = JsonNode.Parse(result.Output)!;
+                Assert.True(result.Code == 1 && summary["status"]!.ToString() == "error", $"Attempt {attempt}: exit {result.Code}, {result.Output}");
+                Assert.True(summary["errors"]![0]!["removed"]!.GetValue<bool>(), $"Attempt {attempt}: {result.Output}");
+                Assert.Equal("failed", summary["results"]![0]!["status"]!.ToString());
+                TmuxCommandResult listed = await server.ExecuteCommandAsync(["has-session", "-t", "=rerun"], token);
+                Assert.NotEqual(0, listed.ExitCode);
+            }
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    // A session found rather than created is never rebuilt, so reuse is only
+    // honest when it already holds every window the document declares.
+    [Fact]
+    public async Task Reuse_refuses_a_session_missing_a_declared_window()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "reuse.socket");
+        string file = Path.Combine(_root, "reuse.yaml");
+        await File.WriteAllTextAsync(file, "session_name: reuse\nwindows: [{window_name: one, panes: [null]}, {window_name: two, panes: [null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "reuse", "-n", "one");
+            var refused = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            JsonNode summary = JsonNode.Parse(refused.Output)!;
+            Assert.True(refused.Code == 1 && summary["status"]!.ToString() == "partial", $"Exit {refused.Code}, {refused.Output}");
+            JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
+            Assert.Equal("destination_exists", issue["code"]!.ToString());
+            Assert.Contains("two", issue["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.False(issue["removed"]!.GetValue<bool>());
+            Assert.Equal("one", await Execute(server, "list-windows", "-t", "reuse", "-F", "#{window_name}"));
+            await Execute(server, "new-window", "-d", "-t", "reuse", "-n", "two");
+            var accepted = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.True(accepted.Code == 0, accepted.Output + accepted.Error);
+            Assert.Equal("reused", JsonNode.Parse(accepted.Output)!["results"]![0]!["status"]!.ToString());
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     private static async Task<string> Execute(Server server, params string[] arguments)
     {
         TmuxCommandResult result = await server.ExecuteCommandAsync(arguments, TestContext.Current.CancellationToken);
@@ -1526,10 +1581,10 @@ public sealed class RegressionTests : IDisposable
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal(1, issue["input_index"]!.GetValue<int>());
             Assert.Equal(failure != "next-input", issue["created"]!.GetValue<bool>());
-            Assert.Equal(failure is "script" or "cancel", issue["removed"]!.GetValue<bool>());
+            Assert.Equal(failure != "next-input", issue["removed"]!.GetValue<bool>());
             Assert.Equal(failure switch { "options" => "session-options", "next-input" => "workspace-started", _ => "before-script" }, issue["failed_stage"]!.ToString());
             Assert.Equal(failure == "next-input" ? null : "session-created", issue["completed_stage"]?.ToString());
-            string[] expected = failure == "options" ? ["complete", "failed", "keeper"] : ["complete", "keeper"];
+            string[] expected = ["complete", "keeper"];
             Assert.Equal(expected, (await Execute(server, "list-sessions", "-F", "#{session_name}")).Split('\n').Order(StringComparer.Ordinal));
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
