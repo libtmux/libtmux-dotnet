@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -56,12 +57,25 @@ internal sealed class TmuxCommandDispatcher
             ValidateArguments(command);
         }
 
-        TmuxCommandResult result = await _executeGroup(commands, cancellationToken)
-            .ConfigureAwait(false);
-
         // A group is one tmux run, so it is recorded once, under the arguments
         // tmux actually received.
-        TmuxLog.CommandCompleted(_context, [.. commands.SelectMany(static c => c)], result);
+        string[] flattened = [.. commands.SelectMany(static c => c)];
+        string? socket = _context?.Socket;
+        using Activity? activity = TmuxInstrumentation.StartCommand(flattened, socket);
+        long started = Stopwatch.GetTimestamp();
+        TmuxCommandResult result;
+        try
+        {
+            result = await _executeGroup(commands, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            TmuxInstrumentation.Fail(activity, started, flattened, socket, error);
+            throw;
+        }
+
+        TmuxInstrumentation.Complete(activity, started, flattened, socket, result.ExitCode);
+        TmuxLog.CommandCompleted(_context, flattened, result);
         return result;
     }
 
@@ -72,8 +86,21 @@ internal sealed class TmuxCommandDispatcher
     {
         ValidateArguments(arguments);
         string[] copy = [.. arguments];
-        TmuxCommandResult result = await _execute(copy, cancellationToken).ConfigureAwait(false);
+        string? socket = _context?.Socket;
+        using Activity? activity = TmuxInstrumentation.StartCommand(copy, socket);
+        long started = Stopwatch.GetTimestamp();
+        TmuxCommandResult result;
+        try
+        {
+            result = await _execute(copy, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            TmuxInstrumentation.Fail(activity, started, copy, socket, error);
+            throw;
+        }
 
+        TmuxInstrumentation.Complete(activity, started, copy, socket, result.ExitCode);
         TmuxLog.CommandCompleted(_context, copy, result);
 
         if (copy.Contains("has-session", StringComparer.Ordinal)

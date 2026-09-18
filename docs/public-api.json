@@ -2381,6 +2381,22 @@
       "summary": "Says whether a failed command reached tmux, which is what decides if retrying is safe."
     },
     {
+      "id": "T:LibTmux.TmuxDiagnostics",
+      "namespace": "LibTmux",
+      "name": "TmuxDiagnostics",
+      "kind": "static class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "static"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "Names the diagnostic sources this library publishes."
+    },
+    {
       "id": "T:LibTmux.TmuxEnvironment",
       "namespace": "LibTmux",
       "name": "TmuxEnvironment",
@@ -3307,6 +3323,58 @@
       "portable": true,
       "summary": "tmux ran the command and answered, so any side effect has already happened.",
       "value": 2,
+      "static": true
+    },
+    {
+      "id": "T:LibTmux.TmuxDiagnostics",
+      "declaringType": "T:LibTmux.TmuxDiagnostics",
+      "name": "TmuxDiagnostics",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "static class LibTmux.TmuxDiagnostics",
+      "portable": true
+    },
+    {
+      "id": "F:LibTmux.TmuxDiagnostics.ActivitySourceName",
+      "declaringType": "T:LibTmux.TmuxDiagnostics",
+      "name": "ActivitySourceName",
+      "kind": "field",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "const string LibTmux.TmuxDiagnostics.ActivitySourceName",
+      "returnType": "string",
+      "portable": true,
+      "summary": "The activity source name every tmux command is traced under.",
+      "value": "LibTmux",
+      "static": true
+    },
+    {
+      "id": "F:LibTmux.TmuxDiagnostics.MeterName",
+      "declaringType": "T:LibTmux.TmuxDiagnostics",
+      "name": "MeterName",
+      "kind": "field",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "const string LibTmux.TmuxDiagnostics.MeterName",
+      "returnType": "string",
+      "portable": true,
+      "summary": "The meter name every tmux command is measured under.",
+      "value": "LibTmux",
+      "static": true
+    },
+    {
+      "id": "F:LibTmux.TmuxDiagnostics.CommandDurationInstrumentName",
+      "declaringType": "T:LibTmux.TmuxDiagnostics",
+      "name": "CommandDurationInstrumentName",
+      "kind": "field",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "const string LibTmux.TmuxDiagnostics.CommandDurationInstrumentName",
+      "returnType": "string",
+      "portable": true,
+      "summary": "The histogram recording how long each tmux command took, in seconds.",
+      "value": "libtmux.command.duration",
       "static": true
     },
     {

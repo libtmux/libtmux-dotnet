@@ -132,6 +132,7 @@ modes differ.
 | `LibTmux.TmuxCommandException` | Reports a command-policy failure. |
 | `LibTmux.TmuxCommandNotFoundException` | Reports a missing tmux executable. |
 | `LibTmux.TmuxCommandResult` | Contains the inspectable result of one raw tmux command. |
+| `LibTmux.TmuxDiagnostics` | Names the diagnostic sources this library publishes. |
 | `LibTmux.TmuxDispatchState` | Says whether a failed command reached tmux, which is what decides if retrying is safe. |
 | `LibTmux.TmuxEnvironment` | The environment tmux gives to the processes it spawns. |
 | `LibTmux.TmuxEnvironmentEntry` | One variable in a tmux environment. |
@@ -1249,6 +1250,9 @@ modes differ.
 | `LibTmux.TmuxColorMode.Colors256` | Requests 256-color mode. |
 | `LibTmux.TmuxColorMode.Default` | Uses tmux's default color behavior. |
 | `LibTmux.TmuxColorMode.TrueColor` | Requests RGB true-color mode. |
+| `LibTmux.TmuxDiagnostics.ActivitySourceName` | The activity source name every tmux command is traced under. |
+| `LibTmux.TmuxDiagnostics.CommandDurationInstrumentName` | The histogram recording how long each tmux command took, in seconds. |
+| `LibTmux.TmuxDiagnostics.MeterName` | The meter name every tmux command is measured under. |
 | `LibTmux.TmuxDispatchState.Dispatched` | tmux ran the command and answered. The failure is tmux refusing or reporting an error, not the command going missing, so any side effect it had before failing has already happened. |
 | `LibTmux.TmuxDispatchState.NotDispatched` | The command never reached tmux, so nothing was done and a retry repeats nothing. This is the only state in which retrying is unconditionally safe. |
 | `LibTmux.TmuxDispatchState.Unknown` | Whether tmux acted on the command cannot be determined. Treat a retry as capable of repeating whatever the command does. |

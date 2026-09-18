@@ -404,6 +404,7 @@ internal static class Program
 | `T:LibTmux.TmuxCommandNotFoundException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxCommandNotFound failure. State: TmuxBinaryPath. | `LibTmux` |
 | `T:LibTmux.TmuxCommandResult` | record | `public, sealed` | None | `object` | value | The complete inspectable result of one raw tmux command. | `LibTmux` |
 | `T:LibTmux.TmuxDispatchState` | enum | `public` | None | `Enum` | value | Says whether a failed command reached tmux, which is what decides if retrying is safe. | `LibTmux` |
+| `T:LibTmux.TmuxDiagnostics` | static class | `public, static` | None | `object` | value | Names the diagnostic sources this library publishes. | `LibTmux` |
 | `T:LibTmux.TmuxEnvironment` | class | `public, sealed` | None | `object` | borrowed | Scoped environment operations. | `LibTmux` |
 | `T:LibTmux.TmuxEnvironmentEntry` | record | `public, sealed` | None | `object` | value | One tmux environment entry, including removal markers. | `LibTmux` |
 | `T:LibTmux.TmuxHook` | record | `public, sealed` | None | `object` | value | One tmux hook and its sparse commands. | `LibTmux` |
@@ -1954,6 +1955,14 @@ internal static class Program
 | `P:LibTmux.TmuxCommandResult.StandardErrorLines` | `IReadOnlyList<string> LibTmux.TmuxCommandResult.StandardErrorLines { get; }` | Public | No | Portable | Gets StandardErrorLines. |
 | `P:LibTmux.TmuxCommandResult.StandardOutput` | `ReadOnlyMemory<byte> LibTmux.TmuxCommandResult.StandardOutput { get; }` | Public | No | Portable | Gets StandardOutput. |
 | `P:LibTmux.TmuxCommandResult.StandardOutputLines` | `IReadOnlyList<string> LibTmux.TmuxCommandResult.StandardOutputLines { get; }` | Public | No | Portable | Gets StandardOutputLines. |
+
+### `T:LibTmux.TmuxDiagnostics`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `F:LibTmux.TmuxDiagnostics.ActivitySourceName` | `static const string LibTmux.TmuxDiagnostics.ActivitySourceName` | Public | Yes | Portable | The activity source name every tmux command is traced under. Value: `LibTmux`. |
+| `F:LibTmux.TmuxDiagnostics.CommandDurationInstrumentName` | `static const string LibTmux.TmuxDiagnostics.CommandDurationInstrumentName` | Public | Yes | Portable | The histogram recording how long each tmux command took, in seconds. Value: `libtmux.command.duration`. |
+| `F:LibTmux.TmuxDiagnostics.MeterName` | `static const string LibTmux.TmuxDiagnostics.MeterName` | Public | Yes | Portable | The meter name every tmux command is measured under. Value: `LibTmux`. |
 
 ### `T:LibTmux.TmuxDispatchState`
 

@@ -1052,6 +1052,7 @@ LibTmux.TmuxCommandResult.StandardErrorLines.get -> System.Collections.Generic.I
 LibTmux.TmuxCommandResult.StandardOutput.get -> System.ReadOnlyMemory<byte>
 LibTmux.TmuxCommandResult.StandardOutputLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.TmuxCommandResult.TmuxCommandResult(System.Collections.Generic.IReadOnlyList<string!>! arguments, int exitCode, System.ReadOnlyMemory<byte> standardOutput, System.ReadOnlyMemory<byte> standardError, System.Collections.Generic.IReadOnlyList<string!>! standardOutputLines, System.Collections.Generic.IReadOnlyList<string!>! standardErrorLines) -> void
+LibTmux.TmuxDiagnostics
 LibTmux.TmuxDispatchState
 LibTmux.TmuxDispatchState.Dispatched = 2 -> LibTmux.TmuxDispatchState
 LibTmux.TmuxDispatchState.NotDispatched = 1 -> LibTmux.TmuxDispatchState
@@ -1326,6 +1327,9 @@ const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d6
 const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
 const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
 const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
+const LibTmux.TmuxDiagnostics.ActivitySourceName = "LibTmux" -> string!
+const LibTmux.TmuxDiagnostics.CommandDurationInstrumentName = "libtmux.command.duration" -> string!
+const LibTmux.TmuxDiagnostics.MeterName = "LibTmux" -> string!
 override LibTmux.AttachSessionRequest.Equals(object? obj) -> bool
 override LibTmux.AttachSessionRequest.GetHashCode() -> int
 override LibTmux.AttachSessionRequest.ToString() -> string!

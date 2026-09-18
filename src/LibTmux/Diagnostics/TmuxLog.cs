@@ -7,8 +7,8 @@ namespace LibTmux.Internal;
 /// <remarks>
 /// Every tmux command a caller makes passes through one dispatcher, so what it
 /// records is decided once here rather than at each of the hundreds of call
-/// sites. Holding the logger alongside the socket it belongs to also keeps two
-/// servers in one process from writing each other's history.
+/// sites. The socket travels with the logger and is written on every event and
+/// span, so two servers in one process stay tellable apart in one log.
 /// </remarks>
 internal sealed class TmuxCommandContext
 {
@@ -67,6 +67,7 @@ internal static partial class TmuxLog
             LogCommandFailed(
                 logger,
                 subcommand,
+                context.Socket,
                 result.ExitCode,
                 Truncate(string.Join('\n', result.StandardErrorLines)));
             return;
@@ -80,6 +81,7 @@ internal static partial class TmuxLog
         LogCommandCompleted(
             logger,
             subcommand,
+            context.Socket,
             Truncate(string.Join(' ', arguments)),
             result.ExitCode,
             result.StandardOutputLines.Count,
@@ -95,10 +97,11 @@ internal static partial class TmuxLog
     [LoggerMessage(
         EventId = 100,
         Level = LogLevel.Debug,
-        Message = "tmux {TmuxSubcommand} completed: exit {TmuxExitCode}, {TmuxStdoutLen} lines from {TmuxCmd}: {TmuxStdout}")]
+        Message = "tmux {TmuxSubcommand} on {TmuxSocket} completed: exit {TmuxExitCode}, {TmuxStdoutLen} lines from {TmuxCmd}: {TmuxStdout}")]
     private static partial void LogCommandCompleted(
         ILogger logger,
         string tmuxSubcommand,
+        string? tmuxSocket,
         string tmuxCmd,
         int tmuxExitCode,
         int tmuxStdoutLen,
@@ -107,10 +110,11 @@ internal static partial class TmuxLog
     [LoggerMessage(
         EventId = 101,
         Level = LogLevel.Error,
-        Message = "tmux {TmuxSubcommand} failed: exit {TmuxExitCode}: {TmuxStderr}")]
+        Message = "tmux {TmuxSubcommand} on {TmuxSocket} failed: exit {TmuxExitCode}: {TmuxStderr}")]
     private static partial void LogCommandFailed(
         ILogger logger,
         string tmuxSubcommand,
+        string? tmuxSocket,
         int tmuxExitCode,
         string tmuxStderr);
 }
