@@ -196,7 +196,9 @@ internal sealed class ServerSnapshot
                     CultureInfo.InvariantCulture,
                     out int windowIndex))
             {
-                throw new InvalidDataException("tmux reported a malformed window edge.");
+                throw new LibTmuxException(
+                    "tmux reported a malformed window edge.",
+                    TmuxDispatchState.Dispatched);
             }
 
             // "list-windows -a" walks sessions in order, so the running count
@@ -221,7 +223,9 @@ internal sealed class ServerSnapshot
 
     private static string Read(IReadOnlyDictionary<string, string?> row, string wireName) =>
         Field(row, wireName)
-        ?? throw new InvalidDataException($"tmux window row is missing '{wireName}'.");
+        ?? throw new LibTmuxException(
+            $"tmux window row is missing '{wireName}'.",
+            TmuxDispatchState.Dispatched);
 
     private static TmuxVersion ParseVersion(Server server)
     {

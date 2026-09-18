@@ -61,7 +61,9 @@ internal static class RelationReader
             owner,
             Connection(owner),
             state.Generation,
-            state.WindowId ?? throw new InvalidDataException("tmux row carries no window."),
+            state.WindowId ?? throw new LibTmuxException(
+                "tmux row carries no window.",
+                TmuxDispatchState.Dispatched),
             state.RawFields);
     }
 
@@ -73,7 +75,9 @@ internal static class RelationReader
                 state.RawFields.TryGetValue("pane_id", out string? text) ? text : null,
                 out PaneId id))
         {
-            throw new InvalidDataException("tmux row carries no pane.");
+            throw new LibTmuxException(
+                "tmux row carries no pane.",
+                TmuxDispatchState.Dispatched);
         }
 
         return new Pane(owner, Connection(owner), state.Generation, id, state.RawFields);
@@ -87,7 +91,9 @@ internal static class RelationReader
             owner,
             Connection(owner),
             state.Generation,
-            state.SessionId ?? throw new InvalidDataException("tmux row carries no session."),
+            state.SessionId ?? throw new LibTmuxException(
+                "tmux row carries no session.",
+                TmuxDispatchState.Dispatched),
             state.RawFields);
     }
 

@@ -103,7 +103,7 @@ internal sealed class TmuxGenerationGuard(
         {
             generation = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(generationBytes));
         }
-        catch (InvalidDataException)
+        catch (LibTmuxException)
         {
             generation = default;
             remainingOutput = [];

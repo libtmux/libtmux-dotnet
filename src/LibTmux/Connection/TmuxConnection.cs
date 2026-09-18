@@ -136,7 +136,9 @@ internal sealed class TmuxConnection
             || !int.TryParse(fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
             || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out long startTime))
         {
-            throw new InvalidDataException("tmux reported a malformed server generation.");
+            throw new LibTmuxException(
+                "tmux reported a malformed server generation.",
+                TmuxDispatchState.Dispatched);
         }
 
         try
@@ -145,7 +147,10 @@ internal sealed class TmuxConnection
         }
         catch (ArgumentOutOfRangeException error)
         {
-            throw new InvalidDataException("tmux reported a nonpositive server generation.", error);
+            throw new LibTmuxException(
+                "tmux reported a nonpositive server generation.",
+                TmuxDispatchState.Dispatched,
+                error);
         }
     }
 

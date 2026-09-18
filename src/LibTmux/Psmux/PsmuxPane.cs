@@ -72,7 +72,9 @@ public sealed class PsmuxPane
         _inner.RawFormatFields.TryGetValue(name, out string? value)
             && !string.IsNullOrEmpty(value)
                 ? value
-                : throw new InvalidDataException($"The psmux pane row omitted {name}.");
+                : throw new LibTmuxException(
+                    $"The psmux pane row omitted {name}.",
+                    TmuxDispatchState.Dispatched);
 }
 
 #pragma warning restore CA1416

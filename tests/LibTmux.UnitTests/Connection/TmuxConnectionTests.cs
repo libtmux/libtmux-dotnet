@@ -896,8 +896,9 @@ public sealed class GenerationGuardTests
                             []));
                 }));
 
-            await Assert.ThrowsAsync<InvalidDataException>(
+            LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(
                 () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
             Assert.Equal(1, calls);
         }
     }
