@@ -1007,11 +1007,11 @@ public sealed class RegressionTests : IDisposable
             using StringWriter error = new();
             int code = await CliRunner.RunAsync(["load", file, "--append", "--json", .. endpoint], output, error, _root, environment, TestContext.Current.CancellationToken);
             bool mismatch = selection.StartsWith("other", StringComparison.Ordinal) || selection == "restarted";
-            Assert.Equal(selection == "restarted" ? 1 : mismatch ? 2 : 0, code);
+            Assert.Equal(mismatch ? 2 : 0, code);
             if (mismatch)
             {
                 Assert.Empty(output.ToString());
-                Assert.Equal(selection == "restarted" ? "stale_environment" : "usage", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+                Assert.Equal("usage", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             }
             else
             {
@@ -1057,6 +1057,38 @@ public sealed class RegressionTests : IDisposable
             Assert.Contains("switch", error.ToString(), StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("terminal", error.ToString(), StringComparison.OrdinalIgnoreCase);
             Assert.Equal("ctxw\nhome", await Execute(server, "list-sessions", "-F", "#{session_name}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    // A TMUX_PANE a shell carried across a tmux restart is refused before
+    // anything is built: the session cannot be handed to a pane that is not
+    // there, and a session left running is worse than no session.
+    [Theory]
+    [InlineData("not-a-pane")]
+    [InlineData("%9999")]
+    public async Task An_unusable_invoking_pane_is_refused_before_the_session_is_built(string pane)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "brokenpane.socket");
+        string tmux = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = tmux, SocketPath = socket, ConfigurationFile = "/dev/null" });
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "home", "-n", "homewin");
+            Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+            {
+                ["TMUX"] = await Execute(server, "display-message", "-p", "#{socket_path},#{pid},0"),
+                ["TMUX_PANE"] = pane,
+            };
+            string file = Path.Combine(_root, "brokenpane.yaml");
+            await File.WriteAllTextAsync(file, "session_name: probe\nwindows: [{window_name: w1, panes: [null]}]", token);
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", file, "--yes", "-S", socket], output, error, _root, environment, token);
+            Assert.True(code == 2, $"Exit {code}: {error}");
+            Assert.Contains("TMUX_PANE", error.ToString(), StringComparison.Ordinal);
+            Assert.Equal("home", await Execute(server, "list-sessions", "-F", "#{session_name}"));
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
@@ -1298,7 +1330,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "rerun.socket");
         string file = Path.Combine(_root, "rerun.yaml");
         await File.WriteAllTextAsync(file, "session_name: rerun\nwindows:\n- {window_name: one, panes: [null]}\n- {window_name: two, options: {not-a-real-option: 1}, panes: [null]}\n- {window_name: three, panes: [null]}\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             for (int attempt = 0; attempt < 2; attempt++)
@@ -1324,7 +1356,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "reuse.socket");
         string file = Path.Combine(_root, "reuse.yaml");
         await File.WriteAllTextAsync(file, "session_name: reuse\nwindows: [{window_name: one, panes: [null]}, {window_name: two, panes: [null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "reuse", "-n", "one");

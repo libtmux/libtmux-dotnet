@@ -73,7 +73,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
         RefuseIndependent(clients);
         Client[] eligible = clients.Where(Eligible).OrderBy(client => client.Name, StringComparer.Ordinal).ToArray();
-        if (eligible.Length == 0) throw new CliException("client_required", "No ordinary client is viewing the invoking pane. Use -d or --append.");
+        if (eligible.Length == 0) throw new CliException("usage", "No ordinary client is viewing the invoking pane. Use -d or --append.", 2);
         if (eligible.Length == 1) _client = eligible[0];
         else
         {
@@ -105,13 +105,13 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
     private async Task AuthenticateServerAsync(ServerConnectionOptions options)
     {
         string? socket = CurrentSocket(context, out int processId);
-        if (socket is null) throw new CliException("session_required", "TMUX must identify the current tmux server. Use -d.");
+        if (socket is null) throw new CliException("usage", "TMUX must name the current tmux server as socket,pid,session. Use -d.", 2);
         Server inherited = LibTmux.Server.Open(new ServerConnectionOptions { TmuxBinaryPath = options.TmuxBinaryPath, SocketPath = Path.GetFullPath(socket, context.Directory), ChildEnvironment = context.Environment });
         TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", TmuxConnection.GenerationFormat], context.CancellationToken).ConfigureAwait(false);
-        if (observed.ExitCode != 0) throw new CliException("session_required", "The current tmux pane is unavailable.");
+        if (observed.ExitCode != 0) throw new CliException("usage", "The tmux server named by TMUX is not answering. Use -d.", 2);
         ServerGeneration inheritedGeneration = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
         if (inheritedGeneration.ProcessId != processId)
-            throw new CliException("stale_environment", "The server recorded in TMUX has been replaced.");
+            throw new CliException("usage", "The server recorded in TMUX has been replaced. Use -d.", 2);
         Server target;
         try
         {
@@ -136,25 +136,38 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
 
     private async Task<bool> TryResolveInvokingPaneAsync()
     {
-        if (!PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId paneId)) return false;
+        // No TMUX_PANE at all is a run-shell key binding, where tmux picks
+        // the client itself. A value that is present and unusable is not.
+        string? declared = context.Environment.GetValueOrDefault("TMUX_PANE");
+        if (string.IsNullOrEmpty(declared)) return false;
+        if (!PaneId.TryParse(declared, out PaneId paneId))
+            throw new CliException("usage", "TMUX_PANE must name a pane of the current server, as %N. Use -d.", 2);
         await ResolvePaneSessionAsync(paneId).ConfigureAwait(false);
         _tty = TerminalInput.RequireForeground(context);
         Pane pane = await Server!.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
         _pane = await pane.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
         if (_pane.RawFormatFields.GetValueOrDefault("pane_tty") != _tty)
-            throw new CliException("pane_terminal_mismatch", "TMUX_PANE does not name the invoking terminal's pane. Use -d.");
+            throw new CliException("usage", "TMUX_PANE does not name the invoking terminal's pane. Use -d.", 2);
         _window = _pane.RawFormatFields.GetValueOrDefault("window_id")
-            ?? throw new CliException("session_required", "The invoking pane has no window.");
+            ?? throw new CliException("usage", "The pane named by TMUX_PANE has no window. Use -d.", 2);
         return true;
     }
 
     private async Task ResolvePaneSessionAsync(PaneId paneId)
     {
-        Pane pane = await Server!.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
+        Pane pane;
+        try
+        {
+            pane = await Server!.GetPaneAsync(paneId, context.CancellationToken).ConfigureAwait(false);
+        }
+        catch (TmuxObjectNotFoundException)
+        {
+            throw new CliException("usage", $"TMUX_PANE names {paneId}, which is not a pane of the current server. Use -d.", 2);
+        }
         TmuxCommandResult resolved = await pane.ExecuteCommandAsync(["display-message", "-p", "#{session_id}\t#{session_name}"], cancellationToken: context.CancellationToken).ConfigureAwait(false);
         string[] fields = Encoding.UTF8.GetString(resolved.StandardOutput.Span).TrimEnd('\n').Split('\t', 2);
         if (resolved.ExitCode != 0 || fields.Length != 2 || !SessionId.TryParse(fields[0], out SessionId sessionId))
-            throw new CliException("session_required", "The current tmux pane has no session.");
+            throw new CliException("usage", "The pane named by TMUX_PANE has no session. Use -d.", 2);
         CurrentSession = await Server.GetSessionAsync(sessionId, context.CancellationToken).ConfigureAwait(false);
         CurrentSessionName = fields[1];
     }
