@@ -212,17 +212,25 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     await output.EventAsync(stage, new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, window_name = window.Name }).ConfigureAwait(false);
                     completedStage = stage;
                     string? focusedPane = null;
+                    // Every pane exists and the layout is final before any
+                    // shell is typed into: a pane resized after its command
+                    // redraws the prompt at a stale width and leaves the
+                    // shell's partial-line marker behind.
+                    string[] paneIds = new string[window.Panes.Length];
+                    paneIds[0] = paneId;
+                    for (int paneIndex = 1; paneIndex < window.Panes.Length; paneIndex++)
+                    {
+                        List<string> split = ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", paneIds[paneIndex - 1]];
+                        PaneArguments(split, window.Panes[paneIndex]);
+                        paneIds[paneIndex] = (await Change(split).ConfigureAwait(false)).TrimEnd('\n');
+                        await Change(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
+                    }
+                    if (window.Layout is not null) await Change(["select-layout", "-t", windowId, window.Layout]).ConfigureAwait(false);
                     for (int paneIndex = 0; paneIndex < window.Panes.Length; paneIndex++)
                     {
                         PanePlan pane = window.Panes[paneIndex];
+                        paneId = paneIds[paneIndex];
                         await output.ProgressAsync(progress => progress.StartPane(paneIndex + 1)).ConfigureAwait(false);
-                        if (paneIndex > 0)
-                        {
-                            List<string> split = ["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", paneId];
-                            PaneArguments(split, pane);
-                            paneId = (await Change(split).ConfigureAwait(false)).TrimEnd('\n');
-                            await Change(["select-layout", "-t", windowId, "tiled"]).ConfigureAwait(false);
-                        }
                         await output.EventAsync(stage = "pane-created", new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, pane_id = paneId, pane_index = paneIndex + 1 }).ConfigureAwait(false);
                         completedStage = stage;
                         if (pane.Focus) focusedPane = paneId;
@@ -250,7 +258,6 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         completedStage = stage;
                     }
                     stage = "window-finalized";
-                    if (window.Layout is not null) await Change(["select-layout", "-t", windowId, window.Layout]).ConfigureAwait(false);
                     foreach (var option in window.OptionsAfter) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     if (focusedPane is not null) await Change(["select-pane", "-t", focusedPane]).ConfigureAwait(false);
                     completedStage = stage;
