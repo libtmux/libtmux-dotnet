@@ -363,7 +363,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string? target = supplied is null ? await CurrentPaneTarget().ConfigureAwait(false) : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
         {
-            string[] sessions = (await Command(["list-sessions", "-F", "#{session_id}"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            string[] sessions = await LiveSessionsAsync().ConfigureAwait(false);
+            if (sessions.Length == 0) throw new CliException("session_not_found", "No live sessions to capture.");
             target = sessions.Length == 1 ? sessions[0] : await NamedSessionTarget(new ReadCommands(context, invocation, output).Prompt("Session name: ")).ConfigureAwait(false);
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
@@ -461,6 +462,24 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         if (LoadHandoff.CurrentSocket(context, out int processId) is null || !PaneId.TryParse(context.Environment.GetValueOrDefault("TMUX_PANE"), out PaneId pane)) return null;
         string running = (await Command(["display-message", "-p", "#{pid}"]).ConfigureAwait(false)).TrimEnd('\n');
         return running == processId.ToString(CultureInfo.InvariantCulture) ? pane.ToString() : null;
+    }
+
+    // A socket with no server behind it holds no session, which tmux reports
+    // by refusing the connection rather than by answering with an empty list.
+    private async Task<string[]> LiveSessionsAsync()
+    {
+        TmuxCommandResult listed = await Server.ExecuteCommandAsync(["list-sessions", "-F", "#{session_id}"], context.CancellationToken).ConfigureAwait(false);
+        if (listed.ExitCode == 0)
+            return System.Text.Encoding.UTF8.GetString(listed.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        string stderr = string.Join("\n", listed.StandardErrorLines);
+        if (stderr.StartsWith("no server running on ", StringComparison.Ordinal)
+            || (stderr.StartsWith("error connecting to ", StringComparison.Ordinal)
+                && (stderr.EndsWith(" (No such file or directory)", StringComparison.Ordinal)
+                    || stderr.EndsWith(" (Connection refused)", StringComparison.Ordinal))))
+        {
+            return [];
+        }
+        throw new CliException("tmux_failed", stderr.Length == 0 ? $"tmux exited {listed.ExitCode}" : $"tmux exited {listed.ExitCode}: {stderr}");
     }
 
     private async Task<string> NamedSessionTarget(string name)
