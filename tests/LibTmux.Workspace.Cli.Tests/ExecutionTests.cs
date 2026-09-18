@@ -73,7 +73,10 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal(count, created.Length);
             for (int index = 0; index < count; index++)
             {
-                string expected = synchronization == "before" ? new string(Enumerable.Range(index, count - index).Select(value => (char)('A' + value)).ToArray()) : ((char)('A' + index)).ToString();
+                // Every pane in the window exists before any of them receives
+                // a command, so synchronize-panes set beforehand mirrors every
+                // command to every pane.
+                string expected = synchronization == "before" ? new string(Enumerable.Range(0, count).Select(value => (char)('A' + value)).ToArray()) : ((char)('A' + index)).ToString();
                 string marker = Path.Combine(_root, created[index]);
                 for (int attempt = 0; attempt < 100; attempt++)
                 {
@@ -530,7 +533,9 @@ public sealed class ExecutionTests : IDisposable
             Assert.Equal(0, code);
             string[] panes = records.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["event"]?.ToString() == "pane-created").Select(record => record["pane_id"]!.ToString()).ToArray();
             Assert.Equal(2, panes.Length);
-            string[] expected = [phase == "before" ? "AB" : "A", "B"];
+            // Both panes exist before either receives a command, so
+            // synchronize-panes set beforehand mirrors both commands to both.
+            string[] expected = phase == "before" ? ["AB", "AB"] : ["A", "B"];
             for (int index = 0; index < panes.Length; index++)
             {
                 string marker = Path.Combine(_root, panes[index]);
