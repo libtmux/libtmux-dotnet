@@ -337,8 +337,41 @@ Server logged = await Server.ConnectAsync(new ServerConnectionOptions(logger: lo
 ```
 
 Commands are recorded at `Debug` and failures at `Error`, with stable scalar
-fields (`TmuxSubcommand`, `TmuxExitCode`) to filter on. Anything that can carry
-a payload is truncated, the command line included.
+fields (`TmuxSubcommand`, `TmuxSocket`, `TmuxExitCode`) to filter on. Anything
+that can carry a payload is truncated, the command line included.
+
+## Tracing and metrics
+
+Every command is also a span and a measurement. `TmuxDiagnostics` names the
+sources, so a telemetry pipeline subscribes by name and this library keeps its
+single dependency: pass `TmuxDiagnostics.ActivitySourceName` to OpenTelemetry's
+`AddSource`, and `TmuxDiagnostics.MeterName` to its `AddMeter`.
+
+The span is named for the subcommand and tagged `tmux.subcommand`,
+`tmux.socket` and `tmux.exit_code`; a failure carries `error.type` and an error
+status. `TmuxDiagnostics.CommandDurationInstrumentName` records elapsed seconds
+under the same tags. Both cost nothing when nothing is listening.
+
+## Sharing handles across threads
+
+`Server`, `Window`, `Pane`, `Client`, `TmuxOptions`, `TmuxHooks`,
+`TmuxEnvironment`, `TmuxChain` and `CapturedRelation<T>` are immutable once
+constructed and safe to share freely, including as a DI singleton. No public
+method mutates the handle it was called on: `RefreshAsync`, `RenameAsync`,
+`ConnectAsync` and `CaptureSnapshotAsync` each answer a new handle, and a stale
+handle stays a correct record of what was read.
+
+`Session` is safe to share on the same terms. `IControlModeSession.SendAsync`
+is safe to call concurrently — tmux answers in the order it received, and each
+caller gets its own reply — while `Events` is a single-consumer stream and
+`DisposeAsync` is idempotent from any thread.
+
+Two limits are worth knowing before registering a singleton. A handle from
+`ConnectAsync` pins the server generation it discovered, so after tmux restarts
+its derived entities throw `StaleServerGenerationException` rather than
+silently addressing the new server; `Server.Open` defers discovery to each
+call instead. And nothing serializes tmux itself: concurrent callers reach one
+tmux server, which applies commands in the order it receives them.
 
 ## Knowing when a retry is safe
 
