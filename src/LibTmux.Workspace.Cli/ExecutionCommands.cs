@@ -76,6 +76,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         {
             throw new CliException("invalid_workspace", error.Message);
         }
+        catch (InvalidDataException error)
+        {
+            throw new CliException("tmux_failed", error.Message);
+        }
         (Session Session, string Name)? appendTarget = handoff.Mode == LoadMode.Append ? (handoff.CurrentSession!, handoff.CurrentSessionName!) : null;
         if (extensions)
             return await new ProcessCommands(context, invocation, output).BridgeLoadAsync(handoff.Mode == LoadMode.Detached).ConfigureAwait(false);
@@ -139,7 +143,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + input.Plan.Name], context.CancellationToken).ConfigureAwait(false);
                     if (exists.ExitCode == 0)
                     {
-                        string[] identity = (await Command(["display-message", "-p", "-t", "=" + input.Plan.Name + ":", "#{session_id}\t#{pid}:#{start_time}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                        string[] identity = Fields(await Command(["display-message", "-p", "-t", "=" + input.Plan.Name + ":", "#{session_id}\t#{pid}:#{start_time}"]).ConfigureAwait(false), 2);
                         session = identity[0];
                         // A name that exists is not evidence the workspace
                         // behind it does. Reuse is reported only once every
@@ -163,7 +167,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (rows is not null) start.AddRange(["-y", rows]);
                     start.AddRange(["-P", "-F", "#{session_id}\t#{window_id}\t#{pid}:#{start_time}"]);
                     foreach (var variable in input.Plan.Environment) start.AddRange(["-e", variable.Key + "=" + variable.Value]);
-                    string[] identifiers = (await Change(start).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                    string[] identifiers = Fields(await Change(start).ConfigureAwait(false), 3);
                     session = identifiers[0];
                     bootstrap = identifiers[1];
                     created = true;
@@ -222,7 +226,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     List<string> args = ["new-window", "-d", "-P", "-F", "#{window_id}\t#{pane_id}", "-t", session + ":" + window.Index?.ToString(CultureInfo.InvariantCulture)];
                     if (window.Name is not null) args.AddRange(["-n", window.Name]);
                     PaneArguments(args, first);
-                    string[] identifiers = (await Change(args).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
+                    string[] identifiers = Fields(await Change(args).ConfigureAwait(false), 2);
                     windowCreated = true;
                     string windowId = identifiers[0];
                     string paneId = identifiers[1];
@@ -412,7 +416,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             JsonObject captured = new()
             {
                 ["window_name"] = await Field(window, "window_name").ConfigureAwait(false),
-                ["window_index"] = int.Parse(await Field(window, "window_index").ConfigureAwait(false), CultureInfo.InvariantCulture),
+                ["window_index"] = Number(await Field(window, "window_index").ConfigureAwait(false), "window index"),
                 ["layout"] = await Field(window, "window_layout").ConfigureAwait(false),
                 ["focus"] = await Field(window, "window_active").ConfigureAwait(false) == "1",
             };
@@ -443,6 +447,18 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         new ReadCommands(context, invocation, output).SaveOrPrint(document, format);
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture_lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
     }
+
+    // tmux answers a -F request with the fields it was asked for, so a short
+    // row means this is not the answer to that question.
+    private static string[] Fields(string answer, int count)
+    {
+        string[] fields = answer.TrimEnd('\n').Split('\t');
+        if (fields.Length < count) throw new CliException("tmux_failed", $"tmux answered with {fields.Length.ToString(CultureInfo.InvariantCulture)} of the {count.ToString(CultureInfo.InvariantCulture)} fields it was asked for.");
+        return fields;
+    }
+
+    private static int Number(string value, string subject) =>
+        int.TryParse(value, CultureInfo.InvariantCulture, out int parsed) ? parsed : throw new CliException("tmux_failed", $"tmux reported a {subject} that is not a number: '{value}'.");
 
     // Capture refuses whatever load refuses: a file freeze writes and load
     // then rejects is worse than no file at all.

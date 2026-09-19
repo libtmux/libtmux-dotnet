@@ -95,10 +95,27 @@ internal static class CliRunner
         catch (OperationCanceledException) { await renderer.DiagnosticAsync("interrupted", "Operation cancelled.").ConfigureAwait(false); return 130; }
         catch (CliException failure) { await renderer.DiagnosticAsync(failure.Code, failure.Message).ConfigureAwait(false); return failure.ExitCode; }
         catch (StaleServerGenerationException failure) { await renderer.DiagnosticAsync("stale_server", failure.Message).ConfigureAwait(false); return 1; }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or ArgumentException or LibTmuxException)
+        catch (LibTmuxException failure)
         {
-            await renderer.DiagnosticAsync("operation_failed", failure.Message).ConfigureAwait(false);
+            await renderer.DiagnosticAsync("tmux_failed", failure.Message).ConfigureAwait(false);
             return 1;
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            await renderer.DiagnosticAsync("output_failed", failure.Message).ConfigureAwait(false);
+            return 1;
+        }
+        catch (ArgumentException failure)
+        {
+            await renderer.DiagnosticAsync("invalid_workspace", failure.Message).ConfigureAwait(false);
+            return 1;
+        }
+        // Nothing reaches a user as a stack trace. Every designed failure is
+        // caught above; this is the contract for the rest.
+        catch (Exception failure)
+        {
+            await renderer.DiagnosticAsync("internal_error", failure.Message).ConfigureAwait(false);
+            return 70;
         }
         finally { await renderer.DisposeAsync().ConfigureAwait(false); }
     }

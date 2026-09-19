@@ -31,7 +31,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
             RegexOptions flags = RegexOptions.CultureInvariant;
             if (invocation.Flag("ignore_case") || (invocation.Flag("smart_case") && !(prefix ? parts[1] : term).Any(char.IsUpper))) flags |= RegexOptions.IgnoreCase;
             try { return (Fields: prefix ? new[] { Field(parts[0]) } : selected, Regex: new Regex(pattern, flags, TimeSpan.FromSeconds(1))); }
-            catch (ArgumentException error) { throw new CliException("invalid_pattern", error.Message, 2); }
+            catch (ArgumentException error) { throw new CliException("usage", error.Message, 2); }
         }).ToArray();
         List<JsonObject> matches = [];
         try
