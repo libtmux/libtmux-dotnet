@@ -967,7 +967,8 @@
       "interfaces": [],
       "ownership": "value",
       "state": [],
-      "summary": "Parameters for NewWindow."
+      "summary": "Parameters for NewWindow.",
+      "validation": "Index and TargetWindow are mutually exclusive; refused at dispatch"
     },
     {
       "id": "T:LibTmux.OptionScope",
@@ -1433,7 +1434,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ResizePane.",
-      "validation": "exactly one primary resize mode; Direction requires Adjustment"
+      "validation": "exactly one primary resize mode; Direction and Adjustment go together; refused at dispatch"
     },
     {
       "id": "T:LibTmux.ResizeWindowRequest",
@@ -1450,7 +1451,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ResizeWindow.",
-      "validation": "exactly one primary resize mode; Direction requires Adjustment"
+      "validation": "at most one primary resize mode; Direction and Adjustment go together; refused at dispatch"
     },
     {
       "id": "T:LibTmux.RespawnRequest",
@@ -1582,7 +1583,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ServerAccess.",
-      "validation": "ReadOnly and ReadWrite are mutually exclusive"
+      "validation": "AllowUser and DenyUser are mutually exclusive, as are ReadOnly and ReadWrite; refused at dispatch"
     },
     {
       "id": "T:LibTmux.ServerConnectionOptions",
@@ -1784,7 +1785,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SplitPane.",
-      "validation": "Size and Percentage are mutually exclusive"
+      "validation": "Size and Percentage are mutually exclusive; refused at dispatch"
     },
     {
       "id": "T:LibTmux.StaleServerGenerationException",
@@ -1820,7 +1821,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SwapPane.",
-      "validation": "exactly one of Target or Direction"
+      "validation": "exactly one of Target or Direction; refused at dispatch"
     },
     {
       "id": "T:LibTmux.Testing.TemporaryHierarchyScope",
@@ -2622,7 +2623,7 @@
       "ownership": "value",
       "state": [],
       "summary": "Parameters for UnbindKey.",
-      "validation": "Key is required unless All is true"
+      "validation": "Key is required unless All is true; refused at dispatch"
     },
     {
       "id": "T:LibTmux.UnsafeTmuxFilter",

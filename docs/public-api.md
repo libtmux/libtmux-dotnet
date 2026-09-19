@@ -319,7 +319,7 @@ internal static class Program
 | `T:LibTmux.MoveWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for MoveWindow. | `LibTmux` |
 | `T:LibTmux.NewPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewPane. | `LibTmux` |
 | `T:LibTmux.NewSessionRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewSession. | `LibTmux` |
-| `T:LibTmux.NewWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewWindow. | `LibTmux` |
+| `T:LibTmux.NewWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewWindow. Validation: Index and TargetWindow are mutually exclusive; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.OptionScope` | enum | `public` | None | `Enum` | value | Defines OptionScope values. | `LibTmux` |
 | `T:LibTmux.OwnedServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary server resource and bounded cleanup. | `LibTmux` |
 | `T:LibTmux.OwnedSessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary session resource and bounded cleanup. | `LibTmux` |
@@ -347,8 +347,8 @@ internal static class Program
 | `T:LibTmux.Query.QueryExtensions` | static class | `public, static` | None | `object` | value | Translates and evaluates closed snapshot queries. | `LibTmux` |
 | `T:LibTmux.Query.QueryTarget` | enum | `public` | None | `Enum` | value | Defines QueryTarget values. | `LibTmux` |
 | `T:LibTmux.ResizeDirection` | enum | `public` | None | `Enum` | value | Defines ResizeDirection values. | `LibTmux` |
-| `T:LibTmux.ResizePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizePane. Validation: exactly one primary resize mode; Direction requires Adjustment. | `LibTmux` |
-| `T:LibTmux.ResizeWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizeWindow. Validation: exactly one primary resize mode; Direction requires Adjustment. | `LibTmux` |
+| `T:LibTmux.ResizePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizePane. Validation: exactly one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.ResizeWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizeWindow. Validation: at most one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.RespawnRequest` | record | `public, sealed` | None | `object` | value | Parameters for Respawn. | `LibTmux` |
 | `T:LibTmux.RunShellRequest` | record | `public, sealed` | None | `object` | value | Parameters for RunShell. | `LibTmux` |
 | `T:LibTmux.SelectLayoutMode` | enum | `public` | None | `Enum` | value | Defines SelectLayoutMode values. | `LibTmux` |
@@ -356,7 +356,7 @@ internal static class Program
 | `T:LibTmux.SelectPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SelectPane. Validation: nullable Mark and InputEnabled preserve paired positive and negative flags. | `LibTmux` |
 | `T:LibTmux.SendKeysRequest` | record | `public, sealed` | None | `object` | value | Parameters for SendKeys. | `LibTmux` |
 | `T:LibTmux.Server` | class | `public, sealed` | `IEquatable<Server>` | `object` | borrowed | An immutable server handle and snapshot. Equality: normalized connection endpoint. | `LibTmux` |
-| `T:LibTmux.ServerAccessRequest` | record | `public, sealed` | None | `object` | value | Parameters for ServerAccess. Validation: ReadOnly and ReadWrite are mutually exclusive. | `LibTmux` |
+| `T:LibTmux.ServerAccessRequest` | record | `public, sealed` | None | `object` | value | Parameters for ServerAccess. Validation: AllowUser and DenyUser are mutually exclusive, as are ReadOnly and ReadWrite; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.ServerConnectionOptions` | record | `public, sealed` | None | `object` | value | Configures a tmux server connection without mutating process-wide state. Endpoint precedence: SocketPath, SocketName, SocketNameFactory. | `LibTmux` |
 | `T:LibTmux.ServerGeneration` | readonly record struct | `public, readonly` | None | `ValueType` | value | Identifies one tmux daemon generation. Validation: ProcessId and StartTime must both be positive; default is invalid. | `LibTmux` |
 | `T:LibTmux.Session` | class | `public, sealed` | `IEquatable<Session>` | `object` | borrowed | An immutable session handle and snapshot. Equality: ServerGeneration and SessionId. | `LibTmux` |
@@ -367,9 +367,9 @@ internal static class Program
 | `T:LibTmux.SetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetOption. | `LibTmux` |
 | `T:LibTmux.ShowMessagesMode` | enum | `public` | None | `Enum` | value | Defines ShowMessagesMode values. | `LibTmux` |
 | `T:LibTmux.SnapshotDepth` | enum | `public` | None | `Enum` | value | Defines SnapshotDepth values. | `LibTmux` |
-| `T:LibTmux.SplitPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SplitPane. Validation: Size and Percentage are mutually exclusive. | `LibTmux` |
+| `T:LibTmux.SplitPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SplitPane. Validation: Size and Percentage are mutually exclusive; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.StaleServerGenerationException` | class | `public, sealed` | None | `InvalidOperationException` | value | Reports StaleServerGeneration failure. State: Expected, Actual. | `LibTmux` |
-| `T:LibTmux.SwapPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SwapPane. Validation: exactly one of Target or Direction. | `LibTmux` |
+| `T:LibTmux.SwapPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SwapPane. Validation: exactly one of Target or Direction; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.Testing.TemporaryHierarchyScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryHierarchyScope testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TemporaryServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryServerScope testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TemporarySessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporarySessionScope testing support. | `LibTmux.Testing` |
@@ -410,7 +410,7 @@ internal static class Program
 | `T:LibTmux.TmuxWaitMode` | enum | `public` | None | `Enum` | value | Selects wait-for behavior. | `LibTmux` |
 | `T:LibTmux.TmuxWaitTimeoutException` | class | `public, sealed` | None | `TimeoutException` | value | Reports TmuxWaitTimeout failure. State: Timeout. | `LibTmux` |
 | `T:LibTmux.TmuxWindowException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxWindow failure. State: WindowId. | `LibTmux` |
-| `T:LibTmux.UnbindKeyRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnbindKey. Validation: Key is required unless All is true. | `LibTmux` |
+| `T:LibTmux.UnbindKeyRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnbindKey. Validation: Key is required unless All is true; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.UnsafeTmuxFilter` | record | `public, sealed` | None | `object` | value | An explicitly unsafe native tmux filter with tmux-native semantics. | `LibTmux` |
 | `T:LibTmux.UnsetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnsetOption. | `LibTmux` |
 | `T:LibTmux.UnsupportedQueryExpressionException` | class | `public, sealed` | None | `NotSupportedException` | value | Reports UnsupportedQueryExpression failure. State: Expression. | `LibTmux` |
