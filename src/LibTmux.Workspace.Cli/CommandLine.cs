@@ -27,10 +27,10 @@ internal sealed class CommandLine
         Value(Root, "generate", "--generate", "Generate reference, man, bash, zsh or fish output.", choices: ["reference", "man", "bash", "zsh", "fish"]);
 
         Command load = Add(Root, "load", "Load one or more workspaces.");
-        Arguments(load, "files", "workspace-file", ArgumentArity.OneOrMore);
+        Arguments(load, "files", "workspace-file", ArgumentArity.OneOrMore, "One or more tmuxp YAML or JSON workspace files.");
         Endpoint(load);
-        Value(load, "tmux_config", "-f", "Read this tmux configuration file.");
-        Value(load, "session_name", "-s", "Override the session name.");
+        Value(load, "tmux_config", "-f", "Read this tmux configuration file.", metavar: "file");
+        Value(load, "session_name", "-s", "Override the session name.", metavar: "name");
         Yes(load);
         Flag(load, "detached", "-d", "Load without attaching.");
         Flag(load, "append", "--append", "Append windows to the current session.", ["-a"]);
@@ -51,14 +51,14 @@ internal sealed class CommandLine
         Yes(freeze);
         Flag(freeze, "quiet", "--quiet", "Suppress explanatory status text.", ["-q"]);
         Command convert = Add(Root, "convert", "Convert a workspace between YAML and JSON.");
-        Arguments(convert, "files", "workspace-file", ArgumentArity.ExactlyOne);
+        Arguments(convert, "files", "workspace-file", ArgumentArity.ExactlyOne, "The tmuxp YAML or JSON workspace file to convert.");
         Yes(convert);
         SaveOptions(convert, false);
         Command import = Add(Root, "import", "Import teamocil or tmuxinator configuration.");
         foreach (string name in new[] { "teamocil", "tmuxinator" })
         {
             Command child = Add(import, name, $"Import a {name} configuration.");
-            Arguments(child, "files", "workspace-file", ArgumentArity.ExactlyOne);
+            Arguments(child, "files", "workspace-file", ArgumentArity.ExactlyOne, $"The {name} configuration file to import.");
             SaveOptions(child, false);
             Yes(child);
         }
@@ -77,7 +77,7 @@ internal sealed class CommandLine
         Flag(search, "invert", "--invert-match", "Select workspaces that do not match.", ["-v"]);
         Flag(search, "any", "--any", "Match any pattern instead of every pattern.");
         Command edit = Add(Root, "edit", "Open a workspace in EDITOR.");
-        Arguments(edit, "files", "workspace-file", ArgumentArity.ExactlyOne);
+        Arguments(edit, "files", "workspace-file", ArgumentArity.ExactlyOne, "The tmuxp YAML or JSON workspace file to open.");
         Add(Root, "debug-info", "Report runtime, configuration and tmux diagnostics.");
         Command shell = Add(Root, "shell", "Open a Python shell with tmux objects.");
         Arguments(shell, "sessions", "session-name", ArgumentArity.ZeroOrOne);
@@ -145,18 +145,18 @@ internal sealed class CommandLine
         return command;
     }
 
-    private void Arguments(Command command, string key, string name, ArgumentArity arity)
+    private void Arguments(Command command, string key, string name, ArgumentArity arity, string? description = null)
     {
         if (arity.MaximumNumberOfValues == 1)
         {
-            Argument<string?> argument = new(name) { Arity = arity };
+            Argument<string?> argument = new(name) { Arity = arity, Description = description };
             command.Arguments.Add(argument);
             _arguments.Add(argument);
             _readers[command].Add((key, result => result.GetValue(argument) is string value ? new[] { value } : []));
         }
         else
         {
-            Argument<string[]> argument = new(name) { Arity = arity };
+            Argument<string[]> argument = new(name) { Arity = arity, Description = description };
             command.Arguments.Add(argument);
             _arguments.Add(argument);
             _readers[command].Add((key, result => result.GetValue(argument) ?? []));
@@ -171,9 +171,9 @@ internal sealed class CommandLine
         _readers[command].Add((key, result => result.GetValue(option)));
     }
 
-    private void Value(Command command, string key, string name, string description, string? value = null, string[]? choices = null, string[]? aliases = null, bool recursive = false, string? environment = null, object? fallback = null)
+    private void Value(Command command, string key, string name, string description, string? value = null, string[]? choices = null, string[]? aliases = null, bool recursive = false, string? environment = null, object? fallback = null, string? metavar = null)
     {
-        Option<string?> option = new(name, aliases ?? []) { Description = description, DefaultValueFactory = _ => value, Recursive = recursive };
+        Option<string?> option = new(name, aliases ?? []) { Description = description, DefaultValueFactory = _ => value, Recursive = recursive, HelpName = metavar };
         if (choices is not null) { option.AcceptOnlyFromAmong(choices); _choices[option] = choices; }
         command.Options.Add(option);
         if (environment is not null && fallback is not null) BindEnvironment(option, environment, fallback);
@@ -188,8 +188,8 @@ internal sealed class CommandLine
 
     private void Endpoint(Command command)
     {
-        Value(command, "socket_name", "-L", "Select a named tmux socket.");
-        Value(command, "socket_path", "-S", "Select an explicit tmux socket path.");
+        Value(command, "socket_name", "-L", "Select a named tmux socket.", metavar: "socket-name");
+        Value(command, "socket_path", "-S", "Select an explicit tmux socket path.", metavar: "socket-path");
     }
 
     private void Yes(Command command) => Flag(command, "yes", "--yes", "Answer yes to confirmation prompts.", ["-y"]);
