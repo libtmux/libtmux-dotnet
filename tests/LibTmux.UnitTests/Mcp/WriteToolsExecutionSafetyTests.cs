@@ -2519,6 +2519,34 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Wait_still_excludes_a_line_ending_with_recent_typed_input()
+    {
+        string[] staticRows = ["$ y"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // The control for the fix above: a line that IS the echoed "y" -
+        // the pending text sitting at the end of the row - must still be
+        // excluded, or the guard has stopped doing its one job.
+        _ = await fixture.Tools.SendKeysAsync(
+            keys: "y",
+            paneId: "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["y"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+    }
+
+    [Fact]
     public async Task Read_since_busy_retry_falls_back_to_a_new_stable_cursor()
     {
         await using var fixture = new ToolFixture();
