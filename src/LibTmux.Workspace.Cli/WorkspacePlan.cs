@@ -7,7 +7,7 @@ namespace LibTmux.Workspace.Cli;
 internal sealed record CommandPlan(string Text, bool Enter, double Before, double After);
 internal sealed record PanePlan(string? Directory, string? Shell, bool Focus, Dictionary<string, string> Environment, CommandPlan[] Commands);
 internal sealed record WindowPlan(string? Name, int? Index, string? Layout, bool Focus, Dictionary<string, string> Options, Dictionary<string, string> OptionsAfter, PanePlan[] Panes);
-internal sealed record WorkspacePlan(string Name, string Source, string Directory, string? BeforeScript, string Readiness, Dictionary<string, string> Options, Dictionary<string, string> GlobalOptions, Dictionary<string, string> Environment, WindowPlan[] Windows)
+internal sealed record WorkspacePlan(string Name, string Source, string Directory, string? BeforeScript, string Readiness, Dictionary<string, string> Options, Dictionary<string, string> GlobalOptions, Dictionary<string, string> Environment, WindowPlan[] Windows, IReadOnlyList<(string Code, string Message)> Warnings)
 {
     private static readonly string[] RootKeys = ["session_name", "start_directory", "windows", "options", "global_options", "environment", "before_script", "shell_command_before", "suppress_history", "workspace_builder_options", "plugins", "workspace_builder", "workspace_builder_paths", "config", "socket_name"];
     private static readonly string[] WindowKeys = ["window_name", "window_index", "window_shell", "start_directory", "panes", "layout", "focus", "options", "options_after", "environment", "shell_command_before", "suppress_history"];
@@ -17,16 +17,19 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
 
     internal static WorkspacePlan Parse(JsonObject document, string source, DocumentStore store, string? overrideName = null)
     {
+        List<(string Code, string Message)> warnings = [];
         Keys(document, RootKeys, "workspace");
         string name = overrideName ?? Text(document, "session_name") ?? throw Invalid("session_name is required.");
         name = store.Expand(name);
         if (NameRefusal(name) is string refusal) throw Invalid(refusal);
         string fileDirectory = Path.GetDirectoryName(source)!;
-        string directory = document["start_directory"] is null ? store.WorkingDirectory : ResolveDirectory(document, fileDirectory, store);
+        string directory = document["start_directory"] is null ? store.WorkingDirectory : ResolveDirectory(document, fileDirectory, store, warnings);
         JsonArray windows = document["windows"] as JsonArray ?? throw Invalid("windows must be a list.");
         if (windows.Count == 0) throw Invalid("At least one window is required.");
         JsonObject builder = document["workspace_builder_options"] as JsonObject ?? (document["workspace_builder_options"] is null ? [] : throw Invalid("workspace_builder_options must be a mapping."));
-        Keys(builder, BuilderKeys, "workspace_builder_options");
+        // A builder setting a port does not have is not a defect in the
+        // document: the same file has to load everywhere.
+        Keys(builder, BuilderKeys, "workspace_builder_options", warnings);
         string readiness = (Text(builder, "pane_readiness") ?? "auto").ToLowerInvariant() switch
         {
             "auto" => "auto",
@@ -40,7 +43,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         {
             JsonObject window = item as JsonObject ?? throw Invalid("Each window must be a mapping.");
             Keys(window, WindowKeys, "window");
-            string windowDirectory = ResolveDirectory(window, directory, store);
+            string windowDirectory = ResolveDirectory(window, directory, store, warnings);
             int? index = window["window_index"] is null ? null : int.TryParse(window["window_index"]!.ToString(), CultureInfo.InvariantCulture, out int number) && number >= 0 ? number : throw Invalid("window_index must be a nonnegative integer.");
             if (index is int value && !indexes.Add(value)) throw Invalid($"Duplicate window_index {value}.");
             JsonArray panes = window["panes"] as JsonArray ?? (window.ContainsKey("panes") ? throw Invalid("panes must be a list.") : new JsonArray((JsonNode?)null));
@@ -57,7 +60,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
                 CommandSettings state = new(enter, before, after);
                 CommandPlan[] commands = new[] { document["shell_command_before"], window["shell_command_before"], pane["shell_command_before"], pane["shell_command"] }.SelectMany(command => Commands(command, state, suppress, store)).ToArray();
                 string? shell = Text(pane, "shell") ?? Text(window, "window_shell");
-                panePlans.Add(new PanePlan(ResolveDirectory(pane, windowDirectory, store), shell is null ? null : store.Expand(shell), Boolean(pane, "focus", false), Mapping(pane["environment"] ?? window["environment"], store), commands));
+                panePlans.Add(new PanePlan(ResolveDirectory(pane, windowDirectory, store, warnings), shell is null ? null : store.Expand(shell), Boolean(pane, "focus", false), Mapping(pane["environment"] ?? window["environment"], store), commands));
             }
             string? layout = Text(window, "layout");
             if (layout is not null && !TmuxLayoutSyntax.IsValidCandidate(layout, panePlans.Count))
@@ -66,7 +69,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
             }
             plans.Add(new WindowPlan(Text(window, "window_name") is string windowName ? store.Expand(windowName) : null, index, layout, Boolean(window, "focus", false), Mapping(window["options"], store), Mapping(window["options_after"], store), panePlans.ToArray()));
         }
-        return new WorkspacePlan(name, source, directory, Text(document, "before_script") is string script ? store.Expand(script) : null, readiness, Mapping(document["options"], store), Mapping(document["global_options"], store), Mapping(document["environment"], store), plans.ToArray());
+        return new WorkspacePlan(name, source, directory, Text(document, "before_script") is string script ? store.Expand(script) : null, readiness, Mapping(document["options"], store), Mapping(document["global_options"], store), Mapping(document["environment"], store), plans.ToArray(), warnings);
     }
 
     // Each refusal states what actually breaks, not a shared "cannot
@@ -118,10 +121,16 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
 
     internal static string? Text(JsonObject node, string key) => node[key] is null ? null : node[key] is JsonValue value ? value.ToString() : throw Invalid($"{key} must be a scalar.");
 
-    private static string ResolveDirectory(JsonObject node, string inherited, DocumentStore store)
+    private static string ResolveDirectory(JsonObject node, string inherited, DocumentStore store, List<(string Code, string Message)> warnings)
     {
         string? value = Text(node, "start_directory");
-        return value is null ? inherited : Path.GetFullPath(store.Expand(value), inherited);
+        if (value is null) return inherited;
+        string resolved = Path.GetFullPath(store.Expand(value), inherited);
+        // tmux starts the pane in $HOME rather than refusing, so a typo is
+        // invisible unless the load says so.
+        (string, string) warning = ("start_directory_missing", $"start_directory is not a directory, tmux will fall back to $HOME: {resolved}");
+        if (!System.IO.Directory.Exists(resolved) && !warnings.Contains(warning)) warnings.Add(warning);
+        return resolved;
     }
 
     private static bool Boolean(JsonObject node, string key, bool fallback) => node[key] is null ? fallback : node[key]!.ToString().ToLowerInvariant() switch
@@ -133,13 +142,17 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
 
     private static double Seconds(JsonObject node, string key, double fallback) => node[key] is null ? fallback : double.TryParse(node[key]!.ToString(), CultureInfo.InvariantCulture, out double value) && double.IsFinite(value) && value >= 0 ? value : throw Invalid($"{key} must be a nonnegative number.");
 
-    private static void Keys(JsonObject node, string[] allowed, string scope)
+    private static void Keys(JsonObject node, string[] allowed, string scope, List<(string Code, string Message)>? warnings = null)
     {
         // A key starting with "x-", at any level, is inert: accepted and
         // ignored, so custom keys can pass through unchanged.
         foreach (string key in node.Select(pair => pair.Key))
-            if (!key.StartsWith("x-", StringComparison.Ordinal) && !allowed.Contains(key, StringComparer.Ordinal))
-                throw Unsupported($"Unsupported {scope} key '{key}'. Prefix a custom key with 'x-' to pass it through unchanged.");
+        {
+            if (key.StartsWith("x-", StringComparison.Ordinal) || allowed.Contains(key, StringComparer.Ordinal)) continue;
+            string message = $"Unsupported {scope} key '{key}'. Prefix a custom key with 'x-' to pass it through unchanged.";
+            if (warnings is null) throw Unsupported(message);
+            warnings.Add(("unsupported_key", message));
+        }
     }
 
     // A malformed document, wrong type or invalid value is invalid_workspace;

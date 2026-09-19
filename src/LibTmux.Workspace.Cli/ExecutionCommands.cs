@@ -53,6 +53,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             JsonObject document = DocumentStore.Read(path);
             return (Path: path, Document: document, Plan: WorkspacePlan.Parse(document, path, _documents, index == files.Length - 1 ? invocation.Text("session_name") : null));
         }).ToArray();
+        foreach (var input in inputs)
+            foreach ((string code, string message) in input.Plan.Warnings)
+                await output.WarningAsync(code, message).ConfigureAwait(false);
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
         LoadHandoff handoff = new(context, invocation, output);
         await handoff.ResolveAsync(Connection(), inputs[^1].Plan.Name).ConfigureAwait(false);
