@@ -138,6 +138,19 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     sessionName = retained.Name;
                     await Command(["has-session", "-t", session]).ConfigureAwait(false);
                 }
+                // The decline is about this one input's session -- the last
+                // one, since that is the only session the prompt ever names.
+                // No reuse was attempted, so there is nothing to compare: a
+                // mismatch check here would report a comparison nobody asked
+                // for. Earlier inputs in the same load still build normally.
+                else if (handoff.Declined && index == inputs.Length - 1)
+                {
+                    results.Add(new JsonObject { ["input_index"] = index, ["input"] = input.Path, ["session_id"] = null, ["session_name"] = input.Plan.Name, ["reused"] = false, ["status"] = "declined" });
+                    await output.EventAsync(stage = "workspace-completed", new { input_index = index, status = "declined" }).ConfigureAwait(false);
+                    completedStage = stage;
+                    if (!invocation.Machine) output.Human("Not attached to " + input.Plan.Name + ".", "information");
+                    continue;
+                }
                 else
                 {
                     TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + input.Plan.Name], context.CancellationToken).ConfigureAwait(false);

@@ -13,6 +13,10 @@ internal enum LoadMode { Detached, Append, Attach, Switch }
 internal sealed partial class LoadHandoff(CliContext context, Invocation invocation, Output output)
 {
     internal LoadMode Mode { get; private set; }
+    // True only when the user answered "n" to "already running. Attach?".
+    // A decline means no reuse was attempted, so the caller must stop before
+    // comparing the session to the document -- there is nothing to compare.
+    internal bool Declined { get; private set; }
     internal Server? Server { get; private set; }
     internal Session? CurrentSession { get; private set; }
     internal string? CurrentSessionName { get; private set; }
@@ -33,7 +37,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             if (!invocation.Flag("yes") && CanPrompt() && await SessionExistsAsync(options, sessionName).ConfigureAwait(false))
             {
                 string answer = await ChooseAsync(sessionName + " is already running. Attach? [Y/n] ", ["y", "n"], "y").ConfigureAwait(false);
-                if (answer == "n") return;
+                if (answer == "n") { Declined = true; return; }
             }
             _tty = TerminalInput.RequireForeground(context);
             Mode = LoadMode.Attach;
@@ -54,7 +58,15 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             string answer = exists
                 ? await ChooseAsync(sessionName + " is already running. Attach? [Y/n] ", ["y", "n"], "y").ConfigureAwait(false)
                 : await ChooseAsync("Already inside tmux: switch (y), load detached (n), or append (a)? [y/n/a] ", ["y", "n", "a"], "y").ConfigureAwait(false);
-            if (answer == "n") return;
+            // "n" here means two different things: declining to attach to a
+            // session that already exists, or choosing a detached build of
+            // one that does not. Only the first is a decline; both still
+            // stop here with Mode at its Detached default.
+            if (answer == "n")
+            {
+                if (exists) Declined = true;
+                return;
+            }
             Mode = answer == "a" ? LoadMode.Append : LoadMode.Switch;
         }
         else Mode = LoadMode.Switch;
