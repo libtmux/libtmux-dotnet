@@ -35,6 +35,17 @@ public sealed class ContractTests : IDisposable
         Assert.Equal("alpha", Assert.Single(JsonNode.Parse(result.Output)!.AsArray())!["session_name"]!.ToString());
     }
 
+    // A pattern that does not compile is a mistake in the command line, so
+    // it answers with the same code as any other invocation error.
+    [Fact]
+    public async Task Search_reports_an_unparsable_pattern_as_a_usage_error()
+    {
+        var result = await Run("search", "[", "--json");
+        Assert.Equal(2, result.Code);
+        Assert.Empty(result.Output);
+        Assert.Equal("usage", JsonNode.Parse(result.Error)!["code"]!.ToString());
+    }
+
     [Fact]
     public async Task Search_reports_a_pattern_that_outruns_its_match_budget()
     {

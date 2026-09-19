@@ -1676,6 +1676,46 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // An answer from tmux that cannot be read is a tmux failure with a code,
+    // not a stack trace: the identity reads indexed their fields and the
+    // window index went through int.Parse.
+    [Theory]
+    [InlineData("short-row")]
+    [InlineData("unparsable-index")]
+    public async Task An_unreadable_tmux_answer_reports_tmux_failed(string kind)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, kind + ".socket");
+        string file = Path.Combine(_root, kind + ".yaml");
+        string wrapper = Path.Combine(_root, kind + "-wrapper");
+        await File.WriteAllTextAsync(file, "session_name: garbled\nwindows: [{window_name: w, panes: [null]}]\n", token);
+        await File.WriteAllTextAsync(wrapper, kind == "short-row"
+            ? "#!/bin/sh\ncase \"$*\" in\n  *new-session*) exec \"$REAL_TMUX\" \"$@\" | cut -f1 ;;\n  *) exec \"$REAL_TMUX\" \"$@\" ;;\nesac\n"
+            : "#!/bin/sh\ncase \"$*\" in\n  *'#{window_index}'*) echo not-a-number ;;\n  *) exec \"$REAL_TMUX\" \"$@\" ;;\nesac\n", token);
+        File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["LIBTMUX_TMUX"] = wrapper, ["REAL_TMUX"] = binary };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter output = new();
+            using StringWriter error = new();
+            string[] arguments = kind == "short-row"
+                ? ["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"]
+                : ["freeze", "garbled", "-S", socket, "--json"];
+            if (kind != "short-row")
+            {
+                TmuxCommandResult started = await server.ExecuteCommandAsync(["new-session", "-d", "-s", "garbled"], token);
+                Assert.Equal(0, started.ExitCode);
+            }
+            int code = await CliRunner.RunAsync(arguments, output, error, _root, environment, token);
+            Assert.True(code == 1, $"Exit {code}: {output}{error}");
+            JsonNode[] records = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
+            Assert.Equal("tmux_failed", records[^1]["code"]!.ToString());
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     // pane-base-index is a window option. Given to set-option with a session
     // target, tmux puts it on that session's current window -- the bootstrap
     // window this load kills -- so it has to reach the real windows.
