@@ -201,7 +201,13 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 }
                 stage = "session-options";
                 foreach (var option in input.Plan.GlobalOptions) await Change(["set-option", "-g", option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
-                foreach (var option in input.Plan.Options) await Change(["set-option", "-t", session, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
+                // tmux hands a window option given with a session target to
+                // that session's current window, which here is the bootstrap
+                // window this load then kills. Carry it to every window the
+                // document builds instead.
+                HashSet<string> windowScope = input.Plan.Options.Count == 0 ? [] : await WindowOptionNamesAsync().ConfigureAwait(false);
+                var sessionWindowOptions = input.Plan.Options.Where(option => windowScope.Contains(option.Key)).ToArray();
+                foreach (var option in input.Plan.Options.Where(option => !windowScope.Contains(option.Key))) await Change(["set-option", "-t", session, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                 foreach (var variable in input.Plan.Environment) await Change(["set-environment", "-t", session, variable.Key, variable.Value]).ConfigureAwait(false);
                 completedStage = stage;
                 string? focusedWindow = null;
@@ -223,6 +229,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     if (appendTarget is not null) appended.Add(window.Name ?? windowId);
                     firstWindow ??= windowId;
                     if (window.Focus) focusedWindow = windowId;
+                    foreach (var option in sessionWindowOptions) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     foreach (var option in window.Options) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
                     await output.EventAsync(stage, new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal, window_name = window.Name }).ConfigureAwait(false);
                     completedStage = stage;
@@ -511,6 +518,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         if (string.IsNullOrEmpty(raw)) return current;
         if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid_dimension", name + " must be an integer from 1 through 65535.", 2);
         return raw;
+    }
+
+    private HashSet<string>? _windowOptionNames;
+    private async Task<HashSet<string>> WindowOptionNamesAsync()
+    {
+        if (_windowOptionNames is not null) return _windowOptionNames;
+        HashSet<string> names = new(StringComparer.Ordinal);
+        foreach (string row in (await Command(["show-options", "-wg"]).ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            names.Add(row.Split(' ', 2)[0]);
+        return _windowOptionNames = names;
     }
 
     private async Task<string> Field(string target, string field) => (await Command(["display-message", "-p", "-t", target, "#{" + field + "}"]).ConfigureAwait(false)).TrimEnd('\n');
