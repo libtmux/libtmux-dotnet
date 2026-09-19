@@ -657,8 +657,10 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal(outcome == "success" ? 0 : outcome == "cancel" ? 130 : 1, code);
             JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             JsonNode terminal = Assert.Single(events, item => item["event"]!.ToString() is "completed" or "failed");
-            Assert.Equal(outcome == "success" ? "ok" : "error", terminal["status"]!.ToString());
-            Assert.Equal(outcome == "success", await server.IsAliveAsync(TestContext.Current.CancellationToken));
+            // A script failure is undone, like any known failure; cancellation
+            // is not a known failure and leaves the session it already built.
+            Assert.Equal(outcome switch { "success" => "ok", "cancel" => "partial", _ => "error" }, terminal["status"]!.ToString());
+            Assert.Equal(outcome is "success" or "cancel", await server.IsAliveAsync(TestContext.Current.CancellationToken));
             if (!brokenError)
             {
                 string diagnostic = Assert.Single(stderr.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries));
@@ -746,10 +748,10 @@ public sealed class RegressionTests : IDisposable
         }
     }
 
-    // Cancellation mid-window leaves the session half built, so the load
-    // removes it: a name left standing is what the next run would reuse.
+    // Cancellation mid-window (not mid-load): the session stays by design,
+    // but the bootstrap window is scaffolding and should not survive either.
     [Fact]
-    public async Task Cancellation_mid_window_removes_the_session_it_created()
+    public async Task Cancellation_mid_window_still_removes_the_bootstrap_window()
     {
         CancellationToken outer = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, "mid-window.socket");
@@ -768,9 +770,10 @@ public sealed class RegressionTests : IDisposable
             Assert.Equal(130, code);
             JsonNode[] events = stdout.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.DoesNotContain(events, item => item["event"]!.ToString() == "window-completed");
-            Assert.True(events[^1]["removed"]?.GetValue<bool>() ?? events[^1]["errors"]![0]!["removed"]!.GetValue<bool>());
-            TmuxCommandResult listed = await server.ExecuteCommandAsync(["has-session", "-t", "=midwindow"], outer);
-            Assert.NotEqual(0, listed.ExitCode);
+            TmuxCommandResult listed = await server.ExecuteCommandAsync(["list-windows", "-t", "midwindow", "-F", "#{window_name}"], outer);
+            Assert.Equal(0, listed.ExitCode);
+            string[] windows = System.Text.Encoding.UTF8.GetString(listed.StandardOutput.Span).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(["only"], windows);
         }
         finally { if (await server.IsAliveAsync(outer)) await server.KillAsync(cancellationToken: outer); }
     }
@@ -1635,10 +1638,13 @@ public sealed class RegressionTests : IDisposable
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
             Assert.Equal(1, issue["input_index"]!.GetValue<int>());
             Assert.Equal(failure != "next-input", issue["created"]!.GetValue<bool>());
-            Assert.Equal(failure != "next-input", issue["removed"]!.GetValue<bool>());
+            // A known failure -- tmux refused, a script exited non-zero -- is
+            // undone. Cancellation is not a known failure, so the session it
+            // built stays, same as a single-input cancellation.
+            Assert.Equal(failure is "script" or "options", issue["removed"]!.GetValue<bool>());
             Assert.Equal(failure switch { "options" => "session-options", "next-input" => "workspace-started", _ => "before-script" }, issue["failed_stage"]!.ToString());
             Assert.Equal(failure == "next-input" ? null : "session-created", issue["completed_stage"]?.ToString());
-            string[] expected = ["complete", "keeper"];
+            string[] expected = failure == "cancel" ? ["complete", "failed", "keeper"] : ["complete", "keeper"];
             Assert.Equal(expected, (await Execute(server, "list-sessions", "-F", "#{session_name}")).Split('\n').Order(StringComparer.Ordinal));
         }
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
