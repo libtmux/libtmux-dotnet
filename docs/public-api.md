@@ -129,6 +129,7 @@ The complete parsing, ordering, detection, and support contract follows.
 | `LibTmux` | Microsoft.Extensions.Logging.Abstractions (centrally-managed) | hierarchy, values, query AST, local evaluator |
 | `LibTmux.Query.Json` | LibTmux (same) | System.Text.Json converters and source-generated context |
 | `LibTmux.Testing` | LibTmux (same) | scoped tmux servers, sessions and windows for tests |
+| `LibTmux.Extensions.DependencyInjection` | LibTmux (same), Microsoft.Extensions.DependencyInjection.Abstractions (centrally-managed), Microsoft.Extensions.Options (centrally-managed) | service registration for a server handle and its options |
 
 ## Conventions
 
@@ -438,6 +439,7 @@ internal static class Program
 | ``T:LibTmux.ITmuxRequest`1`` | interface | `public` | None | `None` | value | A request that becomes one tmux command against a target. | `LibTmux` |
 | `T:LibTmux.TmuxInterceptor` | delegate | `public` | None | `MulticastDelegate` | reference | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. | `LibTmux` |
 | `T:LibTmux.TmuxInvocation` | sealed class | `public, sealed` | None | `object` | value | One tmux invocation, as an interceptor sees it. | `LibTmux` |
+| `T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions` | static class | `public, static` | None | `object` | value | Registers LibTmux with a service collection. | `LibTmux.Extensions.DependencyInjection` |
 
 ## Public members
 
@@ -2205,6 +2207,12 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `F:LibTmux.WindowRotationDirection.Down` | `Down = 1` | Public | Implicit | Portable | The Down value. Value: `1`. |
 | `F:LibTmux.WindowRotationDirection.Up` | `Up = 0` | Public | Implicit | Portable | The Up value. Value: `0`. |
+
+### `T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions.AddLibTmux(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Func<LibTmux.ServerConnectionOptions,LibTmux.ServerConnectionOptions>)` | `static static IServiceCollection AddLibTmux(this IServiceCollection services, Func<ServerConnectionOptions, ServerConnectionOptions>? configure = null)` | Public | Yes | Portable | Registers a tmux server handle and the options it reads. |
 
 ## Query boundary
 

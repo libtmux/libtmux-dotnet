@@ -4,6 +4,7 @@ using LibTmux.Query;
 using LibTmux.Query.Json;
 using LibTmux.Testing;
 using LibTmux.Workspace;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LibTmux.PackageConsumer;
 
@@ -40,6 +41,18 @@ internal static class Program
         if (!workspaceParses)
         {
             return 1;
+        }
+
+        using (ServiceProvider provider = new ServiceCollection()
+            .AddLibTmux(options => options with { SocketName = "package-consumer" })
+            .BuildServiceProvider())
+        {
+            bool injected = provider.GetRequiredService<Server>() is { IsMaterialized: false };
+            Console.WriteLine($"dependency-injection {injected}");
+            if (!injected)
+            {
+                return 1;
+            }
         }
 
         if (args is ["--psmux"])

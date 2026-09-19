@@ -67,6 +67,24 @@
         }
       ],
       "owns": "scoped tmux servers, sessions and windows for tests"
+    },
+    {
+      "id": "LibTmux.Extensions.DependencyInjection",
+      "dependencies": [
+        {
+          "id": "LibTmux",
+          "version": "same"
+        },
+        {
+          "id": "Microsoft.Extensions.DependencyInjection.Abstractions",
+          "version": "centrally-managed"
+        },
+        {
+          "id": "Microsoft.Extensions.Options",
+          "version": "centrally-managed"
+        }
+      ],
+      "owns": "service registration for a server handle and its options"
     }
   ],
   "conventions": {
@@ -3161,6 +3179,22 @@
       "ownership": "value",
       "state": [],
       "summary": "One tmux invocation, as an interceptor sees it."
+    },
+    {
+      "id": "T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions",
+      "namespace": "Microsoft.Extensions.DependencyInjection",
+      "name": "LibTmuxServiceCollectionExtensions",
+      "kind": "static class",
+      "package": "LibTmux.Extensions.DependencyInjection",
+      "modifiers": [
+        "public",
+        "static"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "Registers LibTmux with a service collection."
     }
   ],
   "members": [
@@ -25818,6 +25852,44 @@
       "portable": true,
       "summary": "Gets what every tmux invocation on this connection passes through.",
       "package": "LibTmux"
+    },
+    {
+      "id": "T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions",
+      "declaringType": "T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions",
+      "name": "LibTmuxServiceCollectionExtensions",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux.Extensions.DependencyInjection",
+      "signature": "static class Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions",
+      "portable": true
+    },
+    {
+      "id": "M:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions.AddLibTmux(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Func<LibTmux.ServerConnectionOptions,LibTmux.ServerConnectionOptions>)",
+      "declaringType": "T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions",
+      "name": "AddLibTmux",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux.Extensions.DependencyInjection",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "IServiceCollection",
+      "parameters": [
+        {
+          "name": "services",
+          "type": "IServiceCollection"
+        },
+        {
+          "name": "configure",
+          "type": "Func<ServerConnectionOptions, ServerConnectionOptions>?",
+          "default": "null"
+        }
+      ],
+      "signature": "static IServiceCollection AddLibTmux(this IServiceCollection services, Func<ServerConnectionOptions, ServerConnectionOptions>? configure = null)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Registers a tmux server handle and the options it reads."
     }
   ]
 }

@@ -63,6 +63,15 @@ CONTRACTS = {
     ),
     "LibTmux.Query.Json": Contract(frozenset({"LibTmux"})),
     "LibTmux.Testing": Contract(frozenset({"LibTmux"})),
+    "LibTmux.Extensions.DependencyInjection": Contract(
+        frozenset(
+            {
+                "LibTmux",
+                "Microsoft.Extensions.DependencyInjection.Abstractions",
+                "Microsoft.Extensions.Options",
+            }
+        )
+    ),
     "LibTmux.Workspace": Contract(frozenset({"LibTmux", "YamlDotNet"})),
     "LibTmux.Mcp": Contract(frozenset(), tool=True),
 }
