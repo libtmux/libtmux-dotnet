@@ -851,7 +851,7 @@ LibTmux.SendKeysRequest.Text.init -> void
 LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane! pane) -> LibTmux.TmuxCommand!
 LibTmux.Server
 LibTmux.Server.AttachSessionAsync(LibTmux.AttachSessionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-LibTmux.Server.BindKeyAsync(LibTmux.BindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Server.Buffers.get -> LibTmux.TmuxBuffers!
 LibTmux.Server.CaptureSnapshotAsync(LibTmux.SnapshotDepth depth = LibTmux.SnapshotDepth.Panes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 LibTmux.Server.Chain() -> LibTmux.TmuxChain!
 LibTmux.Server.ClearPromptHistoryAsync(LibTmux.PromptType? type = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -862,7 +862,6 @@ LibTmux.Server.ConnectAsync(System.Threading.CancellationToken cancellationToken
 LibTmux.Server.ConnectionOptions.get -> LibTmux.ServerConnectionOptions!
 LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedSessionScope!>!
 LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
-LibTmux.Server.DeleteBufferAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DetachClientAsync(string? targetClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
@@ -875,12 +874,8 @@ LibTmux.Server.FindSessionAsync(LibTmux.SessionId id, System.Threading.Cancellat
 LibTmux.Server.FindWindowAsync(LibTmux.WindowId id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window?>!
 LibTmux.Server.Generation.get -> LibTmux.ServerGeneration?
 LibTmux.Server.GetAttachedSessionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session!>!>!
-LibTmux.Server.GetBufferAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
-LibTmux.Server.GetBufferLinesAsync(LibTmux.ListBuffersRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
-LibTmux.Server.GetBuffersAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.TmuxBuffer!>!>!
 LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Client!>!>!
 LibTmux.Server.GetCommandsAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
-LibTmux.Server.GetKeysAsync(string? keyTable = null, string? format = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.Server.GetMessagesAsync(string? targetClient = null, LibTmux.ShowMessagesMode mode = LibTmux.ShowMessagesMode.Messages, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.Server.GetPaneAsync(LibTmux.PaneId id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane!>!>!
@@ -894,9 +889,9 @@ LibTmux.Server.Hooks.get -> LibTmux.TmuxHooks!
 LibTmux.Server.IfShellAsync(LibTmux.IfShellRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 LibTmux.Server.IsMaterialized.get -> bool
+LibTmux.Server.Keys.get -> LibTmux.TmuxKeys!
 LibTmux.Server.KillAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.KillSessionAsync(string! target, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-LibTmux.Server.LoadBufferAsync(string! path, string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.LockAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.LockClientAsync(string? targetClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.OpenWaitChannel(string! channel) -> LibTmux.TmuxWaitChannel!
@@ -904,12 +899,10 @@ LibTmux.Server.Options.get -> LibTmux.TmuxOptions!
 LibTmux.Server.Panes.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
 LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
-LibTmux.Server.SaveBufferAsync(string! path, string? name = null, bool append = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane!>!>!
 LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session!>!>!
 LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Window!>!>!
 LibTmux.Server.Sessions.get -> LibTmux.CapturedRelation<LibTmux.Session!>!
-LibTmux.Server.SetBufferAsync(string! data, string? name = null, bool append = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ShowCommandPromptAsync(LibTmux.CommandPromptRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ShowMenuAsync(LibTmux.DisplayMenuRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.SourceFileAsync(string! path, bool quiet = false, bool parseOnly = false, bool verbose = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -917,7 +910,6 @@ LibTmux.Server.StartServerAsync(System.Threading.CancellationToken cancellationT
 LibTmux.Server.SuspendClientAsync(string? targetClient = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.SwitchClientAsync(string! targetSession, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-LibTmux.Server.UnbindKeyAsync(LibTmux.UnbindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Version.get -> LibTmux.TmuxVersion?
 LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
@@ -1148,6 +1140,14 @@ LibTmux.TmuxBuffer.Name.get -> string!
 LibTmux.TmuxBuffer.Sample.get -> string?
 LibTmux.TmuxBuffer.Size.get -> long
 LibTmux.TmuxBuffer.TmuxBuffer(string! name, long size, string? sample) -> void
+LibTmux.TmuxBuffers
+LibTmux.TmuxBuffers.DeleteAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxBuffers.GetAllAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.TmuxBuffer!>!>!
+LibTmux.TmuxBuffers.GetAsync(string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+LibTmux.TmuxBuffers.GetLinesAsync(LibTmux.ListBuffersRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
+LibTmux.TmuxBuffers.LoadAsync(string! path, string? name = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxBuffers.SaveAsync(string! path, string? name = null, bool append = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxBuffers.SetAsync(string! data, string? name = null, bool append = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.TmuxChain
 LibTmux.TmuxChain.Commands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.TmuxCommand!>!
 LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!
@@ -1251,6 +1251,10 @@ LibTmux.TmuxInterceptor
 LibTmux.TmuxInvocation
 LibTmux.TmuxInvocation.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.TmuxInvocation.TmuxInvocation(System.Collections.Generic.IReadOnlyList<string!>! arguments) -> void
+LibTmux.TmuxKeys
+LibTmux.TmuxKeys.BindAsync(LibTmux.BindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxKeys.GetAllAsync(string? keyTable = null, string? format = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
+LibTmux.TmuxKeys.UnbindAsync(LibTmux.UnbindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.TmuxMenuItem
 LibTmux.TmuxMenuItem.<Clone>$() -> LibTmux.TmuxMenuItem!
 LibTmux.TmuxMenuItem.Command.get -> string!

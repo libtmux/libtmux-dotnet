@@ -48,8 +48,8 @@ public sealed class StructuredLoggingTests
         // capture runs to megabytes and a buffer holds whatever was copied.
         logger.Clear();
         string wide = new('x', 4096);
-        await server.SetBufferAsync(wide, "libtmux-wide", cancellationToken: token);
-        await server.GetBufferAsync("libtmux-wide", token);
+        await server.Buffers.SetAsync(wide, "libtmux-wide", cancellationToken: token);
+        await server.Buffers.GetAsync("libtmux-wide", token);
         Assert.All(
             logger.Entries,
             entry => Assert.True(

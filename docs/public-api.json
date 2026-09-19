@@ -3195,6 +3195,38 @@
       "ownership": "value",
       "state": [],
       "summary": "Registers LibTmux with a service collection."
+    },
+    {
+      "id": "T:LibTmux.TmuxBuffers",
+      "namespace": "LibTmux",
+      "name": "TmuxBuffers",
+      "kind": "sealed class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "reference",
+      "state": [],
+      "summary": "The paste buffers of one server."
+    },
+    {
+      "id": "T:LibTmux.TmuxKeys",
+      "namespace": "LibTmux",
+      "name": "TmuxKeys",
+      "kind": "sealed class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "reference",
+      "state": [],
+      "summary": "The key bindings of one server."
     }
   ],
   "members": [
@@ -7436,9 +7468,9 @@
       "summary": "Performs AttachSession."
     },
     {
-      "id": "M:LibTmux.Server.BindKeyAsync(BindKeyRequest,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "BindKeyAsync",
+      "id": "M:LibTmux.TmuxKeys.BindAsync(BindKeyRequest,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxKeys",
+      "name": "BindAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -7456,14 +7488,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.BindKeyAsync(BindKeyRequest request, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxKeys.BindAsync(BindKeyRequest request, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs BindKey."
+      "summary": "Performs Bind."
     },
     {
       "id": "M:LibTmux.Server.CaptureSnapshotAsync(SnapshotDepth,CancellationToken)",
@@ -7737,9 +7769,9 @@
       "summary": "Performs CreateSession."
     },
     {
-      "id": "M:LibTmux.Server.DeleteBufferAsync(string?,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "DeleteBufferAsync",
+      "id": "M:LibTmux.TmuxBuffers.DeleteAsync(string?,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "DeleteAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -7758,14 +7790,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.DeleteBufferAsync(string? name = null, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxBuffers.DeleteAsync(string? name = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs DeleteBuffer."
+      "summary": "Performs Delete."
     },
     {
       "id": "M:LibTmux.Server.DetachAllClientsAsync(string?,string?,CancellationToken)",
@@ -7952,9 +7984,9 @@
       "listErrorPolicy": "loud"
     },
     {
-      "id": "M:LibTmux.Server.GetBufferAsync(string?,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "GetBufferAsync",
+      "id": "M:LibTmux.TmuxBuffers.GetAsync(string?,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "GetAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -7973,19 +8005,19 @@
           "default": "default"
         }
       ],
-      "signature": "Task<string> LibTmux.Server.GetBufferAsync(string? name = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<string> LibTmux.TmuxBuffers.GetAsync(string? name = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs GetBuffer."
+      "summary": "Performs Get."
     },
     {
-      "id": "M:LibTmux.Server.GetBufferLinesAsync(ListBuffersRequest?,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "GetBufferLinesAsync",
+      "id": "M:LibTmux.TmuxBuffers.GetLinesAsync(ListBuffersRequest?,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "GetLinesAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8004,19 +8036,19 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyList<string>> LibTmux.Server.GetBufferLinesAsync(ListBuffersRequest? request = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<string>> LibTmux.TmuxBuffers.GetLinesAsync(ListBuffersRequest? request = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs GetBufferLines."
+      "summary": "Performs GetLines."
     },
     {
-      "id": "M:LibTmux.Server.GetBuffersAsync(CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "GetBuffersAsync",
+      "id": "M:LibTmux.TmuxBuffers.GetAllAsync(CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "GetAllAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8030,14 +8062,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyList<TmuxBuffer>> LibTmux.Server.GetBuffersAsync(CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<TmuxBuffer>> LibTmux.TmuxBuffers.GetAllAsync(CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Gets typed paste-buffer snapshots using the canonical projection."
+      "summary": "Performs GetAll."
     },
     {
       "id": "M:LibTmux.Server.GetClientsAsync(CancellationToken)",
@@ -8098,9 +8130,9 @@
       "summary": "Performs GetCommands."
     },
     {
-      "id": "M:LibTmux.Server.GetKeysAsync(string?,string?,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "GetKeysAsync",
+      "id": "M:LibTmux.TmuxKeys.GetAllAsync(string?,string?,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxKeys",
+      "name": "GetAllAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8124,14 +8156,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task<IReadOnlyList<string>> LibTmux.Server.GetKeysAsync(string? keyTable = null, string? format = null, CancellationToken cancellationToken = default)",
+      "signature": "Task<IReadOnlyList<string>> LibTmux.TmuxKeys.GetAllAsync(string? keyTable = null, string? format = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs GetKeys."
+      "summary": "Performs GetAll."
     },
     {
       "id": "M:LibTmux.Server.GetMessagesAsync(string?,ShowMessagesMode,CancellationToken)",
@@ -8519,9 +8551,9 @@
       "summary": "Performs KillSession."
     },
     {
-      "id": "M:LibTmux.Server.LoadBufferAsync(string,string?,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "LoadBufferAsync",
+      "id": "M:LibTmux.TmuxBuffers.LoadAsync(string,string?,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "LoadAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8544,14 +8576,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.LoadBufferAsync(string path, string? name = null, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxBuffers.LoadAsync(string path, string? name = null, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs LoadBuffer."
+      "summary": "Performs Load."
     },
     {
       "id": "M:LibTmux.Server.LockAsync(CancellationToken)",
@@ -8701,9 +8733,9 @@
       "summary": "Performs RunShell."
     },
     {
-      "id": "M:LibTmux.Server.SaveBufferAsync(string,string?,bool,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "SaveBufferAsync",
+      "id": "M:LibTmux.TmuxBuffers.SaveAsync(string,string?,bool,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "SaveAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8731,14 +8763,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.SaveBufferAsync(string path, string? name = null, bool append = false, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxBuffers.SaveAsync(string path, string? name = null, bool append = false, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs SaveBuffer."
+      "summary": "Performs Save."
     },
     {
       "id": "M:LibTmux.Server.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)",
@@ -8831,9 +8863,9 @@
       "summary": "Performs a loud native windows search."
     },
     {
-      "id": "M:LibTmux.Server.SetBufferAsync(string,string?,bool,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "SetBufferAsync",
+      "id": "M:LibTmux.TmuxBuffers.SetAsync(string,string?,bool,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "SetAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -8861,14 +8893,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.SetBufferAsync(string data, string? name = null, bool append = false, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxBuffers.SetAsync(string data, string? name = null, bool append = false, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs SetBuffer."
+      "summary": "Performs Set."
     },
     {
       "id": "M:LibTmux.Server.ShowCommandPromptAsync(CommandPromptRequest,CancellationToken)",
@@ -9063,9 +9095,9 @@
       "summary": "Performs SwitchClient."
     },
     {
-      "id": "M:LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest,CancellationToken)",
-      "declaringType": "T:LibTmux.Server",
-      "name": "UnbindKeyAsync",
+      "id": "M:LibTmux.TmuxKeys.UnbindAsync(UnbindKeyRequest,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxKeys",
+      "name": "UnbindAsync",
       "kind": "method",
       "visibility": "public",
       "package": "LibTmux",
@@ -9083,14 +9115,14 @@
           "default": "default"
         }
       ],
-      "signature": "Task LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest request, CancellationToken cancellationToken = default)",
+      "signature": "Task LibTmux.TmuxKeys.UnbindAsync(UnbindKeyRequest request, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": true,
       "portable": false,
       "platformAnnotations": [
         "UnsupportedOSPlatform(\"windows\")"
       ],
-      "summary": "Performs UnbindKey."
+      "summary": "Performs Unbind."
     },
     {
       "id": "M:LibTmux.Server.WaitForAsync(WaitForRequest,CancellationToken)",
@@ -25890,6 +25922,64 @@
       "portable": true,
       "platformAnnotations": [],
       "summary": "Registers a tmux server handle and the options it reads."
+    },
+    {
+      "id": "T:LibTmux.TmuxBuffers",
+      "declaringType": "T:LibTmux.TmuxBuffers",
+      "name": "TmuxBuffers",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "sealed class LibTmux.TmuxBuffers",
+      "portable": true
+    },
+    {
+      "id": "P:LibTmux.Server.Buffers",
+      "declaringType": "T:LibTmux.Server",
+      "name": "Buffers",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxBuffers",
+      "parameters": [],
+      "signature": "TmuxBuffers LibTmux.Server.Buffers { get; }",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Gets the paste buffers of this server."
+    },
+    {
+      "id": "T:LibTmux.TmuxKeys",
+      "declaringType": "T:LibTmux.TmuxKeys",
+      "name": "TmuxKeys",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "sealed class LibTmux.TmuxKeys",
+      "portable": true
+    },
+    {
+      "id": "P:LibTmux.Server.Keys",
+      "declaringType": "T:LibTmux.Server",
+      "name": "Keys",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxKeys",
+      "parameters": [],
+      "signature": "TmuxKeys LibTmux.Server.Keys { get; }",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Gets the key bindings of this server."
     }
   ]
 }

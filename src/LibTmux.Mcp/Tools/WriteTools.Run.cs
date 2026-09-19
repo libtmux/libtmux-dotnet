@@ -477,7 +477,7 @@ internal sealed partial class WriteTools
 
             try
             {
-                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
+                await server.Buffers.SetAsync(payload, buffer, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 bufferMayExist = true;
             }

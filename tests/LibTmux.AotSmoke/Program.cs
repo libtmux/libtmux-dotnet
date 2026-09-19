@@ -58,8 +58,8 @@ internal static class Program
             TmuxOption option = (await window.Options.GetAsync(
                 new GetOptionRequest("automatic-rename")))[0];
 
-            await server.SetBufferAsync("aot", "libtmux-aot");
-            string buffer = await server.GetBufferAsync("libtmux-aot");
+            await server.Buffers.SetAsync("aot", "libtmux-aot");
+            string buffer = await server.Buffers.GetAsync("libtmux-aot");
 
             Console.WriteLine($"session {session.Name}");
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");

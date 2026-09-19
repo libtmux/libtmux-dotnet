@@ -440,6 +440,8 @@ internal static class Program
 | `T:LibTmux.TmuxInterceptor` | delegate | `public` | None | `MulticastDelegate` | reference | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. | `LibTmux` |
 | `T:LibTmux.TmuxInvocation` | sealed class | `public, sealed` | None | `object` | value | One tmux invocation, as an interceptor sees it. | `LibTmux` |
 | `T:Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions` | static class | `public, static` | None | `object` | value | Registers LibTmux with a service collection. | `LibTmux.Extensions.DependencyInjection` |
+| `T:LibTmux.TmuxBuffers` | sealed class | `public, sealed` | None | `object` | reference | The paste buffers of one server. | `LibTmux` |
+| `T:LibTmux.TmuxKeys` | sealed class | `public, sealed` | None | `object` | reference | The key bindings of one server. | `LibTmux` |
 
 ## Public members
 
@@ -1314,7 +1316,6 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.Server.AttachSessionAsync(AttachSessionRequest,CancellationToken)` | `Task LibTmux.Server.AttachSessionAsync(AttachSessionRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs AttachSession. |
-| `M:LibTmux.Server.BindKeyAsync(BindKeyRequest,CancellationToken)` | `Task LibTmux.Server.BindKeyAsync(BindKeyRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs BindKey. |
 | `M:LibTmux.Server.CaptureSnapshotAsync(SnapshotDepth,CancellationToken)` | `Task<Server> LibTmux.Server.CaptureSnapshotAsync(SnapshotDepth depth, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Captures an immutable hierarchy to the requested depth. |
 | `M:LibTmux.Server.Chain` | `TmuxChain Chain()` | Public | No | Portable | Begins a chain that runs its commands in one tmux invocation. |
 | `M:LibTmux.Server.ClearPromptHistoryAsync(PromptType?,CancellationToken)` | `Task LibTmux.Server.ClearPromptHistoryAsync(PromptType? type = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs ClearPromptHistory. |
@@ -1325,7 +1326,6 @@ internal static class Program
 | `M:LibTmux.Server.CreateOwnedAsync(ServerConnectionOptions?,CancellationToken)` | `static Task<OwnedServerScope> LibTmux.Server.CreateOwnedAsync(ServerConnectionOptions? options = null, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Creates and owns an isolated tmux server. |
 | `M:LibTmux.Server.CreateOwnedSessionAsync(NewSessionRequest?,CancellationToken)` | `Task<OwnedSessionScope> LibTmux.Server.CreateOwnedSessionAsync(NewSessionRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Creates a session and returns an explicitly owned cleanup scope. |
 | `M:LibTmux.Server.CreateSessionAsync(NewSessionRequest?,CancellationToken)` | `Task<Session> LibTmux.Server.CreateSessionAsync(NewSessionRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs CreateSession. |
-| `M:LibTmux.Server.DeleteBufferAsync(string?,CancellationToken)` | `Task LibTmux.Server.DeleteBufferAsync(string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs DeleteBuffer. |
 | `M:LibTmux.Server.DetachAllClientsAsync(string?,string?,CancellationToken)` | `Task LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCommand = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs DetachAllClients. |
 | `M:LibTmux.Server.DetachClientAsync(string?,string?,CancellationToken)` | `Task LibTmux.Server.DetachClientAsync(string? targetClient = null, string? shellCommand = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs DetachClient. |
 | `M:LibTmux.Server.DisplayMessageAsync(DisplayMessageRequest,CancellationToken)` | `Task<IReadOnlyList<string>?> LibTmux.Server.DisplayMessageAsync(DisplayMessageRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs DisplayMessage. |
@@ -1336,12 +1336,8 @@ internal static class Program
 | `M:LibTmux.Server.FindWindowAsync(WindowId,CancellationToken)` | `Task<Window?> LibTmux.Server.FindWindowAsync(WindowId id, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Reads materialized scalar state, returning null only when a successful lookup finds no match. |
 | `M:LibTmux.Server.FromEnvironment(IReadOnlyDictionary<string,string>?)` | `static Server LibTmux.Server.FromEnvironment(IReadOnlyDictionary<string,string>? environment = null)` | Public | Yes | Portable | Parses a tmux endpoint from an environment snapshot without starting a process. |
 | `M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)` | `Task<IReadOnlyList<Session>> LibTmux.Server.GetAttachedSessionsAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Reads the live collection and preserves failures, including an absent daemon. List error policy: loud. |
-| `M:LibTmux.Server.GetBufferAsync(string?,CancellationToken)` | `Task<string> LibTmux.Server.GetBufferAsync(string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetBuffer. |
-| `M:LibTmux.Server.GetBufferLinesAsync(ListBuffersRequest?,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.Server.GetBufferLinesAsync(ListBuffersRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetBufferLines. |
-| `M:LibTmux.Server.GetBuffersAsync(CancellationToken)` | `Task<IReadOnlyList<TmuxBuffer>> LibTmux.Server.GetBuffersAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Gets typed paste-buffer snapshots using the canonical projection. |
 | `M:LibTmux.Server.GetClientsAsync(CancellationToken)` | `Task<IReadOnlyList<Client>> LibTmux.Server.GetClientsAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Reads the live collection and preserves failures, including an absent daemon. List error policy: loud. |
 | `M:LibTmux.Server.GetCommandsAsync(string?,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.Server.GetCommandsAsync(string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetCommands. |
-| `M:LibTmux.Server.GetKeysAsync(string?,string?,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.Server.GetKeysAsync(string? keyTable = null, string? format = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetKeys. |
 | `M:LibTmux.Server.GetMessagesAsync(string?,ShowMessagesMode,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.Server.GetMessagesAsync(string? targetClient = null, ShowMessagesMode mode = ShowMessagesMode.Messages, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetMessages. |
 | `M:LibTmux.Server.GetPaneAsync(PaneId,CancellationToken)` | `Task<Pane> LibTmux.Server.GetPaneAsync(PaneId id, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Reads materialized scalar state, throwing TmuxObjectNotFoundException when absent. |
 | `M:LibTmux.Server.GetPanesAsync(CancellationToken)` | `Task<IReadOnlyList<Pane>> LibTmux.Server.GetPanesAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Reads the live collection and preserves failures, including an absent daemon. List error policy: loud. |
@@ -1355,18 +1351,15 @@ internal static class Program
 | `M:LibTmux.Server.IsAliveAsync(CancellationToken)` | `Task<bool> LibTmux.Server.IsAliveAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs IsAlive. |
 | `M:LibTmux.Server.KillAsync(CancellationToken)` | `Task LibTmux.Server.KillAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Kill. |
 | `M:LibTmux.Server.KillSessionAsync(string,CancellationToken)` | `Task LibTmux.Server.KillSessionAsync(string target, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs KillSession. |
-| `M:LibTmux.Server.LoadBufferAsync(string,string?,CancellationToken)` | `Task LibTmux.Server.LoadBufferAsync(string path, string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs LoadBuffer. |
 | `M:LibTmux.Server.LockAsync(CancellationToken)` | `Task LibTmux.Server.LockAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Lock. |
 | `M:LibTmux.Server.LockClientAsync(string?,CancellationToken)` | `Task LibTmux.Server.LockClientAsync(string? targetClient = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs LockClient. |
 | `M:LibTmux.Server.Open(ServerConnectionOptions?)` | `static Server LibTmux.Server.Open(ServerConnectionOptions? options = null)` | Public | Yes | Portable | Opens an unmaterialized connection handle without starting a process. |
 | `M:LibTmux.Server.OpenWaitChannel(String)` | `TmuxWaitChannel LibTmux.Server.OpenWaitChannel(string channel)` | Public | No | `UnsupportedOSPlatform("windows")` | Opens a wait that survives a timed attempt. |
 | `M:LibTmux.Server.RefreshClientAsync(string?,bool,CancellationToken)` | `Task LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RefreshClient. |
 | `M:LibTmux.Server.RunShellAsync(RunShellRequest,CancellationToken)` | `Task<IReadOnlyList<string>?> LibTmux.Server.RunShellAsync(RunShellRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs RunShell. |
-| `M:LibTmux.Server.SaveBufferAsync(string,string?,bool,CancellationToken)` | `Task LibTmux.Server.SaveBufferAsync(string path, string? name = null, bool append = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SaveBuffer. |
 | `M:LibTmux.Server.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)` | `Task<IReadOnlyList<Pane>> LibTmux.Server.SearchPanesAsync(UnsafeTmuxFilter filter, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs a loud native panes search. |
 | `M:LibTmux.Server.SearchSessionsAsync(UnsafeTmuxFilter,CancellationToken)` | `Task<IReadOnlyList<Session>> LibTmux.Server.SearchSessionsAsync(UnsafeTmuxFilter filter, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs a loud native sessions search. |
 | `M:LibTmux.Server.SearchWindowsAsync(UnsafeTmuxFilter,CancellationToken)` | `Task<IReadOnlyList<Window>> LibTmux.Server.SearchWindowsAsync(UnsafeTmuxFilter filter, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs a loud native windows search. |
-| `M:LibTmux.Server.SetBufferAsync(string,string?,bool,CancellationToken)` | `Task LibTmux.Server.SetBufferAsync(string data, string? name = null, bool append = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SetBuffer. |
 | `M:LibTmux.Server.ShowCommandPromptAsync(CommandPromptRequest,CancellationToken)` | `Task LibTmux.Server.ShowCommandPromptAsync(CommandPromptRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs ShowCommandPrompt. |
 | `M:LibTmux.Server.ShowMenuAsync(DisplayMenuRequest,CancellationToken)` | `Task LibTmux.Server.ShowMenuAsync(DisplayMenuRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs ShowMenu. |
 | `M:LibTmux.Server.SourceFileAsync(string,bool,bool,bool,CancellationToken)` | `Task LibTmux.Server.SourceFileAsync(string path, bool quiet = false, bool parseOnly = false, bool verbose = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SourceFile. |
@@ -1374,16 +1367,17 @@ internal static class Program
 | `M:LibTmux.Server.SuspendClientAsync(string?,CancellationToken)` | `Task LibTmux.Server.SuspendClientAsync(string? targetClient = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SuspendClient. |
 | `M:LibTmux.Server.SwitchClientAsync(string,CancellationToken)` | `Task LibTmux.Server.SwitchClientAsync(string targetSession, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SwitchClient. |
 | `M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)` | `Task LibTmux.Server.ThrowIfDeadAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Throws unless a tmux server is answering. |
-| `M:LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest,CancellationToken)` | `Task LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs UnbindKey. |
 | `M:LibTmux.Server.WaitForAsync(WaitForRequest,CancellationToken)` | `Task LibTmux.Server.WaitForAsync(WaitForRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs WaitFor. |
 | `M:LibTmux.Server.op_Equality(Server?,Server?)` | `static bool operator ==(Server? left, Server? right)` | Public | Yes | Portable | Reports whether two handles reach the same server endpoint. |
 | `M:LibTmux.Server.op_Inequality(Server?,Server?)` | `static bool operator !=(Server? left, Server? right)` | Public | Yes | Portable | Reports whether two handles reach different server endpoints. |
+| `P:LibTmux.Server.Buffers` | `TmuxBuffers LibTmux.Server.Buffers { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the paste buffers of this server. |
 | `P:LibTmux.Server.Clients` | `CapturedRelation<Client> LibTmux.Server.Clients { get; }` | Public | No | Portable | Gets the captured Clients value. |
 | `P:LibTmux.Server.ConnectionOptions` | `ServerConnectionOptions LibTmux.Server.ConnectionOptions { get; }` | Public | No | Portable | Gets the captured ConnectionOptions value. |
 | `P:LibTmux.Server.Environment` | `TmuxEnvironment LibTmux.Server.Environment { get; }` | Public | No | Portable | Gets the captured Environment value. |
 | `P:LibTmux.Server.Generation` | `ServerGeneration? LibTmux.Server.Generation { get; }` | Public | No | Portable | Gets the captured Generation value. |
 | `P:LibTmux.Server.Hooks` | `TmuxHooks LibTmux.Server.Hooks { get; }` | Public | No | Portable | Gets the captured Hooks value. |
 | `P:LibTmux.Server.IsMaterialized` | `bool LibTmux.Server.IsMaterialized { get; }` | Public | No | Portable | Gets the captured IsMaterialized value. |
+| `P:LibTmux.Server.Keys` | `TmuxKeys LibTmux.Server.Keys { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the key bindings of this server. |
 | `P:LibTmux.Server.Options` | `TmuxOptions LibTmux.Server.Options { get; }` | Public | No | Portable | Gets the captured Options value. |
 | `P:LibTmux.Server.Panes` | `CapturedRelation<Pane> LibTmux.Server.Panes { get; }` | Public | No | Portable | Gets the captured Panes value. |
 | `P:LibTmux.Server.Sessions` | `CapturedRelation<Session> LibTmux.Server.Sessions { get; }` | Public | No | Portable | Gets the captured Sessions value. |
@@ -1689,6 +1683,18 @@ internal static class Program
 | `P:LibTmux.TmuxBuffer.Sample` | `string? LibTmux.TmuxBuffer.Sample { get; }` | Public | No | Portable | Gets Sample. |
 | `P:LibTmux.TmuxBuffer.Size` | `long LibTmux.TmuxBuffer.Size { get; }` | Public | No | Portable | Gets Size. |
 
+### `T:LibTmux.TmuxBuffers`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxBuffers.DeleteAsync(string?,CancellationToken)` | `Task LibTmux.TmuxBuffers.DeleteAsync(string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Delete. |
+| `M:LibTmux.TmuxBuffers.GetAllAsync(CancellationToken)` | `Task<IReadOnlyList<TmuxBuffer>> LibTmux.TmuxBuffers.GetAllAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetAll. |
+| `M:LibTmux.TmuxBuffers.GetAsync(string?,CancellationToken)` | `Task<string> LibTmux.TmuxBuffers.GetAsync(string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Get. |
+| `M:LibTmux.TmuxBuffers.GetLinesAsync(ListBuffersRequest?,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.TmuxBuffers.GetLinesAsync(ListBuffersRequest? request = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetLines. |
+| `M:LibTmux.TmuxBuffers.LoadAsync(string,string?,CancellationToken)` | `Task LibTmux.TmuxBuffers.LoadAsync(string path, string? name = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Load. |
+| `M:LibTmux.TmuxBuffers.SaveAsync(string,string?,bool,CancellationToken)` | `Task LibTmux.TmuxBuffers.SaveAsync(string path, string? name = null, bool append = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Save. |
+| `M:LibTmux.TmuxBuffers.SetAsync(string,string?,bool,CancellationToken)` | `Task LibTmux.TmuxBuffers.SetAsync(string data, string? name = null, bool append = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Set. |
+
 ### `T:LibTmux.TmuxChain`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -1858,6 +1864,14 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.TmuxInvocation.#ctor(IReadOnlyList<string>)` | `TmuxInvocation(IReadOnlyList<string> arguments)` | Public | No | Portable | Creates TmuxInvocation. |
 | `P:LibTmux.TmuxInvocation.Arguments` | `IReadOnlyList<string> LibTmux.TmuxInvocation.Arguments { get; }` | Public | No | Portable | Gets the arguments tmux receives. |
+
+### `T:LibTmux.TmuxKeys`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxKeys.BindAsync(BindKeyRequest,CancellationToken)` | `Task LibTmux.TmuxKeys.BindAsync(BindKeyRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Bind. |
+| `M:LibTmux.TmuxKeys.GetAllAsync(string?,string?,CancellationToken)` | `Task<IReadOnlyList<string>> LibTmux.TmuxKeys.GetAllAsync(string? keyTable = null, string? format = null, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs GetAll. |
+| `M:LibTmux.TmuxKeys.UnbindAsync(UnbindKeyRequest,CancellationToken)` | `Task LibTmux.TmuxKeys.UnbindAsync(UnbindKeyRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Unbind. |
 
 ### `T:LibTmux.TmuxMenuItem`
 

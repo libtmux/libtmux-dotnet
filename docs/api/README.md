@@ -97,6 +97,7 @@ modes differ.
 | `LibTmux.StaleServerGenerationException` | Reports a stale server generation. |
 | `LibTmux.SwapPaneRequest` | Describes one swap-pane invocation. |
 | `LibTmux.TmuxBuffer` | One tmux paste buffer. |
+| `LibTmux.TmuxBuffers` | The paste buffers of one server. |
 | `LibTmux.TmuxChain` | Commands tmux runs together, in one process. |
 | `LibTmux.TmuxChaining` | Runs a request on its own, as a chain of one command. |
 | `LibTmux.TmuxCleanupException` | Reports a failure to clean up a canceled tmux client. |
@@ -117,6 +118,7 @@ modes differ.
 | `LibTmux.TmuxHooks` | The hooks of one server, session, window, or pane. |
 | `LibTmux.TmuxInterceptor` | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. |
 | `LibTmux.TmuxInvocation` | One tmux invocation, as a sees it. |
+| `LibTmux.TmuxKeys` | The key bindings of one server. |
 | `LibTmux.TmuxMenuItem` | One line of a tmux menu. |
 | `LibTmux.TmuxNotificationEvent` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException` | Reports a missing tmux object. |
@@ -289,7 +291,6 @@ modes differ.
 | `LibTmux.SelectPaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-selection request as one tmux command. |
 | `LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)` | Returns a key request as one tmux command for a pane. |
 | `LibTmux.Server.AttachSessionAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to a session on this server. |
-| `LibTmux.Server.BindKeyAsync(LibTmux.BindKeyRequest,System.Threading.CancellationToken)` | Binds a key to a tmux command. |
 | `LibTmux.Server.CaptureSnapshotAsync(LibTmux.SnapshotDepth,System.Threading.CancellationToken)` | Reads the server and answers a handle carrying what it found. |
 | `LibTmux.Server.Chain` | Begins a chain that runs its commands in one tmux invocation. |
 | `LibTmux.Server.ClearPromptHistoryAsync(System.Nullable{LibTmux.PromptType},System.Threading.CancellationToken)` | Forgets what has been typed at command prompts. |
@@ -300,7 +301,6 @@ modes differ.
 | `LibTmux.Server.CreateOwnedAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)` | Starts a server and takes ownership of it. |
 | `LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)` | Creates a session and takes ownership of it. |
 | `LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)` | Creates a session. |
-| `LibTmux.Server.DeleteBufferAsync(System.String,System.Threading.CancellationToken)` | Forgets a paste buffer. |
 | `LibTmux.Server.DetachAllClientsAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches every client except one. |
 | `LibTmux.Server.DetachClientAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches one client. |
 | `LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)` | Shows a message on a client. |
@@ -311,12 +311,8 @@ modes differ.
 | `LibTmux.Server.FindWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one window by identifier, returning null when it is absent. |
 | `LibTmux.Server.FromEnvironment(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})` | Returns the server whose pane this process was spawned in. |
 | `LibTmux.Server.GetAttachedSessionsAsync(System.Threading.CancellationToken)` | Reads every session with at least one attached client. |
-| `LibTmux.Server.GetBufferAsync(System.String,System.Threading.CancellationToken)` | Reads a paste buffer in full. |
-| `LibTmux.Server.GetBufferLinesAsync(LibTmux.ListBuffersRequest,System.Threading.CancellationToken)` | Reads the paste buffers as tmux rendered them. |
-| `LibTmux.Server.GetBuffersAsync(System.Threading.CancellationToken)` | Reads the paste buffers. |
 | `LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken)` | Reads the clients attached to this server. |
 | `LibTmux.Server.GetCommandsAsync(System.String,System.Threading.CancellationToken)` | Reads the commands this tmux knows. |
-| `LibTmux.Server.GetKeysAsync(System.String,System.String,System.Threading.CancellationToken)` | Reads the key bindings. |
 | `LibTmux.Server.GetMessagesAsync(System.String,LibTmux.ShowMessagesMode,System.Threading.CancellationToken)` | Reads what the server has been logging. |
 | `LibTmux.Server.GetPaneAsync(LibTmux.PaneId,System.Threading.CancellationToken)` | Reads one pane by identifier, throwing when it is absent. |
 | `LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)` | Reads every pane on this server. |
@@ -330,18 +326,15 @@ modes differ.
 | `LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken)` | Reports whether a tmux server is answering. |
 | `LibTmux.Server.KillAsync(System.Threading.CancellationToken)` | Stops the tmux server. |
 | `LibTmux.Server.KillSessionAsync(System.String,System.Threading.CancellationToken)` | Stops one session. |
-| `LibTmux.Server.LoadBufferAsync(System.String,System.String,System.Threading.CancellationToken)` | Puts a file's contents into a paste buffer. |
 | `LibTmux.Server.LockAsync(System.Threading.CancellationToken)` | Locks every client attached to this server. |
 | `LibTmux.Server.LockClientAsync(System.String,System.Threading.CancellationToken)` | Locks one client. |
 | `LibTmux.Server.Open(LibTmux.ServerConnectionOptions)` | Opens an unmaterialized server connection handle. |
 | `LibTmux.Server.OpenWaitChannel(System.String)` | Opens a wait on a channel that survives a timed attempt. |
 | `LibTmux.Server.RefreshClientAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Redraws one client. |
 | `LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest,System.Threading.CancellationToken)` | Runs a shell command and reports what it printed. |
-| `LibTmux.Server.SaveBufferAsync(System.String,System.String,System.Boolean,System.Threading.CancellationToken)` | Writes a paste buffer to a file. |
 | `LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every pane. |
 | `LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every session. |
 | `LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every window. |
-| `LibTmux.Server.SetBufferAsync(System.String,System.String,System.Boolean,System.Threading.CancellationToken)` | Puts text into a paste buffer. |
 | `LibTmux.Server.ShowCommandPromptAsync(LibTmux.CommandPromptRequest,System.Threading.CancellationToken)` | Asks a client for input and runs a command with the answer. |
 | `LibTmux.Server.ShowMenuAsync(LibTmux.DisplayMenuRequest,System.Threading.CancellationToken)` | Shows a menu on a client. |
 | `LibTmux.Server.SourceFileAsync(System.String,System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)` | Reads a tmux configuration file. |
@@ -349,7 +342,6 @@ modes differ.
 | `LibTmux.Server.SuspendClientAsync(System.String,System.Threading.CancellationToken)` | Suspends one client. |
 | `LibTmux.Server.SwitchClientAsync(System.String,System.Threading.CancellationToken)` | Switches the caller's client to another session. |
 | `LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
-| `LibTmux.Server.UnbindKeyAsync(LibTmux.UnbindKeyRequest,System.Threading.CancellationToken)` | Removes a key binding. |
 | `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, locks, or unlocks a tmux channel. |
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
 | `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
@@ -402,6 +394,13 @@ modes differ.
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.SwapPaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-swap request as one tmux command. |
 | `LibTmux.TmuxBuffer.#ctor(System.String,System.Int64,System.String)` | Initializes one buffer. |
+| `LibTmux.TmuxBuffers.DeleteAsync(System.String,System.Threading.CancellationToken)` | Forgets a buffer. |
+| `LibTmux.TmuxBuffers.GetAllAsync(System.Threading.CancellationToken)` | Reads every buffer. |
+| `LibTmux.TmuxBuffers.GetAsync(System.String,System.Threading.CancellationToken)` | Reads a buffer in full. |
+| `LibTmux.TmuxBuffers.GetLinesAsync(LibTmux.ListBuffersRequest,System.Threading.CancellationToken)` | Reads the buffers as tmux rendered them. |
+| `LibTmux.TmuxBuffers.LoadAsync(System.String,System.String,System.Threading.CancellationToken)` | Puts a file's contents into a buffer. |
+| `LibTmux.TmuxBuffers.SaveAsync(System.String,System.String,System.Boolean,System.Threading.CancellationToken)` | Writes a buffer to a file. |
+| `LibTmux.TmuxBuffers.SetAsync(System.String,System.String,System.Boolean,System.Threading.CancellationToken)` | Puts text into a buffer. |
 | `LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | Runs every command in one tmux invocation. |
 | `LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | Adds one command and returns the longer chain. |
 | `LibTmux.TmuxChain.Then(System.Collections.Generic.IEnumerable{LibTmux.TmuxCommand})` | Adds every command in order and returns the longer chain. |
@@ -441,6 +440,9 @@ modes differ.
 | `LibTmux.TmuxHooks.SetAsync(LibTmux.SetHooksRequest,System.Threading.CancellationToken)` | Sets several entries of one hook. |
 | `LibTmux.TmuxHooks.UnsetAsync(LibTmux.HookRequest,System.Threading.CancellationToken)` | Removes a hook. |
 | `LibTmux.TmuxInvocation.#ctor(System.Collections.Generic.IReadOnlyList{System.String})` | Initializes an invocation. |
+| `LibTmux.TmuxKeys.BindAsync(LibTmux.BindKeyRequest,System.Threading.CancellationToken)` | Binds a key to a tmux command. |
+| `LibTmux.TmuxKeys.GetAllAsync(System.String,System.String,System.Threading.CancellationToken)` | Reads the bindings as tmux rendered them. |
+| `LibTmux.TmuxKeys.UnbindAsync(LibTmux.UnbindKeyRequest,System.Threading.CancellationToken)` | Removes a binding, or every binding in a table. |
 | `LibTmux.TmuxMenuItem.#ctor(System.String,System.String,System.String)` | Initializes one menu item. |
 | `LibTmux.TmuxNotificationEvent.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException.#ctor(System.String,System.String,System.Exception)` | Initializes a missing-object exception. |
@@ -858,12 +860,14 @@ modes differ.
 | `LibTmux.SendKeysRequest.SuppressHistory` | Gets whether the shell is asked not to record the line. |
 | `LibTmux.SendKeysRequest.TargetClient` | Gets the client whose keys are sent. |
 | `LibTmux.SendKeysRequest.Text` | Gets the text or key names to send. |
+| `LibTmux.Server.Buffers` | Gets the paste buffers of this server. |
 | `LibTmux.Server.Clients` | Gets the clients this handle captured. |
 | `LibTmux.Server.ConnectionOptions` | Gets the connection options. |
 | `LibTmux.Server.Environment` | Gets the environment new sessions inherit from. |
 | `LibTmux.Server.Generation` | Gets the materialized server generation. |
 | `LibTmux.Server.Hooks` | Gets the hooks of this server. |
 | `LibTmux.Server.IsMaterialized` | Gets whether this handle has discovered a live server. |
+| `LibTmux.Server.Keys` | Gets the key bindings of this server. |
 | `LibTmux.Server.Options` | Gets the options of this server. |
 | `LibTmux.Server.Panes` | Gets the panes this handle captured, across every window. |
 | `LibTmux.Server.Sessions` | Gets the sessions this handle captured. |

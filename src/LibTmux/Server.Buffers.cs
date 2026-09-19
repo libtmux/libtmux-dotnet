@@ -5,13 +5,8 @@ namespace LibTmux;
 
 public sealed partial class Server
 {
-    /// <summary>Puts text into a paste buffer.</summary>
-    /// <param name="data">The text to store.</param>
-    /// <param name="name">The buffer name, or null for a new one.</param>
-    /// <param name="append">Whether the text joins what is already there.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public Task SetBufferAsync(
+    internal Task SetBufferAsync(
         string data,
         string? name = null,
         bool append = false,
@@ -25,12 +20,8 @@ public sealed partial class Server
         return RunUtilityAsync(arguments, cancellationToken);
     }
 
-    /// <summary>Puts a file's contents into a paste buffer.</summary>
-    /// <param name="path">The file to read.</param>
-    /// <param name="name">The buffer name, or null for a new one.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public Task LoadBufferAsync(
+    internal Task LoadBufferAsync(
         string path,
         string? name = null,
         CancellationToken cancellationToken = default)
@@ -42,13 +33,8 @@ public sealed partial class Server
         return RunUtilityAsync(arguments, cancellationToken);
     }
 
-    /// <summary>Writes a paste buffer to a file.</summary>
-    /// <param name="path">The file to write.</param>
-    /// <param name="name">The buffer to write, or null for the most recent.</param>
-    /// <param name="append">Whether the buffer joins what the file already holds.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public Task SaveBufferAsync(
+    internal Task SaveBufferAsync(
         string path,
         string? name = null,
         bool append = false,
@@ -62,12 +48,8 @@ public sealed partial class Server
         return RunUtilityAsync(arguments, cancellationToken);
     }
 
-    /// <summary>Reads a paste buffer in full.</summary>
-    /// <param name="name">The buffer to read, or null for the most recent.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>Everything the buffer holds.</returns>
     [UnsupportedOSPlatform("windows")]
-    public async Task<string> GetBufferAsync(
+    internal async Task<string> GetBufferAsync(
         string? name = null,
         CancellationToken cancellationToken = default)
     {
@@ -78,11 +60,8 @@ public sealed partial class Server
         return string.Join('\n', lines);
     }
 
-    /// <summary>Forgets a paste buffer.</summary>
-    /// <param name="name">The buffer to forget, or null for the most recent.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public Task DeleteBufferAsync(
+    internal Task DeleteBufferAsync(
         string? name = null,
         CancellationToken cancellationToken = default)
     {
@@ -100,21 +79,14 @@ public sealed partial class Server
         return arguments;
     }
 
-    /// <summary>Reads the paste buffers.</summary>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>Every buffer, with its size and a sample of its contents.</returns>
     [UnsupportedOSPlatform("windows")]
-    public async Task<IReadOnlyList<TmuxBuffer>> GetBuffersAsync(
+    internal async Task<IReadOnlyList<TmuxBuffer>> GetBuffersAsync(
         CancellationToken cancellationToken = default) =>
         ServerUtilities.ReadBuffers(
             await ReadUtilityAsync(["list-buffers"], cancellationToken).ConfigureAwait(false));
 
-    /// <summary>Reads the paste buffers as tmux rendered them.</summary>
-    /// <param name="request">The format and filter, or null for tmux's own.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>One line per buffer.</returns>
     [UnsupportedOSPlatform("windows")]
-    public async Task<IReadOnlyList<string>> GetBufferLinesAsync(
+    internal async Task<IReadOnlyList<string>> GetBufferLinesAsync(
         ListBuffersRequest? request = null,
         CancellationToken cancellationToken = default)
     {

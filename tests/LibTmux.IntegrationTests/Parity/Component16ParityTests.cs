@@ -89,30 +89,30 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesBindAsync(Server server, CancellationToken token)
     {
-        await server.BindKeyAsync(
+        await server.Keys.BindAsync(
             new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
-        return (await server.GetKeysAsync("root", cancellationToken: token))
+        return (await server.Keys.GetAllAsync("root", cancellationToken: token))
             .Any(line => line.Contains("F12", StringComparison.Ordinal));
     }
 
     private static async Task<bool> ProvesUnbindAsync(Server server, CancellationToken token)
     {
-        await server.BindKeyAsync(
+        await server.Keys.BindAsync(
             new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F12", KeyTable = "root" }, token);
-        return !(await server.GetKeysAsync("root", cancellationToken: token))
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F12", KeyTable = "root" }, token);
+        return !(await server.Keys.GetAllAsync("root", cancellationToken: token))
             .Any(line => line.Contains("F12", StringComparison.Ordinal));
     }
 
     private static async Task<bool> ProvesListKeysAsync(Server server, CancellationToken token)
     {
-        IReadOnlyList<string> all = await server.GetKeysAsync(cancellationToken: token);
+        IReadOnlyList<string> all = await server.Keys.GetAllAsync(cancellationToken: token);
         Assert.NotEmpty(all);
 
         // Naming a table narrows the answer to that table's bindings.
-        IReadOnlyList<string> root = await server.GetKeysAsync("root", cancellationToken: token);
+        IReadOnlyList<string> root = await server.Keys.GetAllAsync("root", cancellationToken: token);
         return root.Count > 0 && root.Count < all.Count;
     }
 
@@ -331,45 +331,45 @@ public sealed class Component16ParityTests
 
     private static async Task<bool> ProvesSetBufferAsync(Server server, CancellationToken token)
     {
-        await server.SetBufferAsync("head", "libtmux-parity", cancellationToken: token);
-        await server.SetBufferAsync(
+        await server.Buffers.SetAsync("head", "libtmux-parity", cancellationToken: token);
+        await server.Buffers.SetAsync(
             " and tail",
             "libtmux-parity",
             append: true,
             cancellationToken: token);
-        return await server.GetBufferAsync("libtmux-parity", token) == "head and tail";
+        return await server.Buffers.GetAsync("libtmux-parity", token) == "head and tail";
     }
 
     private static async Task<bool> ProvesShowBufferAsync(Server server, CancellationToken token)
     {
-        await server.SetBufferAsync("read me", "libtmux-parity", cancellationToken: token);
-        Assert.Equal("read me", await server.GetBufferAsync("libtmux-parity", token));
+        await server.Buffers.SetAsync("read me", "libtmux-parity", cancellationToken: token);
+        Assert.Equal("read me", await server.Buffers.GetAsync("libtmux-parity", token));
 
         // A buffer nobody set cannot be read.
         await Assert.ThrowsAsync<TmuxCommandException>(
-            () => server.GetBufferAsync("libtmux-absent", token));
+            () => server.Buffers.GetAsync("libtmux-absent", token));
         return true;
     }
 
     private static async Task<bool> ProvesDeleteBufferAsync(Server server, CancellationToken token)
     {
-        await server.SetBufferAsync("temporary", "libtmux-parity", cancellationToken: token);
-        await server.DeleteBufferAsync("libtmux-parity", token);
-        return !(await server.GetBuffersAsync(token)).Any(
+        await server.Buffers.SetAsync("temporary", "libtmux-parity", cancellationToken: token);
+        await server.Buffers.DeleteAsync("libtmux-parity", token);
+        return !(await server.Buffers.GetAllAsync(token)).Any(
             buffer => buffer.Name == "libtmux-parity");
     }
 
     private static async Task<bool> ProvesListBuffersAsync(Server server, CancellationToken token)
     {
-        Assert.Empty(await server.GetBuffersAsync(token));
-        await server.SetBufferAsync("listed", "libtmux-parity", cancellationToken: token);
+        Assert.Empty(await server.Buffers.GetAllAsync(token));
+        await server.Buffers.SetAsync("listed", "libtmux-parity", cancellationToken: token);
 
-        TmuxBuffer buffer = Assert.Single(await server.GetBuffersAsync(token));
+        TmuxBuffer buffer = Assert.Single(await server.Buffers.GetAllAsync(token));
         Assert.Equal("libtmux-parity", buffer.Name);
         Assert.Equal(6, buffer.Size);
 
         // A format renders each buffer the caller's way instead.
-        return (await server.GetBufferLinesAsync(new ListBuffersRequest { Format = "#{buffer_name}" }, token))
+        return (await server.Buffers.GetLinesAsync(new ListBuffersRequest { Format = "#{buffer_name}" }, token))
             .SequenceEqual(["libtmux-parity"], StringComparer.Ordinal);
     }
 
@@ -378,13 +378,13 @@ public sealed class Component16ParityTests
         string directory = Directory.CreateTempSubdirectory("libtmux-parity").FullName;
         try
         {
-            await server.SetBufferAsync("written", "libtmux-parity", cancellationToken: token);
+            await server.Buffers.SetAsync("written", "libtmux-parity", cancellationToken: token);
             string path = Path.Combine(directory, "buffer.txt");
-            await server.SaveBufferAsync(path, "libtmux-parity", cancellationToken: token);
+            await server.Buffers.SaveAsync(path, "libtmux-parity", cancellationToken: token);
             Assert.Equal("written", (await File.ReadAllTextAsync(path, token)).TrimEnd('\n'));
 
-            await server.LoadBufferAsync(path, "libtmux-loaded", token);
-            return (await server.GetBufferAsync("libtmux-loaded", token)).TrimEnd('\n') == "written";
+            await server.Buffers.LoadAsync(path, "libtmux-loaded", token);
+            return (await server.Buffers.GetAsync("libtmux-loaded", token)).TrimEnd('\n') == "written";
         }
         finally
         {

@@ -366,7 +366,7 @@ internal sealed partial class WriteTools
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
+                await server.Buffers.SetAsync(payload, buffer, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 bufferMayExist = true;
             }
@@ -448,7 +448,7 @@ internal sealed partial class WriteTools
         using var cleanup = new CancellationTokenSource(PasteBufferCleanupTimeout);
         try
         {
-            await server.DeleteBufferAsync(buffer, cleanup.Token).ConfigureAwait(false);
+            await server.Buffers.DeleteAsync(buffer, cleanup.Token).ConfigureAwait(false);
             return null;
         }
         catch (Exception cleanupFailure)

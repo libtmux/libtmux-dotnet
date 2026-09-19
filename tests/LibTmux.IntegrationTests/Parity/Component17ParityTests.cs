@@ -146,7 +146,7 @@ public sealed class Component17ParityTests
         await session.Hooks.SetAsync(
             new SetHookRequest("alert-bell", "display-message rang"),
             token);
-        await server.SetBufferAsync("recorded", "libtmux-recorded", cancellationToken: token);
+        await server.Buffers.SetAsync("recorded", "libtmux-recorded", cancellationToken: token);
 
         Assert.Contains("set-option", logger.Subcommands);
         Assert.Contains("set-hook", logger.Subcommands);

@@ -22,18 +22,18 @@ public sealed class ServerUtilitiesTests
         // A binding is readable back out of the table it was put in. tmux only
         // lists the tables it already knows, so the binding goes in one of
         // those rather than in a table of its own.
-        await server.BindKeyAsync(
+        await server.Keys.BindAsync(
             new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
         Assert.Contains(
-            await server.GetKeysAsync("root", cancellationToken: token),
+            await server.Keys.GetAllAsync("root", cancellationToken: token),
             line => line.Contains("F12", StringComparison.Ordinal));
 
         // A buffer holds what it was given and gives it back whole.
-        await server.SetBufferAsync("first payload", "libtmux-buffer", cancellationToken: token);
-        Assert.Equal("first payload", await server.GetBufferAsync("libtmux-buffer", token));
+        await server.Buffers.SetAsync("first payload", "libtmux-buffer", cancellationToken: token);
+        Assert.Equal("first payload", await server.Buffers.GetAsync("libtmux-buffer", token));
         Assert.Contains(
-            await server.GetBuffersAsync(token),
+            await server.Buffers.GetAllAsync(token),
             buffer => buffer.Name == "libtmux-buffer" && buffer.Size == 13);
 
         // A shell command runs, and where tmux hands its output back it is the
@@ -182,7 +182,7 @@ public sealed class ServerUtilitiesTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        await server.BindKeyAsync(
+        await server.Keys.BindAsync(
             new BindKeyRequest("F11", ["display-message", "noted"])
             {
                 KeyTable = "root",
@@ -191,31 +191,31 @@ public sealed class ServerUtilitiesTests
             },
             token);
 
-        IReadOnlyList<string> bound = await server.GetKeysAsync("root", cancellationToken: token);
+        IReadOnlyList<string> bound = await server.Keys.GetAllAsync("root", cancellationToken: token);
         Assert.Contains(bound, line => line.Contains("F11", StringComparison.Ordinal));
 
         // Unbinding one key leaves the table's other bindings alone.
-        await server.BindKeyAsync(
+        await server.Keys.BindAsync(
             new BindKeyRequest("F10", ["display-message", "kept"]) { KeyTable = "root" },
             token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F11", KeyTable = "root" }, token);
-        IReadOnlyList<string> after = await server.GetKeysAsync("root", cancellationToken: token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F11", KeyTable = "root" }, token);
+        IReadOnlyList<string> after = await server.Keys.GetAllAsync("root", cancellationToken: token);
         Assert.DoesNotContain(after, line => line.Contains("F11", StringComparison.Ordinal));
         Assert.Contains(after, line => line.Contains("F10", StringComparison.Ordinal));
 
         // Unbinding a key nobody bound is not an error: tmux treats the
         // binding's absence as the state that was asked for.
-        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root" }, token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root", Quiet = true }, token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root" }, token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root", Quiet = true }, token);
 
         // Removing them all empties the table.
-        await server.UnbindKeyAsync(new UnbindKeyRequest { All = true, KeyTable = "root" }, token);
-        Assert.Empty(await server.GetKeysAsync("root", cancellationToken: token));
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { All = true, KeyTable = "root" }, token);
+        Assert.Empty(await server.Keys.GetAllAsync("root", cancellationToken: token));
 
         // A request that names no key and does not ask for all of them cannot
         // mean anything, so it never reaches tmux.
         await Assert.ThrowsAsync<ArgumentException>(
-            () => server.UnbindKeyAsync(new UnbindKeyRequest(), token));
+            () => server.Keys.UnbindAsync(new UnbindKeyRequest(), token));
         Assert.Throws<ArgumentException>(() => new BindKeyRequest("F1", []));
     }
 
@@ -274,40 +274,40 @@ public sealed class ServerUtilitiesTests
 
         try
         {
-            await server.SetBufferAsync("head", "libtmux-buffer", cancellationToken: token);
-            await server.SetBufferAsync(
+            await server.Buffers.SetAsync("head", "libtmux-buffer", cancellationToken: token);
+            await server.Buffers.SetAsync(
                 " and tail",
                 "libtmux-buffer",
                 append: true,
                 cancellationToken: token);
-            Assert.Equal("head and tail", await server.GetBufferAsync("libtmux-buffer", token));
+            Assert.Equal("head and tail", await server.Buffers.GetAsync("libtmux-buffer", token));
 
             // A buffer written out and read back in is the same buffer.
             string path = Path.Combine(directory, "buffer.txt");
-            await server.SaveBufferAsync(path, "libtmux-buffer", cancellationToken: token);
+            await server.Buffers.SaveAsync(path, "libtmux-buffer", cancellationToken: token);
             Assert.Equal("head and tail", (await File.ReadAllTextAsync(path, token)).TrimEnd('\n'));
-            await server.LoadBufferAsync(path, "libtmux-loaded", token);
-            Assert.Equal("head and tail", (await server.GetBufferAsync("libtmux-loaded", token)).TrimEnd('\n'));
+            await server.Buffers.LoadAsync(path, "libtmux-loaded", token);
+            Assert.Equal("head and tail", (await server.Buffers.GetAsync("libtmux-loaded", token)).TrimEnd('\n'));
 
             // Listing reports every buffer with what it holds.
-            IReadOnlyList<TmuxBuffer> buffers = await server.GetBuffersAsync(token);
+            IReadOnlyList<TmuxBuffer> buffers = await server.Buffers.GetAllAsync(token);
             Assert.Contains(buffers, buffer => buffer.Name == "libtmux-buffer");
             Assert.Contains(buffers, buffer => buffer.Name == "libtmux-loaded");
             Assert.All(buffers, buffer => Assert.True(buffer.Size > 0));
 
             // A format renders each buffer the caller's way instead.
-            IReadOnlyList<string> named = await server.GetBufferLinesAsync(
+            IReadOnlyList<string> named = await server.Buffers.GetLinesAsync(
                 new ListBuffersRequest { Format = "#{buffer_name}" },
                 token);
             Assert.Contains("libtmux-buffer", named);
 
             // Deleting one leaves the other.
-            await server.DeleteBufferAsync("libtmux-buffer", token);
+            await server.Buffers.DeleteAsync("libtmux-buffer", token);
             Assert.DoesNotContain(
-                await server.GetBuffersAsync(token),
+                await server.Buffers.GetAllAsync(token),
                 buffer => buffer.Name == "libtmux-buffer");
             await Assert.ThrowsAsync<TmuxCommandException>(
-                () => server.GetBufferAsync("libtmux-buffer", token));
+                () => server.Buffers.GetAsync("libtmux-buffer", token));
         }
         finally
         {
@@ -591,7 +591,7 @@ public sealed class ServerUtilitiesTests
     public Task ListKeysFormatVersionPolicy() =>
         ProvesWarnAndOmitAsync(
             ServerUtilities.ListKeysFormatCapability,
-            (server, token) => server.GetKeysAsync(
+            (server, token) => server.Keys.GetAllAsync(
                 format: "#{key_table}",
                 cancellationToken: token));
 

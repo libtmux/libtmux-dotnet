@@ -281,13 +281,13 @@ public sealed class TmuxChainTests
             .Then(new BindKeyRequest("F2", ["display-message", "second-bind"]).ToCommand())
             .ExecuteAsync(token);
 
-        IReadOnlyList<string> bound = await server.GetKeysAsync(cancellationToken: token);
+        IReadOnlyList<string> bound = await server.Keys.GetAllAsync(cancellationToken: token);
         Assert.Contains(bound, line => line.Contains("F1", StringComparison.Ordinal));
         Assert.Contains(bound, line => line.Contains("F2", StringComparison.Ordinal));
 
         await new UnbindKeyRequest { Key = "F1" }.ExecuteAsync(server, token);
 
-        IReadOnlyList<string> after = await server.GetKeysAsync(cancellationToken: token);
+        IReadOnlyList<string> after = await server.Keys.GetAllAsync(cancellationToken: token);
         Assert.DoesNotContain(after, line => line.Contains("F1", StringComparison.Ordinal));
         Assert.Contains(after, line => line.Contains("F2", StringComparison.Ordinal));
     }
@@ -561,7 +561,7 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        await server.SetBufferAsync("chained-paste", "ltbuf", cancellationToken: token);
+        await server.Buffers.SetAsync("chained-paste", "ltbuf", cancellationToken: token);
 
         // Pasting raw bytes arrived in 3.7, so asking for it on an older tmux
         // must drop the flag rather than send one that server refuses. The
@@ -913,7 +913,7 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        await server.SetBufferAsync("listed", "ltlist", cancellationToken: token);
+        await server.Buffers.SetAsync("listed", "ltlist", cancellationToken: token);
 
         TmuxCommandResult listed = await new ListBuffersRequest { Format = "#{buffer_name}" }
             .ExecuteAsync(server, token);
