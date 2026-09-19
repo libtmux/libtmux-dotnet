@@ -12,7 +12,102 @@ version.
 
 ### Added
 
+- Ship `tmux-workspace` as a .NET tool. It discovers, loads, captures, converts
+  and imports tmuxp workspaces, with `--json` and `--ndjson` machine output,
+  terminal load progress and generated shell completion. `freeze` writes only
+  where `--save-to` names it to, and otherwise returns the document in machine
+  output. (#26)
+- `LibTmux.Server` exposes `EndpointArguments`, `BuildGuardedCommandLine`,
+  `IsValidLayoutCandidate` and `ValidateLayoutsAsync`, and `ServerGeneration`
+  exposes `Parse` and `DisplayFormat` -- the pieces `tmux-workspace` assembles
+  a guarded command line, checks a layout candidate and addresses one server
+  generation with. (#26)
+- `load` resolves and authenticates its tmux context before building
+  anything: an attached load outside the invoking server, one aimed at a
+  `-L`/`-S` naming a different server, or an unparsable `TMUX` is refused
+  `usage`, exit 2, with nothing created. See "Commands and output" in the
+  CLI README for the exact refusal matrix. (#26)
+- With stdin a terminal, `load` asks before creating, switching to or
+  attaching a session, and `freeze`, `convert` and `import` ask before
+  overwriting a file; `--save-to` and `--force` skip the prompt. Where this
+  tool has no way to ask -- machine output, or no terminal at all --
+  `confirmation_required`, `input_required` and `input_closed` report
+  `usage`, exit 2, instead. (#26)
+- **A `load` that fails removes only the session it created.** Cancellation
+  (SIGINT/SIGTERM) is not a known failure and leaves the session standing,
+  so a cleanup path racing the same signal cannot destroy what a user can
+  see and remove. Reusing an existing session compares it against the
+  document and reports `session_mismatch` when a declared window is
+  missing; `results[]` carries one record per attempted input, each with a
+  `reused` boolean. (#26)
+- `load` matches tmuxp's window- and pane-focus and window-option semantics,
+  validates every custom and named layout before running a script or
+  changing tmux topology, and resolves YAML merge keys and inert `x-`
+  extension keys. See "Commands and output" in the CLI README for where it
+  deliberately differs from tmuxp. (#26)
+- `load`, `freeze`, `convert` and the importers share one machine-output
+  envelope under `--json`/`--ndjson`, carrying `schema_version` and
+  `status`; `freeze` answers under `workspace`, `convert` and `import`
+  under `document`. Every code is `lower_snake_case`, grouped under "Error
+  codes" in the CLI README; a refusal about how or where the command was
+  invoked is `usage`, exit 2, and an unhandled exception is
+  `internal_error`, exit 70. `--ndjson` additionally streams
+  `window-completed`/`pane-completed` events and brackets a
+  `before_script`'s output between `script-started` and `script-completed`.
+  (#26)
+- `freeze` marks the document it writes with `x-capture-lossy: true`,
+  refuses a session name `load` would reject, and reports
+  `session_not_found` against a socket whose server has not started. (#26)
+- `convert` and `import` report `invalid_workspace` for a document that
+  exists but cannot be read, the same class of problem as one that cannot
+  be parsed. `convert` quotes every string scalar a YAML 1.1 (PyYAML/tmuxp)
+  or 1.2 resolver would otherwise read back as a boolean, null, integer or
+  float. `import tmuxinator` refuses ERB templates before printing or
+  saving a workspace, since Tmuxinator expands them through Ruby and no
+  native reader does; `import teamocil` keeps the same markup as ordinary
+  text, since Teamocil evaluates no templates. (#26)
+- Attaching works on every platform LibTmux supports; the load progress
+  display and `--log-file` are verified only on Linux x64 and are omitted
+  or rejected elsewhere. (#26)
+- Generated bash, zsh and fish completion scope each flag to its own
+  subcommand, including nested ones (`import teamocil`/`import
+  tmuxinator`); global flags (`--json`, `--ndjson`, `--color`) complete
+  everywhere. (#26)
+- Every command restores the application cursor-key and keypad mode
+  (DECCKM, DECKPAM) that `System.Console` initialization enables on Unix,
+  and `--color never` leaves a real terminal free of colour. (#26)
+- `-d` always builds a new detached session, even with `--append`, matching
+  tmuxp's precedence; pass `--append` alone to append. (#26)
+
 ### Fixed
+
+- `WorkspaceBuilder` rebalances between splits, so a window of five or more
+  panes builds at 80x24 instead of failing with "no space for a new pane".
+  (#26)
+- `WorkspaceBuilder` applies a window's layout before sending any command
+  into its panes, rather than after. (#26)
+- `WorkspaceBuilder` waits for a pane's prompt under any session
+  `default-shell`, not only zsh, before sending its first command. (#26)
+- A malformed custom layout could reach tmux unchecked through
+  `Server.Chain()` or `WorkspaceBuilder`. Both now validate every layout's
+  syntax, checksum and minimum pane count through `Server.ValidateLayoutsAsync`
+  -- checked against the running daemon's version, or the client's when none
+  is running -- before anything dispatches. (#26)
+- `Server.KillSessionAsync` ends only the session with exactly that name. It
+  sent the name as a bare target, which tmux matches as a prefix, so killing
+  `doom` when only `doomsday` existed ended `doomsday` and reported success --
+  taking the server down with it if that was its last session. A name no
+  session carries now throws. (#26)
+- `Server.AttachSessionAsync` attaches only to the session with exactly that
+  name, for the same reason: a bare name attached to any session that merely
+  started with it. A session id is still addressed as given. (#26)
+- `TmuxVersion.Parse` reads a release candidate reported without a number,
+  as tmux 3.8's `3.8-rc` is, where it threw. It ranks below any numbered
+  candidate and below the release. (#26)
+- `Server.CreateSessionAsync`, `Server.HasSessionAsync` and renaming a session
+  refuse a name holding a control character, as the workspace tool already
+  did: such a name cannot round-trip through a document a person reads or
+  types. (#26)
 
 ### Changed
 
