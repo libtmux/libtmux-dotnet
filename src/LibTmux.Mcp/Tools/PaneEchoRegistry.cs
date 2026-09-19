@@ -559,12 +559,9 @@ internal static partial class PaneEchoRegistry
     internal static string WithoutEchoes(string text, IEnumerable<string> echoes)
     {
         string result = text;
-        foreach (string echo in echoes)
+        foreach (string echo in echoes.Where(echo => echo.Length > 0))
         {
-            if (echo.Length > 0)
-            {
-                result = WithoutEcho(result, echo);
-            }
+            result = WithoutEcho(result, echo);
         }
 
         return result;

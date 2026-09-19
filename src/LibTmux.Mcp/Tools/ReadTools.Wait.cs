@@ -106,9 +106,8 @@ internal sealed partial class ReadTools
                 ? recentSoFar
                 : recentSoFar.Prepend(echo.Pending);
             List<string> kept = new(lines.Count);
-            foreach (string line in lines)
+            foreach (string masked in lines.Select(line => PaneEchoRegistry.WithoutEchoes(line, echoes)))
             {
-                string masked = PaneEchoRegistry.WithoutEchoes(line, echoes);
                 if (masked.Length > 0)
                 {
                     kept.Add(masked);
