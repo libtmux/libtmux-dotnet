@@ -262,12 +262,49 @@ jobs:
           --configuration Release --no-build --framework net10.0
           -- --filter-not-class '*PackageClosureTests*' --minimum-expected-tests 400
 
+  # Windows builds but does not run tmux, so this lane proves the half that a
+  # Linux runner cannot: that the tree still compiles for a Windows consumer.
+  # Most of the public surface is [UnsupportedOSPlatform("windows")], and a
+  # consumer with warnings as errors meets CA1416 on nearly every call, so an
+  # annotation lost here is a downstream build break. It gates, unlike the
+  # advisory macOS lane: before this, the only Windows coverage ran at release
+  # time on a self-hosted runner, and a pull request could not see it at all.
+  windows:
+    name: windows x64
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        # The lock files are written on Linux and the required Linux lanes are
+        # the lock-file gate, as they are for macOS.
+        run: dotnet restore LibTmux.slnx -p:RestoreLockedMode=false
+
+      - name: Build
+        # The point of the lane. CA1416 is an error here under warnaserror.
+        run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
+
+      - name: Unit tests
+        # The tmux-driving tests carry [UnixFact] and skip themselves; what is
+        # left is every test that does not need a server, which is most of them.
+        run: >
+          dotnet test tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
+          --configuration Release --no-build --framework net10.0
+          -- --minimum-expected-tests 400
+
   # One name for branch protection to require. Without it, every job added here
   # has to be added to the protection rule too, and a job nobody remembered to
   # require is a job that can fail without blocking anything.
   gate:
     name: gate
-    needs: [build]
+    needs: [build, windows]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -278,7 +315,8 @@ jobs:
         # for statuses nobody has invented yet.
         run: |
           failed=0
-          for pair in "build:${{ needs.build.result }}"; do
+          for pair in "build:${{ needs.build.result }}" \
+                      "windows:${{ needs.windows.result }}"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             echo "${name}: ${result}"
