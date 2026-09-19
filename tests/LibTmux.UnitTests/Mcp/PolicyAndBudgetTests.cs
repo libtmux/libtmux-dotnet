@@ -133,6 +133,41 @@ public sealed class ServerPolicyTests
         }
     }
 
+    [UnixFact]
+    public void Pinning_the_executable_keeps_every_other_option()
+    {
+        // Pinning rewrites the binary path, which is the common case: "tmux"
+        // resolves to an absolute path. Everything else the embedder set has
+        // to survive it, or a command timeout set on the options passed to
+        // McpServerComposition.Add never reaches a single command.
+        string root = Directory.CreateTempSubdirectory("libtmux-pin-options-").FullName;
+        string executable = Path.Combine(root, "tmux");
+        File.WriteAllText(executable, "#!/bin/sh\nexit 0\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        string relative = Path.GetRelativePath(Environment.CurrentDirectory, executable);
+
+        try
+        {
+            ServerConnectionOptions pinned = McpServerComposition.PinExecutable(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = relative,
+                    CommandTimeout = TimeSpan.FromSeconds(7),
+                    MaxCapturedBytesPerStream = 4096,
+                    ControlModeEventBufferCapacity = 16,
+                });
+
+            Assert.Equal(executable, pinned.TmuxBinaryPath);
+            Assert.Equal(TimeSpan.FromSeconds(7), pinned.CommandTimeout);
+            Assert.Equal(4096, pinned.MaxCapturedBytesPerStream);
+            Assert.Equal(16, pinned.ControlModeEventBufferCapacity);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [UnixTheory]
     [InlineData(McpStartup.SocketVariable)]
     [InlineData(McpStartup.SocketPathVariable)]
