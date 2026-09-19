@@ -287,7 +287,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     }
                     stage = "window-finalized";
                     foreach (var option in window.OptionsAfter) await Change(["set-window-option", "-t", windowId, option.Key, OptionValue(option.Value)]).ConfigureAwait(false);
-                    if (focusedPane is not null) await Change(["select-pane", "-t", focusedPane]).ConfigureAwait(false);
+                    // With no pane declaring focus, the pane left active is
+                    // the last one created, as tmuxp leaves it.
+                    await Change(["select-pane", "-t", focusedPane ?? paneIds[^1]]).ConfigureAwait(false);
                     completedStage = stage;
                     await output.ProgressAsync(progress => progress.CompleteWindow(), force: true).ConfigureAwait(false);
                     await output.EventAsync(stage = "window-completed", new { input_index = index, session_id = session, window_id = windowId, window_index = windowOrdinal }).ConfigureAwait(false);

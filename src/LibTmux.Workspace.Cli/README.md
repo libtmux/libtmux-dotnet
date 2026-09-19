@@ -99,10 +99,11 @@ still selects the configured pane.
 
 A window with no `layout` key is tiled, not stacked: tmuxp halves the last
 pane repeatedly, giving four panes of 14, 6, 3 and 3 rows at 100x30, where
-this tool gives a 2x2 grid. Without an explicit `focus` key, this tool leaves
-the first pane and the first window active; tmuxp leaves the last. Both are
-deliberate differences from tmuxp; an explicit `focus` key agrees everywhere,
-windows and panes alike.
+this tool gives a 2x2 grid; that is a deliberate difference from tmuxp.
+Without an explicit `focus` key the pane left active is the last one created,
+as tmuxp leaves it, while the window left active is the first, where tmuxp
+leaves the last. An explicit `focus` key agrees everywhere, windows and panes
+alike.
 
 Every input layout is checked before scripts or topology changes. Custom layouts require a valid checksum, a bounded cell tree, and enough cells for the configured panes. tmux still handles geometry and trims extra cells. Named layouts accept native unique prefixes; `main-h` and `main-v` become ambiguous when mirrored layouts are available on tmux 3.5 and newer. Version-sensitive names use the selected daemon version, with client-version fallback only when that endpoint has no running server.
 
