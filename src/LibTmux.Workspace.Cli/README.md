@@ -100,11 +100,19 @@ Machine load requires `-d` or an explicit `--append` inside tmux. A session that
 
 Load creates panes in configuration order, including windows with three or
 more panes. `pane-base-index` changes their starting index; explicit focus
-still selects the configured pane.
+still selects the configured pane. `load` waits for each pane's shell before
+sending its first command, under any session `default-shell`; set
+`workspace_builder_options: {pane_readiness: never}` to skip the wait. An
+unrecognized key under `workspace_builder_options` warns and the document
+still loads. A `start_directory` that is not a directory warns too, naming
+the path and tmux's `$HOME` fallback.
 
 `$VAR`, `${VAR}` and a leading `~` in a command or path expand against the
 environment `load` runs in, not the target pane's, matching tmuxp. A
 `$TMUX_PANE` written into a workspace file names the pane that ran `load`.
+`<<: *anchor` and `<<: [*a, *b]` YAML merge keys resolve at load, with
+explicit keys winning over merged ones and, among multiple merge sources, the
+earlier one winning; a key starting with `x-`, at any level, is inert.
 
 A window with no `layout` key is tiled, not stacked: tmuxp halves the last
 pane repeatedly, giving four panes of 14, 6, 3 and 3 rows at 100x30, where
@@ -115,6 +123,8 @@ leaves the last. An explicit `focus` key agrees everywhere, windows and panes
 alike.
 
 Every input layout is checked before scripts or topology changes. Custom layouts require a valid checksum, a bounded cell tree, and enough cells for the configured panes. tmux still handles geometry and trims extra cells. Named layouts accept native unique prefixes; `main-h` and `main-v` become ambiguous when mirrored layouts are available on tmux 3.5 and newer. Version-sensitive names use the selected daemon version, with client-version fallback only when that endpoint has no running server.
+For layout checks, release candidates use their release boundary and
+`next-X.Y` ranks below `X.Y`.
 
 Native append authenticates the inherited pane's daemon, resolves its current
 session through tmux, and retains that session across all inputs. Later native
@@ -122,6 +132,12 @@ commands reject a replacement daemon, including global options after a startup
 script. The session suffix in `TMUX` does not select the destination. Append
 with Python plugins or custom builders fails before building any input or
 starting Python; use `-d` to load those extensions into a separate session.
+`--append` honours a window's `window_index`; a collision fails the load
+(`tmux_failed`, exit 1, carrying tmux's own reason), naming the windows it
+kept. A session `load` creates is sized from the terminal it runs in
+(`TMUXP_DEFAULT_COLUMNS`/`ROWS`, else `COLUMNS`/`ROWS`, else 80x24), overridden
+by the real terminal size unless `TMUXP_DETECT_TERMINAL_SIZE` disables
+detection.
 
 Outside tmux, human attachment requires a foreground controlling terminal. Inside tmux it does not: a switch needs no terminal, so a `run-shell` key binding — `TMUX` set, no `TMUX_PANE` — still switches, picking tmux's most recently used client instead of a specific one. Prompting also needs a terminal; without one, or with `--yes`, a load proceeds as if the answer were yes. A workspace whose session already exists asks `Attach?` and leaves it untouched on `n`, inside or outside tmux, exiting 0: declining a prompt is not a failure, so a session that mismatches the document is never compared to it, and `session_mismatch` never fires for an input the prompt was declined on. With several inputs the prompt is only ever about the last one; an earlier input still builds normally. A new session asks `y` to switch, `n` to load detached, or `a` to append, inside tmux only. `-d` always builds detached, even with `--append`. `-y` refuses an ambiguous client choice. A client with independent `active-pane` focus on the invoking physical window prevents handoff; detached and append modes remain available. The invoking pane and selected daemon are authenticated before building; a `TMUX` that does not parse, a daemon other than the one it names, a `TMUX_PANE` that is not a pane of that daemon, and a pane no client is viewing are each refused as `usage`, exit 2, before anything is built, whether or not that daemon is already running.
 
@@ -131,7 +147,7 @@ Attached Python extension handoff remains in development. Use `-d` or choose `n`
 
 Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail before reading workspace files or running tmux or Python because supported tmux versions do not support 88-color mode.
 
-Machine freeze, conversion and import return the document without writing a guessed filename, inside the same `{schema_version, command, status, ...}` envelope under `--json` and `--ndjson` alike: `freeze` answers under `workspace`, conversion and import under `document`. A captured document carries `x-capture-lossy: true`, because it is valid input that replays process names rather than the original command lines. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options and current command names; original command arguments, history, hooks and plugin state are not recoverable.
+Machine freeze, conversion and import return the document without writing a guessed filename, inside the same `{schema_version, command, status, ...}` envelope under `--json` and `--ndjson` alike: `freeze` answers under `workspace`, conversion and import under `document`. A captured document carries `x-capture-lossy: true`, because it is valid input that replays process names rather than the original command lines. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options -- written under `options_after`, which `load` also accepts as a spelling of `options` -- and current command names; original command arguments, history, hooks and plugin state are not recoverable.
 
 Freeze derives no filename of its own. Without `--save-to` it needs `--json`
 or `--ndjson` and returns the document; a human capture with neither is a usage
@@ -165,7 +181,7 @@ before importing; pane commands cannot reproduce launcher lifecycle hooks.
 
 `--color auto|always|never` controls human color. Nonempty `NO_COLOR` wins over forced color; machine formats disable color styling. Current .NET Console initialization can still prefix stdout on a PTY with keypad control bytes. Discovery uses `TMUXP_CONFIGDIR`, XDG configuration and the legacy tmuxp directory. `TMUXINATOR_CONFIG` selects the importer directory. `LIBTMUX_TMUX` can select an explicit tmux executable.
 
-`--log-level debug|info|warning|error|critical` filters optional warnings and file records; the default is `warning`. Command failures remain visible at every level. On Linux, `load --log-file PATH` appends UTF-8 JSON lines. Select `info` for lifecycle records or `debug` to include script output. Relative paths use the invocation directory. New files allow only owner read/write; existing content and permissions are preserved. Directories, pipes, devices and symbolic links are rejected. Other platforms currently reject `--log-file` because the offset of `st_mode` in their `struct stat` is not verified here.
+`--log-level debug|info|warning|error|critical` filters optional warnings and file records; the default is `warning`. Command failures remain visible at every level. On Linux x64 and arm64, `load --log-file PATH` appends UTF-8 JSON lines. Select `info` for lifecycle records or `debug` to include script output. Relative paths use the invocation directory. New files allow only owner read/write; existing content and permissions are preserved. Directories, pipes, devices and symbolic links are rejected. Other platforms currently reject `--log-file` because the offset of `st_mode` in their `struct stat` is not verified here.
 
 A log destination that cannot be opened fails before tmux or Python runs. A later file-write failure disables that log and reports one secondary diagnostic; workspace execution retains its own result, error or cancellation. Log output contains escaped data and receives no terminal colors. Python delegation leaves the log file under native ownership.
 
@@ -178,8 +194,10 @@ directly at every panel size. `NO_COLOR` removes styling while keeping terminal
 updates. Pane counters advance after command delivery and configured delays;
 opaque Python extensions show a generic activity label. Frames clear before
 results, diagnostics and attachment. On terminal resize, the painted frame is
-erased and drawing stops; raw output resumes. A platform whose window-size
-request is not known here omits drawing.
+erased and drawing stops; raw output resumes. Linux and macOS have window-size
+implementations; other platforms omit drawing.
+Progress and logging have been verified on Linux x64; macOS progress and Linux
+arm64 logging still need platform verification.
 The owned Console writers do not provide a hard deadline for terminal or
 filesystem writes.
 
