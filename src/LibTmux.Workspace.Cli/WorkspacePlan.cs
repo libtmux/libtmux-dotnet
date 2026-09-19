@@ -77,7 +77,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
     // so a session freeze writes out is one load will take back.
     internal static string? NameRefusal(string name) =>
         string.IsNullOrWhiteSpace(name) ? "session_name must contain a non-whitespace character."
-        : name.Any(char.IsControl) ? "session_name must not contain control characters, which corrupt tmux's own session listings."
+        : name.Any(char.IsControl) ? "session_name must not contain control characters: NUL cannot appear in a process argument, and the rest are unreadable wherever the name is displayed."
         : name.Any(character => character is ':' or '.') ? "session_name must not contain ':' or '.', which tmux uses as target separators."
         : null;
 

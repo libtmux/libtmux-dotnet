@@ -105,11 +105,15 @@ public sealed class Component17ParityTests
     private static bool ProvesNameChecking()
     {
         // tmux reads a colon or a full stop in a target as a separator, so a
-        // session named with one could never be addressed again.
+        // session named with one only resolves with an explicit terminator
+        // this library never emits.
         Assert.Throws<ArgumentException>(() => SessionName.Validate("has:colon"));
         Assert.Throws<ArgumentException>(() => SessionName.Validate("has.dot"));
         Assert.Throws<ArgumentException>(() => SessionName.Validate(" "));
         Assert.Throws<ArgumentNullException>(() => SessionName.Validate(null));
+        // NUL cannot appear in a process argument, and every other control
+        // character reads as blank or garbled wherever the name is displayed.
+        Assert.Throws<ArgumentException>(() => SessionName.Validate("has\ncontrol"));
         return SessionName.Validate("ordinary") == "ordinary";
     }
 
