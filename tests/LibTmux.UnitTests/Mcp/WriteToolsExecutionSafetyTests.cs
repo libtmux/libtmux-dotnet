@@ -31,7 +31,11 @@ public sealed class WriteToolsExecutionSafetyTests
             // instead made this depend on whether the platform would spawn it,
             // which macOS would not.
             using var accessor = new TmuxConnectionAccessor(
-                new ServerConnectionOptions { TmuxBinaryPath = "/not/the/pinned/tmux", SocketName = SocketRoots.Name("route-pin") });
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = "/not/the/pinned/tmux",
+                    SocketName = SocketRoots.Name("route-pin"),
+                });
 
             McpException failure = await Assert.ThrowsAsync<McpException>(
                 () => accessor.GetAsync(
@@ -2796,7 +2800,11 @@ public sealed class WriteToolsExecutionSafetyTests
                 Task.FromException<IControlModeSession>(
                     new InvalidOperationException("Fake control attach unavailable.")));
             var connection = new TmuxConnection(
-                new ServerConnectionOptions { TmuxBinaryPath = tmuxBinaryPath, SocketPath = socketPath },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = tmuxBinaryPath,
+                    SocketPath = socketPath,
+                },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, _generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);

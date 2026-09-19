@@ -287,7 +287,13 @@ public sealed class ServerSessionLifecycleTests
         CancellationToken token = TestContext.Current.CancellationToken;
         RecordingLogger logger = new();
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null", Logger = logger },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
         // "member" joins "grouped"'s session group; "solo" stands apart, so a
@@ -396,7 +402,12 @@ public sealed class ServerSessionLifecycleTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 
     private static ServerConnectionOptions IsolatedOptions() =>

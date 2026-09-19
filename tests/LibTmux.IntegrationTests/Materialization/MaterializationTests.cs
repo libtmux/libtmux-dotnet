@@ -209,7 +209,12 @@ public sealed class MaterializationTests
         {
             RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
                 TestContext.Current.CancellationToken);
-            var options = new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" };
+            var options = new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            };
             Server server = await Server.ConnectAsync(
                 options,
                 TestContext.Current.CancellationToken);

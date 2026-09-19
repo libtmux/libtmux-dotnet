@@ -112,7 +112,10 @@ public sealed class ConnectionValueTests
     public void Invalid_child_environment_keys_fail_before_command_execution()
     {
         Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions { ChildEnvironment = new Dictionary<string, string?> { [" "] = "value" } });
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { [" "] = "value" },
+            });
         Assert.Throws<ArgumentNullException>(
             () => new ServerConnectionOptions { ChildEnvironment = new NullKeyEnvironment() });
     }
@@ -124,7 +127,10 @@ public sealed class ConnectionValueTests
         string key)
     {
         ArgumentException error = Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions { ChildEnvironment = new Dictionary<string, string?> { [key] = "value" } });
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { [key] = "value" },
+            });
 
         Assert.Equal("childEnvironment", error.ParamName);
     }
@@ -136,7 +142,10 @@ public sealed class ConnectionValueTests
         string value)
     {
         ArgumentException error = Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions { ChildEnvironment = new Dictionary<string, string?> { ["KEY"] = value } });
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { ["KEY"] = value },
+            });
 
         Assert.Equal("childEnvironment", error.ParamName);
     }
@@ -291,7 +300,12 @@ public sealed class ConnectionValueTests
         TmuxColorMode colorMode,
         string[] expected)
     {
-        var options = new ServerConnectionOptions { SocketName = "named", ConfigurationFile = "config", ColorMode = colorMode };
+        var options = new ServerConnectionOptions
+        {
+            SocketName = "named",
+            ConfigurationFile = "config",
+            ColorMode = colorMode,
+        };
         var connection = CreateFakeConnection(options);
 
         Assert.Equal(expected, connection.PrefixArguments);
@@ -336,7 +350,11 @@ public sealed class ConnectionValueTests
     [Fact]
     public void An_explicit_socket_name_ignores_the_environment()
     {
-        var connection = CreateFakeConnection(new ServerConnectionOptions { SocketName = "named", ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")) });
+        var connection = CreateFakeConnection(new ServerConnectionOptions
+        {
+            SocketName = "named",
+            ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
+        });
 
         Assert.Equal(["-L", "named"], connection.PrefixArguments);
     }
@@ -568,7 +586,11 @@ public sealed class ConnectionValueTests
     {
         Server implicitDefault = Server.Open();
         Server explicitDefault = Server.Open(
-            new ServerConnectionOptions { SocketName = "default", ChildEnvironment = new Dictionary<string, string?> { ["A"] = "1" } });
+            new ServerConnectionOptions
+            {
+                SocketName = "default",
+                ChildEnvironment = new Dictionary<string, string?> { ["A"] = "1" },
+            });
         string directPath = Path.Combine(Path.GetTempPath(), "libtmux-equality.sock");
         string normalizedPath = Path.Combine(
             Path.GetTempPath(),

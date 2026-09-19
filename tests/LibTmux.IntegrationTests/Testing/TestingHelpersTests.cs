@@ -43,7 +43,12 @@ public sealed class TestingHelpersTests
         // the scope took the server with it.
         await Assert.ThrowsAnyAsync<LibTmuxException>(
             () => Server.ConnectAsync(
-                new ServerConnectionOptions { TmuxBinaryPath = options.ConnectionOptions.TmuxBinaryPath, SocketName = socket, ConfigurationFile = "/dev/null" },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = options.ConnectionOptions.TmuxBinaryPath,
+                    SocketName = socket,
+                    ConfigurationFile = "/dev/null",
+                },
                 token));
     }
 
@@ -209,7 +214,12 @@ public sealed class TestingHelpersTests
     // The library reaches tmux through PATH by default, which is right for a
     // caller and wrong for a suite pinned to one build per lane.
     private static TmuxTestOptions HarnessOptions() =>
-        new(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"lths-{Guid.NewGuid():N}"[..20], ConfigurationFile = "/dev/null" });
+        new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"lths-{Guid.NewGuid():N}"[..20],
+            ConfigurationFile = "/dev/null",
+        });
 
     [UnixFact]
     public void An_environment_says_what_to_set_and_what_to_remove()

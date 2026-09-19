@@ -35,7 +35,13 @@ public sealed class ServerGenerationTests
             TestContext.Current.CancellationToken);
 
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null", ColorMode = colorMode },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = "/dev/null",
+                ColorMode = colorMode,
+            },
             TestContext.Current.CancellationToken);
         TmuxCommandResult result = await server.ExecuteCommandAsync(
             ["display-message", "-p", "#{session_id}"],
@@ -50,7 +56,12 @@ public sealed class ServerGenerationTests
     {
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
-        var options = new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null" };
+        var options = new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+        };
         Server firstServer = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
@@ -191,7 +202,12 @@ public sealed class ServerGenerationTests
         try
         {
             Server server = await Server.ConnectAsync(
-                new ServerConnectionOptions { TmuxBinaryPath = tmuxBinaryPath, SocketName = socketName, ConfigurationFile = "/dev/null" },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = tmuxBinaryPath,
+                    SocketName = socketName,
+                    ConfigurationFile = "/dev/null",
+                },
                 TestContext.Current.CancellationToken);
             Session session = await server.GetSessionAsync(
                 new SessionId(0),
@@ -334,7 +350,12 @@ public sealed class ServerGenerationTests
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             TestContext.Current.CancellationToken);
 
         Session session = await server.GetSessionAsync(
@@ -373,7 +394,12 @@ public sealed class ServerGenerationTests
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             TestContext.Current.CancellationToken);
         RawTmuxResult stopped = await context.ExecuteAsync(
             ["kill-server"],
@@ -401,7 +427,12 @@ public sealed class ServerGenerationTests
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             TestContext.Current.CancellationToken);
         Session session = await server.GetSessionAsync(
             new SessionId(0),
@@ -433,7 +464,12 @@ public sealed class ServerGenerationTests
             TestContext.Current.CancellationToken);
         Assert.Equal(0, second.ExitCode);
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             TestContext.Current.CancellationToken);
         Session first = await server.GetSessionAsync(
             new SessionId(0),
@@ -461,14 +497,18 @@ public sealed class ServerGenerationTests
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Generation_discovery_failure_carries_tmux_stderr()
     {
-        // Regression for DOTNET2-9: every other command failure folds tmux's
-        // stderr into TmuxCommandException.Message; the generation-discovery
-        // probe GetSessionsAsync (and the other listings) run first used a
-        // fixed literal instead, losing the one reason most worth explaining
-        // -- that no server is listening on the socket at all.
+        // Every command failure folds tmux's stderr into
+        // TmuxCommandException.Message, including generation discovery, which
+        // GetSessionsAsync and the other listings run first -- so "no server
+        // is listening" reaches the caller like any other reason.
         CancellationToken token = TestContext.Current.CancellationToken;
         Server absent = Server.Open(
-            new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"ltcs-discovery-{Guid.NewGuid():N}", ConfigurationFile = "/dev/null" });
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = $"ltcs-discovery-{Guid.NewGuid():N}",
+                ConfigurationFile = "/dev/null",
+            });
 
         TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
             () => absent.GetSessionsAsync(token));

@@ -91,7 +91,12 @@ public sealed class Component18ParityTests
     }
 
     private static TmuxTestOptions Options() =>
-        new(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"ltp-{Guid.NewGuid():N}"[..20], ConfigurationFile = "/dev/null" });
+        new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltp-{Guid.NewGuid():N}"[..20],
+            ConfigurationFile = "/dev/null",
+        });
 
     private static async Task<bool> ProvesOneEntryPointAsync()
     {

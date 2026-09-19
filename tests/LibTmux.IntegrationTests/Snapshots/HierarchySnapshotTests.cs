@@ -161,7 +161,12 @@ public sealed class HierarchySnapshotTests
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
-        var options = new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" };
+        var options = new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        };
         Server server = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
@@ -200,6 +205,11 @@ public sealed class HierarchySnapshotTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

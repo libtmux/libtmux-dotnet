@@ -116,5 +116,10 @@ public sealed class ServerSnapshotAccessorTests
     }
 
     private static TmuxTestOptions HarnessOptions() =>
-        new(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"lts-{Guid.NewGuid():N}"[..20], ConfigurationFile = "/dev/null" });
+        new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"lts-{Guid.NewGuid():N}"[..20],
+            ConfigurationFile = "/dev/null",
+        });
 }

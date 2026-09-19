@@ -101,7 +101,12 @@ internal static class Program
     private static async Task<int> RunTmuxAsync()
     {
         TmuxTestFactory factory = new();
-        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"libtmux-pkg-{Guid.NewGuid():N}"[..24], ConfigurationFile = "/dev/null" });
+        TmuxTestOptions options = new(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = $"libtmux-pkg-{Guid.NewGuid():N}"[..24],
+                ConfigurationFile = "/dev/null",
+            });
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
 

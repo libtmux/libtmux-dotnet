@@ -169,7 +169,9 @@ public sealed class QueryJsonTrustBoundaryTests
             Record.Exception(() => QueryJson.Deserialize(Document("{}"))));
         Assert.IsAssignableFrom<LibTmuxException>(
             Record.Exception(() => QueryJson.Deserialize(
-                Document("{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true}}", schema: "someone.else"))));
+                Document(
+                    "{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true}}",
+                    schema: "someone.else"))));
         Assert.IsAssignableFrom<LibTmuxException>(
             Record.Exception(() => QueryJson.Deserialize(
                 Document("{\"kind\":\"nonsense\"}"))));

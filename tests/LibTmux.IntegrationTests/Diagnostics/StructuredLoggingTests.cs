@@ -71,7 +71,13 @@ public sealed class StructuredLoggingTests
         CancellationToken token,
         ILogger? logger = null) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null", Logger = logger },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
     private sealed record Recorded(

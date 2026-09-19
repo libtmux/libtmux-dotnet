@@ -555,7 +555,12 @@ public sealed class ControlModeSessionTests
                 """;
             await WriteExecutableAsync(wrapper, script, token);
 
-            Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = wrapper, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" });
+            Server server = Server.Open(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = wrapper,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            });
             startup = server.EnterControlModeAsync(cancellationToken: token);
 
             StaleServerGenerationException error =
@@ -606,7 +611,12 @@ public sealed class ControlModeSessionTests
                 TestContext.Current.CancellationToken);
 
             Server server = await Server.ConnectAsync(
-                new ServerConnectionOptions { TmuxBinaryPath = wrapper, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                },
                 TestContext.Current.CancellationToken);
             using var startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                 TestContext.Current.CancellationToken);
@@ -666,7 +676,12 @@ public sealed class ControlModeSessionTests
                 TestContext.Current.CancellationToken);
 
             Server server = await Server.ConnectAsync(
-                new ServerConnectionOptions { TmuxBinaryPath = wrapper, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                },
                 TestContext.Current.CancellationToken);
             using var startupBudget = CancellationTokenSource.CreateLinkedTokenSource(
                 TestContext.Current.CancellationToken);
@@ -686,7 +701,12 @@ public sealed class ControlModeSessionTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 
     private static async Task WriteExecutableAsync(

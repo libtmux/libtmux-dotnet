@@ -20,7 +20,12 @@ public sealed class TmuxToolsTests
         await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
             raw,
             token);
-        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" });
+        TmuxTestOptions options = new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        });
         await using McpToolFixture mcp = McpToolFixture.Create(options);
         string pane = Assert.Single(await mcp.Read.ListPanesAsync(cancellationToken: token)).PaneId;
         string marker = $"attended-{Guid.NewGuid():N}";
@@ -1287,13 +1292,17 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" });
+        TmuxTestOptions options = new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        });
         await using McpToolFixture mcp = McpToolFixture.Create(options);
 
-        // Regression for DOTNET2-10: a path-selected socket has no -L name of
-        // its own. Reporting the path's file name as SocketName let a caller
-        // mistake it for one - passed back as socketName it resolves a
-        // completely different, name-addressed socket, not this one.
+        // A path-selected socket has no -L name of its own, so SocketName
+        // must read null rather than the path's file name: passed back as
+        // socketName that would resolve a different, name-addressed socket.
         TmuxServerInfo info = await mcp.Read.ServerInfoAsync(cancellationToken: token);
         Assert.Null(info.SocketName);
         Assert.Equal(raw.SocketPath, info.SocketPath);

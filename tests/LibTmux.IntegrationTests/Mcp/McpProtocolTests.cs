@@ -33,7 +33,13 @@ public sealed class McpProtocolTests
         string socketName = $"lt-id-{nonce}";
         string root = Path.Combine(WorkspaceSocketRoot.Root, $"request-id-{nonce}");
         Directory.CreateDirectory(root);
-        Server endpoint = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = socketName, ConfigurationFile = "/dev/null", ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root } });
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = socketName,
+            ConfigurationFile = "/dev/null",
+            ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },
+        });
 
         var startInfo = new ProcessStartInfo(
             Path.Combine(AppContext.BaseDirectory, "LibTmux.Mcp"))
@@ -1152,7 +1158,12 @@ public sealed class McpProtocolTests
             McpServerComposition.Add(
                 services,
                 new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(20) },
-                new ServerConnectionOptions { TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = socketName, ConfigurationFile = "/dev/null" },
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                    SocketName = socketName,
+                    ConfigurationFile = "/dev/null",
+                },
                 callerPaneId: null,
                 CapabilitySelection.All,
                 new McpRuntimeDisclosure(
@@ -1191,7 +1202,12 @@ public sealed class McpProtocolTests
             try
             {
                 Server tmux = await Server.ConnectAsync(
-                        new ServerConnectionOptions { TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = _socketName, ConfigurationFile = "/dev/null" },
+                        new ServerConnectionOptions
+                        {
+                            TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                            SocketName = _socketName,
+                            ConfigurationFile = "/dev/null",
+                        },
                         CancellationToken.None)
                     .ConfigureAwait(false);
                 await tmux.KillAsync(CancellationToken.None).ConfigureAwait(false);

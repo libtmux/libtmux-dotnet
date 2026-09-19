@@ -129,7 +129,13 @@ public sealed class Component17ParityTests
         CancellationToken token = TestContext.Current.CancellationToken;
         CountingLogger logger = new();
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null", Logger = logger },
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
         // Every tmux command passes through one dispatcher, so one recorder

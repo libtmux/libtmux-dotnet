@@ -31,7 +31,13 @@ public sealed class Component02ParityTests
     {
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
-        var options = new ServerConnectionOptions { TmuxBinaryPath = context.TmuxBinaryPath, SocketPath = context.SocketPath, ConfigurationFile = "/dev/null", ColorMode = TmuxColorMode.Colors256 };
+        var options = new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            ColorMode = TmuxColorMode.Colors256,
+        };
         Server server = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
