@@ -198,14 +198,14 @@ public sealed class TmuxEnvironment
             return null;
         }
 
+        int separator = line.IndexOf('=', StringComparison.Ordinal);
+
         // tmux writes a removed variable as its name behind a minus sign, with
         // no value to write.
-        if (line[0] == '-')
+        if (line[0] == '-' && separator < 0)
         {
             return line.Length > 1 ? new TmuxEnvironmentEntry(line[1..], null, true) : null;
         }
-
-        int separator = line.IndexOf('=', StringComparison.Ordinal);
 
         // Values are printed as they are held, so everything past the first
         // equals sign belongs to the value, spaces and all.

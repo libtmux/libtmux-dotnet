@@ -350,14 +350,21 @@ public sealed class DashArgumentGuardTests
             cancellationToken: token);
         Server server = scope.Session.Server;
 
-        // set-environment's name. tmux's own show-environment output cannot
-        // be read back exactly for a name starting with '-' - that spelling
-        // is how it marks a removed variable - so this proves only the
-        // dispatch, the same as the creation family above.
-        await AssertNotRejectedAsFlagAsync(
-            () => server.Environment.SetAsync(DashMarker, "value", cancellationToken: token));
-        await AssertNotRejectedAsFlagAsync(() => server.Environment.RemoveAsync(DashMarker, token));
-        await AssertNotRejectedAsFlagAsync(() => server.Environment.UnsetAsync(DashMarker, token));
+        foreach (TmuxEnvironment environment in new[] { server.Environment, scope.Session.Environment })
+        {
+            TmuxEnvironmentEntry stored = await environment.SetAsync(
+                DashMarker, "value=with spaces", cancellationToken: token);
+            Assert.Equal(new TmuxEnvironmentEntry(DashMarker, "value=with spaces", false), stored);
+            Assert.Equal(stored, await environment.GetAsync(DashMarker, token));
+            Assert.Contains(stored, await environment.GetAllAsync(token));
+
+            await environment.RemoveAsync(DashMarker, token);
+            Assert.Equal(
+                new TmuxEnvironmentEntry(DashMarker, null, true),
+                await environment.GetAsync(DashMarker, token));
+            await environment.UnsetAsync(DashMarker, token);
+            Assert.Null(await environment.GetAsync(DashMarker, token));
+        }
 
         // set-buffer's data - arbitrary content, not a name, so this is the
         // clearest case: a real payload that merely starts with '-'.

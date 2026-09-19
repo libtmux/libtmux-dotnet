@@ -461,6 +461,24 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Fact]
+    public async Task Environment_readback_distinguishes_dash_names_from_removed_variables()
+    {
+        Server server = CreateServer((request, _) => Task.FromResult(
+            Success(request, "\n-\n-DASH=a=b\n-PLAIN\n--DASH\n")));
+
+        IReadOnlyList<TmuxEnvironmentEntry> entries = await server.Environment.GetAllAsync(
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [
+                new TmuxEnvironmentEntry("-DASH", "a=b", false),
+                new TmuxEnvironmentEntry("PLAIN", null, true),
+                new TmuxEnvironmentEntry("-DASH", null, true),
+            ],
+            entries);
+    }
+
+    [Fact]
     public async Task Exact_missing_environment_result_remains_an_absence_answer()
     {
         Server server = CreateServer((request, _) => Task.FromResult(
