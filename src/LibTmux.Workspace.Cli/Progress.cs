@@ -76,9 +76,11 @@ internal sealed partial class ProgressDisplay : IDisposable
 
     private static (int Width, int Height)? DescriptorSize(int descriptor)
     {
-        if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64) return null;
-        const nuint TerminalWindowSize = 0x5413;
-        return ReadWindowSize(descriptor, TerminalWindowSize, out WindowSize size) == 0 && size.Columns >= 2 && size.Rows >= 2 ? (size.Columns, size.Rows) : null;
+        // struct winsize is four unsigned shorts everywhere; only the ioctl
+        // request number differs between kernels.
+        nuint request = OperatingSystem.IsLinux() ? 0x5413 : OperatingSystem.IsMacOS() ? 0x40087468 : (nuint)0;
+        if (request == 0) return null;
+        return ReadWindowSize(descriptor, request, out WindowSize size) == 0 && size.Columns >= 2 && size.Rows >= 2 ? (size.Columns, size.Rows) : null;
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -12,6 +12,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>false</IncludeSymbols>
     <IsAotCompatible>false</IsAotCompatible>
+    <!-- Required by the LibraryImport source generator, not by any hand-written pointer code. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>

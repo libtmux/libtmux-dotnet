@@ -250,24 +250,22 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         {
             if (!context.Terminal || Console.IsInputRedirected)
                 throw new CliException("usage", "Attachment requires terminal input and output. Use -d to load without attaching.", 2);
-            if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
-                throw new CliException("terminal_unsupported", "Native terminal handoff currently requires Linux x64. Use -d.");
             if (ForegroundGroup(0) != ProcessGroup()) throw new CliException("usage", "Attachment requires the foreground controlling terminal. Use -d.", 2);
             return Name();
         }
 
-        private static unsafe string Name()
+        private static string Name()
         {
-            byte* bytes = stackalloc byte[4096];
-            if (TerminalName(0, bytes, 4096) != 0) throw new CliException("terminal_required", "Cannot identify the input terminal. Use -d.");
-            return Marshal.PtrToStringUTF8((nint)bytes)!;
+            byte[] bytes = new byte[4096];
+            if (TerminalName(0, ref bytes[0], (nuint)bytes.Length) != 0) throw new CliException("terminal_required", "Cannot identify the input terminal. Use -d.");
+            int end = Array.IndexOf(bytes, (byte)0);
+            return Encoding.UTF8.GetString(bytes, 0, end < 0 ? bytes.Length : end);
         }
 
         internal static SafeFileHandle Open(CliContext context)
         {
             RequireForeground(context);
-            const int noControllingTerminal = 0x100, nonBlocking = 0x800, closeOnExec = 0x80000;
-            SafeFileHandle handle = OpenFile("/dev/tty", noControllingTerminal | nonBlocking | closeOnExec);
+            SafeFileHandle handle = OpenFile("/dev/tty", TerminalOpenFlags);
             if (!handle.IsInvalid) return handle;
             handle.Dispose();
             throw new CliException("terminal_required", "Cannot read the controlling terminal. Use -d.");
@@ -297,19 +295,22 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             }
         }
 
-        private static unsafe nint ReadByte(SafeFileHandle input, byte[] value)
-        {
-            fixed (byte* bytes = value) return Read(input, bytes, 1);
-        }
+        // O_NOCTTY | O_NONBLOCK | O_CLOEXEC. The calls below are POSIX; only
+        // these flag values differ between kernels.
+        private static int TerminalOpenFlags => OperatingSystem.IsLinux() ? 0x100 | 0x800 | 0x80000
+            : OperatingSystem.IsMacOS() ? 0x20000 | 0x4 | 0x1000000
+            : throw new CliException("terminal_unsupported", "Reading the controlling terminal is not supported on this system. Use -d.");
+
+        private static nint ReadByte(SafeFileHandle input, byte[] value) => Read(input, ref value[0], 1);
         [LibraryImport("libc", EntryPoint = "getpgrp")]
         private static partial int ProcessGroup();
         [LibraryImport("libc", EntryPoint = "tcgetpgrp", SetLastError = true)]
         private static partial int ForegroundGroup(int descriptor);
         [LibraryImport("libc", EntryPoint = "ttyname_r")]
-        private static unsafe partial int TerminalName(int descriptor, byte* buffer, nuint size);
+        private static partial int TerminalName(int descriptor, ref byte buffer, nuint size);
         [LibraryImport("libc", EntryPoint = "open", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
         private static partial SafeFileHandle OpenFile(string path, int flags);
         [LibraryImport("libc", EntryPoint = "read", SetLastError = true)]
-        private static unsafe partial nint Read(SafeFileHandle descriptor, byte* buffer, nuint size);
+        private static partial nint Read(SafeFileHandle descriptor, ref byte buffer, nuint size);
     }
 }

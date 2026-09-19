@@ -2002,6 +2002,29 @@ public sealed class RegressionTests : IDisposable
         return false;
     }
 
+    // Identifying the controlling terminal and opening it go through libc.
+    // Needs a real pty: the prompt only appears once the terminal is named
+    // and opened, so a wrong flag or a mis-read name reads as a refusal.
+    [Fact]
+    public async Task Prompting_names_and_opens_the_controlling_terminal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "tty.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "tty");
+            string file = Path.Combine(_root, "tty.yaml");
+            await File.WriteAllTextAsync(file, "session_name: tty\nwindows: [{panes: [null]}]\n", token);
+            string rendered = await RunCliUnderPtyAsync(["load", file, "-S", socket, "--color", "never"], token);
+            Assert.Contains("Attach?", rendered, StringComparison.Ordinal);
+            Assert.DoesNotContain("Cannot identify the input terminal", rendered, StringComparison.Ordinal);
+            Assert.DoesNotContain("Cannot read the controlling terminal", rendered, StringComparison.Ordinal);
+            Assert.DoesNotContain("requires Linux", rendered, StringComparison.Ordinal);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     private static async Task<string> RunCliUnderPtyAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
         StringBuilder command = new(PtyShellQuote("dotnet"));
