@@ -113,7 +113,7 @@ Read a workspace file against the side that will build it:
 
 | | This library | `tmux-workspace` |
 |---|---|---|
-| Document language | 4 root, 6 window and 3 pane keys | 15, 12 and 10, plus `x-` passthrough |
+| Document language | a closed tmuxp subset | the tmuxp language, plus `x-` passthrough |
 | A layout tmux rejects | recorded in `Unsupported`, the load continues | refuses the load |
 | A readiness timeout | throws `TmuxWaitTimeoutException` | sends the command anyway |
 | A failure partway | throws, keeping what was built | removes a session it created |
