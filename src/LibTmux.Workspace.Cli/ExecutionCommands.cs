@@ -311,10 +311,16 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             {
                 bool removed = false;
                 string? cleanupError = null;
-                // A session this load created is removed on every failure.
-                // Leaving a half-built one behind is what lets the next run
-                // find the name, call it reused, and report success.
-                if (ownedSession is not null)
+                // A load that failed removes the session it created: tmux
+                // refused, a script exited non-zero, a document was wrong --
+                // known failures the tool can undo. Leaving that wreck behind
+                // is what lets the next run find the name, call it reused,
+                // and report success. An interrupt is not a known failure:
+                // the tool does not know what state the pane it stopped mid
+                // -write is in, and a cleanup path racing the same signal can
+                // itself be cut off. A user can see and remove a half-built
+                // session; nobody can recover one a racing cleanup destroyed.
+                if (ownedSession is not null && failure is not OperationCanceledException)
                 {
                     using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
                     try
@@ -328,8 +334,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         cleanupError = deletion.Message;
                     }
                 }
-                // Bootstrap is scaffolding, not user content, so it still gets
-                // cleaned up here. Best-effort and silent.
+                // Bootstrap is scaffolding, not user content, so it is
+                // removed even on cancellation. Best-effort and silent.
                 if (!removed && bootstrap is not null && windowCreated)
                 {
                     using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(3));
