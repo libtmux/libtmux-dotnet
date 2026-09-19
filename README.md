@@ -158,8 +158,6 @@ Console.WriteLine(string.Join(", ", oldest.Select(each => each.Id)));
 ## Running something, and reading it back
 
 ```csharp run
-using LibTmux.Testing;
-
 await pane.SendTextAsync("echo hello-from-libtmux", cancellationToken: ct);
 await pane.EnterAsync(ct);
 
@@ -266,8 +264,9 @@ await scope.Pane.SendTextAsync("echo hello");
 ```
 
 Disposing kills the server, so a test that fails part way through leaves
-nothing behind. `TmuxWait.UntilAsync` waits for a state rather than sleeping,
-which is what keeps tmux tests from being timing-dependent.
+nothing behind. `TmuxWait.UntilAsync`, in the client package, waits for a state
+rather than sleeping — the same thing production code needs when it reads back
+what a command produced.
 
 ## An assistant on your terminal
 

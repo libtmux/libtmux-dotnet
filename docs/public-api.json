@@ -1977,11 +1977,11 @@
       "summary": "Provides TmuxTestOptions testing support."
     },
     {
-      "id": "T:LibTmux.Testing.TmuxWait",
-      "namespace": "LibTmux.Testing",
+      "id": "T:LibTmux.TmuxWait",
+      "namespace": "LibTmux",
       "name": "TmuxWait",
       "kind": "static class",
-      "package": "LibTmux.Testing",
+      "package": "LibTmux",
       "modifiers": [
         "public",
         "static"
@@ -12132,12 +12132,12 @@
       "summary": "Creates immutable real-tmux test options."
     },
     {
-      "id": "M:LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)",
-      "declaringType": "T:LibTmux.Testing.TmuxWait",
+      "id": "M:LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxWait",
       "name": "UntilAsync",
       "kind": "method",
       "visibility": "public",
-      "package": "LibTmux.Testing",
+      "package": "LibTmux",
       "static": true,
       "genericParameters": [],
       "returnType": "Task<bool>",
@@ -12165,7 +12165,7 @@
           "default": "default"
         }
       ],
-      "signature": "Task<bool> LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>> probe, TimeSpan timeout, TimeSpan interval, bool throwOnTimeout = true, CancellationToken cancellationToken = default)",
+      "signature": "Task<bool> LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>> probe, TimeSpan timeout, TimeSpan interval, bool throwOnTimeout = true, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": false,
       "portable": true,
@@ -12173,12 +12173,12 @@
       "summary": "Polls a Boolean probe and optionally returns false on timeout."
     },
     {
-      "id": "M:LibTmux.Testing.TmuxWait.UntilAsync``1(Func<CancellationToken,Task<T>>,Func<T,bool>,TimeSpan,TimeSpan,CancellationToken)",
-      "declaringType": "T:LibTmux.Testing.TmuxWait",
+      "id": "M:LibTmux.TmuxWait.UntilAsync``1(Func<CancellationToken,Task<T>>,Func<T,bool>,TimeSpan,TimeSpan,CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxWait",
       "name": "UntilAsync",
       "kind": "method",
       "visibility": "public",
-      "package": "LibTmux.Testing",
+      "package": "LibTmux",
       "static": true,
       "genericParameters": [
         "T"
@@ -12207,7 +12207,7 @@
           "default": "default"
         }
       ],
-      "signature": "Task<T> LibTmux.Testing.TmuxWait.UntilAsync<T>(Func<CancellationToken,Task<T>> probe, Func<T,bool> predicate, TimeSpan timeout, TimeSpan interval, CancellationToken cancellationToken = default)",
+      "signature": "Task<T> LibTmux.TmuxWait.UntilAsync<T>(Func<CancellationToken,Task<T>> probe, Func<T,bool> predicate, TimeSpan timeout, TimeSpan interval, CancellationToken cancellationToken = default)",
       "performsIO": true,
       "processBacked": false,
       "portable": true,
@@ -23685,13 +23685,13 @@
       "portable": true
     },
     {
-      "id": "T:LibTmux.Testing.TmuxWait",
-      "declaringType": "T:LibTmux.Testing.TmuxWait",
+      "id": "T:LibTmux.TmuxWait",
+      "declaringType": "T:LibTmux.TmuxWait",
       "name": "TmuxWait",
       "kind": "type",
       "visibility": "public",
-      "package": "LibTmux.Testing",
-      "signature": "static class LibTmux.Testing.TmuxWait",
+      "package": "LibTmux",
+      "signature": "static class LibTmux.TmuxWait",
       "portable": true
     },
     {

@@ -16,9 +16,10 @@ await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync()
 await scope.Pane.SendTextAsync("echo hello");
 ```
 
-`TmuxTestFactory` creates the scopes, `TmuxNameGenerator` hands out names no
-live session is using, and `TmuxWait.UntilAsync` polls for a condition with a
-deadline instead of sleeping.
+`TmuxTestFactory` creates the scopes and `TmuxNameGenerator` hands out names no
+live session is using. Waiting for a state rather than sleeping is
+`TmuxWait.UntilAsync`, which ships in `LibTmux` because reading back what a
+command produced is ordinary client work, not test scaffolding.
 
 This ships apart from `LibTmux` so an application that references the client
 does not carry test scaffolding in its output or its trim closure.

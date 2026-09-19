@@ -130,6 +130,7 @@ modes differ.
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
 | `LibTmux.TmuxVersionTooLowException` | Reports an unsupported tmux version. |
+| `LibTmux.TmuxWait` | Waits for tmux to reach a state instead of sleeping. |
 | `LibTmux.TmuxWaitChannel` | An open wait on a tmux wait-for channel. |
 | `LibTmux.TmuxWaitMode` | What to do with a wait-for channel. |
 | `LibTmux.TmuxWaitTimeoutException` | Reports an expired bounded wait. |
@@ -533,6 +534,8 @@ modes differ.
 | `LibTmux.TmuxVersion.op_LessThan(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is older. |
 | `LibTmux.TmuxVersion.op_LessThanOrEqual(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is at most the right version. |
 | `LibTmux.TmuxVersionTooLowException.#ctor(System.String,LibTmux.TmuxVersion,LibTmux.TmuxVersion,System.Exception)` | Initializes an unsupported-version exception. |
+| `LibTmux.TmuxWait.UntilAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Boolean}},System.TimeSpan,System.TimeSpan,System.Boolean,System.Threading.CancellationToken)` | Waits until a probe reports the state was reached. |
+| ```LibTmux.TmuxWait.UntilAsync``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.Func{``0,System.Boolean},System.TimeSpan,System.TimeSpan,System.Threading.CancellationToken)``` | Waits until a reading satisfies a predicate, and answers it. |
 | `LibTmux.TmuxWaitChannel.DisposeAsync` | Withdraws the waiter from tmux. |
 | `LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)` | Waits for the signal, giving this attempt a budget. |
 | `LibTmux.TmuxWaitTimeoutException.#ctor(System.String,System.TimeSpan,System.Exception)` | Initializes a wait-timeout exception. |

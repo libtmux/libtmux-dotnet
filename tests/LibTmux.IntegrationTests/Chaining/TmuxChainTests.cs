@@ -2,7 +2,6 @@ using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
-using LibTmux.Testing;
 
 namespace LibTmux.IntegrationTests.Chaining;
 

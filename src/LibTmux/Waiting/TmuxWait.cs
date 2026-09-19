@@ -1,11 +1,14 @@
-namespace LibTmux.Testing;
+namespace LibTmux;
 
 /// <summary>Waits for tmux to reach a state instead of sleeping.</summary>
 /// <remarks>
 /// tmux answers a command as soon as it has accepted it, not once the effect
-/// has landed, so a test that acts and then reads immediately is racing the
+/// has landed, so code that acts and then reads immediately is racing the
 /// server. A fixed delay only hides that on an idle machine; waiting for the
-/// state itself is what makes the test say what it means.
+/// state itself is what makes the read say what it means. This is ordinary
+/// client work, not test scaffolding: reading back what a command produced is
+/// the common case, so it ships in the client rather than in
+/// <c>LibTmux.Testing</c>.
 /// </remarks>
 public static class TmuxWait
 {

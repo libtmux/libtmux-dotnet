@@ -510,11 +510,8 @@ LibTmux.Query.QueryDocument.<Clone>$() -> LibTmux.Query.QueryDocument!
 LibTmux.Query.QueryDocument.Equals(LibTmux.Query.QueryDocument? other) -> bool
 LibTmux.Query.QueryDocument.RequiredSnapshotDepth.get -> LibTmux.SnapshotDepth
 LibTmux.Query.QueryDocument.Schema.get -> string!
-LibTmux.Query.QueryDocument.Schema.init -> void
 LibTmux.Query.QueryDocument.Target.get -> LibTmux.Query.QueryTarget
-LibTmux.Query.QueryDocument.Target.init -> void
 LibTmux.Query.QueryDocument.Version.get -> int
-LibTmux.Query.QueryDocument.Version.init -> void
 LibTmux.Query.QueryEdgeParser
 LibTmux.Query.QueryExtensions
 LibTmux.Query.QueryTarget
@@ -1035,6 +1032,7 @@ LibTmux.TmuxVersionTooLowException
 LibTmux.TmuxVersionTooLowException.ActualVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.RequiredVersion.get -> LibTmux.TmuxVersion
 LibTmux.TmuxVersionTooLowException.TmuxVersionTooLowException(string! message, LibTmux.TmuxVersion requiredVersion, LibTmux.TmuxVersion actualVersion, System.Exception? innerException = null) -> void
+LibTmux.TmuxWait
 LibTmux.TmuxWaitChannel
 LibTmux.TmuxWaitChannel.Channel.get -> string!
 LibTmux.TmuxWaitChannel.DisposeAsync() -> System.Threading.Tasks.ValueTask
@@ -1667,6 +1665,8 @@ static LibTmux.TmuxVersion.operator <=(LibTmux.TmuxVersion left, LibTmux.TmuxVer
 static LibTmux.TmuxVersion.operator ==(LibTmux.TmuxVersion left, LibTmux.TmuxVersion right) -> bool
 static LibTmux.TmuxVersion.operator >(LibTmux.TmuxVersion left, LibTmux.TmuxVersion right) -> bool
 static LibTmux.TmuxVersion.operator >=(LibTmux.TmuxVersion left, LibTmux.TmuxVersion right) -> bool
+static LibTmux.TmuxWait.UntilAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>!>! probe, System.TimeSpan timeout, System.TimeSpan interval, bool throwOnTimeout = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static LibTmux.TmuxWait.UntilAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! probe, System.Func<T, bool>! predicate, System.TimeSpan timeout, System.TimeSpan interval, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
 static LibTmux.UnbindKeyRequest.operator !=(LibTmux.UnbindKeyRequest? left, LibTmux.UnbindKeyRequest? right) -> bool
 static LibTmux.UnbindKeyRequest.operator ==(LibTmux.UnbindKeyRequest? left, LibTmux.UnbindKeyRequest? right) -> bool
 static LibTmux.UnsafeTmuxFilter.operator !=(LibTmux.UnsafeTmuxFilter? left, LibTmux.UnsafeTmuxFilter? right) -> bool

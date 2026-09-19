@@ -379,7 +379,7 @@ internal static class Program
 | `T:LibTmux.Testing.TmuxTestContext` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TmuxTestContext testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TmuxTestFactory` | class | `public, sealed` | None | `object` | value | Provides TmuxTestFactory testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TmuxTestOptions` | record | `public, sealed` | None | `object` | value | Provides TmuxTestOptions testing support. | `LibTmux.Testing` |
-| `T:LibTmux.Testing.TmuxWait` | static class | `public, static` | None | `object` | value | Provides TmuxWait testing support. | `LibTmux.Testing` |
+| `T:LibTmux.TmuxWait` | static class | `public, static` | None | `object` | value | Provides TmuxWait testing support. | `LibTmux` |
 | `T:LibTmux.TmuxBuffer` | record | `public, sealed` | None | `object` | value | One tmux paste buffer snapshot. | `LibTmux` |
 | `T:LibTmux.TmuxCleanupException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxCleanup failure. State: OriginalCancellation, ClientProcessId, CleanupFailure. | `LibTmux` |
 | `T:LibTmux.TmuxColorMode` | enum | `public` | None | `Enum` | value | Defines valid tmux color modes. Numeric value 1 is reserved; ServerConnectionOptions rejects undefined values with ArgumentOutOfRangeException. | `LibTmux` |
@@ -1652,13 +1652,6 @@ internal static class Program
 | `P:LibTmux.Testing.TmuxTestOptions.SessionNamePrefix` | `string LibTmux.Testing.TmuxTestOptions.SessionNamePrefix { get; }` | Public | No | Portable | Gets the tmux-safe session name prefix. |
 | `P:LibTmux.Testing.TmuxTestOptions.Timeout` | `TimeSpan LibTmux.Testing.TmuxTestOptions.Timeout { get; }` | Public | No | Portable | Gets the operation deadline. |
 
-### `T:LibTmux.Testing.TmuxWait`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)` | `static Task<bool> LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>> probe, TimeSpan timeout, TimeSpan interval, bool throwOnTimeout = true, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Polls a Boolean probe and optionally returns false on timeout. |
-| ``M:LibTmux.Testing.TmuxWait.UntilAsync``1(Func<CancellationToken,Task<T>>,Func<T,bool>,TimeSpan,TimeSpan,CancellationToken)`` | `static Task<T> LibTmux.Testing.TmuxWait.UntilAsync<T>(Func<CancellationToken,Task<T>> probe, Func<T,bool> predicate, TimeSpan timeout, TimeSpan interval, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Polls with a deadline and caller cancellation. |
-
 ### `T:LibTmux.TmuxBuffer`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -2052,6 +2045,13 @@ internal static class Program
 | `M:LibTmux.TmuxVersionTooLowException.#ctor(string,TmuxVersion,TmuxVersion,Exception?)` | `TmuxVersionTooLowException(string message, TmuxVersion requiredVersion, TmuxVersion actualVersion, Exception? innerException = null)` | Public | No | Portable | Creates TmuxVersionTooLowException. |
 | `P:LibTmux.TmuxVersionTooLowException.ActualVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.ActualVersion { get; }` | Public | No | Portable | Gets ActualVersion. |
 | `P:LibTmux.TmuxVersionTooLowException.RequiredVersion` | `TmuxVersion LibTmux.TmuxVersionTooLowException.RequiredVersion { get; }` | Public | No | Portable | Gets RequiredVersion. |
+
+### `T:LibTmux.TmuxWait`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)` | `static Task<bool> LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>> probe, TimeSpan timeout, TimeSpan interval, bool throwOnTimeout = true, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Polls a Boolean probe and optionally returns false on timeout. |
+| ``M:LibTmux.TmuxWait.UntilAsync``1(Func<CancellationToken,Task<T>>,Func<T,bool>,TimeSpan,TimeSpan,CancellationToken)`` | `static Task<T> LibTmux.TmuxWait.UntilAsync<T>(Func<CancellationToken,Task<T>> probe, Func<T,bool> predicate, TimeSpan timeout, TimeSpan interval, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Polls with a deadline and caller cancellation. |
 
 ### `T:LibTmux.TmuxWaitChannel`
 

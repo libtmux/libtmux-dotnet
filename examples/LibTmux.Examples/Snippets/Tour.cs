@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using LibTmux.Testing;
 
 namespace LibTmux.Examples.Snippets;
 

@@ -49,7 +49,6 @@ LibTmux.Testing.TmuxTestOptions.PollInterval.get -> System.TimeSpan
 LibTmux.Testing.TmuxTestOptions.SessionNamePrefix.get -> string!
 LibTmux.Testing.TmuxTestOptions.Timeout.get -> System.TimeSpan
 LibTmux.Testing.TmuxTestOptions.TmuxTestOptions(LibTmux.ServerConnectionOptions? connectionOptions = null, System.TimeSpan? timeout = null, System.TimeSpan? pollInterval = null, string! sessionNamePrefix = "lt") -> void
-LibTmux.Testing.TmuxWait
 override LibTmux.Testing.TestEnvironment.Equals(object? obj) -> bool
 override LibTmux.Testing.TestEnvironment.GetHashCode() -> int
 override LibTmux.Testing.TestEnvironment.ToString() -> string!
@@ -61,5 +60,3 @@ static LibTmux.Testing.TestEnvironment.operator ==(LibTmux.Testing.TestEnvironme
 static LibTmux.Testing.TmuxTestOptions.Default.get -> LibTmux.Testing.TmuxTestOptions!
 static LibTmux.Testing.TmuxTestOptions.operator !=(LibTmux.Testing.TmuxTestOptions? left, LibTmux.Testing.TmuxTestOptions? right) -> bool
 static LibTmux.Testing.TmuxTestOptions.operator ==(LibTmux.Testing.TmuxTestOptions? left, LibTmux.Testing.TmuxTestOptions? right) -> bool
-static LibTmux.Testing.TmuxWait.UntilAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>!>! probe, System.TimeSpan timeout, System.TimeSpan interval, bool throwOnTimeout = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
-static LibTmux.Testing.TmuxWait.UntilAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! probe, System.Func<T, bool>! predicate, System.TimeSpan timeout, System.TimeSpan interval, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
