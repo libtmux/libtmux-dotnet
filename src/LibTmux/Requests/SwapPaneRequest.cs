@@ -15,7 +15,7 @@ public enum PaneSwapDirection
 /// tmux replaces a named source with the neighbour whenever a direction is
 /// given, so sending both would quietly drop the name.
 /// </remarks>
-public sealed record SwapPaneRequest
+public sealed record SwapPaneRequest : ITmuxRequest<Pane>
 {
     private readonly PaneSwapDirection? _direction;
 
@@ -60,4 +60,17 @@ public sealed record SwapPaneRequest
                 "A swap names a pane or a direction, not both and not neither.",
                 nameof(Target))
             : Target;
+
+    /// <summary>Returns a pane-swap request as one tmux command.</summary>
+    /// <param name="pane">The pane being swapped.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildSwapPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>display-message</c> invocation.</summary>
-public sealed record DisplayMessageRequest
+public sealed record DisplayMessageRequest : ITmuxRequest<Server>
 {
     private readonly string _message = "";
     private readonly TimeSpan? _delay;
@@ -63,4 +63,19 @@ public sealed record DisplayMessageRequest
     /// <summary>Gets whether the pane is redrawn while the message is shown.</summary>
     /// <remarks>Only a pane can honour this; a window-scoped call rejects it.</remarks>
     public bool UpdatePane { get; init; }
+
+    /// <summary>Returns a message request as one tmux command.</summary>
+    /// <param name="server">The server the message is shown on.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// This takes the server because two of the flags depend on which tmux is
+    /// answering: literal expansion arrived in 3.4, and 3.2a refuses the
+    /// target-client flag even for a client that is really attached.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
+    public TmuxCommand ToCommand(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return TmuxChaining.Command([.. server.BuildDisplayMessageArguments(this)]);
+    }
 }

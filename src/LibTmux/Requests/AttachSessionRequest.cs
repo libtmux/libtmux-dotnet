@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>attach-session</c> invocation.</summary>
-public sealed record AttachSessionRequest
+public sealed record AttachSessionRequest : ITmuxRequest<Session>
 {
     private readonly string[]? _clientFlags;
 
@@ -25,5 +25,18 @@ public sealed record AttachSessionRequest
         // The request is read again at dispatch, so a caller that kept the list
         // could otherwise change the argv after building it.
         init => _clientFlags = value is null ? null : [.. value];
+    }
+
+    /// <summary>Returns an attach request as one tmux command.</summary>
+    /// <param name="session">The session being attached to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="session" /> is null.</exception>
+    public TmuxCommand ToCommand(Session session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return TmuxChaining.Command([.. Session.BuildAttachArguments(this, session.Id.ToString())]) with
+        {
+            RequiredGeneration = session.Generation,
+        };
     }
 }

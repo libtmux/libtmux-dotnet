@@ -10,7 +10,7 @@ namespace LibTmux;
 /// every caller already compiled against the old signature; a property added
 /// beside these does not.
 /// </remarks>
-public sealed record SplitPaneRequest
+public sealed record SplitPaneRequest : ITmuxRequest<Pane>
 {
     private readonly int? _percentage;
     private readonly IReadOnlyDictionary<string, string>? _environment;
@@ -111,4 +111,23 @@ public sealed record SplitPaneRequest
             : Percentage is int share
                 ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
                 : Size;
+
+    /// <summary>Returns a split request as one tmux command.</summary>
+    /// <param name="pane">The pane being split.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Splitting into an empty pane arrived in tmux 3.7 and the appearance
+    /// flags in 3.6, so the pane decides which of them the built command
+    /// carries. It prints the new pane's identifier the same way the one-shot
+    /// path does.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildSplitArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

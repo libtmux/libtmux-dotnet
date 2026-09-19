@@ -15,7 +15,7 @@ public enum WindowResizeMode
 /// tmux applies a mode after a direction or an explicit size and silently
 /// discards the loser, so the request refuses the ambiguity instead.
 /// </remarks>
-public sealed record ResizeWindowRequest
+public sealed record ResizeWindowRequest : ITmuxRequest<Window>
 {
     private readonly ResizeDirection? _direction;
     private readonly int? _adjustment;
@@ -139,5 +139,18 @@ public sealed record ResizeWindowRequest
         {
             throw new ArgumentOutOfRangeException(parameterName, cells, "Cells must be positive.");
         }
+    }
+
+    /// <summary>Returns a window-resize request as one tmux command.</summary>
+    /// <param name="window">The window being resized.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    public TmuxCommand ToCommand(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return TmuxChaining.Command([.. window.BuildResizeWindowArguments(this)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 }

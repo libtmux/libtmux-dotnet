@@ -24,7 +24,7 @@ public readonly record struct CapturePanePosition
 }
 
 /// <summary>Describes one <c>capture-pane</c> invocation.</summary>
-public sealed record CapturePaneRequest
+public sealed record CapturePaneRequest : ITmuxRequest<Pane>
 {
     /// <summary>Gets the first line to capture.</summary>
     public CapturePanePosition? StartLine { get; init; }
@@ -73,4 +73,22 @@ public sealed record CapturePaneRequest
 
     /// <summary>Gets whether each line carries its flags.</summary>
     public bool LineFlags { get; init; }
+
+    /// <summary>Returns a capture request as one tmux command.</summary>
+    /// <param name="pane">The pane being captured.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Several capture flags arrived after tmux 3.2a, and the pane is what
+    /// knows which tmux is answering, so the command it builds carries only
+    /// the flags that server accepts.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildCaptureArguments(["-p"], this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

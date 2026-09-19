@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>unbind-key</c> invocation.</summary>
-public sealed record UnbindKeyRequest
+public sealed record UnbindKeyRequest : ITmuxRequest<Server>
 {
     /// <summary>Gets the key to unbind, or null when removing them all.</summary>
     public string? Key { get; init; }
@@ -31,4 +31,16 @@ public sealed record UnbindKeyRequest
                 "Removing one binding needs the key it is bound to.",
                 nameof(Key))
             : Key ?? "-a";
+
+    /// <summary>Returns a key-unbinding request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildUnbindKeyArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

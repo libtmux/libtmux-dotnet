@@ -7,7 +7,7 @@ namespace LibTmux;
 /// <c>new-pane</c> arrived in tmux 3.7. Unlike a split it places a floating
 /// pane, so it carries a position as well as a size.
 /// </remarks>
-public sealed record NewPaneRequest
+public sealed record NewPaneRequest : ITmuxRequest<Pane>
 {
     private readonly IReadOnlyDictionary<string, string>? _environment;
     private readonly int? _width;
@@ -134,5 +134,23 @@ public sealed record NewPaneRequest
                 position,
                 "A position cannot be negative.");
         }
+    }
+
+    /// <summary>Returns a floating-pane request as one tmux command.</summary>
+    /// <param name="pane">The pane the new one is created from.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// The command arrived whole in tmux 3.7, so batching does not soften the
+    /// refusal below that: an older server has nothing to send it to.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.7.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildNewPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 }

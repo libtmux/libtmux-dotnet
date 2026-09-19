@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>link-window</c> invocation.</summary>
-public sealed record LinkWindowRequest
+public sealed record LinkWindowRequest : ITmuxRequest<Window>
 {
     /// <summary>Initializes a window-link request.</summary>
     /// <param name="targetSession">The session the window is linked into.</param>
@@ -30,4 +30,20 @@ public sealed record LinkWindowRequest
 
     /// <summary>Gets whether the linked window is left unselected.</summary>
     public bool Detach { get; init; }
+
+    /// <summary>Returns a link request as one tmux command.</summary>
+    /// <param name="window">The window being linked.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// The source names the session and index captured with the window.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    public TmuxCommand ToCommand(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return TmuxChaining.Command([.. window.BuildLinkWindowArguments(this)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
+    }
 }

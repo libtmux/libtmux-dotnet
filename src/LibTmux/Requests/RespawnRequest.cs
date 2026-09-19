@@ -8,7 +8,7 @@ namespace LibTmux;
 /// restart a live window or pane has to say so with
 /// <see cref="KillExistingProcess" />.
 /// </remarks>
-public sealed record RespawnRequest
+public sealed record RespawnRequest : ITmuxRequest<Pane>
 {
     private readonly IReadOnlyDictionary<string, string>? _environment;
 
@@ -38,4 +38,17 @@ public sealed record RespawnRequest
     /// <summary>Gets whether a running process is killed first.</summary>
     /// <remarks>Respawning a live target fails without this.</remarks>
     public bool KillExistingProcess { get; init; }
+
+    /// <summary>Returns a respawn request as one tmux command for a pane.</summary>
+    /// <param name="pane">The pane being respawned.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildRespawnPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -1,7 +1,9 @@
+using System.Runtime.Versioning;
+
 namespace LibTmux;
 
 /// <summary>Describes one <c>set-hook</c> invocation.</summary>
-public sealed record SetHookRequest
+public sealed record SetHookRequest : ITmuxRequest<TmuxHooks>
 {
     /// <summary>Initializes a request to set one hook.</summary>
     /// <param name="name">The hook name, optionally with an array index.</param>
@@ -40,4 +42,18 @@ public sealed record SetHookRequest
 
     /// <summary>Gets whether the command joins the hook's existing entries.</summary>
     public bool Append { get; init; }
+
+    /// <summary>Returns a hook request as one tmux command.</summary>
+    /// <param name="hooks">The hooks handle whose scope the hook is set in.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="hooks" /> is null.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxCommand ToCommand(TmuxHooks hooks)
+    {
+        ArgumentNullException.ThrowIfNull(hooks);
+        return TmuxChaining.Command([.. hooks.BuildSetArguments(this)]) with
+        {
+            RequiredGeneration = hooks.Generation,
+        };
+    }
 }

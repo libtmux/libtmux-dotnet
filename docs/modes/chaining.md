@@ -55,6 +55,26 @@ knows: which tmux version is answering, which target the object resolves to,
 whether a flag exists on that build at all. Handing over the pane or session is
 what lets the same record produce the right command line on 3.2a and on 3.7b.
 
+What a request acts on is part of its type: a `SendKeysRequest` is an
+`ITmuxRequest<Pane>`, a `NewWindowRequest` an `ITmuxRequest<Session>`. Code
+that handles requests in general, such as a batch of pane operations, can take
+the interface rather than naming each record:
+
+```csharp
+ITmuxRequest<Pane>[] steps =
+[
+    new SelectPaneRequest(),
+    new SendKeysRequest { Text = "make" },
+];
+TmuxChain chain = server.Chain();
+foreach (ITmuxRequest<Pane> step in steps)
+{
+    chain = chain.Then(step.ToCommand(pane));
+}
+
+await chain.ExecuteAsync(ct);
+```
+
 One request answers several commands rather than one. Setting a hook's entries
 is a clear then one command per entry, so it answers a list:
 

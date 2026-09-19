@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 namespace LibTmux;
 
 /// <summary>Describes one <c>new-window</c> invocation.</summary>
-public sealed record NewWindowRequest
+public sealed record NewWindowRequest : ITmuxRequest<Session>
 {
     private readonly IReadOnlyDictionary<string, string>? _environment;
 
@@ -84,4 +84,17 @@ public sealed record NewWindowRequest
                 "A window position comes from either an index or a target window, not both.",
                 nameof(TargetWindow))
             : TargetWindow ?? Index;
+
+    /// <summary>Returns a window request as one tmux command.</summary>
+    /// <param name="session">The session the window is created in.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="session" /> is null.</exception>
+    public TmuxCommand ToCommand(Session session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return TmuxChaining.Command([.. Session.BuildNewWindowArguments(this, session.Id.ToString())]) with
+        {
+            RequiredGeneration = session.Generation,
+        };
+    }
 }

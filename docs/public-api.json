@@ -139,7 +139,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Session>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for AttachSession."
@@ -155,7 +157,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for BindKey."
@@ -187,7 +191,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for CapturePane."
@@ -243,7 +249,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ChooseTree."
@@ -309,7 +317,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for CommandPrompt."
@@ -325,7 +335,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ConfirmBefore."
@@ -341,7 +353,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for CopyMode."
@@ -357,7 +371,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for DisplayMenu."
@@ -373,7 +389,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for DisplayMessage.",
@@ -390,7 +408,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for DisplayPopup."
@@ -406,7 +426,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for FindWindow."
@@ -422,7 +444,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxOptions>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for GetOption."
@@ -438,7 +462,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxOptions>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for GetOptions."
@@ -470,7 +496,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for IfShell."
@@ -852,7 +880,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Window>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for LinkWindow."
@@ -868,7 +898,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ListBuffers."
@@ -884,7 +916,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxHooks>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ListHooks."
@@ -900,7 +934,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for MovePane."
@@ -916,7 +952,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Window>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for MoveWindow."
@@ -932,7 +970,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for NewPane."
@@ -948,7 +988,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for NewSession."
@@ -964,7 +1006,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Session>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for NewWindow.",
@@ -1162,7 +1206,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for PasteBuffer."
@@ -1178,7 +1224,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for PipePane."
@@ -1430,7 +1478,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ResizePane.",
@@ -1447,7 +1497,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Window>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ResizeWindow.",
@@ -1464,7 +1516,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for Respawn."
@@ -1480,7 +1534,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for RunShell."
@@ -1511,7 +1567,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Window>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SelectLayout."
@@ -1527,7 +1585,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SelectPane.",
@@ -1544,7 +1604,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SendKeys."
@@ -1579,7 +1641,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for ServerAccess.",
@@ -1702,7 +1766,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxHooks>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SetHook."
@@ -1735,7 +1801,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxOptions>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SetOption."
@@ -1781,7 +1849,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SplitPane.",
@@ -1817,7 +1887,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Pane>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for SwapPane.",
@@ -2619,7 +2691,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for UnbindKey.",
@@ -2652,7 +2726,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.TmuxOptions>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for UnsetOption."
@@ -2686,7 +2762,9 @@
         "sealed"
       ],
       "baseType": "object",
-      "interfaces": [],
+      "interfaces": [
+        "LibTmux.ITmuxRequest<LibTmux.Server>"
+      ],
       "ownership": "value",
       "state": [],
       "summary": "Parameters for WaitFor."
@@ -3015,7 +3093,7 @@
       "interfaces": [],
       "ownership": "value",
       "state": [],
-      "summary": "Turns a request record into a command a chain can carry."
+      "summary": "Runs a request on its own, as a chain of one command."
     },
     {
       "id": "T:LibTmux.TmuxWaitChannel",
@@ -3034,6 +3112,24 @@
       "ownership": "owned",
       "state": [],
       "summary": "Holds a tmux wait-for registration across timed attempts."
+    },
+    {
+      "id": "T:LibTmux.ITmuxRequest`1",
+      "namespace": "LibTmux",
+      "name": "ITmuxRequest",
+      "kind": "interface",
+      "package": "LibTmux",
+      "modifiers": [
+        "public"
+      ],
+      "baseType": null,
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "A request that becomes one tmux command against a target.",
+      "genericParameters": [
+        "TTarget"
+      ]
     }
   ],
   "members": [
@@ -23190,1956 +23286,6 @@
       "portable": true
     },
     {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewSessionRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this NewSessionRequest request)",
-      "portable": true,
-      "summary": "Returns a session request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewWindowRequest"
-        },
-        {
-          "name": "session",
-          "type": "Session"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this NewWindowRequest request, Session session)",
-      "portable": true,
-      "summary": "Returns a window request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SendKeysRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SendKeysRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SendKeysRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a key request as one tmux command for a pane."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewSessionRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewSessionRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this NewSessionRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a session request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewWindowRequest,LibTmux.Session,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewWindowRequest"
-        },
-        {
-          "name": "session",
-          "type": "Session"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this NewWindowRequest request, Session session, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a window request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SendKeysRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SendKeysRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a key request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.BindKeyRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "BindKeyRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this BindKeyRequest request)",
-      "portable": true,
-      "summary": "Returns a key-binding request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.BindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "BindKeyRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this BindKeyRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a key-binding request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.UnbindKeyRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "UnbindKeyRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this UnbindKeyRequest request)",
-      "portable": true,
-      "summary": "Returns a key-unbinding request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.UnbindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "UnbindKeyRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this UnbindKeyRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a key-unbinding request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SelectLayoutRequest,LibTmux.Window)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SelectLayoutRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SelectLayoutRequest request, Window window)",
-      "portable": true,
-      "summary": "Returns a layout request as one tmux command for a window."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SelectLayoutRequest,LibTmux.Window,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SelectLayoutRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SelectLayoutRequest request, Window window, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a layout request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.IfShellRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "IfShellRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this IfShellRequest request)",
-      "portable": true,
-      "summary": "Returns a conditional request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.IfShellRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "IfShellRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this IfShellRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a conditional request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.WaitForRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "WaitForRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this WaitForRequest request)",
-      "portable": true,
-      "summary": "Returns a channel request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.WaitForRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "WaitForRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this WaitForRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a channel request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SelectPaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SelectPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SelectPaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a pane-selection request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SelectPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SelectPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SelectPaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a pane-selection request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ResizePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ResizePaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a pane-resize request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ResizePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ResizePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ResizePaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a pane-resize request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.FindWindowRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "FindWindowRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this FindWindowRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a window-search request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.FindWindowRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "FindWindowRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this FindWindowRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a window-search request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SwapPaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SwapPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SwapPaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a pane-swap request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SwapPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SwapPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SwapPaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a pane-swap request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "PipePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this PipePaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a pane-piping request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.PipePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "PipePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this PipePaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a pane-piping request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.CapturePaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CapturePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this CapturePaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a capture request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CapturePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CapturePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this CapturePaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a capture request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayMessageRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayMessageRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this DisplayMessageRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns a message request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayMessageRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayMessageRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this DisplayMessageRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a message request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.RunShellRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "RunShellRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this RunShellRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns a shell request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.RunShellRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "RunShellRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this RunShellRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a shell request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "PasteBufferRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this PasteBufferRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a paste request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.PasteBufferRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "PasteBufferRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this PasteBufferRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a paste request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayMenuRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayMenuRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this DisplayMenuRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns a menu request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayMenuRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayMenuRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this DisplayMenuRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a menu request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayPopupRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayPopupRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this DisplayPopupRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a popup request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayPopupRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "DisplayPopupRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this DisplayPopupRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a popup request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SetOptionRequest,LibTmux.TmuxOptions)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SetOptionRequest request, TmuxOptions options)",
-      "portable": true,
-      "summary": "Returns an option request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs an option request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.UnsetOptionRequest,LibTmux.TmuxOptions)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "UnsetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this UnsetOptionRequest request, TmuxOptions options)",
-      "portable": true,
-      "summary": "Returns an unset request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.UnsetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "UnsetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this UnsetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs an unset request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SetHookRequest,LibTmux.TmuxHooks)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SetHookRequest"
-        },
-        {
-          "name": "hooks",
-          "type": "TmuxHooks"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SetHookRequest request, TmuxHooks hooks)",
-      "portable": true,
-      "summary": "Returns a hook request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetHookRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SetHookRequest"
-        },
-        {
-          "name": "hooks",
-          "type": "TmuxHooks"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SetHookRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a hook request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ConfirmBeforeRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ConfirmBeforeRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ConfirmBeforeRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns a confirmation request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ConfirmBeforeRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ConfirmBeforeRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ConfirmBeforeRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a confirmation request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.CommandPromptRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CommandPromptRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this CommandPromptRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns a prompt request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CommandPromptRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CommandPromptRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this CommandPromptRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a prompt request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.CopyModeRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CopyModeRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this CopyModeRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a copy-mode request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CopyModeRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "CopyModeRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this CopyModeRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a copy-mode request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizeWindowRequest,LibTmux.Window)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ResizeWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ResizeWindowRequest request, Window window)",
-      "portable": true,
-      "summary": "Returns a window-resize request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ResizeWindowRequest,LibTmux.Window,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ResizeWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ResizeWindowRequest request, Window window, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a window-resize request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.RespawnRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "RespawnRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this RespawnRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a respawn request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.RespawnRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "RespawnRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this RespawnRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a respawn request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ChooseTreeRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ChooseTreeRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ChooseTreeRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a chooser request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ChooseTreeRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ChooseTreeRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ChooseTreeRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a chooser request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ServerAccessRequest,LibTmux.Server)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ServerAccessRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ServerAccessRequest request, Server server)",
-      "portable": true,
-      "summary": "Returns an access request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ServerAccessRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ServerAccessRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ServerAccessRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs an access request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ListBuffersRequest)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ListBuffersRequest"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ListBuffersRequest request)",
-      "portable": true,
-      "summary": "Returns a buffer-listing request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ListBuffersRequest,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ListBuffersRequest"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ListBuffersRequest request, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a buffer-listing request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.LinkWindowRequest,LibTmux.Window)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "LinkWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this LinkWindowRequest request, Window window)",
-      "portable": true,
-      "summary": "Returns a link request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.LinkWindowRequest,LibTmux.Window,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "LinkWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this LinkWindowRequest request, Window window, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a link request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "MoveWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this MoveWindowRequest request, Window window)",
-      "portable": true,
-      "summary": "Returns a window-move request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.MoveWindowRequest,LibTmux.Window,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "MoveWindowRequest"
-        },
-        {
-          "name": "window",
-          "type": "Window"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this MoveWindowRequest request, Window window, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a window-move request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.MovePaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "MovePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this MovePaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a pane-move request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.MovePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "MovePaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this MovePaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a pane-move request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.SplitPaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SplitPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this SplitPaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a split request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SplitPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "SplitPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this SplitPaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a split request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this NewPaneRequest request, Pane pane)",
-      "portable": true,
-      "summary": "Returns a floating-pane request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "NewPaneRequest"
-        },
-        {
-          "name": "pane",
-          "type": "Pane"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this NewPaneRequest request, Pane pane, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a floating-pane request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.AttachSessionRequest,LibTmux.Session)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "AttachSessionRequest"
-        },
-        {
-          "name": "session",
-          "type": "Session"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this AttachSessionRequest request, Session session)",
-      "portable": true,
-      "summary": "Returns a attach request as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.AttachSessionRequest,LibTmux.Session,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "AttachSessionRequest"
-        },
-        {
-          "name": "session",
-          "type": "Session"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this AttachSessionRequest request, Session session, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a attach request on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.GetOptionRequest,LibTmux.TmuxOptions)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "GetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this GetOptionRequest request, TmuxOptions options)",
-      "portable": true,
-      "summary": "Returns a named option read as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.GetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "GetOptionRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this GetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a named option read on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.GetOptionsRequest,LibTmux.TmuxOptions)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "GetOptionsRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this GetOptionsRequest request, TmuxOptions options)",
-      "portable": true,
-      "summary": "Returns a whole-scope option read as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.GetOptionsRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "GetOptionsRequest"
-        },
-        {
-          "name": "options",
-          "type": "TmuxOptions"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this GetOptionsRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a whole-scope option read on its own."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ToCommand(LibTmux.ListHooksRequest,LibTmux.TmuxHooks)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ToCommand",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "TmuxCommand",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ListHooksRequest"
-        },
-        {
-          "name": "hooks",
-          "type": "TmuxHooks"
-        }
-      ],
-      "signature": "static TmuxCommand ToCommand(this ListHooksRequest request, TmuxHooks hooks)",
-      "portable": true,
-      "summary": "Returns a hook listing as one tmux command."
-    },
-    {
-      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ListHooksRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)",
-      "declaringType": "T:LibTmux.TmuxChaining",
-      "name": "ExecuteAsync",
-      "kind": "method",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": true,
-      "returnType": "Task<TmuxCommandResult>",
-      "parameters": [
-        {
-          "name": "request",
-          "type": "ListHooksRequest"
-        },
-        {
-          "name": "hooks",
-          "type": "TmuxHooks"
-        },
-        {
-          "name": "server",
-          "type": "Server"
-        },
-        {
-          "name": "cancellationToken",
-          "type": "System.Threading.CancellationToken"
-        }
-      ],
-      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ListHooksRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)",
-      "portable": true,
-      "summary": "Runs a hook listing on its own."
-    },
-    {
       "id": "M:LibTmux.TmuxChaining.ToRunCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)",
       "declaringType": "T:LibTmux.TmuxChaining",
       "name": "ToRunCommand",
@@ -26281,6 +24427,1268 @@
         "UnsupportedOSPlatform(\"windows\")"
       ],
       "summary": "Reads one pane in this window, returning null only when a successful lookup finds no match."
+    },
+    {
+      "id": "T:LibTmux.ITmuxRequest`1",
+      "declaringType": "T:LibTmux.ITmuxRequest`1",
+      "name": "ITmuxRequest",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "interface LibTmux.ITmuxRequest<TTarget>",
+      "portable": true
+    },
+    {
+      "id": "M:LibTmux.ITmuxRequest`1.ToCommand(`0)",
+      "declaringType": "T:LibTmux.ITmuxRequest`1",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "TTarget"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<TTarget>.ToCommand(TTarget target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.AttachSessionRequest.ToCommand(LibTmux.Session)",
+      "declaringType": "T:LibTmux.AttachSessionRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "session",
+          "type": "Session"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.AttachSessionRequest.ToCommand(Session session)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a attach request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.BindKeyRequest.ToCommand()",
+      "declaringType": "T:LibTmux.BindKeyRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.BindKeyRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a key-binding request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.BindKeyRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.BindKeyRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.CapturePaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.CapturePaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.CapturePaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a capture request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ChooseTreeRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.ChooseTreeRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ChooseTreeRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a chooser request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.CommandPromptRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.CommandPromptRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.CommandPromptRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a prompt request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ConfirmBeforeRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.ConfirmBeforeRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ConfirmBeforeRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a confirmation request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.CopyModeRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.CopyModeRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.CopyModeRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a copy-mode request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.DisplayMenuRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.DisplayMenuRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.DisplayMenuRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a menu request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.DisplayMessageRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.DisplayMessageRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.DisplayMessageRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a message request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.DisplayPopupRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.DisplayPopupRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.DisplayPopupRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a popup request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.FindWindowRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.FindWindowRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.FindWindowRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a window-search request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.GetOptionRequest.ToCommand(LibTmux.TmuxOptions)",
+      "declaringType": "T:LibTmux.GetOptionRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "options",
+          "type": "TmuxOptions"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.GetOptionRequest.ToCommand(TmuxOptions options)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a named option read as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.GetOptionsRequest.ToCommand(LibTmux.TmuxOptions)",
+      "declaringType": "T:LibTmux.GetOptionsRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "options",
+          "type": "TmuxOptions"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.GetOptionsRequest.ToCommand(TmuxOptions options)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a whole-scope option read as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.IfShellRequest.ToCommand()",
+      "declaringType": "T:LibTmux.IfShellRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.IfShellRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a conditional request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.IfShellRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.IfShellRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.LinkWindowRequest.ToCommand(LibTmux.Window)",
+      "declaringType": "T:LibTmux.LinkWindowRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "window",
+          "type": "Window"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.LinkWindowRequest.ToCommand(Window window)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a link request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ListBuffersRequest.ToCommand()",
+      "declaringType": "T:LibTmux.ListBuffersRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.ListBuffersRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a buffer-listing request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ListBuffersRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.ListBuffersRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.ListHooksRequest.ToCommand(LibTmux.TmuxHooks)",
+      "declaringType": "T:LibTmux.ListHooksRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "hooks",
+          "type": "TmuxHooks"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ListHooksRequest.ToCommand(TmuxHooks hooks)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a hook listing as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.MovePaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.MovePaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.MovePaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a pane-move request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.MoveWindowRequest.ToCommand(LibTmux.Window)",
+      "declaringType": "T:LibTmux.MoveWindowRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "window",
+          "type": "Window"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.MoveWindowRequest.ToCommand(Window window)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a window-move request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.NewPaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.NewPaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.NewPaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a floating-pane request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.NewSessionRequest.ToCommand()",
+      "declaringType": "T:LibTmux.NewSessionRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.NewSessionRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a session request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.NewSessionRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.NewSessionRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.NewWindowRequest.ToCommand(LibTmux.Session)",
+      "declaringType": "T:LibTmux.NewWindowRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "session",
+          "type": "Session"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.NewWindowRequest.ToCommand(Session session)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a window request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.PasteBufferRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.PasteBufferRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a paste request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.PipePaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.PipePaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a pane-piping request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ResizePaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.ResizePaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ResizePaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a pane-resize request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.ResizeWindowRequest.ToCommand(LibTmux.Window)",
+      "declaringType": "T:LibTmux.ResizeWindowRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "window",
+          "type": "Window"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ResizeWindowRequest.ToCommand(Window window)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a window-resize request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.RespawnRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.RespawnRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.RespawnRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a respawn request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.RunShellRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.RunShellRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.RunShellRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a shell request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SelectLayoutRequest.ToCommand(LibTmux.Window)",
+      "declaringType": "T:LibTmux.SelectLayoutRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "window",
+          "type": "Window"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SelectLayoutRequest.ToCommand(Window window)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a layout request as one tmux command for a window."
+    },
+    {
+      "id": "M:LibTmux.SelectPaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.SelectPaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SelectPaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a pane-selection request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.SendKeysRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SendKeysRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a key request as one tmux command for a pane."
+    },
+    {
+      "id": "M:LibTmux.ServerAccessRequest.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.ServerAccessRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "server",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ServerAccessRequest.ToCommand(Server server)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns an access request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SetHookRequest.ToCommand(LibTmux.TmuxHooks)",
+      "declaringType": "T:LibTmux.SetHookRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "hooks",
+          "type": "TmuxHooks"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SetHookRequest.ToCommand(TmuxHooks hooks)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns a hook request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SetOptionRequest.ToCommand(LibTmux.TmuxOptions)",
+      "declaringType": "T:LibTmux.SetOptionRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "options",
+          "type": "TmuxOptions"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SetOptionRequest.ToCommand(TmuxOptions options)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns an option request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SplitPaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.SplitPaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SplitPaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a split request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.SwapPaneRequest.ToCommand(LibTmux.Pane)",
+      "declaringType": "T:LibTmux.SwapPaneRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "pane",
+          "type": "Pane"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.SwapPaneRequest.ToCommand(Pane pane)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a pane-swap request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.UnbindKeyRequest.ToCommand()",
+      "declaringType": "T:LibTmux.UnbindKeyRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.UnbindKeyRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a key-unbinding request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.UnbindKeyRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.UnbindKeyRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.UnsetOptionRequest.ToCommand(LibTmux.TmuxOptions)",
+      "declaringType": "T:LibTmux.UnsetOptionRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "options",
+          "type": "TmuxOptions"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.UnsetOptionRequest.ToCommand(TmuxOptions options)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Returns an unset request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.WaitForRequest.ToCommand()",
+      "declaringType": "T:LibTmux.WaitForRequest",
+      "name": "ToCommand",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "TmuxCommand",
+      "parameters": [],
+      "signature": "TmuxCommand LibTmux.WaitForRequest.ToCommand()",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns a channel request as one tmux command."
+    },
+    {
+      "id": "M:LibTmux.WaitForRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)",
+      "declaringType": "T:LibTmux.WaitForRequest",
+      "name": "LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand",
+      "kind": "method",
+      "visibility": "explicit",
+      "package": "LibTmux",
+      "static": false,
+      "returnType": "TmuxCommand",
+      "parameters": [
+        {
+          "name": "target",
+          "type": "Server"
+        }
+      ],
+      "signature": "TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Returns this request as one tmux command; the server is not needed to build it."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Pane>,LibTmux.Pane,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<Pane>"
+        },
+        {
+          "name": "pane",
+          "type": "Pane"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Pane> request, Pane pane, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs a pane request on its own."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Window>,LibTmux.Window,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<Window>"
+        },
+        {
+          "name": "window",
+          "type": "Window"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Window> request, Window window, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs a window request on its own."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Session>,LibTmux.Session,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<Session>"
+        },
+        {
+          "name": "session",
+          "type": "Session"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Session> request, Session session, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs a session request on its own."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Server>,LibTmux.Server,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<Server>"
+        },
+        {
+          "name": "server",
+          "type": "Server"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Server> request, Server server, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs a server request on its own."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.TmuxOptions>,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<TmuxOptions>"
+        },
+        {
+          "name": "options",
+          "type": "TmuxOptions"
+        },
+        {
+          "name": "server",
+          "type": "Server"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<TmuxOptions> request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs an option request on its own."
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.TmuxHooks>,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxChaining",
+      "name": "ExecuteAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "request",
+          "type": "ITmuxRequest<TmuxHooks>"
+        },
+        {
+          "name": "hooks",
+          "type": "TmuxHooks"
+        },
+        {
+          "name": "server",
+          "type": "Server"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<TmuxHooks> request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Runs a hook request on its own."
     }
   ]
 }

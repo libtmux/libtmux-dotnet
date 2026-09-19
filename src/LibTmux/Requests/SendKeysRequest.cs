@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>send-keys</c> invocation.</summary>
-public sealed record SendKeysRequest
+public sealed record SendKeysRequest : ITmuxRequest<Pane>
 {
     /// <summary>Gets the text or key names to send.</summary>
     public string? Text { get; init; }
@@ -45,4 +45,20 @@ public sealed record SendKeysRequest
     /// <summary>Gets whether the text names a key rather than a string.</summary>
     /// <remarks>tmux gained this in 3.4.</remarks>
     public bool KeyName { get; init; }
+
+    /// <summary>Returns a key request as one tmux command for a pane.</summary>
+    /// <param name="pane">The pane that receives them.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+
+        // The pane ID travels into the chain as plain text, so RequiredGeneration
+        // pins it: after a restart, that ID could name a different pane.
+        return TmuxChaining.Command([.. pane.BuildSendKeysArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>bind-key</c> invocation.</summary>
-public sealed record BindKeyRequest
+public sealed record BindKeyRequest : ITmuxRequest<Server>
 {
     private readonly string[] _command;
 
@@ -40,4 +40,16 @@ public sealed record BindKeyRequest
 
     /// <summary>Gets whether the key may repeat without the prefix.</summary>
     public bool Repeat { get; init; }
+
+    /// <summary>Returns a key-binding request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildBindKeyArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

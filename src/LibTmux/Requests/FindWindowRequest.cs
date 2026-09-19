@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>find-window</c> invocation.</summary>
-public sealed record FindWindowRequest
+public sealed record FindWindowRequest : ITmuxRequest<Pane>
 {
     /// <summary>Initializes a window-search request.</summary>
     /// <param name="pattern">The text to look for.</param>
@@ -29,4 +29,17 @@ public sealed record FindWindowRequest
 
     /// <summary>Gets whether pane titles are searched.</summary>
     public bool MatchTitle { get; init; }
+
+    /// <summary>Returns a window-search request as one tmux command.</summary>
+    /// <param name="pane">The pane the search starts from.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildFindWindowArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>paste-buffer</c> invocation.</summary>
-public sealed record PasteBufferRequest
+public sealed record PasteBufferRequest : ITmuxRequest<Pane>
 {
     /// <summary>Gets the buffer to paste, or null for the most recent.</summary>
     public string? Name { get; init; }
@@ -24,4 +24,21 @@ public sealed record PasteBufferRequest
     /// omitting it there asks for what they already do.
     /// </remarks>
     public bool RawBytes { get; init; }
+
+    /// <summary>Returns a paste request as one tmux command.</summary>
+    /// <param name="pane">The pane being pasted into.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Pasting raw bytes arrived in tmux 3.7, so the pane decides whether the
+    /// built command carries that flag.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildPasteBufferArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

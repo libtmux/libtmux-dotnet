@@ -7,7 +7,7 @@ namespace LibTmux;
 /// trimming below the cursor unrepresentable on its own; it rides alongside a
 /// real resize.
 /// </remarks>
-public sealed record ResizePaneRequest
+public sealed record ResizePaneRequest : ITmuxRequest<Pane>
 {
     private readonly ResizeDirection? _direction;
     private readonly int? _adjustment;
@@ -145,5 +145,18 @@ public sealed record ResizePaneRequest
                 "An extent is a positive number of cells or a percentage.",
                 parameterName);
         }
+    }
+
+    /// <summary>Returns a pane-resize request as one tmux command.</summary>
+    /// <param name="pane">The pane being resized.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildResizePaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 }

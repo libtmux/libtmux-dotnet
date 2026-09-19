@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 namespace LibTmux;
 
 /// <summary>Describes one <c>server-access</c> invocation.</summary>
@@ -5,7 +7,7 @@ namespace LibTmux;
 /// tmux lets other users attach to a server over its socket. Access is granted
 /// per user, and read-only or read-write says what a granted user may do.
 /// </remarks>
-public sealed record ServerAccessRequest
+public sealed record ServerAccessRequest : ITmuxRequest<Server>
 {
     /// <summary>Gets the user to grant access to.</summary>
     public string? AllowUser { get; init; }
@@ -50,5 +52,21 @@ public sealed record ServerAccessRequest
         }
 
         return AllowUser ?? DenyUser;
+    }
+
+    /// <summary>Returns an access request as one tmux command.</summary>
+    /// <param name="server">The server whose access is changed.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// The command itself arrived in tmux 3.3, so batching does not soften the
+    /// refusal below that: an older server has nothing to send it to.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
+    /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxCommand ToCommand(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return TmuxChaining.Command([.. server.BuildServerAccessArguments(this)]);
     }
 }

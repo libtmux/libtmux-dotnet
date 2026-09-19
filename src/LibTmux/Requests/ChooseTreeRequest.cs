@@ -19,7 +19,7 @@ public enum ChooseTreeSort
 }
 
 /// <summary>Describes one <c>choose-tree</c> invocation.</summary>
-public sealed record ChooseTreeRequest
+public sealed record ChooseTreeRequest : ITmuxRequest<Pane>
 {
     private readonly ChooseTreeSort? _sort;
 
@@ -56,4 +56,21 @@ public sealed record ChooseTreeRequest
 
     /// <summary>Gets whether the chooser pane is zoomed.</summary>
     public bool Zoom { get; init; }
+
+    /// <summary>Returns a chooser request as one tmux command.</summary>
+    /// <param name="pane">The pane the chooser opens in.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// tmux 3.7 dropped the activity-time sort order and rejects it by name,
+    /// so the pane decides whether the built command carries it.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildChooseTreeArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

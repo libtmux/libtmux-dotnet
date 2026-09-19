@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>move-pane</c> or <c>join-pane</c> invocation.</summary>
-public sealed record MovePaneRequest
+public sealed record MovePaneRequest : ITmuxRequest<Pane>
 {
     private readonly PaneDirection _direction = PaneDirection.Below;
 
@@ -53,4 +53,17 @@ public sealed record MovePaneRequest
 
     /// <summary>Gets whether the pane lands before the target.</summary>
     public bool Before { get; init; }
+
+    /// <summary>Returns a pane-move request as one tmux command.</summary>
+    /// <param name="pane">The pane being moved.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildRehomeArguments("move-pane", this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>if-shell</c> invocation.</summary>
-public sealed record IfShellRequest
+public sealed record IfShellRequest : ITmuxRequest<Server>
 {
     private readonly string[] _thenCommand;
     private readonly string[]? _elseCommand;
@@ -48,4 +48,16 @@ public sealed record IfShellRequest
 
     /// <summary>Gets the pane the commands run against.</summary>
     public string? TargetPane { get; init; }
+
+    /// <summary>Returns a conditional request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildIfShellArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

@@ -288,38 +288,38 @@ internal static class Program
 
 | Type | Kind | Modifiers | Interfaces | Base | Ownership | Contract | Package |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `T:LibTmux.AttachSessionRequest` | record | `public, sealed` | None | `object` | value | Parameters for AttachSession. | `LibTmux` |
-| `T:LibTmux.BindKeyRequest` | record | `public, sealed` | None | `object` | value | Parameters for BindKey. | `LibTmux` |
+| `T:LibTmux.AttachSessionRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Session>` | `object` | value | Parameters for AttachSession. | `LibTmux` |
+| `T:LibTmux.BindKeyRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for BindKey. | `LibTmux` |
 | `T:LibTmux.CapturePanePosition` | readonly record struct | `public, readonly` | None | `ValueType` | value | A numeric capture line or the tmux hyphen boundary sentinel. | `LibTmux` |
-| `T:LibTmux.CapturePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for CapturePane. | `LibTmux` |
+| `T:LibTmux.CapturePaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for CapturePane. | `LibTmux` |
 | ``T:LibTmux.CapturedRelation`1`` | class | `public, sealed` | `IReadOnlyList<T>` | `object` | value | A copy-backed relation that distinguishes uncaptured from captured-empty. | `LibTmux` |
 | ``T:LibTmux.CapturedValue`1`` | class | `public, sealed` | None | `object` | value | A relation holding at most one child that distinguishes uncaptured from absent. | `LibTmux` |
-| `T:LibTmux.ChooseTreeRequest` | record | `public, sealed` | None | `object` | value | Parameters for ChooseTree. | `LibTmux` |
+| `T:LibTmux.ChooseTreeRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for ChooseTree. | `LibTmux` |
 | `T:LibTmux.ChooseTreeSort` | enum | `public` | None | `Enum` | value | Defines ChooseTreeSort values. | `LibTmux` |
 | `T:LibTmux.Client` | class | `public, sealed` | `IEquatable<Client>` | `object` | borrowed | An immutable client handle and snapshot. Equality: ServerGeneration and Name; Tty excluded. | `LibTmux` |
 | `T:LibTmux.ClientAttachment` | record | `public, sealed` | None | `object` | value | A fresh client attachment resolution. | `LibTmux` |
-| `T:LibTmux.CommandPromptRequest` | record | `public, sealed` | None | `object` | value | Parameters for CommandPrompt. | `LibTmux` |
-| `T:LibTmux.ConfirmBeforeRequest` | record | `public, sealed` | None | `object` | value | Parameters for ConfirmBefore. | `LibTmux` |
-| `T:LibTmux.CopyModeRequest` | record | `public, sealed` | None | `object` | value | Parameters for CopyMode. | `LibTmux` |
-| `T:LibTmux.DisplayMenuRequest` | record | `public, sealed` | None | `object` | value | Parameters for DisplayMenu. | `LibTmux` |
-| `T:LibTmux.DisplayMessageRequest` | record | `public, sealed` | None | `object` | value | Parameters for DisplayMessage. Validation: UpdatePane is valid only for pane-scoped execution. | `LibTmux` |
-| `T:LibTmux.DisplayPopupRequest` | record | `public, sealed` | None | `object` | value | Parameters for DisplayPopup. | `LibTmux` |
-| `T:LibTmux.FindWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for FindWindow. | `LibTmux` |
-| `T:LibTmux.GetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for GetOption. | `LibTmux` |
-| `T:LibTmux.GetOptionsRequest` | record | `public, sealed` | None | `object` | value | Parameters for GetOptions. | `LibTmux` |
+| `T:LibTmux.CommandPromptRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for CommandPrompt. | `LibTmux` |
+| `T:LibTmux.ConfirmBeforeRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for ConfirmBefore. | `LibTmux` |
+| `T:LibTmux.CopyModeRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for CopyMode. | `LibTmux` |
+| `T:LibTmux.DisplayMenuRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for DisplayMenu. | `LibTmux` |
+| `T:LibTmux.DisplayMessageRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for DisplayMessage. Validation: UpdatePane is valid only for pane-scoped execution. | `LibTmux` |
+| `T:LibTmux.DisplayPopupRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for DisplayPopup. | `LibTmux` |
+| `T:LibTmux.FindWindowRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for FindWindow. | `LibTmux` |
+| `T:LibTmux.GetOptionRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxOptions>` | `object` | value | Parameters for GetOption. | `LibTmux` |
+| `T:LibTmux.GetOptionsRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxOptions>` | `object` | value | Parameters for GetOptions. | `LibTmux` |
 | `T:LibTmux.HookRequest` | record | `public, sealed` | None | `object` | value | Parameters for Hook. | `LibTmux` |
-| `T:LibTmux.IfShellRequest` | record | `public, sealed` | None | `object` | value | Parameters for IfShell. | `LibTmux` |
+| `T:LibTmux.IfShellRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for IfShell. | `LibTmux` |
 | `T:LibTmux.IncompleteSnapshotException` | class | `public, sealed` | None | `InvalidOperationException` | value | Reports IncompleteSnapshot failure. State: RelationName. | `LibTmux` |
 | `T:LibTmux.LibTmuxException` | class | `public` | None | `Exception` | value | Reports LibTmux failure. | `LibTmux` |
 | `T:LibTmux.LibTmuxInfo` | static class | `public, static` | None | `object` | value | Reports package identity and supported tmux range. | `LibTmux` |
-| `T:LibTmux.LinkWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for LinkWindow. | `LibTmux` |
-| `T:LibTmux.ListBuffersRequest` | record | `public, sealed` | None | `object` | value | Parameters for ListBuffers. | `LibTmux` |
-| `T:LibTmux.ListHooksRequest` | record | `public, sealed` | None | `object` | value | Parameters for ListHooks. | `LibTmux` |
-| `T:LibTmux.MovePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for MovePane. | `LibTmux` |
-| `T:LibTmux.MoveWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for MoveWindow. | `LibTmux` |
-| `T:LibTmux.NewPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewPane. | `LibTmux` |
-| `T:LibTmux.NewSessionRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewSession. | `LibTmux` |
-| `T:LibTmux.NewWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for NewWindow. Validation: Index and TargetWindow are mutually exclusive; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.LinkWindowRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Window>` | `object` | value | Parameters for LinkWindow. | `LibTmux` |
+| `T:LibTmux.ListBuffersRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for ListBuffers. | `LibTmux` |
+| `T:LibTmux.ListHooksRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxHooks>` | `object` | value | Parameters for ListHooks. | `LibTmux` |
+| `T:LibTmux.MovePaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for MovePane. | `LibTmux` |
+| `T:LibTmux.MoveWindowRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Window>` | `object` | value | Parameters for MoveWindow. | `LibTmux` |
+| `T:LibTmux.NewPaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for NewPane. | `LibTmux` |
+| `T:LibTmux.NewSessionRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for NewSession. | `LibTmux` |
+| `T:LibTmux.NewWindowRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Session>` | `object` | value | Parameters for NewWindow. Validation: Index and TargetWindow are mutually exclusive; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.OptionScope` | enum | `public` | None | `Enum` | value | Defines OptionScope values. | `LibTmux` |
 | `T:LibTmux.OwnedServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary server resource and bounded cleanup. | `LibTmux` |
 | `T:LibTmux.OwnedSessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Owns a temporary session resource and bounded cleanup. | `LibTmux` |
@@ -330,8 +330,8 @@ internal static class Program
 | `T:LibTmux.PaneInputMode` | enum | `public` | None | `Enum` | value | Defines PaneInputMode values. | `LibTmux` |
 | `T:LibTmux.PaneSelectDirection` | enum | `public` | None | `Enum` | value | Defines PaneSelectDirection values. | `LibTmux` |
 | `T:LibTmux.PaneSwapDirection` | enum | `public` | None | `Enum` | value | Defines PaneSwapDirection values. | `LibTmux` |
-| `T:LibTmux.PasteBufferRequest` | record | `public, sealed` | None | `object` | value | Parameters for PasteBuffer. | `LibTmux` |
-| `T:LibTmux.PipePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for PipePane. | `LibTmux` |
+| `T:LibTmux.PasteBufferRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for PasteBuffer. | `LibTmux` |
+| `T:LibTmux.PipePaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for PipePane. | `LibTmux` |
 | `T:LibTmux.PopupCloseMode` | enum | `public` | None | `Enum` | value | Defines PopupCloseMode values. | `LibTmux` |
 | `T:LibTmux.PromptType` | enum | `public` | None | `Enum` | value | Defines PromptType values. | `LibTmux` |
 | `T:LibTmux.PsmuxCaptureOptions` | class | `public, sealed` | None | `object` | value | Typed capture choices audited for the psmux query preview. | `LibTmux` |
@@ -347,29 +347,29 @@ internal static class Program
 | `T:LibTmux.Query.QueryExtensions` | static class | `public, static` | None | `object` | value | Translates and evaluates closed snapshot queries. | `LibTmux` |
 | `T:LibTmux.Query.QueryTarget` | enum | `public` | None | `Enum` | value | Defines QueryTarget values. | `LibTmux` |
 | `T:LibTmux.ResizeDirection` | enum | `public` | None | `Enum` | value | Defines ResizeDirection values. | `LibTmux` |
-| `T:LibTmux.ResizePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizePane. Validation: exactly one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
-| `T:LibTmux.ResizeWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizeWindow. Validation: at most one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
-| `T:LibTmux.RespawnRequest` | record | `public, sealed` | None | `object` | value | Parameters for Respawn. | `LibTmux` |
-| `T:LibTmux.RunShellRequest` | record | `public, sealed` | None | `object` | value | Parameters for RunShell. | `LibTmux` |
+| `T:LibTmux.ResizePaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for ResizePane. Validation: exactly one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.ResizeWindowRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Window>` | `object` | value | Parameters for ResizeWindow. Validation: at most one primary resize mode; Direction and Adjustment go together; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.RespawnRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for Respawn. | `LibTmux` |
+| `T:LibTmux.RunShellRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for RunShell. | `LibTmux` |
 | `T:LibTmux.SelectLayoutMode` | enum | `public` | None | `Enum` | value | Defines SelectLayoutMode values. | `LibTmux` |
-| `T:LibTmux.SelectLayoutRequest` | record | `public, sealed` | None | `object` | value | Parameters for SelectLayout. | `LibTmux` |
-| `T:LibTmux.SelectPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SelectPane. Validation: nullable Mark and InputEnabled preserve paired positive and negative flags. | `LibTmux` |
-| `T:LibTmux.SendKeysRequest` | record | `public, sealed` | None | `object` | value | Parameters for SendKeys. | `LibTmux` |
+| `T:LibTmux.SelectLayoutRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Window>` | `object` | value | Parameters for SelectLayout. | `LibTmux` |
+| `T:LibTmux.SelectPaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for SelectPane. Validation: nullable Mark and InputEnabled preserve paired positive and negative flags. | `LibTmux` |
+| `T:LibTmux.SendKeysRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for SendKeys. | `LibTmux` |
 | `T:LibTmux.Server` | class | `public, sealed` | `IEquatable<Server>` | `object` | borrowed | An immutable server handle and snapshot. Equality: normalized connection endpoint. | `LibTmux` |
-| `T:LibTmux.ServerAccessRequest` | record | `public, sealed` | None | `object` | value | Parameters for ServerAccess. Validation: AllowUser and DenyUser are mutually exclusive, as are ReadOnly and ReadWrite; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.ServerAccessRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for ServerAccess. Validation: AllowUser and DenyUser are mutually exclusive, as are ReadOnly and ReadWrite; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.ServerConnectionOptions` | record | `public, sealed` | None | `object` | value | Configures a tmux server connection without mutating process-wide state. Endpoint precedence: SocketPath, SocketName, SocketNameFactory. | `LibTmux` |
 | `T:LibTmux.ServerGeneration` | readonly record struct | `public, readonly` | None | `ValueType` | value | Identifies one tmux daemon generation. Validation: ProcessId and StartTime must both be positive; default is invalid. | `LibTmux` |
 | `T:LibTmux.Session` | class | `public, sealed` | `IEquatable<Session>` | `object` | borrowed | An immutable session handle and snapshot. Equality: ServerGeneration and SessionId. | `LibTmux` |
 | `T:LibTmux.SessionId` | record struct | `public, readonly` | `IComparable<SessionId>`, `IParsable<SessionId>`, `ISpanParsable<SessionId>` | `ValueType` | value | A generation-independent tmux session identifier. Identity: {"defaultIsValid":true,"minimum":0,"parseRejects":["null","malformed","negative","wrongPrefix"],"prefix":"$","tryParseFailure":"returns false and assigns default","valueType":"int"}. | `LibTmux` |
 | `T:LibTmux.SessionWindowEdge` | record | `public, sealed` | None | `ValueType` | value | Identifies one session-to-window snapshot path. | `LibTmux` |
-| `T:LibTmux.SetHookRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetHook. | `LibTmux` |
+| `T:LibTmux.SetHookRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxHooks>` | `object` | value | Parameters for SetHook. | `LibTmux` |
 | `T:LibTmux.SetHooksRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetHooks. Validation: sparse hook indices are nonnegative and preserved. | `LibTmux` |
-| `T:LibTmux.SetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for SetOption. | `LibTmux` |
+| `T:LibTmux.SetOptionRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxOptions>` | `object` | value | Parameters for SetOption. | `LibTmux` |
 | `T:LibTmux.ShowMessagesMode` | enum | `public` | None | `Enum` | value | Defines ShowMessagesMode values. | `LibTmux` |
 | `T:LibTmux.SnapshotDepth` | enum | `public` | None | `Enum` | value | Defines SnapshotDepth values. | `LibTmux` |
-| `T:LibTmux.SplitPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SplitPane. Validation: Size and Percentage are mutually exclusive; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.SplitPaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for SplitPane. Validation: Size and Percentage are mutually exclusive; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.StaleServerGenerationException` | class | `public, sealed` | None | `InvalidOperationException` | value | Reports StaleServerGeneration failure. State: Expected, Actual. | `LibTmux` |
-| `T:LibTmux.SwapPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SwapPane. Validation: exactly one of Target or Direction; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.SwapPaneRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Pane>` | `object` | value | Parameters for SwapPane. Validation: exactly one of Target or Direction; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.Testing.TemporaryHierarchyScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryHierarchyScope testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TemporaryServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryServerScope testing support. | `LibTmux.Testing` |
 | `T:LibTmux.Testing.TemporarySessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporarySessionScope testing support. | `LibTmux.Testing` |
@@ -410,11 +410,11 @@ internal static class Program
 | `T:LibTmux.TmuxWaitMode` | enum | `public` | None | `Enum` | value | Selects wait-for behavior. | `LibTmux` |
 | `T:LibTmux.TmuxWaitTimeoutException` | class | `public, sealed` | None | `TimeoutException` | value | Reports TmuxWaitTimeout failure. State: Timeout. | `LibTmux` |
 | `T:LibTmux.TmuxWindowException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxWindow failure. State: WindowId. | `LibTmux` |
-| `T:LibTmux.UnbindKeyRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnbindKey. Validation: Key is required unless All is true; refused at dispatch. | `LibTmux` |
+| `T:LibTmux.UnbindKeyRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for UnbindKey. Validation: Key is required unless All is true; refused at dispatch. | `LibTmux` |
 | `T:LibTmux.UnsafeTmuxFilter` | record | `public, sealed` | None | `object` | value | An explicitly unsafe native tmux filter with tmux-native semantics. | `LibTmux` |
-| `T:LibTmux.UnsetOptionRequest` | record | `public, sealed` | None | `object` | value | Parameters for UnsetOption. | `LibTmux` |
+| `T:LibTmux.UnsetOptionRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.TmuxOptions>` | `object` | value | Parameters for UnsetOption. | `LibTmux` |
 | `T:LibTmux.UnsupportedQueryExpressionException` | class | `public, sealed` | None | `NotSupportedException` | value | Reports UnsupportedQueryExpression failure. State: Expression. | `LibTmux` |
-| `T:LibTmux.WaitForRequest` | record | `public, sealed` | None | `object` | value | Parameters for WaitFor. | `LibTmux` |
+| `T:LibTmux.WaitForRequest` | record | `public, sealed` | `LibTmux.ITmuxRequest<LibTmux.Server>` | `object` | value | Parameters for WaitFor. | `LibTmux` |
 | `T:LibTmux.Window` | class | `public, sealed` | `IEquatable<Window>` | `object` | borrowed | An immutable window handle and snapshot. Equality: ServerGeneration and WindowId; relation edge excluded. | `LibTmux` |
 | `T:LibTmux.WindowDirection` | enum | `public` | None | `Enum` | value | Defines WindowDirection values. | `LibTmux` |
 | `T:LibTmux.WindowEntityKey` | readonly record struct | `public, readonly` | None | `ValueType` | value | Defines equality for linked window views. | `LibTmux` |
@@ -433,8 +433,9 @@ internal static class Program
 | `T:LibTmux.TmuxExitEvent` | record | `public, sealed` | None | `LibTmux.TmuxEvent` | value | The control client ended; always the last event in the stream. | `LibTmux` |
 | `T:LibTmux.TmuxCommand` | record | `public, sealed` | None | `object` | value | One tmux command and the arguments it carries. | `LibTmux` |
 | `T:LibTmux.TmuxChain` | class | `public, sealed` | None | `object` | reference | Commands tmux runs together, in one process. | `LibTmux` |
-| `T:LibTmux.TmuxChaining` | class | `public, static` | None | `object` | value | Turns a request record into a command a chain can carry. | `LibTmux` |
+| `T:LibTmux.TmuxChaining` | class | `public, static` | None | `object` | value | Runs a request on its own, as a chain of one command. | `LibTmux` |
 | `T:LibTmux.TmuxWaitChannel` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Holds a tmux wait-for registration across timed attempts. | `LibTmux` |
+| ``T:LibTmux.ITmuxRequest`1`` | interface | `public` | None | `None` | value | A request that becomes one tmux command against a target. | `LibTmux` |
 
 ## Public members
 
@@ -442,6 +443,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.AttachSessionRequest.ToCommand(LibTmux.Session)` | `TmuxCommand LibTmux.AttachSessionRequest.ToCommand(Session session)` | Public | No | Portable | Returns a attach request as one tmux command. |
 | `P:LibTmux.AttachSessionRequest.ClientFlags` | `IReadOnlyList<string>? LibTmux.AttachSessionRequest.ClientFlags { get; init; }` | Public | No | Portable | Gets ClientFlags. |
 | `P:LibTmux.AttachSessionRequest.DetachOthers` | `bool LibTmux.AttachSessionRequest.DetachOthers { get; init; }` | Public | No | Portable | Gets DetachOthers. |
 | `P:LibTmux.AttachSessionRequest.ExitOnDetach` | `bool LibTmux.AttachSessionRequest.ExitOnDetach { get; init; }` | Public | No | Portable | Gets ExitOnDetach. |
@@ -453,6 +455,8 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>)` | `BindKeyRequest(string key, IReadOnlyList<string> command)` | Public | No | Portable | Creates BindKeyRequest. |
+| `M:LibTmux.BindKeyRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.BindKeyRequest.ToCommand()` | `TmuxCommand LibTmux.BindKeyRequest.ToCommand()` | Public | No | Portable | Returns a key-binding request as one tmux command. |
 | `P:LibTmux.BindKeyRequest.Command` | `IReadOnlyList<string> LibTmux.BindKeyRequest.Command { get; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.BindKeyRequest.Key` | `string LibTmux.BindKeyRequest.Key { get; }` | Public | No | Portable | Gets Key. |
 | `P:LibTmux.BindKeyRequest.KeyTable` | `string? LibTmux.BindKeyRequest.KeyTable { get; init; }` | Public | No | Portable | Gets KeyTable. |
@@ -472,6 +476,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.CapturePaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.CapturePaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a capture request as one tmux command. |
 | `P:LibTmux.CapturePaneRequest.AlternateScreen` | `bool LibTmux.CapturePaneRequest.AlternateScreen { get; init; }` | Public | No | Portable | Gets AlternateScreen. |
 | `P:LibTmux.CapturePaneRequest.EndLine` | `CapturePanePosition? LibTmux.CapturePaneRequest.EndLine { get; init; }` | Public | No | Portable | Gets EndLine. |
 | `P:LibTmux.CapturePaneRequest.EscapeNonPrintable` | `bool LibTmux.CapturePaneRequest.EscapeNonPrintable { get; init; }` | Public | No | Portable | Gets EscapeNonPrintable. |
@@ -513,6 +518,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ChooseTreeRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.ChooseTreeRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a chooser request as one tmux command. |
 | `P:LibTmux.ChooseTreeRequest.Format` | `string? LibTmux.ChooseTreeRequest.Format { get; init; }` | Public | No | Portable | Gets Format. |
 | `P:LibTmux.ChooseTreeRequest.NativeFilter` | `UnsafeTmuxFilter? LibTmux.ChooseTreeRequest.NativeFilter { get; init; }` | Public | No | Portable | Gets NativeFilter. |
 | `P:LibTmux.ChooseTreeRequest.Reverse` | `bool LibTmux.ChooseTreeRequest.Reverse { get; init; }` | Public | No | Portable | Gets Reverse. |
@@ -564,6 +570,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.CommandPromptRequest.#ctor(string)` | `CommandPromptRequest(string template)` | Public | No | Portable | Creates CommandPromptRequest. |
+| `M:LibTmux.CommandPromptRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.CommandPromptRequest.ToCommand(Server server)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a prompt request as one tmux command. |
 | `P:LibTmux.CommandPromptRequest.BackspaceExits` | `bool LibTmux.CommandPromptRequest.BackspaceExits { get; init; }` | Public | No | Portable | Gets BackspaceExits. |
 | `P:LibTmux.CommandPromptRequest.ExpandFormat` | `bool LibTmux.CommandPromptRequest.ExpandFormat { get; init; }` | Public | No | Portable | Gets ExpandFormat. |
 | `P:LibTmux.CommandPromptRequest.Inputs` | `string? LibTmux.CommandPromptRequest.Inputs { get; init; }` | Public | No | Portable | Gets Inputs. |
@@ -583,6 +590,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.ConfirmBeforeRequest.#ctor(IReadOnlyList<string>)` | `ConfirmBeforeRequest(IReadOnlyList<string> command)` | Public | No | Portable | Creates ConfirmBeforeRequest. |
+| `M:LibTmux.ConfirmBeforeRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ConfirmBeforeRequest.ToCommand(Server server)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a confirmation request as one tmux command. |
 | `P:LibTmux.ConfirmBeforeRequest.Command` | `IReadOnlyList<string> LibTmux.ConfirmBeforeRequest.Command { get; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.ConfirmBeforeRequest.ConfirmKey` | `string? LibTmux.ConfirmBeforeRequest.ConfirmKey { get; init; }` | Public | No | Portable | Gets ConfirmKey. |
 | `P:LibTmux.ConfirmBeforeRequest.DefaultYes` | `bool LibTmux.ConfirmBeforeRequest.DefaultYes { get; init; }` | Public | No | Portable | Gets DefaultYes. |
@@ -608,6 +616,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.CopyModeRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.CopyModeRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a copy-mode request as one tmux command. |
 | `P:LibTmux.CopyModeRequest.Cancel` | `bool LibTmux.CopyModeRequest.Cancel { get; init; }` | Public | No | Portable | Gets Cancel. |
 | `P:LibTmux.CopyModeRequest.ExitOnBottom` | `bool LibTmux.CopyModeRequest.ExitOnBottom { get; init; }` | Public | No | Portable | Gets ExitOnBottom. |
 | `P:LibTmux.CopyModeRequest.MouseDrag` | `bool LibTmux.CopyModeRequest.MouseDrag { get; init; }` | Public | No | Portable | Gets MouseDrag. |
@@ -620,6 +629,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.DisplayMenuRequest.#ctor(IReadOnlyList<TmuxMenuItem>)` | `DisplayMenuRequest(IReadOnlyList<TmuxMenuItem> items)` | Public | No | Portable | Creates DisplayMenuRequest. |
+| `M:LibTmux.DisplayMenuRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.DisplayMenuRequest.ToCommand(Server server)` | Public | No | Portable | Returns a menu request as one tmux command. |
 | `P:LibTmux.DisplayMenuRequest.BorderLines` | `string? LibTmux.DisplayMenuRequest.BorderLines { get; init; }` | Public | No | Portable | Gets BorderLines. |
 | `P:LibTmux.DisplayMenuRequest.BorderStyle` | `string? LibTmux.DisplayMenuRequest.BorderStyle { get; init; }` | Public | No | Portable | Gets BorderStyle. |
 | `P:LibTmux.DisplayMenuRequest.Items` | `IReadOnlyList<TmuxMenuItem> LibTmux.DisplayMenuRequest.Items { get; }` | Public | No | Portable | Gets Items. |
@@ -638,6 +648,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.DisplayMessageRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.DisplayMessageRequest.ToCommand(Server server)` | Public | No | Portable | Returns a message request as one tmux command. |
 | `P:LibTmux.DisplayMessageRequest.AllFormats` | `bool LibTmux.DisplayMessageRequest.AllFormats { get; init; }` | Public | No | Portable | Gets AllFormats. |
 | `P:LibTmux.DisplayMessageRequest.Delay` | `TimeSpan? LibTmux.DisplayMessageRequest.Delay { get; init; }` | Public | No | Portable | Gets Delay. |
 | `P:LibTmux.DisplayMessageRequest.Format` | `string? LibTmux.DisplayMessageRequest.Format { get; init; }` | Public | No | Portable | Gets Format. |
@@ -653,6 +664,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.DisplayPopupRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.DisplayPopupRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a popup request as one tmux command. |
 | `P:LibTmux.DisplayPopupRequest.BorderLines` | `string? LibTmux.DisplayPopupRequest.BorderLines { get; init; }` | Public | No | Portable | Gets BorderLines. |
 | `P:LibTmux.DisplayPopupRequest.BorderStyle` | `string? LibTmux.DisplayPopupRequest.BorderStyle { get; init; }` | Public | No | Portable | Gets BorderStyle. |
 | `P:LibTmux.DisplayPopupRequest.CloseExisting` | `bool LibTmux.DisplayPopupRequest.CloseExisting { get; init; }` | Public | No | Portable | Gets CloseExisting. |
@@ -676,6 +688,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.FindWindowRequest.#ctor(string)` | `FindWindowRequest(string pattern)` | Public | No | Portable | Creates FindWindowRequest. |
+| `M:LibTmux.FindWindowRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.FindWindowRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a window-search request as one tmux command. |
 | `P:LibTmux.FindWindowRequest.IgnoreCase` | `bool LibTmux.FindWindowRequest.IgnoreCase { get; init; }` | Public | No | Portable | Gets IgnoreCase. |
 | `P:LibTmux.FindWindowRequest.MatchContent` | `bool LibTmux.FindWindowRequest.MatchContent { get; init; }` | Public | No | Portable | Gets MatchContent. |
 | `P:LibTmux.FindWindowRequest.MatchName` | `bool LibTmux.FindWindowRequest.MatchName { get; init; }` | Public | No | Portable | Gets MatchName. |
@@ -688,6 +701,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.GetOptionRequest.#ctor(string)` | `GetOptionRequest(string name)` | Public | No | Portable | Creates GetOptionRequest. |
+| `M:LibTmux.GetOptionRequest.ToCommand(LibTmux.TmuxOptions)` | `TmuxCommand LibTmux.GetOptionRequest.ToCommand(TmuxOptions options)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a named option read as one tmux command. |
 | `P:LibTmux.GetOptionRequest.Global` | `bool LibTmux.GetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.GetOptionRequest.IncludeHooks` | `bool LibTmux.GetOptionRequest.IncludeHooks { get; init; }` | Public | No | Portable | Gets IncludeHooks. |
 | `P:LibTmux.GetOptionRequest.IncludeInherited` | `bool LibTmux.GetOptionRequest.IncludeInherited { get; init; }` | Public | No | Portable | Gets IncludeInherited. |
@@ -699,6 +713,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.GetOptionsRequest.ToCommand(LibTmux.TmuxOptions)` | `TmuxCommand LibTmux.GetOptionsRequest.ToCommand(TmuxOptions options)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a whole-scope option read as one tmux command. |
 | `P:LibTmux.GetOptionsRequest.Global` | `bool LibTmux.GetOptionsRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.GetOptionsRequest.IncludeHooks` | `bool LibTmux.GetOptionsRequest.IncludeHooks { get; init; }` | Public | No | Portable | Gets IncludeHooks. |
 | `P:LibTmux.GetOptionsRequest.IncludeInherited` | `bool LibTmux.GetOptionsRequest.IncludeInherited { get; init; }` | Public | No | Portable | Gets IncludeInherited. |
@@ -722,11 +737,19 @@ internal static class Program
 | `P:LibTmux.IControlModeSession.Events` | `IAsyncEnumerable<TmuxEvent> LibTmux.IControlModeSession.Events { get; }` | Public | No | Portable | Reads what tmux reports for as long as the client runs. |
 | `P:LibTmux.IControlModeSession.IsRunning` | `bool LibTmux.IControlModeSession.IsRunning { get; }` | Public | No | Portable | Gets whether the client is still running. |
 
+### ``T:LibTmux.ITmuxRequest`1``
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| ``M:LibTmux.ITmuxRequest`1.ToCommand(`0)`` | `TmuxCommand LibTmux.ITmuxRequest<TTarget>.ToCommand(TTarget target)` | Public | No | Portable | Returns this request as one tmux command. |
+
 ### `T:LibTmux.IfShellRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.IfShellRequest.#ctor(string,IReadOnlyList<string>)` | `IfShellRequest(string shellCommand, IReadOnlyList<string> thenCommand)` | Public | No | Portable | Creates IfShellRequest. |
+| `M:LibTmux.IfShellRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.IfShellRequest.ToCommand()` | `TmuxCommand LibTmux.IfShellRequest.ToCommand()` | Public | No | Portable | Returns a conditional request as one tmux command. |
 | `P:LibTmux.IfShellRequest.Background` | `bool LibTmux.IfShellRequest.Background { get; init; }` | Public | No | Portable | Gets Background. |
 | `P:LibTmux.IfShellRequest.ElseCommand` | `IReadOnlyList<string>? LibTmux.IfShellRequest.ElseCommand { get; init; }` | Public | No | Portable | Gets ElseCommand. |
 | `P:LibTmux.IfShellRequest.ShellCommand` | `string LibTmux.IfShellRequest.ShellCommand { get; }` | Public | No | Portable | Gets ShellCommand. |
@@ -762,6 +785,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.LinkWindowRequest.#ctor(string)` | `LinkWindowRequest(string targetSession)` | Public | No | Portable | Creates LinkWindowRequest. |
+| `M:LibTmux.LinkWindowRequest.ToCommand(LibTmux.Window)` | `TmuxCommand LibTmux.LinkWindowRequest.ToCommand(Window window)` | Public | No | Portable | Returns a link request as one tmux command. |
 | `P:LibTmux.LinkWindowRequest.Detach` | `bool LibTmux.LinkWindowRequest.Detach { get; init; }` | Public | No | Portable | Gets Detach. |
 | `P:LibTmux.LinkWindowRequest.Direction` | `WindowDirection? LibTmux.LinkWindowRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.LinkWindowRequest.ReplaceExisting` | `bool LibTmux.LinkWindowRequest.ReplaceExisting { get; init; }` | Public | No | Portable | Gets ReplaceExisting. |
@@ -772,6 +796,8 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ListBuffersRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.ListBuffersRequest.ToCommand()` | `TmuxCommand LibTmux.ListBuffersRequest.ToCommand()` | Public | No | Portable | Returns a buffer-listing request as one tmux command. |
 | `P:LibTmux.ListBuffersRequest.Filter` | `UnsafeTmuxFilter? LibTmux.ListBuffersRequest.Filter { get; init; }` | Public | No | Portable | Gets Filter. |
 | `P:LibTmux.ListBuffersRequest.Format` | `string? LibTmux.ListBuffersRequest.Format { get; init; }` | Public | No | Portable | Gets Format. |
 
@@ -779,6 +805,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ListHooksRequest.ToCommand(LibTmux.TmuxHooks)` | `TmuxCommand LibTmux.ListHooksRequest.ToCommand(TmuxHooks hooks)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a hook listing as one tmux command. |
 | `P:LibTmux.ListHooksRequest.Global` | `bool LibTmux.ListHooksRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.ListHooksRequest.Scope` | `OptionScope? LibTmux.ListHooksRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
 
@@ -787,6 +814,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.MovePaneRequest.#ctor(string)` | `MovePaneRequest(string target)` | Public | No | Portable | Creates MovePaneRequest. |
+| `M:LibTmux.MovePaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.MovePaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a pane-move request as one tmux command. |
 | `P:LibTmux.MovePaneRequest.Before` | `bool LibTmux.MovePaneRequest.Before { get; init; }` | Public | No | Portable | Gets Before. |
 | `P:LibTmux.MovePaneRequest.Detach` | `bool LibTmux.MovePaneRequest.Detach { get; init; }` | Public | No | Portable | Gets Detach. |
 | `P:LibTmux.MovePaneRequest.Direction` | `PaneDirection LibTmux.MovePaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
@@ -798,6 +826,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.MoveWindowRequest.ToCommand(LibTmux.Window)` | `TmuxCommand LibTmux.MoveWindowRequest.ToCommand(Window window)` | Public | No | Portable | Returns a window-move request as one tmux command. |
 | `P:LibTmux.MoveWindowRequest.Destination` | `string LibTmux.MoveWindowRequest.Destination { get; init; }` | Public | No | Portable | Gets Destination. |
 | `P:LibTmux.MoveWindowRequest.Direction` | `WindowDirection? LibTmux.MoveWindowRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.MoveWindowRequest.NoSelect` | `bool LibTmux.MoveWindowRequest.NoSelect { get; init; }` | Public | No | Portable | Gets NoSelect. |
@@ -809,6 +838,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.NewPaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.NewPaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a floating-pane request as one tmux command. |
 | `P:LibTmux.NewPaneRequest.ActiveBorderStyle` | `string? LibTmux.NewPaneRequest.ActiveBorderStyle { get; init; }` | Public | No | Portable | Gets ActiveBorderStyle. |
 | `P:LibTmux.NewPaneRequest.Attach` | `bool LibTmux.NewPaneRequest.Attach { get; init; }` | Public | No | Portable | Gets Attach. |
 | `P:LibTmux.NewPaneRequest.Command` | `string? LibTmux.NewPaneRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
@@ -830,6 +860,8 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.NewSessionRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.NewSessionRequest.ToCommand()` | `TmuxCommand LibTmux.NewSessionRequest.ToCommand()` | Public | No | Portable | Returns a session request as one tmux command. |
 | `P:LibTmux.NewSessionRequest.Attach` | `bool LibTmux.NewSessionRequest.Attach { get; init; }` | Public | No | Portable | Gets Attach. |
 | `P:LibTmux.NewSessionRequest.ClientFlags` | `string? LibTmux.NewSessionRequest.ClientFlags { get; init; }` | Public | No | Portable | Gets ClientFlags. |
 | `P:LibTmux.NewSessionRequest.Command` | `string? LibTmux.NewSessionRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
@@ -847,6 +879,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.NewWindowRequest.ToCommand(LibTmux.Session)` | `TmuxCommand LibTmux.NewWindowRequest.ToCommand(Session session)` | Public | No | Portable | Returns a window request as one tmux command. |
 | `P:LibTmux.NewWindowRequest.Attach` | `bool LibTmux.NewWindowRequest.Attach { get; init; }` | Public | No | Portable | Gets Attach. |
 | `P:LibTmux.NewWindowRequest.Command` | `string? LibTmux.NewWindowRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.NewWindowRequest.Direction` | `WindowDirection? LibTmux.NewWindowRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
@@ -1010,6 +1043,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.PasteBufferRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a paste request as one tmux command. |
 | `P:LibTmux.PasteBufferRequest.Bracketed` | `bool LibTmux.PasteBufferRequest.Bracketed { get; init; }` | Public | No | Portable | Gets Bracketed. |
 | `P:LibTmux.PasteBufferRequest.DeleteAfter` | `bool LibTmux.PasteBufferRequest.DeleteAfter { get; init; }` | Public | No | Portable | Gets DeleteAfter. |
 | `P:LibTmux.PasteBufferRequest.Name` | `string? LibTmux.PasteBufferRequest.Name { get; init; }` | Public | No | Portable | Gets Name. |
@@ -1021,6 +1055,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.PipePaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a pane-piping request as one tmux command. |
 | `P:LibTmux.PipePaneRequest.Command` | `string? LibTmux.PipePaneRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.PipePaneRequest.InputOnly` | `bool LibTmux.PipePaneRequest.InputOnly { get; init; }` | Public | No | Portable | Gets InputOnly. |
 | `P:LibTmux.PipePaneRequest.OutputOnly` | `bool LibTmux.PipePaneRequest.OutputOnly { get; init; }` | Public | No | Portable | Gets OutputOnly. |
@@ -1181,6 +1216,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ResizePaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.ResizePaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a pane-resize request as one tmux command. |
 | `P:LibTmux.ResizePaneRequest.Adjustment` | `int? LibTmux.ResizePaneRequest.Adjustment { get; init; }` | Public | No | Portable | Gets Adjustment. |
 | `P:LibTmux.ResizePaneRequest.Direction` | `ResizeDirection? LibTmux.ResizePaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.ResizePaneRequest.Height` | `string? LibTmux.ResizePaneRequest.Height { get; init; }` | Public | No | Portable | Gets Height. |
@@ -1193,6 +1229,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ResizeWindowRequest.ToCommand(LibTmux.Window)` | `TmuxCommand LibTmux.ResizeWindowRequest.ToCommand(Window window)` | Public | No | Portable | Returns a window-resize request as one tmux command. |
 | `P:LibTmux.ResizeWindowRequest.Adjustment` | `int? LibTmux.ResizeWindowRequest.Adjustment { get; init; }` | Public | No | Portable | Gets Adjustment. |
 | `P:LibTmux.ResizeWindowRequest.Direction` | `ResizeDirection? LibTmux.ResizeWindowRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.ResizeWindowRequest.Height` | `int? LibTmux.ResizeWindowRequest.Height { get; init; }` | Public | No | Portable | Gets Height. |
@@ -1203,6 +1240,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.RespawnRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.RespawnRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a respawn request as one tmux command. |
 | `P:LibTmux.RespawnRequest.Command` | `string? LibTmux.RespawnRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.RespawnRequest.Environment` | `IReadOnlyDictionary<string,string>? LibTmux.RespawnRequest.Environment { get; init; }` | Public | No | Portable | Gets Environment. |
 | `P:LibTmux.RespawnRequest.KillExistingProcess` | `bool LibTmux.RespawnRequest.KillExistingProcess { get; init; }` | Public | No | Portable | Gets KillExistingProcess. |
@@ -1213,6 +1251,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.RunShellRequest.#ctor(string)` | `RunShellRequest(string command)` | Public | No | Portable | Creates RunShellRequest. |
+| `M:LibTmux.RunShellRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.RunShellRequest.ToCommand(Server server)` | Public | No | Portable | Returns a shell request as one tmux command. |
 | `P:LibTmux.RunShellRequest.Arguments` | `IReadOnlyList<string>? LibTmux.RunShellRequest.Arguments { get; init; }` | Public | No | Portable | Gets Arguments. |
 | `P:LibTmux.RunShellRequest.AsTmuxCommand` | `bool LibTmux.RunShellRequest.AsTmuxCommand { get; init; }` | Public | No | Portable | Gets AsTmuxCommand. |
 | `P:LibTmux.RunShellRequest.Background` | `bool LibTmux.RunShellRequest.Background { get; init; }` | Public | No | Portable | Gets Background. |
@@ -1234,6 +1273,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.SelectLayoutRequest.ToCommand(LibTmux.Window)` | `TmuxCommand LibTmux.SelectLayoutRequest.ToCommand(Window window)` | Public | No | Portable | Returns a layout request as one tmux command for a window. |
 | `P:LibTmux.SelectLayoutRequest.Layout` | `string? LibTmux.SelectLayoutRequest.Layout { get; init; }` | Public | No | Portable | Gets Layout. |
 | `P:LibTmux.SelectLayoutRequest.Mode` | `SelectLayoutMode? LibTmux.SelectLayoutRequest.Mode { get; init; }` | Public | No | Portable | Gets Mode. |
 
@@ -1241,6 +1281,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.SelectPaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.SelectPaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a pane-selection request as one tmux command. |
 | `P:LibTmux.SelectPaneRequest.Direction` | `PaneSelectDirection? LibTmux.SelectPaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.SelectPaneRequest.InputEnabled` | `bool? LibTmux.SelectPaneRequest.InputEnabled { get; init; }` | Public | No | Portable | Gets InputEnabled. |
 | `P:LibTmux.SelectPaneRequest.KeepZoom` | `bool LibTmux.SelectPaneRequest.KeepZoom { get; init; }` | Public | No | Portable | Gets KeepZoom. |
@@ -1251,6 +1292,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.SendKeysRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a key request as one tmux command for a pane. |
 | `P:LibTmux.SendKeysRequest.CopyModeCommand` | `string? LibTmux.SendKeysRequest.CopyModeCommand { get; init; }` | Public | No | Portable | Gets CopyModeCommand. |
 | `P:LibTmux.SendKeysRequest.Enter` | `bool LibTmux.SendKeysRequest.Enter { get; init; }` | Public | No | Portable | Gets Enter. |
 | `P:LibTmux.SendKeysRequest.ExpandFormats` | `bool LibTmux.SendKeysRequest.ExpandFormats { get; init; }` | Public | No | Portable | Gets ExpandFormats. |
@@ -1348,6 +1390,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.ServerAccessRequest.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ServerAccessRequest.ToCommand(Server server)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns an access request as one tmux command. |
 | `P:LibTmux.ServerAccessRequest.AllowUser` | `string? LibTmux.ServerAccessRequest.AllowUser { get; init; }` | Public | No | Portable | Gets AllowUser. |
 | `P:LibTmux.ServerAccessRequest.DenyUser` | `string? LibTmux.ServerAccessRequest.DenyUser { get; init; }` | Public | No | Portable | Gets DenyUser. |
 | `P:LibTmux.ServerAccessRequest.List` | `bool LibTmux.ServerAccessRequest.List { get; init; }` | Public | No | Portable | Gets List. |
@@ -1456,6 +1499,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.SetHookRequest.#ctor(string,string)` | `SetHookRequest(string name, string value)` | Public | No | Portable | Creates SetHookRequest. |
+| `M:LibTmux.SetHookRequest.ToCommand(LibTmux.TmuxHooks)` | `TmuxCommand LibTmux.SetHookRequest.ToCommand(TmuxHooks hooks)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns a hook request as one tmux command. |
 | `P:LibTmux.SetHookRequest.Append` | `bool LibTmux.SetHookRequest.Append { get; init; }` | Public | No | Portable | Gets Append. |
 | `P:LibTmux.SetHookRequest.Global` | `bool LibTmux.SetHookRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.SetHookRequest.Name` | `string LibTmux.SetHookRequest.Name { get; }` | Public | No | Portable | Gets Name. |
@@ -1480,6 +1524,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.SetOptionRequest.#ctor(string,string)` | `SetOptionRequest(string name, string value)` | Public | No | Portable | Creates SetOptionRequest. |
+| `M:LibTmux.SetOptionRequest.ToCommand(LibTmux.TmuxOptions)` | `TmuxCommand LibTmux.SetOptionRequest.ToCommand(TmuxOptions options)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns an option request as one tmux command. |
 | `P:LibTmux.SetOptionRequest.Append` | `bool LibTmux.SetOptionRequest.Append { get; init; }` | Public | No | Portable | Gets Append. |
 | `P:LibTmux.SetOptionRequest.ExpandFormat` | `bool LibTmux.SetOptionRequest.ExpandFormat { get; init; }` | Public | No | Portable | Gets ExpandFormat. |
 | `P:LibTmux.SetOptionRequest.Global` | `bool LibTmux.SetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
@@ -1510,6 +1555,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.SplitPaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.SplitPaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a split request as one tmux command. |
 | `P:LibTmux.SplitPaneRequest.ActiveBorderStyle` | `string? LibTmux.SplitPaneRequest.ActiveBorderStyle { get; init; }` | Public | No | Portable | Gets ActiveBorderStyle. |
 | `P:LibTmux.SplitPaneRequest.Attach` | `bool LibTmux.SplitPaneRequest.Attach { get; init; }` | Public | No | Portable | Gets Attach. |
 | `P:LibTmux.SplitPaneRequest.Command` | `string? LibTmux.SplitPaneRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
@@ -1540,6 +1586,7 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.SwapPaneRequest.ToCommand(LibTmux.Pane)` | `TmuxCommand LibTmux.SwapPaneRequest.ToCommand(Pane pane)` | Public | No | Portable | Returns a pane-swap request as one tmux command. |
 | `P:LibTmux.SwapPaneRequest.Detach` | `bool LibTmux.SwapPaneRequest.Detach { get; init; }` | Public | No | Portable | Gets Detach. |
 | `P:LibTmux.SwapPaneRequest.Direction` | `PaneSwapDirection? LibTmux.SwapPaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
 | `P:LibTmux.SwapPaneRequest.KeepZoom` | `bool LibTmux.SwapPaneRequest.KeepZoom { get; init; }` | Public | No | Portable | Gets KeepZoom. |
@@ -1651,86 +1698,14 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.AttachSessionRequest,LibTmux.Session,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this AttachSessionRequest request, Session session, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a attach request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.BindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this BindKeyRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a key-binding request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CapturePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this CapturePaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a capture request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ChooseTreeRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ChooseTreeRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a chooser request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CommandPromptRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this CommandPromptRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a prompt request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ConfirmBeforeRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ConfirmBeforeRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a confirmation request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.CopyModeRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this CopyModeRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a copy-mode request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayMenuRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this DisplayMenuRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a menu request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayMessageRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this DisplayMessageRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a message request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.DisplayPopupRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this DisplayPopupRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a popup request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.FindWindowRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this FindWindowRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a window-search request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.GetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this GetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a named option read on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.GetOptionsRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this GetOptionsRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a whole-scope option read on its own. |
 | `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.HookRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this HookRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a named hook on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.IfShellRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this IfShellRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a conditional request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.LinkWindowRequest,LibTmux.Window,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this LinkWindowRequest request, Window window, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a link request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ListBuffersRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ListBuffersRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a buffer-listing request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ListHooksRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ListHooksRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a hook listing on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.MovePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this MovePaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a pane-move request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.MoveWindowRequest,LibTmux.Window,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this MoveWindowRequest request, Window window, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a window-move request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this NewPaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a floating-pane request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewSessionRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this NewSessionRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a session request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.NewWindowRequest,LibTmux.Session,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this NewWindowRequest request, Session session, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a window request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.PasteBufferRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this PasteBufferRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a paste request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.PipePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this PipePaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a pane-piping request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ResizePaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ResizePaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a pane-resize request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ResizeWindowRequest,LibTmux.Window,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ResizeWindowRequest request, Window window, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a window-resize request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.RespawnRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this RespawnRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a respawn request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.RunShellRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this RunShellRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a shell request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SelectLayoutRequest,LibTmux.Window,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SelectLayoutRequest request, Window window, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a layout request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SelectPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SelectPaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a pane-selection request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SendKeysRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a key request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ServerAccessRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ServerAccessRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs an access request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetHookRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SetHookRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a hook request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Pane>,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Pane> request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs a pane request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Server>,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Server> request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs a server request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Session>,LibTmux.Session,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Session> request, Session session, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs a session request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.TmuxHooks>,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<TmuxHooks> request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs a hook request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.TmuxOptions>,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<TmuxOptions> request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs an option request on its own. |
+| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest<LibTmux.Window>,LibTmux.Window,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this ITmuxRequest<Window> request, Window window, CancellationToken cancellationToken = default)` | Public | Yes | `UnsupportedOSPlatform("windows")` | Runs a window request on its own. |
 | `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetHooksRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SetHooksRequest request, TmuxHooks hooks, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a multi-entry hook request in one invocation. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs an option request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SplitPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SplitPaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a split request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SwapPaneRequest,LibTmux.Pane,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this SwapPaneRequest request, Pane pane, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a pane-swap request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.UnbindKeyRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this UnbindKeyRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a key-unbinding request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.UnsetOptionRequest,LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this UnsetOptionRequest request, TmuxOptions options, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs an unset request on its own. |
-| `M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.WaitForRequest,LibTmux.Server,System.Threading.CancellationToken)` | `static static Task<TmuxCommandResult> ExecuteAsync(this WaitForRequest request, Server server, CancellationToken cancellationToken = default)` | Public | Yes | Portable | Runs a channel request on its own. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.AttachSessionRequest,LibTmux.Session)` | `static static TmuxCommand ToCommand(this AttachSessionRequest request, Session session)` | Public | Yes | Portable | Returns a attach request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.BindKeyRequest)` | `static static TmuxCommand ToCommand(this BindKeyRequest request)` | Public | Yes | Portable | Returns a key-binding request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.CapturePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this CapturePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a capture request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ChooseTreeRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this ChooseTreeRequest request, Pane pane)` | Public | Yes | Portable | Returns a chooser request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.CommandPromptRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this CommandPromptRequest request, Server server)` | Public | Yes | Portable | Returns a prompt request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ConfirmBeforeRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this ConfirmBeforeRequest request, Server server)` | Public | Yes | Portable | Returns a confirmation request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.CopyModeRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this CopyModeRequest request, Pane pane)` | Public | Yes | Portable | Returns a copy-mode request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayMenuRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this DisplayMenuRequest request, Server server)` | Public | Yes | Portable | Returns a menu request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayMessageRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this DisplayMessageRequest request, Server server)` | Public | Yes | Portable | Returns a message request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.DisplayPopupRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this DisplayPopupRequest request, Pane pane)` | Public | Yes | Portable | Returns a popup request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.FindWindowRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this FindWindowRequest request, Pane pane)` | Public | Yes | Portable | Returns a window-search request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.GetOptionRequest,LibTmux.TmuxOptions)` | `static static TmuxCommand ToCommand(this GetOptionRequest request, TmuxOptions options)` | Public | Yes | Portable | Returns a named option read as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.GetOptionsRequest,LibTmux.TmuxOptions)` | `static static TmuxCommand ToCommand(this GetOptionsRequest request, TmuxOptions options)` | Public | Yes | Portable | Returns a whole-scope option read as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.IfShellRequest)` | `static static TmuxCommand ToCommand(this IfShellRequest request)` | Public | Yes | Portable | Returns a conditional request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.LinkWindowRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this LinkWindowRequest request, Window window)` | Public | Yes | Portable | Returns a link request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ListBuffersRequest)` | `static static TmuxCommand ToCommand(this ListBuffersRequest request)` | Public | Yes | Portable | Returns a buffer-listing request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ListHooksRequest,LibTmux.TmuxHooks)` | `static static TmuxCommand ToCommand(this ListHooksRequest request, TmuxHooks hooks)` | Public | Yes | Portable | Returns a hook listing as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.MovePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this MovePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-move request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.MoveWindowRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this MoveWindowRequest request, Window window)` | Public | Yes | Portable | Returns a window-move request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this NewPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a floating-pane request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewSessionRequest)` | `static static TmuxCommand ToCommand(this NewSessionRequest request)` | Public | Yes | Portable | Returns a session request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.NewWindowRequest,LibTmux.Session)` | `static static TmuxCommand ToCommand(this NewWindowRequest request, Session session)` | Public | Yes | Portable | Returns a window request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PasteBufferRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PasteBufferRequest request, Pane pane)` | Public | Yes | Portable | Returns a paste request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.PipePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this PipePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-piping request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizePaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this ResizePaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-resize request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ResizeWindowRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this ResizeWindowRequest request, Window window)` | Public | Yes | Portable | Returns a window-resize request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.RespawnRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this RespawnRequest request, Pane pane)` | Public | Yes | Portable | Returns a respawn request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.RunShellRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this RunShellRequest request, Server server)` | Public | Yes | Portable | Returns a shell request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SelectLayoutRequest,LibTmux.Window)` | `static static TmuxCommand ToCommand(this SelectLayoutRequest request, Window window)` | Public | Yes | Portable | Returns a layout request as one tmux command for a window. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SelectPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this SelectPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-selection request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SendKeysRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this SendKeysRequest request, Pane pane)` | Public | Yes | Portable | Returns a key request as one tmux command for a pane. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.ServerAccessRequest,LibTmux.Server)` | `static static TmuxCommand ToCommand(this ServerAccessRequest request, Server server)` | Public | Yes | Portable | Returns an access request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SetHookRequest,LibTmux.TmuxHooks)` | `static static TmuxCommand ToCommand(this SetHookRequest request, TmuxHooks hooks)` | Public | Yes | Portable | Returns a hook request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SetOptionRequest,LibTmux.TmuxOptions)` | `static static TmuxCommand ToCommand(this SetOptionRequest request, TmuxOptions options)` | Public | Yes | Portable | Returns an option request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SplitPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this SplitPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a split request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.SwapPaneRequest,LibTmux.Pane)` | `static static TmuxCommand ToCommand(this SwapPaneRequest request, Pane pane)` | Public | Yes | Portable | Returns a pane-swap request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.UnbindKeyRequest)` | `static static TmuxCommand ToCommand(this UnbindKeyRequest request)` | Public | Yes | Portable | Returns a key-unbinding request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.UnsetOptionRequest,LibTmux.TmuxOptions)` | `static static TmuxCommand ToCommand(this UnsetOptionRequest request, TmuxOptions options)` | Public | Yes | Portable | Returns an unset request as one tmux command. |
-| `M:LibTmux.TmuxChaining.ToCommand(LibTmux.WaitForRequest)` | `static static TmuxCommand ToCommand(this WaitForRequest request)` | Public | Yes | Portable | Returns a channel request as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToCommands(LibTmux.SetHooksRequest,LibTmux.TmuxHooks)` | `static static IReadOnlyList<TmuxCommand> ToCommands(this SetHooksRequest request, TmuxHooks hooks)` | Public | Yes | Portable | Returns every command a multi-entry hook request sends. |
 | `M:LibTmux.TmuxChaining.ToRunCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | `static static TmuxCommand ToRunCommand(this HookRequest request, TmuxHooks hooks)` | Public | Yes | Portable | Returns running a named hook as one tmux command. |
 | `M:LibTmux.TmuxChaining.ToUnsetCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | `static static TmuxCommand ToUnsetCommand(this HookRequest request, TmuxHooks hooks)` | Public | Yes | Portable | Returns removing a named hook as one tmux command. |
@@ -2074,6 +2049,8 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.UnbindKeyRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.UnbindKeyRequest.ToCommand()` | `TmuxCommand LibTmux.UnbindKeyRequest.ToCommand()` | Public | No | Portable | Returns a key-unbinding request as one tmux command. |
 | `P:LibTmux.UnbindKeyRequest.All` | `bool LibTmux.UnbindKeyRequest.All { get; init; }` | Public | No | Portable | Gets All. |
 | `P:LibTmux.UnbindKeyRequest.Key` | `string? LibTmux.UnbindKeyRequest.Key { get; init; }` | Public | No | Portable | Gets Key. |
 | `P:LibTmux.UnbindKeyRequest.KeyTable` | `string? LibTmux.UnbindKeyRequest.KeyTable { get; init; }` | Public | No | Portable | Gets KeyTable. |
@@ -2091,6 +2068,7 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.UnsetOptionRequest.#ctor(string)` | `UnsetOptionRequest(string name)` | Public | No | Portable | Creates UnsetOptionRequest. |
+| `M:LibTmux.UnsetOptionRequest.ToCommand(LibTmux.TmuxOptions)` | `TmuxCommand LibTmux.UnsetOptionRequest.ToCommand(TmuxOptions options)` | Public | No | `UnsupportedOSPlatform("windows")` | Returns an unset request as one tmux command. |
 | `P:LibTmux.UnsetOptionRequest.Global` | `bool LibTmux.UnsetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.UnsetOptionRequest.Name` | `string LibTmux.UnsetOptionRequest.Name { get; }` | Public | No | Portable | Gets Name. |
 | `P:LibTmux.UnsetOptionRequest.Quiet` | `bool LibTmux.UnsetOptionRequest.Quiet { get; init; }` | Public | No | Portable | Gets Quiet. |
@@ -2110,6 +2088,8 @@ internal static class Program
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.WaitForRequest.#ctor(string,TmuxWaitMode)` | `WaitForRequest(string channel, TmuxWaitMode mode)` | Public | No | Portable | Creates WaitForRequest. |
+| `M:LibTmux.WaitForRequest.LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(LibTmux.Server)` | `TmuxCommand LibTmux.ITmuxRequest<LibTmux.Server>.ToCommand(Server target)` | Explicit interface | No | Portable | Returns this request as one tmux command; the server is not needed to build it. |
+| `M:LibTmux.WaitForRequest.ToCommand()` | `TmuxCommand LibTmux.WaitForRequest.ToCommand()` | Public | No | Portable | Returns a channel request as one tmux command. |
 | `P:LibTmux.WaitForRequest.Channel` | `string LibTmux.WaitForRequest.Channel { get; }` | Public | No | Portable | Gets Channel. |
 | `P:LibTmux.WaitForRequest.Mode` | `TmuxWaitMode LibTmux.WaitForRequest.Mode { get; }` | Public | No | Portable | Gets Mode. |
 

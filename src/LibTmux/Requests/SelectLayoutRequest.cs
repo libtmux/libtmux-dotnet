@@ -14,7 +14,7 @@ public enum SelectLayoutMode
 }
 
 /// <summary>Describes one <c>select-layout</c> invocation.</summary>
-public sealed record SelectLayoutRequest
+public sealed record SelectLayoutRequest : ITmuxRequest<Window>
 {
     private readonly SelectLayoutMode? _mode;
 
@@ -35,5 +35,24 @@ public sealed record SelectLayoutRequest
 
             _mode = value;
         }
+    }
+
+    /// <summary>Returns a layout request as one tmux command for a window.</summary>
+    /// <param name="window">The window the layout applies to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// This takes the window because a layout name is checked against the ones
+    /// the running tmux knows, and an unrecognised name takes the whole server
+    /// down on tmux 3.3a. Batching a layout must not skip that check.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    /// <exception cref="TmuxWindowException">The layout is one tmux may not recognise.</exception>
+    public TmuxCommand ToCommand(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return TmuxChaining.Command([.. window.BuildSelectLayoutArguments(this)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
     }
 }

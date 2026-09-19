@@ -20,7 +20,7 @@ public enum PaneSelectDirection
 }
 
 /// <summary>Describes one <c>select-pane</c> invocation.</summary>
-public sealed record SelectPaneRequest
+public sealed record SelectPaneRequest : ITmuxRequest<Pane>
 {
     private readonly PaneSelectDirection? _direction;
 
@@ -57,4 +57,17 @@ public sealed record SelectPaneRequest
 
     /// <summary>Gets whether the last active pane is selected.</summary>
     public bool Last { get; init; }
+
+    /// <summary>Returns a pane-selection request as one tmux command.</summary>
+    /// <param name="pane">The pane the selection is relative to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildSelectPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

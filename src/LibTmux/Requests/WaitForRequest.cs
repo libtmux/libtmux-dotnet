@@ -22,7 +22,7 @@ public enum TmuxWaitMode
 /// Waiting blocks the tmux client, so a call that waits has nothing to answer
 /// until whoever it is waiting for arrives.
 /// </remarks>
-public sealed record WaitForRequest
+public sealed record WaitForRequest : ITmuxRequest<Server>
 {
     /// <summary>Initializes a channel request.</summary>
     /// <param name="channel">The channel name.</param>
@@ -39,4 +39,16 @@ public sealed record WaitForRequest
 
     /// <summary>Gets what to do with it.</summary>
     public TmuxWaitMode Mode { get; }
+
+    /// <summary>Returns a channel request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildWaitForArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

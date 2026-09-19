@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 namespace LibTmux;
 
 /// <summary>What a command prompt is asking for.</summary>
@@ -21,7 +23,7 @@ public enum PromptType
 }
 
 /// <summary>Describes one <c>command-prompt</c> invocation.</summary>
-public sealed record CommandPromptRequest
+public sealed record CommandPromptRequest : ITmuxRequest<Server>
 {
     /// <summary>Initializes a command prompt.</summary>
     /// <param name="template">The command to run, with the answer substituted in.</param>
@@ -69,4 +71,23 @@ public sealed record CommandPromptRequest
 
     /// <summary>Gets whether the client keeps redrawing while prompting.</summary>
     public bool NoFreeze { get; init; }
+
+    /// <summary>Returns a prompt request as one tmux command.</summary>
+    /// <param name="server">The server the prompt is shown on.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Batching does not soften the refusal below tmux 3.3: that version reads
+    /// the type flag as something else, so a prompt asking for one is refused
+    /// here exactly as it is when run alone.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
+    /// <exception cref="TmuxVersionTooLowException">
+    /// The request asks for a format or a prompt type and tmux is older than 3.3.
+    /// </exception>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxCommand ToCommand(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return TmuxChaining.Command([.. server.BuildCommandPromptArguments(this)]);
+    }
 }

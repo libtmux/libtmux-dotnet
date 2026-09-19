@@ -18,7 +18,7 @@ public enum PopupCloseMode
 /// closes, so a caller with no client, or with a command that never exits, will
 /// wait. Cancel the call rather than expecting it to return.
 /// </remarks>
-public sealed record DisplayPopupRequest
+public sealed record DisplayPopupRequest : ITmuxRequest<Pane>
 {
     private readonly PopupCloseMode? _closeMode;
     private readonly IReadOnlyDictionary<string, string>? _environment;
@@ -104,4 +104,21 @@ public sealed record DisplayPopupRequest
 
     /// <summary>Gets whether the popup ignores keys.</summary>
     public bool NoKeys { get; init; }
+
+    /// <summary>Returns a popup request as one tmux command.</summary>
+    /// <param name="pane">The pane the popup belongs to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Popup options arrived in tmux 3.3 and the key policy in 3.6, so the
+    /// pane decides which of them the built command carries.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildDisplayPopupArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

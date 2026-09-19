@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>pipe-pane</c> invocation.</summary>
-public sealed record PipePaneRequest
+public sealed record PipePaneRequest : ITmuxRequest<Pane>
 {
     /// <summary>Gets the command to pipe through, or null to stop piping.</summary>
     /// <remarks>
@@ -17,4 +17,17 @@ public sealed record PipePaneRequest
 
     /// <summary>Gets whether an identical existing pipe is stopped instead.</summary>
     public bool Toggle { get; init; }
+
+    /// <summary>Returns a pane-piping request as one tmux command.</summary>
+    /// <param name="pane">The pane being piped.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildPipePaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

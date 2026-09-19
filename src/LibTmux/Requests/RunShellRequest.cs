@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>run-shell</c> invocation.</summary>
-public sealed record RunShellRequest
+public sealed record RunShellRequest : ITmuxRequest<Server>
 {
     private readonly TimeSpan? _delay;
     private readonly string[]? _arguments;
@@ -58,4 +58,18 @@ public sealed record RunShellRequest
 
     /// <summary>Gets whether its error output is shown too.</summary>
     public bool ShowStandardError { get; init; }
+
+    /// <summary>Returns a shell request as one tmux command.</summary>
+    /// <param name="server">The server that runs it.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Three of this command's flags arrived at different tmux versions, so
+    /// the server is what decides which of them the built command carries.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
+    public TmuxCommand ToCommand(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return TmuxChaining.Command([.. server.BuildRunShellArguments(this)]);
+    }
 }

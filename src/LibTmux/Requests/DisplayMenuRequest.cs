@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>display-menu</c> invocation.</summary>
-public sealed record DisplayMenuRequest
+public sealed record DisplayMenuRequest : ITmuxRequest<Server>
 {
     private readonly TmuxMenuItem[] _items;
 
@@ -60,4 +60,18 @@ public sealed record DisplayMenuRequest
 
     /// <summary>Gets whether the menu stays open after a choice.</summary>
     public bool StayOpen { get; init; }
+
+    /// <summary>Returns a menu request as one tmux command.</summary>
+    /// <param name="server">The server the menu is shown on.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// The style flags arrived in tmux 3.4 and the mouse flag in 3.5, so the
+    /// server decides which of them the built command carries.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="server" /> is null.</exception>
+    public TmuxCommand ToCommand(Server server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return TmuxChaining.Command([.. server.BuildDisplayMenuArguments(this)]);
+    }
 }

@@ -7,7 +7,7 @@ namespace LibTmux;
 /// Every flag is explicit rather than inferred, so the argv tmux receives is
 /// readable from the call site instead of assembled by hidden defaults.
 /// </remarks>
-public sealed record NewSessionRequest
+public sealed record NewSessionRequest : ITmuxRequest<Server>
 {
     private readonly IReadOnlyDictionary<string, string>? _environment;
 
@@ -68,4 +68,16 @@ public sealed record NewSessionRequest
 
     /// <summary>Gets the comma-separated client flags passed with <c>-f</c>.</summary>
     public string? ClientFlags { get; init; }
+
+    /// <summary>Returns a session request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildNewSessionArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }
