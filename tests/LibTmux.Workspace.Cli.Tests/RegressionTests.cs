@@ -1676,6 +1676,30 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // A start_directory that is not there and a builder setting this port
+    // does not have are both warnings: tmux falls back to $HOME rather than
+    // refusing, and the same document has to load on every port.
+    [Fact]
+    public async Task A_missing_directory_and_an_unknown_builder_setting_warn_without_refusing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "warn.socket");
+        string file = Path.Combine(_root, "warn.yaml");
+        await File.WriteAllTextAsync(file, "session_name: warn\nstart_directory: /nonexistent/definitely/not/here\nworkspace_builder_options: {pane_readiness: auto, not_a_real_setting: 1}\nwindows: [{window_name: w, panes: [null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.True(result.Code == 0, $"Exit {result.Code}: {result.Error}");
+            string[] warnings = result.Error.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).Where(record => record["severity"]?.ToString() == "warning").Select(record => record["code"]!.ToString()).ToArray();
+            Assert.Equal(["start_directory_missing", "unsupported_key"], warnings);
+            Assert.Contains("/nonexistent/definitely/not/here", result.Error, StringComparison.Ordinal);
+            Assert.Contains("$HOME", result.Error, StringComparison.Ordinal);
+            Assert.Equal("w", await Execute(server, "list-windows", "-t", "=warn", "-F", "#{window_name}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     // bash echoes text that lands before its line editor owns the terminal
     // and readline then redraws it, so a command sent too early shows twice.
     // The wait is not conditional on the shell being zsh.
