@@ -293,6 +293,7 @@ internal static class Program
 | `T:LibTmux.CapturePanePosition` | readonly record struct | `public, readonly` | None | `ValueType` | value | A numeric capture line or the tmux hyphen boundary sentinel. | `LibTmux` |
 | `T:LibTmux.CapturePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for CapturePane. | `LibTmux` |
 | ``T:LibTmux.CapturedRelation`1`` | class | `public, sealed` | `IReadOnlyList<T>` | `object` | value | A copy-backed relation that distinguishes uncaptured from captured-empty. | `LibTmux` |
+| ``T:LibTmux.CapturedValue`1`` | class | `public, sealed` | None | `object` | value | A relation holding at most one child that distinguishes uncaptured from absent. | `LibTmux` |
 | `T:LibTmux.ChooseTreeRequest` | record | `public, sealed` | None | `object` | value | Parameters for ChooseTree. | `LibTmux` |
 | `T:LibTmux.ChooseTreeSort` | enum | `public` | None | `Enum` | value | Defines ChooseTreeSort values. | `LibTmux` |
 | `T:LibTmux.Client` | class | `public, sealed` | `IEquatable<Client>` | `object` | borrowed | An immutable client handle and snapshot. Equality: ServerGeneration and Name; Tty excluded. | `LibTmux` |
@@ -516,6 +517,17 @@ internal static class Program
 | ``P:LibTmux.CapturedRelation`1.Count`` | `int LibTmux.CapturedRelation<T>.Count { get; }` | Public | No | Portable | Gets the captured item count or throws when uncaptured. |
 | ``P:LibTmux.CapturedRelation`1.IsCaptured`` | `bool LibTmux.CapturedRelation<T>.IsCaptured { get; }` | Public | No | Portable | Gets whether the relation was captured. |
 | ``P:LibTmux.CapturedRelation`1.Item(int)`` | `T LibTmux.CapturedRelation<T>.this[int index] { get; }` | Public | No | Portable | Gets a captured item or throws when uncaptured. |
+
+### ``T:LibTmux.CapturedValue`1``
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| ``M:LibTmux.CapturedValue`1.OrNull()`` | `T? LibTmux.CapturedValue<T>.OrNull()` | Public | No | Portable | The captured child, or null when the snapshot never read it. |
+| ``M:LibTmux.CapturedValue`1.TryGetValue(T?)`` | `bool LibTmux.CapturedValue<T>.TryGetValue(out T? value)` | Public | No | Portable | Tries to read the captured child. |
+| ``P:LibTmux.CapturedValue`1.CapturedDepth`` | `SnapshotDepth LibTmux.CapturedValue<T>.CapturedDepth { get; }` | Public | No | Portable | The depth the owning snapshot reached. |
+| ``P:LibTmux.CapturedValue`1.IsCaptured`` | `bool LibTmux.CapturedValue<T>.IsCaptured { get; }` | Public | No | Portable | Whether the snapshot read this relation. |
+| ``P:LibTmux.CapturedValue`1.Relation`` | `string LibTmux.CapturedValue<T>.Relation { get; }` | Public | No | Portable | The relation name this instance carries. |
+| ``P:LibTmux.CapturedValue`1.Value`` | `T LibTmux.CapturedValue<T>.Value { get; }` | Public | No | Portable | The captured child, throwing when the snapshot never read it. |
 
 ### `T:LibTmux.ChooseTreeRequest`
 
@@ -1575,8 +1587,8 @@ internal static class Program
 | `M:LibTmux.Session.SwitchClientAsync(CancellationToken)` | `Task<Session> LibTmux.Session.SwitchClientAsync(CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs SwitchClient. |
 | `M:LibTmux.Session.op_Equality(Session?,Session?)` | `static bool operator ==(Session? left, Session? right)` | Public | Yes | Portable | Reports whether two handles name the same session. |
 | `M:LibTmux.Session.op_Inequality(Session?,Session?)` | `static bool operator !=(Session? left, Session? right)` | Public | Yes | Portable | Reports whether two handles name different sessions. |
-| `P:LibTmux.Session.ActivePane` | `CapturedRelation<Pane> LibTmux.Session.ActivePane { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
-| `P:LibTmux.Session.ActiveWindow` | `CapturedRelation<Window> LibTmux.Session.ActiveWindow { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
+| `P:LibTmux.Session.ActivePane` | `CapturedValue<Pane> LibTmux.Session.ActivePane { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
+| `P:LibTmux.Session.ActiveWindow` | `CapturedValue<Window> LibTmux.Session.ActiveWindow { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
 | `P:LibTmux.Session.Attached` | `bool LibTmux.Session.Attached { get; }` | Public | No | Portable | Gets the captured Attached value. |
 | `P:LibTmux.Session.Environment` | `TmuxEnvironment LibTmux.Session.Environment { get; }` | Public | No | Portable | Gets the captured Environment value. |
 | `P:LibTmux.Session.Generation` | `ServerGeneration LibTmux.Session.Generation { get; }` | Public | No | Portable | Gets the captured Generation value. |
@@ -2306,7 +2318,7 @@ internal static class Program
 | `M:LibTmux.Window.UnlinkAsync(bool,CancellationToken)` | `Task LibTmux.Window.UnlinkAsync(bool killIfLast = false, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Performs Unlink. |
 | `M:LibTmux.Window.op_Equality(Window?,Window?)` | `static bool operator ==(Window? left, Window? right)` | Public | Yes | Portable | Reports whether two handles name the same window. |
 | `M:LibTmux.Window.op_Inequality(Window?,Window?)` | `static bool operator !=(Window? left, Window? right)` | Public | Yes | Portable | Reports whether two handles name different windows. |
-| `P:LibTmux.Window.ActivePane` | `CapturedRelation<Pane> LibTmux.Window.ActivePane { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
+| `P:LibTmux.Window.ActivePane` | `CapturedValue<Pane> LibTmux.Window.ActivePane { get; }` | Public | No | `UnsupportedOSPlatform("windows")` | Gets the captured active child, or an uncaptured relation. |
 | `P:LibTmux.Window.Edge` | `SessionWindowEdge LibTmux.Window.Edge { get; }` | Public | No | Portable | Gets the captured Edge value. |
 | `P:LibTmux.Window.EntityKey` | `WindowEntityKey LibTmux.Window.EntityKey { get; }` | Public | No | Portable | Gets the captured EntityKey value. |
 | `P:LibTmux.Window.Generation` | `ServerGeneration LibTmux.Window.Generation { get; }` | Public | No | Portable | Gets the captured Generation value. |

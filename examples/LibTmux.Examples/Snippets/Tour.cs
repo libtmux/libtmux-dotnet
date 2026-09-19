@@ -42,7 +42,7 @@ public static class Tour
         Session current = await session.RefreshAsync(ct);
         if (current.ActiveWindow.IsCaptured)
         {
-            Window active = current.ActiveWindow.Single();
+            Window active = current.ActiveWindow.Value;
             Console.WriteLine($"active {active.Name}");
         }
         #endregion

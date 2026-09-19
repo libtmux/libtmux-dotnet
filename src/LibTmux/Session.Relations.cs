@@ -10,8 +10,8 @@ public sealed partial class Session
     private Func<CapturedRelation<Window>>? _windows;
     private CapturedRelation<Window>? _windowsCache;
     private CapturedRelation<Pane>? _panes;
-    private CapturedRelation<Window>? _activeWindow;
-    private CapturedRelation<Pane>? _activePane;
+    private CapturedValue<Window>? _activeWindow;
+    private CapturedValue<Pane>? _activePane;
 
     /// <summary>Gets the captured active window, or an uncaptured relation.</summary>
     /// <remarks>
@@ -19,13 +19,13 @@ public sealed partial class Session
     /// carries that window's row, so its active window was not captured.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public CapturedRelation<Window> ActiveWindow =>
+    public CapturedValue<Window> ActiveWindow =>
         _activeWindow ??= ReadSnapshot("window_active") == "1"
-            ? CapturedRelation.Capture(
-                [ReadActiveWindow()],
+            ? CapturedValue.Capture(
+                ReadActiveWindow(),
                 "active window",
                 SnapshotDepth.Sessions)
-            : CapturedRelation.Uncaptured<Window>("active window", SnapshotDepth.Sessions);
+            : CapturedValue.Uncaptured<Window>("active window", SnapshotDepth.Sessions);
 
     /// <summary>Gets the captured active pane, or an uncaptured relation.</summary>
     /// <remarks>
@@ -33,13 +33,13 @@ public sealed partial class Session
     /// session's active window; other rows leave this relation uncaptured.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public CapturedRelation<Pane> ActivePane =>
+    public CapturedValue<Pane> ActivePane =>
         _activePane ??= ReadSnapshot("window_active") == "1" && ReadSnapshot("pane_active") == "1"
-            ? CapturedRelation.Capture(
-                [ReadActivePane()],
+            ? CapturedValue.Capture(
+                ReadActivePane(),
                 "active pane",
                 SnapshotDepth.Sessions)
-            : CapturedRelation.Uncaptured<Pane>("active pane", SnapshotDepth.Sessions);
+            : CapturedValue.Uncaptured<Pane>("active pane", SnapshotDepth.Sessions);
 
     /// <summary>Gets the windows the capture found in this session.</summary>
     /// <remarks>

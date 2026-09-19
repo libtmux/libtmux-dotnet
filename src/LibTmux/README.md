@@ -162,16 +162,18 @@ Console.WriteLine($"missing {missing is null}");
 Session current = await session.RefreshAsync(ct);
 if (current.ActiveWindow.IsCaptured)
 {
-    Window active = current.ActiveWindow.Single();
+    Window active = current.ActiveWindow.Value;
     Console.WriteLine($"active {active.Name}");
 }
 ```
 <!-- endsnippet -->
 
 `Session.ActiveWindow`, `Session.ActivePane` and `Window.ActivePane` expose
-`CapturedRelation<T>`. Check `IsCaptured` before calling `Single()`. A session
-reached through an inactive window has that window's row, so its own active
-window may be uncaptured. `RefreshAsync` captures the entity's current active
+`CapturedValue<T>`, which holds at most one child. Read `Value`, or
+`TryGetValue` when absence is expected; `OrNull` answers null instead of
+throwing. A session reached through an inactive window has that window's row,
+so its own active window may be uncaptured, and reading `Value` then throws
+`IncompleteSnapshotException` rather than reporting that there is none. `RefreshAsync` captures the entity's current active
 child. `CaptureSnapshotAsync(SnapshotDepth.Panes)` also preserves the captured
 parent and child graph. Reading any of these properties performs no I/O.
 
@@ -183,7 +185,7 @@ parent and child graph. Reading any of these properties performs no I/O.
   with `FindWindowAsync` or `FindPaneAsync`. Required `Get…Async` calls throw
   on absence.
 - Replace `session.ActiveWindow.Name` with
-  `session.ActiveWindow.Single().Name` when the capture is known. Use
+  `session.ActiveWindow.Value.Name` when the capture is known. Use
   `IsCaptured` when walking a partial hierarchy.
 - Replace `RaiseIfDeadAsync` with `ThrowIfDeadAsync`. The failure behavior is
   unchanged; the old name is gone rather than deprecated, because alpha

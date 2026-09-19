@@ -32,8 +32,8 @@ public sealed class WindowTopologyTests
         Window inGuest = await guest.GetWindowAsync(shared.Id, token);
         Assert.Equal(9, inGuest.Index);
         Assert.Equal("guest", inGuest.Session.Name);
-        Assert.Equal(guest.Id, inGuest.ActivePane.Single().Session.Id);
-        Assert.Equal(9, inGuest.ActivePane.Single().Window.Index);
+        Assert.Equal(guest.Id, inGuest.ActivePane.Value.Session.Id);
+        Assert.Equal(9, inGuest.ActivePane.Value.Window.Index);
         Assert.Equal(guest.Id, (await inGuest.GetPanesAsync(token))[0].Session.Id);
         Assert.Equal(home.Id, (await shared.GetPanesAsync(token))[0].Session.Id);
         Assert.Equal(homeIndex, (await shared.RefreshAsync(token)).Index);

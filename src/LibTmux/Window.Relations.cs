@@ -12,7 +12,7 @@ public sealed partial class Window
     private CapturedRelation<Session>? _linkedSessions;
     private SessionWindowEdge? _edge;
     private Session? _capturedSession;
-    private CapturedRelation<Pane>? _activePane;
+    private CapturedValue<Pane>? _activePane;
 
     /// <summary>Gets the captured active pane, or an uncaptured relation.</summary>
     /// <remarks>
@@ -20,13 +20,13 @@ public sealed partial class Window
     /// carries that pane's row, so its active pane was not captured.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public CapturedRelation<Pane> ActivePane =>
+    public CapturedValue<Pane> ActivePane =>
         _activePane ??= ReadSnapshot("pane_active") == "1"
-            ? CapturedRelation.Capture(
-                [ReadActivePane()],
+            ? CapturedValue.Capture(
+                ReadActivePane(),
                 "active pane",
                 SnapshotDepth.Windows)
-            : CapturedRelation.Uncaptured<Pane>("active pane", SnapshotDepth.Windows);
+            : CapturedValue.Uncaptured<Pane>("active pane", SnapshotDepth.Windows);
 
     /// <summary>Gets the panes the capture found in this window.</summary>
     /// <remarks>Reading this never reaches tmux.</remarks>

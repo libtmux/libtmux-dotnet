@@ -27,7 +27,7 @@ public sealed class HierarchySnapshotTests
         Window[] windows = [.. session.Windows.OrderBy(window => window.Index)];
         Assert.Equal([0, 7], windows.Select(window => window.Index));
         Assert.All(windows, window => Assert.Equal(window.Index, window.Edge.WindowIndex));
-        Assert.Equal(7, session.ActiveWindow.Single().Index);
+        Assert.Equal(7, session.ActiveWindow.Value.Index);
         Assert.All(windows, window => Assert.Single(window.LinkedSessions));
         if (depth == SnapshotDepth.Panes)
         {
@@ -37,7 +37,7 @@ public sealed class HierarchySnapshotTests
                 Assert.Same(window, pane.Window);
                 Assert.Equal(window.Index, pane.Window.Index);
             });
-            Assert.Equal(7, session.ActivePane.Single().Window.Index);
+            Assert.Equal(7, session.ActivePane.Value.Window.Index);
         }
     }
 
@@ -112,9 +112,9 @@ public sealed class HierarchySnapshotTests
 
         Window inactive = (await server.GetWindowsAsync(token)).Single(window => window.Name == "inactive");
         Pane inactivePane = (await server.GetPanesAsync(token)).Single(pane => pane.Id == new PaneId(2));
-        var activeWindow = Assert.IsType<CapturedRelation<Window>>(inactive.Session.ActiveWindow);
-        var sessionPane = Assert.IsType<CapturedRelation<Pane>>(inactive.Session.ActivePane);
-        var windowPane = Assert.IsType<CapturedRelation<Pane>>(inactivePane.Window.ActivePane);
+        var activeWindow = Assert.IsType<CapturedValue<Window>>(inactive.Session.ActiveWindow);
+        var sessionPane = Assert.IsType<CapturedValue<Pane>>(inactive.Session.ActivePane);
+        var windowPane = Assert.IsType<CapturedValue<Pane>>(inactivePane.Window.ActivePane);
 
         Assert.False(activeWindow.IsCaptured);
         Assert.False(sessionPane.IsCaptured);
@@ -127,7 +127,7 @@ public sealed class HierarchySnapshotTests
         Pane capturedPane = snapshot.Panes.Single(pane => pane.Id == inactivePane.Id);
         Assert.True(capturedPane.Window.ActivePane.IsCaptured);
         Assert.True(capturedPane.Session.ActiveWindow.IsCaptured);
-        Assert.True(snapshot.Sessions[0].ActiveWindow.Single().Panes.IsCaptured);
+        Assert.True(snapshot.Sessions[0].ActiveWindow.Value.Panes.IsCaptured);
         Assert.Same(snapshot.Sessions[0], capturedPane.Window.Session);
     }
 
@@ -145,9 +145,9 @@ public sealed class HierarchySnapshotTests
         Pane pane = Assert.Single(await server.GetPanesAsync(token));
         Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
 
-        Assert.Equal(window.Name, session.ActiveWindow.Single().Name);
-        Assert.Equal(pane.Width, session.ActivePane.Single().Width);
-        Assert.Equal(pane.Height, window.ActivePane.Single().Height);
+        Assert.Equal(window.Name, session.ActiveWindow.Value.Name);
+        Assert.Equal(pane.Width, session.ActivePane.Value.Width);
+        Assert.Equal(pane.Height, window.ActivePane.Value.Height);
         Assert.Equal(raw.SessionName, window.Session.Name);
         Assert.Equal(raw.SessionName, pane.Session.Name);
         Assert.Equal(window.Name, pane.Window.Name);

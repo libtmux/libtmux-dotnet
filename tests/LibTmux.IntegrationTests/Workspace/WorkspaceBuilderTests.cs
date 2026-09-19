@@ -87,7 +87,7 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal(2, result.Windows.Count);
         Assert.Equal(["editor", "shell"], result.Windows.Select(window => window.Name).ToArray());
         Assert.Equal([1, 2], result.Windows.Select(window => window.Index).ToArray());
-        Assert.Equal(result.Windows[0].Id, result.Session.ActiveWindow.Single().Id);
+        Assert.Equal(result.Windows[0].Id, result.Session.ActiveWindow.Value.Id);
 
         // The window options in the file are the ones tmux holds afterwards.
         Assert.Equal(
@@ -407,8 +407,8 @@ public sealed class WorkspaceBuilderTests
         Window window = await result.Windows[1].RefreshAsync(token);
         IReadOnlyList<Pane> panes = await window.GetPanesAsync(token);
 
-        Assert.Equal(result.Windows[1].Id, session.ActiveWindow.Single().Id);
-        Assert.Equal(panes[1].Id, window.ActivePane.Single().Id);
+        Assert.Equal(result.Windows[1].Id, session.ActiveWindow.Value.Id);
+        Assert.Equal(panes[1].Id, window.ActivePane.Value.Id);
     }
 
     [UnixFact]

@@ -111,7 +111,7 @@ internal static class Program
         Server server = scope.Session.Server;
         await server.ThrowIfDeadAsync();
         Window read = await server.GetWindowAsync(scope.Window.Id);
-        Pane active = read.ActivePane.Single();
+        Pane active = read.ActivePane.Value;
         if (read.Name != scope.Window.Name
             || read.Session.Name != scope.Session.Name
             || read.Width <= 0

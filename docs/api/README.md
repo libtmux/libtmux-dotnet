@@ -16,6 +16,7 @@ modes differ.
 | `LibTmux.CapturePanePosition` | Names one end of a capture range. |
 | `LibTmux.CapturePaneRequest` | Describes one capture-pane invocation. |
 | ``LibTmux.CapturedRelation`1`` | Holds the children a snapshot captured for one relation. |
+| ``LibTmux.CapturedValue`1`` | Holds the one child a snapshot captured for a relation, if it read it. |
 | `LibTmux.ChooseTreeRequest` | Describes one choose-tree invocation. |
 | `LibTmux.ChooseTreeSort` | Names how a chooser orders its rows. |
 | `LibTmux.Client` | Identifies a client and resolves what it is looking at. |
@@ -173,6 +174,8 @@ modes differ.
 | `LibTmux.CapturePanePosition.#ctor(System.Int32)` | Initializes a position at one line. |
 | `LibTmux.CapturePaneRequest.#ctor(System.Nullable{LibTmux.CapturePanePosition},System.Nullable{LibTmux.CapturePanePosition},System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a capture request. |
 | ``LibTmux.CapturedRelation`1.OrEmpty`` | Returns the captured children, or an empty list when unread. |
+| ``LibTmux.CapturedValue`1.OrNull`` | Gets the captured child, or null when the snapshot never read it. |
+| ``LibTmux.CapturedValue`1.TryGetValue(`0@)`` | Tries to read the captured child. |
 | `LibTmux.ChooseTreeRequest.#ctor(System.Boolean,System.Boolean,System.String,LibTmux.UnsafeTmuxFilter,System.Nullable{LibTmux.ChooseTreeSort},System.Boolean,System.Boolean)` | Initializes a tree-chooser request. |
 | `LibTmux.Client.GetAsync(LibTmux.Server,System.String,System.Threading.CancellationToken)` | Reads one client by name. |
 | `LibTmux.Client.GetAttachedPaneAsync(System.Threading.CancellationToken)` | Reads the pane this client has active now. |
@@ -648,6 +651,10 @@ modes differ.
 | `LibTmux.CapturePaneRequest.StartLine` | Gets the first line to capture. |
 | `LibTmux.CapturePaneRequest.TrimTrailingSpaces` | Gets whether trailing spaces are removed. |
 | ``LibTmux.CapturedRelation`1.IsCaptured`` | Gets whether the snapshot read this relation. |
+| ``LibTmux.CapturedValue`1.CapturedDepth`` | Gets the depth the owning snapshot reached. |
+| ``LibTmux.CapturedValue`1.IsCaptured`` | Gets whether the snapshot read this relation. |
+| ``LibTmux.CapturedValue`1.Relation`` | Gets the relation name this instance carries. |
+| ``LibTmux.CapturedValue`1.Value`` | Gets the captured child. |
 | `LibTmux.ChooseTreeRequest.Format` | Gets the format each row renders with. |
 | `LibTmux.ChooseTreeRequest.NativeFilter` | Gets the raw tmux filter limiting the rows. |
 | `LibTmux.ChooseTreeRequest.Reverse` | Gets whether the order is reversed. |

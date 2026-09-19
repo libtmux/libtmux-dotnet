@@ -50,6 +50,30 @@ public sealed class CapturedRelationTests
     }
 
     [Fact]
+    public void An_uncaptured_single_value_refuses_to_look_absent()
+    {
+        CapturedValue<string> uncaptured =
+            CapturedValue.Uncaptured<string>("active window", SnapshotDepth.Sessions);
+
+        Assert.False(uncaptured.IsCaptured);
+        Assert.Null(uncaptured.OrNull());
+        Assert.False(uncaptured.TryGetValue(out string? absent));
+        Assert.Null(absent);
+
+        // "nobody looked" is a LibTmux failure carrying the relation, not the
+        // InvalidOperationException a Single() over a plural relation threw.
+        IncompleteSnapshotException error =
+            Assert.Throws<IncompleteSnapshotException>(() => uncaptured.Value);
+        Assert.Contains("active window", error.Message, StringComparison.Ordinal);
+
+        CapturedValue<string> captured =
+            CapturedValue.Capture("window", "active window", SnapshotDepth.Windows);
+        Assert.True(captured.TryGetValue(out string? read));
+        Assert.Equal("window", read);
+        Assert.Equal("window", captured.Value);
+    }
+
+    [Fact]
     public void Uncaptured_relations_refuse_to_look_empty()
     {
         CapturedRelation<int> uncaptured =

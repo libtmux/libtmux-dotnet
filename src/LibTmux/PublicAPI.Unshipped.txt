@@ -48,6 +48,13 @@ LibTmux.CapturedRelation<T>.IsCaptured.get -> bool
 LibTmux.CapturedRelation<T>.OrEmpty() -> System.Collections.Generic.IReadOnlyList<T>!
 LibTmux.CapturedRelation<T>.Relation.get -> string!
 LibTmux.CapturedRelation<T>.this[int index].get -> T
+LibTmux.CapturedValue<T>
+LibTmux.CapturedValue<T>.CapturedDepth.get -> LibTmux.SnapshotDepth
+LibTmux.CapturedValue<T>.IsCaptured.get -> bool
+LibTmux.CapturedValue<T>.OrNull() -> T?
+LibTmux.CapturedValue<T>.Relation.get -> string!
+LibTmux.CapturedValue<T>.TryGetValue(out T? value) -> bool
+LibTmux.CapturedValue<T>.Value.get -> T!
 LibTmux.ChooseTreeRequest
 LibTmux.ChooseTreeRequest.<Clone>$() -> LibTmux.ChooseTreeRequest!
 LibTmux.ChooseTreeRequest.ChooseTreeRequest(bool sessionsCollapsed = false, bool windowsCollapsed = false, string? format = null, LibTmux.UnsafeTmuxFilter? nativeFilter = null, LibTmux.ChooseTreeSort? sort = null, bool reverse = false, bool zoom = false) -> void
@@ -821,8 +828,8 @@ LibTmux.ServerGeneration.ServerGeneration() -> void
 LibTmux.ServerGeneration.ServerGeneration(int processId, long startTime) -> void
 LibTmux.ServerGeneration.StartTime.get -> long
 LibTmux.Session
-LibTmux.Session.ActivePane.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
-LibTmux.Session.ActiveWindow.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
+LibTmux.Session.ActivePane.get -> LibTmux.CapturedValue<LibTmux.Pane!>!
+LibTmux.Session.ActiveWindow.get -> LibTmux.CapturedValue<LibTmux.Window!>!
 LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 LibTmux.Session.Attached.get -> bool
 LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedWindowScope!>!
@@ -1201,7 +1208,7 @@ LibTmux.WaitForRequest.Equals(LibTmux.WaitForRequest? other) -> bool
 LibTmux.WaitForRequest.Mode.get -> LibTmux.TmuxWaitMode
 LibTmux.WaitForRequest.WaitForRequest(string! channel, LibTmux.TmuxWaitMode mode) -> void
 LibTmux.Window
-LibTmux.Window.ActivePane.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
+LibTmux.Window.ActivePane.get -> LibTmux.CapturedValue<LibTmux.Pane!>!
 LibTmux.Window.CreatePaneAsync(LibTmux.NewPaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Window.CreateWindowAsync(LibTmux.NewWindowRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
 LibTmux.Window.DisplayMessageAsync(LibTmux.DisplayMessageRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
