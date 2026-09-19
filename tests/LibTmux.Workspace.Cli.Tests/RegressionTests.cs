@@ -222,6 +222,11 @@ public sealed class RegressionTests : IDisposable
     public async Task Extension_keys_are_inert_and_the_refusal_names_the_escape()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        // A private socket, not the shared default one: sibling suites and
+        // other libtmux ports run on this machine too, and a session left on
+        // the default socket reads as a flake in whichever of them trips
+        // over it next.
+        string socket = Path.Combine(_root, "extension-keys.socket");
         string accepted = Path.Combine(_root, "x-ok.yaml");
         await File.WriteAllTextAsync(
             accepted,
@@ -233,16 +238,20 @@ public sealed class RegressionTests : IDisposable
         using StringWriter okError = new();
         using StringWriter badOutput = new();
         using StringWriter badError = new();
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            int okCode = await CliRunner.RunAsync(["load", accepted, "-d", "-S", socket, "-f", "/dev/null", "--json"], okOutput, okError, _root, null, token);
+            int badCode = await CliRunner.RunAsync(["load", refused, "-d", "-S", socket, "-f", "/dev/null", "--json"], badOutput, badError, _root, null, token);
 
-        int okCode = await CliRunner.RunAsync(["load", accepted, "-d", "--json"], okOutput, okError, _root, null, token);
-        int badCode = await CliRunner.RunAsync(["load", refused, "-d", "--json"], badOutput, badError, _root, null, token);
-
-        Assert.Equal(0, okCode);
-        Assert.Empty(okError.ToString());
-        Assert.Equal(1, badCode);
-        JsonNode diagnostic = JsonNode.Parse(badError.ToString())!;
-        Assert.Equal("unsupported_key", diagnostic["code"]!.ToString());
-        Assert.Contains("'x-'", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.Equal(0, okCode);
+            Assert.Empty(okError.ToString());
+            Assert.Equal(1, badCode);
+            JsonNode diagnostic = JsonNode.Parse(badError.ToString())!;
+            Assert.Equal("unsupported_key", diagnostic["code"]!.ToString());
+            Assert.Contains("'x-'", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
     // A missing tmux executable is tmux_unavailable, distinct from the
