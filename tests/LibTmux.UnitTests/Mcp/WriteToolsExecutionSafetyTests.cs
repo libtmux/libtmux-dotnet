@@ -2492,6 +2492,33 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Wait_matches_a_line_that_only_shares_a_character_with_recent_typed_input()
+    {
+        string[] staticRows = ["Successfully copied 1 file"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // "y" recorded from an unrelated confirmation must not blank out every
+        // later line that happens to contain the letter, such as this one.
+        _ = await fixture.Tools.SendKeysAsync(
+            keys: "y",
+            paneId: "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["Successfully"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+    }
+
+    [Fact]
     public async Task Read_since_busy_retry_falls_back_to_a_new_stable_cursor()
     {
         await using var fixture = new ToolFixture();
