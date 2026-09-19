@@ -162,6 +162,7 @@ public sealed partial class Window
         AddSplitAppearance(arguments, options);
         if (options.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(options.Command);
         }
 
@@ -253,6 +254,7 @@ public sealed partial class Window
 
         if (options.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(options.Command);
         }
 

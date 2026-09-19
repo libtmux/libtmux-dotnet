@@ -75,6 +75,7 @@ public sealed partial class Pane
 
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 

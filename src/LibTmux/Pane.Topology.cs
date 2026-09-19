@@ -18,6 +18,7 @@ public sealed partial class Pane
         AddEnvironment(arguments, request.Environment);
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -83,6 +84,7 @@ public sealed partial class Pane
 
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -136,6 +138,7 @@ public sealed partial class Pane
         AddSplitAppearance(arguments, request);
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -198,7 +201,7 @@ public sealed partial class Pane
         {
             await sequence.MutateAsync(
                     () => RunAsync(
-                        ["rename-window", "-t", created.ToString(), windowName],
+                        ["rename-window", "-t", created.ToString(), "--", windowName],
                         cancellationToken))
                 .ConfigureAwait(false);
         }

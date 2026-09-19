@@ -18,6 +18,7 @@ public sealed partial class Server
         ServerUtilities.AddFlag(arguments, request.Repeat, "-r");
         ServerUtilities.AddValue(arguments, "-T", request.KeyTable);
         ServerUtilities.AddValue(arguments, "-N", request.Note);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Key);
         arguments.AddRange(request.Command);
         return arguments;
@@ -34,12 +35,20 @@ public sealed partial class Server
 
     internal static List<string> BuildUnbindKeyArguments(UnbindKeyRequest request)
     {
-        string key = request.ResolveKey();
+        request.Validate();
         List<string> arguments = ["unbind-key"];
         ServerUtilities.AddFlag(arguments, request.All, "-a");
         ServerUtilities.AddFlag(arguments, request.Quiet, "-q");
         ServerUtilities.AddValue(arguments, "-T", request.KeyTable);
-        arguments.Add(key);
+
+        // tmux takes no key argument at all alongside -a; naming one anyway
+        // is redundant and tmux refuses it as its own error.
+        if (request.Key is not null)
+        {
+            ServerUtilities.EndOptions(arguments);
+            arguments.Add(request.Key);
+        }
+
         return arguments;
     }
 

@@ -55,6 +55,7 @@ public sealed class TmuxOptions
         List<string> arguments = ["show-options"];
         AddReadFlags(arguments, request.Scope, request.Global, request.IncludeHooks, request.IncludeInherited, request.Quiet);
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
 
         return arguments;
@@ -136,6 +137,7 @@ public sealed class TmuxOptions
         AddFlag(arguments, request.Quiet, "-q");
         AddFlag(arguments, request.Append, "-a");
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
         arguments.Add(request.Value);
 
@@ -192,6 +194,7 @@ public sealed class TmuxOptions
         // thing one level down: drop what every pane overrode as well.
         arguments.Add(request.UnsetPaneOverrides ? "-U" : "-u");
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
 
         return arguments;

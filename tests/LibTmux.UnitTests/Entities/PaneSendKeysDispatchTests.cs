@@ -30,7 +30,7 @@ public sealed class PaneSendKeysDispatchTests
         string[] sent = Assert.Single(dispatched);
         int commandStart = Array.IndexOf(sent, "send-keys");
         Assert.NotEqual(-1, commandStart);
-        Assert.Equal(["send-keys", "-t", "%1", "-l", "Enter"], sent[commandStart..]);
+        Assert.Equal(["send-keys", "-t", "%1", "-l", "--", "Enter"], sent[commandStart..]);
     }
 
     [Fact]

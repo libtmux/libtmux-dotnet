@@ -43,6 +43,7 @@ public sealed partial class Pane
         AddPopupKeyPolicy(arguments, request);
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -157,6 +158,7 @@ public sealed partial class Pane
             arguments.Add("-T");
         }
 
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Pattern);
 
         return arguments;
@@ -276,6 +278,7 @@ public sealed partial class Pane
         AddValue(arguments, "-F", request.Format);
         if (request.Message.Length > 0)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Message);
         }
 

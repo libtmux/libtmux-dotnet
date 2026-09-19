@@ -40,6 +40,7 @@ public sealed partial class Server
                 ? ((long)delay.TotalSeconds).ToString(CultureInfo.InvariantCulture)
                 : null);
         ServerUtilities.AddValue(arguments, "-t", request.TargetPane);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Command);
         if (request.Arguments is { Count: > 0 } extra
             && RequiresCapability(
@@ -100,6 +101,7 @@ public sealed partial class Server
         List<string> arguments = ["if-shell"];
         ServerUtilities.AddFlag(arguments, request.Background, "-b");
         ServerUtilities.AddValue(arguments, "-t", request.TargetPane);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.ShellCommand);
         arguments.Add(string.Join(' ', request.ThenCommand));
         if (request.ElseCommand is { Count: > 0 } otherwise)
@@ -213,6 +215,7 @@ public sealed partial class Server
             arguments.Add(flag);
         }
 
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Channel);
         return arguments;
     }

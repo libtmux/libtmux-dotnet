@@ -15,22 +15,25 @@ public sealed record UnbindKeyRequest : ITmuxRequest<Server>
     /// <summary>Gets whether an absent binding is passed over in silence.</summary>
     public bool Quiet { get; init; }
 
-    /// <summary>Resolves the key argument, refusing a request that names no binding.</summary>
-    /// <returns>The key tmux is given.</returns>
+    /// <summary>Refuses a request that names no binding.</summary>
     /// <exception cref="ArgumentException">
     /// Neither a key nor every binding in the table is asked for.
     /// </exception>
     /// <remarks>
     /// Initializers cannot check one property against another, so the pairing
-    /// is settled where the key is derived. tmux still wants a key after the
-    /// all flag, and takes any one.
+    /// is validated where the request is dispatched. tmux takes no key
+    /// argument at all alongside <see cref="All" /> - naming one anyway is a
+    /// separate error tmux reports itself.
     /// </remarks>
-    internal string ResolveKey() =>
-        !All && string.IsNullOrWhiteSpace(Key)
-            ? throw new ArgumentException(
+    internal void Validate()
+    {
+        if (!All && string.IsNullOrWhiteSpace(Key))
+        {
+            throw new ArgumentException(
                 "Removing one binding needs the key it is bound to.",
-                nameof(Key))
-            : Key ?? "-a";
+                nameof(Key));
+        }
+    }
 
     /// <summary>Returns a key-unbinding request as one tmux command.</summary>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>

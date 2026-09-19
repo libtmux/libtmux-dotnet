@@ -24,6 +24,7 @@ public sealed partial class Server
         ServerUtilities.AddFlag(arguments, request.ReadWrite, "-w");
         if (user is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(user);
         }
 
@@ -67,6 +68,7 @@ public sealed partial class Server
         ServerUtilities.AddFlag(arguments, quiet, "-q");
         ServerUtilities.AddFlag(arguments, parseOnly, "-n");
         ServerUtilities.AddFlag(arguments, verbose, "-v");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(path);
         return RunUtilityAsync(arguments, cancellationToken);
     }
@@ -110,6 +112,7 @@ public sealed partial class Server
         List<string> arguments = ["list-commands"];
         if (name is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(name);
         }
 

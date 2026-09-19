@@ -16,6 +16,7 @@ public sealed partial class Server
         List<string> arguments = ["set-buffer"];
         ServerUtilities.AddFlag(arguments, append, "-a");
         ServerUtilities.AddValue(arguments, "-b", name);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(data);
         return RunUtilityAsync(arguments, cancellationToken);
     }
@@ -29,6 +30,7 @@ public sealed partial class Server
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         List<string> arguments = ["load-buffer"];
         ServerUtilities.AddValue(arguments, "-b", name);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(path);
         return RunUtilityAsync(arguments, cancellationToken);
     }
@@ -44,6 +46,7 @@ public sealed partial class Server
         List<string> arguments = ["save-buffer"];
         ServerUtilities.AddFlag(arguments, append, "-a");
         ServerUtilities.AddValue(arguments, "-b", name);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(path);
         return RunUtilityAsync(arguments, cancellationToken);
     }

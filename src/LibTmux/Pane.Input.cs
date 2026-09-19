@@ -32,11 +32,18 @@ public sealed partial class Pane
         AddValue(arguments, "-N", request.Repeat);
         if (request.CopyModeCommand is not null)
         {
+            // -X is a bare flag, not one that consumes an argument: the
+            // command name that follows is one of send-keys's own trailing
+            // positionals, so tmux reads a leading "-" in it as another flag
+            // without the guard.
             arguments.Add("-X");
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.CopyModeCommand);
         }
         else if (request.Text is not null)
         {
+            ServerUtilities.EndOptions(arguments);
+
             // There is no tmux flag for keeping a line out of shell history;
             // a leading space is the shell convention that does it.
             arguments.Add(request.SuppressHistory ? $" {request.Text}" : request.Text);

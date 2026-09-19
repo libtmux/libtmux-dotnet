@@ -89,6 +89,7 @@ public sealed class TmuxEnvironment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("show-environment");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
@@ -134,6 +135,7 @@ public sealed class TmuxEnvironment
             arguments.Add("-h");
         }
 
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         arguments.Add(value);
         var sequence = new TmuxMutationSequence();
@@ -167,6 +169,7 @@ public sealed class TmuxEnvironment
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("set-environment");
         arguments.Add("-r");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
@@ -181,6 +184,7 @@ public sealed class TmuxEnvironment
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("set-environment");
         arguments.Add("-u");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);

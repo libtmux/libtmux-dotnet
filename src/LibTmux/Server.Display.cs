@@ -48,6 +48,7 @@ public sealed partial class Server
         ServerUtilities.AddValue(arguments, "-F", request.Format);
         if (request.Message.Length > 0)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Message);
         }
 

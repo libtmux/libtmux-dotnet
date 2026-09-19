@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
@@ -82,6 +83,7 @@ public sealed partial class Window
         AddValue(arguments, "-F", request.Format);
         if (request.Message.Length > 0)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Message);
         }
 

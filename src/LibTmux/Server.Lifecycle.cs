@@ -308,6 +308,7 @@ public sealed partial class Server
 
         if (options.Command is not null)
         {
+            yield return "--";
             yield return options.Command;
         }
     }

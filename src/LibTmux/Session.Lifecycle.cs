@@ -70,7 +70,7 @@ public sealed partial class Session
     {
         SessionName.Validate(name);
         return await TmuxMutationSequence.RunAsync(
-                () => RunAsync(["rename-session", "-t", _id.ToString(), name], cancellationToken),
+                () => RunAsync(["rename-session", "-t", _id.ToString(), "--", name], cancellationToken),
                 () => RefreshAsync(cancellationToken))
             .ConfigureAwait(false);
     }
@@ -431,6 +431,7 @@ public sealed partial class Session
 
         if (options.Command is not null)
         {
+            yield return "--";
             yield return options.Command;
         }
     }

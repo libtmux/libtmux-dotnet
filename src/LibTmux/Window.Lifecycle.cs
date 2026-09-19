@@ -30,7 +30,7 @@ public sealed partial class Window
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return await TmuxMutationSequence.RunAsync(
-                () => RunAsync(["rename-window", "-t", Target, name], cancellationToken),
+                () => RunAsync(["rename-window", "-t", Target, "--", name], cancellationToken),
                 () => RefreshAsync(cancellationToken))
             .ConfigureAwait(false);
     }
@@ -115,6 +115,7 @@ public sealed partial class Window
         AddEnvironment(arguments, options.Environment);
         if (options.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(options.Command);
         }
 
@@ -154,6 +155,7 @@ public sealed partial class Window
         AddEnvironment(arguments, options.Environment);
         if (options.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(options.Command);
         }
 
