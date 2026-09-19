@@ -1676,6 +1676,29 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // pane-base-index is a window option. Given to set-option with a session
+    // target, tmux puts it on that session's current window -- the bootstrap
+    // window this load kills -- so it has to reach the real windows.
+    [Fact]
+    public async Task A_window_option_under_session_options_lands_on_every_window()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "scope.socket");
+        string file = Path.Combine(_root, "scope.yaml");
+        await File.WriteAllTextAsync(file, "session_name: scope\noptions: {pane-base-index: 1, base-index: 3}\nwindows: [{window_name: one, panes: [null, null]}, {window_name: two, panes: [null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.True(result.Code == 0, $"Exit {result.Code}: {result.Error}");
+            Assert.Equal("1\n2", await Execute(server, "list-panes", "-t", "=scope:one", "-F", "#{pane_index}"));
+            Assert.Equal("1", await Execute(server, "list-panes", "-t", "=scope:two", "-F", "#{pane_index}"));
+            // A session option still goes to the session.
+            Assert.Equal("3\n4", await Execute(server, "list-windows", "-t", "=scope", "-F", "#{window_index}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     // A start_directory that is not there and a builder setting this port
     // does not have are both warnings: tmux falls back to $HOME rather than
     // refusing, and the same document has to load on every port.
