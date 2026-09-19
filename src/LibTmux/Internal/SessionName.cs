@@ -14,11 +14,22 @@ internal static class SessionName
     /// <returns>The accepted name.</returns>
     /// <exception cref="ArgumentNullException">The name is null.</exception>
     /// <exception cref="ArgumentException">
-    /// The name is blank or contains a target separator.
+    /// The name is blank or contains a control character or a target separator.
     /// </exception>
     internal static string Validate(string? name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        // NUL cannot appear in a process argument at all, and the rest read
+        // as blank or garbled wherever the name is later displayed.
+        if (name.Any(char.IsControl))
+        {
+            throw new ArgumentException(
+                "A session name here cannot contain a control character. NUL cannot appear "
+                + "in a process argument, and the rest are unreadable wherever the name is "
+                + "displayed.",
+                nameof(name));
+        }
 
         // tmux parses ':' and '.' as the session:window.pane separators, so a
         // name carrying either would address a different object every time it
