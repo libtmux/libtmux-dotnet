@@ -360,6 +360,34 @@ The span is named for the subcommand and tagged `tmux.subcommand`,
 status. `TmuxDiagnostics.CommandDurationInstrumentName` records elapsed seconds
 under the same tags. Both cost nothing when nothing is listening.
 
+## Wrapping every command
+
+`Interceptor` sits between the library and the tmux it starts, so a policy that
+belongs to your application — an audit trail, a retry, a refusal, a stand-in
+answer in a test — lives outside the library rather than in a fork of it:
+
+```csharp
+Server audited = await Server.ConnectAsync(
+    new ServerConnectionOptions
+    {
+        Interceptor = async (invocation, next, token) =>
+        {
+            TmuxCommandResult result = await next(token);
+            Console.WriteLine($"{string.Join(' ', invocation.Arguments)} → {result.ExitCode}");
+            return result;
+        },
+    },
+    ct);
+```
+
+Call `next` once to pass through, again to retry, or not at all to answer in
+tmux's place. It sees every client the connection starts for a command,
+including the version probe, but not a control-mode client, which is one
+long-lived process. A command against a pane or window arrives inside its
+generation guard, so a stand-in has to answer that check too. Unset, nothing
+wraps anything and dispatch is what it was; set, it is one delegate call around
+each invocation.
+
 ## Sharing handles across threads
 
 `Server`, `Window`, `Pane`, `Client`, `TmuxOptions`, `TmuxHooks`,

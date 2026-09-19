@@ -951,6 +951,8 @@ LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.init -> void
 LibTmux.ServerConnectionOptions.Equals(LibTmux.ServerConnectionOptions? other) -> bool
 LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 LibTmux.ServerConnectionOptions.InitializeAsync.init -> void
+LibTmux.ServerConnectionOptions.Interceptor.get -> LibTmux.TmuxInterceptor?
+LibTmux.ServerConnectionOptions.Interceptor.init -> void
 LibTmux.ServerConnectionOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
 LibTmux.ServerConnectionOptions.Logger.init -> void
 LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.get -> int?
@@ -1245,6 +1247,10 @@ LibTmux.TmuxHooks.Scope.get -> LibTmux.OptionScope
 LibTmux.TmuxHooks.SetAsync(LibTmux.SetHookRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.TmuxHook!>!
 LibTmux.TmuxHooks.SetAsync(LibTmux.SetHooksRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.TmuxHook!>!
 LibTmux.TmuxHooks.UnsetAsync(LibTmux.HookRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxInterceptor
+LibTmux.TmuxInvocation
+LibTmux.TmuxInvocation.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.TmuxInvocation.TmuxInvocation(System.Collections.Generic.IReadOnlyList<string!>! arguments) -> void
 LibTmux.TmuxMenuItem
 LibTmux.TmuxMenuItem.<Clone>$() -> LibTmux.TmuxMenuItem!
 LibTmux.TmuxMenuItem.Command.get -> string!
@@ -1941,3 +1947,4 @@ static LibTmux.WindowId.operator >=(LibTmux.WindowId left, LibTmux.WindowId righ
 virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual LibTmux.TmuxInterceptor.Invoke(LibTmux.TmuxInvocation! invocation, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!>! next, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!

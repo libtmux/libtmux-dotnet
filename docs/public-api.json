@@ -3130,6 +3130,37 @@
       "genericParameters": [
         "TTarget"
       ]
+    },
+    {
+      "id": "T:LibTmux.TmuxInterceptor",
+      "namespace": "LibTmux",
+      "name": "TmuxInterceptor",
+      "kind": "delegate",
+      "package": "LibTmux",
+      "modifiers": [
+        "public"
+      ],
+      "baseType": "MulticastDelegate",
+      "interfaces": [],
+      "ownership": "reference",
+      "state": [],
+      "summary": "Wraps one tmux invocation: observe it, retry it, refuse it, or answer it."
+    },
+    {
+      "id": "T:LibTmux.TmuxInvocation",
+      "namespace": "LibTmux",
+      "name": "TmuxInvocation",
+      "kind": "sealed class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "object",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [],
+      "summary": "One tmux invocation, as an interceptor sees it."
     }
   ],
   "members": [
@@ -25689,6 +25720,104 @@
         "UnsupportedOSPlatform(\"windows\")"
       ],
       "summary": "Runs a hook request on its own."
+    },
+    {
+      "id": "T:LibTmux.TmuxInterceptor",
+      "declaringType": "T:LibTmux.TmuxInterceptor",
+      "name": "TmuxInterceptor",
+      "kind": "type",
+      "visibility": "public",
+      "signature": "delegate LibTmux.TmuxInterceptor",
+      "portable": true,
+      "package": "LibTmux"
+    },
+    {
+      "id": "M:LibTmux.TmuxInterceptor.Invoke(LibTmux.TmuxInvocation,System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<LibTmux.TmuxCommandResult>>,System.Threading.CancellationToken)",
+      "declaringType": "T:LibTmux.TmuxInterceptor",
+      "name": "Invoke",
+      "kind": "method",
+      "visibility": "public",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task<TmuxCommandResult>",
+      "parameters": [
+        {
+          "name": "invocation",
+          "type": "TmuxInvocation"
+        },
+        {
+          "name": "next",
+          "type": "Func<CancellationToken, Task<TmuxCommandResult>>"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken"
+        }
+      ],
+      "signature": "Task<TmuxCommandResult> LibTmux.TmuxInterceptor.Invoke(TmuxInvocation invocation, Func<CancellationToken, Task<TmuxCommandResult>> next, CancellationToken cancellationToken)",
+      "performsIO": false,
+      "processBacked": false,
+      "portable": true,
+      "platformAnnotations": [],
+      "summary": "Runs the interceptor for one invocation.",
+      "package": "LibTmux"
+    },
+    {
+      "id": "T:LibTmux.TmuxInvocation",
+      "declaringType": "T:LibTmux.TmuxInvocation",
+      "name": "TmuxInvocation",
+      "kind": "type",
+      "visibility": "public",
+      "signature": "sealed class LibTmux.TmuxInvocation",
+      "portable": true,
+      "package": "LibTmux"
+    },
+    {
+      "id": "M:LibTmux.TmuxInvocation.#ctor(IReadOnlyList<string>)",
+      "declaringType": "T:LibTmux.TmuxInvocation",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "static": false,
+      "returnType": "TmuxInvocation",
+      "parameters": [
+        {
+          "name": "arguments",
+          "type": "IReadOnlyList<string>"
+        }
+      ],
+      "signature": "TmuxInvocation(IReadOnlyList<string> arguments)",
+      "portable": true,
+      "summary": "Creates TmuxInvocation.",
+      "package": "LibTmux"
+    },
+    {
+      "id": "P:LibTmux.TmuxInvocation.Arguments",
+      "declaringType": "T:LibTmux.TmuxInvocation",
+      "name": "Arguments",
+      "kind": "property",
+      "visibility": "public",
+      "static": false,
+      "returnType": "IReadOnlyList<string>",
+      "parameters": [],
+      "signature": "IReadOnlyList<string> LibTmux.TmuxInvocation.Arguments { get; }",
+      "portable": true,
+      "summary": "Gets the arguments tmux receives.",
+      "package": "LibTmux"
+    },
+    {
+      "id": "P:LibTmux.ServerConnectionOptions.Interceptor",
+      "declaringType": "T:LibTmux.ServerConnectionOptions",
+      "name": "Interceptor",
+      "kind": "property",
+      "visibility": "public",
+      "static": false,
+      "returnType": "TmuxInterceptor?",
+      "parameters": [],
+      "signature": "TmuxInterceptor? LibTmux.ServerConnectionOptions.Interceptor { get; init; }",
+      "portable": true,
+      "summary": "Gets what every tmux invocation on this connection passes through.",
+      "package": "LibTmux"
     }
   ]
 }

@@ -41,6 +41,13 @@ internal sealed class TmuxConnection
             execute is null
                 ? CreateProcessTransports(resolved)
                 : (execute, execute);
+        if (Options.Interceptor is TmuxInterceptor interceptor)
+        {
+            // Wrapped below both dialects and the generation guard, so it sees
+            // every client the connection starts, as tmux receives it.
+            send = Intercept(send, interceptor);
+            sendVersion = Intercept(sendVersion, interceptor);
+        }
 
         // The psmux preview is reached only through its own facade, which
         // supplies these options; nothing detects its way into it.
@@ -212,6 +219,22 @@ internal sealed class TmuxConnection
             beforeStart: VerifyBeforeStartAsync);
         return (transport.ExecuteAsync, versionTransport.ExecuteAsync);
     }
+
+    /// <summary>Routes each request through an interceptor before tmux.</summary>
+    internal static Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> Intercept(
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send,
+        TmuxInterceptor interceptor) =>
+        async (request, cancellationToken) =>
+        {
+            Task<TmuxCommandResult>? pending = interceptor(
+                new TmuxInvocation(request.LogicalArguments),
+                token => send(request, token),
+                cancellationToken);
+            return await (pending
+                    ?? throw new InvalidOperationException("The interceptor returned no task."))
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The interceptor returned no result.");
+        };
 
     private Task<TmuxCommandResult> ExecuteSingleAsync(
         IReadOnlyList<string> arguments,

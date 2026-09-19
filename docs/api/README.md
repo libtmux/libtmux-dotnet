@@ -115,6 +115,8 @@ modes differ.
 | `LibTmux.TmuxHook` | One hook and every command it runs. |
 | `LibTmux.TmuxHookEntry` | One command a hook runs, and where it sits in the order. |
 | `LibTmux.TmuxHooks` | The hooks of one server, session, window, or pane. |
+| `LibTmux.TmuxInterceptor` | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. |
+| `LibTmux.TmuxInvocation` | One tmux invocation, as a sees it. |
 | `LibTmux.TmuxMenuItem` | One line of a tmux menu. |
 | `LibTmux.TmuxNotificationEvent` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException` | Reports a missing tmux object. |
@@ -438,6 +440,7 @@ modes differ.
 | `LibTmux.TmuxHooks.SetAsync(LibTmux.SetHookRequest,System.Threading.CancellationToken)` | Sets one hook entry. |
 | `LibTmux.TmuxHooks.SetAsync(LibTmux.SetHooksRequest,System.Threading.CancellationToken)` | Sets several entries of one hook. |
 | `LibTmux.TmuxHooks.UnsetAsync(LibTmux.HookRequest,System.Threading.CancellationToken)` | Removes a hook. |
+| `LibTmux.TmuxInvocation.#ctor(System.Collections.Generic.IReadOnlyList{System.String})` | Initializes an invocation. |
 | `LibTmux.TmuxMenuItem.#ctor(System.String,System.String,System.String)` | Initializes one menu item. |
 | `LibTmux.TmuxNotificationEvent.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException.#ctor(System.String,System.String,System.Exception)` | Initializes a missing-object exception. |
@@ -878,6 +881,7 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before the oldest are dropped. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
+| `LibTmux.ServerConnectionOptions.Interceptor` | Gets what every tmux invocation on this connection passes through, or null. |
 | `LibTmux.ServerConnectionOptions.Logger` | Gets the connection logger. |
 | `LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | Gets the largest output one command may capture, in bytes. |
 | `LibTmux.ServerConnectionOptions.SocketName` | Gets the explicit socket name. |
@@ -975,6 +979,7 @@ modes differ.
 | `LibTmux.TmuxHookEntry.Command` | Gets the tmux command, as tmux prints it. |
 | `LibTmux.TmuxHookEntry.Index` | Gets where the command sits in the hook's order. |
 | `LibTmux.TmuxHooks.Scope` | Gets the scope these hooks are read and written in by default. |
+| `LibTmux.TmuxInvocation.Arguments` | Gets the arguments tmux receives. |
 | `LibTmux.TmuxMenuItem.Command` | Gets the tmux command it runs. |
 | `LibTmux.TmuxMenuItem.Key` | Gets the key that chooses it. |
 | `LibTmux.TmuxMenuItem.Name` | Gets the text shown for the item. |

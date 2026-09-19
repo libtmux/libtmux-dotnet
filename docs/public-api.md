@@ -436,6 +436,8 @@ internal static class Program
 | `T:LibTmux.TmuxChaining` | class | `public, static` | None | `object` | value | Runs a request on its own, as a chain of one command. | `LibTmux` |
 | `T:LibTmux.TmuxWaitChannel` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Holds a tmux wait-for registration across timed attempts. | `LibTmux` |
 | ``T:LibTmux.ITmuxRequest`1`` | interface | `public` | None | `None` | value | A request that becomes one tmux command against a target. | `LibTmux` |
+| `T:LibTmux.TmuxInterceptor` | delegate | `public` | None | `MulticastDelegate` | reference | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. | `LibTmux` |
+| `T:LibTmux.TmuxInvocation` | sealed class | `public, sealed` | None | `object` | value | One tmux invocation, as an interceptor sees it. | `LibTmux` |
 
 ## Public members
 
@@ -1408,6 +1410,7 @@ internal static class Program
 | `P:LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | `int? LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity { get; init; }` | Public | No | Portable | How many control-mode events are buffered before the oldest are dropped. |
 | `P:LibTmux.ServerConnectionOptions.Default` | `static ServerConnectionOptions LibTmux.ServerConnectionOptions.Default { get; }` | Public | Yes | Portable | Gets conventional connection defaults using the tmux executable on PATH. |
 | `P:LibTmux.ServerConnectionOptions.InitializeAsync` | `Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; init; }` | Public | No | Portable | Gets InitializeAsync. |
+| `P:LibTmux.ServerConnectionOptions.Interceptor` | `TmuxInterceptor? LibTmux.ServerConnectionOptions.Interceptor { get; init; }` | Public | No | Portable | Gets what every tmux invocation on this connection passes through. |
 | `P:LibTmux.ServerConnectionOptions.Logger` | `ILogger? LibTmux.ServerConnectionOptions.Logger { get; init; }` | Public | No | Portable | Gets Logger. |
 | `P:LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | `int? LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream { get; init; }` | Public | No | Portable | The largest output one command may capture, in bytes. |
 | `P:LibTmux.ServerConnectionOptions.SocketName` | `string? LibTmux.ServerConnectionOptions.SocketName { get; init; }` | Public | No | Portable | Gets SocketName. |
@@ -1840,6 +1843,19 @@ internal static class Program
 | `M:LibTmux.TmuxHooks.SetAsync(SetHooksRequest,CancellationToken)` | `Task<TmuxHook> LibTmux.TmuxHooks.SetAsync(SetHooksRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Sets sparse commands for one hook. |
 | `M:LibTmux.TmuxHooks.UnsetAsync(HookRequest,CancellationToken)` | `Task LibTmux.TmuxHooks.UnsetAsync(HookRequest request, CancellationToken cancellationToken = default)` | Public | No | `UnsupportedOSPlatform("windows")` | Unsets one hook. |
 | `P:LibTmux.TmuxHooks.Scope` | `OptionScope LibTmux.TmuxHooks.Scope { get; }` | Public | No | Portable | Gets the scope bound to this entity service. |
+
+### `T:LibTmux.TmuxInterceptor`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxInterceptor.Invoke(LibTmux.TmuxInvocation,System.Func<System.Threading.CancellationToken,System.Threading.Tasks.Task<LibTmux.TmuxCommandResult>>,System.Threading.CancellationToken)` | `Task<TmuxCommandResult> LibTmux.TmuxInterceptor.Invoke(TmuxInvocation invocation, Func<CancellationToken, Task<TmuxCommandResult>> next, CancellationToken cancellationToken)` | Public | No | Portable | Runs the interceptor for one invocation. |
+
+### `T:LibTmux.TmuxInvocation`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxInvocation.#ctor(IReadOnlyList<string>)` | `TmuxInvocation(IReadOnlyList<string> arguments)` | Public | No | Portable | Creates TmuxInvocation. |
+| `P:LibTmux.TmuxInvocation.Arguments` | `IReadOnlyList<string> LibTmux.TmuxInvocation.Arguments { get; }` | Public | No | Portable | Gets the arguments tmux receives. |
 
 ### `T:LibTmux.TmuxMenuItem`
 

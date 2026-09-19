@@ -23,6 +23,8 @@ public class DispatchOverheadBenchmarks
 
     private TmuxCommandDispatcher _plain = null!;
     private TmuxCommandDispatcher _timed = null!;
+    private TmuxCommandDispatcher _requested = null!;
+    private TmuxCommandDispatcher _intercepted = null!;
     private ActivityListener? _spans;
     private MeterListener? _measurements;
 
@@ -31,6 +33,11 @@ public class DispatchOverheadBenchmarks
     {
         _plain = Dispatcher(timeout: null);
         _timed = Dispatcher(TimeSpan.FromSeconds(30));
+        _requested = Through(static (request, _) => Task.FromResult(Answer(request.LogicalArguments)));
+        _intercepted = Through(
+            TmuxConnection.Intercept(
+                static (request, _) => Task.FromResult(Answer(request.LogicalArguments)),
+                static (_, next, token) => next(token)));
     }
 
     [GlobalCleanup]
@@ -50,6 +57,16 @@ public class DispatchOverheadBenchmarks
     public Task<TmuxCommandResult> WithDeadline() =>
         _timed.ExecuteAsync(Arguments, CancellationToken.None);
 
+    /// <summary>Dispatch down to the request a transport receives.</summary>
+    [Benchmark]
+    public Task<TmuxCommandResult> ThroughRequest() =>
+        _requested.ExecuteAsync(Arguments, CancellationToken.None);
+
+    /// <summary>The same, through an interceptor that only passes it on.</summary>
+    [Benchmark]
+    public Task<TmuxCommandResult> Intercepted() =>
+        _intercepted.ExecuteAsync(Arguments, CancellationToken.None);
+
     /// <summary>Dispatch while a tracer is subscribed.</summary>
     [Benchmark]
     public Task<TmuxCommandResult> Traced()
@@ -65,6 +82,17 @@ public class DispatchOverheadBenchmarks
         _measurements ??= ListenForMeasurements();
         return _plain.ExecuteAsync(Arguments, CancellationToken.None);
     }
+
+    private static TmuxCommandDispatcher Through(
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send) =>
+        new(
+            (arguments, cancellationToken) => send(
+                TmuxCommandRequest.Single(arguments),
+                cancellationToken),
+            new TmuxCommandContext(NullLogger.Instance, "bench", null));
+
+    private static TmuxCommandResult Answer(IReadOnlyList<string> arguments) =>
+        new(arguments, 0, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, [], []);
 
     private static TmuxCommandDispatcher Dispatcher(TimeSpan? timeout) =>
         new(

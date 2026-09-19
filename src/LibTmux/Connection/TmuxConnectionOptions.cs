@@ -223,6 +223,31 @@ public sealed record ServerConnectionOptions
         }
     }
 
+    /// <summary>Gets what every tmux invocation on this connection passes through, or null.</summary>
+    /// <remarks>
+    /// <para>
+    /// It sees each tmux client the connection starts to run a command:
+    /// single commands, chains, and the version probe and server discovery a
+    /// connection makes first. A control-mode client is one long-lived process
+    /// and does not pass through it.
+    /// </para>
+    /// <para>
+    /// It sees what tmux is asked, which is more than was requested for a
+    /// command against a pane, window, session, or one of their tables: two
+    /// commands in front check that the server is still the one the handle was
+    /// read from. An answer made in tmux's place has to start with that
+    /// server's generation line.
+    /// </para>
+    /// <para>
+    /// A command runs its interceptor inside <see cref="CommandTimeout" /> and
+    /// the command's span, so a retry shares both. An exception the
+    /// interceptor throws reaches the caller unchanged. Running a command
+    /// again repeats whatever it did; <see cref="LibTmuxException.Dispatch" />
+    /// on a failure says whether tmux may already have acted.
+    /// </para>
+    /// </remarks>
+    public TmuxInterceptor? Interceptor { get; init; }
+
     internal PsmuxPreviewOptions? PsmuxPreview { get; init; }
 
     private static ReadOnlyDictionary<string, string?>? CopyChildEnvironment(
