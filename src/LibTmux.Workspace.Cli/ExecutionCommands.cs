@@ -150,7 +150,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         // window the document declares is present.
                         string[] absent = MissingWindows(input.Plan.Windows, await Command(["list-windows", "-t", session, "-F", "#{window_index}\t#{window_name}"]).ConfigureAwait(false));
                         if (absent.Length > 0)
-                            throw new CliException("destination_exists", $"Session '{input.Plan.Name}' is already running without {string.Join(", ", absent)}. Remove it and load again, or load under another name.");
+                            throw new CliException("session_mismatch", $"Session '{input.Plan.Name}' is already running without {string.Join(", ", absent)}. Remove it and load again, or load under another name.");
                         finalSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identity[1])).ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
@@ -352,10 +352,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 // A failed input's own results[] record (added above) must not
                 // count toward "partial" -- only a genuinely completed input does.
                 bool anySucceeded = results.Any(item => item!["status"]!.ToString() != "failed");
-                // "error" means nothing this load made survives. A session it
-                // found rather than created is still standing, so that is
-                // "partial" whether or not this load changed it.
-                bool retained = (session is not null && !created) || (changed && !removed);
+                // "error" means nothing this load made or altered survives.
+                // Finding a session it will not touch leaves no effect behind,
+                // so a refused reuse is an error, not a partial build.
+                bool retained = changed && !removed;
                 var summary = new { schema_version = 1, command = "load", status = anySucceeded || retained ? "partial" : "error", results, errors };
                 using CancellationTokenSource reporting = new(TimeSpan.FromSeconds(3));
                 try
@@ -443,6 +443,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             windows.Add(captured);
         }
         document["windows"] = windows;
+        // The document is valid input, so the artifact itself has to say it
+        // is not a round trip -- the stderr warning does not travel with it,
+        // and --save-to suppresses that warning entirely.
+        document["x-capture-lossy"] = true;
         string format = invocation.Text("workspace_format") ?? "yaml";
         new ReadCommands(context, invocation, output).SaveOrPrint(document, format);
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture_lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
