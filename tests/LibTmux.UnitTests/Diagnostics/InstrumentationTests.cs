@@ -105,6 +105,39 @@ public sealed class InstrumentationTests
     }
 
     [UnixFact]
+    public async Task A_guarded_chain_is_traced_and_bounded_by_the_timeout()
+    {
+        // A chain holding a pane or window command runs under a generation
+        // guard. That path is still one tmux command, so the timeout and the
+        // span apply to it as to any other.
+        string socket = $"guarded-{Guid.NewGuid():N}";
+        List<Activity> spans = [];
+        using ActivityListener listener = ListenForSpans(spans);
+        var dispatcher = new TmuxCommandDispatcher(
+            static (_, _) => throw new UnreachableException(),
+            new TmuxCommandContext(NullLogger.Instance, socket, TimeSpan.FromMilliseconds(50)));
+        var chain = new TmuxChain(
+            dispatcher,
+            [new TmuxCommand("list-panes", []) { RequiredGeneration = new ServerGeneration(1, 2) }],
+            static async (_, _, token) =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                throw new UnreachableException();
+            });
+
+        // Without the timeout this would wait on the caller alone, so bound it.
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        caller.CancelAfter(TimeSpan.FromSeconds(5));
+        TmuxTransportException expired = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => chain.ExecuteAsync(caller.Token));
+
+        Assert.Equal(TmuxDispatchState.Unknown, expired.Dispatch);
+        Activity span = Assert.Single(Snapshot(spans), each => Tag(each, "tmux.socket") == socket);
+        Assert.Equal(ActivityStatusCode.Error, span.Status);
+    }
+
+    [UnixFact]
     public async Task A_caller_who_cancels_sees_cancellation_not_a_timeout()
     {
         using var caller = new CancellationTokenSource();

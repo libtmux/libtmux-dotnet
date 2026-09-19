@@ -42,7 +42,7 @@ internal sealed class TmuxCommandDispatcher
     }
 
     [UnsupportedOSPlatform("windows")]
-    internal async Task<TmuxCommandResult> ExecuteGroupAsync(
+    internal Task<TmuxCommandResult> ExecuteGroupAsync(
         IReadOnlyList<IReadOnlyList<string>> commands,
         CancellationToken cancellationToken = default)
     {
@@ -53,6 +53,26 @@ internal sealed class TmuxCommandDispatcher
                 "This dispatcher cannot run a grouped command.");
         }
 
+        return ExecuteGroupAsync(commands, _executeGroup, cancellationToken);
+    }
+
+    /// <summary>Runs a group through an executor of the caller's choosing.</summary>
+    /// <remarks>
+    /// A chain that carries an entity's generation runs through the guard
+    /// rather than this dispatcher's own executor. It is still one tmux
+    /// command, so it gets the same span, measurement, log and timeout.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<TmuxCommandResult> ExecuteGroupAsync(
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        Func<
+            IReadOnlyList<IReadOnlyList<string>>,
+            CancellationToken,
+            Task<TmuxCommandResult>> executeGroup,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(executeGroup);
         foreach (IReadOnlyList<string> command in commands)
         {
             ValidateArguments(command);
@@ -68,7 +88,7 @@ internal sealed class TmuxCommandDispatcher
         TmuxCommandResult result;
         try
         {
-            result = await _executeGroup(commands, deadline.Token).ConfigureAwait(false);
+            result = await executeGroup(commands, deadline.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException error)
             when (deadline.Expired && !cancellationToken.IsCancellationRequested)
