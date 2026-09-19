@@ -266,9 +266,9 @@ jobs:
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
   # Most of the public surface is [UnsupportedOSPlatform("windows")], and a
   # consumer with warnings as errors meets CA1416 on nearly every call, so an
-  # annotation lost here is a downstream build break. It gates, unlike the
-  # advisory macOS lane: before this, the only Windows coverage ran at release
-  # time on a self-hosted runner, and a pull request could not see it at all.
+  # annotation lost here is a downstream build break. The build gates, unlike
+  # the advisory macOS lane: before this, the only Windows coverage ran at
+  # release time on a self-hosted runner, and a pull request could not see it.
   windows:
     name: windows x64
     runs-on: windows-latest
@@ -292,8 +292,11 @@ jobs:
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
 
       - name: Unit tests
-        # The tmux-driving tests carry [UnixFact] and skip themselves; what is
-        # left is every test that does not need a server, which is most of them.
+        # Advisory until one run says otherwise. [UnsupportedOSPlatform] is a
+        # compile-time annotation, so a plain [Fact] inside an annotated class
+        # runs here rather than skipping, and many do. The build above is what
+        # this lane gates on; promote this step once a run shows it green.
+        continue-on-error: true
         run: >
           dotnet test tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
           --configuration Release --no-build --framework net10.0
