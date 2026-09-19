@@ -260,14 +260,14 @@ public sealed class PaneOperationsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Pane pane = await FirstPaneAsync(raw, token);
 
-        // Both need an attached client on tmux below 3.8, which this test
-        // process lacks, so only the exception type is asserted, not tmux's
-        // refusal text. tmux 3.8 converted display-panes from an overlay
-        // into a mode -- it can run inside another pane and no longer needs
-        // one -- so display-popup is the one still gated here.
+        // Needs an attached client on every supported tmux; this test
+        // process has none, so only the exception type is asserted, not
+        // tmux's refusal text.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => pane.DisplayPopupAsync(cancellationToken: token));
 
+        // tmux 3.8 turned display-panes from an overlay into a mode, which
+        // runs without a client, so only earlier versions still refuse it.
         bool displayPanesStillAnOverlay = pane.Server.Version is not TmuxVersion version
             || version < TmuxVersion.Parse("3.8");
         if (displayPanesStillAnOverlay)
