@@ -37,7 +37,7 @@ public sealed record TmuxTestOptions
         }
 
         ConnectionOptions = connectionOptions
-            ?? new ServerConnectionOptions(socketName: $"libtmux-{Guid.NewGuid():N}");
+            ?? new ServerConnectionOptions { SocketName = $"libtmux-{Guid.NewGuid():N}" };
         Timeout = timeout ?? TimeSpan.FromSeconds(10);
         PollInterval = pollInterval ?? TimeSpan.FromMilliseconds(20);
         SessionNamePrefix = sessionNamePrefix;

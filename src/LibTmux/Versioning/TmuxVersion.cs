@@ -49,6 +49,18 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
             or VersionKind.MicroRelease
             or VersionKind.PatchRelease;
 
+    /// <summary>
+    /// Gets whether this is tmux's rolling <c>next-X.Y</c> development build.
+    /// </summary>
+    /// <remarks>
+    /// Unlike a <c>-dev</c> or <c>-rc</c> snapshot, which names a specific
+    /// upcoming release that may still be mid-development, <c>next</c> is the
+    /// single rolling target: it always carries every change in the release
+    /// before the one it names, ordered below that release by
+    /// <see cref="VersionKind" /> when the major and minor numbers tie.
+    /// </remarks>
+    internal bool IsNextRelease => IsValid && _kind is VersionKind.Next;
+
     /// <summary>Gets the parsed major version.</summary>
     public int Major { get; }
 

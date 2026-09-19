@@ -114,8 +114,12 @@ public sealed class TmuxChain
         IReadOnlyList<IReadOnlyList<string>> arguments =
             [.. _commands.Select(static command => command.ToArguments())];
 
-        TmuxCommandResult result = required.Length == 1 && _guarded is not null
-            ? await _guarded(required[0], arguments, cancellationToken).ConfigureAwait(false)
+        TmuxCommandResult result = required.Length == 1 && _guarded is { } guarded
+            ? await _dispatcher.ExecuteGroupAsync(
+                    arguments,
+                    (commands, token) => guarded(required[0], commands, token),
+                    cancellationToken)
+                .ConfigureAwait(false)
             : await _dispatcher.ExecuteGroupAsync(arguments, cancellationToken)
                 .ConfigureAwait(false);
         TmuxCommandFailure.ThrowIfFailed(result, "chain");

@@ -157,7 +157,7 @@ public sealed class PasteTextCleanupTests
                         TmuxDispatchState.NotDispatched)
                     : new InvalidOperationException("paste failed");
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(socketName: "paste-cleanup-test"),
+                new ServerConnectionOptions { SocketName = "paste-cleanup-test" },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);

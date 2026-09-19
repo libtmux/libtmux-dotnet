@@ -151,7 +151,7 @@ public sealed class TailCursorTests
     private static Pane PaneFor(string socketName, ServerGeneration generation, int paneId)
     {
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: socketName),
+            new ServerConnectionOptions { SocketName = socketName },
             FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,

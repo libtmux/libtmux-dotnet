@@ -37,7 +37,9 @@ public sealed class PsmuxServer
 
     /// <summary>Gets the psmux compatibility version reported at connection time.</summary>
     public TmuxVersion Version => _inner.Version
-        ?? throw new InvalidDataException("The connected psmux client reported no usable version.");
+        ?? throw new TmuxProtocolException(
+            "The connected psmux client reported no usable version.",
+            TmuxDispatchState.Unknown);
 
     /// <summary>Connects to a separately provisioned psmux namespace.</summary>
     /// <param name="options">The executable trust and isolated endpoint settings.</param>
@@ -84,7 +86,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Session> sessions = await _inner
-            .GetSessionsStrictAsync(cancellationToken)
+            .GetSessionsAsync(cancellationToken)
             .ConfigureAwait(false);
         if (sessions.Count != 1)
         {
@@ -112,7 +114,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Window> windows = await _inner
-            .GetWindowsStrictAsync(cancellationToken)
+            .GetWindowsAsync(cancellationToken)
             .ConfigureAwait(false);
         return [.. windows.Select(window => new PsmuxWindow(this, window))];
     }
@@ -134,7 +136,7 @@ public sealed class PsmuxServer
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Pane> panes = await _inner
-            .GetPanesStrictAsync(cancellationToken)
+            .GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
         return [.. panes.Select(pane => new PsmuxPane(this, pane))];
     }

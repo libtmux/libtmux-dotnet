@@ -116,7 +116,7 @@ public static class Mcp
     {
         string paneId = pane.Id.ToString();
         await pane.SendKeysAsync(
-            new SendKeysRequest("sleep 1; printf 'a new line\\n'", enter: true, literal: true),
+            new SendKeysRequest { Text = "sleep 1; printf 'a new line\\n'", Enter = true, Literal = true },
             ct);
 
         #region ReadOnlyWhatIsNew

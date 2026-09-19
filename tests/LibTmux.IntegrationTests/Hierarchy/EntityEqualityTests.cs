@@ -60,7 +60,7 @@ public sealed class EntityEqualityTests
 
         Window original = await TestHierarchy.RequireFirstWindowAsync(session, token);
         Window created = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "equality"),
+            new NewWindowRequest { Name = "equality" },
             token);
 
         Assert.False(original == created);
@@ -95,7 +95,7 @@ public sealed class EntityEqualityTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
 
         IReadOnlyList<Window> once = await session.GetWindowsAsync(token);
         IReadOnlyList<Window> again = await session.GetWindowsAsync(token);
@@ -125,10 +125,12 @@ public sealed class EntityEqualityTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 
     private static async Task<Pane> FirstPaneAsync(Server server, CancellationToken token)

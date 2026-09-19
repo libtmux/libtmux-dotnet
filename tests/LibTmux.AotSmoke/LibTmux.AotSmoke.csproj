@@ -26,6 +26,7 @@
   <ItemGroup>
     <PackageReference Include="LibTmux" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="LibTmux.Query.Json" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Testing" Version="$(LibTmuxPackageVersion)" />
 
     <!-- Real tmux runs here, so this assembly claims a socket root of its own. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"

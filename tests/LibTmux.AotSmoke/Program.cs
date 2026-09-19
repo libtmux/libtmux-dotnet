@@ -34,10 +34,12 @@ internal static class Program
         // Connecting reads a running server's generation, so the server is
         // started rather than assumed. The scope kills it on the way out.
         TmuxTestFactory factory = new();
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"libtmux-aot-{Guid.NewGuid():N}"[..24],
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = $"libtmux-aot-{Guid.NewGuid():N}"[..24],
+                ConfigurationFile = "/dev/null",
+            });
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
         {
@@ -56,8 +58,8 @@ internal static class Program
             TmuxOption option = (await window.Options.GetAsync(
                 new GetOptionRequest("automatic-rename")))[0];
 
-            await server.SetBufferAsync("aot", "libtmux-aot");
-            string buffer = await server.GetBufferAsync("libtmux-aot");
+            await server.Buffers.SetAsync("aot", "libtmux-aot");
+            string buffer = await server.Buffers.GetAsync("libtmux-aot");
 
             Console.WriteLine($"session {session.Name}");
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");

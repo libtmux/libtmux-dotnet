@@ -11,9 +11,12 @@ public static class OneShot
     public static async Task ConnectAndBuild()
     {
         #region ConnectAndBuild
+        // Requires a tmux server already listening on this socket:
+        // ConnectAsync() discovers one, it never starts one. With nothing
+        // running yet, call Server.CreateOwnedAsync() instead.
         Server server = await Server.ConnectAsync();
-        Session session = await server.CreateSessionAsync(new NewSessionRequest(name: "build"));
-        Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "tests"));
+        Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
+        Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
         Pane pane = (await window.GetPanesAsync())[0];
 
         await pane.SendTextAsync("dotnet test");
@@ -25,7 +28,7 @@ public static class OneShot
     public static async Task CreateWindow(Session session, CancellationToken ct)
     {
         #region CreateWindow
-        Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "build"), ct);
+        Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
         Console.WriteLine($"{window.Id} {window.Index}:{window.Name}");
         #endregion
     }

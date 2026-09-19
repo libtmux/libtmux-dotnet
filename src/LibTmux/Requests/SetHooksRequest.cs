@@ -15,15 +15,9 @@ public sealed record SetHooksRequest
     /// <summary>Initializes a request to set several entries of one hook.</summary>
     /// <param name="name">The hook name, without an index.</param>
     /// <param name="values">The command to place at each index.</param>
-    /// <param name="scope">The scope to set in, or null for the owner's own.</param>
-    /// <param name="global">Whether the global table is set instead of the local one.</param>
-    /// <param name="clearExisting">Whether entries already there are removed first.</param>
     public SetHooksRequest(
         string name,
-        IReadOnlyDictionary<int, string> values,
-        OptionScope? scope = null,
-        bool global = false,
-        bool clearExisting = false)
+        IReadOnlyDictionary<int, string> values)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(values);
@@ -50,9 +44,6 @@ public sealed record SetHooksRequest
         // The request is read again at dispatch, so a caller that kept the
         // dictionary could otherwise change the argv after constructing it.
         _values = new ReadOnlyDictionary<int, string>(new Dictionary<int, string>(values));
-        Scope = scope;
-        Global = global;
-        ClearExisting = clearExisting;
     }
 
     /// <summary>Gets the hook name, without an index.</summary>
@@ -66,11 +57,11 @@ public sealed record SetHooksRequest
     public IReadOnlyDictionary<int, string> Values => _values;
 
     /// <summary>Gets the scope to set in, or null for the owner's own.</summary>
-    public OptionScope? Scope { get; }
+    public OptionScope? Scope { get; init; }
 
     /// <summary>Gets whether the global table is set instead of the local one.</summary>
-    public bool Global { get; }
+    public bool Global { get; init; }
 
     /// <summary>Gets whether entries already there are removed first.</summary>
-    public bool ClearExisting { get; }
+    public bool ClearExisting { get; init; }
 }

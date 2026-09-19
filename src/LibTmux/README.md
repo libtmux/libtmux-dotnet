@@ -22,8 +22,8 @@ nothing for it.
 using LibTmux;
 
 Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest(name: "build"));
-Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "tests"));
+Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
+Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -33,7 +33,7 @@ To reach one server in particular:
 
 ```csharp
 Server elsewhere = await Server.ConnectAsync(
-    new ServerConnectionOptions(socketName: "build-box"));
+    new ServerConnectionOptions { SocketName = "build-box" });
 ```
 
 ### Where a bare connect lands
@@ -82,7 +82,7 @@ whole distribution with the tmux, host and date that produced it:
 
 ```csharp run
 // One command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest(name: "build"), ct);
+Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 ```
 
 ```csharp run
@@ -119,6 +119,13 @@ foreach (Window each in await session.GetWindowsAsync(ct))
 }
 ```
 
+Live listings throw when the read fails, including when the daemon has stopped
+or the socket is inaccessible. An empty list means the read succeeded and
+matched nothing. Catch the relevant exception when absence is acceptable;
+`IsAliveAsync` is the explicit convenience that returns `false` on library
+failures. Raw `ExecuteCommandAsync` keeps completed nonzero exit codes in its
+`TmuxCommandResult`.
+
 A handle says what it read, and that stays true. Operations that change what an
 object is hand back a replacement:
 
@@ -132,6 +139,59 @@ Asking tmux again is `RefreshAsync`. A whole hierarchy in one read is
 ```csharp run
 Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
 ```
+
+### Lookups and captured relations
+
+`GetSessionAsync`, `GetWindowAsync`, and `GetPaneAsync` return materialized
+objects. Their names, dimensions, indexes and other scalar properties are local
+reads. `Get…Async` throws `TmuxObjectNotFoundException` for an absent entity;
+`Find…Async` returns `null` only after a successful lookup finds no match.
+Both preserve command, transport, cancellation and stale-generation failures.
+Session and window lookups stay within their owner.
+
+<!-- snippet: ReadCapturedState -->
+```csharp
+Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
+Server connected = await server.ConnectAsync(ct);
+Window read = await connected.GetWindowAsync(created.Id, ct);
+Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
+
+Window? missing = await session.FindWindowAsync("not-created", ct);
+Console.WriteLine($"missing {missing is null}");
+
+Session current = await session.RefreshAsync(ct);
+if (current.ActiveWindow.IsCaptured)
+{
+    Window active = current.ActiveWindow.Value;
+    Console.WriteLine($"active {active.Name}");
+}
+```
+<!-- endsnippet -->
+
+`Session.ActiveWindow`, `Session.ActivePane` and `Window.ActivePane` expose
+`CapturedValue<T>`, which holds at most one child. Read `Value`, or
+`TryGetValue` when absence is expected; `OrNull` answers null instead of
+throwing. A session reached through an inactive window has that window's row,
+so its own active window may be uncaptured, and reading `Value` then throws
+`IncompleteSnapshotException` rather than reporting that there is none. `RefreshAsync` captures the entity's current active
+child. `CaptureSnapshotAsync(SnapshotDepth.Panes)` also preserves the captured
+parent and child graph. Reading any of these properties performs no I/O.
+
+### Migrating from identity-only lookups
+
+- Remove a `RefreshAsync` used only to make a lookup's scalar properties
+  readable. Keep it when current state is needed later.
+- Replace a nullable `Session.GetWindowAsync` or `Window.GetPaneAsync` call
+  with `FindWindowAsync` or `FindPaneAsync`. Required `Get…Async` calls throw
+  on absence.
+- Replace `session.ActiveWindow.Name` with
+  `session.ActiveWindow.Value.Name` when the capture is known. Use
+  `IsCaptured` when walking a partial hierarchy.
+- Replace `RaiseIfDeadAsync` with `ThrowIfDeadAsync`. The failure behavior is
+  unchanged; the old name is gone rather than deprecated, because alpha
+  releases carry no deprecation period.
+- Catch listing failures where earlier releases returned an empty inventory.
+  A stopped daemon is an error; an empty successful read remains an empty list.
 
 ## Running something, and reading it back
 
@@ -151,7 +211,7 @@ string output = await TmuxWait.UntilAsync(
 ## Splitting and resizing
 
 ```csharp run
-Pane split = await pane.SplitAsync(new SplitPaneRequest(direction: PaneDirection.Below), ct);
+Pane split = await pane.SplitAsync(new SplitPaneRequest { Direction = PaneDirection.Below }, ct);
 await split.SetHeightAsync(10, ct);
 ```
 
@@ -254,8 +314,14 @@ Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVer
 
 ## Testing your own code
 
-`LibTmux.Testing` ships in this package. It gives a test a tmux server of its
-own, on its own socket, killed deterministically:
+[`LibTmux.Testing`](../LibTmux.Testing/README.md) is a separate package, so
+test scaffolding stays out of an application's output. It gives a test a tmux
+server of its own, on its own socket, killed deterministically:
+
+```console
+$ dotnet package add LibTmux.Testing --prerelease
+```
+
 
 ```csharp
 using LibTmux.Testing;
@@ -275,12 +341,73 @@ Pass an `ILogger` when connecting and every tmux command is recorded once, at
 the single point they all pass through:
 
 ```csharp
-Server logged = await Server.ConnectAsync(new ServerConnectionOptions(logger: logger));
+Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
 ```
 
 Commands are recorded at `Debug` and failures at `Error`, with stable scalar
-fields (`TmuxSubcommand`, `TmuxExitCode`) to filter on. Anything that can carry
-a payload is truncated, the command line included.
+fields (`TmuxSubcommand`, `TmuxSocket`, `TmuxExitCode`) to filter on. Anything
+that can carry a payload is truncated, the command line included.
+
+## Tracing and metrics
+
+Every command is also a span and a measurement. `TmuxDiagnostics` names the
+sources, so a telemetry pipeline subscribes by name and this library keeps its
+single dependency: pass `TmuxDiagnostics.ActivitySourceName` to OpenTelemetry's
+`AddSource`, and `TmuxDiagnostics.MeterName` to its `AddMeter`.
+
+The span is named for the subcommand and tagged `tmux.subcommand`,
+`tmux.socket` and `tmux.exit_code`; a failure carries `error.type` and an error
+status. `TmuxDiagnostics.CommandDurationInstrumentName` records elapsed seconds
+under the same tags. Both cost nothing when nothing is listening.
+
+## Wrapping every command
+
+`Interceptor` sits between the library and the tmux it starts, so a policy that
+belongs to your application — an audit trail, a retry, a refusal, a stand-in
+answer in a test — lives outside the library rather than in a fork of it:
+
+```csharp
+Server audited = await Server.ConnectAsync(
+    new ServerConnectionOptions
+    {
+        Interceptor = async (invocation, next, token) =>
+        {
+            TmuxCommandResult result = await next(token);
+            Console.WriteLine($"{string.Join(' ', invocation.Arguments)} → {result.ExitCode}");
+            return result;
+        },
+    },
+    ct);
+```
+
+Call `next` once to pass through, again to retry, or not at all to answer in
+tmux's place. It sees every client the connection starts for a command,
+including the version probe, but not a control-mode client, which is one
+long-lived process. A command against a pane or window arrives inside its
+generation guard, so a stand-in has to answer that check too. Unset, nothing
+wraps anything and dispatch is what it was; set, it is one delegate call around
+each invocation.
+
+## Sharing handles across threads
+
+`Server`, `Window`, `Pane`, `Client`, `TmuxOptions`, `TmuxHooks`,
+`TmuxEnvironment`, `TmuxChain` and `CapturedRelation<T>` are immutable once
+constructed and safe to share freely, including as a DI singleton. No public
+method mutates the handle it was called on: `RefreshAsync`, `RenameAsync`,
+`ConnectAsync` and `CaptureSnapshotAsync` each answer a new handle, and a stale
+handle stays a correct record of what was read.
+
+`Session` is safe to share on the same terms. `IControlModeSession.SendAsync`
+is safe to call concurrently — tmux answers in the order it received, and each
+caller gets its own reply — while `Events` is a single-consumer stream and
+`DisposeAsync` is idempotent from any thread.
+
+Two limits are worth knowing before registering a singleton. A handle from
+`ConnectAsync` pins the server generation it discovered, so after tmux restarts
+its derived entities throw `StaleServerGenerationException` rather than
+silently addressing the new server; `Server.Open` defers discovery to each
+call instead. And nothing serializes tmux itself: concurrent callers reach one
+tmux server, which applies commands in the order it receives them.
 
 ## Knowing when a retry is safe
 
@@ -291,7 +418,7 @@ an exception filter rather than a guess:
 ```csharp run
 try
 {
-    await server.CreateSessionAsync(new NewSessionRequest(name: "build"), ct);
+    await server.CreateSessionAsync(new NewSessionRequest { Name = "build" }, ct);
 }
 catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
 {

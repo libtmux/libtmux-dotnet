@@ -428,7 +428,6 @@ public sealed class TmuxCapabilitiesTests
     [InlineData("3.2")]
     [InlineData("3.7-dev")]
     [InlineData("3.7-rc1")]
-    [InlineData("next-3.8")]
     public void Capability_intervals_preserve_unknown_versions(string? rawVersion)
     {
         TmuxVersion version = rawVersion is null ? default : TmuxVersion.Parse(rawVersion);
@@ -437,6 +436,27 @@ public sealed class TmuxCapabilitiesTests
             TmuxCapabilityState.Unknown,
             TmuxCapabilities.GetState(version, "new_pane_command"));
         Assert.False(TmuxCapabilities.IsSupported(version, "new_pane_command"));
+    }
+
+    [Theory]
+    [InlineData("next-3.7", "new_pane_command", "Unsupported")]
+    [InlineData("next-3.8", "new_pane_command", "Supported")]
+    [InlineData("next-3.8", "break_pane_3_7_workaround", "Unsupported")]
+    [InlineData("next-3.8", "attachment_accounting", "Supported")]
+    public void Next_release_versions_resolve_by_ordering_not_unknown(
+        string rawVersion,
+        string capability,
+        string expected)
+    {
+        TmuxVersion version = TmuxVersion.Parse(rawVersion);
+
+        // "next" is tmux's rolling tip, so it carries every change up to and
+        // past the release before it (3.7c here) but is ordered below the
+        // release it names until that release actually ships: next-3.7 has
+        // not reached 3.7 itself, even though the numbers match.
+        Assert.Equal(
+            Enum.Parse<TmuxCapabilityState>(expected),
+            TmuxCapabilities.GetState(version, capability));
     }
 
     [Fact]
@@ -459,13 +479,18 @@ public sealed class TmuxCapabilitiesTests
         Server tagged = CreateServerWithRawVersion("tmux 3.7b");
         Server malformed = CreateServerWithRawVersion("tmux 3.7 ");
         Server unprefixed = CreateServerWithRawVersion("3.7b");
-        Server advisory = CreateServerWithRawVersion("tmux next-3.8");
+        Server next = CreateServerWithRawVersion("tmux next-3.8");
 
         Assert.Null(unmaterialized.Version);
         Assert.Equal(TmuxVersion.Parse("3.7b"), tagged.Version);
         Assert.Null(malformed.Version);
         Assert.Null(unprefixed.Version);
-        Assert.Null(advisory.Version);
+
+        // A development build is a real tmux the library will be run
+        // against, so this reports the parsed version rather than null: a
+        // consumer asking "what tmux is this" gets an answer, and capability
+        // checks against it resolve by ordering instead of going Unknown.
+        Assert.Equal(TmuxVersion.Parse("next-3.8"), next.Version);
     }
 
     public static bool IsUnix => !OperatingSystem.IsWindows();

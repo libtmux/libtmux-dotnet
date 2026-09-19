@@ -124,8 +124,8 @@ public sealed partial class Server
         // The whole command is missing rather than one of its flags, so there
         // is nothing to send that would mean the same thing.
         throw new TmuxVersionTooLowException(
-            $"The tmux command '{command}' requires tmux 3.3a.",
-            TmuxVersion.Parse("3.3a"),
+            $"The tmux command '{command}' requires tmux 3.3.",
+            TmuxVersion.Parse("3.3"),
             Version ?? default);
     }
 

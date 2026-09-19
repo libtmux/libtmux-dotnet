@@ -93,14 +93,23 @@ internal static class TmuxAvailability
     /// <remarks>
     /// Matched on tmux's own wording because tmux exits 1 for every refusal
     /// alike, so the status cannot tell an absent server from a rejected
-    /// command.
+    /// command. That wording reaches us on standard error; a command
+    /// exception's message is only the operation that failed ("list-panes
+    /// failed."), which names no cause at all. A connection error also covers
+    /// a permission failure against a live daemon, so it only counts as
+    /// absence alongside the missing-socket wording that names it.
     /// </remarks>
     internal static bool IsServerAbsent(LibTmuxException error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        string message = error.Message;
-        return message.Contains("error connecting to", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("no server running", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("server generation discovery failed", StringComparison.OrdinalIgnoreCase);
+        if (error is not TmuxCommandException command)
+        {
+            return false;
+        }
+
+        string standardError = string.Join('\n', command.Result.StandardErrorLines);
+        return standardError.Contains("no server running", StringComparison.Ordinal)
+            || (standardError.Contains("error connecting to", StringComparison.Ordinal)
+                && standardError.Contains("No such file or directory", StringComparison.Ordinal));
     }
 }

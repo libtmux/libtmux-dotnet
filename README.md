@@ -18,9 +18,12 @@ for stable tmux **3.2a and newer** on **net8.0** and **net10.0**.
 ```csharp
 using LibTmux;
 
+// Requires a tmux server already listening on this socket:
+// ConnectAsync() discovers one, it never starts one. With nothing
+// running yet, call Server.CreateOwnedAsync() instead.
 Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest(name: "build"));
-Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "tests"));
+Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
+Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -49,6 +52,8 @@ documented ordinary-tmux examples that are executed against live tmux in CI.
 |---|---|---|
 | **[LibTmux](src/LibTmux/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux) | Always. The client. One dependency: logging abstractions. |
 | **[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Query.Json?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Query.Json) | You send queries between processes and want them as JSON. |
+| **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Testing?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
+| **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Extensions.DependencyInjection?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
 | **[LibTmux.Workspace](src/LibTmux.Workspace/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Workspace?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Workspace) | You have [tmuxp](https://github.com/tmux-python/tmuxp) YAML to build from. |
 | **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Mcp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool, not a reference. |
 
@@ -85,7 +90,7 @@ The same window, three ways:
 
 ```csharp run
 // One-shot: a command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest(name: "build"), ct);
+Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 Console.WriteLine(built.Name);
 ```
 
@@ -260,8 +265,9 @@ await scope.Pane.SendTextAsync("echo hello");
 ```
 
 Disposing kills the server, so a test that fails part way through leaves
-nothing behind. `TmuxWait.UntilAsync` waits for a state rather than sleeping,
-which is what keeps tmux tests from being timing-dependent.
+nothing behind. `TmuxWait.UntilAsync`, in the client package, waits for a state
+rather than sleeping — the same thing production code needs when it reads back
+what a command produced.
 
 ## An assistant on your terminal
 

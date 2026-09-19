@@ -47,7 +47,7 @@ public sealed partial class Server
     /// <summary>Throws unless a tmux server is answering.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
-    public async Task RaiseIfDeadAsync(CancellationToken cancellationToken = default)
+    public async Task ThrowIfDeadAsync(CancellationToken cancellationToken = default)
     {
         TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
             .ConfigureAwait(false);
@@ -159,10 +159,14 @@ public sealed partial class Server
         {
             string id = result.StandardOutputLines.Count > 0
                 ? result.StandardOutputLines[0]
-                : throw new InvalidDataException("tmux reported no new session identifier.");
+                : throw new TmuxCommandException(
+                    "tmux reported no new session identifier.",
+                    result);
             return SessionId.TryParse(id, out SessionId parsed)
                 ? parsed
-                : throw new InvalidDataException("tmux reported a malformed session identifier.");
+                : throw new TmuxCommandException(
+                    "tmux reported a malformed session identifier.",
+                    result);
         });
 
         // Re-list directly so Name is materialized and listing errors remain failures.
@@ -193,8 +197,11 @@ public sealed partial class Server
     /// <returns>A scope that stops the server when disposed.</returns>
     /// <remarks>
     /// The scope holds an endpoint rather than a materialized server, because
-    /// a tmux server with no sessions exits at once. Creating the first session
-    /// through the endpoint both starts it for real and materializes it.
+    /// a tmux server with no sessions exits at once. <see cref="OwnedServerScope.Value" />
+    /// stays that endpoint after a session is created through it; its session,
+    /// window, and pane listings and <see cref="CaptureSnapshotAsync" />
+    /// discover the live server on each call, and the objects they return
+    /// carry the discovered handle.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(

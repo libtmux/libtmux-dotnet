@@ -24,10 +24,12 @@ public sealed class Component09ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
         await raw.ExecuteAsync(["rename-session", "-t", "$0", "devbox"], token);
 

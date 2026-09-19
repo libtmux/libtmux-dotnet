@@ -129,10 +129,12 @@ public sealed class ReadmeExampleTests
             // example's kill has not finished releasing, which is a race that
             // fails on a slow machine and passes on a fast one. It also keeps
             // one example's windows out of the next one's reads.
-            TmuxTestOptions options = new(new ServerConnectionOptions(
-                tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-                socketName: $"ltreadme-{Guid.NewGuid():N}"[..24],
-                configurationFile: "/dev/null"));
+            TmuxTestOptions options = new(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = $"ltreadme-{Guid.NewGuid():N}"[..24],
+                ConfigurationFile = "/dev/null",
+            });
             await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
                 options,
                 TestContext.Current.CancellationToken);

@@ -60,10 +60,12 @@ public sealed class Component10ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
@@ -81,7 +83,7 @@ public sealed class Component10ParityTests
                 && session.Name.Length > 0
                 && ReferenceEquals(session.Server, server),
             "libtmux.server:Server.is_alive" => await server.IsAliveAsync(token),
-            "libtmux.server:Server.raise_if_dead" => await ProvesRaiseIfDeadAsync(server, token),
+            "libtmux.server:Server.raise_if_dead" => await ProvesThrowIfDeadAsync(server, token),
             "libtmux.server:Server.start_server" => await ProvesStartServerAsync(token),
             "libtmux.server:Server.has_session" =>
                 await server.HasSessionAsync(session.Name, true, token)
@@ -97,7 +99,7 @@ public sealed class Component10ParityTests
             "libtmux.session:Session.rename_session" =>
                 (await session.RenameAsync("renamed", token)).Name == "renamed",
             "libtmux.session:Session.new_window" =>
-                (await session.CreateWindowAsync(new NewWindowRequest(name: "extra"), token))
+                (await session.CreateWindowAsync(new NewWindowRequest { Name = "extra" }, token))
                     .Snapshot?["window_name"] == "extra",
             "libtmux.session:Session.list_windows"
                 or "libtmux.session:Session.__getitem__"
@@ -130,14 +132,14 @@ public sealed class Component10ParityTests
         Assert.True(proved, $"Parity behavior was not proved for {pythonSymbolId}.");
     }
 
-    private static async Task<bool> ProvesRaiseIfDeadAsync(Server server, CancellationToken token)
+    private static async Task<bool> ProvesThrowIfDeadAsync(Server server, CancellationToken token)
     {
-        await server.RaiseIfDeadAsync(token);
+        await server.ThrowIfDeadAsync(token);
 
         // The probe is the loud counterpart to IsAliveAsync, so a socket with
         // no daemon behind it has to raise rather than answer.
         Server absent = Server.Open(IsolatedOptions());
-        await Assert.ThrowsAsync<TmuxCommandException>(() => absent.RaiseIfDeadAsync(token));
+        await Assert.ThrowsAsync<TmuxCommandException>(() => absent.ThrowIfDeadAsync(token));
         return !await absent.IsAliveAsync(token);
     }
 
@@ -157,21 +159,23 @@ public sealed class Component10ParityTests
             IsolatedOptions(),
             token);
         Session created = await scope.Value.CreateSessionAsync(
-            new NewSessionRequest(name: "started"),
+            new NewSessionRequest { Name = "started" },
             token);
         return created.Name == "started" && await scope.Value.IsAliveAsync(token);
     }
 
     private static ServerConnectionOptions IsolatedOptions() =>
-        new(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltcs-parity-{Guid.NewGuid():N}",
-            configurationFile: "/dev/null");
+        new()
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltcs-parity-{Guid.NewGuid():N}",
+            ConfigurationFile = "/dev/null",
+        };
 
     private static async Task<bool> ProvesCreateSessionAsync(Server server, CancellationToken token)
     {
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest(name: "created"),
+            new NewSessionRequest { Name = "created" },
             token);
         return created.Name == "created"
             && (await server.GetSessionsAsync(token)).Count == 2;
@@ -179,7 +183,7 @@ public sealed class Component10ParityTests
 
     private static async Task<bool> ProvesKillSessionAsync(Server server, CancellationToken token)
     {
-        await server.CreateSessionAsync(new NewSessionRequest(name: "doomed"), token);
+        await server.CreateSessionAsync(new NewSessionRequest { Name = "doomed" }, token);
         await server.KillSessionAsync("doomed", token);
         return !await server.HasSessionAsync("doomed", true, token);
     }
@@ -194,29 +198,29 @@ public sealed class Component10ParityTests
 
     private static async Task<bool> ProvesSelectionAsync(Session session, CancellationToken token)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
         WindowId second = (await session.GetWindowsAsync(token))
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
         await session.SelectWindowAsync("second", token);
-        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+        bool selected = (await session.RefreshAsync(token)).ActiveWindow.Value.Id == second;
         await session.SelectPreviousWindowAsync(token);
-        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Id != second;
+        bool moved = (await session.RefreshAsync(token)).ActiveWindow.Value.Id != second;
         await session.SelectNextWindowAsync(token);
         return selected && moved
-            && (await session.RefreshAsync(token)).ActiveWindow.Id == second;
+            && (await session.RefreshAsync(token)).ActiveWindow.Value.Id == second;
     }
 
     private static async Task<bool> ProvesKillWindowAsync(Session session, CancellationToken token)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "spare"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "spare" }, token);
         await session.KillWindowAsync("spare", token);
         return (await session.GetWindowsAsync(token)).Count == 1;
     }
 
     private static async Task<bool> ProvesKillSelfAsync(Server server, CancellationToken token)
     {
-        Session extra = await server.CreateSessionAsync(new NewSessionRequest(name: "extra"), token);
+        Session extra = await server.CreateSessionAsync(new NewSessionRequest { Name = "extra" }, token);
         await extra.KillAsync(cancellationToken: token);
         return !await server.HasSessionAsync("extra", true, token);
     }
@@ -249,7 +253,7 @@ public sealed class Component10ParityTests
         // refuses rather than silently doing nothing.
         TmuxCommandException viaServer = await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.AttachSessionAsync(
-                new AttachSessionRequest(target: session.Id.ToString()),
+                new AttachSessionRequest { Target = session.Id.ToString() },
                 token));
         TmuxCommandException viaSession = await Assert.ThrowsAsync<TmuxCommandException>(
             () => session.AttachAsync(cancellationToken: token));

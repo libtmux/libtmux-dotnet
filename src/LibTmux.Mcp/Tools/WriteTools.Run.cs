@@ -477,7 +477,7 @@ internal sealed partial class WriteTools
 
             try
             {
-                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
+                await server.Buffers.SetAsync(payload, buffer, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 bufferMayExist = true;
             }
@@ -497,10 +497,17 @@ internal sealed partial class WriteTools
                 dispatch.Pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
             }
 
+            // Recorded before dispatch, for the same reason as send_keys: a
+            // concurrent wait_for_text must never see the sourcing line's own
+            // echo before the record that discounts it exists. The payload
+            // already ends with a newline in this one paste, so there is no
+            // separate Enter dispatch to wait on before settling.
+            PaneEchoRegistry.PaneEchoNote note = PaneEchoRegistry.NoteLiteralWrite(
+                dispatch.Pane, payload, enter: false);
             try
             {
                 await dispatch.Pane.PasteBufferAsync(
-                        new PasteBufferRequest(name: buffer, deleteAfter: true, bracketed: false),
+                        new PasteBufferRequest { Name = buffer, DeleteAfter = true, Bracketed = false },
                         cancellationToken)
                     .ConfigureAwait(false);
                 dispatch.PayloadMayHaveReachedTmux = true;
@@ -508,15 +515,26 @@ internal sealed partial class WriteTools
             catch (TmuxOperationCanceledException error)
             {
                 dispatch.PayloadMayHaveReachedTmux = error.CommandMayHaveExecuted;
+                if (!dispatch.PayloadMayHaveReachedTmux)
+                {
+                    note.Rollback();
+                }
+
                 throw;
             }
             catch (LibTmuxException error)
             {
                 dispatch.PayloadMayHaveReachedTmux =
                     error.Dispatch != TmuxDispatchState.NotDispatched;
+                if (!dispatch.PayloadMayHaveReachedTmux)
+                {
+                    note.Rollback();
+                }
+
                 throw;
             }
 
+            note.Settle();
             bufferMayExist = false;
         }
         catch (Exception error)
@@ -686,7 +704,7 @@ internal sealed partial class WriteTools
             // Strict materialization authenticates every row against the
             // captured generation before absence or pane_dead is interpreted.
             IReadOnlyList<Pane> panes = await server
-                .GetPanesStrictAsync(CancellationToken.None)
+                .GetPanesAsync(CancellationToken.None)
                 .ConfigureAwait(false);
             Pane[] matches =
             [
@@ -1049,7 +1067,7 @@ internal sealed partial class WriteTools
         CancellationToken cancellationToken)
     {
         IReadOnlyList<TmuxOption> options = await pane.Options
-            .GetAsync(new GetOptionRequest(token.StatusOption, quiet: true), cancellationToken)
+            .GetAsync(new GetOptionRequest(token.StatusOption) { Quiet = true }, cancellationToken)
             .ConfigureAwait(false);
 
         return options.Count > 0
@@ -1069,7 +1087,7 @@ internal sealed partial class WriteTools
         {
             await pane.Options
                 .UnsetAsync(
-                    new UnsetOptionRequest(token.StatusOption, quiet: true),
+                    new UnsetOptionRequest(token.StatusOption) { Quiet = true },
                     cleanup.Token)
                 .ConfigureAwait(false);
         }

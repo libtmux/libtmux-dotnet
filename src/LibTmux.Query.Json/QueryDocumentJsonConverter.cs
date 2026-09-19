@@ -31,13 +31,13 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         ArgumentNullException.ThrowIfNull(value);
         if (!string.Equals(value.Schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
         {
-            throw new JsonException(
+            throw new UnsupportedQueryExpressionException(
                 $"Query document names schema '{value.Schema}', which this writer does not know.");
         }
 
         if (value.Version != QueryDocument.CurrentVersion)
         {
-            throw new JsonException(
+            throw new UnsupportedQueryExpressionException(
                 $"Query document is version {value.Version}; this writer understands "
                 + $"{QueryDocument.CurrentVersion}.");
         }
@@ -52,15 +52,10 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         writer.WriteEndObject();
 
         // The bounded walk must run first so semantic validation cannot recurse
-        // beyond the v1 depth or node ceilings.
-        try
-        {
-            QueryDocumentValidator.Validate(value);
-        }
-        catch (UnsupportedQueryExpressionException exception)
-        {
-            throw new JsonException(exception.Message, exception);
-        }
+        // beyond the v1 depth or node ceilings. What it refuses travels as it
+        // is: a document this library will not accept is a LibTmux failure
+        // whichever package noticed.
+        QueryDocumentValidator.Validate(value);
     }
 
     private static string Wire(QueryTarget target) => target switch
@@ -69,7 +64,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryTarget.Window => "window",
         QueryTarget.Pane => "pane",
         QueryTarget.Client => "client",
-        _ => throw new JsonException("Query document names an unknown target."),
+        _ => throw new UnsupportedQueryExpressionException("Query document names an unknown target."),
     };
 
     private static string Wire(QueryComparison comparison) => comparison switch
@@ -80,7 +75,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryComparison.LessThanOrEqual => "lessThanOrEqual",
         QueryComparison.GreaterThan => "greaterThan",
         QueryComparison.GreaterThanOrEqual => "greaterThanOrEqual",
-        _ => throw new JsonException("Query document names an unknown comparison."),
+        _ => throw new UnsupportedQueryExpressionException("Query document names an unknown comparison."),
     };
 
     private static string Wire(QueryStringOperation operation) => operation switch
@@ -90,31 +85,31 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryStringOperation.StartsWithOrdinal => "startsWithOrdinal",
         QueryStringOperation.EndsWithOrdinal => "endsWithOrdinal",
         QueryStringOperation.ContainsOrdinal => "containsOrdinal",
-        _ => throw new JsonException("Query document names an unknown string operation."),
+        _ => throw new UnsupportedQueryExpressionException("Query document names an unknown string operation."),
     };
 
     private static string Wire(QueryQuantifier quantifier) => quantifier switch
     {
         QueryQuantifier.Any => "any",
         QueryQuantifier.All => "all",
-        _ => throw new JsonException("Query document names an unknown quantifier."),
+        _ => throw new UnsupportedQueryExpressionException("Query document names an unknown quantifier."),
     };
 
     private void WriteNode(Utf8JsonWriter writer, QueryNode node, int depth)
     {
         if (node is null)
         {
-            throw new JsonException("Query document contains a null node.");
+            throw new UnsupportedQueryExpressionException("Query document contains a null node.");
         }
 
         if (depth > _limits.MaximumDepth)
         {
-            throw new JsonException("Query document exceeds the maximum nesting depth.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum nesting depth.");
         }
 
         if (++_nodes > _limits.MaximumNodes)
         {
-            throw new JsonException("Query document exceeds the maximum node count.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum node count.");
         }
 
         writer.WriteStartObject();
@@ -165,7 +160,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 WriteConstant(writer, constant.Value);
                 break;
             default:
-                throw new JsonException($"Node '{node.GetType().Name}' has no v1 wire form.");
+                throw new UnsupportedQueryExpressionException($"Node '{node.GetType().Name}' has no v1 wire form.");
         }
 
         writer.WriteEndObject();
@@ -211,7 +206,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
     {
         if (constant is null)
         {
-            throw new JsonException("Query document contains a null constant.");
+            throw new UnsupportedQueryExpressionException("Query document contains a null constant.");
         }
 
         writer.WriteStartObject();
@@ -238,7 +233,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 WriteBoundedString(writer, "value", id.Value, "Typed ID value");
                 break;
             default:
-                throw new JsonException(
+                throw new UnsupportedQueryExpressionException(
                     $"Constant '{constant.GetType().Name}' has no v1 wire form.");
         }
 
@@ -253,7 +248,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
     {
         if (QueryJsonWireRules.ScalarLength(value, description) > _limits.MaximumStringLength)
         {
-            throw new JsonException("String value exceeds the maximum length.");
+            throw new UnsupportedQueryExpressionException("String value exceeds the maximum length.");
         }
 
         writer.WriteString(propertyName, value);

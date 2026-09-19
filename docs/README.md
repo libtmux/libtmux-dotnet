@@ -38,6 +38,8 @@ ships separately and carries this repository's version:
 - [LibTmux](../src/LibTmux/README.md) — the client
 - [LibTmux.Query.Json](../src/LibTmux.Query.Json/README.md) — `System.Text.Json`
   for query documents
+- [LibTmux.Extensions.DependencyInjection](../src/LibTmux.Extensions.DependencyInjection/README.md)
+  — a server handle and its options, registered with a service collection
 - [LibTmux.Workspace](../src/LibTmux.Workspace/README.md) — sessions from tmuxp
   workspace files
 - [LibTmux.Mcp](../src/LibTmux.Mcp/README.md) — a Model Context Protocol server,
@@ -48,10 +50,12 @@ ships separately and carries this repository's version:
 The library's surface and behavior are recorded rather than described,
 and each record has a validator that fails when the code disagrees.
 
-- [Public API](public-api.md) — the approved surface of `LibTmux` and
-  `LibTmux.Query.Json`, rendered from `public-api.json`. `LibTmux.Workspace`
-  ships a public surface this contract does not yet record; the analyzer
-  baseline beside its source is what gates it today.
+- [Public API](public-api.md) — the approved surface of `LibTmux`,
+  `LibTmux.Query.Json`, `LibTmux.Testing` and
+  `LibTmux.Extensions.DependencyInjection`, rendered from
+  `public-api.json`. `LibTmux.Workspace` ships a public surface this
+  contract does not yet record; the analyzer baseline beside its source
+  is what gates it today.
 - [Version deltas](parity/version-deltas.json) — every tmux behavior
   difference the library gates on, each naming the test that proves it
 - [Parity ledger](parity/parity-ledger.json) — where each Python libtmux

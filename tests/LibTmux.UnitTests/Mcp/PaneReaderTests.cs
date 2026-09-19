@@ -90,7 +90,7 @@ public sealed class PaneReaderTests
     private static Pane Pane()
     {
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "pane-reader"),
+            new ServerConnectionOptions { SocketName = "pane-reader" },
             FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,

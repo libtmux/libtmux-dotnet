@@ -97,7 +97,7 @@ public sealed partial class Pane
         string text,
         bool enter = true,
         CancellationToken cancellationToken = default) =>
-        SendKeysAsync(new SendKeysRequest(text, enter, literal: true), cancellationToken);
+        SendKeysAsync(new SendKeysRequest { Text = text, Enter = enter, Literal = true }, cancellationToken);
 
     /// <summary>Sends the configured prefix key to the pane.</summary>
     /// <param name="secondary">Whether the secondary prefix is sent.</param>
@@ -135,7 +135,7 @@ public sealed partial class Pane
     public async Task<Pane> ClearAsync(CancellationToken cancellationToken = default)
     {
         return await TmuxMutationSequence.RunAsync(
-                () => SendKeysAsync(new SendKeysRequest("reset"), cancellationToken),
+                () => SendKeysAsync(new SendKeysRequest { Text = "reset" }, cancellationToken),
                 () => RefreshAsync(cancellationToken))
             .ConfigureAwait(false);
     }

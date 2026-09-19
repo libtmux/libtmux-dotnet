@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -20,18 +22,18 @@ public sealed class ServerUtilitiesTests
         // A binding is readable back out of the table it was put in. tmux only
         // lists the tables it already knows, so the binding goes in one of
         // those rather than in a table of its own.
-        await server.BindKeyAsync(
-            new BindKeyRequest("F12", ["display-message", "bound"], keyTable: "root"),
+        await server.Keys.BindAsync(
+            new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
         Assert.Contains(
-            await server.GetKeysAsync("root", cancellationToken: token),
+            await server.Keys.GetAllAsync("root", cancellationToken: token),
             line => line.Contains("F12", StringComparison.Ordinal));
 
         // A buffer holds what it was given and gives it back whole.
-        await server.SetBufferAsync("first payload", "libtmux-buffer", cancellationToken: token);
-        Assert.Equal("first payload", await server.GetBufferAsync("libtmux-buffer", token));
+        await server.Buffers.SetAsync("first payload", "libtmux-buffer", cancellationToken: token);
+        Assert.Equal("first payload", await server.Buffers.GetAsync("libtmux-buffer", token));
         Assert.Contains(
-            await server.GetBuffersAsync(token),
+            await server.Buffers.GetAllAsync(token),
             buffer => buffer.Name == "libtmux-buffer" && buffer.Size == 13);
 
         // A shell command runs, and where tmux hands its output back it is the
@@ -47,7 +49,7 @@ public sealed class ServerUtilitiesTests
         }
 
         await server.RunShellAsync(
-            new RunShellRequest("set-option -g @shell-ran yes", asTmuxCommand: true),
+            new RunShellRequest("set-option -g @shell-ran yes") { AsTmuxCommand = true },
             token);
         await WaitForOptionAsync(server, "@shell-ran", "yes", token);
 
@@ -58,6 +60,121 @@ public sealed class ServerUtilitiesTests
     }
 
     [UnixFact]
+    public async Task Cancelling_RunShellAsync_stops_waiting_but_not_the_tmux_side_command()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+
+        string prefix = Path.Join(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-runshell-cancel-{Guid.NewGuid():N}");
+        string started = $"{prefix}-started";
+        string marker = $"{prefix}-done";
+        try
+        {
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+
+            // run-shell's spawned command is owned by the tmux server, not
+            // this client, so cancelling the wait must not stop it from
+            // finishing.
+            Task pending = server.RunShellAsync(
+                new RunShellRequest($"touch {started}; sleep 3; touch {marker}"),
+                cts.Token);
+
+            // TmuxOperationCanceledException reports cancellation *after* a
+            // client started, and carries that client's process id; cancelling
+            // before the start is a plain OperationCanceledException instead.
+            // Cancelling on a timer races a loaded machine for which of the two
+            // a caller gets, so wait for the command's own first act to prove
+            // tmux is running it, and only then cancel.
+            for (int attempt = 0; attempt < 200 && !File.Exists(started); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), token);
+            }
+
+            Assert.True(File.Exists(started), "tmux never started run-shell's command");
+            await cts.CancelAsync();
+
+            await Assert.ThrowsAsync<TmuxOperationCanceledException>(() => pending);
+
+            Assert.False(
+                File.Exists(marker),
+                "the marker appeared before the sleep it follows could have finished");
+
+            for (int attempt = 0; attempt < 100 && !File.Exists(marker); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+
+            Assert.True(File.Exists(marker), "run-shell's command never finished on the server");
+        }
+        finally
+        {
+            File.Delete(started);
+            File.Delete(marker);
+        }
+    }
+
+    [UnixFact]
+    public async Task Killing_the_server_does_not_reap_a_run_shell_childs_process()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+
+        string pidFile = Path.Join(
+            Path.GetTempPath(),
+            $"libtmux-dotnet-runshell-kill-{Guid.NewGuid():N}");
+        int childPid = -1;
+        try
+        {
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(TimeSpan.FromMilliseconds(300));
+
+            // Cancelling this call does not stop the command, and neither
+            // does stopping the server: KillAsync does not reap a run-shell
+            // child either, so it survives as its own orphan.
+            await Assert.ThrowsAsync<TmuxOperationCanceledException>(
+                () => server.RunShellAsync(
+                    new RunShellRequest($"echo $$ > {pidFile}; sleep 5"),
+                    cts.Token));
+
+            for (int attempt = 0; attempt < 50 && !File.Exists(pidFile); attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+            }
+
+            Assert.True(File.Exists(pidFile), "run-shell's command never started on the server");
+            childPid = int.Parse(
+                (await File.ReadAllTextAsync(pidFile, token)).Trim(),
+                CultureInfo.InvariantCulture);
+
+            await server.KillAsync(token);
+
+            using Process child = Process.GetProcessById(childPid);
+            Assert.False(child.HasExited);
+        }
+        finally
+        {
+            File.Delete(pidFile);
+            if (childPid > 0)
+            {
+                try
+                {
+                    Process.GetProcessById(childPid).Kill();
+                }
+                catch (ArgumentException)
+                {
+                    // Already gone.
+                }
+            }
+        }
+    }
+
+    [UnixFact]
     public async Task Bind_unbind_and_list_key_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -65,39 +182,40 @@ public sealed class ServerUtilitiesTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        await server.BindKeyAsync(
-            new BindKeyRequest(
-                "F11",
-                ["display-message", "noted"],
-                keyTable: "root",
-                note: "a libtmux binding",
-                repeat: true),
+        await server.Keys.BindAsync(
+            new BindKeyRequest("F11", ["display-message", "noted"])
+            {
+                KeyTable = "root",
+                Note = "a libtmux binding",
+                Repeat = true,
+            },
             token);
 
-        IReadOnlyList<string> bound = await server.GetKeysAsync("root", cancellationToken: token);
+        IReadOnlyList<string> bound = await server.Keys.GetAllAsync("root", cancellationToken: token);
         Assert.Contains(bound, line => line.Contains("F11", StringComparison.Ordinal));
 
         // Unbinding one key leaves the table's other bindings alone.
-        await server.BindKeyAsync(
-            new BindKeyRequest("F10", ["display-message", "kept"], keyTable: "root"),
+        await server.Keys.BindAsync(
+            new BindKeyRequest("F10", ["display-message", "kept"]) { KeyTable = "root" },
             token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F11", "root"), token);
-        IReadOnlyList<string> after = await server.GetKeysAsync("root", cancellationToken: token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F11", KeyTable = "root" }, token);
+        IReadOnlyList<string> after = await server.Keys.GetAllAsync("root", cancellationToken: token);
         Assert.DoesNotContain(after, line => line.Contains("F11", StringComparison.Ordinal));
         Assert.Contains(after, line => line.Contains("F10", StringComparison.Ordinal));
 
         // Unbinding a key nobody bound is not an error: tmux treats the
         // binding's absence as the state that was asked for.
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F9", "root"), token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F9", "root", quiet: true), token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root" }, token);
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root", Quiet = true }, token);
 
         // Removing them all empties the table.
-        await server.UnbindKeyAsync(new UnbindKeyRequest(all: true, keyTable: "root"), token);
-        Assert.Empty(await server.GetKeysAsync("root", cancellationToken: token));
+        await server.Keys.UnbindAsync(new UnbindKeyRequest { All = true, KeyTable = "root" }, token);
+        Assert.Empty(await server.Keys.GetAllAsync("root", cancellationToken: token));
 
         // A request that names no key and does not ask for all of them cannot
         // mean anything, so it never reaches tmux.
-        Assert.Throws<ArgumentException>(() => new UnbindKeyRequest());
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => server.Keys.UnbindAsync(new UnbindKeyRequest(), token));
         Assert.Throws<ArgumentException>(() => new BindKeyRequest("F1", []));
     }
 
@@ -113,11 +231,11 @@ public sealed class ServerUtilitiesTests
         // process has none, so tmux refuses rather than doing nothing.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ShowCommandPromptAsync(
-                new CommandPromptRequest("display-message %1", prompt: "say:"),
+                new CommandPromptRequest("display-message %1") { Prompt = "say:" },
                 token));
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ConfirmBeforeAsync(
-                new ConfirmBeforeRequest(["display-message", "confirmed"], prompt: "sure?"),
+                new ConfirmBeforeRequest(["display-message", "confirmed"]) { Prompt = "sure?" },
                 token));
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ShowMenuAsync(
@@ -127,7 +245,7 @@ public sealed class ServerUtilitiesTests
         // A message renders through the server without a client, which is what
         // separates it from the three above.
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pid}", returnText: true),
+            new DisplayMessageRequest { Message = "#{pid}", ReturnText = true },
             token);
         Assert.NotNull(rendered);
         Assert.NotEmpty(rendered);
@@ -135,7 +253,7 @@ public sealed class ServerUtilitiesTests
         // An unfinished format is not an error to tmux: it renders to nothing
         // and says so by printing nothing.
         IReadOnlyList<string>? empty = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{", returnText: true),
+            new DisplayMessageRequest { Message = "#{", ReturnText = true },
             token);
         Assert.NotNull(empty);
         Assert.All(empty, line => Assert.Equal(string.Empty, line));
@@ -156,40 +274,40 @@ public sealed class ServerUtilitiesTests
 
         try
         {
-            await server.SetBufferAsync("head", "libtmux-buffer", cancellationToken: token);
-            await server.SetBufferAsync(
+            await server.Buffers.SetAsync("head", "libtmux-buffer", cancellationToken: token);
+            await server.Buffers.SetAsync(
                 " and tail",
                 "libtmux-buffer",
                 append: true,
                 cancellationToken: token);
-            Assert.Equal("head and tail", await server.GetBufferAsync("libtmux-buffer", token));
+            Assert.Equal("head and tail", await server.Buffers.GetAsync("libtmux-buffer", token));
 
             // A buffer written out and read back in is the same buffer.
             string path = Path.Combine(directory, "buffer.txt");
-            await server.SaveBufferAsync(path, "libtmux-buffer", cancellationToken: token);
+            await server.Buffers.SaveAsync(path, "libtmux-buffer", cancellationToken: token);
             Assert.Equal("head and tail", (await File.ReadAllTextAsync(path, token)).TrimEnd('\n'));
-            await server.LoadBufferAsync(path, "libtmux-loaded", token);
-            Assert.Equal("head and tail", (await server.GetBufferAsync("libtmux-loaded", token)).TrimEnd('\n'));
+            await server.Buffers.LoadAsync(path, "libtmux-loaded", token);
+            Assert.Equal("head and tail", (await server.Buffers.GetAsync("libtmux-loaded", token)).TrimEnd('\n'));
 
             // Listing reports every buffer with what it holds.
-            IReadOnlyList<TmuxBuffer> buffers = await server.GetBuffersAsync(token);
+            IReadOnlyList<TmuxBuffer> buffers = await server.Buffers.GetAllAsync(token);
             Assert.Contains(buffers, buffer => buffer.Name == "libtmux-buffer");
             Assert.Contains(buffers, buffer => buffer.Name == "libtmux-loaded");
             Assert.All(buffers, buffer => Assert.True(buffer.Size > 0));
 
             // A format renders each buffer the caller's way instead.
-            IReadOnlyList<string> named = await server.GetBufferLinesAsync(
-                new ListBuffersRequest("#{buffer_name}"),
+            IReadOnlyList<string> named = await server.Buffers.GetLinesAsync(
+                new ListBuffersRequest { Format = "#{buffer_name}" },
                 token);
             Assert.Contains("libtmux-buffer", named);
 
             // Deleting one leaves the other.
-            await server.DeleteBufferAsync("libtmux-buffer", token);
+            await server.Buffers.DeleteAsync("libtmux-buffer", token);
             Assert.DoesNotContain(
-                await server.GetBuffersAsync(token),
+                await server.Buffers.GetAllAsync(token),
                 buffer => buffer.Name == "libtmux-buffer");
             await Assert.ThrowsAsync<TmuxCommandException>(
-                () => server.GetBufferAsync("libtmux-buffer", token));
+                () => server.Buffers.GetAsync("libtmux-buffer", token));
         }
         finally
         {
@@ -211,17 +329,17 @@ public sealed class ServerUtilitiesTests
             // A backgrounded command has not run yet, so there is nothing it
             // could have printed.
             Assert.Null(await server.RunShellAsync(
-                new RunShellRequest("true", background: true),
+                new RunShellRequest("true") { Background = true },
                 token));
 
             // A tmux command run this way goes through tmux rather than a shell.
             await server.RunShellAsync(
-                new RunShellRequest("set-option -g @ran yes", asTmuxCommand: true),
+                new RunShellRequest("set-option -g @ran yes") { AsTmuxCommand = true },
                 token);
             Assert.Equal(
                 "yes",
                 Assert.Single(await server.Options.GetAsync(
-                        new GetOptionRequest("@ran", OptionScope.Session, global: true),
+                        new GetOptionRequest("@ran") { Scope = OptionScope.Session, Global = true },
                         token))
                     .Value.Raw);
 
@@ -230,10 +348,10 @@ public sealed class ServerUtilitiesTests
                 new IfShellRequest("true", ["set-option", "-g", "@then", "taken"]),
                 token);
             await server.IfShellAsync(
-                new IfShellRequest(
-                    "false",
-                    ["set-option", "-g", "@then", "wrong"],
-                    ["set-option", "-g", "@else", "taken"]),
+                new IfShellRequest("false", ["set-option", "-g", "@then", "wrong"])
+                {
+                    ElseCommand = ["set-option", "-g", "@else", "taken"],
+                },
                 token);
             await WaitForOptionAsync(server, "@then", "taken", token);
             await WaitForOptionAsync(server, "@else", "taken", token);
@@ -271,12 +389,16 @@ public sealed class ServerUtilitiesTests
             await ReadMessagesAsync(server, ShowMessagesMode.Terminals, token);
 
             // A request that both grants and withdraws cannot mean anything.
-            Assert.Throws<ArgumentException>(
-                () => new ServerAccessRequest(allowUser: "a", denyUser: "b"));
-            Assert.Throws<ArgumentException>(
-                () => new ServerAccessRequest(readOnly: true, readWrite: true));
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => server.ConfigureAccessAsync(
+                    new ServerAccessRequest { AllowUser = "a", DenyUser = "b" },
+                    token));
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => server.ConfigureAccessAsync(
+                    new ServerAccessRequest { ReadOnly = true, ReadWrite = true },
+                    token));
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => new RunShellRequest("true", delay: TimeSpan.FromSeconds(-1)));
+                () => new RunShellRequest("true") { Delay = TimeSpan.FromSeconds(-1) });
         }
         finally
         {
@@ -301,7 +423,7 @@ public sealed class ServerUtilitiesTests
         ProvesWholeCommandGateAsync(
             ServerUtilities.ServerAccessCapability,
             (server, token) => server.ConfigureAccessAsync(
-                new ServerAccessRequest(list: true),
+                new ServerAccessRequest { List = true },
                 token));
 
     [UnixFact]
@@ -316,8 +438,8 @@ public sealed class ServerUtilitiesTests
         // tmux 3.2a spells the type flag as booleans meaning something else, so
         // asking for one there would ask a different question rather than fail.
         // Nothing is sent at all instead.
-        CommandPromptRequest typed = new("display-message %1", type: PromptType.Command);
-        CommandPromptRequest formatted = new("display-message %1", expandFormat: true);
+        CommandPromptRequest typed = new("display-message %1") { Type = PromptType.Command };
+        CommandPromptRequest formatted = new("display-message %1") { ExpandFormat = true };
         if (supported)
         {
             await Assert.ThrowsAsync<TmuxCommandException>(
@@ -339,7 +461,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.CommandPromptLiteralCapability,
             (server, token) => server.ShowCommandPromptAsync(
-                new CommandPromptRequest("display-message %1", literal: true),
+                new CommandPromptRequest("display-message %1") { Literal = true },
                 token));
 
     [UnixFact]
@@ -347,10 +469,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.CommandPrompt37Capability,
             (server, token) => server.ShowCommandPromptAsync(
-                new CommandPromptRequest(
-                    "display-message %1",
-                    backspaceExits: true,
-                    noFreeze: true),
+                new CommandPromptRequest("display-message %1") { BackspaceExits = true, NoFreeze = true },
                 token),
             expectedWarnings: 2);
 
@@ -359,10 +478,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.ConfirmBeforeAcceptanceCapability,
             (server, token) => server.ConfirmBeforeAsync(
-                new ConfirmBeforeRequest(
-                    ["display-message", "confirmed"],
-                    confirmKey: "y",
-                    defaultYes: true),
+                new ConfirmBeforeRequest(["display-message", "confirmed"]) { ConfirmKey = "y", DefaultYes = true },
                 token),
             expectedWarnings: 2);
 
@@ -397,9 +513,10 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.DisplayMenuStylesCapability,
             (server, token) => server.ShowMenuAsync(
-                new DisplayMenuRequest(
-                    [new TmuxMenuItem("Item", "i", "display-message chosen")],
-                    style: "fg=red"),
+                new DisplayMenuRequest([new TmuxMenuItem("Item", "i", "display-message chosen")])
+                {
+                    Style = "fg=red",
+                },
                 token));
 
     [UnixFact]
@@ -407,9 +524,10 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.DisplayMenuMouseCapability,
             (server, token) => server.ShowMenuAsync(
-                new DisplayMenuRequest(
-                    [new TmuxMenuItem("Item", "i", "display-message chosen")],
-                    mouse: true),
+                new DisplayMenuRequest([new TmuxMenuItem("Item", "i", "display-message chosen")])
+                {
+                    Mouse = true,
+                },
                 token),
             // The style flags are gated a release earlier, so an older tmux
             // warns about both families for one menu.
@@ -426,7 +544,7 @@ public sealed class ServerUtilitiesTests
         bool supported = Supports(server, ServerUtilities.DisplayMessageLiteralCapability);
 
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pid}", returnText: true, noExpand: true),
+            new DisplayMessageRequest { Message = "#{pid}", ReturnText = true, NoExpand = true },
             token);
 
         if (supported)
@@ -456,7 +574,7 @@ public sealed class ServerUtilitiesTests
         // the flag to a tmux that refuses it looks like. Asserting the call
         // succeeds is what makes dropping the gate visible here.
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("addressed", returnText: true, targetClient: "/dev/null"),
+            new DisplayMessageRequest { Message = "addressed", ReturnText = true, TargetClient = "/dev/null" },
             token);
 
         Assert.Equal("addressed", Assert.Single(rendered!));
@@ -473,7 +591,7 @@ public sealed class ServerUtilitiesTests
     public Task ListKeysFormatVersionPolicy() =>
         ProvesWarnAndOmitAsync(
             ServerUtilities.ListKeysFormatCapability,
-            (server, token) => server.GetKeysAsync(
+            (server, token) => server.Keys.GetAllAsync(
                 format: "#{key_table}",
                 cancellationToken: token));
 
@@ -482,7 +600,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellWorkingDirectoryCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("pwd", workingDirectory: "/"),
+                new RunShellRequest("pwd") { WorkingDirectory = "/" },
                 token));
 
     [UnixFact]
@@ -490,7 +608,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellStandardErrorCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("true", showStandardError: true),
+                new RunShellRequest("true") { ShowStandardError = true },
                 token));
 
     [UnixFact]
@@ -498,7 +616,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellArgumentsCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("echo", ["libtmux"]),
+                new RunShellRequest("echo") { Arguments = ["libtmux"] },
                 token));
 
     private static async Task ReadMessagesAsync(
@@ -598,7 +716,7 @@ public sealed class ServerUtilitiesTests
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<TmuxOption> read = await server.Options.GetAsync(
-                new GetOptionRequest(name, OptionScope.Session, global: true, quiet: true),
+                new GetOptionRequest(name) { Scope = OptionScope.Session, Global = true, Quiet = true },
                 token);
             seen = read.Count > 0 ? read[0].Value.Raw : null;
             if (string.Equals(seen, expected, StringComparison.Ordinal))
@@ -617,11 +735,13 @@ public sealed class ServerUtilitiesTests
         CancellationToken token,
         ILogger? logger = null) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
     private sealed class RecordingLogger : ILogger

@@ -18,130 +18,107 @@ public enum PopupCloseMode
 /// closes, so a caller with no client, or with a command that never exits, will
 /// wait. Cancel the call rather than expecting it to return.
 /// </remarks>
-public sealed record DisplayPopupRequest
+public sealed record DisplayPopupRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a popup request.</summary>
-    /// <param name="command">The command the popup runs.</param>
-    /// <param name="closeMode">When the popup closes on its own.</param>
-    /// <param name="closeExisting">Whether an open popup is closed instead.</param>
-    /// <param name="targetClient">The client to show the popup on.</param>
-    /// <param name="width">The popup width.</param>
-    /// <param name="height">The popup height.</param>
-    /// <param name="x">The column to place the popup at.</param>
-    /// <param name="y">The row to place the popup at.</param>
-    /// <param name="startDirectory">The working directory for the command.</param>
-    /// <param name="title">The popup title.</param>
-    /// <param name="borderLines">The border line style.</param>
-    /// <param name="style">The popup style.</param>
-    /// <param name="borderStyle">The popup border style.</param>
-    /// <param name="environment">Environment entries set on the command.</param>
-    /// <param name="noBorder">Whether the popup has no border.</param>
-    /// <param name="closeOnAnyKey">Whether any key closes the popup.</param>
-    /// <param name="noKeys">Whether the popup ignores keys.</param>
-    public DisplayPopupRequest(
-        string? command = null,
-        PopupCloseMode? closeMode = null,
-        bool closeExisting = false,
-        string? targetClient = null,
-        string? width = null,
-        string? height = null,
-        string? x = null,
-        string? y = null,
-        string? startDirectory = null,
-        string? title = null,
-        string? borderLines = null,
-        string? style = null,
-        string? borderStyle = null,
-        IReadOnlyDictionary<string, string>? environment = null,
-        bool noBorder = false,
-        bool closeOnAnyKey = false,
-        bool noKeys = false)
-    {
-        if (closeMode is not null && !Enum.IsDefined(closeMode.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(closeMode));
-        }
-
-        Command = command;
-        CloseMode = closeMode;
-        CloseExisting = closeExisting;
-        TargetClient = targetClient;
-        Width = width;
-        Height = height;
-        X = x;
-        Y = y;
-        StartDirectory = startDirectory;
-        Title = title;
-        BorderLines = borderLines;
-        Style = style;
-        BorderStyle = borderStyle;
-        // The request is read again at dispatch, so a caller that kept the
-        // dictionary could otherwise change the argv after constructing it.
-        Environment = environment is null
-            ? null
-            : new ReadOnlyDictionary<string, string>(
-                new Dictionary<string, string>(environment, StringComparer.Ordinal));
-        NoBorder = noBorder;
-        CloseOnAnyKey = closeOnAnyKey;
-        NoKeys = noKeys;
-    }
+    private readonly PopupCloseMode? _closeMode;
+    private readonly IReadOnlyDictionary<string, string>? _environment;
 
     /// <summary>Gets the command the popup runs.</summary>
-    public string? Command { get; }
+    public string? Command { get; init; }
 
     /// <summary>Gets when the popup closes on its own.</summary>
-    public PopupCloseMode? CloseMode { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined mode.</exception>
+    public PopupCloseMode? CloseMode
+    {
+        get => _closeMode;
+        init
+        {
+            if (value is not null && !Enum.IsDefined(value.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(CloseMode));
+            }
+
+            _closeMode = value;
+        }
+    }
 
     /// <summary>Gets whether an open popup is closed instead.</summary>
-    public bool CloseExisting { get; }
+    public bool CloseExisting { get; init; }
 
     /// <summary>Gets the client to show the popup on.</summary>
-    public string? TargetClient { get; }
+    public string? TargetClient { get; init; }
 
     /// <summary>Gets the popup width.</summary>
-    public string? Width { get; }
+    public string? Width { get; init; }
 
     /// <summary>Gets the popup height.</summary>
-    public string? Height { get; }
+    public string? Height { get; init; }
 
     /// <summary>Gets the column to place the popup at.</summary>
-    public string? X { get; }
+    public string? X { get; init; }
 
     /// <summary>Gets the row to place the popup at.</summary>
-    public string? Y { get; }
+    public string? Y { get; init; }
 
     /// <summary>Gets the working directory for the command.</summary>
     /// <remarks>
     /// tmux expands it as a format, so a <c>#</c> in it does not survive
     /// verbatim.
     /// </remarks>
-    public string? StartDirectory { get; }
+    public string? StartDirectory { get; init; }
 
     /// <summary>Gets the popup title.</summary>
     /// <remarks>
     /// tmux expands it as a format, so a <c>#</c> in it does not survive
     /// verbatim.
     /// </remarks>
-    public string? Title { get; }
+    public string? Title { get; init; }
 
     /// <summary>Gets the border line style.</summary>
-    public string? BorderLines { get; }
+    public string? BorderLines { get; init; }
 
     /// <summary>Gets the popup style.</summary>
-    public string? Style { get; }
+    public string? Style { get; init; }
 
     /// <summary>Gets the popup border style.</summary>
-    public string? BorderStyle { get; }
+    public string? BorderStyle { get; init; }
 
     /// <summary>Gets the environment entries set on the command.</summary>
-    public IReadOnlyDictionary<string, string>? Environment { get; }
+    public IReadOnlyDictionary<string, string>? Environment
+    {
+        get => _environment;
+
+        // The request is read again at dispatch, so a caller that kept the
+        // dictionary could otherwise change the argv after building it.
+        init => _environment = value is null
+            ? null
+            : new ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string>(value, StringComparer.Ordinal));
+    }
 
     /// <summary>Gets whether the popup has no border.</summary>
-    public bool NoBorder { get; }
+    public bool NoBorder { get; init; }
 
     /// <summary>Gets whether any key closes the popup.</summary>
-    public bool CloseOnAnyKey { get; }
+    public bool CloseOnAnyKey { get; init; }
 
     /// <summary>Gets whether the popup ignores keys.</summary>
-    public bool NoKeys { get; }
+    public bool NoKeys { get; init; }
+
+    /// <summary>Returns a popup request as one tmux command.</summary>
+    /// <param name="pane">The pane the popup belongs to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Popup options arrived in tmux 3.3 and the key policy in 3.6, so the
+    /// pane decides which of them the built command carries.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildDisplayPopupArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

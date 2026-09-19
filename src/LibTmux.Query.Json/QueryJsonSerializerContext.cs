@@ -63,6 +63,9 @@ public static class QueryJson
     /// <summary>Writes one document as v1 JSON.</summary>
     /// <param name="document">The document to write.</param>
     /// <returns>The encoded document, with no trailing newline.</returns>
+    /// <exception cref="UnsupportedQueryExpressionException">
+    /// The document is not a v1 wire form, or encodes past the size limit.
+    /// </exception>
     public static string Serialize(QueryDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -78,7 +81,7 @@ public static class QueryJson
         byte[] encoded = buffer.ToArray();
         if (encoded.Length > QueryJsonLimits.V1.MaximumUtf8Bytes)
         {
-            throw new JsonException("Query document exceeds the maximum encoded size.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum encoded size.");
         }
 
         return Encoding.UTF8.GetString(encoded);
@@ -88,14 +91,19 @@ public static class QueryJson
     /// <param name="json">The encoded document.</param>
     /// <param name="limits">Limits to apply, never wider than v1.</param>
     /// <returns>The decoded document.</returns>
-    /// <exception cref="JsonException">The document is malformed or oversized.</exception>
+    /// <exception cref="System.Text.Json.JsonException">The text is not JSON.</exception>
+    /// <exception cref="UnsupportedQueryExpressionException">
+    /// The text is JSON, but not a v1 wire form: an unknown schema, version,
+    /// target, node or constant, a duplicate or unknown member, or a value past
+    /// one of the v1 limits.
+    /// </exception>
     public static QueryDocument Deserialize(string json, QueryJsonLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(json);
         QueryJsonLimits bounds = (limits ?? QueryJsonLimits.V1).Clamp();
         if (Encoding.UTF8.GetByteCount(json) > bounds.MaximumUtf8Bytes)
         {
-            throw new JsonException("Query document exceeds the maximum encoded size.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum encoded size.");
         }
 
         using JsonDocument parsed = JsonDocument.Parse(
@@ -109,17 +117,17 @@ public static class QueryJson
             // Schema and version must be checked before anything else is read, or
             // a v2 payload gets silently parsed under v1 rules.
             string schema = root.GetProperty("schema").GetString()
-                ?? throw new JsonException("Query document names no schema.");
+                ?? throw new UnsupportedQueryExpressionException("Query document names no schema.");
             if (!string.Equals(schema, QueryDocument.CurrentSchema, StringComparison.Ordinal))
             {
-                throw new JsonException(
+                throw new UnsupportedQueryExpressionException(
                     $"Query document names schema '{schema}', which this reader does not know.");
             }
 
             int version = root.GetProperty("version").GetInt32();
             if (version != QueryDocument.CurrentVersion)
             {
-                throw new JsonException(
+                throw new UnsupportedQueryExpressionException(
                     $"Query document is version {version}; this reader understands "
                     + $"{QueryDocument.CurrentVersion}.");
             }
@@ -137,10 +145,14 @@ public static class QueryJson
             exception is KeyNotFoundException
             or InvalidCastException
             or InvalidOperationException
-            or FormatException
-            or UnsupportedQueryExpressionException)
+            or FormatException)
         {
-            throw new JsonException("Query document does not match the v1 wire form.", exception);
+            // A document shaped wrongly enough to fault element access is the
+            // same refusal the reader makes deliberately, so it reads the same.
+            throw new UnsupportedQueryExpressionException(
+                "Query document does not match the v1 wire form.",
+                string.Empty,
+                exception);
         }
     }
 

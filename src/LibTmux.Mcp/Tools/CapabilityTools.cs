@@ -208,14 +208,10 @@ internal sealed class CapabilityTools
         CancellationToken cancellationToken = default) =>
         _read.ServerInfoAsync(cancellationToken: cancellationToken);
 
-    public async Task<SessionInfo> GetSessionInfoAsync(
+    public Task<SessionInfo> GetSessionInfoAsync(
         [Description("A session id or name.")] string session,
-        CancellationToken cancellationToken = default)
-    {
-        Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
-        return SessionInfo.From(
-            await TmuxTargets.SessionAsync(server, session, cancellationToken).ConfigureAwait(false));
-    }
+        CancellationToken cancellationToken = default) =>
+        _read.GetSessionInfoAsync(session, cancellationToken);
 
     public async Task<WindowInfo> GetWindowInfoAsync(
         [Description("A window id.")] string windowId,
@@ -671,7 +667,11 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
-        Window resized = await window.ResizeAsync(new ResizeWindowRequest(width: width, height: height), cancellationToken)
+        Window resized = await window.ResizeAsync(new ResizeWindowRequest
+        {
+            Width = width,
+            Height = height,
+        }, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
             $"{resized.Id} is now {resized.Width}x{resized.Height}.",
@@ -712,7 +712,12 @@ internal sealed class CapabilityTools
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
         Window moved = await window.MoveAsync(
-                new MoveWindowRequest(destination, session, replaceExisting: replaceExisting),
+                new MoveWindowRequest
+                {
+                    Destination = destination,
+                    Session = session,
+                    ReplaceExisting = replaceExisting,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
@@ -782,7 +787,11 @@ internal sealed class CapabilityTools
         }
 
         await pane.JoinAsync(
-                new MovePaneRequest(target.Id.ToString(), direction, detach: detach),
+                new MovePaneRequest(target.Id.ToString())
+                {
+                    Direction = direction,
+                    Detach = detach,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -822,7 +831,12 @@ internal sealed class CapabilityTools
                 + "different panes, or call list_panes to see what exists.");
         }
 
-        await pane.SwapAsync(new SwapPaneRequest(targetPaneId, detach: detach, keepZoom: keepZoom), cancellationToken)
+        await pane.SwapAsync(new SwapPaneRequest
+        {
+            Target = targetPaneId,
+            Detach = detach,
+            KeepZoom = keepZoom,
+        }, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Swapped pane {pane.Id} with {targetPaneId}.", PaneId: pane.Id.ToString());
     }
@@ -863,7 +877,7 @@ internal sealed class CapabilityTools
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         _ = await server.Options.SetAsync(
-                new SetOptionRequest("mouse", enabled ? "on" : "off", OptionScope.Session, global: true),
+                new SetOptionRequest("mouse", enabled ? "on" : "off") { Scope = OptionScope.Session, Global = true },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Mouse support is {(enabled ? "enabled" : "disabled")}.");
@@ -892,7 +906,7 @@ internal sealed class CapabilityTools
         // expandFormat stays off: it is the flag that would make tmux read the
         // value as a format, which is the one thing the grammar rules out.
         _ = await options.SetAsync(
-                new SetOptionRequest(name, value, global: scope is OptionScope.Server),
+                new SetOptionRequest(name, value) { Global = scope is OptionScope.Server },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Set {name} to {value} at {scope} scope.");
@@ -982,9 +996,11 @@ internal sealed class CapabilityTools
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
         await pane.RespawnAsync(
-                new RespawnRequest(
-                    startDirectory: LiteralTmuxFormat(startDirectory),
-                    killExistingProcess: killExistingProcess),
+                new RespawnRequest
+                {
+                    StartDirectory = LiteralTmuxFormat(startDirectory),
+                    KillExistingProcess = killExistingProcess,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         string landed = await TmuxTargets
@@ -1316,9 +1332,9 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         string requestedPaneId = await ResolvePaneInputIdAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Pane> panes = await server.GetPanesStrictAsync(cancellationToken)
+        IReadOnlyList<Pane> panes = await server.GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
-        IReadOnlyList<Client> clients = await server.GetClientsStrictAsync(cancellationToken)
+        IReadOnlyList<Client> clients = await server.GetClientsAsync(cancellationToken)
             .ConfigureAwait(false);
         string? socketPath = await TmuxTargets.SocketPathAsync(server, cancellationToken)
             .ConfigureAwait(false);

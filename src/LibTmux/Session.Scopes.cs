@@ -13,7 +13,7 @@ public sealed partial class Session
         _commandDispatcher,
         OptionScope.Session,
         _id.ToString(),
-        TmuxOptions.DoubleEscapesDollar(_owner),
+        _owner,
         _generation);
 
     private TmuxHooks? _hooks;

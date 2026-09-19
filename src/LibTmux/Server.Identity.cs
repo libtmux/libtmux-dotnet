@@ -93,81 +93,115 @@ public sealed partial class Server : IEquatable<Server>
         return materialized;
     }
 
-    /// <summary>Rejects a lookup answered by a server this handle is not on.</summary>
-    /// <remarks>
-    /// The identifier is resolved against the running daemon while the handle
-    /// carries the generation it was discovered at. A replacement server hands
-    /// out the same identifiers, so a handle built from both would name the new
-    /// server's object while reporting the old server as its owner.
-    /// </remarks>
-    private void RequireOwnedGeneration(ServerGeneration observed)
-    {
-        ServerGeneration expected = _generation
-            ?? throw new InvalidOperationException("The server has no live generation.");
-        if (observed != expected)
-        {
-            throw new StaleServerGenerationException(
-                "The tmux server generation changed before the lookup answered.",
-                expected,
-                observed);
-        }
-    }
-
-    /// <summary>Gets one session by its typed identifier.</summary>
+    /// <summary>Reads one session by identifier, throwing when it is absent.</summary>
+    /// <param name="id">The session identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized session carrying captured scalar state.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">The session does not exist.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> GetSessionAsync(
         SessionId id,
+        CancellationToken cancellationToken = default) =>
+        await FindSessionAsync(id, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException($"Session {id} was not found.", id.ToString());
+
+    /// <summary>Reads one session by identifier, returning null when it is absent.</summary>
+    /// <param name="id">The session identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized session, or null after a successful read finds no match.</returns>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Session?> FindSessionAsync(
+        SessionId id,
         CancellationToken cancellationToken = default)
     {
-        TmuxConnection connection = RequireMaterializedConnection();
-        (ServerGeneration Generation, SessionId Id)? identity = await connection
-            .FindSessionAsync(id, cancellationToken)
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
+                owner,
+                "list-sessions",
+                "session_id",
+                id.ToString(),
+                inSession: null,
+                cancellationToken)
             .ConfigureAwait(false);
-        if (identity is null)
-        {
-            throw new TmuxObjectNotFoundException($"Session {id} was not found.", id.ToString());
-        }
-
-        RequireOwnedGeneration(identity.Value.Generation);
-        return new Session(this, connection, identity.Value.Generation, identity.Value.Id);
+        return row is null ? null : RelationReader.ToSession(owner, row);
     }
 
-    /// <summary>Gets one window by its typed identifier.</summary>
+    /// <summary>Reads one window by identifier, throwing when it is absent.</summary>
+    /// <param name="id">The window identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized window carrying captured scalar state.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">The window does not exist.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> GetWindowAsync(
         WindowId id,
+        CancellationToken cancellationToken = default) =>
+        await FindWindowAsync(id, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException($"Window {id} was not found.", id.ToString());
+
+    /// <summary>Reads one window by identifier, returning null when it is absent.</summary>
+    /// <param name="id">The window identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized window, or null after a successful read finds no match.</returns>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Window?> FindWindowAsync(
+        WindowId id,
         CancellationToken cancellationToken = default)
     {
-        TmuxConnection connection = RequireMaterializedConnection();
-        (ServerGeneration Generation, WindowId Id)? identity = await connection
-            .FindWindowAsync(id, cancellationToken)
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
+                owner,
+                "list-windows",
+                "window_id",
+                id.ToString(),
+                inSession: null,
+                cancellationToken)
             .ConfigureAwait(false);
-        if (identity is null)
-        {
-            throw new TmuxObjectNotFoundException($"Window {id} was not found.", id.ToString());
-        }
-
-        RequireOwnedGeneration(identity.Value.Generation);
-        return new Window(this, connection, identity.Value.Generation, identity.Value.Id);
+        return row is null ? null : RelationReader.ToWindow(owner, row);
     }
 
-    /// <summary>Gets one pane by its typed identifier.</summary>
+    /// <summary>Reads one pane by identifier, throwing when it is absent.</summary>
+    /// <param name="id">The pane identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized pane carrying captured scalar state.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">The pane does not exist.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Pane> GetPaneAsync(
         PaneId id,
+        CancellationToken cancellationToken = default) =>
+        await FindPaneAsync(id, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException($"Pane {id} was not found.", id.ToString());
+
+    /// <summary>Reads one pane by identifier, returning null when it is absent.</summary>
+    /// <param name="id">The pane identifier.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A materialized pane, or null after a successful read finds no match.</returns>
+    /// <exception cref="LibTmuxException">The lookup failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Pane?> FindPaneAsync(
+        PaneId id,
         CancellationToken cancellationToken = default)
     {
-        TmuxConnection connection = RequireMaterializedConnection();
-        (ServerGeneration Generation, PaneId Id)? identity = await connection
-            .FindPaneAsync(id, cancellationToken)
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, string?>? row = await RelationReader.FindAsync(
+                owner,
+                "list-panes",
+                "pane_id",
+                id.ToString(),
+                inSession: null,
+                cancellationToken)
             .ConfigureAwait(false);
-        if (identity is null)
-        {
-            throw new TmuxObjectNotFoundException($"Pane {id} was not found.", id.ToString());
-        }
-
-        RequireOwnedGeneration(identity.Value.Generation);
-        return new Pane(this, connection, identity.Value.Generation, identity.Value.Id);
+        return row is null ? null : RelationReader.ToPane(owner, row);
     }
 
     /// <summary>Reports whether two handles reach the same server endpoint.</summary>
@@ -203,14 +237,4 @@ public sealed partial class Server : IEquatable<Server>
         _connection is null
             ? base.GetHashCode()
             : _connection.GetEndpointHashCode();
-
-    private TmuxConnection RequireMaterializedConnection()
-    {
-        if (_connection is null || !_generation.HasValue)
-        {
-            throw new InvalidOperationException("The server must be materialized before lookup.");
-        }
-
-        return _connection;
-    }
 }

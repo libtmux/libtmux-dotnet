@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using Microsoft.Extensions.Logging;
@@ -86,12 +85,26 @@ public sealed partial class Window
             .ConfigureAwait(false);
     }
 
+    /// <summary>Reads one pane in this window, throwing when it is absent.</summary>
+    /// <param name="target">The pane identifier or index.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The materialized pane in this window.</returns>
+    /// <exception cref="TmuxObjectNotFoundException">This window has no matching pane.</exception>
+    /// <exception cref="LibTmuxException">The lookup failed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Pane> GetPaneAsync(
+        string target,
+        CancellationToken cancellationToken = default) =>
+        await FindPaneAsync(target, cancellationToken).ConfigureAwait(false)
+        ?? throw new TmuxObjectNotFoundException(
+            $"Window {_id} has no pane '{target}'.", target);
+
     /// <summary>Reads one pane in this window.</summary>
     /// <param name="target">The pane target.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The pane, or null when this window has no such pane.</returns>
     [UnsupportedOSPlatform("windows")]
-    public async Task<Pane?> GetPaneAsync(
+    public async Task<Pane?> FindPaneAsync(
         string target,
         CancellationToken cancellationToken = default)
     {
@@ -128,14 +141,7 @@ public sealed partial class Window
             arguments.Add(flag);
         }
 
-        // tmux 3.4 misreads -p, so a percentage rides the -l flag instead,
-        // which every supported version accepts.
-        AddValue(
-            arguments,
-            "-l",
-            options.Percentage is int share
-                ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
-                : options.Size);
+        AddValue(arguments, "-l", options.ResolveSize());
         if (options.FullWindow)
         {
             arguments.Add("-f");
@@ -168,7 +174,9 @@ public sealed partial class Window
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         IReadOnlyList<Pane> panes = await sequence
             .ObserveAsync(() => GetPanesAsync(cancellationToken))
@@ -257,7 +265,9 @@ public sealed partial class Window
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         IReadOnlyList<Pane> panes = await sequence
             .ObserveAsync(() => GetPanesAsync(cancellationToken))

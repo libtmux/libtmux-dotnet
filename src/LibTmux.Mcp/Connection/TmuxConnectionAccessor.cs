@@ -152,16 +152,15 @@ public sealed class TmuxConnectionAccessor : IDisposable
         _servers.TryRemove(key, out _);
     }
 
-    // Rebuilt rather than copied: ServerConnectionOptions exposes its
-    // properties get-only, so `with` cannot reach the socket.
-    private ServerConnectionOptions OptionsFor(string? socketName) => new(
-        tmuxBinaryPath: _binaryPath,
-        socketName: socketName,
-        socketPath: socketName is null ? _template.SocketPath : null,
-        socketNameFactory: socketName is null ? _template.SocketNameFactory : null,
-        configurationFile: _template.ConfigurationFile,
-        colorMode: _template.ColorMode,
-        initializeAsync: _template.InitializeAsync,
-        childEnvironment: _template.ChildEnvironment,
-        logger: _template.Logger);
+    // Copied, now that the options are settable through an initializer. The
+    // rebuild this replaces listed the options one by one, so every option it
+    // did not name - a command timeout, a capture ceiling - was dropped on the
+    // way to the server it built.
+    private ServerConnectionOptions OptionsFor(string? socketName) => _template with
+    {
+        TmuxBinaryPath = _binaryPath,
+        SocketName = socketName,
+        SocketPath = socketName is null ? _template.SocketPath : null,
+        SocketNameFactory = socketName is null ? _template.SocketNameFactory : null,
+    };
 }

@@ -32,22 +32,24 @@ internal sealed partial class WriteTools
         try
         {
             Session session = await server.CreateSessionAsync(
-                    new NewSessionRequest(
-                        name: name,
-                        startDirectory: startDirectory,
-                        width: width?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        height: height?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new NewSessionRequest
+                    {
+                        Name = name,
+                        StartDirectory = startDirectory,
+                        Width = width?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        Height = height?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            Pane? active = session.ActivePane;
+            Pane active = session.ActivePane.Value;
             string landed = await TmuxTargets
                 .StartDirectoryNoteAsync(active, startDirectory, cancellationToken)
                 .ConfigureAwait(false);
             return new ActionResult(
                 $"Created session {session.Id}.{landed}",
-                PaneId: active?.Id.ToString(),
-                WindowId: session.ActiveWindow?.Id.ToString(),
+                PaneId: active.Id.ToString(),
+                WindowId: session.ActiveWindow.Value.Id.ToString(),
                 SessionId: session.Id.ToString());
         }
         catch (TmuxSessionExistsException)
@@ -76,18 +78,17 @@ internal sealed partial class WriteTools
         Session owner = await TmuxTargets.SessionAsync(server, session, cancellationToken)
             .ConfigureAwait(false);
         Window window = await owner.CreateWindowAsync(
-                new NewWindowRequest(
-                    name: name,
-                    startDirectory: startDirectory),
+                new NewWindowRequest { Name = name, StartDirectory = startDirectory },
                 cancellationToken)
             .ConfigureAwait(false);
 
+        Pane active = window.ActivePane.Value;
         string landed = await TmuxTargets
-            .StartDirectoryNoteAsync(window.ActivePane, startDirectory, cancellationToken)
+            .StartDirectoryNoteAsync(active, startDirectory, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
             $"Created window {window.Id} in {owner.Id}.{landed}",
-            PaneId: window.ActivePane?.Id.ToString(),
+            PaneId: active.Id.ToString(),
             WindowId: window.Id.ToString(),
             SessionId: owner.Id.ToString());
     }
@@ -118,10 +119,12 @@ internal sealed partial class WriteTools
             .ConfigureAwait(false);
 
         Pane created = await pane.SplitAsync(
-                new SplitPaneRequest(
-                    direction: direction,
-                    startDirectory: startDirectory,
-                    percentage: percentage),
+                new SplitPaneRequest
+                {
+                    Direction = direction,
+                    StartDirectory = startDirectory,
+                    Percentage = percentage,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -204,10 +207,12 @@ internal sealed partial class WriteTools
             .ConfigureAwait(false);
 
         Pane resized = await pane.ResizeAsync(
-                new ResizePaneRequest(
-                    width: width?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    height: height?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    zoom: zoom),
+                new ResizePaneRequest
+                {
+                    Width = width?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Height = height?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Zoom = zoom,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -239,7 +244,7 @@ internal sealed partial class WriteTools
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
         Window arranged = await window.SelectLayoutAsync(
-                new SelectLayoutRequest(layout: layout),
+                new SelectLayoutRequest { Layout = layout },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(

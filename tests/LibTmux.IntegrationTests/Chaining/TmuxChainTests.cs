@@ -2,7 +2,6 @@ using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
-using LibTmux.Testing;
 
 namespace LibTmux.IntegrationTests.Chaining;
 
@@ -146,7 +145,7 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
-        NewWindowRequest request = new(name: "typed", startDirectory: "/tmp");
+        NewWindowRequest request = new() { Name = "typed", StartDirectory = "/tmp" };
 
         // The one-shot and chained paths build arguments from the same code,
         // so this compares the built command against what the wrapper sends.
@@ -165,7 +164,7 @@ public sealed class TmuxChainTests
             await server.GetWindowsAsync(token),
             window => window.Name == "typed");
         Window direct = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "direct", startDirectory: "/tmp"),
+            new NewWindowRequest { Name = "direct", StartDirectory = "/tmp" },
             token);
 
         Assert.Equal("direct", direct.Name);
@@ -184,7 +183,7 @@ public sealed class TmuxChainTests
         // Which send-keys flags tmux accepts depends on the server version, so
         // the command is built from the pane rather than from a target string:
         // a bare string could not have told the builder which tmux it is for.
-        TmuxCommand keys = new SendKeysRequest("echo chained-keys", enter: false)
+        TmuxCommand keys = new SendKeysRequest { Text = "echo chained-keys", Enter = false }
             .ToCommand(pane);
 
         Assert.Equal("send-keys", keys.Name);
@@ -216,7 +215,7 @@ public sealed class TmuxChainTests
         // Creating a session names no target, so this request needs nothing
         // but itself. It keeps the identifier-printing flags the one-shot path
         // uses, which is what makes the chain able to say what it made.
-        TmuxCommand command = new NewSessionRequest(name: "chained-session")
+        TmuxCommand command = new NewSessionRequest { Name = "chained-session" }
             .ToCommand();
 
         Assert.Equal("new-session", command.Name);
@@ -242,20 +241,20 @@ public sealed class TmuxChainTests
 
         // Construct, configure, execute: a single request needs no chain to
         // run, and running it alone does what adding it to one would have.
-        await new NewWindowRequest(name: "executed").ExecuteAsync(session, token);
+        await new NewWindowRequest { Name = "executed" }.ExecuteAsync(session, token);
 
         Assert.Contains(
             await server.GetWindowsAsync(token),
             window => window.Name == "executed");
 
-        await new NewSessionRequest(name: "executed-session").ExecuteAsync(server, token);
+        await new NewSessionRequest { Name = "executed-session" }.ExecuteAsync(server, token);
 
         Assert.Contains(
             await server.GetSessionsAsync(token),
             other => other.Name == "executed-session");
 
         Pane pane = (await server.GetPanesAsync(token))[0];
-        await new SendKeysRequest("echo executed-keys", enter: true).ExecuteAsync(pane, token);
+        await new SendKeysRequest { Text = "echo executed-keys", Enter = true }.ExecuteAsync(pane, token);
 
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join('\n', await pane.CaptureAsync(cancellationToken: inner)),
@@ -282,13 +281,13 @@ public sealed class TmuxChainTests
             .Then(new BindKeyRequest("F2", ["display-message", "second-bind"]).ToCommand())
             .ExecuteAsync(token);
 
-        IReadOnlyList<string> bound = await server.GetKeysAsync(cancellationToken: token);
+        IReadOnlyList<string> bound = await server.Keys.GetAllAsync(cancellationToken: token);
         Assert.Contains(bound, line => line.Contains("F1", StringComparison.Ordinal));
         Assert.Contains(bound, line => line.Contains("F2", StringComparison.Ordinal));
 
-        await new UnbindKeyRequest("F1").ExecuteAsync(server, token);
+        await new UnbindKeyRequest { Key = "F1" }.ExecuteAsync(server, token);
 
-        IReadOnlyList<string> after = await server.GetKeysAsync(cancellationToken: token);
+        IReadOnlyList<string> after = await server.Keys.GetAllAsync(cancellationToken: token);
         Assert.DoesNotContain(after, line => line.Contains("F1", StringComparison.Ordinal));
         Assert.Contains(after, line => line.Contains("F2", StringComparison.Ordinal));
     }
@@ -302,13 +301,13 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Window window = (await server.GetWindowsAsync(token))[0];
 
-        await new SelectLayoutRequest(layout: "even-horizontal").ExecuteAsync(window, token);
+        await new SelectLayoutRequest { Layout = "even-horizontal" }.ExecuteAsync(window, token);
 
         // An unrecognised layout name takes the whole tmux server down on
         // 3.3a, so the name is checked before anything is sent. Batching must
         // not be a way around that check.
         await Assert.ThrowsAsync<TmuxWindowException>(
-            () => new SelectLayoutRequest(layout: "not-a-layout").ExecuteAsync(window, token));
+            () => new SelectLayoutRequest { Layout = "not-a-layout" }.ExecuteAsync(window, token));
 
         Assert.True(await server.IsAliveAsync(token));
     }
@@ -361,7 +360,7 @@ public sealed class TmuxChainTests
 
         // Selecting names the pane it moves from, so the command is built off
         // that pane rather than from a bare string.
-        await new SelectPaneRequest(direction: PaneSelectDirection.Down)
+        await new SelectPaneRequest { Direction = PaneSelectDirection.Down }
             .ExecuteAsync(panes[0], token);
 
         // tmux itself reports which pane is active, which is the only thing
@@ -387,7 +386,7 @@ public sealed class TmuxChainTests
         Pane first = (await server.GetPanesAsync(token))[0];
         int before = first.Height;
 
-        await new ResizePaneRequest(height: "5").ExecuteAsync(first, token);
+        await new ResizePaneRequest { Height = "5" }.ExecuteAsync(first, token);
 
         Pane after = await first.RefreshAsync(token);
         Assert.NotEqual(before, after.Height);
@@ -403,10 +402,7 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        TmuxCommand command = new FindWindowRequest(
-            "needle",
-            matchName: true,
-            ignoreCase: true).ToCommand(pane);
+        TmuxCommand command = new FindWindowRequest("needle") { MatchName = true, IgnoreCase = true }.ToCommand(pane);
 
         Assert.Equal("find-window", command.Name);
         Assert.Contains("-N", command.Arguments);
@@ -416,7 +412,7 @@ public sealed class TmuxChainTests
         // A search opens a chooser, which needs a client to open in. With none
         // attached there is nothing to observe afterwards, so this asserts the
         // command tmux accepted rather than an effect it cannot have had.
-        await new FindWindowRequest("needle", matchName: true).ExecuteAsync(pane, token);
+        await new FindWindowRequest("needle") { MatchName = true }.ExecuteAsync(pane, token);
 
         Assert.True(await server.IsAliveAsync(token));
     }
@@ -437,7 +433,7 @@ public sealed class TmuxChainTests
 
         // Swapping exchanges the panes' positions, so the identifier sitting
         // at index zero afterwards is the one that used to be at index one.
-        await new SwapPaneRequest(target: before[1].Id.ToString(), detach: true)
+        await new SwapPaneRequest { Target = before[1].Id.ToString(), Detach = true }
             .ExecuteAsync(before[0], token);
 
         IReadOnlyList<Pane> after = await server.GetPanesAsync(token);
@@ -459,7 +455,7 @@ public sealed class TmuxChainTests
         {
             // Piping's effect is only observable in the sink; exit status says
             // nothing about whether the pane's output was actually routed.
-            await new PipePaneRequest(command: $"cat >> {sink}", outputOnly: true)
+            await new PipePaneRequest { Command = $"cat >> {sink}", OutputOnly = true }
                 .ExecuteAsync(pane, token);
             await pane.SendTextAsync("echo piped-through", cancellationToken: token);
             await pane.EnterAsync(token);
@@ -500,7 +496,7 @@ public sealed class TmuxChainTests
         // Trimming trailing space arrived in 3.4. Asking for it on an older
         // tmux must drop the flag rather than send one that server refuses,
         // which is why the command is built from the pane.
-        TmuxCommandResult result = await new CapturePaneRequest(trimTrailingSpaces: true)
+        TmuxCommandResult result = await new CapturePaneRequest { TrimTrailingSpaces = true }
             .ExecuteAsync(pane, token);
 
         Assert.Contains(
@@ -518,10 +514,12 @@ public sealed class TmuxChainTests
 
         // Naming a client is refused by 3.2a; literal expansion arrived in 3.4.
         // Both must still produce a message on every supported tmux.
-        TmuxCommandResult result = await new DisplayMessageRequest(
-            "chained-message",
-            returnText: true,
-            targetClient: "/dev/null").ExecuteAsync(server, token);
+        TmuxCommandResult result = await new DisplayMessageRequest
+        {
+            Message = "chained-message",
+            ReturnText = true,
+            TargetClient = "/dev/null",
+        }.ExecuteAsync(server, token);
 
         Assert.Contains("chained-message", result.StandardOutputLines);
     }
@@ -537,9 +535,10 @@ public sealed class TmuxChainTests
         // Showing standard error arrived in 3.6 and passing arguments in 3.7,
         // so asking for both has to drop what the running tmux lacks rather
         // than send a flag it refuses.
-        TmuxCommandResult result = await new RunShellRequest(
-            "echo chained-shell",
-            showStandardError: true).ExecuteAsync(server, token);
+        TmuxCommandResult result = await new RunShellRequest("echo chained-shell")
+        {
+            ShowStandardError = true,
+        }.ExecuteAsync(server, token);
 
         // tmux 3.3a/3.4 accept run-shell but report nothing; 3.2a and 3.5+
         // return what it printed, so output is asserted only where sent.
@@ -562,19 +561,19 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        await server.SetBufferAsync("chained-paste", "ltbuf", cancellationToken: token);
+        await server.Buffers.SetAsync("chained-paste", "ltbuf", cancellationToken: token);
 
         // Pasting raw bytes arrived in 3.7, so asking for it on an older tmux
         // must drop the flag rather than send one that server refuses. The
         // buffer's text reaching the pane is what says the paste happened.
-        await new PasteBufferRequest(name: "ltbuf", rawBytes: true).ExecuteAsync(pane, token);
+        await new PasteBufferRequest { Name = "ltbuf", RawBytes = true }.ExecuteAsync(pane, token);
 
         // Joined, because a paste lands at the prompt and a wide enough prompt
         // leaves it split across two stored lines.
         string seen = await TmuxWait.UntilAsync(
             async inner => string.Join(
                 '\n',
-                await pane.CaptureAsync(new CapturePaneRequest(joinWrappedLines: true), inner)),
+                await pane.CaptureAsync(new CapturePaneRequest { JoinWrappedLines = true }, inner)),
             text => text.Contains("chained-paste", StringComparison.Ordinal),
             TestBudget.Settle,
             TimeSpan.FromMilliseconds(20),
@@ -594,10 +593,11 @@ public sealed class TmuxChainTests
         // Styles arrived in 3.4 and the mouse flag in 3.5. A menu needs a
         // client to open in, so what is asserted is the command tmux built
         // rather than a menu nobody could see.
-        TmuxCommand command = new DisplayMenuRequest(
-            [new TmuxMenuItem("Build", "b", "display-message built")],
-            title: "chained",
-            mouse: true).ToCommand(server);
+        TmuxCommand command = new DisplayMenuRequest([new TmuxMenuItem("Build", "b", "display-message built")])
+        {
+            Title = "chained",
+            Mouse = true,
+        }.ToCommand(server);
 
         Assert.Equal("display-menu", command.Name);
         Assert.Contains("Build", command.Arguments);
@@ -622,11 +622,13 @@ public sealed class TmuxChainTests
         // Popup options arrived in 3.3 and the key policy in 3.6. A popup
         // needs a client to open in, so the assertion is the command tmux
         // built rather than a popup nobody could see.
-        TmuxCommand command = new DisplayPopupRequest(
-            command: "true",
-            width: "40",
-            height: "10",
-            title: "chained-popup").ToCommand(pane);
+        TmuxCommand command = new DisplayPopupRequest
+        {
+            Command = "true",
+            Width = "40",
+            Height = "10",
+            Title = "chained-popup",
+        }.ToCommand(pane);
 
         Assert.Equal("display-popup", command.Name);
         Assert.Contains("40", command.Arguments);
@@ -695,7 +697,7 @@ public sealed class TmuxChainTests
                 .Value.Raw);
 
         IReadOnlyList<TmuxOption> gone = await server.Options.GetAsync(
-            new GetOptionRequest("@chained-temp", quiet: true),
+            new GetOptionRequest("@chained-temp") { Quiet = true },
             token);
 
         Assert.True(gone.Count == 0 || gone[0].Value.State == TmuxOptionState.Absent);
@@ -741,10 +743,11 @@ public sealed class TmuxChainTests
         // Naming the accepting key arrived in 3.4. A confirmation needs a
         // client to ask, so what is asserted is the command tmux built rather
         // than an answer nobody could give.
-        TmuxCommand command = new ConfirmBeforeRequest(
-            ["display-message", "confirmed"],
-            prompt: "sure?",
-            confirmKey: "y").ToCommand(server);
+        TmuxCommand command = new ConfirmBeforeRequest(["display-message", "confirmed"])
+        {
+            Prompt = "sure?",
+            ConfirmKey = "y",
+        }.ToCommand(server);
 
         Assert.Equal("confirm-before", command.Name);
         Assert.Contains("sure?", command.Arguments);
@@ -768,7 +771,7 @@ public sealed class TmuxChainTests
             server.Version!.Value,
             "command_prompt_background");
 
-        CommandPromptRequest typed = new("display-message %%", type: PromptType.Command);
+        CommandPromptRequest typed = new("display-message %%") { Type = PromptType.Command };
 
         if (!carriesTypes)
         {
@@ -801,7 +804,7 @@ public sealed class TmuxChainTests
         // Paging down on entry arrived in 3.5, so asking for it on an older
         // tmux must drop the flag. Unlike a prompt or a menu, copy mode leaves
         // a mark on the pane, so the entry itself is observable.
-        await new CopyModeRequest(pageDown: true).ExecuteAsync(pane, token);
+        await new CopyModeRequest { PageDown = true }.ExecuteAsync(pane, token);
 
         RawTmuxResult mode = await raw.ExecuteAsync(
             ["display-message", "-p", "-t", $"{raw.SessionName}:0.0", "#{pane_in_mode}"],
@@ -809,7 +812,7 @@ public sealed class TmuxChainTests
 
         Assert.Equal("1", mode.StandardOutputLines[0]);
 
-        await new CopyModeRequest(cancel: true).ExecuteAsync(pane, token);
+        await new CopyModeRequest { Cancel = true }.ExecuteAsync(pane, token);
 
         RawTmuxResult left = await raw.ExecuteAsync(
             ["display-message", "-p", "-t", $"{raw.SessionName}:0.0", "#{pane_in_mode}"],
@@ -828,7 +831,7 @@ public sealed class TmuxChainTests
         Window window = (await server.GetWindowsAsync(token))[0];
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        await new ResizeWindowRequest(width: 100, height: 30).ExecuteAsync(window, token);
+        await new ResizeWindowRequest { Width = 100, Height = 30 }.ExecuteAsync(window, token);
 
         Window resized = await window.RefreshAsync(token);
         Assert.Equal(100, resized.Width);
@@ -836,7 +839,7 @@ public sealed class TmuxChainTests
 
         // Respawning replaces the pane's process, so the pane keeps its
         // identifier while what runs inside it changes.
-        await new RespawnRequest(command: "cat", killExistingProcess: true)
+        await new RespawnRequest { Command = "cat", KillExistingProcess = true }
             .ExecuteAsync(pane, token);
 
         string running = await TmuxWait.UntilAsync(
@@ -862,7 +865,7 @@ public sealed class TmuxChainTests
 
         // tmux 3.7 rejects activity-time order by name and fails the whole
         // invocation, so the order is dropped there and kept everywhere else.
-        TmuxCommand command = new ChooseTreeRequest(sort: ChooseTreeSort.Time).ToCommand(pane);
+        TmuxCommand command = new ChooseTreeRequest { Sort = ChooseTreeSort.Time }.ToCommand(pane);
 
         Assert.Equal("choose-tree", command.Name);
 
@@ -890,7 +893,7 @@ public sealed class TmuxChainTests
 
         // At most one of two generations names a running server, so a chain
         // carrying both cannot be valid however tmux answers it.
-        TmuxCommand here = new NewWindowRequest(name: "here").ToCommand(session);
+        TmuxCommand here = new NewWindowRequest { Name = "here" }.ToCommand(session);
         TmuxCommand elsewhere = here with
         {
             RequiredGeneration = new ServerGeneration(
@@ -910,9 +913,9 @@ public sealed class TmuxChainTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        await server.SetBufferAsync("listed", "ltlist", cancellationToken: token);
+        await server.Buffers.SetAsync("listed", "ltlist", cancellationToken: token);
 
-        TmuxCommandResult listed = await new ListBuffersRequest(format: "#{buffer_name}")
+        TmuxCommandResult listed = await new ListBuffersRequest { Format = "#{buffer_name}" }
             .ExecuteAsync(server, token);
 
         Assert.Contains("ltlist", listed.StandardOutputLines);
@@ -921,7 +924,7 @@ public sealed class TmuxChainTests
             server.Version!.Value,
             "server_access_command");
 
-        ServerAccessRequest access = new(list: true);
+        ServerAccessRequest access = new() { List = true };
 
         if (!carriesAccess)
         {
@@ -941,15 +944,13 @@ public sealed class TmuxChainTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
-        await server.CreateSessionAsync(new NewSessionRequest(name: "link-target"), token);
+        await server.CreateSessionAsync(new NewSessionRequest { Name = "link-target" }, token);
 
         Window window = (await server.GetWindowsAsync(token))
             .First(candidate => candidate.Name != "link-target");
 
-        // Linking names its source as the session the window was read through,
-        // which a window resolved by identifier alone does not know, so the
-        // command is built from the handle.
-        await new LinkWindowRequest("link-target", detach: true).ExecuteAsync(window, token);
+        // A link names the session and index captured with the window.
+        await new LinkWindowRequest("link-target") { Detach = true }.ExecuteAsync(window, token);
 
         // The same window now appears under both sessions, which is what a
         // link is.
@@ -973,7 +974,7 @@ public sealed class TmuxChainTests
         Window mover = (await server.GetWindowsAsync(token))
             .First(window => window.Name == "mover");
 
-        await new MoveWindowRequest(destination: "9").ExecuteAsync(mover, token);
+        await new MoveWindowRequest { Destination = "9" }.ExecuteAsync(mover, token);
 
         Window moved = await mover.RefreshAsync(token);
         Assert.Equal(9, moved.Index);
@@ -1004,7 +1005,7 @@ public sealed class TmuxChainTests
         // panes it made.
         TmuxCommandResult result = await server.Chain()
             .Then(new SplitPaneRequest().ToCommand(pane))
-            .Then(new SplitPaneRequest(direction: PaneDirection.Below).ToCommand(pane))
+            .Then(new SplitPaneRequest { Direction = PaneDirection.Below }.ToCommand(pane))
             .ExecuteAsync(token);
 
         Assert.Equal(3, (await server.GetPanesAsync(token)).Count);
@@ -1027,7 +1028,7 @@ public sealed class TmuxChainTests
         // Attaching needs a terminal this process does not have, so what is
         // asserted is the command built rather than an attachment that cannot
         // happen here.
-        TmuxCommand attach = new AttachSessionRequest(detachOthers: true).ToCommand(session);
+        TmuxCommand attach = new AttachSessionRequest { DetachOthers = true }.ToCommand(session);
 
         Assert.Equal("attach-session", attach.Name);
         Assert.Contains("-d", attach.Arguments);
@@ -1036,7 +1037,7 @@ public sealed class TmuxChainTests
             server.Version!.Value,
             "new_pane_command");
 
-        NewPaneRequest floating = new(width: 20, height: 5);
+        NewPaneRequest floating = new() { Width = 20, Height = 5 };
 
         if (!carriesFloats)
         {
@@ -1090,14 +1091,14 @@ public sealed class TmuxChainTests
 
         // One request, several tmux commands. The one-shot path sends these a
         // process at a time, so this is the case batching helps most.
-        SetHooksRequest entries = new(
-            "after-new-window",
-            new Dictionary<int, string>
-            {
-                [0] = "display-message first",
-                [1] = "display-message second",
-            },
-            clearExisting: true);
+        SetHooksRequest entries = new("after-new-window", new Dictionary<int, string>
+        {
+            [0] = "display-message first",
+            [1] = "display-message second",
+        })
+        {
+            ClearExisting = true,
+        };
 
         Assert.Equal(3, entries.ToCommands(server.Hooks).Count);
 
@@ -1130,9 +1131,11 @@ public sealed class TmuxChainTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

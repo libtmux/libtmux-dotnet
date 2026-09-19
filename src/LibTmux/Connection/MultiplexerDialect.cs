@@ -85,8 +85,9 @@ internal abstract class MultiplexerDialect
                 result.StandardOutputLines,
                 out TmuxVersionBanner banner))
         {
-            throw new InvalidDataException(
-                "The multiplexer did not report a recognized version banner.");
+            throw new TmuxCommandException(
+                "The multiplexer did not report a recognized version banner.",
+                result);
         }
 
         AcceptBanner(banner);

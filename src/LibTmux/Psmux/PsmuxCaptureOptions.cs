@@ -32,9 +32,11 @@ public sealed class PsmuxCaptureOptions
     /// <summary>Gets whether wrapped screen rows are joined.</summary>
     public bool JoinWrappedLines { get; }
 
-    internal CapturePaneRequest ToRequest() => new(
-        startLine: StartLine,
-        endLine: EndLine,
-        escapeSequences: EscapeSequences,
-        joinWrappedLines: JoinWrappedLines);
+    internal CapturePaneRequest ToRequest() => new()
+    {
+        StartLine = StartLine,
+        EndLine = EndLine,
+        EscapeSequences = EscapeSequences,
+        JoinWrappedLines = JoinWrappedLines,
+    };
 }

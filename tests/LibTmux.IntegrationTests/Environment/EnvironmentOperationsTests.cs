@@ -106,9 +106,11 @@ public sealed class EnvironmentOperationsTests
         // shell's own start, and a pane that is not yet reading swallows what
         // it is sent.
         Window window = await session.CreateWindowAsync(
-            new NewWindowRequest(
-                name: "spawned",
-                command: "sh -c 'printf \"value=%s\\n\" \"$LIBTMUX_SEEN\"; sleep 30'"),
+            new NewWindowRequest
+            {
+                Name = "spawned",
+                Command = "sh -c 'printf \"value=%s\\n\" \"$LIBTMUX_SEEN\"; sleep 30'",
+            },
             token);
         Pane pane = await TestHierarchy.RequireFirstPaneAsync(window, token);
 
@@ -130,9 +132,11 @@ public sealed class EnvironmentOperationsTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

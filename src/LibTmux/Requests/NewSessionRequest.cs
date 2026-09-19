@@ -7,99 +7,77 @@ namespace LibTmux;
 /// Every flag is explicit rather than inferred, so the argv tmux receives is
 /// readable from the call site instead of assembled by hidden defaults.
 /// </remarks>
-public sealed record NewSessionRequest
+public sealed record NewSessionRequest : ITmuxRequest<Server>
 {
-    /// <summary>Initializes a session-creation request.</summary>
-    /// <param name="name">The session name, or null to let tmux choose.</param>
-    /// <param name="replaceExisting">Whether a session of the same name is removed first.</param>
-    /// <param name="attach">Whether the new session is attached rather than detached.</param>
-    /// <param name="startDirectory">The working directory for the first pane.</param>
-    /// <param name="windowName">The name of the first window.</param>
-    /// <param name="command">The command the first pane runs.</param>
-    /// <param name="width">The requested width.</param>
-    /// <param name="height">The requested height.</param>
-    /// <param name="environment">Environment entries set on the session.</param>
-    /// <param name="detachOthers">Whether other clients are detached on attach.</param>
-    /// <param name="noSize">Whether tmux may ignore the requested size.</param>
-    /// <param name="clientFlags">Comma-separated client flags passed with <c>-f</c>.</param>
-    public NewSessionRequest(
-        string? name = null,
-        bool replaceExisting = false,
-        bool attach = false,
-        string? startDirectory = null,
-        string? windowName = null,
-        string? command = null,
-        string? width = null,
-        string? height = null,
-        IReadOnlyDictionary<string, string>? environment = null,
-        bool detachOthers = false,
-        bool noSize = false,
-        string? clientFlags = null)
-    {
-        Name = name;
-        ReplaceExisting = replaceExisting;
-        Attach = attach;
-        StartDirectory = startDirectory;
-        WindowName = windowName;
-        Command = command;
-        Width = width;
-        Height = height;
-        // The request is read again at dispatch, so a caller that kept the
-        // dictionary could otherwise change the argv after constructing it.
-        Environment = environment is null
-            ? null
-            : new ReadOnlyDictionary<string, string>(
-                new Dictionary<string, string>(environment, StringComparer.Ordinal));
-        DetachOthers = detachOthers;
-        NoSize = noSize;
-        ClientFlags = clientFlags;
-    }
+    private readonly IReadOnlyDictionary<string, string>? _environment;
 
     /// <summary>Gets the session name, or null to let tmux choose.</summary>
     /// <remarks>
     /// tmux expands the name as a format, so a <c>#</c> in it does not survive
     /// verbatim.
     /// </remarks>
-    public string? Name { get; }
+    public string? Name { get; init; }
 
     /// <summary>Gets whether a session of the same name is removed first.</summary>
-    public bool ReplaceExisting { get; }
+    public bool ReplaceExisting { get; init; }
 
     /// <summary>Gets whether the new session is attached rather than detached.</summary>
-    public bool Attach { get; }
+    public bool Attach { get; init; }
 
     /// <summary>Gets the working directory for the first pane.</summary>
     /// <remarks>
     /// tmux expands it as a format before it changes directory, so a <c>#</c>
     /// in it does not survive verbatim.
     /// </remarks>
-    public string? StartDirectory { get; }
+    public string? StartDirectory { get; init; }
 
     /// <summary>Gets the name of the first window.</summary>
     /// <remarks>
     /// tmux expands it as a format before it names anything, so a <c>#</c> in
     /// it does not survive verbatim.
     /// </remarks>
-    public string? WindowName { get; }
+    public string? WindowName { get; init; }
 
     /// <summary>Gets the command the first pane runs.</summary>
-    public string? Command { get; }
+    public string? Command { get; init; }
 
     /// <summary>Gets the requested width.</summary>
-    public string? Width { get; }
+    public string? Width { get; init; }
 
     /// <summary>Gets the requested height.</summary>
-    public string? Height { get; }
+    public string? Height { get; init; }
 
     /// <summary>Gets the environment entries set on the session.</summary>
-    public IReadOnlyDictionary<string, string>? Environment { get; }
+    public IReadOnlyDictionary<string, string>? Environment
+    {
+        get => _environment;
+
+        // The request is read again at dispatch, so a caller that kept the
+        // dictionary could otherwise change the argv after building it.
+        init => _environment = value is null
+            ? null
+            : new ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string>(value, StringComparer.Ordinal));
+    }
 
     /// <summary>Gets whether other clients are detached on attach.</summary>
-    public bool DetachOthers { get; }
+    public bool DetachOthers { get; init; }
 
     /// <summary>Gets whether tmux may ignore the requested size.</summary>
-    public bool NoSize { get; }
+    public bool NoSize { get; init; }
 
     /// <summary>Gets the comma-separated client flags passed with <c>-f</c>.</summary>
-    public string? ClientFlags { get; }
+    public string? ClientFlags { get; init; }
+
+    /// <summary>Returns a session request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildNewSessionArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

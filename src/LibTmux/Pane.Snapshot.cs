@@ -19,21 +19,18 @@ public sealed partial class Pane
     public bool AtRight => ReadSnapshot("pane_at_right") == "1";
 
     /// <summary>Gets the pane height captured with this handle.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The pane was resolved by identifier rather than materialized.
-    /// </exception>
     public int Height => ReadCapturedInt("pane_height", "height");
 
     /// <summary>Gets the pane width captured with this handle.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The pane was resolved by identifier rather than materialized.
-    /// </exception>
     public int Width => ReadCapturedInt("pane_width", "width");
 
+    /// <summary>Gets the pane's left offset, in cells, from its window's edge.</summary>
+    public int Left => ReadCapturedInt("pane_left", "left");
+
+    /// <summary>Gets the pane's top offset, in cells, from its window's edge.</summary>
+    public int Top => ReadCapturedInt("pane_top", "top");
+
     /// <summary>Gets the index this pane holds in its window.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The pane was resolved by identifier rather than materialized.
-    /// </exception>
     public int Index => ReadCapturedInt("pane_index", "index");
 
     /// <summary>Gets the pane title captured with this handle.</summary>

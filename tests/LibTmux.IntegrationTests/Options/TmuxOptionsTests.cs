@@ -22,10 +22,10 @@ public sealed class TmuxOptionsTests
 
         // A value set globally is not in the session's own table, and shows up
         // there only when inherited values are asked for.
-        await session.Options.SetAsync(new SetOptionRequest("status-keys", "vi", global: true), token);
-        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("status-keys", quiet: true), token));
+        await session.Options.SetAsync(new SetOptionRequest("status-keys", "vi") { Global = true }, token);
+        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("status-keys") { Quiet = true }, token));
         IReadOnlyList<TmuxOption> inherited = await session.Options.GetAsync(
-            new GetOptionRequest("status-keys", includeInherited: true),
+            new GetOptionRequest("status-keys") { IncludeInherited = true },
             token);
         Assert.Equal("vi", Assert.Single(inherited).Value.Raw);
 
@@ -40,7 +40,7 @@ public sealed class TmuxOptionsTests
         Assert.Equal(
             "vi",
             Assert.Single(await session.Options.GetAsync(
-                    new GetOptionRequest("status-keys", includeInherited: true),
+                    new GetOptionRequest("status-keys") { IncludeInherited = true },
                     token))
                 .Value.Raw);
 
@@ -73,7 +73,7 @@ public sealed class TmuxOptionsTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window first = await TestHierarchy.RequireFirstWindowAsync(session, token);
-        Window second = await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        Window second = await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
         Pane pane = (await first.GetPanesAsync(token))[0];
 
         // Each accessor knows the table it stands for without being told.
@@ -89,36 +89,36 @@ public sealed class TmuxOptionsTests
             "first",
             Assert.Single(await first.Options.GetAsync(new GetOptionRequest("@marker"), token))
                 .Value.Raw);
-        Assert.Empty(await second.Options.GetAsync(new GetOptionRequest("@marker", quiet: true), token));
+        Assert.Empty(await second.Options.GetAsync(new GetOptionRequest("@marker") { Quiet = true }, token));
 
         // A request may name a scope other than the accessor's own, which is
         // how a session reaches the global table it inherits from.
         await session.Options.SetAsync(
-            new SetOptionRequest("@shared", "everywhere", global: true),
+            new SetOptionRequest("@shared", "everywhere") { Global = true },
             token);
         Assert.Equal(
             "everywhere",
             Assert.Single(await session.Options.GetAsync(
-                    new GetOptionRequest("@shared", global: true),
+                    new GetOptionRequest("@shared") { Global = true },
                     token))
                 .Value.Raw);
 
         // Unsetting removes the entry rather than blanking it.
         await session.Options.UnsetAsync(
-            new UnsetOptionRequest("@shared", global: true),
+            new UnsetOptionRequest("@shared") { Global = true },
             token);
         Assert.Empty(await session.Options.GetAsync(
-            new GetOptionRequest("@shared", global: true, quiet: true),
+            new GetOptionRequest("@shared") { Global = true, Quiet = true },
             token));
 
         // Hooks live beside options and appear only when asked for.
         await raw.ExecuteAsync(["set-hook", "-g", "alert-bell", "display-message 'rang'"], token);
         IReadOnlyList<TmuxOption> withHooks = await session.Options.GetAllAsync(
-            new GetOptionsRequest(global: true, includeHooks: true),
+            new GetOptionsRequest { Global = true, IncludeHooks = true },
             token);
         Assert.Contains(withHooks, option => option.Name == "alert-bell");
         Assert.DoesNotContain(
-            await session.Options.GetAllAsync(new GetOptionsRequest(global: true), token),
+            await session.Options.GetAllAsync(new GetOptionsRequest { Global = true }, token),
             option => option.Name == "alert-bell");
     }
 
@@ -146,7 +146,7 @@ public sealed class TmuxOptionsTests
         // Appending joins the existing value rather than replacing it.
         await session.Options.SetAsync(new SetOptionRequest("@joined", "left"), token);
         TmuxOptionValue joined = await session.Options.SetAsync(
-            new SetOptionRequest("@joined", "-right", append: true),
+            new SetOptionRequest("@joined", "-right") { Append = true },
             token);
         Assert.Equal("left-right", joined.Raw);
 
@@ -154,7 +154,7 @@ public sealed class TmuxOptionsTests
         // that the option is already set and leaves it alone.
         TmuxOptionException occupied = await Assert.ThrowsAsync<TmuxOptionException>(
             () => session.Options.SetAsync(
-                new SetOptionRequest("@joined", "ignored", preventOverwrite: true),
+                new SetOptionRequest("@joined", "ignored") { PreventOverwrite = true },
                 token));
         Assert.Contains("already set", occupied.Message, StringComparison.Ordinal);
         Assert.Equal(
@@ -165,7 +165,7 @@ public sealed class TmuxOptionsTests
         // A format is expanded before it is stored, so the value that lands is
         // not the one that was sent.
         TmuxOptionValue expanded = await session.Options.SetAsync(
-            new SetOptionRequest("@expanded", "#{session_name}", expandFormat: true),
+            new SetOptionRequest("@expanded", "#{session_name}") { ExpandFormat = true },
             token);
         Assert.Equal(session.Name, expanded.Raw);
 
@@ -226,7 +226,7 @@ public sealed class TmuxOptionsTests
 
         // Asking quietly turns a missing option into no rows instead.
         Assert.Empty(await session.Options.GetAsync(
-            new GetOptionRequest("@never-set", quiet: true),
+            new GetOptionRequest("@never-set") { Quiet = true },
             token));
 
         // A name that is not a name never reaches tmux at all.
@@ -274,7 +274,7 @@ public sealed class TmuxOptionsTests
             await window.Options.GetAllAsync(cancellationToken: token));
         Assert.Equal("automatic-rename", only.Name);
         IReadOnlyList<TmuxOption> inherited = await window.Options.GetAllAsync(
-            new GetOptionsRequest(includeInherited: true),
+            new GetOptionsRequest { IncludeInherited = true },
             token);
         Assert.Contains(inherited, entry => entry.Name == "automatic-rename");
         Assert.True(inherited.Count > 1);
@@ -282,10 +282,12 @@ public sealed class TmuxOptionsTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
     [UnixFact]
     public async Task A_dollar_sign_survives_the_option_round_trip()
@@ -315,4 +317,34 @@ public sealed class TmuxOptionsTests
 
         Assert.Equal(@"a\$b", escaped.Value.Raw);
     }
+
+    [UnixFact]
+    public async Task A_dollar_sign_survives_the_round_trip_from_an_unmaterialized_owner()
+    {
+        // CreateOwnedAsync hands back a handle that never materializes, even
+        // after a session exists through it, so Options must discover the
+        // dollar-escaping answer fresh rather than freeze it from the
+        // handle's own permanently null Version -- wrong on tmux 3.4.
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using OwnedServerScope owned = await Server.CreateOwnedAsync(
+            IsolatedOptions(),
+            token);
+        await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "main" }, token);
+        Assert.False(owned.Value.IsMaterialized);
+
+        await owned.Value.Options.SetAsync(new SetOptionRequest("@dollar", "a$b"), token);
+        TmuxOption plain = (await owned.Value.Options.GetAsync(
+            new GetOptionRequest("@dollar"),
+            token))[0];
+
+        Assert.Equal("a$b", plain.Value.Raw);
+    }
+
+    private static ServerConnectionOptions IsolatedOptions() =>
+        new()
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltcs-options-{Guid.NewGuid():N}",
+            ConfigurationFile = "/dev/null",
+        };
 }

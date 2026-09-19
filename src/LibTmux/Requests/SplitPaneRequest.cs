@@ -1,138 +1,133 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 
 namespace LibTmux;
 
 /// <summary>Describes one <c>split-window</c> invocation.</summary>
-public sealed record SplitPaneRequest
+/// <remarks>
+/// Every option is set through an initializer rather than a constructor
+/// argument. tmux gains flags, and a constructor that grew one would break
+/// every caller already compiled against the old signature; a property added
+/// beside these does not.
+/// </remarks>
+public sealed record SplitPaneRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a pane-split request.</summary>
-    /// <param name="target">The pane to split, or null for the active one.</param>
-    /// <param name="startDirectory">The working directory for the new pane.</param>
-    /// <param name="attach">Whether the new pane becomes active.</param>
-    /// <param name="direction">Where the new pane goes.</param>
-    /// <param name="fullWindow">Whether the split spans the whole window.</param>
-    /// <param name="zoom">Whether the new pane is zoomed.</param>
-    /// <param name="command">The command the new pane runs.</param>
-    /// <param name="size">An explicit size in cells.</param>
-    /// <param name="percentage">A size as a percentage of the window.</param>
-    /// <param name="environment">Environment entries set on the new pane.</param>
-    /// <param name="empty">Whether the pane starts with no command.</param>
-    /// <param name="style">The pane style.</param>
-    /// <param name="activeBorderStyle">The border style while the pane is active.</param>
-    /// <param name="inactiveBorderStyle">The border style while it is not.</param>
-    /// <param name="message">A message shown in the pane.</param>
-    /// <param name="keepOpen">Whether the pane stays after its command exits.</param>
-    /// <exception cref="ArgumentException">
-    /// Both <paramref name="size" /> and <paramref name="percentage" /> are set.
-    /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="percentage" /> is outside 1 to 100.
-    /// </exception>
-    public SplitPaneRequest(
-        string? target = null,
-        string? startDirectory = null,
-        bool attach = false,
-        PaneDirection? direction = null,
-        bool fullWindow = false,
-        bool zoom = false,
-        string? command = null,
-        string? size = null,
-        int? percentage = null,
-        IReadOnlyDictionary<string, string>? environment = null,
-        bool empty = false,
-        string? style = null,
-        string? activeBorderStyle = null,
-        string? inactiveBorderStyle = null,
-        string? message = null,
-        bool keepOpen = false)
-    {
-        if (size is not null && percentage is not null)
-        {
-            throw new ArgumentException(
-                "A split is sized in cells or as a percentage, not both.",
-                nameof(percentage));
-        }
-
-        if (percentage is int share && share is < 1 or > 100)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(percentage),
-                share,
-                "A percentage runs from 1 to 100.");
-        }
-
-        Target = target;
-        StartDirectory = startDirectory;
-        Attach = attach;
-        Direction = direction;
-        FullWindow = fullWindow;
-        Zoom = zoom;
-        Command = command;
-        Size = size;
-        Percentage = percentage;
-        // The request is read again at dispatch, so a caller that kept the
-        // dictionary could otherwise change the argv after constructing it.
-        Environment = environment is null
-            ? null
-            : new ReadOnlyDictionary<string, string>(
-                new Dictionary<string, string>(environment, StringComparer.Ordinal));
-        Empty = empty;
-        Style = style;
-        ActiveBorderStyle = activeBorderStyle;
-        InactiveBorderStyle = inactiveBorderStyle;
-        Message = message;
-        KeepOpen = keepOpen;
-    }
+    private readonly int? _percentage;
+    private readonly IReadOnlyDictionary<string, string>? _environment;
 
     /// <summary>Gets the pane to split, or null for the active one.</summary>
-    public string? Target { get; }
+    public string? Target { get; init; }
 
     /// <summary>Gets the working directory for the new pane.</summary>
     /// <remarks>
     /// tmux expands it as a format before it changes directory, so a <c>#</c>
     /// in it does not survive verbatim.
     /// </remarks>
-    public string? StartDirectory { get; }
+    public string? StartDirectory { get; init; }
 
     /// <summary>Gets whether the new pane becomes active.</summary>
-    public bool Attach { get; }
+    public bool Attach { get; init; }
 
     /// <summary>Gets where the new pane goes.</summary>
-    public PaneDirection? Direction { get; }
+    public PaneDirection? Direction { get; init; }
 
     /// <summary>Gets whether the split spans the whole window.</summary>
-    public bool FullWindow { get; }
+    public bool FullWindow { get; init; }
 
     /// <summary>Gets whether the new pane is zoomed.</summary>
-    public bool Zoom { get; }
+    public bool Zoom { get; init; }
 
     /// <summary>Gets the command the new pane runs.</summary>
-    public string? Command { get; }
+    public string? Command { get; init; }
 
     /// <summary>Gets the explicit size in cells.</summary>
-    public string? Size { get; }
+    public string? Size { get; init; }
 
     /// <summary>Gets the size as a percentage of the window.</summary>
-    public int? Percentage { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The value is outside 1 to 100.</exception>
+    public int? Percentage
+    {
+        get => _percentage;
+        init
+        {
+            if (value is int share && share is < 1 or > 100)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(Percentage),
+                    share,
+                    "A percentage runs from 1 to 100.");
+            }
+
+            _percentage = value;
+        }
+    }
 
     /// <summary>Gets the environment entries set on the new pane.</summary>
-    public IReadOnlyDictionary<string, string>? Environment { get; }
+    public IReadOnlyDictionary<string, string>? Environment
+    {
+        get => _environment;
+
+        // The request is read again at dispatch, so a caller that kept the
+        // dictionary could otherwise change the argv after building it.
+        init => _environment = value is null
+            ? null
+            : new ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string>(value, StringComparer.Ordinal));
+    }
 
     /// <summary>Gets whether the pane starts with no command.</summary>
-    public bool Empty { get; }
+    public bool Empty { get; init; }
 
     /// <summary>Gets the pane style.</summary>
-    public string? Style { get; }
+    public string? Style { get; init; }
 
     /// <summary>Gets the border style while the pane is active.</summary>
-    public string? ActiveBorderStyle { get; }
+    public string? ActiveBorderStyle { get; init; }
 
-    /// <summary>Gets the border style while the pane is not active.</summary>
-    public string? InactiveBorderStyle { get; }
+    /// <summary>Gets the border style while it is not.</summary>
+    public string? InactiveBorderStyle { get; init; }
 
     /// <summary>Gets the message shown in the pane.</summary>
-    public string? Message { get; }
+    public string? Message { get; init; }
 
     /// <summary>Gets whether the pane stays after its command exits.</summary>
-    public bool KeepOpen { get; }
+    public bool KeepOpen { get; init; }
+
+    /// <summary>Resolves the one size tmux is given, refusing two answers.</summary>
+    /// <returns>The <c>-l</c> argument, or null when no size was asked for.</returns>
+    /// <exception cref="ArgumentException">Both a size and a percentage are set.</exception>
+    /// <remarks>
+    /// Initializers cannot check one property against another, so the pairing
+    /// is settled where the value is derived. Every caller that sends a split
+    /// needs this value, so none can reach tmux having skipped the check.
+    /// tmux 3.4 misreads <c>-p</c>, so a percentage rides <c>-l</c> instead,
+    /// which every supported version accepts.
+    /// </remarks>
+    internal string? ResolveSize() =>
+        Size is not null && Percentage is not null
+            ? throw new ArgumentException(
+                "A split is sized in cells or as a percentage, not both.",
+                nameof(Percentage))
+            : Percentage is int share
+                ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
+                : Size;
+
+    /// <summary>Returns a split request as one tmux command.</summary>
+    /// <param name="pane">The pane being split.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <remarks>
+    /// Splitting into an empty pane arrived in tmux 3.7 and the appearance
+    /// flags in 3.6, so the pane decides which of them the built command
+    /// carries. It prints the new pane's identifier the same way the one-shot
+    /// path does.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildSplitArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

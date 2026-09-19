@@ -4,13 +4,13 @@ using LibTmux.Internal;
 
 namespace LibTmux;
 
-// Session listings preserve historical any-failure leniency; window and pane
-// listings tolerate only a missing daemon or socket.
 public sealed partial class Server
 {
     /// <summary>Reads every session on this server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>The sessions, empty when the listing fails.</returns>
+    /// <returns>The sessions reported by a successful read.</returns>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public Task<IReadOnlyList<Session>> GetSessionsAsync(
         CancellationToken cancellationToken = default) =>
@@ -18,30 +18,22 @@ public sealed partial class Server
             "list-sessions",
             [],
             static (owner, row) => RelationReader.ToSession(owner, row),
-            LenientListPolicy.AnyFailure,
-            cancellationToken);
-
-    [UnsupportedOSPlatform("windows")]
-    internal Task<IReadOnlyList<Session>> GetSessionsStrictAsync(
-        CancellationToken cancellationToken = default) =>
-        ListAsync(
-            "list-sessions",
-            [],
-            static (owner, row) => RelationReader.ToSession(owner, row),
-            LenientListPolicy.None,
             cancellationToken);
 
     /// <summary>Reads every session with at least one attached client.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>The attached sessions, empty when the listing fails.</returns>
+    /// <returns>The attached sessions reported by a successful read.</returns>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Session>> GetAttachedSessionsAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await ListRowsAsync(
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader.ListAsync(
+                owner,
                 "list-sessions",
                 [],
-                LenientListPolicy.AnyFailure,
                 cancellationToken)
             .ConfigureAwait(false);
         return
@@ -50,13 +42,15 @@ public sealed partial class Server
                 .Where(static row => row.TryGetValue("session_attached", out string? value)
                     && value is not null
                     && value != "0")
-                .Select(row => RelationReader.ToSession(this, row)),
+                .Select(row => RelationReader.ToSession(owner, row)),
         ];
     }
 
     /// <summary>Reads every window on this server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>The windows, empty when no daemon or socket is present.</returns>
+    /// <returns>The windows reported by a successful read.</returns>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public Task<IReadOnlyList<Window>> GetWindowsAsync(
         CancellationToken cancellationToken = default) =>
@@ -64,22 +58,13 @@ public sealed partial class Server
             "list-windows",
             ["-a"],
             static (owner, row) => RelationReader.ToWindow(owner, row),
-            LenientListPolicy.MissingDaemonOrSocket,
-            cancellationToken);
-
-    [UnsupportedOSPlatform("windows")]
-    internal Task<IReadOnlyList<Window>> GetWindowsStrictAsync(
-        CancellationToken cancellationToken = default) =>
-        ListAsync(
-            "list-windows",
-            ["-a"],
-            static (owner, row) => RelationReader.ToWindow(owner, row),
-            LenientListPolicy.None,
             cancellationToken);
 
     /// <summary>Reads every pane on this server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>The panes, empty when no daemon or socket is present.</returns>
+    /// <returns>The panes reported by a successful read.</returns>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public Task<IReadOnlyList<Pane>> GetPanesAsync(
         CancellationToken cancellationToken = default) =>
@@ -87,17 +72,6 @@ public sealed partial class Server
             "list-panes",
             ["-a"],
             static (owner, row) => RelationReader.ToPane(owner, row),
-            LenientListPolicy.MissingDaemonOrSocket,
-            cancellationToken);
-
-    [UnsupportedOSPlatform("windows")]
-    internal Task<IReadOnlyList<Pane>> GetPanesStrictAsync(
-        CancellationToken cancellationToken = default) =>
-        ListAsync(
-            "list-panes",
-            ["-a"],
-            static (owner, row) => RelationReader.ToPane(owner, row),
-            LenientListPolicy.None,
             cancellationToken);
 
     [UnsupportedOSPlatform("windows")]
@@ -105,66 +79,20 @@ public sealed partial class Server
         string listCommand,
         IReadOnlyList<string> extraArguments,
         Func<Server, IReadOnlyDictionary<string, string?>, T> project,
-        LenientListPolicy policy,
         CancellationToken cancellationToken)
     {
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
         IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-            await ListRowsAsync(listCommand, extraArguments, policy, cancellationToken)
+            await RelationReader.ListAsync(owner, listCommand, extraArguments, cancellationToken)
                 .ConfigureAwait(false);
-        return [.. rows.Select(row => project(this, row))];
+        return [.. rows.Select(row => project(owner, row))];
     }
 
+    // An endpoint that has not found a live server yet -- the one
+    // CreateOwnedAsync and a testing scope hand back -- discovers it first, as
+    // CaptureSnapshotAsync does. The objects it lists carry the discovered
+    // handle, so their own relations read without discovering again.
     [UnsupportedOSPlatform("windows")]
-    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> ListRowsAsync(
-        string listCommand,
-        IReadOnlyList<string> extraArguments,
-        LenientListPolicy policy,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await RelationReader
-                .ListAsync(this, listCommand, extraArguments, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        // Matches Python libtmux's leniency for a missing daemon or socket. A
-        // handle that never captured a version throws InvalidOperationException,
-        // which this catch does not see, so it always propagates.
-        catch (LibTmuxException error) when (policy.Tolerates(error))
-        {
-            return [];
-        }
-    }
-
-    private sealed class LenientListPolicy
-    {
-        private readonly bool _anyFailure;
-        private readonly bool _missingDaemonOrSocket;
-
-        private LenientListPolicy(bool anyFailure, bool missingDaemonOrSocket)
-        {
-            _anyFailure = anyFailure;
-            _missingDaemonOrSocket = missingDaemonOrSocket;
-        }
-
-        internal static LenientListPolicy AnyFailure { get; } =
-            new(anyFailure: true, missingDaemonOrSocket: true);
-
-        internal static LenientListPolicy MissingDaemonOrSocket { get; } =
-            new(anyFailure: false, missingDaemonOrSocket: true);
-
-        internal static LenientListPolicy None { get; } =
-            new(anyFailure: false, missingDaemonOrSocket: false);
-
-        internal bool Tolerates(LibTmuxException error) =>
-            _anyFailure || (_missingDaemonOrSocket && IsMissingDaemonOrSocket(error));
-
-        private static bool IsMissingDaemonOrSocket(LibTmuxException error) =>
-            error is TmuxCommandNotFoundException
-            || (error is TmuxCommandException command
-                && command.Result.StandardErrorLines.Any(static line =>
-                    line.Contains("no server running", StringComparison.Ordinal)
-                    || line.Contains("error connecting to", StringComparison.Ordinal)
-                    || line.Contains("No such file or directory", StringComparison.Ordinal)));
-    }
+    private async Task<Server> ListingOwnerAsync(CancellationToken cancellationToken) =>
+        IsMaterialized ? this : await ConnectAsync(cancellationToken).ConfigureAwait(false);
 }

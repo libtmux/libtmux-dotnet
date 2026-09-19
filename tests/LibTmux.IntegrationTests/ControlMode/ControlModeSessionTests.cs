@@ -299,6 +299,161 @@ public sealed class ControlModeSessionTests
     }
 
     [UnixFact]
+    public async Task An_exit_from_a_server_killed_underneath_the_client_names_no_reason()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+
+        // tmux sends a bare %exit, with no reason text, for a server another
+        // client killed out from under this one, so TmuxExitEvent.Reason is
+        // null here -- tmux's own silence, not a capture gap.
+        Server second = await ConnectAsync(raw, token);
+        await second.KillAsync(token);
+
+        List<TmuxEvent> observed = [];
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        await foreach (TmuxEvent item in control.Events.WithCancellation(timeout.Token))
+        {
+            observed.Add(item);
+        }
+
+        TmuxExitEvent exit = Assert.IsType<TmuxExitEvent>(observed[^1]);
+        Assert.Null(exit.Reason);
+        await control.DisposeAsync();
+    }
+
+    [UnixFact]
+    public async Task Layout_change_notifications_agree_with_a_plain_clients_layout_format()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Window window = (await server.GetWindowsAsync(token))[0];
+
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+        await using IAsyncEnumerator<TmuxEvent> events = control.Events.GetAsyncEnumerator(token);
+
+        await window.SplitPaneAsync(cancellationToken: token);
+
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        TmuxNotificationEvent? layoutChange = null;
+        while (layoutChange is null
+            && await events.MoveNextAsync().AsTask().WaitAsync(timeout.Token))
+        {
+            if (events.Current is TmuxNotificationEvent notification
+                && notification.Name == "layout-change"
+                && notification.Arguments.Count > 1
+                && notification.Arguments[0] == window.Id.ToString())
+            {
+                layoutChange = notification;
+            }
+        }
+
+        TmuxNotificationEvent found = layoutChange
+            ?? throw new InvalidOperationException("No layout-change notification for this window arrived.");
+        string notifiedLayout = found.Arguments[1];
+
+        // Without requesting JSON layouts on connect, a control client keeps
+        // tmux's classic %layout-change form on 3.8+ even where a plain
+        // client's snapshot reads JSON (the shape the Go and TypeScript
+        // ports also measured). EnterControlModeAsync now requests it.
+        bool jsonLayoutsKnown = server.Version!.Value >= TmuxVersion.Parse("3.8");
+        Assert.Equal(jsonLayoutsKnown, notifiedLayout.StartsWith('{'));
+        Window read = await window.RefreshAsync(token);
+        Assert.Equal(read.Layout.StartsWith('{'), notifiedLayout.StartsWith('{'));
+    }
+
+    [UnixFact]
+    public async Task SubscribeSessionAsync_fires_on_every_supported_version()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+
+        // tmux 3.8 tightened session-scoped subscription targets: the
+        // natural-looking name:$0:format form silently stops firing there.
+        // SubscribeSessionAsync always renders the empty session field
+        // instead; reverting to name:$0:format fails only against next-3.9.
+        await control.SubscribeSessionAsync("probe", "session_windows", token);
+        await using IAsyncEnumerator<TmuxEvent> events = control.Events.GetAsyncEnumerator(token);
+
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "subscribe-probe" }, token);
+
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        bool fired = false;
+        while (!fired && await events.MoveNextAsync().AsTask().WaitAsync(timeout.Token))
+        {
+            fired = events.Current is TmuxNotificationEvent notification
+                && notification.Name == "subscription-changed"
+                && notification.Arguments.Count > 0
+                && notification.Arguments[0] == "probe";
+        }
+
+        Assert.True(fired, "subscription-changed for 'probe' never arrived");
+    }
+
+    [UnixFact]
+    public async Task WatchAsync_ends_cleanly_and_typed_when_the_observed_pane_is_killed()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window window = await session.CreateWindowAsync(
+            new NewWindowRequest { Name = "pane-observation" },
+            token);
+        Pane victim = await window.SplitPaneAsync(cancellationToken: token);
+
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            cancellationToken: token);
+
+        using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        var observed = new List<TmuxEvent>();
+        Task watch = Task.Run(
+            async () =>
+            {
+                await foreach (TmuxEvent item in control.WatchAsync(victim, timeout.Token))
+                {
+                    observed.Add(item);
+                }
+            },
+            timeout.Token);
+
+        await victim.KillAsync(cancellationToken: token);
+
+        // tmux's control protocol has no dedicated pane-died notification,
+        // only a %layout-change for the window the pane left, so a per-pane
+        // watch must end cleanly and typed on its own -- never hanging, and
+        // never surfacing the generic event for a consumer to interpret.
+        await watch.WaitAsync(timeout.Token);
+        Assert.NotEmpty(observed);
+        TmuxPaneGoneEvent gone = Assert.IsType<TmuxPaneGoneEvent>(observed[^1]);
+        Assert.Equal(victim.Id, gone.PaneId);
+
+        // Everything before the terminal event is this pane's own output,
+        // never another pane's and never a raw notification the caller would
+        // have had to interpret.
+        Assert.All(
+            observed.Take(observed.Count - 1),
+            item => Assert.Equal(victim.Id, Assert.IsType<TmuxOutputEvent>(item).PaneId));
+    }
+
+    [UnixFact]
     public async Task A_killed_control_client_faults_without_an_exit_event()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -400,10 +555,12 @@ public sealed class ControlModeSessionTests
                 """;
             await WriteExecutableAsync(wrapper, script, token);
 
-            Server server = Server.Open(new ServerConnectionOptions(
-                tmuxBinaryPath: wrapper,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"));
+            Server server = Server.Open(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = wrapper,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            });
             startup = server.EnterControlModeAsync(cancellationToken: token);
 
             StaleServerGenerationException error =
@@ -454,10 +611,12 @@ public sealed class ControlModeSessionTests
                 TestContext.Current.CancellationToken);
 
             Server server = await Server.ConnectAsync(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: wrapper,
-                    socketPath: raw.SocketPath,
-                    configurationFile: "/dev/null"),
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                },
                 TestContext.Current.CancellationToken);
             using var startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                 TestContext.Current.CancellationToken);
@@ -517,10 +676,12 @@ public sealed class ControlModeSessionTests
                 TestContext.Current.CancellationToken);
 
             Server server = await Server.ConnectAsync(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: wrapper,
-                    socketPath: raw.SocketPath,
-                    configurationFile: "/dev/null"),
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = wrapper,
+                    SocketPath = raw.SocketPath,
+                    ConfigurationFile = "/dev/null",
+                },
                 TestContext.Current.CancellationToken);
             using var startupBudget = CancellationTokenSource.CreateLinkedTokenSource(
                 TestContext.Current.CancellationToken);
@@ -540,10 +701,12 @@ public sealed class ControlModeSessionTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 
     private static async Task WriteExecutableAsync(

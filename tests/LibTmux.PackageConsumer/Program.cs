@@ -4,6 +4,7 @@ using LibTmux.Query;
 using LibTmux.Query.Json;
 using LibTmux.Testing;
 using LibTmux.Workspace;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LibTmux.PackageConsumer;
 
@@ -40,6 +41,18 @@ internal static class Program
         if (!workspaceParses)
         {
             return 1;
+        }
+
+        using (ServiceProvider provider = new ServiceCollection()
+            .AddLibTmux(options => options with { SocketName = "package-consumer" })
+            .BuildServiceProvider())
+        {
+            bool injected = provider.GetRequiredService<Server>() is { IsMaterialized: false };
+            Console.WriteLine($"dependency-injection {injected}");
+            if (!injected)
+            {
+                return 1;
+            }
         }
 
         if (args is ["--psmux"])
@@ -101,12 +114,29 @@ internal static class Program
     private static async Task<int> RunTmuxAsync()
     {
         TmuxTestFactory factory = new();
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"libtmux-pkg-{Guid.NewGuid():N}"[..24],
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = $"libtmux-pkg-{Guid.NewGuid():N}"[..24],
+                ConfigurationFile = "/dev/null",
+            });
 
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(options);
+
+        Server server = scope.Session.Server;
+        await server.ThrowIfDeadAsync();
+        Window read = await server.GetWindowAsync(scope.Window.Id);
+        Pane active = read.ActivePane.Value;
+        if (read.Name != scope.Window.Name
+            || read.Session.Name != scope.Session.Name
+            || read.Width <= 0
+            || active.Width <= 0
+            || active.Window.Name != read.Name
+            || await server.FindPaneAsync(new PaneId(int.MaxValue)) is not null
+            || await scope.Session.FindWindowAsync("not-created") is not null)
+        {
+            throw new InvalidOperationException("The packed lookup lost captured state or absence.");
+        }
 
         await scope.Pane.SendTextAsync("echo consumed-from-the-package");
         string text = await TmuxWait.UntilAsync(

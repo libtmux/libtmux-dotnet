@@ -1,6 +1,6 @@
 namespace LibTmux.Internal;
 
-internal readonly record struct TmuxTarget(string Value, SessionId? Session = null)
+internal readonly record struct TmuxTarget(string Value, SessionId? Session = null, int? Index = null)
 {
     internal static TmuxTarget From(SessionId id) => new(id.ToString());
 
@@ -13,9 +13,25 @@ internal readonly record struct TmuxTarget(string Value, SessionId? Session = nu
     /// A window linked into several sessions resolves from a bare identifier to
     /// whichever session tmux ranks best, which need not be the one a handle
     /// was read in. Naming the session keeps the answer where the caller is.
+    /// <para>
+    /// This still does not name one placement: a window linked twice into the
+    /// same session at different indexes carries one id for both, and tmux's
+    /// window-id target picks the session's current winlink for that window,
+    /// or else its lowest index, regardless of which placement a handle was
+    /// read at. Use the index overload wherever the placement itself matters.
+    /// </para>
     /// </remarks>
     internal static TmuxTarget In(SessionId session, WindowId id) =>
         new($"{session}:{id}", session);
+
+    /// <summary>Names a window by the index it holds inside one session.</summary>
+    /// <remarks>
+    /// A session's window index is unique per session, so this names one
+    /// placement even when the same window is linked into that session at
+    /// more than one index.
+    /// </remarks>
+    internal static TmuxTarget In(SessionId session, int windowIndex) =>
+        new($"{session}:{windowIndex}", session, windowIndex);
 
     /// <summary>Names a pane inside one session.</summary>
     /// <remarks>

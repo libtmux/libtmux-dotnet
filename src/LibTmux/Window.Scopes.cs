@@ -18,7 +18,7 @@ public sealed partial class Window
         _commandDispatcher,
         OptionScope.Window,
         _id.ToString(),
-        TmuxOptions.DoubleEscapesDollar(_owner),
+        _owner,
         _generation);
 
     private TmuxHooks? _hooks;

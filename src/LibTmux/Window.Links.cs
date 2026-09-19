@@ -8,13 +8,8 @@ public sealed partial class Window
 {
     /// <summary>Builds the arguments a link request sends.</summary>
     /// <remarks>
-    /// This stays on the window because the source of the link is the session
-    /// this handle was read through, which a window resolved by identifier
-    /// does not know.
+    /// The source names the session and index captured with this window.
     /// </remarks>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier, so its source link is unknown.
-    /// </exception>
     internal List<string> BuildLinkWindowArguments(LinkWindowRequest request)
     {
         List<string> arguments =
@@ -45,9 +40,6 @@ public sealed partial class Window
     /// <summary>Links this window into another session.</summary>
     /// <param name="request">Where the link goes.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The window was resolved by identifier, so its source link is unknown.
-    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Task LinkAsync(
         LinkWindowRequest request,

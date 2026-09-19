@@ -161,12 +161,12 @@ public sealed class TmuxHooks
         List<List<string>> commands = [];
         if (request.ClearExisting)
         {
-            commands.Add(BuildSetArguments(new SetHookRequest(
-                request.Name,
-                string.Empty,
-                request.Scope,
-                request.Global,
-                unset: true)));
+            commands.Add(BuildSetArguments(new SetHookRequest(request.Name, string.Empty)
+            {
+                Scope = request.Scope,
+                Global = request.Global,
+                Unset = true,
+            }));
         }
 
         foreach (KeyValuePair<int, string> entry in request.Values.OrderBy(static value => value.Key))
@@ -263,12 +263,12 @@ public sealed class TmuxHooks
         if (request.ClearExisting)
         {
             await sequence.MutateAsync(() => SetAsync(
-                new SetHookRequest(
-                    request.Name,
-                    string.Empty,
-                    request.Scope,
-                    request.Global,
-                    unset: true),
+                new SetHookRequest(request.Name, string.Empty)
+                {
+                    Scope = request.Scope,
+                    Global = request.Global,
+                    Unset = true,
+                },
                 cancellationToken))
                 .ConfigureAwait(false);
         }
@@ -455,7 +455,7 @@ public sealed class TmuxHooks
         // The name may carry an index, and what comes back is the whole hook.
         int bracket = name.IndexOf('[', StringComparison.Ordinal);
         string bare = bracket > 0 ? name[..bracket] : name;
-        TmuxHook? hook = await GetAsync(new HookRequest(bare, scope, global), cancellationToken)
+        TmuxHook? hook = await GetAsync(new HookRequest(bare) { Scope = scope, Global = global }, cancellationToken)
             .ConfigureAwait(false);
         return hook ?? new TmuxHook(bare, []);
     }

@@ -19,7 +19,7 @@ public enum QueryTarget
 }
 
 /// <summary>Names an ordering or equality comparison.</summary>
-public enum QueryComparison
+internal enum QueryComparison
 {
     /// <summary>Operands are equal.</summary>
     Equal = 0,
@@ -45,7 +45,7 @@ public enum QueryComparison
 /// tmux identifiers and names are byte strings, so culture-sensitive
 /// comparison would make a query's meaning depend on the caller's locale.
 /// </remarks>
-public enum QueryStringOperation
+internal enum QueryStringOperation
 {
     /// <summary>Ordinal equality.</summary>
     EqualsOrdinal = 0,
@@ -64,7 +64,7 @@ public enum QueryStringOperation
 }
 
 /// <summary>Names how a quantifier folds a relation.</summary>
-public enum QueryQuantifier
+internal enum QueryQuantifier
 {
     /// <summary>True when at least one child matches; false when empty.</summary>
     Any = 0,
@@ -74,45 +74,45 @@ public enum QueryQuantifier
 }
 
 /// <summary>One node of a translated query predicate.</summary>
-public abstract record QueryNode;
+internal abstract record QueryNode;
 
 /// <summary>One literal value in a query predicate.</summary>
-public abstract record QueryConstant;
+internal abstract record QueryConstant;
 
 /// <summary>The absence of a value.</summary>
-public sealed record NullConstant : QueryConstant;
+internal sealed record NullConstant : QueryConstant;
 
 /// <summary>A boolean literal.</summary>
 /// <param name="Value">The literal value.</param>
-public sealed record BooleanConstant(bool Value) : QueryConstant;
+internal sealed record BooleanConstant(bool Value) : QueryConstant;
 
 /// <summary>A 64-bit integer literal.</summary>
 /// <param name="Value">The literal value.</param>
-public sealed record Int64Constant(long Value) : QueryConstant;
+internal sealed record Int64Constant(long Value) : QueryConstant;
 
 /// <summary>A string literal.</summary>
 /// <param name="Value">The literal value.</param>
-public sealed record StringConstant(string Value) : QueryConstant;
+internal sealed record StringConstant(string Value) : QueryConstant;
 
 /// <summary>A typed tmux identifier literal.</summary>
 /// <param name="Target">The object the identifier names.</param>
 /// <param name="Value">The identifier text.</param>
-public sealed record TypedIdConstant(QueryTarget Target, string Value) : QueryConstant;
+internal sealed record TypedIdConstant(QueryTarget Target, string Value) : QueryConstant;
 
 /// <summary>A literal operand.</summary>
 /// <param name="Value">The literal.</param>
-public sealed record ConstantNode(QueryConstant Value) : QueryNode;
+internal sealed record ConstantNode(QueryConstant Value) : QueryNode;
 
 /// <summary>A tmux format field operand.</summary>
 /// <param name="Target">The object that owns the field.</param>
 /// <param name="WireName">The tmux format token name.</param>
-public sealed record FieldNode(QueryTarget Target, string WireName) : QueryNode;
+internal sealed record FieldNode(QueryTarget Target, string WireName) : QueryNode;
 
 /// <summary>An ordering or equality comparison.</summary>
 /// <param name="Operator">The comparison.</param>
 /// <param name="Left">The left operand.</param>
 /// <param name="Right">The right operand.</param>
-public sealed record ComparisonNode(
+internal sealed record ComparisonNode(
     QueryComparison Operator,
     QueryNode Left,
     QueryNode Right) : QueryNode;
@@ -121,7 +121,7 @@ public sealed record ComparisonNode(
 /// <param name="Operator">The string operation.</param>
 /// <param name="Left">The left operand.</param>
 /// <param name="Right">The right operand.</param>
-public sealed record StringNode(
+internal sealed record StringNode(
     QueryStringOperation Operator,
     QueryNode Left,
     QueryNode Right) : QueryNode;
@@ -131,7 +131,7 @@ public sealed record StringNode(
 /// <param name="Dialect">The regex dialect the pattern is written in.</param>
 /// <param name="Pattern">The constant pattern.</param>
 /// <param name="SemanticOptions">Options that change what the pattern means.</param>
-public sealed record RegexNode(
+internal sealed record RegexNode(
     QueryNode Input,
     string Dialect,
     string Pattern,
@@ -141,14 +141,14 @@ public sealed record RegexNode(
 /// <param name="Quantifier">How the relation is folded.</param>
 /// <param name="Relation">The relation field to fold.</param>
 /// <param name="Predicate">The predicate applied to each child.</param>
-public sealed record QuantifierNode(
+internal sealed record QuantifierNode(
     QueryQuantifier Quantifier,
     FieldNode Relation,
     QueryNode Predicate) : QueryNode;
 
 /// <summary>The negation of one predicate.</summary>
 /// <param name="Operand">The negated predicate.</param>
-public sealed record NotNode(QueryNode Operand) : QueryNode;
+internal sealed record NotNode(QueryNode Operand) : QueryNode;
 
 /// <summary>The conjunction of ordered operands.</summary>
 /// <remarks>
@@ -156,7 +156,7 @@ public sealed record NotNode(QueryNode Operand) : QueryNode;
 /// operands in a different order are different documents, because the
 /// wire form preserves order.
 /// </remarks>
-public sealed record AndNode : QueryNode
+internal sealed record AndNode : QueryNode
 {
     /// <summary>Initializes a conjunction.</summary>
     /// <param name="operands">The ordered operands.</param>
@@ -178,7 +178,7 @@ public sealed record AndNode : QueryNode
 
 /// <summary>The disjunction of ordered operands.</summary>
 /// <remarks>Operand order is part of the value, as for <see cref="AndNode" />.</remarks>
-public sealed record OrNode : QueryNode
+internal sealed record OrNode : QueryNode
 {
     /// <summary>Initializes a disjunction.</summary>
     /// <param name="operands">The ordered operands.</param>

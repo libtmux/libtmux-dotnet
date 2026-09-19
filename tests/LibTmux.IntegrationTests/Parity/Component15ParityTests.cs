@@ -45,10 +45,12 @@ public sealed class Component15ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await TestHierarchy.RequireFirstWindowAsync(session, token);
@@ -159,7 +161,7 @@ public sealed class Component15ParityTests
         Assert.Equal(0, Assert.Single(one.Values).Index);
 
         TmuxHook two = await server.Hooks.SetAsync(
-            new SetHookRequest("alert-bell", "display-message second", append: true),
+            new SetHookRequest("alert-bell", "display-message second") { Append = true },
             token);
         return two.Values.Select(entry => entry.Index).SequenceEqual([0, 1]);
     }
@@ -177,14 +179,14 @@ public sealed class Component15ParityTests
     {
         await server.Hooks.SetAsync(new SetHookRequest("alert-bell", "display-message stale"), token);
         TmuxHook hook = await server.Hooks.SetAsync(
-            new SetHooksRequest(
-                "alert-bell",
-                new Dictionary<int, string>
-                {
-                    [1] = "display-message second",
-                    [4] = "display-message fifth",
-                },
-                clearExisting: true),
+            new SetHooksRequest("alert-bell", new Dictionary<int, string>
+            {
+                [1] = "display-message second",
+                [4] = "display-message fifth",
+            })
+            {
+                ClearExisting = true,
+            },
             token);
 
         // Clearing first means the entry that was at index zero is gone, and
@@ -210,7 +212,7 @@ public sealed class Component15ParityTests
     {
         await server.Hooks.SetAsync(new SetHookRequest("alert-bell", "display-message rang"), token);
         IReadOnlyList<TmuxHook> hooks = await server.Hooks.GetAllAsync(
-            new ListHooksRequest(global: true),
+            new ListHooksRequest { Global = true },
             token);
         return hooks.Any(hook => hook.Name == "alert-bell");
     }
@@ -231,11 +233,7 @@ public sealed class Component15ParityTests
             token);
         // The hook writes into the global session table, which is not the
         // server table the server's own accessor reads.
-        GetOptionRequest written = new(
-            "@hook-ran",
-            OptionScope.Session,
-            global: true,
-            quiet: true);
+        GetOptionRequest written = new("@hook-ran") { Scope = OptionScope.Session, Global = true, Quiet = true };
         Assert.Empty(await server.Options.GetAsync(written, token));
 
         await server.Hooks.RunAsync(new HookRequest("alert-bell"), token);

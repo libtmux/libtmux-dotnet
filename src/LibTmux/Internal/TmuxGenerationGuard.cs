@@ -62,8 +62,9 @@ internal sealed class TmuxGenerationGuard(
                     grouped.StandardOutput);
             }
 
-            throw new InvalidDataException(
-                "tmux did not return a valid leading generation line.");
+            throw new TmuxCommandException(
+                "tmux did not return a valid leading generation line.",
+                grouped);
         }
 
         if (grouped.ExitCode == 1 && IsExactMarkerFailure(grouped.StandardError.Span, marker))
@@ -102,7 +103,7 @@ internal sealed class TmuxGenerationGuard(
         {
             generation = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(generationBytes));
         }
-        catch (InvalidDataException)
+        catch (LibTmuxException)
         {
             generation = default;
             remainingOutput = [];

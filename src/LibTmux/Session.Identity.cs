@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -8,21 +9,7 @@ public sealed partial class Session : IEquatable<Session>
 {
     private readonly SessionId _id;
     private readonly ServerGeneration _generation;
-    private readonly IReadOnlyDictionary<string, string?>? _snapshot;
-
-    [UnsupportedOSPlatform("windows")]
-    internal Session(
-        Server owner,
-        TmuxConnection connection,
-        ServerGeneration generation,
-        SessionId id)
-        : this(connection.CreateEntityDispatcher(generation), TmuxTarget.From(id).Value)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        _owner = owner;
-        _id = id;
-        _generation = generation;
-    }
+    private readonly FrozenDictionary<string, string?>? _snapshot;
 
     [UnsupportedOSPlatform("windows")]
     internal Session(
@@ -31,23 +18,19 @@ public sealed partial class Session : IEquatable<Session>
         ServerGeneration generation,
         SessionId id,
         IReadOnlyDictionary<string, string?> snapshot)
-        : this(owner, connection, generation, id)
+        : this(connection.CreateEntityDispatcher(generation), TmuxTarget.From(id).Value)
     {
+        ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(snapshot);
-        _snapshot = snapshot;
+        _owner = owner;
+        _id = id;
+        _generation = generation;
+        _snapshot = snapshot.ToFrozenDictionary(StringComparer.Ordinal);
     }
 
-    /// <summary>Gets the tmux fields captured when this handle materialized, or null when none were.</summary>
-    /// <remarks>
-    /// A handle resolved by identifier alone carries no snapshot, so callers
-    /// must ask whether one was captured rather than read empty fields.
-    /// </remarks>
     internal IReadOnlyDictionary<string, string?>? Snapshot => _snapshot;
 
     /// <summary>Gets the tmux fields captured when this handle materialized.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
     public IReadOnlyDictionary<string, string?> RawFormatFields =>
         _snapshot ?? throw new IncompleteSnapshotException("format fields", SnapshotDepth.Sessions);
 

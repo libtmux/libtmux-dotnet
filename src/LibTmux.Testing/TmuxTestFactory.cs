@@ -74,7 +74,7 @@ public sealed class TmuxTestFactory
             return await TemporarySessionScope
                 .StartAsync(
                     scope.Server,
-                    new NewSessionRequest(name: name),
+                    new NewSessionRequest { Name = name },
                     scope,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -108,7 +108,7 @@ public sealed class TmuxTestFactory
         return await TemporarySessionScope
             .StartAsync(
                 server,
-                new NewSessionRequest(name: name),
+                new NewSessionRequest { Name = name },
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
@@ -135,7 +135,7 @@ public sealed class TmuxTestFactory
             return await TemporaryWindowScope
                 .StartAsync(
                     session.Session,
-                    new NewWindowRequest(name: name),
+                    new NewWindowRequest { Name = name },
                     session,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -169,7 +169,7 @@ public sealed class TmuxTestFactory
         return await TemporaryWindowScope
             .StartAsync(
                 session,
-                new NewWindowRequest(name: name),
+                new NewWindowRequest { Name = name },
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }

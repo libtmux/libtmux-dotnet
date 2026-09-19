@@ -171,9 +171,8 @@ internal static class PaneReader
         CapturePaneRequest? request = start switch
         {
             null => null,
-            int.MinValue => new CapturePaneRequest(
-                startLine: CapturePanePosition.BeginningOfHistory),
-            int value => new CapturePaneRequest(startLine: new CapturePanePosition(value)),
+            int.MinValue => new CapturePaneRequest { StartLine = CapturePanePosition.BeginningOfHistory },
+            int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
         };
         return await pane.CaptureAsync(request, cancellationToken).ConfigureAwait(false);
     }

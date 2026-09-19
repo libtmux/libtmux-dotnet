@@ -12,9 +12,145 @@ version.
 
 ### Added
 
+**`LibTmux.Extensions.DependencyInjection`** registers a tmux handle with a
+service collection via `services.AddLibTmux()`. `Server` is a singleton,
+opened rather than connected, so nothing runs tmux until asked; options
+bind from `IOptions<ServerConnectionOptions>`. (#28)
+
+`ServerConnectionOptions.Interceptor` wraps every tmux invocation: call
+the continuation once to pass through, again to retry, or not at all to
+refuse or stand in for tmux; a control-mode client skips it. (#28)
+
+`TmuxProtocolException` reports an unreadable answer from tmux, carrying
+the dispatch state and, where captured, the unreadable text. (#28)
+
+`Pane.Left`, `Pane.Top`, and `Window.Layout` read captured offset and
+layout fields directly; previously reachable only through
+`RawFormatFields`. (#28)
+
+`PaneObservation.WatchAsync` ends a pane's event stream with a typed
+`TmuxPaneGoneEvent` once it's confirmed gone, rather than inferring a kill
+from the generic `%layout-change` tmux reports. `SubscribeSessionAsync`
+renders the empty-session `refresh-client -B` target tmux 3.8+ needs, and
+`EnterControlModeAsync` now requests JSON layouts on connect too. (#28)
+
+MCP `wait_for_text` reports a distinct `PresentAtEntry` outcome when a
+wanted pattern was already on screen before the wait began, rather than a
+`Timeout` whose own tail visibly contains the pattern it says it never
+found. (#28)
+
+`PaneId`, `WindowId`, and `SessionId` implement `IParsable<T>` and
+`ISpanParsable<T>`, reading a `ReadOnlySpan<char>` directly. (#28)
+
+`ServerConnectionOptions.CommandTimeout` bounds one tmux command,
+throwing `TmuxTransportException` on expiry. `MaxCapturedBytesPerStream`
+and `ControlModeEventBufferCapacity` cap capture cost and buffered
+control-mode events; all three are unset by default. (#28)
+
+`TmuxDiagnostics` names the activity source, meter, and duration
+histogram every tmux command is recorded on; pass the names to
+OpenTelemetry for a span and an elapsed-seconds measurement per command,
+free when nothing is listening. (#28)
+
+`Server.CreateOwnedAsync`'s handle now discovers its server before
+`GetSessionsAsync`, `FindSessionAsync`, `Options`, and its other
+accessors read it. (#28)
+
 ### Fixed
 
+**Every failure where tmux answered unreadably is now a `LibTmuxException`
+carrying `TmuxDispatchState`**, not `System.IO.InvalidDataException`,
+which escaped `catch (LibTmuxException)`. Creation and decoding report
+`Dispatched`; control-mode failures report `Unknown`; a client that never
+started reports `NotDispatched`. (#28)
+
+Log events now name the socket their command ran on, so two servers in
+one process produce distinguishable lines. (#28)
+
+`Server.GetSessionAsync`, `GetWindowAsync`, and `GetPaneAsync` return
+scalar fields readable without a follow-up refresh, and `RawFormatFields`
+no longer allows changing captured values through a mutable dictionary
+cast. (#28)
+
+Snapshots preserve a window linked at multiple indices in the same
+session with correct parents, and `Window.GetPanesAsync`/`RefreshAsync`
+target the session and captured index rather than whichever placement
+tmux resolves as current. (#28)
+
+`Server.Version` reports tmux's rolling `next-X.Y` build instead of
+`null`; `TmuxCapabilities` resolves it by ordering, not `Unknown`. (#28)
+
+`Window.SelectLayoutAsync` accepts tmux 3.8+'s JSON layout output and an
+unambiguous preset-name prefix, matching tmux's own `select-layout`.
+(#28)
+
+`Pane.DisplayMessageAsync` and `Window.DisplayMessageAsync` accept a `-c`
+target on tmux 3.3, not 3.3a, and `TmuxVersionTooLowException.RequiredVersion`
+reads `3.3` for `command-prompt`, `server-access`, `show-prompt-history`,
+and `clear-prompt-history` — each landed in 3.3 itself. (#28)
+
+`TmuxCommandException.Message` now carries tmux's own stderr on listing,
+lookup, and generation-discovery failures, instead of a fixed literal
+that hid the one reason most worth knowing: no server on the socket. (#28)
+
+The README's `Server.ConnectAsync()` example states its precondition: a
+tmux server already listening. `RunShellAsync`'s docs state that
+cancelling or killing the server doesn't reap the spawned `run-shell`
+command, and `TmuxExitEvent.Reason` no longer promises one for a killed
+server. (#28)
+
+MCP `wait_for_text` never counts text this server typed as a match, and
+`list_sessions`/`get_session_info` no longer count that control client as
+attached. `get_server_info` reports `Version: null`, not a stale one,
+once its server exits; `SocketPath` replaces `SocketName`. (#28)
+
+`Server.WaitForAsync` no longer kills the tmux client when a `Lock`-mode
+wait is cancelled — every later locker on that channel used to time out.
+The client now keeps running instead. (#28)
+
 ### Changed
+
+**Every mutation request builds through an object initializer, keeping
+only required values in the constructor.** An optional constructor
+parameter breaks any assembly built against the old signature the moment
+a new tmux flag adds one; a property does not. `with` now works on every
+request, and refusals comparing two properties come when the request
+runs. (#28)
+
+**Requests implement `ITmuxRequest<TTarget>`; `TmuxChaining` keeps one
+`ExecuteAsync` per target kind, so `request.ToCommand(pane)` replaces the
+static `TmuxChaining.ToCommand`.** (#28)
+
+**`TmuxWait` moves from `LibTmux.Testing` to `LibTmux`.** Drop `using
+LibTmux.Testing;` where it was imported only for this. (#28)
+
+**`QueryDocument.Schema`, `Version`, and `Target` are read-only, and its
+constructor is internal**, so `with` can't fabricate a mismatched schema
+and version. Its predicate tree — `QueryNode` and its kin — is internal
+too; `LibTmux.Query` exports four types, built with
+`QueryExtensions.Translate` and read with `Compile` or `Matching`. (#28)
+
+**`LibTmux.Query.Json` throws `UnsupportedQueryExpressionException`, not
+`JsonException`, for a document that breaks a v1 rule** — `JsonException`
+now means only that the text isn't JSON; catch `LibTmuxException` for
+either package. (#28)
+
+**`Session.ActiveWindow`, `Session.ActivePane`, and `Window.ActivePane`
+answer `CapturedValue<T>`**: read `Value`, or `TryGetValue`/`OrNull` where
+absence is expected. (#28)
+
+**`LibTmux.Testing` is a separate package.** The ten testing types that
+shipped inside `LibTmux` now live there; add it alongside `LibTmux` in
+test projects. (#28)
+
+**Live listings throw when the read fails, including with no daemon
+running, and `Session.GetWindowAsync`/`Window.GetPaneAsync` require a
+match**, throwing `TmuxObjectNotFoundException` instead of `null`. An
+empty collection now means a successful read found nothing; use
+`FindWindowAsync`/`FindPaneAsync` for a nullable result. (#28)
+
+**`Server.RaiseIfDeadAsync` is now `Server.ThrowIfDeadAsync`, with no
+forwarding alias** — alpha carries no deprecation period. (#28)
 
 ### Removed
 

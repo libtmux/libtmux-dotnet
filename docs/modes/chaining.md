@@ -37,8 +37,8 @@ rather than dropping to strings:
 
 ```csharp
 await server.Chain()
-    .Then(new NewWindowRequest(name: "build").ToCommand(session))
-    .Then(new SendKeysRequest("make").ToCommand(pane))
+    .Then(new NewWindowRequest { Name = "build" }.ToCommand(session))
+    .Then(new SendKeysRequest { Text = "make" }.ToCommand(pane))
     .ExecuteAsync(ct);
 ```
 
@@ -46,7 +46,7 @@ Each also runs on its own, which is the same request sent as one invocation
 instead of joining a sequence:
 
 ```csharp
-await new SendKeysRequest("make").ExecuteAsync(pane, ct);
+await new SendKeysRequest { Text = "make" }.ExecuteAsync(pane, ct);
 ```
 
 Both take the thing the request acts on. A request says *what* to do and not
@@ -55,14 +55,36 @@ knows: which tmux version is answering, which target the object resolves to,
 whether a flag exists on that build at all. Handing over the pane or session is
 what lets the same record produce the right command line on 3.2a and on 3.7b.
 
+What a request acts on is part of its type: a `SendKeysRequest` is an
+`ITmuxRequest<Pane>`, a `NewWindowRequest` an `ITmuxRequest<Session>`. Code
+that handles requests in general, such as a batch of pane operations, can take
+the interface rather than naming each record:
+
+```csharp
+ITmuxRequest<Pane>[] steps =
+[
+    new SelectPaneRequest(),
+    new SendKeysRequest { Text = "make" },
+];
+TmuxChain chain = server.Chain();
+foreach (ITmuxRequest<Pane> step in steps)
+{
+    chain = chain.Then(step.ToCommand(pane));
+}
+
+await chain.ExecuteAsync(ct);
+```
+
 One request answers several commands rather than one. Setting a hook's entries
 is a clear then one command per entry, so it answers a list:
 
 ```csharp
 IReadOnlyList<TmuxCommand> commands = new SetHooksRequest(
     "after-new-window",
-    new Dictionary<int, string> { [0] = "display-message first" },
-    clearExisting: true).ToCommands(server.Hooks);
+    new Dictionary<int, string> { [0] = "display-message first" })
+{
+    ClearExisting = true,
+}.ToCommands(server.Hooks);
 ```
 
 ## Building reaches nothing

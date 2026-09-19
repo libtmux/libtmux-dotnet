@@ -29,10 +29,12 @@ public class ModeBenchmarks
     public void Setup()
     {
         _factory = new TmuxTestFactory();
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltbench-{Guid.NewGuid():N}"[..24],
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltbench-{Guid.NewGuid():N}"[..24],
+            ConfigurationFile = "/dev/null",
+        });
         _scope = _factory.CreateHierarchyAsync(options).GetAwaiter().GetResult();
         _server = _scope.Server;
         _control = _server.EnterControlModeAsync().GetAwaiter().GetResult();
@@ -52,7 +54,7 @@ public class ModeBenchmarks
         for (int index = 0; index < Commands; index++)
         {
             await _server.DisplayMessageAsync(
-                new DisplayMessageRequest("bench", returnText: true));
+                new DisplayMessageRequest { Message = "bench", ReturnText = true });
         }
     }
 

@@ -12,37 +12,22 @@ public sealed partial class Server
     /// <summary>Reads the clients attached to this server.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The clients tmux reports.</returns>
-    /// <remarks>
-    /// A server with no clients is the ordinary case rather than a failure, so
-    /// this answers empty when tmux cannot list them.
-    /// </remarks>
+    /// <exception cref="LibTmuxException">The listing failed, including an absent daemon.</exception>
+    /// <remarks>A handle that has not found a live server yet discovers one first.</remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Client>> GetClientsAsync(
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            return await GetClientsStrictAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (LibTmuxException)
-        {
-            return [];
-        }
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal async Task<IReadOnlyList<Client>> GetClientsStrictAsync(
-        CancellationToken cancellationToken = default)
-    {
-        ServerGeneration generation = _generation
+        Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        ServerGeneration generation = owner._generation
             ?? throw new IncompleteSnapshotException("clients", SnapshotDepth.Server);
-        TmuxConnection connection = Connection
+        TmuxConnection connection = owner.Connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
         IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-            await new MaterializationQuery(new MaterializationContext(this, ParsedVersion()))
+            await new MaterializationQuery(new MaterializationContext(owner, owner.ParsedVersion()))
                 .FetchAsync("list-clients", [], cancellationToken)
                 .ConfigureAwait(false);
-        return [.. rows.Select(row => new Client(this, connection, generation, row))];
+        return [.. rows.Select(row => new Client(owner, connection, generation, row))];
     }
 
     /// <summary>Detaches one client.</summary>

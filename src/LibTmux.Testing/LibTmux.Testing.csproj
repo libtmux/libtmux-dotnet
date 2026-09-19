@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <AssemblyName>LibTmux.Testing</AssemblyName>
+    <RootNamespace>LibTmux.Testing</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+
+    <PackageId>LibTmux.Testing</PackageId>
+    <Description>Scoped tmux servers, sessions and windows that clean themselves up, for testing code that drives tmux. Kept out of LibTmux so test scaffolding does not ship in an application.</Description>
+    <PackageTags>tmux;testing;xunit;integration-testing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Same reasoning as the core library: keep the rule that catches new
+         public API and drop the ones multi-targeting cannot satisfy. -->
+    <NoWarn>$(NoWarn);RS0017;RS0026;RS0036</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibTmux\LibTmux.csproj" />
+    <InternalsVisibleTo Include="LibTmux.UnitTests" />
+    <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

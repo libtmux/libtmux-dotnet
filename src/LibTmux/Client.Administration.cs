@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -14,7 +15,7 @@ public sealed partial class Client : IEquatable<Client>
     private readonly Server? _owner;
     private readonly TmuxCommandDispatcher _commandDispatcher;
     private readonly ServerGeneration _generation;
-    private readonly IReadOnlyDictionary<string, string?> _snapshot;
+    private readonly FrozenDictionary<string, string?> _snapshot;
 
     [UnsupportedOSPlatform("windows")]
     internal Client(
@@ -29,7 +30,7 @@ public sealed partial class Client : IEquatable<Client>
         _owner = owner;
         _commandDispatcher = connection.CreateEntityDispatcher(generation);
         _generation = generation;
-        _snapshot = snapshot;
+        _snapshot = snapshot.ToFrozenDictionary(StringComparer.Ordinal);
     }
 
     /// <summary>Gets the client name tmux knows it by.</summary>
@@ -96,12 +97,14 @@ public sealed partial class Client : IEquatable<Client>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>
     /// The session, window and pane the client is on, or null when the client
-    /// is gone or attached to nothing.
+    /// has detached or its session has since gone.
     /// </returns>
     /// <remarks>
     /// The three parts come from one reading of the client, so a client that
     /// moves between sessions cannot yield a window from one and a pane from
-    /// another.
+    /// another. A server that has stopped answering is not part of this: the
+    /// first read here is a live listing, and a live listing throws on
+    /// failure rather than answering null for it.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<ClientAttachment?> ResolveAttachmentAsync(

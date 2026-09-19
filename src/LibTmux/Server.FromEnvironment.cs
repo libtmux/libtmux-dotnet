@@ -37,6 +37,6 @@ public sealed partial class Server
                 TmuxEnvironmentVariables.ServerVariable);
         }
 
-        return Open(new ServerConnectionOptions(socketPath: entry.SocketPath));
+        return Open(new ServerConnectionOptions { SocketPath = entry.SocketPath });
     }
 }

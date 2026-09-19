@@ -33,7 +33,7 @@ internal sealed class ControlModeSession : IControlModeSession
     /// </remarks>
     internal const int EventBufferCapacity = 512;
 
-    private readonly ControlModeEventBuffer _events = new(EventBufferCapacity);
+    private readonly ControlModeEventBuffer _events;
 
     private readonly Queue<PendingControlModeCommand> _pending = new();
     private readonly SemaphoreSlim _pendingSlots;
@@ -60,9 +60,11 @@ internal sealed class ControlModeSession : IControlModeSession
         ServerGeneration? generation = null,
         Func<string>? sentinelFactory = null,
         ControlModeLimits? limits = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        int? eventBufferCapacity = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
+        _events = new ControlModeEventBuffer(eventBufferCapacity ?? EventBufferCapacity);
         _generation = generation;
         _limits = limits ?? new ControlModeLimits();
         _pendingSlots = new SemaphoreSlim(
@@ -90,7 +92,8 @@ internal sealed class ControlModeSession : IControlModeSession
         IReadOnlyList<string> prefixArguments,
         string? target,
         ServerGeneration generation,
-        Action<ProcessStartInfo> configureEnvironment)
+        Action<ProcessStartInfo> configureEnvironment,
+        int? eventBufferCapacity = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -118,12 +121,16 @@ internal sealed class ControlModeSession : IControlModeSession
 
         configureEnvironment(startInfo);
         Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("The tmux control client did not start.");
+            ?? throw new TmuxTransportException(
+                "The tmux control client did not start.",
+                startInfo.ArgumentList,
+                TmuxDispatchState.NotDispatched);
         var limits = new ControlModeLimits();
         return new ControlModeSession(
             new SystemControlModeProcess(process, limits),
             generation: generation,
-            limits: limits);
+            limits: limits,
+            eventBufferCapacity: eventBufferCapacity);
     }
 
     /// <summary>Waits until tmux has answered its own attach.</summary>
@@ -155,8 +162,9 @@ internal sealed class ControlModeSession : IControlModeSession
                 .ConfigureAwait(false);
             if (output.Count != 0)
             {
-                throw new InvalidDataException(
-                    "The generation probe returned unexpected output.");
+                throw new TmuxProtocolException(
+                    "The generation probe returned unexpected output.",
+                    TmuxDispatchState.Unknown);
             }
         }
         catch (ControlModeCommandException error)
@@ -444,8 +452,9 @@ internal sealed class ControlModeSession : IControlModeSession
                 {
                     if (guard.Kind != ControlModeGuardKind.Begin)
                     {
-                        throw new InvalidDataException(
-                            "The tmux control client sent a block guard outside a block.");
+                        throw new TmuxProtocolException(
+                            "The tmux control client sent a block guard outside a block.",
+                            TmuxDispatchState.Unknown);
                     }
 
                     await ReadBlockAsync(guard).ConfigureAwait(false);
@@ -454,14 +463,16 @@ internal sealed class ControlModeSession : IControlModeSession
 
                 if (ControlModeGuard.HasReservedName(line))
                 {
-                    throw new InvalidDataException(
-                        "The tmux control client sent a malformed block guard.");
+                    throw new TmuxProtocolException(
+                        "The tmux control client sent a malformed block guard.",
+                        TmuxDispatchState.Unknown);
                 }
 
                 if (!line.StartsWith('%'))
                 {
-                    throw new InvalidDataException(
-                        "The tmux control client sent output outside a block.");
+                    throw new TmuxProtocolException(
+                        "The tmux control client sent output outside a block.",
+                        TmuxDispatchState.Unknown);
                 }
 
                 (string name, IReadOnlyList<string> arguments) = SplitNotification(line);
@@ -533,15 +544,17 @@ internal sealed class ControlModeSession : IControlModeSession
 
             if (lines.Count >= _limits.MaxBlockLines)
             {
-                throw new InvalidDataException(
-                    $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.");
+                throw new TmuxProtocolException(
+                    $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.",
+                    TmuxDispatchState.Unknown);
             }
 
             int lineBytes = Encoding.UTF8.GetByteCount(line);
             if (lineBytes > _limits.MaxBlockBytes - blockBytes)
             {
-                throw new InvalidDataException(
-                    $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.");
+                throw new TmuxProtocolException(
+                    $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.",
+                    TmuxDispatchState.Unknown);
             }
 
             lines.Add(line);
@@ -550,8 +563,9 @@ internal sealed class ControlModeSession : IControlModeSession
 
         if (!terminated)
         {
-            throw new InvalidDataException(
-                "The tmux control client ended before its command block was terminated.");
+            throw new TmuxProtocolException(
+                "The tmux control client ended before its command block was terminated.",
+                TmuxDispatchState.Unknown);
         }
 
         // Attach's reply is the readiness block; enqueuing it shifts every later reply.
@@ -582,8 +596,9 @@ internal sealed class ControlModeSession : IControlModeSession
 
         if (pending is null)
         {
-            throw new InvalidDataException(
-                "The tmux control client sent a command block with no pending request.");
+            throw new TmuxProtocolException(
+                "The tmux control client sent a command block with no pending request.",
+                TmuxDispatchState.Unknown);
         }
 
         string sentinelError = $"parse error: unknown command: {pending.Sentinel}";
@@ -600,8 +615,9 @@ internal sealed class ControlModeSession : IControlModeSession
             pending.Sentinel,
             StringComparison.Ordinal)))
         {
-            throw new InvalidDataException(
-                "The tmux control client returned an unrecognized request fence.");
+            throw new TmuxProtocolException(
+                "The tmux control client returned an unrecognized request fence.",
+                TmuxDispatchState.Unknown);
         }
 
         pending.AddBlock(lines, blockBytes, failed, _limits);
@@ -613,8 +629,9 @@ internal sealed class ControlModeSession : IControlModeSession
         {
             if (_pending.Count == 0 || !ReferenceEquals(_pending.Peek(), pending))
             {
-                throw new InvalidDataException(
-                    "The tmux control client lost its request boundary.");
+                throw new TmuxProtocolException(
+                    "The tmux control client lost its request boundary.",
+                    TmuxDispatchState.Unknown);
             }
 
             _pending.Dequeue();

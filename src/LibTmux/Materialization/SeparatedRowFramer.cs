@@ -19,7 +19,7 @@ internal static class SeparatedRowFramer
     /// <param name="projection">Projection whose fields each row must carry.</param>
     /// <param name="limits">Limits bounding one scalar.</param>
     /// <returns>One dictionary of copied raw values per row.</returns>
-    /// <exception cref="InvalidDataException">
+    /// <exception cref="LibTmuxException">
     /// The payload is malformed, truncated, oversized, or carries unknown,
     /// duplicated, or missing fields.
     /// </exception>
@@ -75,8 +75,9 @@ internal static class SeparatedRowFramer
                 : new ReadOnlyMemory<byte>(value.ToArray());
             if (!row.TryAdd(field.WireName, stored))
             {
-                throw new InvalidDataException(
-                    $"tmux row repeats field '{field.WireName}'.");
+                throw new TmuxProtocolException(
+                    $"tmux row repeats field '{field.WireName}'.",
+                    TmuxDispatchState.Dispatched);
             }
         }
 
@@ -93,12 +94,16 @@ internal static class SeparatedRowFramer
         int length = remainder.IndexOf(separator);
         if (length < 0)
         {
-            throw new InvalidDataException("tmux row ended before every field was read.");
+            throw new TmuxProtocolException(
+                "tmux row ended before every field was read.",
+                TmuxDispatchState.Dispatched);
         }
 
         if (length > limits.MaxFramedFieldBytes)
         {
-            throw new InvalidDataException("tmux value exceeds the framed field limit.");
+            throw new TmuxProtocolException(
+                "tmux value exceeds the framed field limit.",
+                TmuxDispatchState.Dispatched);
         }
 
         offset += length + separator.Length;
@@ -122,7 +127,9 @@ internal static class SeparatedRowFramer
 
         if (payload[offset] != (byte)'\n')
         {
-            throw new InvalidDataException("tmux row is not terminated by a newline.");
+            throw new TmuxProtocolException(
+                "tmux row is not terminated by a newline.",
+                TmuxDispatchState.Dispatched);
         }
 
         offset++;

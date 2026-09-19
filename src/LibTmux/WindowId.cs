@@ -3,7 +3,8 @@ using System.Globalization;
 namespace LibTmux;
 
 /// <summary>Represents a generation-independent tmux window identifier.</summary>
-public readonly record struct WindowId : IComparable<WindowId>
+public readonly record struct WindowId
+    : IComparable<WindowId>, IParsable<WindowId>, ISpanParsable<WindowId>
 {
     /// <summary>Initializes a window identifier.</summary>
     public WindowId(int value)
@@ -73,6 +74,51 @@ public readonly record struct WindowId : IComparable<WindowId>
     /// rather than sorting.
     /// </remarks>
     public int CompareTo(WindowId other) => Value.CompareTo(other.Value);
+
+    /// <summary>Parses a prefixed window identifier from a span.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <returns>The parsed identifier.</returns>
+    /// <exception cref="FormatException">The text is not a canonical window identifier.</exception>
+    public static WindowId Parse(ReadOnlySpan<char> text) =>
+        TryParse(text, out WindowId result)
+            ? result
+            : throw new FormatException("The value is not a canonical window identifier.");
+
+    /// <summary>Tries to parse a prefixed window identifier from a span.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <param name="result">The parsed identifier when this succeeds.</param>
+    /// <returns><see langword="true" /> when the text was a canonical identifier.</returns>
+    public static bool TryParse(ReadOnlySpan<char> text, out WindowId result)
+    {
+        if (text.Length > 1
+            && text[0] == '@'
+            && int.TryParse(text[1..], NumberStyles.None, CultureInfo.InvariantCulture, out int value))
+        {
+            result = new WindowId(value);
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
+
+    // The parse interfaces are implemented explicitly. A public overload taking
+    // a format provider would make every existing Parse call read as though it
+    // depended on the current culture, and none of them does: the wire form is
+    // a sigil and invariant digits.
+    static WindowId IParsable<WindowId>.Parse(string s, IFormatProvider? provider) => Parse(s);
+
+    static bool IParsable<WindowId>.TryParse(string? s, IFormatProvider? provider, out WindowId result) =>
+        TryParse(s, out result);
+
+    static WindowId ISpanParsable<WindowId>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider) =>
+        Parse(s);
+
+    static bool ISpanParsable<WindowId>.TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        out WindowId result) =>
+        TryParse(s, out result);
 
     /// <summary>Returns the canonical prefixed identifier.</summary>
     public override string ToString() => $"@{Value.ToString(CultureInfo.InvariantCulture)}";

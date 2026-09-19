@@ -1,37 +1,33 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>pipe-pane</c> invocation.</summary>
-public sealed record PipePaneRequest
+public sealed record PipePaneRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a pane-piping request.</summary>
-    /// <param name="command">The command to pipe through, or null to stop piping.</param>
-    /// <param name="outputOnly">Whether only pane output is piped.</param>
-    /// <param name="inputOnly">Whether only pane input is piped.</param>
-    /// <param name="toggle">Whether an identical existing pipe is stopped instead.</param>
-    public PipePaneRequest(
-        string? command = null,
-        bool outputOnly = false,
-        bool inputOnly = false,
-        bool toggle = false)
-    {
-        Command = command;
-        OutputOnly = outputOnly;
-        InputOnly = inputOnly;
-        Toggle = toggle;
-    }
-
     /// <summary>Gets the command to pipe through, or null to stop piping.</summary>
     /// <remarks>
     /// Omitting a command does not leave an existing pipe alone: it stops it.
     /// </remarks>
-    public string? Command { get; }
+    public string? Command { get; init; }
 
     /// <summary>Gets whether only pane output is piped.</summary>
-    public bool OutputOnly { get; }
+    public bool OutputOnly { get; init; }
 
     /// <summary>Gets whether only pane input is piped.</summary>
-    public bool InputOnly { get; }
+    public bool InputOnly { get; init; }
 
     /// <summary>Gets whether an identical existing pipe is stopped instead.</summary>
-    public bool Toggle { get; }
+    public bool Toggle { get; init; }
+
+    /// <summary>Returns a pane-piping request as one tmux command.</summary>
+    /// <param name="pane">The pane being piped.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildPipePaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -48,8 +48,8 @@ public sealed class StructuredLoggingTests
         // capture runs to megabytes and a buffer holds whatever was copied.
         logger.Clear();
         string wide = new('x', 4096);
-        await server.SetBufferAsync(wide, "libtmux-wide", cancellationToken: token);
-        await server.GetBufferAsync("libtmux-wide", token);
+        await server.Buffers.SetAsync(wide, "libtmux-wide", cancellationToken: token);
+        await server.Buffers.GetAsync("libtmux-wide", token);
         Assert.All(
             logger.Entries,
             entry => Assert.True(
@@ -71,11 +71,13 @@ public sealed class StructuredLoggingTests
         CancellationToken token,
         ILogger? logger = null) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
     private sealed record Recorded(
