@@ -549,18 +549,19 @@ wrapper policy proofs from `closure`, and native layout validation. Its matrix
 runs every stable version on both frameworks and the source-bound 3.7/3.7a
 transition proof. The older cohort memberships remain fixed.
 
-To record against a clean committed source tree, select a new evidence directory:
+To record against a clean committed source tree, select a new evidence
+directory -- the next unused number under `docs/parity/evidence/`:
 
 ```console
 $ eng/tmux/run-matrix.sh \
-    --evidence-dir docs/parity/evidence/0012 \
+    --evidence-dir docs/parity/evidence/0014 \
     --capability-cohort workspace \
     tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
 ```
 
 ```console
 $ uv run python eng/parity/reconcile_versions.py \
-    --evidence docs/parity/evidence/0012/results.ndjson \
+    --evidence docs/parity/evidence/0014/results.ndjson \
     --write
 ```
 
