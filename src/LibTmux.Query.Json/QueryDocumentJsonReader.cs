@@ -18,19 +18,19 @@ internal sealed class QueryDocumentJsonReader
             "window" => QueryTarget.Window,
             "pane" => QueryTarget.Pane,
             "client" => QueryTarget.Client,
-            _ => throw new JsonException("Query document names an unknown target."),
+            _ => throw new UnsupportedQueryExpressionException("Query document names an unknown target."),
         };
 
     internal QueryNode ReadNode(JsonElement element, int depth)
     {
         if (depth > _limits.MaximumDepth)
         {
-            throw new JsonException("Query document exceeds the maximum nesting depth.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum nesting depth.");
         }
 
         if (++_nodes > _limits.MaximumNodes)
         {
-            throw new JsonException("Query document exceeds the maximum node count.");
+            throw new UnsupportedQueryExpressionException("Query document exceeds the maximum node count.");
         }
 
         string? kind = element.GetProperty("kind").GetString();
@@ -54,27 +54,27 @@ internal sealed class QueryDocumentJsonReader
                 ReadTarget(element.GetProperty("target")),
                 ReadBoundedString(element.GetProperty("wireName"), "Field wire name")),
             "constant" => new ConstantNode(ReadConstant(element.GetProperty("value"))),
-            _ => throw new JsonException("Query document names an unknown node kind."),
+            _ => throw new UnsupportedQueryExpressionException("Query document names an unknown node kind."),
         };
     }
 
     private static string ReadDialect(JsonElement element)
     {
         string dialect = element.GetString()
-            ?? throw new JsonException("Regex names no dialect.");
+            ?? throw new UnsupportedQueryExpressionException("Regex names no dialect.");
         return string.Equals(dialect, QueryRegexSemantics.Dialect, StringComparison.Ordinal)
             ? dialect
-            : throw new JsonException($"Regex dialect '{dialect}' is not supported.");
+            : throw new UnsupportedQueryExpressionException($"Regex dialect '{dialect}' is not supported.");
     }
 
     private string ReadPattern(JsonElement element)
     {
         string pattern = element.GetString()
-            ?? throw new JsonException("Regex names no pattern.");
+            ?? throw new UnsupportedQueryExpressionException("Regex names no pattern.");
         return QueryJsonWireRules.ScalarLength(pattern, "Regex pattern")
             <= _limits.MaximumPatternLength
             ? pattern
-            : throw new JsonException("Regex pattern exceeds the maximum length.");
+            : throw new UnsupportedQueryExpressionException("Regex pattern exceeds the maximum length.");
     }
 
     private static RegexOptions ReadRegexOptions(JsonElement element)
@@ -82,17 +82,17 @@ internal sealed class QueryDocumentJsonReader
         var options = (RegexOptions)element.GetInt32();
         return QueryRegexSemantics.IsSupported(options)
             ? options
-            : throw new JsonException("Regex names options this reader does not support.");
+            : throw new UnsupportedQueryExpressionException("Regex names options this reader does not support.");
     }
 
     private string ReadBoundedString(JsonElement element, string description = "String value")
     {
         string value = element.GetString()
-            ?? throw new JsonException($"{description} is null.");
+            ?? throw new UnsupportedQueryExpressionException($"{description} is null.");
         return QueryJsonWireRules.ScalarLength(value, description)
             <= _limits.MaximumStringLength
             ? value
-            : throw new JsonException("String value exceeds the maximum length.");
+            : throw new UnsupportedQueryExpressionException("String value exceeds the maximum length.");
     }
 
     private QueryNode ReadComparisonNode(JsonElement element, int depth)
@@ -120,7 +120,7 @@ internal sealed class QueryDocumentJsonReader
                 new StringNode(QueryStringOperation.EndsWithOrdinal, left, right),
             "containsOrdinal" =>
                 new StringNode(QueryStringOperation.ContainsOrdinal, left, right),
-            _ => throw new JsonException("Query document names an unknown comparison."),
+            _ => throw new UnsupportedQueryExpressionException("Query document names an unknown comparison."),
         };
     }
 
@@ -129,7 +129,7 @@ internal sealed class QueryDocumentJsonReader
         {
             "any" => QueryQuantifier.Any,
             "all" => QueryQuantifier.All,
-            _ => throw new JsonException("Query document names an unknown quantifier."),
+            _ => throw new UnsupportedQueryExpressionException("Query document names an unknown quantifier."),
         };
 
     private QueryConstant ReadConstant(JsonElement element)
@@ -145,7 +145,7 @@ internal sealed class QueryDocumentJsonReader
             "typedId" => new TypedIdConstant(
                 ReadTarget(element.GetProperty("type")),
                 ReadBoundedString(element.GetProperty("value"), "Typed ID value")),
-            _ => throw new JsonException("Query document names an unknown constant type."),
+            _ => throw new UnsupportedQueryExpressionException("Query document names an unknown constant type."),
         };
     }
 

@@ -27,7 +27,7 @@ public sealed class QueryJsonTrustBoundaryTests
     {
         // Reading a foreign schema with v1 rules is a silent misinterpretation,
         // which is worse than a failure.
-        JsonException failure = Assert.Throws<JsonException>(
+        UnsupportedQueryExpressionException failure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Deserialize(Document(TrivialPredicate, schema: "someone.else")));
 
         Assert.Contains("someone.else", failure.Message, StringComparison.Ordinal);
@@ -36,7 +36,7 @@ public sealed class QueryJsonTrustBoundaryTests
     [Fact]
     public void A_document_naming_a_future_version_is_refused()
     {
-        JsonException failure = Assert.Throws<JsonException>(
+        UnsupportedQueryExpressionException failure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Deserialize(Document(TrivialPredicate, version: 2)));
 
         Assert.Contains("version 2", failure.Message, StringComparison.Ordinal);
@@ -49,7 +49,7 @@ public sealed class QueryJsonTrustBoundaryTests
         string json = Document(
             $$"""{"kind":"constant","value":{"kind":"string","value":"{{oversized}}" } }""");
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":"dotnet","pattern":"{{oversized}}","semanticOptions":0}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":"pcre","pattern":"^a","semanticOptions":0}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":"dotnet","pattern":"^a","semanticOptions":1024}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":"dotnet","pattern":"^a","semanticOptions":0}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":"dotnet","pattern":"(","semanticOptions":512}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "predicate":{"kind":"constant","value":{"kind":"boolean","value":true}}}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Theory]
@@ -136,7 +136,7 @@ public sealed class QueryJsonTrustBoundaryTests
         string json = Document(
             $$"""{"kind":"constant","value":{ {{members}} } }""");
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -148,15 +148,42 @@ public sealed class QueryJsonTrustBoundaryTests
              "dialect":null,"pattern":"^a","semanticOptions":0}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
-    public void A_structurally_malformed_document_reports_a_json_error()
+    public void A_predicate_with_no_kind_is_refused()
     {
         string json = Document("{}");
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
+    }
+
+    [Fact]
+    public void A_refused_document_reads_as_LibTmux_from_either_package()
+    {
+        // The whole point: one catch covers a document this library will not
+        // accept, whichever package noticed it. Serializing used to answer a
+        // System.Text.Json type for the same cause the core answered its own.
+        Assert.IsAssignableFrom<LibTmuxException>(
+            Record.Exception(() => QueryJson.Deserialize(Document("{}"))));
+        Assert.IsAssignableFrom<LibTmuxException>(
+            Record.Exception(() => QueryJson.Deserialize(
+                Document("{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true}}", schema: "someone.else"))));
+        Assert.IsAssignableFrom<LibTmuxException>(
+            Record.Exception(() => QueryJson.Deserialize(
+                Document("{\"kind\":\"nonsense\"}"))));
+    }
+
+    [Fact]
+    public void Text_that_is_not_json_still_reports_a_json_error()
+    {
+        // The boundary the contract promises: JsonException means the text is
+        // not JSON. Everything a v1 document may get wrong is a LibTmux
+        // failure, so one catch covers a bad document from either package.
+        // ThrowsAny: the parser answers JsonReaderException, which is one.
+        Assert.ThrowsAny<JsonException>(() => QueryJson.Deserialize("{\"schema\":"));
+        Assert.ThrowsAny<JsonException>(() => QueryJson.Deserialize("not json at all"));
     }
 
     [Theory]
@@ -167,7 +194,7 @@ public sealed class QueryJsonTrustBoundaryTests
     [InlineData(
         "{\"kind\":\"constant\",\"value\":{\"kind\":\"boolean\",\"value\":true,\"extra\":false}}")]
     public void Unknown_or_duplicate_node_members_are_refused(string predicate) =>
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(Document(predicate)));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(Document(predicate)));
 
     [Fact]
     public void An_unknown_envelope_member_is_refused()
@@ -177,7 +204,7 @@ public sealed class QueryJsonTrustBoundaryTests
             {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"constant","value":{"kind":"boolean","value":true}},"extra":false}
             """;
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -211,7 +238,7 @@ public sealed class QueryJsonTrustBoundaryTests
              "right":{"kind":"constant","value":{"kind":"string","value":"anything"}}}
             """);
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     private sealed record SessionRow(string SessionName, bool SessionAttached);
