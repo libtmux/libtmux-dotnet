@@ -1001,7 +1001,7 @@ public sealed class TmuxChainTests
         // panes it made.
         TmuxCommandResult result = await server.Chain()
             .Then(new SplitPaneRequest().ToCommand(pane))
-            .Then(new SplitPaneRequest(direction: PaneDirection.Below).ToCommand(pane))
+            .Then(new SplitPaneRequest { Direction = PaneDirection.Below }.ToCommand(pane))
             .ExecuteAsync(token);
 
         Assert.Equal(3, (await server.GetPanesAsync(token)).Count);

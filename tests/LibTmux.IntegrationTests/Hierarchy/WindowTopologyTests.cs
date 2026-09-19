@@ -124,13 +124,18 @@ public sealed class WindowTopologyTests
             () => new NewWindowRequest(index: "4", targetWindow: "@0"));
 
         Pane split = await first.SplitPaneAsync(
-            new SplitPaneRequest(direction: PaneDirection.Right, percentage: 40),
+            new SplitPaneRequest { Direction = PaneDirection.Right, Percentage = 40 },
             token);
         Assert.Equal(2, (await first.GetPanesAsync(token)).Count);
         Assert.Contains(await first.GetPanesAsync(token), pane => pane.Id == split.Id);
 
         // A size in cells and a percentage are two ways to say the same thing.
-        Assert.Throws<ArgumentException>(() => new SplitPaneRequest(size: "10", percentage: 40));
+        // An initializer cannot check one property against another, so the
+        // pairing is refused where the size is resolved - which every split
+        // goes through, so none reaches tmux having skipped it.
+        SplitPaneRequest ambiguous = new() { Size = "10", Percentage = 40 };
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => first.SplitPaneAsync(ambiguous, token));
 
         // Resizing is exact on every lane, unlike new-session's -x/-y.
         Window resized = await first.ResizeAsync(new ResizeWindowRequest(width: 92, height: 31), token);

@@ -211,7 +211,7 @@ string output = await TmuxWait.UntilAsync(
 ## Splitting and resizing
 
 ```csharp run
-Pane split = await pane.SplitAsync(new SplitPaneRequest(direction: PaneDirection.Below), ct);
+Pane split = await pane.SplitAsync(new SplitPaneRequest { Direction = PaneDirection.Below }, ct);
 await split.SetHeightAsync(10, ct);
 ```
 

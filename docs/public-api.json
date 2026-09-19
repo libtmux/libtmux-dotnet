@@ -11387,101 +11387,6 @@
       "summary": "Creates SetOptionRequest."
     },
     {
-      "id": "M:LibTmux.SplitPaneRequest.#ctor(string?,string?,bool,PaneDirection?,bool,bool,string?,string?,int?,IReadOnlyDictionary<string,string>?,bool,string?,string?,string?,string?,bool)",
-      "declaringType": "T:LibTmux.SplitPaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "SplitPaneRequest",
-      "parameters": [
-        {
-          "name": "target",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "attach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "direction",
-          "type": "PaneDirection?",
-          "default": "null"
-        },
-        {
-          "name": "fullWindow",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "zoom",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "size",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "percentage",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "empty",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "style",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "activeBorderStyle",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "inactiveBorderStyle",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "message",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "keepOpen",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "SplitPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, PaneDirection? direction = null, bool fullWindow = false, bool zoom = false, string? command = null, string? size = null, int? percentage = null, IReadOnlyDictionary<string,string>? environment = null, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false)",
-      "portable": true,
-      "summary": "Creates SplitPaneRequest."
-    },
-    {
       "id": "M:LibTmux.StaleServerGenerationException.#ctor(string,ServerGeneration,Exception?)",
       "declaringType": "T:LibTmux.StaleServerGenerationException",
       "name": ".ctor",
@@ -20797,7 +20702,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.ActiveBorderStyle { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.ActiveBorderStyle { get; init; }",
       "portable": true,
       "summary": "Gets ActiveBorderStyle."
     },
@@ -20811,7 +20716,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SplitPaneRequest.Attach { get; }",
+      "signature": "bool LibTmux.SplitPaneRequest.Attach { get; init; }",
       "portable": true,
       "summary": "Gets Attach."
     },
@@ -20825,7 +20730,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.Command { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -20839,7 +20744,7 @@
       "static": false,
       "returnType": "PaneDirection?",
       "parameters": [],
-      "signature": "PaneDirection? LibTmux.SplitPaneRequest.Direction { get; }",
+      "signature": "PaneDirection? LibTmux.SplitPaneRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -20853,7 +20758,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SplitPaneRequest.Empty { get; }",
+      "signature": "bool LibTmux.SplitPaneRequest.Empty { get; init; }",
       "portable": true,
       "summary": "Gets Empty."
     },
@@ -20867,7 +20772,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.SplitPaneRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.SplitPaneRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -20881,7 +20786,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SplitPaneRequest.FullWindow { get; }",
+      "signature": "bool LibTmux.SplitPaneRequest.FullWindow { get; init; }",
       "portable": true,
       "summary": "Gets FullWindow."
     },
@@ -20895,7 +20800,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.InactiveBorderStyle { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.InactiveBorderStyle { get; init; }",
       "portable": true,
       "summary": "Gets InactiveBorderStyle."
     },
@@ -20909,7 +20814,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SplitPaneRequest.KeepOpen { get; }",
+      "signature": "bool LibTmux.SplitPaneRequest.KeepOpen { get; init; }",
       "portable": true,
       "summary": "Gets KeepOpen."
     },
@@ -20923,7 +20828,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.Message { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.Message { get; init; }",
       "portable": true,
       "summary": "Gets Message."
     },
@@ -20937,7 +20842,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.SplitPaneRequest.Percentage { get; }",
+      "signature": "int? LibTmux.SplitPaneRequest.Percentage { get; init; }",
       "portable": true,
       "summary": "Gets Percentage."
     },
@@ -20951,7 +20856,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.Size { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.Size { get; init; }",
       "portable": true,
       "summary": "Gets Size."
     },
@@ -20965,7 +20870,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -20979,7 +20884,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.Style { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.Style { get; init; }",
       "portable": true,
       "summary": "Gets Style."
     },
@@ -20993,7 +20898,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SplitPaneRequest.Target { get; }",
+      "signature": "string? LibTmux.SplitPaneRequest.Target { get; init; }",
       "portable": true,
       "summary": "Gets Target."
     },
@@ -21007,7 +20912,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SplitPaneRequest.Zoom { get; }",
+      "signature": "bool LibTmux.SplitPaneRequest.Zoom { get; init; }",
       "portable": true,
       "summary": "Gets Zoom."
     },

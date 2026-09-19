@@ -382,7 +382,6 @@ modes differ.
 | `LibTmux.SetHookRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one hook. |
 | `LibTmux.SetHooksRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.Int32,System.String},System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean)` | Initializes a request to set several entries of one hook. |
 | `LibTmux.SetOptionRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one option. |
-| `LibTmux.SplitPaneRequest.#ctor(System.String,System.String,System.Boolean,System.Nullable{LibTmux.PaneDirection},System.Boolean,System.Boolean,System.String,System.String,System.Nullable{System.Int32},System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Boolean,System.String,System.String,System.String,System.String,System.Boolean)` | Initializes a pane-split request. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.SwapPaneRequest.#ctor(System.String,System.Nullable{LibTmux.PaneSwapDirection},System.Boolean,System.Boolean)` | Initializes a pane-swap request. |
@@ -989,7 +988,7 @@ modes differ.
 | `LibTmux.SplitPaneRequest.Empty` | Gets whether the pane starts with no command. |
 | `LibTmux.SplitPaneRequest.Environment` | Gets the environment entries set on the new pane. |
 | `LibTmux.SplitPaneRequest.FullWindow` | Gets whether the split spans the whole window. |
-| `LibTmux.SplitPaneRequest.InactiveBorderStyle` | Gets the border style while the pane is not active. |
+| `LibTmux.SplitPaneRequest.InactiveBorderStyle` | Gets the border style while it is not. |
 | `LibTmux.SplitPaneRequest.KeepOpen` | Gets whether the pane stays after its command exits. |
 | `LibTmux.SplitPaneRequest.Message` | Gets the message shown in the pane. |
 | `LibTmux.SplitPaneRequest.Percentage` | Gets the size as a percentage of the window. |

@@ -173,7 +173,7 @@ public sealed class PaneOperationsTests
         // A pane identifier already names a pane; composing it with a
         // sub-target would ask tmux for a window that does not exist.
         Pane explicitTarget = await pane.SplitAsync(
-            new SplitPaneRequest(target: pane.Id.ToString()),
+            new SplitPaneRequest { Target = pane.Id.ToString() },
             token);
         Assert.Equal(2, (await window.GetPanesAsync(token)).Count);
 
@@ -403,7 +403,7 @@ public sealed class PaneOperationsTests
     public Task SplitWindowEmptyVersionPolicy() =>
         GatedAsync(
             "split_window_empty",
-            (pane, token) => pane.SplitAsync(new SplitPaneRequest(empty: true), token));
+            (pane, token) => pane.SplitAsync(new SplitPaneRequest { Empty = true }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -412,7 +412,7 @@ public sealed class PaneOperationsTests
     public Task SplitWindowAppearanceVersionPolicy() =>
         GatedAsync(
             "split_window_appearance",
-            (pane, token) => pane.SplitAsync(new SplitPaneRequest(style: "fg=red"), token));
+            (pane, token) => pane.SplitAsync(new SplitPaneRequest { Style = "fg=red" }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -572,7 +572,7 @@ public sealed class PaneOperationsTests
         // The start directory goes the same way, in the spawn path every
         // command taking -c shares rather than in any one of them.
         Pane spawned = await pane.SplitAsync(
-            new SplitPaneRequest(startDirectory: "/tmp/#{session_name}-absent"),
+            new SplitPaneRequest { StartDirectory = "/tmp/#{session_name}-absent" },
             token);
         Assert.NotEqual(
             "/tmp/#{session_name}-absent",

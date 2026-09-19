@@ -804,23 +804,39 @@ LibTmux.SnapshotDepth.Windows = 2 -> LibTmux.SnapshotDepth
 LibTmux.SplitPaneRequest
 LibTmux.SplitPaneRequest.<Clone>$() -> LibTmux.SplitPaneRequest!
 LibTmux.SplitPaneRequest.ActiveBorderStyle.get -> string?
+LibTmux.SplitPaneRequest.ActiveBorderStyle.init -> void
 LibTmux.SplitPaneRequest.Attach.get -> bool
+LibTmux.SplitPaneRequest.Attach.init -> void
 LibTmux.SplitPaneRequest.Command.get -> string?
+LibTmux.SplitPaneRequest.Command.init -> void
 LibTmux.SplitPaneRequest.Direction.get -> LibTmux.PaneDirection?
+LibTmux.SplitPaneRequest.Direction.init -> void
 LibTmux.SplitPaneRequest.Empty.get -> bool
+LibTmux.SplitPaneRequest.Empty.init -> void
 LibTmux.SplitPaneRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.SplitPaneRequest.Environment.init -> void
 LibTmux.SplitPaneRequest.Equals(LibTmux.SplitPaneRequest? other) -> bool
 LibTmux.SplitPaneRequest.FullWindow.get -> bool
+LibTmux.SplitPaneRequest.FullWindow.init -> void
 LibTmux.SplitPaneRequest.InactiveBorderStyle.get -> string?
+LibTmux.SplitPaneRequest.InactiveBorderStyle.init -> void
 LibTmux.SplitPaneRequest.KeepOpen.get -> bool
+LibTmux.SplitPaneRequest.KeepOpen.init -> void
 LibTmux.SplitPaneRequest.Message.get -> string?
+LibTmux.SplitPaneRequest.Message.init -> void
 LibTmux.SplitPaneRequest.Percentage.get -> int?
+LibTmux.SplitPaneRequest.Percentage.init -> void
 LibTmux.SplitPaneRequest.Size.get -> string?
-LibTmux.SplitPaneRequest.SplitPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, LibTmux.PaneDirection? direction = null, bool fullWindow = false, bool zoom = false, string? command = null, string? size = null, int? percentage = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false) -> void
+LibTmux.SplitPaneRequest.Size.init -> void
+LibTmux.SplitPaneRequest.SplitPaneRequest() -> void
 LibTmux.SplitPaneRequest.StartDirectory.get -> string?
+LibTmux.SplitPaneRequest.StartDirectory.init -> void
 LibTmux.SplitPaneRequest.Style.get -> string?
+LibTmux.SplitPaneRequest.Style.init -> void
 LibTmux.SplitPaneRequest.Target.get -> string?
+LibTmux.SplitPaneRequest.Target.init -> void
 LibTmux.SplitPaneRequest.Zoom.get -> bool
+LibTmux.SplitPaneRequest.Zoom.init -> void
 LibTmux.StaleServerGenerationException
 LibTmux.StaleServerGenerationException.Actual.get -> LibTmux.ServerGeneration?
 LibTmux.StaleServerGenerationException.Expected.get -> LibTmux.ServerGeneration

@@ -296,7 +296,7 @@ public sealed class WorkspaceBuilder
             Pane target = index == 0
                 ? current
                 : await current.SplitAsync(
-                        new SplitPaneRequest(startDirectory: pane.StartDirectory ?? directory),
+                        new SplitPaneRequest { StartDirectory = pane.StartDirectory ?? directory },
                         cancellationToken)
                     .ConfigureAwait(false);
 

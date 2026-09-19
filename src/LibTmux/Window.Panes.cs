@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using Microsoft.Extensions.Logging;
@@ -142,14 +141,7 @@ public sealed partial class Window
             arguments.Add(flag);
         }
 
-        // tmux 3.4 misreads -p, so a percentage rides the -l flag instead,
-        // which every supported version accepts.
-        AddValue(
-            arguments,
-            "-l",
-            options.Percentage is int share
-                ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
-                : options.Size);
+        AddValue(arguments, "-l", options.ResolveSize());
         if (options.FullWindow)
         {
             arguments.Add("-f");

@@ -303,7 +303,7 @@ public sealed class Component12ParityTests
         Pane pane,
         CancellationToken token)
     {
-        Pane other = await pane.SplitAsync(new SplitPaneRequest(attach: true), token);
+        Pane other = await pane.SplitAsync(new SplitPaneRequest { Attach = true }, token);
         await pane.SelectAsync(cancellationToken: token);
         Pane? back = await window.SelectLastPaneAsync(cancellationToken: token);
         return back?.Id == other.Id;

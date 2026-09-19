@@ -115,14 +115,7 @@ public sealed partial class Pane
             arguments.Add(flag);
         }
 
-        // tmux 3.4 misreads the percentage flag, so a percentage rides the size
-        // flag instead, which every supported version accepts.
-        AddValue(
-            arguments,
-            "-l",
-            request.Percentage is int share
-                ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
-                : request.Size);
+        AddValue(arguments, "-l", request.ResolveSize());
         if (request.FullWindow)
         {
             arguments.Add("-f");

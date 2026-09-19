@@ -1533,23 +1533,22 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.SplitPaneRequest.#ctor(string?,string?,bool,PaneDirection?,bool,bool,string?,string?,int?,IReadOnlyDictionary<string,string>?,bool,string?,string?,string?,string?,bool)` | `SplitPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, PaneDirection? direction = null, bool fullWindow = false, bool zoom = false, string? command = null, string? size = null, int? percentage = null, IReadOnlyDictionary<string,string>? environment = null, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false)` | Public | No | Portable | Creates SplitPaneRequest. |
-| `P:LibTmux.SplitPaneRequest.ActiveBorderStyle` | `string? LibTmux.SplitPaneRequest.ActiveBorderStyle { get; }` | Public | No | Portable | Gets ActiveBorderStyle. |
-| `P:LibTmux.SplitPaneRequest.Attach` | `bool LibTmux.SplitPaneRequest.Attach { get; }` | Public | No | Portable | Gets Attach. |
-| `P:LibTmux.SplitPaneRequest.Command` | `string? LibTmux.SplitPaneRequest.Command { get; }` | Public | No | Portable | Gets Command. |
-| `P:LibTmux.SplitPaneRequest.Direction` | `PaneDirection? LibTmux.SplitPaneRequest.Direction { get; }` | Public | No | Portable | Gets Direction. |
-| `P:LibTmux.SplitPaneRequest.Empty` | `bool LibTmux.SplitPaneRequest.Empty { get; }` | Public | No | Portable | Gets Empty. |
-| `P:LibTmux.SplitPaneRequest.Environment` | `IReadOnlyDictionary<string,string>? LibTmux.SplitPaneRequest.Environment { get; }` | Public | No | Portable | Gets Environment. |
-| `P:LibTmux.SplitPaneRequest.FullWindow` | `bool LibTmux.SplitPaneRequest.FullWindow { get; }` | Public | No | Portable | Gets FullWindow. |
-| `P:LibTmux.SplitPaneRequest.InactiveBorderStyle` | `string? LibTmux.SplitPaneRequest.InactiveBorderStyle { get; }` | Public | No | Portable | Gets InactiveBorderStyle. |
-| `P:LibTmux.SplitPaneRequest.KeepOpen` | `bool LibTmux.SplitPaneRequest.KeepOpen { get; }` | Public | No | Portable | Gets KeepOpen. |
-| `P:LibTmux.SplitPaneRequest.Message` | `string? LibTmux.SplitPaneRequest.Message { get; }` | Public | No | Portable | Gets Message. |
-| `P:LibTmux.SplitPaneRequest.Percentage` | `int? LibTmux.SplitPaneRequest.Percentage { get; }` | Public | No | Portable | Gets Percentage. |
-| `P:LibTmux.SplitPaneRequest.Size` | `string? LibTmux.SplitPaneRequest.Size { get; }` | Public | No | Portable | Gets Size. |
-| `P:LibTmux.SplitPaneRequest.StartDirectory` | `string? LibTmux.SplitPaneRequest.StartDirectory { get; }` | Public | No | Portable | Gets StartDirectory. |
-| `P:LibTmux.SplitPaneRequest.Style` | `string? LibTmux.SplitPaneRequest.Style { get; }` | Public | No | Portable | Gets Style. |
-| `P:LibTmux.SplitPaneRequest.Target` | `string? LibTmux.SplitPaneRequest.Target { get; }` | Public | No | Portable | Gets Target. |
-| `P:LibTmux.SplitPaneRequest.Zoom` | `bool LibTmux.SplitPaneRequest.Zoom { get; }` | Public | No | Portable | Gets Zoom. |
+| `P:LibTmux.SplitPaneRequest.ActiveBorderStyle` | `string? LibTmux.SplitPaneRequest.ActiveBorderStyle { get; init; }` | Public | No | Portable | Gets ActiveBorderStyle. |
+| `P:LibTmux.SplitPaneRequest.Attach` | `bool LibTmux.SplitPaneRequest.Attach { get; init; }` | Public | No | Portable | Gets Attach. |
+| `P:LibTmux.SplitPaneRequest.Command` | `string? LibTmux.SplitPaneRequest.Command { get; init; }` | Public | No | Portable | Gets Command. |
+| `P:LibTmux.SplitPaneRequest.Direction` | `PaneDirection? LibTmux.SplitPaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
+| `P:LibTmux.SplitPaneRequest.Empty` | `bool LibTmux.SplitPaneRequest.Empty { get; init; }` | Public | No | Portable | Gets Empty. |
+| `P:LibTmux.SplitPaneRequest.Environment` | `IReadOnlyDictionary<string,string>? LibTmux.SplitPaneRequest.Environment { get; init; }` | Public | No | Portable | Gets Environment. |
+| `P:LibTmux.SplitPaneRequest.FullWindow` | `bool LibTmux.SplitPaneRequest.FullWindow { get; init; }` | Public | No | Portable | Gets FullWindow. |
+| `P:LibTmux.SplitPaneRequest.InactiveBorderStyle` | `string? LibTmux.SplitPaneRequest.InactiveBorderStyle { get; init; }` | Public | No | Portable | Gets InactiveBorderStyle. |
+| `P:LibTmux.SplitPaneRequest.KeepOpen` | `bool LibTmux.SplitPaneRequest.KeepOpen { get; init; }` | Public | No | Portable | Gets KeepOpen. |
+| `P:LibTmux.SplitPaneRequest.Message` | `string? LibTmux.SplitPaneRequest.Message { get; init; }` | Public | No | Portable | Gets Message. |
+| `P:LibTmux.SplitPaneRequest.Percentage` | `int? LibTmux.SplitPaneRequest.Percentage { get; init; }` | Public | No | Portable | Gets Percentage. |
+| `P:LibTmux.SplitPaneRequest.Size` | `string? LibTmux.SplitPaneRequest.Size { get; init; }` | Public | No | Portable | Gets Size. |
+| `P:LibTmux.SplitPaneRequest.StartDirectory` | `string? LibTmux.SplitPaneRequest.StartDirectory { get; init; }` | Public | No | Portable | Gets StartDirectory. |
+| `P:LibTmux.SplitPaneRequest.Style` | `string? LibTmux.SplitPaneRequest.Style { get; init; }` | Public | No | Portable | Gets Style. |
+| `P:LibTmux.SplitPaneRequest.Target` | `string? LibTmux.SplitPaneRequest.Target { get; init; }` | Public | No | Portable | Gets Target. |
+| `P:LibTmux.SplitPaneRequest.Zoom` | `bool LibTmux.SplitPaneRequest.Zoom { get; init; }` | Public | No | Portable | Gets Zoom. |
 
 ### `T:LibTmux.StaleServerGenerationException`
 

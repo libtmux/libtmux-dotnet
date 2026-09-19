@@ -119,10 +119,12 @@ internal sealed partial class WriteTools
             .ConfigureAwait(false);
 
         Pane created = await pane.SplitAsync(
-                new SplitPaneRequest(
-                    direction: direction,
-                    startDirectory: startDirectory,
-                    percentage: percentage),
+                new SplitPaneRequest
+                {
+                    Direction = direction,
+                    StartDirectory = startDirectory,
+                    Percentage = percentage,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
