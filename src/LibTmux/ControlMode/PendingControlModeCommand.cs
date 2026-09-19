@@ -48,21 +48,21 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
             _replyBlocks++;
             if (_replyBlocks > limits.MaxReplyBlocks)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"A control-mode reply exceeded its {limits.MaxReplyBlocks}-block limit.",
                     TmuxDispatchState.Unknown);
             }
 
             if (lines.Count > limits.MaxReplyLines - _replyLines)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"A control-mode reply exceeded its {limits.MaxReplyLines}-line limit.",
                     TmuxDispatchState.Unknown);
             }
 
             if (blockBytes > limits.MaxReplyBytes - _replyBytes)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"A control-mode reply exceeded its {limits.MaxReplyBytes}-byte limit.",
                     TmuxDispatchState.Unknown);
             }

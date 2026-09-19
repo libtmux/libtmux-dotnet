@@ -920,7 +920,7 @@ public sealed class GenerationGuardTests
                             []));
                 }));
 
-            LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(
+            TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
                 () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
             Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
             Assert.Equal(1, calls);

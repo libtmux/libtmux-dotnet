@@ -293,7 +293,7 @@ internal sealed class PsmuxSessionRouter
         if (fields.Length != 3
             || !SessionId.TryParse(fields[1], out SessionId id))
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 $"tmux reported a malformed {kind} identity row.",
                 TmuxDispatchState.Dispatched);
         }

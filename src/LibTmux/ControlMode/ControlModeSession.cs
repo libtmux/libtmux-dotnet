@@ -162,7 +162,7 @@ internal sealed class ControlModeSession : IControlModeSession
                 .ConfigureAwait(false);
             if (output.Count != 0)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     "The generation probe returned unexpected output.",
                     TmuxDispatchState.Unknown);
             }
@@ -452,7 +452,7 @@ internal sealed class ControlModeSession : IControlModeSession
                 {
                     if (guard.Kind != ControlModeGuardKind.Begin)
                     {
-                        throw new LibTmuxException(
+                        throw new TmuxProtocolException(
                             "The tmux control client sent a block guard outside a block.",
                             TmuxDispatchState.Unknown);
                     }
@@ -463,14 +463,14 @@ internal sealed class ControlModeSession : IControlModeSession
 
                 if (ControlModeGuard.HasReservedName(line))
                 {
-                    throw new LibTmuxException(
+                    throw new TmuxProtocolException(
                         "The tmux control client sent a malformed block guard.",
                         TmuxDispatchState.Unknown);
                 }
 
                 if (!line.StartsWith('%'))
                 {
-                    throw new LibTmuxException(
+                    throw new TmuxProtocolException(
                         "The tmux control client sent output outside a block.",
                         TmuxDispatchState.Unknown);
                 }
@@ -544,7 +544,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
             if (lines.Count >= _limits.MaxBlockLines)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"A control-mode block exceeded its {_limits.MaxBlockLines}-line limit.",
                     TmuxDispatchState.Unknown);
             }
@@ -552,7 +552,7 @@ internal sealed class ControlModeSession : IControlModeSession
             int lineBytes = Encoding.UTF8.GetByteCount(line);
             if (lineBytes > _limits.MaxBlockBytes - blockBytes)
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"A control-mode block exceeded its {_limits.MaxBlockBytes}-byte limit.",
                     TmuxDispatchState.Unknown);
             }
@@ -563,7 +563,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
         if (!terminated)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "The tmux control client ended before its command block was terminated.",
                 TmuxDispatchState.Unknown);
         }
@@ -596,7 +596,7 @@ internal sealed class ControlModeSession : IControlModeSession
 
         if (pending is null)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "The tmux control client sent a command block with no pending request.",
                 TmuxDispatchState.Unknown);
         }
@@ -615,7 +615,7 @@ internal sealed class ControlModeSession : IControlModeSession
             pending.Sentinel,
             StringComparison.Ordinal)))
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "The tmux control client returned an unrecognized request fence.",
                 TmuxDispatchState.Unknown);
         }
@@ -629,7 +629,7 @@ internal sealed class ControlModeSession : IControlModeSession
         {
             if (_pending.Count == 0 || !ReferenceEquals(_pending.Peek(), pending))
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     "The tmux control client lost its request boundary.",
                     TmuxDispatchState.Unknown);
             }

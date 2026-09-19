@@ -196,7 +196,7 @@ internal sealed class ServerSnapshot
                     CultureInfo.InvariantCulture,
                     out int windowIndex))
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     "tmux reported a malformed window edge.",
                     TmuxDispatchState.Dispatched);
             }
@@ -223,7 +223,7 @@ internal sealed class ServerSnapshot
 
     private static string Read(IReadOnlyDictionary<string, string?> row, string wireName) =>
         Field(row, wireName)
-        ?? throw new LibTmuxException(
+        ?? throw new TmuxProtocolException(
             $"tmux window row is missing '{wireName}'.",
             TmuxDispatchState.Dispatched);
 

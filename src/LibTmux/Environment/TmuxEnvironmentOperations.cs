@@ -150,7 +150,7 @@ public sealed class TmuxEnvironment
         return sequence.Observe(() =>
             stored ?? (hidden
                 ? new TmuxEnvironmentEntry(name, null, false)
-                : throw new LibTmuxException(
+                : throw new TmuxProtocolException(
                     $"tmux did not report the stored environment variable '{name}'.",
                     TmuxDispatchState.Dispatched)));
     }

@@ -126,6 +126,7 @@ modes differ.
 | `LibTmux.TmuxOutputEvent` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneException` | Thrown when a pane operation is refused before tmux sees it. |
 | `LibTmux.TmuxPaneGoneEvent` | The pane a stream was watching left its window's arrangement. |
+| `LibTmux.TmuxProtocolException` | Reports an answer from tmux this library could not read. |
 | `LibTmux.TmuxSessionExistsException` | Thrown when a session name is already taken. |
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
 | `LibTmux.TmuxVersion` | Represents one lossless parsed tmux version. |
@@ -510,6 +511,8 @@ modes differ.
 | `LibTmux.TmuxOutputEvent.#ctor(LibTmux.PaneId,System.String)` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneException.#ctor(System.String,LibTmux.PaneId,System.Exception)` | Initializes the exception for one pane. |
 | `LibTmux.TmuxPaneGoneEvent.#ctor(LibTmux.PaneId)` | The pane a stream was watching left its window's arrangement. |
+| `LibTmux.TmuxProtocolException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes the exception for an unreadable answer. |
+| `LibTmux.TmuxProtocolException.#ctor(System.String,System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes the exception naming what tmux sent. |
 | `LibTmux.TmuxSessionExistsException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one taken session name. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},LibTmux.TmuxDispatchState,System.Exception)` | Initializes a transport exception that knows whether tmux was started. |
 | `LibTmux.TmuxTransportException.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Exception)` | Initializes a transport exception whose dispatch state is unknown. |
@@ -1051,6 +1054,7 @@ modes differ.
 | `LibTmux.TmuxOutputEvent.PaneId` | The pane that produced the output. |
 | `LibTmux.TmuxPaneException.PaneId` | Gets the pane the request named. |
 | `LibTmux.TmuxPaneGoneEvent.PaneId` | The pane that is gone. |
+| `LibTmux.TmuxProtocolException.Payload` | Gets what tmux sent that could not be read. |
 | `LibTmux.TmuxSessionExistsException.SessionName` | Gets the session name that is already in use. |
 | `LibTmux.TmuxTransportException.Arguments` | Gets the logical tmux arguments. |
 | `LibTmux.TmuxVersion.IsValid` | Gets whether this value contains a parsed tmux version. |

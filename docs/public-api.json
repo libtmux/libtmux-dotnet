@@ -2395,6 +2395,24 @@
       "summary": "Reports TmuxTransport failure."
     },
     {
+      "id": "T:LibTmux.TmuxProtocolException",
+      "namespace": "LibTmux",
+      "name": "TmuxProtocolException",
+      "kind": "class",
+      "package": "LibTmux",
+      "modifiers": [
+        "public",
+        "sealed"
+      ],
+      "baseType": "LibTmuxException",
+      "interfaces": [],
+      "ownership": "value",
+      "state": [
+        "Arguments"
+      ],
+      "summary": "Reports an answer from tmux this library could not read."
+    },
+    {
       "id": "T:LibTmux.TmuxVersion",
       "namespace": "LibTmux",
       "name": "TmuxVersion",
@@ -23913,6 +23931,90 @@
       "package": "LibTmux",
       "signature": "class LibTmux.TmuxTransportException",
       "portable": true
+    },
+    {
+      "id": "T:LibTmux.TmuxProtocolException",
+      "declaringType": "T:LibTmux.TmuxProtocolException",
+      "name": "TmuxProtocolException",
+      "kind": "type",
+      "visibility": "public",
+      "package": "LibTmux",
+      "returnType": "TmuxProtocolException",
+      "parameters": [],
+      "signature": "sealed class LibTmux.TmuxProtocolException : LibTmuxException",
+      "portable": true,
+      "summary": "Reports an answer from tmux this library could not read."
+    },
+    {
+      "id": "M:LibTmux.TmuxProtocolException.#ctor(string,TmuxDispatchState,Exception?)",
+      "declaringType": "T:LibTmux.TmuxProtocolException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "returnType": "TmuxProtocolException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "dispatch",
+          "type": "TmuxDispatchState"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "TmuxProtocolException(string message, TmuxDispatchState dispatch, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Initializes the exception for an unreadable answer."
+    },
+    {
+      "id": "M:LibTmux.TmuxProtocolException.#ctor(string,string,TmuxDispatchState,Exception?)",
+      "declaringType": "T:LibTmux.TmuxProtocolException",
+      "name": ".ctor",
+      "kind": "constructor",
+      "visibility": "public",
+      "package": "LibTmux",
+      "returnType": "TmuxProtocolException",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "string"
+        },
+        {
+          "name": "payload",
+          "type": "string"
+        },
+        {
+          "name": "dispatch",
+          "type": "TmuxDispatchState"
+        },
+        {
+          "name": "innerException",
+          "type": "Exception?",
+          "default": "null"
+        }
+      ],
+      "signature": "TmuxProtocolException(string message, string payload, TmuxDispatchState dispatch, Exception? innerException = null)",
+      "portable": true,
+      "summary": "Initializes the exception naming what tmux sent."
+    },
+    {
+      "id": "P:LibTmux.TmuxProtocolException.Payload",
+      "declaringType": "T:LibTmux.TmuxProtocolException",
+      "name": "Payload",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "returnType": "string",
+      "parameters": [],
+      "signature": "string LibTmux.TmuxProtocolException.Payload { get; }",
+      "portable": true,
+      "summary": "What tmux sent that could not be read."
     },
     {
       "id": "T:LibTmux.TmuxVersion",

@@ -37,7 +37,7 @@ public sealed class PsmuxServer
 
     /// <summary>Gets the psmux compatibility version reported at connection time.</summary>
     public TmuxVersion Version => _inner.Version
-        ?? throw new LibTmuxException(
+        ?? throw new TmuxProtocolException(
             "The connected psmux client reported no usable version.",
             TmuxDispatchState.Unknown);
 

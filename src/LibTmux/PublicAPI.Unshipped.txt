@@ -1009,6 +1009,10 @@ LibTmux.TmuxPaneGoneEvent.Equals(LibTmux.TmuxPaneGoneEvent? other) -> bool
 LibTmux.TmuxPaneGoneEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneGoneEvent.PaneId.init -> void
 LibTmux.TmuxPaneGoneEvent.TmuxPaneGoneEvent(LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxProtocolException
+LibTmux.TmuxProtocolException.Payload.get -> string!
+LibTmux.TmuxProtocolException.TmuxProtocolException(string! message, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
+LibTmux.TmuxProtocolException.TmuxProtocolException(string! message, string! payload, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
 LibTmux.TmuxSessionExistsException
 LibTmux.TmuxSessionExistsException.SessionName.get -> string!
 LibTmux.TmuxSessionExistsException.TmuxSessionExistsException(string! message, string! sessionName, System.Exception? innerException = null) -> void

@@ -278,10 +278,10 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(process);
 
         LibTmuxException readinessFailure =
-            await Assert.ThrowsAsync<LibTmuxException>(
+            await Assert.ThrowsAsync<TmuxProtocolException>(
                 () => session.WaitForReadyAsync(token));
         LibTmuxException disposalFailure =
-            await Assert.ThrowsAsync<LibTmuxException>(
+            await Assert.ThrowsAsync<TmuxProtocolException>(
                 () => session.DisposeAsync().AsTask());
 
         Assert.Same(readinessFailure, disposalFailure);
@@ -320,11 +320,11 @@ public sealed class ControlModeSessionFailureTests
         process.EndCommandBlockEarly();
 
         LibTmuxException firstFailure =
-            await Assert.ThrowsAsync<LibTmuxException>(async () => await first);
+            await Assert.ThrowsAsync<TmuxProtocolException>(async () => await first);
         LibTmuxException secondFailure =
-            await Assert.ThrowsAsync<LibTmuxException>(async () => await second);
+            await Assert.ThrowsAsync<TmuxProtocolException>(async () => await second);
         LibTmuxException disposalFailure =
-            await Assert.ThrowsAsync<LibTmuxException>(
+            await Assert.ThrowsAsync<TmuxProtocolException>(
                 () => session.DisposeAsync().AsTask());
 
         Assert.Same(firstFailure, secondFailure);

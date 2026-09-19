@@ -94,7 +94,7 @@ internal sealed class ControlModeLineReader
         }
         catch (DecoderFallbackException error)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "The tmux control client sent invalid UTF-8.",
                 TmuxDispatchState.Unknown,
                 error);
@@ -105,7 +105,7 @@ internal sealed class ControlModeLineReader
     {
         if (bytes > _maxLineBytes)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 $"A tmux control-mode line exceeded {_maxLineBytes} bytes.",
                 TmuxDispatchState.Unknown);
         }

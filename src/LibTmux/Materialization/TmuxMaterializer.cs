@@ -74,7 +74,7 @@ internal static class Materializer
     {
         EntityMaterializationState state = CreateState(context, fields);
         SessionId id = state.SessionId
-            ?? throw new LibTmuxException(
+            ?? throw new TmuxProtocolException(
                 "tmux row carries no session identifier.",
                 TmuxDispatchState.Dispatched);
         return new Session(context.Server, RequireConnection(context), state.Generation, id, state.RawFields);
@@ -101,7 +101,7 @@ internal static class Materializer
     {
         EntityMaterializationState state = CreateState(context, fields);
         WindowId id = state.WindowId
-            ?? throw new LibTmuxException(
+            ?? throw new TmuxProtocolException(
                 "tmux row carries no window identifier.",
                 TmuxDispatchState.Dispatched);
         return new Window(context.Server, RequireConnection(context), state.Generation, id, state.RawFields);
@@ -129,7 +129,7 @@ internal static class Materializer
         EntityMaterializationState state = CreateState(context, fields);
         if (!PaneId.TryParse(Require(fields, "pane_id"), out PaneId id))
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "tmux row carries a malformed pane identifier.",
                 TmuxDispatchState.Dispatched);
         }
@@ -192,7 +192,7 @@ internal static class Materializer
 
         return SessionId.TryParse(text, out SessionId id)
             ? id
-            : throw new LibTmuxException(
+            : throw new TmuxProtocolException(
                 "tmux row carries a malformed session identifier.",
                 TmuxDispatchState.Dispatched);
     }
@@ -206,7 +206,7 @@ internal static class Materializer
 
         return WindowId.TryParse(text, out WindowId id)
             ? id
-            : throw new LibTmuxException(
+            : throw new TmuxProtocolException(
                 "tmux row carries a malformed window identifier.",
                 TmuxDispatchState.Dispatched);
     }
@@ -218,7 +218,7 @@ internal static class Materializer
     private static string Require(IReadOnlyDictionary<string, string?> fields, string wireName) =>
         fields.TryGetValue(wireName, out string? value) && !string.IsNullOrEmpty(value)
             ? value
-            : throw new LibTmuxException(
+            : throw new TmuxProtocolException(
                 $"tmux row is missing required field '{wireName}'.",
                 TmuxDispatchState.Dispatched);
 
@@ -231,7 +231,7 @@ internal static class Materializer
             MaterializeFormatFields(context, payload, listCommand);
         return rows.Count == 1
             ? rows[0]
-            : throw new LibTmuxException(
+            : throw new TmuxProtocolException(
                 $"tmux returned {rows.Count.ToString(CultureInfo.InvariantCulture)} rows where one was required.",
                 TmuxDispatchState.Dispatched);
     }

@@ -404,6 +404,7 @@ internal static class Program
 | `T:LibTmux.TmuxPaneException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxPane failure. State: PaneId. | `LibTmux` |
 | `T:LibTmux.TmuxSessionExistsException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxSessionExists failure. State: SessionName. | `LibTmux` |
 | `T:LibTmux.TmuxTransportException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxTransport failure. State: Arguments. | `LibTmux` |
+| `T:LibTmux.TmuxProtocolException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports an answer from tmux this library could not read. State: Arguments. | `LibTmux` |
 | `T:LibTmux.TmuxVersion` | record struct | `public, readonly` | `IComparable<TmuxVersion>` | `ValueType` | value | A lossless parsed tmux version with stable ordering semantics. Default value: {"comparison":"equality is valid; ordered comparison throws InvalidOperationException","isValid":false,"major":0,"minor":0,"raw":"","suffix":null,"toString":""}. | `LibTmux` |
 | `T:LibTmux.TmuxVersionTooLowException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxVersionTooLow failure. State: RequiredVersion, ActualVersion. | `LibTmux` |
 | `T:LibTmux.TmuxWaitMode` | enum | `public` | None | `Enum` | value | Selects wait-for behavior. | `LibTmux` |
@@ -1989,6 +1990,14 @@ internal static class Program
 | --- | --- | --- | --- | --- | --- |
 | `M:LibTmux.TmuxPaneGoneEvent.#ctor(PaneId)` | `TmuxPaneGoneEvent(PaneId PaneId)` | Public | No | Portable | Creates TmuxPaneGoneEvent. |
 | `P:LibTmux.TmuxPaneGoneEvent.PaneId` | `PaneId LibTmux.TmuxPaneGoneEvent.PaneId { get; }` | Public | No | Portable | Gets the pane that is gone. |
+
+### `T:LibTmux.TmuxProtocolException`
+
+| Member ID | Declaration | Visibility | Static | Platform | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `M:LibTmux.TmuxProtocolException.#ctor(string,TmuxDispatchState,Exception?)` | `TmuxProtocolException(string message, TmuxDispatchState dispatch, Exception? innerException = null)` | Public | No | Portable | Initializes the exception for an unreadable answer. |
+| `M:LibTmux.TmuxProtocolException.#ctor(string,string,TmuxDispatchState,Exception?)` | `TmuxProtocolException(string message, string payload, TmuxDispatchState dispatch, Exception? innerException = null)` | Public | No | Portable | Initializes the exception naming what tmux sent. |
+| `P:LibTmux.TmuxProtocolException.Payload` | `string LibTmux.TmuxProtocolException.Payload { get; }` | Public | No | Portable | What tmux sent that could not be read. |
 
 ### `T:LibTmux.TmuxSessionExistsException`
 

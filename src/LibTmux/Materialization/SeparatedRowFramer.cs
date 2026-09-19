@@ -75,7 +75,7 @@ internal static class SeparatedRowFramer
                 : new ReadOnlyMemory<byte>(value.ToArray());
             if (!row.TryAdd(field.WireName, stored))
             {
-                throw new LibTmuxException(
+                throw new TmuxProtocolException(
                     $"tmux row repeats field '{field.WireName}'.",
                     TmuxDispatchState.Dispatched);
             }
@@ -94,14 +94,14 @@ internal static class SeparatedRowFramer
         int length = remainder.IndexOf(separator);
         if (length < 0)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "tmux row ended before every field was read.",
                 TmuxDispatchState.Dispatched);
         }
 
         if (length > limits.MaxFramedFieldBytes)
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "tmux value exceeds the framed field limit.",
                 TmuxDispatchState.Dispatched);
         }
@@ -127,7 +127,7 @@ internal static class SeparatedRowFramer
 
         if (payload[offset] != (byte)'\n')
         {
-            throw new LibTmuxException(
+            throw new TmuxProtocolException(
                 "tmux row is not terminated by a newline.",
                 TmuxDispatchState.Dispatched);
         }

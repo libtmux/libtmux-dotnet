@@ -135,7 +135,7 @@ public sealed class SeparatedRowFramerTests
 
         // tmux answered; the rows it sent could not be read. A retry repeats
         // whatever the command already did, so the failure says Dispatched.
-        LibTmuxException error = Assert.Throws<LibTmuxException>(
+        TmuxProtocolException error = Assert.Throws<TmuxProtocolException>(
             () => SeparatedRowFramer.Decode(payload, Projection, Limits));
         Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
     }
@@ -147,7 +147,7 @@ public sealed class SeparatedRowFramerTests
 
         // tmux answered; the rows it sent could not be read. A retry repeats
         // whatever the command already did, so the failure says Dispatched.
-        LibTmuxException error = Assert.Throws<LibTmuxException>(
+        TmuxProtocolException error = Assert.Throws<TmuxProtocolException>(
             () => SeparatedRowFramer.Decode(payload, Projection, Limits));
         Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
     }
@@ -161,7 +161,7 @@ public sealed class SeparatedRowFramerTests
                 ["session_name"] = "one"u8.ToArray(),
             });
 
-        LibTmuxException error = Assert.Throws<LibTmuxException>(
+        TmuxProtocolException error = Assert.Throws<TmuxProtocolException>(
             () => SeparatedRowFramer.Decode([.. row, .. "junk"u8], Projection, Limits));
         Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
     }
@@ -175,7 +175,7 @@ public sealed class SeparatedRowFramerTests
             ["session_name"] = Encoding.ASCII.GetBytes(new string('x', 64)),
         });
 
-        LibTmuxException error = Assert.Throws<LibTmuxException>(
+        TmuxProtocolException error = Assert.Throws<TmuxProtocolException>(
             () => SeparatedRowFramer.Decode(payload, Projection, bounded));
         Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
     }

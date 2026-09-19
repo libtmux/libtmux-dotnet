@@ -72,7 +72,7 @@ public sealed class PsmuxPane
         _inner.RawFormatFields.TryGetValue(name, out string? value)
             && !string.IsNullOrEmpty(value)
                 ? value
-                : throw new LibTmuxException(
+                : throw new TmuxProtocolException(
                     $"The psmux pane row omitted {name}.",
                     TmuxDispatchState.Dispatched);
 }
