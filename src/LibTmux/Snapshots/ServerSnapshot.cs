@@ -139,10 +139,9 @@ internal sealed class ServerSnapshot
                     sessionsById.GetValueOrDefault(window.EntityKey.SessionId));
             }),
         ];
-        foreach (Window window in windows)
+        foreach (Window window in windows.Where(candidate => candidate.Edge is SessionWindowEdge))
         {
-            if (window.Edge is SessionWindowEdge edge
-                && windowsBySession.TryGetValue(edge.SessionId, out List<Window>? owned))
+            if (windowsBySession.TryGetValue(window.Edge.SessionId, out List<Window>? owned))
             {
                 owned.Add(window);
             }
