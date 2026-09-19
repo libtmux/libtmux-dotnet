@@ -667,7 +667,11 @@ internal sealed class CapabilityTools
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
-        Window resized = await window.ResizeAsync(new ResizeWindowRequest(width: width, height: height), cancellationToken)
+        Window resized = await window.ResizeAsync(new ResizeWindowRequest
+        {
+            Width = width,
+            Height = height,
+        }, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
             $"{resized.Id} is now {resized.Width}x{resized.Height}.",
@@ -708,7 +712,12 @@ internal sealed class CapabilityTools
         Window window = await TmuxTargets.WindowAsync(server, windowId, cancellationToken)
             .ConfigureAwait(false);
         Window moved = await window.MoveAsync(
-                new MoveWindowRequest(destination, session, replaceExisting: replaceExisting),
+                new MoveWindowRequest
+                {
+                    Destination = destination,
+                    Session = session,
+                    ReplaceExisting = replaceExisting,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult(
@@ -818,7 +827,12 @@ internal sealed class CapabilityTools
                 + "different panes, or call list_panes to see what exists.");
         }
 
-        await pane.SwapAsync(new SwapPaneRequest(targetPaneId, detach: detach, keepZoom: keepZoom), cancellationToken)
+        await pane.SwapAsync(new SwapPaneRequest
+        {
+            Target = targetPaneId,
+            Detach = detach,
+            KeepZoom = keepZoom,
+        }, cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Swapped pane {pane.Id} with {targetPaneId}.", PaneId: pane.Id.ToString());
     }
@@ -978,9 +992,11 @@ internal sealed class CapabilityTools
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
         await pane.RespawnAsync(
-                new RespawnRequest(
-                    startDirectory: LiteralTmuxFormat(startDirectory),
-                    killExistingProcess: killExistingProcess),
+                new RespawnRequest
+                {
+                    StartDirectory = LiteralTmuxFormat(startDirectory),
+                    KillExistingProcess = killExistingProcess,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         string landed = await TmuxTargets

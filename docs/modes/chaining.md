@@ -37,8 +37,8 @@ rather than dropping to strings:
 
 ```csharp
 await server.Chain()
-    .Then(new NewWindowRequest(name: "build").ToCommand(session))
-    .Then(new SendKeysRequest("make").ToCommand(pane))
+    .Then(new NewWindowRequest { Name = "build" }.ToCommand(session))
+    .Then(new SendKeysRequest { Text = "make" }.ToCommand(pane))
     .ExecuteAsync(ct);
 ```
 
@@ -46,7 +46,7 @@ Each also runs on its own, which is the same request sent as one invocation
 instead of joining a sequence:
 
 ```csharp
-await new SendKeysRequest("make").ExecuteAsync(pane, ct);
+await new SendKeysRequest { Text = "make" }.ExecuteAsync(pane, ct);
 ```
 
 Both take the thing the request acts on. A request says *what* to do and not

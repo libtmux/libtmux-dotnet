@@ -21,55 +21,39 @@ public enum ChooseTreeSort
 /// <summary>Describes one <c>choose-tree</c> invocation.</summary>
 public sealed record ChooseTreeRequest
 {
-    /// <summary>Initializes a tree-chooser request.</summary>
-    /// <param name="sessionsCollapsed">Whether sessions start collapsed.</param>
-    /// <param name="windowsCollapsed">Whether windows start collapsed.</param>
-    /// <param name="format">The format each row renders with.</param>
-    /// <param name="nativeFilter">A raw tmux filter limiting the rows.</param>
-    /// <param name="sort">How the rows are ordered.</param>
-    /// <param name="reverse">Whether the order is reversed.</param>
-    /// <param name="zoom">Whether the chooser pane is zoomed.</param>
-    public ChooseTreeRequest(
-        bool sessionsCollapsed = false,
-        bool windowsCollapsed = false,
-        string? format = null,
-        UnsafeTmuxFilter? nativeFilter = null,
-        ChooseTreeSort? sort = null,
-        bool reverse = false,
-        bool zoom = false)
-    {
-        if (sort is not null && !Enum.IsDefined(sort.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(sort));
-        }
-
-        SessionsCollapsed = sessionsCollapsed;
-        WindowsCollapsed = windowsCollapsed;
-        Format = format;
-        NativeFilter = nativeFilter;
-        Sort = sort;
-        Reverse = reverse;
-        Zoom = zoom;
-    }
+    private readonly ChooseTreeSort? _sort;
 
     /// <summary>Gets whether sessions start collapsed.</summary>
-    public bool SessionsCollapsed { get; }
+    public bool SessionsCollapsed { get; init; }
 
     /// <summary>Gets whether windows start collapsed.</summary>
-    public bool WindowsCollapsed { get; }
+    public bool WindowsCollapsed { get; init; }
 
     /// <summary>Gets the format each row renders with.</summary>
-    public string? Format { get; }
+    public string? Format { get; init; }
 
     /// <summary>Gets the raw tmux filter limiting the rows.</summary>
-    public UnsafeTmuxFilter? NativeFilter { get; }
+    public UnsafeTmuxFilter? NativeFilter { get; init; }
 
     /// <summary>Gets how the rows are ordered.</summary>
-    public ChooseTreeSort? Sort { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined sort.</exception>
+    public ChooseTreeSort? Sort
+    {
+        get => _sort;
+        init
+        {
+            if (value is not null && !Enum.IsDefined(value.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(Sort));
+            }
+
+            _sort = value;
+        }
+    }
 
     /// <summary>Gets whether the order is reversed.</summary>
-    public bool Reverse { get; }
+    public bool Reverse { get; init; }
 
     /// <summary>Gets whether the chooser pane is zoomed.</summary>
-    public bool Zoom { get; }
+    public bool Zoom { get; init; }
 }

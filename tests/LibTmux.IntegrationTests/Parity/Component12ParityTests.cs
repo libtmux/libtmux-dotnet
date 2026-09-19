@@ -174,7 +174,7 @@ public sealed class Component12ParityTests
 
     private static async Task<bool> ProvesSendKeysAsync(Pane pane, CancellationToken token)
     {
-        await pane.SendKeysAsync(new SendKeysRequest("echo PARITYKEYS"), token);
+        await pane.SendKeysAsync(new SendKeysRequest { Text = "echo PARITYKEYS" }, token);
         return (await ReadPaneAsync(pane, token)).Contains("PARITYKEYS", StringComparison.Ordinal);
     }
 
@@ -219,7 +219,7 @@ public sealed class Component12ParityTests
         }
 
         Pane created = await pane.CreatePaneAsync(
-            new NewPaneRequest(width: 20, height: 5, x: 1, y: 1),
+            new NewPaneRequest { Width = 20, Height = 5, X = 1, Y = 1 },
             token);
         return created.Id != pane.Id;
     }
@@ -239,7 +239,7 @@ public sealed class Component12ParityTests
     {
         Pane travelling = await pane.SplitAsync(cancellationToken: token);
         Window destination = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "destination"),
+            new NewWindowRequest { Name = "destination" },
             token);
         await travelling.MoveAsync(new MovePaneRequest(destination.Id.ToString()), token);
         bool moved = (await destination.GetPanesAsync(token))
@@ -256,7 +256,7 @@ public sealed class Component12ParityTests
     {
         Pane other = await pane.SplitAsync(cancellationToken: token);
         string before = await FormatAsync(pane, "#{pane_index}", token);
-        await pane.SwapAsync(new SwapPaneRequest(other.Id.ToString()), token);
+        await pane.SwapAsync(new SwapPaneRequest { Target = other.Id.ToString() }, token);
         return await FormatAsync(pane, "#{pane_index}", token) != before;
     }
 
@@ -275,7 +275,7 @@ public sealed class Component12ParityTests
         // tmux refuses to respawn a pane that is still running.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => pane.RespawnAsync(cancellationToken: token));
-        await pane.RespawnAsync(new RespawnRequest(killExistingProcess: true), token);
+        await pane.RespawnAsync(new RespawnRequest { KillExistingProcess = true }, token);
         return (await pane.RefreshAsync(token)).Id == pane.Id;
     }
 
@@ -284,7 +284,7 @@ public sealed class Component12ParityTests
         await pane.SplitAsync(cancellationToken: token);
         int before = (await pane.RefreshAsync(token)).Height;
         Pane resized = await pane.ResizeAsync(
-            new ResizePaneRequest(ResizeDirection.Up, adjustment: 2),
+            new ResizePaneRequest { Direction = ResizeDirection.Up, Adjustment = 2 },
             token);
 
         // tmux clamps a size that does not fit, so the assertion is that the
@@ -313,7 +313,7 @@ public sealed class Component12ParityTests
 
     private static async Task<bool> ProvesPipeAsync(Pane pane, CancellationToken token)
     {
-        await pane.PipeAsync(new PipePaneRequest("cat > /dev/null"), token);
+        await pane.PipeAsync(new PipePaneRequest { Command = "cat > /dev/null" }, token);
         bool piping = await FormatAsync(pane, "#{pane_pipe}", token) == "1";
 
         // Omitting the command does not leave an existing pipe alone.
@@ -324,7 +324,7 @@ public sealed class Component12ParityTests
     private static async Task<bool> ProvesPasteAsync(Pane pane, CancellationToken token)
     {
         await pane.Server.ExecuteCommandAsync(["set-buffer", "-b", "parity", "echo PASTED"], token);
-        await pane.PasteBufferAsync(new PasteBufferRequest("parity"), token);
+        await pane.PasteBufferAsync(new PasteBufferRequest { Name = "parity" }, token);
         return (await ReadPaneAsync(pane, token)).Contains("PASTED", StringComparison.Ordinal);
     }
 
@@ -332,7 +332,7 @@ public sealed class Component12ParityTests
     {
         await pane.EnterCopyModeAsync(cancellationToken: token);
         bool entered = await FormatAsync(pane, "#{pane_mode}", token) == "copy-mode";
-        await pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        await pane.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         return entered && await FormatAsync(pane, "#{pane_mode}", token) != "copy-mode";
     }
 
@@ -356,7 +356,7 @@ public sealed class Component12ParityTests
     private static async Task<bool> ProvesDisplayMessageAsync(Pane pane, CancellationToken token)
     {
         IReadOnlyList<string>? printed = await pane.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pane_id}", returnText: true),
+            new DisplayMessageRequest { Message = "#{pane_id}", ReturnText = true },
             token);
         return printed?.Count == 1 && printed[0] == pane.Id.ToString();
     }
@@ -390,7 +390,7 @@ public sealed class Component12ParityTests
     {
         await pane.ChooseBufferAsync(token);
         await pane.ChooseClientAsync(token);
-        await pane.ChooseTreeAsync(new ChooseTreeRequest(sort: ChooseTreeSort.Name), token);
+        await pane.ChooseTreeAsync(new ChooseTreeRequest { Sort = ChooseTreeSort.Name }, token);
         await pane.FindWindowAsync(new FindWindowRequest("nothing-matches"), token);
         return (await pane.RefreshAsync(token)).Id == pane.Id;
     }
@@ -401,7 +401,7 @@ public sealed class Component12ParityTests
         CancellationToken token)
     {
         IReadOnlyList<string>? lines = await pane.DisplayMessageAsync(
-            new DisplayMessageRequest(format, returnText: true),
+            new DisplayMessageRequest { Message = format, ReturnText = true },
             token);
         return lines is { Count: > 0 } ? lines[0] : string.Empty;
     }

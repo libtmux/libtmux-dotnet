@@ -40,13 +40,12 @@ public sealed partial class Server
 
     internal static List<string> BuildUnbindKeyArguments(UnbindKeyRequest request)
     {
+        string key = request.ResolveKey();
         List<string> arguments = ["unbind-key"];
         ServerUtilities.AddFlag(arguments, request.All, "-a");
         ServerUtilities.AddFlag(arguments, request.Quiet, "-q");
         ServerUtilities.AddValue(arguments, "-T", request.KeyTable);
-
-        // tmux still wants a key after the all flag, and takes any one.
-        arguments.Add(request.Key ?? "-a");
+        arguments.Add(key);
         return arguments;
     }
 

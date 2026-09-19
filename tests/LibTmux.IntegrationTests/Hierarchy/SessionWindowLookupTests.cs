@@ -23,8 +23,8 @@ public sealed class SessionWindowLookupTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
-        Window decoy = await session.CreateWindowAsync(new NewWindowRequest(name: "decoy"), token);
-        Window wanted = await session.CreateWindowAsync(new NewWindowRequest(name: "wanted"), token);
+        Window decoy = await session.CreateWindowAsync(new NewWindowRequest { Name = "decoy" }, token);
+        Window wanted = await session.CreateWindowAsync(new NewWindowRequest { Name = "wanted" }, token);
         Assert.NotEqual(wanted.Id, decoy.Id);
 
         // The decoy is listed before the wanted window and is now named
@@ -55,7 +55,7 @@ public sealed class SessionWindowLookupTests
         Session first = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
         await using OwnedSessionScope other = await server.CreateOwnedSessionAsync(
-            new NewSessionRequest(name: "elsewhere"),
+            new NewSessionRequest { Name = "elsewhere" },
             token);
         Window elsewhere = await TestHierarchy.RequireFirstWindowAsync(other.Value, token);
 
@@ -95,8 +95,8 @@ public sealed class SessionWindowLookupTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "third"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "third" }, token);
 
         IReadOnlyList<Window> windows = await session.GetWindowsAsync(token);
         Assert.True(windows.Count >= 3);

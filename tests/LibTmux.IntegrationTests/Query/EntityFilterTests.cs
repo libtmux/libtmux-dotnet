@@ -22,9 +22,9 @@ public sealed class EntityFilterTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using TemporaryHierarchyScope scope = await Scope(token);
 
-        await scope.Server.CreateSessionAsync(new NewSessionRequest(name: "build-one"), token);
-        await scope.Server.CreateSessionAsync(new NewSessionRequest(name: "build-two"), token);
-        await scope.Server.CreateSessionAsync(new NewSessionRequest(name: "other"), token);
+        await scope.Server.CreateSessionAsync(new NewSessionRequest { Name = "build-one" }, token);
+        await scope.Server.CreateSessionAsync(new NewSessionRequest { Name = "build-two" }, token);
+        await scope.Server.CreateSessionAsync(new NewSessionRequest { Name = "other" }, token);
 
         IReadOnlyList<Session> sessions = await scope.Server.GetSessionsAsync(token);
         IReadOnlyList<Session> building = sessions.Matching<Session>(
@@ -40,8 +40,8 @@ public sealed class EntityFilterTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using TemporaryHierarchyScope scope = await Scope(token);
 
-        await scope.Session.CreateWindowAsync(new NewWindowRequest(name: "build-one"), token);
-        await scope.Session.CreateWindowAsync(new NewWindowRequest(name: "other"), token);
+        await scope.Session.CreateWindowAsync(new NewWindowRequest { Name = "build-one" }, token);
+        await scope.Session.CreateWindowAsync(new NewWindowRequest { Name = "other" }, token);
 
         // The point of a document is that it can be written somewhere else and
         // still mean this, so the two paths have to agree.
@@ -61,7 +61,7 @@ public sealed class EntityFilterTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using TemporaryHierarchyScope scope = await Scope(token);
-        await scope.Session.CreateWindowAsync(new NewWindowRequest(name: "build-one"), token);
+        await scope.Session.CreateWindowAsync(new NewWindowRequest { Name = "build-one" }, token);
 
         Server snapshot = await scope.Server.CaptureSnapshotAsync(SnapshotDepth.Windows, token);
         IReadOnlyList<Session> sessions = [.. snapshot.Sessions];

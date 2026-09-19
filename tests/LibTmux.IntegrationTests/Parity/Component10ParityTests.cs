@@ -99,7 +99,7 @@ public sealed class Component10ParityTests
             "libtmux.session:Session.rename_session" =>
                 (await session.RenameAsync("renamed", token)).Name == "renamed",
             "libtmux.session:Session.new_window" =>
-                (await session.CreateWindowAsync(new NewWindowRequest(name: "extra"), token))
+                (await session.CreateWindowAsync(new NewWindowRequest { Name = "extra" }, token))
                     .Snapshot?["window_name"] == "extra",
             "libtmux.session:Session.list_windows"
                 or "libtmux.session:Session.__getitem__"
@@ -159,7 +159,7 @@ public sealed class Component10ParityTests
             IsolatedOptions(),
             token);
         Session created = await scope.Value.CreateSessionAsync(
-            new NewSessionRequest(name: "started"),
+            new NewSessionRequest { Name = "started" },
             token);
         return created.Name == "started" && await scope.Value.IsAliveAsync(token);
     }
@@ -175,7 +175,7 @@ public sealed class Component10ParityTests
     private static async Task<bool> ProvesCreateSessionAsync(Server server, CancellationToken token)
     {
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest(name: "created"),
+            new NewSessionRequest { Name = "created" },
             token);
         return created.Name == "created"
             && (await server.GetSessionsAsync(token)).Count == 2;
@@ -183,7 +183,7 @@ public sealed class Component10ParityTests
 
     private static async Task<bool> ProvesKillSessionAsync(Server server, CancellationToken token)
     {
-        await server.CreateSessionAsync(new NewSessionRequest(name: "doomed"), token);
+        await server.CreateSessionAsync(new NewSessionRequest { Name = "doomed" }, token);
         await server.KillSessionAsync("doomed", token);
         return !await server.HasSessionAsync("doomed", true, token);
     }
@@ -198,7 +198,7 @@ public sealed class Component10ParityTests
 
     private static async Task<bool> ProvesSelectionAsync(Session session, CancellationToken token)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
         WindowId second = (await session.GetWindowsAsync(token))
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
@@ -213,14 +213,14 @@ public sealed class Component10ParityTests
 
     private static async Task<bool> ProvesKillWindowAsync(Session session, CancellationToken token)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "spare"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "spare" }, token);
         await session.KillWindowAsync("spare", token);
         return (await session.GetWindowsAsync(token)).Count == 1;
     }
 
     private static async Task<bool> ProvesKillSelfAsync(Server server, CancellationToken token)
     {
-        Session extra = await server.CreateSessionAsync(new NewSessionRequest(name: "extra"), token);
+        Session extra = await server.CreateSessionAsync(new NewSessionRequest { Name = "extra" }, token);
         await extra.KillAsync(cancellationToken: token);
         return !await server.HasSessionAsync("extra", true, token);
     }
@@ -253,7 +253,7 @@ public sealed class Component10ParityTests
         // refuses rather than silently doing nothing.
         TmuxCommandException viaServer = await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.AttachSessionAsync(
-                new AttachSessionRequest(target: session.Id.ToString()),
+                new AttachSessionRequest { Target = session.Id.ToString() },
                 token));
         TmuxCommandException viaSession = await Assert.ThrowsAsync<TmuxCommandException>(
             () => session.AttachAsync(cancellationToken: token));

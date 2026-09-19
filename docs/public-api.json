@@ -109,7 +109,7 @@
     "connect-and-own-session": {
       "title": "Connect and own a session",
       "description": "Owned scopes make cleanup explicit; listed handles remain borrowed.",
-      "source": "using System;\nusing System.Threading.Tasks;\nusing LibTmux;\n\ninternal static class Program\n{\n    public static async Task Main()\n    {\n        if (OperatingSystem.IsWindows())\n        {\n            throw new PlatformNotSupportedException(\"tmux process execution is unavailable on Windows.\");\n        }\n\n        await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync();\n        await using OwnedSessionScope ownedSession =\n            await ownedServer.Value.CreateOwnedSessionAsync(\n                new NewSessionRequest(name: \"work\"));\n        Console.WriteLine(ownedSession.Value.Name);\n    }\n}"
+      "source": "using System;\nusing System.Threading.Tasks;\nusing LibTmux;\n\ninternal static class Program\n{\n    public static async Task Main()\n    {\n        if (OperatingSystem.IsWindows())\n        {\n            throw new PlatformNotSupportedException(\"tmux process execution is unavailable on Windows.\");\n        }\n\n        await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync();\n        await using OwnedSessionScope ownedSession =\n            await ownedServer.Value.CreateOwnedSessionAsync(\n                new NewSessionRequest { Name = \"work\" });\n        Console.WriteLine(ownedSession.Value.Name);\n    }\n}"
     },
     "immutable-replacement": {
       "title": "Keep immutable replacements",
@@ -124,7 +124,7 @@
     "real-tmux-testkit": {
       "title": "Use the test-framework-independent real-tmux kit",
       "description": "The public test scope and bounded poller work without an xUnit dependency.",
-      "source": "using System;\nusing System.Linq;\nusing System.Threading.Tasks;\nusing LibTmux;\nusing LibTmux.Testing;\n\ninternal static class Program\n{\n    public static async Task Main()\n    {\n        if (OperatingSystem.IsWindows())\n        {\n            throw new PlatformNotSupportedException(\"tmux process execution is unavailable on Windows.\");\n        }\n\n        var factory = new TmuxTestFactory();\n        await using TemporaryHierarchyScope hierarchy =\n            await factory.CreateHierarchyAsync();\n        await hierarchy.Pane.SendKeysAsync(\n            new SendKeysRequest(text: \"echo libtmux-$(printf %s ready)\"));\n        await TmuxWait.UntilAsync(\n            token => hierarchy.Pane.CaptureAsync(cancellationToken: token),\n            lines => lines.Any(\n                line => string.Equals(\n                    line,\n                    \"libtmux-ready\",\n                    StringComparison.Ordinal)),\n            TimeSpan.FromSeconds(5),\n            TimeSpan.FromMilliseconds(25));\n    }\n}"
+      "source": "using System;\nusing System.Linq;\nusing System.Threading.Tasks;\nusing LibTmux;\nusing LibTmux.Testing;\n\ninternal static class Program\n{\n    public static async Task Main()\n    {\n        if (OperatingSystem.IsWindows())\n        {\n            throw new PlatformNotSupportedException(\"tmux process execution is unavailable on Windows.\");\n        }\n\n        var factory = new TmuxTestFactory();\n        await using TemporaryHierarchyScope hierarchy =\n            await factory.CreateHierarchyAsync();\n        await hierarchy.Pane.SendKeysAsync(\n            new SendKeysRequest { Text = \"echo libtmux-$(printf %s ready)\" });\n        await TmuxWait.UntilAsync(\n            token => hierarchy.Pane.CaptureAsync(cancellationToken: token),\n            lines => lines.Any(\n                line => string.Equals(\n                    line,\n                    \"libtmux-ready\",\n                    StringComparison.Ordinal)),\n            TimeSpan.FromSeconds(5),\n            TimeSpan.FromMilliseconds(25));\n    }\n}"
     }
   },
   "types": [
@@ -3976,46 +3976,6 @@
       "static": true
     },
     {
-      "id": "M:LibTmux.AttachSessionRequest.#ctor(string?,bool,bool,bool,IReadOnlyList<string>?)",
-      "declaringType": "T:LibTmux.AttachSessionRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "AttachSessionRequest",
-      "parameters": [
-        {
-          "name": "target",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "detachOthers",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "readOnly",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "exitOnDetach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "clientFlags",
-          "type": "IReadOnlyList<string>?",
-          "default": "null"
-        }
-      ],
-      "signature": "AttachSessionRequest(string? target = null, bool detachOthers = false, bool readOnly = false, bool exitOnDetach = false, IReadOnlyList<string>? clientFlags = null)",
-      "portable": true,
-      "summary": "Creates AttachSessionRequest."
-    },
-    {
       "id": "M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>,string?,string?,bool)",
       "declaringType": "T:LibTmux.BindKeyRequest",
       "name": ".ctor",
@@ -4073,91 +4033,6 @@
       "summary": "Creates a numeric capture boundary."
     },
     {
-      "id": "M:LibTmux.CapturePaneRequest.#ctor(CapturePanePosition?,CapturePanePosition?,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool,bool)",
-      "declaringType": "T:LibTmux.CapturePaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "CapturePaneRequest",
-      "parameters": [
-        {
-          "name": "startLine",
-          "type": "CapturePanePosition?",
-          "default": "null"
-        },
-        {
-          "name": "endLine",
-          "type": "CapturePanePosition?",
-          "default": "null"
-        },
-        {
-          "name": "escapeSequences",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "escapeNonPrintable",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "joinWrappedLines",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "preserveTrailingSpaces",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "trimTrailingSpaces",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "alternateScreen",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "quiet",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "modeScreen",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "pending",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "hyperlinks",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "lineNumbers",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "lineFlags",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "CapturePaneRequest(CapturePanePosition? startLine = null, CapturePanePosition? endLine = null, bool escapeSequences = false, bool escapeNonPrintable = false, bool joinWrappedLines = false, bool preserveTrailingSpaces = false, bool trimTrailingSpaces = false, bool alternateScreen = false, bool quiet = false, bool modeScreen = false, bool pending = false, bool hyperlinks = false, bool lineNumbers = false, bool lineFlags = false)",
-      "portable": true,
-      "summary": "Creates CapturePaneRequest."
-    },
-    {
       "id": "M:LibTmux.CapturedRelation`1.GetEnumerator()",
       "declaringType": "T:LibTmux.CapturedRelation`1",
       "name": "GetEnumerator",
@@ -4209,56 +4084,6 @@
       "portable": true,
       "platformAnnotations": [],
       "summary": "Enumerates captured items through the non-generic interface."
-    },
-    {
-      "id": "M:LibTmux.ChooseTreeRequest.#ctor(bool,bool,string?,UnsafeTmuxFilter?,ChooseTreeSort?,bool,bool)",
-      "declaringType": "T:LibTmux.ChooseTreeRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ChooseTreeRequest",
-      "parameters": [
-        {
-          "name": "sessionsCollapsed",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "windowsCollapsed",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "format",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "nativeFilter",
-          "type": "UnsafeTmuxFilter?",
-          "default": "null"
-        },
-        {
-          "name": "sort",
-          "type": "ChooseTreeSort?",
-          "default": "null"
-        },
-        {
-          "name": "reverse",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "zoom",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "ChooseTreeRequest(bool sessionsCollapsed = false, bool windowsCollapsed = false, string? format = null, UnsafeTmuxFilter? nativeFilter = null, ChooseTreeSort? sort = null, bool reverse = false, bool zoom = false)",
-      "portable": true,
-      "summary": "Creates ChooseTreeRequest."
     },
     {
       "id": "M:LibTmux.Client.GetAsync(Server,string,CancellationToken)",
@@ -4571,51 +4396,6 @@
       "summary": "Creates ConfirmBeforeRequest."
     },
     {
-      "id": "M:LibTmux.CopyModeRequest.#ctor(bool,bool,bool,bool,bool,string?)",
-      "declaringType": "T:LibTmux.CopyModeRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "CopyModeRequest",
-      "parameters": [
-        {
-          "name": "scrollUp",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "exitOnBottom",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "mouseDrag",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "cancel",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "pageDown",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "sourcePane",
-          "type": "string?",
-          "default": "null"
-        }
-      ],
-      "signature": "CopyModeRequest(bool scrollUp = false, bool exitOnBottom = false, bool mouseDrag = false, bool cancel = false, bool pageDown = false, string? sourcePane = null)",
-      "portable": true,
-      "summary": "Creates CopyModeRequest."
-    },
-    {
       "id": "M:LibTmux.DisplayMenuRequest.#ctor(IReadOnlyList<TmuxMenuItem>,string?,string?,string?,string?,string?,string?,string?,string?,string?,string?,bool,bool)",
       "declaringType": "T:LibTmux.DisplayMenuRequest",
       "name": ".ctor",
@@ -4693,171 +4473,6 @@
       "signature": "DisplayMenuRequest(IReadOnlyList<TmuxMenuItem> items, string? title = null, string? targetPane = null, string? targetClient = null, string? x = null, string? y = null, string? startingChoice = null, string? borderLines = null, string? style = null, string? borderStyle = null, string? selectedStyle = null, bool mouse = false, bool stayOpen = false)",
       "portable": true,
       "summary": "Creates DisplayMenuRequest."
-    },
-    {
-      "id": "M:LibTmux.DisplayMessageRequest.#ctor(string,bool,string?,bool,bool,bool,string?,TimeSpan?,bool,bool)",
-      "declaringType": "T:LibTmux.DisplayMessageRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "DisplayMessageRequest",
-      "parameters": [
-        {
-          "name": "message",
-          "type": "string",
-          "default": "\"\""
-        },
-        {
-          "name": "returnText",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "format",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "allFormats",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "verbose",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "noExpand",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "targetClient",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "delay",
-          "type": "TimeSpan?",
-          "default": "null"
-        },
-        {
-          "name": "notify",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "updatePane",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "DisplayMessageRequest(string message = \"\", bool returnText = false, string? format = null, bool allFormats = false, bool verbose = false, bool noExpand = false, string? targetClient = null, TimeSpan? delay = null, bool notify = false, bool updatePane = false)",
-      "portable": true,
-      "summary": "Creates DisplayMessageRequest."
-    },
-    {
-      "id": "M:LibTmux.DisplayPopupRequest.#ctor(string?,PopupCloseMode?,bool,string?,string?,string?,string?,string?,string?,string?,string?,string?,string?,IReadOnlyDictionary<string,string>?,bool,bool,bool)",
-      "declaringType": "T:LibTmux.DisplayPopupRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "DisplayPopupRequest",
-      "parameters": [
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "closeMode",
-          "type": "PopupCloseMode?",
-          "default": "null"
-        },
-        {
-          "name": "closeExisting",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "targetClient",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "width",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "height",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "x",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "y",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "title",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "borderLines",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "style",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "borderStyle",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "noBorder",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "closeOnAnyKey",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "noKeys",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "DisplayPopupRequest(string? command = null, PopupCloseMode? closeMode = null, bool closeExisting = false, string? targetClient = null, string? width = null, string? height = null, string? x = null, string? y = null, string? startDirectory = null, string? title = null, string? borderLines = null, string? style = null, string? borderStyle = null, IReadOnlyDictionary<string,string>? environment = null, bool noBorder = false, bool closeOnAnyKey = false, bool noKeys = false)",
-      "portable": true,
-      "summary": "Creates DisplayPopupRequest."
     },
     {
       "id": "M:LibTmux.FindWindowRequest.#ctor(string,bool,bool,bool,bool,bool)",
@@ -4946,46 +4561,6 @@
       "signature": "GetOptionRequest(string name, OptionScope? scope = null, bool global = false, bool includeHooks = false, bool includeInherited = false, bool quiet = false)",
       "portable": true,
       "summary": "Creates GetOptionRequest."
-    },
-    {
-      "id": "M:LibTmux.GetOptionsRequest.#ctor(OptionScope?,bool,bool,bool,bool)",
-      "declaringType": "T:LibTmux.GetOptionsRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "GetOptionsRequest",
-      "parameters": [
-        {
-          "name": "scope",
-          "type": "OptionScope?",
-          "default": "null"
-        },
-        {
-          "name": "global",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "includeHooks",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "includeInherited",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "quiet",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "GetOptionsRequest(OptionScope? scope = null, bool global = false, bool includeHooks = false, bool includeInherited = false, bool quiet = false)",
-      "portable": true,
-      "summary": "Creates GetOptionsRequest."
     },
     {
       "id": "M:LibTmux.HookRequest.#ctor(string,OptionScope?,bool)",
@@ -6018,56 +5593,6 @@
       "summary": "Creates LinkWindowRequest."
     },
     {
-      "id": "M:LibTmux.ListBuffersRequest.#ctor(string?,UnsafeTmuxFilter?)",
-      "declaringType": "T:LibTmux.ListBuffersRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ListBuffersRequest",
-      "parameters": [
-        {
-          "name": "format",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "filter",
-          "type": "UnsafeTmuxFilter?",
-          "default": "null"
-        }
-      ],
-      "signature": "ListBuffersRequest(string? format = null, UnsafeTmuxFilter? filter = null)",
-      "portable": true,
-      "summary": "Creates ListBuffersRequest."
-    },
-    {
-      "id": "M:LibTmux.ListHooksRequest.#ctor(OptionScope?,bool)",
-      "declaringType": "T:LibTmux.ListHooksRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ListHooksRequest",
-      "parameters": [
-        {
-          "name": "scope",
-          "type": "OptionScope?",
-          "default": "null"
-        },
-        {
-          "name": "global",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "ListHooksRequest(OptionScope? scope = null, bool global = false)",
-      "portable": true,
-      "summary": "Creates ListHooksRequest."
-    },
-    {
       "id": "M:LibTmux.MovePaneRequest.#ctor(string,PaneDirection,string?,bool,bool,bool)",
       "declaringType": "T:LibTmux.MovePaneRequest",
       "name": ".ctor",
@@ -6110,286 +5635,6 @@
       "signature": "MovePaneRequest(string target, PaneDirection direction = PaneDirection.Below, string? size = null, bool detach = true, bool fullWindow = false, bool before = false)",
       "portable": true,
       "summary": "Creates MovePaneRequest."
-    },
-    {
-      "id": "M:LibTmux.MoveWindowRequest.#ctor(string,string?,WindowDirection?,bool,bool,bool)",
-      "declaringType": "T:LibTmux.MoveWindowRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "MoveWindowRequest",
-      "parameters": [
-        {
-          "name": "destination",
-          "type": "string",
-          "default": "\"\""
-        },
-        {
-          "name": "session",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "direction",
-          "type": "WindowDirection?",
-          "default": "null"
-        },
-        {
-          "name": "noSelect",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "replaceExisting",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "renumber",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "MoveWindowRequest(string destination = \"\", string? session = null, WindowDirection? direction = null, bool noSelect = false, bool replaceExisting = false, bool renumber = false)",
-      "portable": true,
-      "summary": "Creates MoveWindowRequest."
-    },
-    {
-      "id": "M:LibTmux.NewPaneRequest.#ctor(string?,string?,bool,string?,IReadOnlyDictionary<string,string>?,int?,int?,int?,int?,bool,bool,string?,string?,string?,string?,bool)",
-      "declaringType": "T:LibTmux.NewPaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "NewPaneRequest",
-      "parameters": [
-        {
-          "name": "target",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "attach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "width",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "height",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "x",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "y",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "zoom",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "empty",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "style",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "activeBorderStyle",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "inactiveBorderStyle",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "message",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "keepOpen",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "NewPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, string? command = null, IReadOnlyDictionary<string,string>? environment = null, int? width = null, int? height = null, int? x = null, int? y = null, bool zoom = false, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false)",
-      "portable": true,
-      "summary": "Creates NewPaneRequest."
-    },
-    {
-      "id": "M:LibTmux.NewSessionRequest.#ctor(string?,bool,bool,string?,string?,string?,string?,string?,IReadOnlyDictionary<string,string>?,bool,bool,string?)",
-      "declaringType": "T:LibTmux.NewSessionRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "NewSessionRequest",
-      "parameters": [
-        {
-          "name": "name",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "replaceExisting",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "attach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "windowName",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "width",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "height",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "detachOthers",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "noSize",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "clientFlags",
-          "type": "string?",
-          "default": "null"
-        }
-      ],
-      "signature": "NewSessionRequest(string? name = null, bool replaceExisting = false, bool attach = false, string? startDirectory = null, string? windowName = null, string? command = null, string? width = null, string? height = null, IReadOnlyDictionary<string,string>? environment = null, bool detachOthers = false, bool noSize = false, string? clientFlags = null)",
-      "portable": true,
-      "summary": "Creates NewSessionRequest."
-    },
-    {
-      "id": "M:LibTmux.NewWindowRequest.#ctor(string?,string?,bool,string?,string?,IReadOnlyDictionary<string,string>?,WindowDirection?,string?,bool,bool)",
-      "declaringType": "T:LibTmux.NewWindowRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "NewWindowRequest",
-      "parameters": [
-        {
-          "name": "name",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "attach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "index",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "direction",
-          "type": "WindowDirection?",
-          "default": "null"
-        },
-        {
-          "name": "targetWindow",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "killExisting",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "selectExisting",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "NewWindowRequest(string? name = null, string? startDirectory = null, bool attach = false, string? index = null, string? command = null, IReadOnlyDictionary<string,string>? environment = null, WindowDirection? direction = null, string? targetWindow = null, bool killExisting = false, bool selectExisting = false)",
-      "portable": true,
-      "summary": "Creates NewWindowRequest."
     },
     {
       "id": "M:LibTmux.OwnedServerScope.DisposeAsync()",
@@ -7701,86 +6946,6 @@
       "summary": "Tries to parse a prefixed pane identifier from a span."
     },
     {
-      "id": "M:LibTmux.PasteBufferRequest.#ctor(string?,bool,bool,bool,string?,bool)",
-      "declaringType": "T:LibTmux.PasteBufferRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "PasteBufferRequest",
-      "parameters": [
-        {
-          "name": "name",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "deleteAfter",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "useLineFeedSeparator",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "bracketed",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "separator",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "rawBytes",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "PasteBufferRequest(string? name = null, bool deleteAfter = false, bool useLineFeedSeparator = false, bool bracketed = false, string? separator = null, bool rawBytes = false)",
-      "portable": true,
-      "summary": "Creates PasteBufferRequest."
-    },
-    {
-      "id": "M:LibTmux.PipePaneRequest.#ctor(string?,bool,bool,bool)",
-      "declaringType": "T:LibTmux.PipePaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "PipePaneRequest",
-      "parameters": [
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "outputOnly",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "inputOnly",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "toggle",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "PipePaneRequest(string? command = null, bool outputOnly = false, bool inputOnly = false, bool toggle = false)",
-      "portable": true,
-      "summary": "Creates PipePaneRequest."
-    },
-    {
       "id": "M:LibTmux.PsmuxCaptureOptions.#ctor(CapturePanePosition?,CapturePanePosition?,bool,bool)",
       "declaringType": "T:LibTmux.PsmuxCaptureOptions",
       "name": ".ctor",
@@ -8335,131 +7500,6 @@
       "summary": "Translates a supported expression into the canonical query document."
     },
     {
-      "id": "M:LibTmux.ResizePaneRequest.#ctor(ResizeDirection?,int?,string?,string?,bool,bool,bool)",
-      "declaringType": "T:LibTmux.ResizePaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ResizePaneRequest",
-      "parameters": [
-        {
-          "name": "direction",
-          "type": "ResizeDirection?",
-          "default": "null"
-        },
-        {
-          "name": "adjustment",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "width",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "height",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "zoom",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "mouse",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "trimBelow",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "ResizePaneRequest(ResizeDirection? direction = null, int? adjustment = null, string? width = null, string? height = null, bool zoom = false, bool mouse = false, bool trimBelow = false)",
-      "portable": true,
-      "summary": "Creates ResizePaneRequest."
-    },
-    {
-      "id": "M:LibTmux.ResizeWindowRequest.#ctor(ResizeDirection?,int?,int?,int?,WindowResizeMode?)",
-      "declaringType": "T:LibTmux.ResizeWindowRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ResizeWindowRequest",
-      "parameters": [
-        {
-          "name": "direction",
-          "type": "ResizeDirection?",
-          "default": "null"
-        },
-        {
-          "name": "adjustment",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "width",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "height",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "mode",
-          "type": "WindowResizeMode?",
-          "default": "null"
-        }
-      ],
-      "signature": "ResizeWindowRequest(ResizeDirection? direction = null, int? adjustment = null, int? width = null, int? height = null, WindowResizeMode? mode = null)",
-      "portable": true,
-      "summary": "Creates ResizeWindowRequest."
-    },
-    {
-      "id": "M:LibTmux.RespawnRequest.#ctor(string?,string?,IReadOnlyDictionary<string,string>?,bool)",
-      "declaringType": "T:LibTmux.RespawnRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "RespawnRequest",
-      "parameters": [
-        {
-          "name": "command",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "startDirectory",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "environment",
-          "type": "IReadOnlyDictionary<string,string>?",
-          "default": "null"
-        },
-        {
-          "name": "killExistingProcess",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "RespawnRequest(string? command = null, string? startDirectory = null, IReadOnlyDictionary<string,string>? environment = null, bool killExistingProcess = false)",
-      "portable": true,
-      "summary": "Creates RespawnRequest."
-    },
-    {
       "id": "M:LibTmux.RunShellRequest.#ctor(string,IReadOnlyList<string>?,bool,TimeSpan?,bool,string?,string?,bool)",
       "declaringType": "T:LibTmux.RunShellRequest",
       "name": ".ctor",
@@ -8512,141 +7552,6 @@
       "signature": "RunShellRequest(string command, IReadOnlyList<string>? arguments = null, bool background = false, TimeSpan? delay = null, bool asTmuxCommand = false, string? targetPane = null, string? workingDirectory = null, bool showStandardError = false)",
       "portable": true,
       "summary": "Creates RunShellRequest."
-    },
-    {
-      "id": "M:LibTmux.SelectLayoutRequest.#ctor(string?,SelectLayoutMode?)",
-      "declaringType": "T:LibTmux.SelectLayoutRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "SelectLayoutRequest",
-      "parameters": [
-        {
-          "name": "layout",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "mode",
-          "type": "SelectLayoutMode?",
-          "default": "null"
-        }
-      ],
-      "signature": "SelectLayoutRequest(string? layout = null, SelectLayoutMode? mode = null)",
-      "portable": true,
-      "summary": "Creates SelectLayoutRequest."
-    },
-    {
-      "id": "M:LibTmux.SelectPaneRequest.#ctor(PaneSelectDirection?,bool,bool?,bool?,bool)",
-      "declaringType": "T:LibTmux.SelectPaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "SelectPaneRequest",
-      "parameters": [
-        {
-          "name": "direction",
-          "type": "PaneSelectDirection?",
-          "default": "null"
-        },
-        {
-          "name": "keepZoom",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "mark",
-          "type": "bool?",
-          "default": "null"
-        },
-        {
-          "name": "inputEnabled",
-          "type": "bool?",
-          "default": "null"
-        },
-        {
-          "name": "last",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "SelectPaneRequest(PaneSelectDirection? direction = null, bool keepZoom = false, bool? mark = null, bool? inputEnabled = null, bool last = false)",
-      "portable": true,
-      "summary": "Creates SelectPaneRequest."
-    },
-    {
-      "id": "M:LibTmux.SendKeysRequest.#ctor(string?,bool,bool,bool,bool,string?,int?,bool,bool,string?,bool)",
-      "declaringType": "T:LibTmux.SendKeysRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "SendKeysRequest",
-      "parameters": [
-        {
-          "name": "text",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "enter",
-          "type": "bool",
-          "default": "true"
-        },
-        {
-          "name": "suppressHistory",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "literal",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "reset",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "copyModeCommand",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "repeat",
-          "type": "int?",
-          "default": "null"
-        },
-        {
-          "name": "expandFormats",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "hexKeys",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "targetClient",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "keyName",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "SendKeysRequest(string? text = null, bool enter = true, bool suppressHistory = false, bool literal = false, bool reset = false, string? copyModeCommand = null, int? repeat = null, bool expandFormats = false, bool hexKeys = false, string? targetClient = null, bool keyName = false)",
-      "portable": true,
-      "summary": "Creates SendKeysRequest."
     },
     {
       "id": "M:LibTmux.Server.AttachSessionAsync(AttachSessionRequest,CancellationToken)",
@@ -10366,46 +9271,6 @@
       "summary": "Performs WaitFor."
     },
     {
-      "id": "M:LibTmux.ServerAccessRequest.#ctor(string?,string?,bool,bool,bool)",
-      "declaringType": "T:LibTmux.ServerAccessRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ServerAccessRequest",
-      "parameters": [
-        {
-          "name": "allowUser",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "denyUser",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "list",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "readOnly",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "readWrite",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "ServerAccessRequest(string? allowUser = null, string? denyUser = null, bool list = false, bool readOnly = false, bool readWrite = false)",
-      "portable": true,
-      "summary": "Creates ServerAccessRequest."
-    },
-    {
       "id": "M:LibTmux.ServerGeneration.#ctor(int,long)",
       "declaringType": "T:LibTmux.ServerGeneration",
       "name": ".ctor",
@@ -11380,41 +10245,6 @@
       "signature": "StaleServerGenerationException(string message, ServerGeneration expected, ServerGeneration actual, Exception? innerException = null)",
       "portable": true,
       "summary": "Creates StaleServerGenerationException."
-    },
-    {
-      "id": "M:LibTmux.SwapPaneRequest.#ctor(string?,PaneSwapDirection?,bool,bool)",
-      "declaringType": "T:LibTmux.SwapPaneRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "SwapPaneRequest",
-      "parameters": [
-        {
-          "name": "target",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "direction",
-          "type": "PaneSwapDirection?",
-          "default": "null"
-        },
-        {
-          "name": "detach",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "keepZoom",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "SwapPaneRequest(string? target = null, PaneSwapDirection? direction = null, bool detach = false, bool keepZoom = false)",
-      "portable": true,
-      "summary": "Creates SwapPaneRequest."
     },
     {
       "id": "M:LibTmux.Testing.TemporaryHierarchyScope.DisposeAsync()",
@@ -13863,41 +12693,6 @@
       "summary": "Creates TmuxWindowException."
     },
     {
-      "id": "M:LibTmux.UnbindKeyRequest.#ctor(string?,string?,bool,bool)",
-      "declaringType": "T:LibTmux.UnbindKeyRequest",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "UnbindKeyRequest",
-      "parameters": [
-        {
-          "name": "key",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "keyTable",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "all",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "quiet",
-          "type": "bool",
-          "default": "false"
-        }
-      ],
-      "signature": "UnbindKeyRequest(string? key = null, string? keyTable = null, bool all = false, bool quiet = false)",
-      "portable": true,
-      "summary": "Creates UnbindKeyRequest."
-    },
-    {
       "id": "M:LibTmux.UnsafeTmuxFilter.#ctor(string)",
       "declaringType": "T:LibTmux.UnsafeTmuxFilter",
       "name": ".ctor",
@@ -14977,7 +13772,7 @@
       "static": false,
       "returnType": "IReadOnlyList<string>?",
       "parameters": [],
-      "signature": "IReadOnlyList<string>? LibTmux.AttachSessionRequest.ClientFlags { get; }",
+      "signature": "IReadOnlyList<string>? LibTmux.AttachSessionRequest.ClientFlags { get; init; }",
       "portable": true,
       "summary": "Gets ClientFlags."
     },
@@ -14991,7 +13786,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.AttachSessionRequest.DetachOthers { get; }",
+      "signature": "bool LibTmux.AttachSessionRequest.DetachOthers { get; init; }",
       "portable": true,
       "summary": "Gets DetachOthers."
     },
@@ -15005,7 +13800,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.AttachSessionRequest.ExitOnDetach { get; }",
+      "signature": "bool LibTmux.AttachSessionRequest.ExitOnDetach { get; init; }",
       "portable": true,
       "summary": "Gets ExitOnDetach."
     },
@@ -15019,7 +13814,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.AttachSessionRequest.ReadOnly { get; }",
+      "signature": "bool LibTmux.AttachSessionRequest.ReadOnly { get; init; }",
       "portable": true,
       "summary": "Gets ReadOnly."
     },
@@ -15033,7 +13828,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.AttachSessionRequest.Target { get; }",
+      "signature": "string? LibTmux.AttachSessionRequest.Target { get; init; }",
       "portable": true,
       "summary": "Gets Target."
     },
@@ -15159,7 +13954,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.AlternateScreen { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.AlternateScreen { get; init; }",
       "portable": true,
       "summary": "Gets AlternateScreen."
     },
@@ -15173,7 +13968,7 @@
       "static": false,
       "returnType": "CapturePanePosition?",
       "parameters": [],
-      "signature": "CapturePanePosition? LibTmux.CapturePaneRequest.EndLine { get; }",
+      "signature": "CapturePanePosition? LibTmux.CapturePaneRequest.EndLine { get; init; }",
       "portable": true,
       "summary": "Gets EndLine."
     },
@@ -15187,7 +13982,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.EscapeNonPrintable { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.EscapeNonPrintable { get; init; }",
       "portable": true,
       "summary": "Gets EscapeNonPrintable."
     },
@@ -15201,7 +13996,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.EscapeSequences { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.EscapeSequences { get; init; }",
       "portable": true,
       "summary": "Gets EscapeSequences."
     },
@@ -15215,7 +14010,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.Hyperlinks { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.Hyperlinks { get; init; }",
       "portable": true,
       "summary": "Gets Hyperlinks."
     },
@@ -15229,7 +14024,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.JoinWrappedLines { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.JoinWrappedLines { get; init; }",
       "portable": true,
       "summary": "Gets JoinWrappedLines."
     },
@@ -15243,7 +14038,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.LineFlags { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.LineFlags { get; init; }",
       "portable": true,
       "summary": "Gets LineFlags."
     },
@@ -15257,7 +14052,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.LineNumbers { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.LineNumbers { get; init; }",
       "portable": true,
       "summary": "Gets LineNumbers."
     },
@@ -15271,7 +14066,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.ModeScreen { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.ModeScreen { get; init; }",
       "portable": true,
       "summary": "Gets ModeScreen."
     },
@@ -15285,7 +14080,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.Pending { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.Pending { get; init; }",
       "portable": true,
       "summary": "Gets Pending."
     },
@@ -15299,7 +14094,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.PreserveTrailingSpaces { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.PreserveTrailingSpaces { get; init; }",
       "portable": true,
       "summary": "Gets PreserveTrailingSpaces."
     },
@@ -15313,7 +14108,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.Quiet { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.Quiet { get; init; }",
       "portable": true,
       "summary": "Gets Quiet."
     },
@@ -15327,7 +14122,7 @@
       "static": false,
       "returnType": "CapturePanePosition?",
       "parameters": [],
-      "signature": "CapturePanePosition? LibTmux.CapturePaneRequest.StartLine { get; }",
+      "signature": "CapturePanePosition? LibTmux.CapturePaneRequest.StartLine { get; init; }",
       "portable": true,
       "summary": "Gets StartLine."
     },
@@ -15341,7 +14136,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CapturePaneRequest.TrimTrailingSpaces { get; }",
+      "signature": "bool LibTmux.CapturePaneRequest.TrimTrailingSpaces { get; init; }",
       "portable": true,
       "summary": "Gets TrimTrailingSpaces."
     },
@@ -15402,7 +14197,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ChooseTreeRequest.Format { get; }",
+      "signature": "string? LibTmux.ChooseTreeRequest.Format { get; init; }",
       "portable": true,
       "summary": "Gets Format."
     },
@@ -15416,7 +14211,7 @@
       "static": false,
       "returnType": "UnsafeTmuxFilter?",
       "parameters": [],
-      "signature": "UnsafeTmuxFilter? LibTmux.ChooseTreeRequest.NativeFilter { get; }",
+      "signature": "UnsafeTmuxFilter? LibTmux.ChooseTreeRequest.NativeFilter { get; init; }",
       "portable": true,
       "summary": "Gets NativeFilter."
     },
@@ -15430,7 +14225,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ChooseTreeRequest.Reverse { get; }",
+      "signature": "bool LibTmux.ChooseTreeRequest.Reverse { get; init; }",
       "portable": true,
       "summary": "Gets Reverse."
     },
@@ -15444,7 +14239,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ChooseTreeRequest.SessionsCollapsed { get; }",
+      "signature": "bool LibTmux.ChooseTreeRequest.SessionsCollapsed { get; init; }",
       "portable": true,
       "summary": "Gets SessionsCollapsed."
     },
@@ -15458,7 +14253,7 @@
       "static": false,
       "returnType": "ChooseTreeSort?",
       "parameters": [],
-      "signature": "ChooseTreeSort? LibTmux.ChooseTreeRequest.Sort { get; }",
+      "signature": "ChooseTreeSort? LibTmux.ChooseTreeRequest.Sort { get; init; }",
       "portable": true,
       "summary": "Gets Sort."
     },
@@ -15472,7 +14267,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ChooseTreeRequest.WindowsCollapsed { get; }",
+      "signature": "bool LibTmux.ChooseTreeRequest.WindowsCollapsed { get; init; }",
       "portable": true,
       "summary": "Gets WindowsCollapsed."
     },
@@ -15486,7 +14281,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ChooseTreeRequest.Zoom { get; }",
+      "signature": "bool LibTmux.ChooseTreeRequest.Zoom { get; init; }",
       "portable": true,
       "summary": "Gets Zoom."
     },
@@ -15598,7 +14393,7 @@
       "static": false,
       "returnType": "Pane?",
       "parameters": [],
-      "signature": "Pane? LibTmux.ClientAttachment.Pane { get; }",
+      "signature": "Pane? LibTmux.ClientAttachment.Pane { get; init; }",
       "portable": true,
       "summary": "Gets Pane."
     },
@@ -15612,7 +14407,7 @@
       "static": false,
       "returnType": "Session?",
       "parameters": [],
-      "signature": "Session? LibTmux.ClientAttachment.Session { get; }",
+      "signature": "Session? LibTmux.ClientAttachment.Session { get; init; }",
       "portable": true,
       "summary": "Gets Session."
     },
@@ -15626,7 +14421,7 @@
       "static": false,
       "returnType": "Window?",
       "parameters": [],
-      "signature": "Window? LibTmux.ClientAttachment.Window { get; }",
+      "signature": "Window? LibTmux.ClientAttachment.Window { get; init; }",
       "portable": true,
       "summary": "Gets Window."
     },
@@ -15892,7 +14687,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CopyModeRequest.Cancel { get; }",
+      "signature": "bool LibTmux.CopyModeRequest.Cancel { get; init; }",
       "portable": true,
       "summary": "Gets Cancel."
     },
@@ -15906,7 +14701,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CopyModeRequest.ExitOnBottom { get; }",
+      "signature": "bool LibTmux.CopyModeRequest.ExitOnBottom { get; init; }",
       "portable": true,
       "summary": "Gets ExitOnBottom."
     },
@@ -15920,7 +14715,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CopyModeRequest.MouseDrag { get; }",
+      "signature": "bool LibTmux.CopyModeRequest.MouseDrag { get; init; }",
       "portable": true,
       "summary": "Gets MouseDrag."
     },
@@ -15934,7 +14729,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CopyModeRequest.PageDown { get; }",
+      "signature": "bool LibTmux.CopyModeRequest.PageDown { get; init; }",
       "portable": true,
       "summary": "Gets PageDown."
     },
@@ -15948,7 +14743,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.CopyModeRequest.ScrollUp { get; }",
+      "signature": "bool LibTmux.CopyModeRequest.ScrollUp { get; init; }",
       "portable": true,
       "summary": "Gets ScrollUp."
     },
@@ -15962,7 +14757,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.CopyModeRequest.SourcePane { get; }",
+      "signature": "string? LibTmux.CopyModeRequest.SourcePane { get; init; }",
       "portable": true,
       "summary": "Gets SourcePane."
     },
@@ -16158,7 +14953,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.AllFormats { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.AllFormats { get; init; }",
       "portable": true,
       "summary": "Gets AllFormats."
     },
@@ -16172,7 +14967,7 @@
       "static": false,
       "returnType": "TimeSpan?",
       "parameters": [],
-      "signature": "TimeSpan? LibTmux.DisplayMessageRequest.Delay { get; }",
+      "signature": "TimeSpan? LibTmux.DisplayMessageRequest.Delay { get; init; }",
       "portable": true,
       "summary": "Gets Delay."
     },
@@ -16186,7 +14981,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayMessageRequest.Format { get; }",
+      "signature": "string? LibTmux.DisplayMessageRequest.Format { get; init; }",
       "portable": true,
       "summary": "Gets Format."
     },
@@ -16200,7 +14995,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.DisplayMessageRequest.Message { get; }",
+      "signature": "string LibTmux.DisplayMessageRequest.Message { get; init; }",
       "portable": true,
       "summary": "Gets Message."
     },
@@ -16214,7 +15009,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.NoExpand { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.NoExpand { get; init; }",
       "portable": true,
       "summary": "Gets NoExpand."
     },
@@ -16228,7 +15023,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.Notify { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.Notify { get; init; }",
       "portable": true,
       "summary": "Gets Notify."
     },
@@ -16242,7 +15037,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.ReturnText { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.ReturnText { get; init; }",
       "portable": true,
       "summary": "Gets ReturnText."
     },
@@ -16256,7 +15051,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayMessageRequest.TargetClient { get; }",
+      "signature": "string? LibTmux.DisplayMessageRequest.TargetClient { get; init; }",
       "portable": true,
       "summary": "Gets TargetClient."
     },
@@ -16270,7 +15065,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.UpdatePane { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.UpdatePane { get; init; }",
       "portable": true,
       "summary": "Gets UpdatePane."
     },
@@ -16284,7 +15079,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayMessageRequest.Verbose { get; }",
+      "signature": "bool LibTmux.DisplayMessageRequest.Verbose { get; init; }",
       "portable": true,
       "summary": "Gets Verbose."
     },
@@ -16298,7 +15093,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.BorderLines { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.BorderLines { get; init; }",
       "portable": true,
       "summary": "Gets BorderLines."
     },
@@ -16312,7 +15107,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.BorderStyle { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.BorderStyle { get; init; }",
       "portable": true,
       "summary": "Gets BorderStyle."
     },
@@ -16326,7 +15121,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayPopupRequest.CloseExisting { get; }",
+      "signature": "bool LibTmux.DisplayPopupRequest.CloseExisting { get; init; }",
       "portable": true,
       "summary": "Gets CloseExisting."
     },
@@ -16340,7 +15135,7 @@
       "static": false,
       "returnType": "PopupCloseMode?",
       "parameters": [],
-      "signature": "PopupCloseMode? LibTmux.DisplayPopupRequest.CloseMode { get; }",
+      "signature": "PopupCloseMode? LibTmux.DisplayPopupRequest.CloseMode { get; init; }",
       "portable": true,
       "summary": "Gets CloseMode."
     },
@@ -16354,7 +15149,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayPopupRequest.CloseOnAnyKey { get; }",
+      "signature": "bool LibTmux.DisplayPopupRequest.CloseOnAnyKey { get; init; }",
       "portable": true,
       "summary": "Gets CloseOnAnyKey."
     },
@@ -16368,7 +15163,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Command { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -16382,7 +15177,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.DisplayPopupRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.DisplayPopupRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -16396,7 +15191,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Height { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Height { get; init; }",
       "portable": true,
       "summary": "Gets Height."
     },
@@ -16410,7 +15205,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayPopupRequest.NoBorder { get; }",
+      "signature": "bool LibTmux.DisplayPopupRequest.NoBorder { get; init; }",
       "portable": true,
       "summary": "Gets NoBorder."
     },
@@ -16424,7 +15219,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.DisplayPopupRequest.NoKeys { get; }",
+      "signature": "bool LibTmux.DisplayPopupRequest.NoKeys { get; init; }",
       "portable": true,
       "summary": "Gets NoKeys."
     },
@@ -16438,7 +15233,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -16452,7 +15247,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Style { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Style { get; init; }",
       "portable": true,
       "summary": "Gets Style."
     },
@@ -16466,7 +15261,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.TargetClient { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.TargetClient { get; init; }",
       "portable": true,
       "summary": "Gets TargetClient."
     },
@@ -16480,7 +15275,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Title { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Title { get; init; }",
       "portable": true,
       "summary": "Gets Title."
     },
@@ -16494,7 +15289,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Width { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Width { get; init; }",
       "portable": true,
       "summary": "Gets Width."
     },
@@ -16508,7 +15303,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.X { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.X { get; init; }",
       "portable": true,
       "summary": "Gets X."
     },
@@ -16522,7 +15317,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.DisplayPopupRequest.Y { get; }",
+      "signature": "string? LibTmux.DisplayPopupRequest.Y { get; init; }",
       "portable": true,
       "summary": "Gets Y."
     },
@@ -16704,7 +15499,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.GetOptionsRequest.Global { get; }",
+      "signature": "bool LibTmux.GetOptionsRequest.Global { get; init; }",
       "portable": true,
       "summary": "Gets Global."
     },
@@ -16718,7 +15513,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.GetOptionsRequest.IncludeHooks { get; }",
+      "signature": "bool LibTmux.GetOptionsRequest.IncludeHooks { get; init; }",
       "portable": true,
       "summary": "Gets IncludeHooks."
     },
@@ -16732,7 +15527,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.GetOptionsRequest.IncludeInherited { get; }",
+      "signature": "bool LibTmux.GetOptionsRequest.IncludeInherited { get; init; }",
       "portable": true,
       "summary": "Gets IncludeInherited."
     },
@@ -16746,7 +15541,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.GetOptionsRequest.Quiet { get; }",
+      "signature": "bool LibTmux.GetOptionsRequest.Quiet { get; init; }",
       "portable": true,
       "summary": "Gets Quiet."
     },
@@ -16760,7 +15555,7 @@
       "static": false,
       "returnType": "OptionScope?",
       "parameters": [],
-      "signature": "OptionScope? LibTmux.GetOptionsRequest.Scope { get; }",
+      "signature": "OptionScope? LibTmux.GetOptionsRequest.Scope { get; init; }",
       "portable": true,
       "summary": "Gets Scope."
     },
@@ -17317,7 +16112,7 @@
       "static": false,
       "returnType": "UnsafeTmuxFilter?",
       "parameters": [],
-      "signature": "UnsafeTmuxFilter? LibTmux.ListBuffersRequest.Filter { get; }",
+      "signature": "UnsafeTmuxFilter? LibTmux.ListBuffersRequest.Filter { get; init; }",
       "portable": true,
       "summary": "Gets Filter."
     },
@@ -17331,7 +16126,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ListBuffersRequest.Format { get; }",
+      "signature": "string? LibTmux.ListBuffersRequest.Format { get; init; }",
       "portable": true,
       "summary": "Gets Format."
     },
@@ -17345,7 +16140,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ListHooksRequest.Global { get; }",
+      "signature": "bool LibTmux.ListHooksRequest.Global { get; init; }",
       "portable": true,
       "summary": "Gets Global."
     },
@@ -17359,7 +16154,7 @@
       "static": false,
       "returnType": "OptionScope?",
       "parameters": [],
-      "signature": "OptionScope? LibTmux.ListHooksRequest.Scope { get; }",
+      "signature": "OptionScope? LibTmux.ListHooksRequest.Scope { get; init; }",
       "portable": true,
       "summary": "Gets Scope."
     },
@@ -17457,7 +16252,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.MoveWindowRequest.Destination { get; }",
+      "signature": "string LibTmux.MoveWindowRequest.Destination { get; init; }",
       "portable": true,
       "summary": "Gets Destination."
     },
@@ -17471,7 +16266,7 @@
       "static": false,
       "returnType": "WindowDirection?",
       "parameters": [],
-      "signature": "WindowDirection? LibTmux.MoveWindowRequest.Direction { get; }",
+      "signature": "WindowDirection? LibTmux.MoveWindowRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -17485,7 +16280,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.MoveWindowRequest.NoSelect { get; }",
+      "signature": "bool LibTmux.MoveWindowRequest.NoSelect { get; init; }",
       "portable": true,
       "summary": "Gets NoSelect."
     },
@@ -17499,7 +16294,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.MoveWindowRequest.Renumber { get; }",
+      "signature": "bool LibTmux.MoveWindowRequest.Renumber { get; init; }",
       "portable": true,
       "summary": "Gets Renumber."
     },
@@ -17513,7 +16308,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.MoveWindowRequest.ReplaceExisting { get; }",
+      "signature": "bool LibTmux.MoveWindowRequest.ReplaceExisting { get; init; }",
       "portable": true,
       "summary": "Gets ReplaceExisting."
     },
@@ -17527,7 +16322,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.MoveWindowRequest.Session { get; }",
+      "signature": "string? LibTmux.MoveWindowRequest.Session { get; init; }",
       "portable": true,
       "summary": "Gets Session."
     },
@@ -17541,7 +16336,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.ActiveBorderStyle { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.ActiveBorderStyle { get; init; }",
       "portable": true,
       "summary": "Gets ActiveBorderStyle."
     },
@@ -17555,7 +16350,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewPaneRequest.Attach { get; }",
+      "signature": "bool LibTmux.NewPaneRequest.Attach { get; init; }",
       "portable": true,
       "summary": "Gets Attach."
     },
@@ -17569,7 +16364,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.Command { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -17583,7 +16378,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewPaneRequest.Empty { get; }",
+      "signature": "bool LibTmux.NewPaneRequest.Empty { get; init; }",
       "portable": true,
       "summary": "Gets Empty."
     },
@@ -17597,7 +16392,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewPaneRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewPaneRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -17611,7 +16406,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.NewPaneRequest.Height { get; }",
+      "signature": "int? LibTmux.NewPaneRequest.Height { get; init; }",
       "portable": true,
       "summary": "Gets Height."
     },
@@ -17625,7 +16420,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.InactiveBorderStyle { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.InactiveBorderStyle { get; init; }",
       "portable": true,
       "summary": "Gets InactiveBorderStyle."
     },
@@ -17639,7 +16434,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewPaneRequest.KeepOpen { get; }",
+      "signature": "bool LibTmux.NewPaneRequest.KeepOpen { get; init; }",
       "portable": true,
       "summary": "Gets KeepOpen."
     },
@@ -17653,7 +16448,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.Message { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.Message { get; init; }",
       "portable": true,
       "summary": "Gets Message."
     },
@@ -17667,7 +16462,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -17681,7 +16476,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.Style { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.Style { get; init; }",
       "portable": true,
       "summary": "Gets Style."
     },
@@ -17695,7 +16490,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewPaneRequest.Target { get; }",
+      "signature": "string? LibTmux.NewPaneRequest.Target { get; init; }",
       "portable": true,
       "summary": "Gets Target."
     },
@@ -17709,7 +16504,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.NewPaneRequest.Width { get; }",
+      "signature": "int? LibTmux.NewPaneRequest.Width { get; init; }",
       "portable": true,
       "summary": "Gets Width."
     },
@@ -17723,7 +16518,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.NewPaneRequest.X { get; }",
+      "signature": "int? LibTmux.NewPaneRequest.X { get; init; }",
       "portable": true,
       "summary": "Gets X."
     },
@@ -17737,7 +16532,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.NewPaneRequest.Y { get; }",
+      "signature": "int? LibTmux.NewPaneRequest.Y { get; init; }",
       "portable": true,
       "summary": "Gets Y."
     },
@@ -17751,7 +16546,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewPaneRequest.Zoom { get; }",
+      "signature": "bool LibTmux.NewPaneRequest.Zoom { get; init; }",
       "portable": true,
       "summary": "Gets Zoom."
     },
@@ -17765,7 +16560,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewSessionRequest.Attach { get; }",
+      "signature": "bool LibTmux.NewSessionRequest.Attach { get; init; }",
       "portable": true,
       "summary": "Gets Attach."
     },
@@ -17779,7 +16574,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.ClientFlags { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.ClientFlags { get; init; }",
       "portable": true,
       "summary": "Gets ClientFlags."
     },
@@ -17793,7 +16588,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.Command { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -17807,7 +16602,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewSessionRequest.DetachOthers { get; }",
+      "signature": "bool LibTmux.NewSessionRequest.DetachOthers { get; init; }",
       "portable": true,
       "summary": "Gets DetachOthers."
     },
@@ -17821,7 +16616,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewSessionRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewSessionRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -17835,7 +16630,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.Height { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.Height { get; init; }",
       "portable": true,
       "summary": "Gets Height."
     },
@@ -17849,7 +16644,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.Name { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.Name { get; init; }",
       "portable": true,
       "summary": "Gets Name."
     },
@@ -17863,7 +16658,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewSessionRequest.NoSize { get; }",
+      "signature": "bool LibTmux.NewSessionRequest.NoSize { get; init; }",
       "portable": true,
       "summary": "Gets NoSize."
     },
@@ -17877,7 +16672,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewSessionRequest.ReplaceExisting { get; }",
+      "signature": "bool LibTmux.NewSessionRequest.ReplaceExisting { get; init; }",
       "portable": true,
       "summary": "Gets ReplaceExisting."
     },
@@ -17891,7 +16686,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -17905,7 +16700,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.Width { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.Width { get; init; }",
       "portable": true,
       "summary": "Gets Width."
     },
@@ -17919,7 +16714,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewSessionRequest.WindowName { get; }",
+      "signature": "string? LibTmux.NewSessionRequest.WindowName { get; init; }",
       "portable": true,
       "summary": "Gets WindowName."
     },
@@ -17933,7 +16728,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewWindowRequest.Attach { get; }",
+      "signature": "bool LibTmux.NewWindowRequest.Attach { get; init; }",
       "portable": true,
       "summary": "Gets Attach."
     },
@@ -17947,7 +16742,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewWindowRequest.Command { get; }",
+      "signature": "string? LibTmux.NewWindowRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -17961,7 +16756,7 @@
       "static": false,
       "returnType": "WindowDirection?",
       "parameters": [],
-      "signature": "WindowDirection? LibTmux.NewWindowRequest.Direction { get; }",
+      "signature": "WindowDirection? LibTmux.NewWindowRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -17975,7 +16770,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewWindowRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.NewWindowRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -17989,7 +16784,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewWindowRequest.Index { get; }",
+      "signature": "string? LibTmux.NewWindowRequest.Index { get; init; }",
       "portable": true,
       "summary": "Gets Index."
     },
@@ -18003,7 +16798,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewWindowRequest.KillExisting { get; }",
+      "signature": "bool LibTmux.NewWindowRequest.KillExisting { get; init; }",
       "portable": true,
       "summary": "Gets KillExisting."
     },
@@ -18017,7 +16812,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewWindowRequest.Name { get; }",
+      "signature": "string? LibTmux.NewWindowRequest.Name { get; init; }",
       "portable": true,
       "summary": "Gets Name."
     },
@@ -18031,7 +16826,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.NewWindowRequest.SelectExisting { get; }",
+      "signature": "bool LibTmux.NewWindowRequest.SelectExisting { get; init; }",
       "portable": true,
       "summary": "Gets SelectExisting."
     },
@@ -18045,7 +16840,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewWindowRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.NewWindowRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -18059,7 +16854,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.NewWindowRequest.TargetWindow { get; }",
+      "signature": "string? LibTmux.NewWindowRequest.TargetWindow { get; init; }",
       "portable": true,
       "summary": "Gets TargetWindow."
     },
@@ -18381,7 +17176,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PasteBufferRequest.Bracketed { get; }",
+      "signature": "bool LibTmux.PasteBufferRequest.Bracketed { get; init; }",
       "portable": true,
       "summary": "Gets Bracketed."
     },
@@ -18395,7 +17190,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PasteBufferRequest.DeleteAfter { get; }",
+      "signature": "bool LibTmux.PasteBufferRequest.DeleteAfter { get; init; }",
       "portable": true,
       "summary": "Gets DeleteAfter."
     },
@@ -18409,7 +17204,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.PasteBufferRequest.Name { get; }",
+      "signature": "string? LibTmux.PasteBufferRequest.Name { get; init; }",
       "portable": true,
       "summary": "Gets Name."
     },
@@ -18423,7 +17218,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PasteBufferRequest.RawBytes { get; }",
+      "signature": "bool LibTmux.PasteBufferRequest.RawBytes { get; init; }",
       "portable": true,
       "summary": "Gets RawBytes."
     },
@@ -18437,7 +17232,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.PasteBufferRequest.Separator { get; }",
+      "signature": "string? LibTmux.PasteBufferRequest.Separator { get; init; }",
       "portable": true,
       "summary": "Gets Separator."
     },
@@ -18451,7 +17246,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PasteBufferRequest.UseLineFeedSeparator { get; }",
+      "signature": "bool LibTmux.PasteBufferRequest.UseLineFeedSeparator { get; init; }",
       "portable": true,
       "summary": "Gets UseLineFeedSeparator."
     },
@@ -18465,7 +17260,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.PipePaneRequest.Command { get; }",
+      "signature": "string? LibTmux.PipePaneRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -18479,7 +17274,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PipePaneRequest.InputOnly { get; }",
+      "signature": "bool LibTmux.PipePaneRequest.InputOnly { get; init; }",
       "portable": true,
       "summary": "Gets InputOnly."
     },
@@ -18493,7 +17288,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PipePaneRequest.OutputOnly { get; }",
+      "signature": "bool LibTmux.PipePaneRequest.OutputOnly { get; init; }",
       "portable": true,
       "summary": "Gets OutputOnly."
     },
@@ -18507,7 +17302,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.PipePaneRequest.Toggle { get; }",
+      "signature": "bool LibTmux.PipePaneRequest.Toggle { get; init; }",
       "portable": true,
       "summary": "Gets Toggle."
     },
@@ -19067,7 +17862,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.ResizePaneRequest.Adjustment { get; }",
+      "signature": "int? LibTmux.ResizePaneRequest.Adjustment { get; init; }",
       "portable": true,
       "summary": "Gets Adjustment."
     },
@@ -19081,7 +17876,7 @@
       "static": false,
       "returnType": "ResizeDirection?",
       "parameters": [],
-      "signature": "ResizeDirection? LibTmux.ResizePaneRequest.Direction { get; }",
+      "signature": "ResizeDirection? LibTmux.ResizePaneRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -19095,7 +17890,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ResizePaneRequest.Height { get; }",
+      "signature": "string? LibTmux.ResizePaneRequest.Height { get; init; }",
       "portable": true,
       "summary": "Gets Height."
     },
@@ -19109,7 +17904,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ResizePaneRequest.Mouse { get; }",
+      "signature": "bool LibTmux.ResizePaneRequest.Mouse { get; init; }",
       "portable": true,
       "summary": "Gets Mouse."
     },
@@ -19123,7 +17918,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ResizePaneRequest.TrimBelow { get; }",
+      "signature": "bool LibTmux.ResizePaneRequest.TrimBelow { get; init; }",
       "portable": true,
       "summary": "Gets TrimBelow."
     },
@@ -19137,7 +17932,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ResizePaneRequest.Width { get; }",
+      "signature": "string? LibTmux.ResizePaneRequest.Width { get; init; }",
       "portable": true,
       "summary": "Gets Width."
     },
@@ -19151,7 +17946,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ResizePaneRequest.Zoom { get; }",
+      "signature": "bool LibTmux.ResizePaneRequest.Zoom { get; init; }",
       "portable": true,
       "summary": "Gets Zoom."
     },
@@ -19165,7 +17960,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.ResizeWindowRequest.Adjustment { get; }",
+      "signature": "int? LibTmux.ResizeWindowRequest.Adjustment { get; init; }",
       "portable": true,
       "summary": "Gets Adjustment."
     },
@@ -19179,7 +17974,7 @@
       "static": false,
       "returnType": "ResizeDirection?",
       "parameters": [],
-      "signature": "ResizeDirection? LibTmux.ResizeWindowRequest.Direction { get; }",
+      "signature": "ResizeDirection? LibTmux.ResizeWindowRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -19193,7 +17988,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.ResizeWindowRequest.Height { get; }",
+      "signature": "int? LibTmux.ResizeWindowRequest.Height { get; init; }",
       "portable": true,
       "summary": "Gets Height."
     },
@@ -19207,7 +18002,7 @@
       "static": false,
       "returnType": "WindowResizeMode?",
       "parameters": [],
-      "signature": "WindowResizeMode? LibTmux.ResizeWindowRequest.Mode { get; }",
+      "signature": "WindowResizeMode? LibTmux.ResizeWindowRequest.Mode { get; init; }",
       "portable": true,
       "summary": "Gets Mode."
     },
@@ -19221,7 +18016,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.ResizeWindowRequest.Width { get; }",
+      "signature": "int? LibTmux.ResizeWindowRequest.Width { get; init; }",
       "portable": true,
       "summary": "Gets Width."
     },
@@ -19235,7 +18030,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.RespawnRequest.Command { get; }",
+      "signature": "string? LibTmux.RespawnRequest.Command { get; init; }",
       "portable": true,
       "summary": "Gets Command."
     },
@@ -19249,7 +18044,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string>? LibTmux.RespawnRequest.Environment { get; }",
+      "signature": "IReadOnlyDictionary<string,string>? LibTmux.RespawnRequest.Environment { get; init; }",
       "portable": true,
       "summary": "Gets Environment."
     },
@@ -19263,7 +18058,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.RespawnRequest.KillExistingProcess { get; }",
+      "signature": "bool LibTmux.RespawnRequest.KillExistingProcess { get; init; }",
       "portable": true,
       "summary": "Gets KillExistingProcess."
     },
@@ -19277,7 +18072,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.RespawnRequest.StartDirectory { get; }",
+      "signature": "string? LibTmux.RespawnRequest.StartDirectory { get; init; }",
       "portable": true,
       "summary": "Gets StartDirectory."
     },
@@ -19403,7 +18198,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SelectLayoutRequest.Layout { get; }",
+      "signature": "string? LibTmux.SelectLayoutRequest.Layout { get; init; }",
       "portable": true,
       "summary": "Gets Layout."
     },
@@ -19417,7 +18212,7 @@
       "static": false,
       "returnType": "SelectLayoutMode?",
       "parameters": [],
-      "signature": "SelectLayoutMode? LibTmux.SelectLayoutRequest.Mode { get; }",
+      "signature": "SelectLayoutMode? LibTmux.SelectLayoutRequest.Mode { get; init; }",
       "portable": true,
       "summary": "Gets Mode."
     },
@@ -19431,7 +18226,7 @@
       "static": false,
       "returnType": "PaneSelectDirection?",
       "parameters": [],
-      "signature": "PaneSelectDirection? LibTmux.SelectPaneRequest.Direction { get; }",
+      "signature": "PaneSelectDirection? LibTmux.SelectPaneRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -19445,7 +18240,7 @@
       "static": false,
       "returnType": "bool?",
       "parameters": [],
-      "signature": "bool? LibTmux.SelectPaneRequest.InputEnabled { get; }",
+      "signature": "bool? LibTmux.SelectPaneRequest.InputEnabled { get; init; }",
       "portable": true,
       "summary": "Gets InputEnabled."
     },
@@ -19459,7 +18254,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SelectPaneRequest.KeepZoom { get; }",
+      "signature": "bool LibTmux.SelectPaneRequest.KeepZoom { get; init; }",
       "portable": true,
       "summary": "Gets KeepZoom."
     },
@@ -19473,7 +18268,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SelectPaneRequest.Last { get; }",
+      "signature": "bool LibTmux.SelectPaneRequest.Last { get; init; }",
       "portable": true,
       "summary": "Gets Last."
     },
@@ -19487,7 +18282,7 @@
       "static": false,
       "returnType": "bool?",
       "parameters": [],
-      "signature": "bool? LibTmux.SelectPaneRequest.Mark { get; }",
+      "signature": "bool? LibTmux.SelectPaneRequest.Mark { get; init; }",
       "portable": true,
       "summary": "Gets Mark."
     },
@@ -19501,7 +18296,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SendKeysRequest.CopyModeCommand { get; }",
+      "signature": "string? LibTmux.SendKeysRequest.CopyModeCommand { get; init; }",
       "portable": true,
       "summary": "Gets CopyModeCommand."
     },
@@ -19515,7 +18310,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.Enter { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.Enter { get; init; }",
       "portable": true,
       "summary": "Gets Enter."
     },
@@ -19529,7 +18324,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.ExpandFormats { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.ExpandFormats { get; init; }",
       "portable": true,
       "summary": "Gets ExpandFormats."
     },
@@ -19543,7 +18338,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.HexKeys { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.HexKeys { get; init; }",
       "portable": true,
       "summary": "Gets HexKeys."
     },
@@ -19557,7 +18352,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.KeyName { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.KeyName { get; init; }",
       "portable": true,
       "summary": "Gets KeyName."
     },
@@ -19571,7 +18366,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.Literal { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.Literal { get; init; }",
       "portable": true,
       "summary": "Gets Literal."
     },
@@ -19585,7 +18380,7 @@
       "static": false,
       "returnType": "int?",
       "parameters": [],
-      "signature": "int? LibTmux.SendKeysRequest.Repeat { get; }",
+      "signature": "int? LibTmux.SendKeysRequest.Repeat { get; init; }",
       "portable": true,
       "summary": "Gets Repeat."
     },
@@ -19599,7 +18394,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.Reset { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.Reset { get; init; }",
       "portable": true,
       "summary": "Gets Reset."
     },
@@ -19613,7 +18408,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SendKeysRequest.SuppressHistory { get; }",
+      "signature": "bool LibTmux.SendKeysRequest.SuppressHistory { get; init; }",
       "portable": true,
       "summary": "Gets SuppressHistory."
     },
@@ -19627,7 +18422,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SendKeysRequest.TargetClient { get; }",
+      "signature": "string? LibTmux.SendKeysRequest.TargetClient { get; init; }",
       "portable": true,
       "summary": "Gets TargetClient."
     },
@@ -19641,7 +18436,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SendKeysRequest.Text { get; }",
+      "signature": "string? LibTmux.SendKeysRequest.Text { get; init; }",
       "portable": true,
       "summary": "Gets Text."
     },
@@ -19809,7 +18604,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ServerAccessRequest.AllowUser { get; }",
+      "signature": "string? LibTmux.ServerAccessRequest.AllowUser { get; init; }",
       "portable": true,
       "summary": "Gets AllowUser."
     },
@@ -19823,7 +18618,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ServerAccessRequest.DenyUser { get; }",
+      "signature": "string? LibTmux.ServerAccessRequest.DenyUser { get; init; }",
       "portable": true,
       "summary": "Gets DenyUser."
     },
@@ -19837,7 +18632,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ServerAccessRequest.List { get; }",
+      "signature": "bool LibTmux.ServerAccessRequest.List { get; init; }",
       "portable": true,
       "summary": "Gets List."
     },
@@ -19851,7 +18646,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ServerAccessRequest.ReadOnly { get; }",
+      "signature": "bool LibTmux.ServerAccessRequest.ReadOnly { get; init; }",
       "portable": true,
       "summary": "Gets ReadOnly."
     },
@@ -19865,7 +18660,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.ServerAccessRequest.ReadWrite { get; }",
+      "signature": "bool LibTmux.ServerAccessRequest.ReadWrite { get; init; }",
       "portable": true,
       "summary": "Gets ReadWrite."
     },
@@ -20889,7 +19684,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SwapPaneRequest.Detach { get; }",
+      "signature": "bool LibTmux.SwapPaneRequest.Detach { get; init; }",
       "portable": true,
       "summary": "Gets Detach."
     },
@@ -20903,7 +19698,7 @@
       "static": false,
       "returnType": "PaneSwapDirection?",
       "parameters": [],
-      "signature": "PaneSwapDirection? LibTmux.SwapPaneRequest.Direction { get; }",
+      "signature": "PaneSwapDirection? LibTmux.SwapPaneRequest.Direction { get; init; }",
       "portable": true,
       "summary": "Gets Direction."
     },
@@ -20917,7 +19712,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SwapPaneRequest.KeepZoom { get; }",
+      "signature": "bool LibTmux.SwapPaneRequest.KeepZoom { get; init; }",
       "portable": true,
       "summary": "Gets KeepZoom."
     },
@@ -20931,7 +19726,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.SwapPaneRequest.Target { get; }",
+      "signature": "string? LibTmux.SwapPaneRequest.Target { get; init; }",
       "portable": true,
       "summary": "Gets Target."
     },
@@ -21883,7 +20678,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.UnbindKeyRequest.All { get; }",
+      "signature": "bool LibTmux.UnbindKeyRequest.All { get; init; }",
       "portable": true,
       "summary": "Gets All."
     },
@@ -21897,7 +20692,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.UnbindKeyRequest.Key { get; }",
+      "signature": "string? LibTmux.UnbindKeyRequest.Key { get; init; }",
       "portable": true,
       "summary": "Gets Key."
     },
@@ -21911,7 +20706,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.UnbindKeyRequest.KeyTable { get; }",
+      "signature": "string? LibTmux.UnbindKeyRequest.KeyTable { get; init; }",
       "portable": true,
       "summary": "Gets KeyTable."
     },
@@ -21925,7 +20720,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.UnbindKeyRequest.Quiet { get; }",
+      "signature": "bool LibTmux.UnbindKeyRequest.Quiet { get; init; }",
       "portable": true,
       "summary": "Gets Quiet."
     },
@@ -21939,7 +20734,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.UnsafeTmuxFilter.Value { get; }",
+      "signature": "string LibTmux.UnsafeTmuxFilter.Value { get; init; }",
       "portable": true,
       "summary": "Gets Value."
     },
@@ -24371,7 +23166,7 @@
       "static": false,
       "returnType": "PaneId",
       "parameters": [],
-      "signature": "PaneId LibTmux.TmuxOutputEvent.PaneId { get; }",
+      "signature": "PaneId LibTmux.TmuxOutputEvent.PaneId { get; init; }",
       "portable": true,
       "summary": "Gets PaneId."
     },
@@ -24385,7 +23180,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.TmuxOutputEvent.Data { get; }",
+      "signature": "string LibTmux.TmuxOutputEvent.Data { get; init; }",
       "portable": true,
       "summary": "Gets Data."
     },
@@ -24428,7 +23223,7 @@
       "static": false,
       "returnType": "PaneId",
       "parameters": [],
-      "signature": "PaneId LibTmux.TmuxPaneGoneEvent.PaneId { get; }",
+      "signature": "PaneId LibTmux.TmuxPaneGoneEvent.PaneId { get; init; }",
       "portable": true,
       "summary": "Gets the pane that is gone."
     },
@@ -24465,7 +23260,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.TmuxNotificationEvent.Name { get; }",
+      "signature": "string LibTmux.TmuxNotificationEvent.Name { get; init; }",
       "portable": true,
       "summary": "Gets Name."
     },
@@ -24479,7 +23274,7 @@
       "static": false,
       "returnType": "IReadOnlyList<string>",
       "parameters": [],
-      "signature": "IReadOnlyList<string> LibTmux.TmuxNotificationEvent.Arguments { get; }",
+      "signature": "IReadOnlyList<string> LibTmux.TmuxNotificationEvent.Arguments { get; init; }",
       "portable": true,
       "summary": "Gets Arguments."
     },
@@ -24516,7 +23311,7 @@
       "static": false,
       "returnType": "long",
       "parameters": [],
-      "signature": "long LibTmux.TmuxEventsDroppedEvent.Count { get; }",
+      "signature": "long LibTmux.TmuxEventsDroppedEvent.Count { get; init; }",
       "portable": true,
       "summary": "Gets the events discarded since the previous loss report."
     },
@@ -24530,7 +23325,7 @@
       "static": false,
       "returnType": "long",
       "parameters": [],
-      "signature": "long LibTmux.TmuxEventsDroppedEvent.TotalDropped { get; }",
+      "signature": "long LibTmux.TmuxEventsDroppedEvent.TotalDropped { get; init; }",
       "portable": true,
       "summary": "Gets the events discarded over this control client's lifetime."
     },
@@ -24563,7 +23358,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.TmuxExitEvent.Reason { get; }",
+      "signature": "string? LibTmux.TmuxExitEvent.Reason { get; init; }",
       "portable": true,
       "summary": "Gets Reason."
     },
@@ -24620,7 +23415,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.TmuxCommand.Name { get; }",
+      "signature": "string LibTmux.TmuxCommand.Name { get; init; }",
       "portable": true,
       "summary": "Gets Name."
     },
@@ -24634,7 +23429,7 @@
       "static": false,
       "returnType": "IReadOnlyList<string>",
       "parameters": [],
-      "signature": "IReadOnlyList<string> LibTmux.TmuxCommand.Arguments { get; }",
+      "signature": "IReadOnlyList<string> LibTmux.TmuxCommand.Arguments { get; init; }",
       "portable": true,
       "summary": "Gets Arguments."
     },

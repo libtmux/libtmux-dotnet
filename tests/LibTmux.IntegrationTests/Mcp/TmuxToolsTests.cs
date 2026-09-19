@@ -156,9 +156,7 @@ public sealed class TmuxToolsTests
         string intercepted = Path.Combine(Path.GetTempPath(), $"libtmux-intercepted-{suffix}");
         string decoyRoot = Directory.CreateTempSubdirectory("libtmux-route-decoy-").FullName;
         await scope.Pane.RespawnAsync(
-            new RespawnRequest(
-                "exec /bin/bash --noprofile --norc",
-                killExistingProcess: true),
+            new RespawnRequest { Command = "exec /bin/bash --noprofile --norc", KillExistingProcess = true },
             token);
         string ready = $"shell-state-ready-{suffix}";
         string setup = $"function {mcp.Options.ConnectionOptions.TmuxBinaryPath} "
@@ -172,7 +170,7 @@ public sealed class TmuxToolsTests
             + $"trap 'command printf \"{errorOut}\\n\"; "
             + $"command printf \"{errorError}\\n\" >&2' ERR; "
             + $"set -E; set -T; set -e; set -x; set -C; echo {ready}";
-        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        await scope.Pane.SendKeysAsync(new SendKeysRequest { Text = setup, Literal = true }, token);
         _ = await mcp.Capabilities.WaitForTextAsync(
             pane,
             [ready],
@@ -254,16 +252,18 @@ public sealed class TmuxToolsTests
                 token);
             string pane = scope.Pane.Id.ToString();
             await scope.Pane.RespawnAsync(
-                new RespawnRequest(
-                    $"exec {ShellQuote(executable)} {arguments}",
-                    killExistingProcess: true),
+                new RespawnRequest
+                {
+                    Command = $"exec {ShellQuote(executable)} {arguments}",
+                    KillExistingProcess = true,
+                },
                 token);
             string suffix = Guid.NewGuid().ToString("N");
             string ready = $"shell-ready-{name}-{suffix}";
             string setup = "printf() { :; }; alias printf=:; "
                 + "readonly __lt=human __lt_errexit=human; "
                 + $"set -e; set -x; set -C; echo {ready}";
-            await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+            await scope.Pane.SendKeysAsync(new SendKeysRequest { Text = setup, Literal = true }, token);
             _ = await mcp.Capabilities.WaitForTextAsync(
                 pane,
                 [ready],
@@ -304,9 +304,7 @@ public sealed class TmuxToolsTests
             token);
         string pane = scope.Pane.Id.ToString();
         await scope.Pane.RespawnAsync(
-            new RespawnRequest(
-                "exec /bin/bash --noprofile --norc",
-                killExistingProcess: true),
+            new RespawnRequest { Command = "exec /bin/bash --noprofile --norc", KillExistingProcess = true },
             token);
         string suffix = Guid.NewGuid().ToString("N");
         string ready = $"oversized-trap-ready-{suffix}";
@@ -314,7 +312,7 @@ public sealed class TmuxToolsTests
         string setup = "trap_action=\": x$(command printf '%070000d' 0)\"; "
             + "trap \"$trap_action\" ERR; unset trap_action; "
             + $"echo {ready}";
-        await scope.Pane.SendKeysAsync(new SendKeysRequest(setup, literal: true), token);
+        await scope.Pane.SendKeysAsync(new SendKeysRequest { Text = setup, Literal = true }, token);
         _ = await mcp.Capabilities.WaitForTextAsync(
             pane,
             [ready],
@@ -993,7 +991,7 @@ public sealed class TmuxToolsTests
         // A readline redraw needs a real line editor, which the scope's
         // default shell is not guaranteed to have.
         Window shell = await scope.Session.CreateWindowAsync(
-            new NewWindowRequest(command: "bash --norc --noprofile -i"),
+            new NewWindowRequest { Command = "bash --norc --noprofile -i" },
             token);
         string pane = (await shell.GetPanesAsync(token))[0].Id.ToString();
 
@@ -1899,7 +1897,7 @@ public sealed class TmuxToolsTests
         }
         finally
         {
-            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         }
     }
 
@@ -1951,7 +1949,7 @@ public sealed class TmuxToolsTests
         }
         finally
         {
-            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+            await modal.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         }
     }
 
@@ -2022,7 +2020,7 @@ public sealed class TmuxToolsTests
         }
         finally
         {
-            await peer.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+            await peer.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         }
     }
 
@@ -2091,7 +2089,7 @@ public sealed class TmuxToolsTests
         }
         finally
         {
-            await modal.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+            await modal.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         }
     }
 
@@ -2134,7 +2132,7 @@ public sealed class TmuxToolsTests
         }
         finally
         {
-            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+            await scope.Pane.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         }
     }
 

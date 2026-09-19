@@ -418,7 +418,7 @@ internal static class TmuxTargets
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string>? lines = await pane.DisplayMessageAsync(
-                new DisplayMessageRequest(message: format, returnText: true),
+                new DisplayMessageRequest { Message = format, ReturnText = true },
                 cancellationToken)
             .ConfigureAwait(false);
         return lines is { Count: > 0 } ? lines[0] : null;

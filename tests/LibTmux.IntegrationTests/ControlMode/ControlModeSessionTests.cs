@@ -389,7 +389,7 @@ public sealed class ControlModeSessionTests
         await control.SubscribeSessionAsync("probe", "session_windows", token);
         await using IAsyncEnumerator<TmuxEvent> events = control.Events.GetAsyncEnumerator(token);
 
-        await session.CreateWindowAsync(new NewWindowRequest(name: "subscribe-probe"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "subscribe-probe" }, token);
 
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
@@ -414,7 +414,7 @@ public sealed class ControlModeSessionTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "pane-observation"),
+            new NewWindowRequest { Name = "pane-observation" },
             token);
         Pane victim = await window.SplitPaneAsync(cancellationToken: token);
 

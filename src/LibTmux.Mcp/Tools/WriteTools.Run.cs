@@ -500,7 +500,7 @@ internal sealed partial class WriteTools
             try
             {
                 await dispatch.Pane.PasteBufferAsync(
-                        new PasteBufferRequest(name: buffer, deleteAfter: true, bracketed: false),
+                        new PasteBufferRequest { Name = buffer, DeleteAfter = true, Bracketed = false },
                         cancellationToken)
                     .ConfigureAwait(false);
                 dispatch.PayloadMayHaveReachedTmux = true;

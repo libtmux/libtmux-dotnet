@@ -14,6 +14,7 @@ public sealed partial class Server
     /// <exception cref="TmuxVersionTooLowException">tmux is older than 3.3.</exception>
     internal List<string> BuildServerAccessArguments(ServerAccessRequest request)
     {
+        string? user = request.ResolveUser();
         RequireCommand(ServerUtilities.ServerAccessCapability, "server-access");
         List<string> arguments = ["server-access"];
         ServerUtilities.AddFlag(arguments, request.AllowUser is not null, "-a");
@@ -21,7 +22,7 @@ public sealed partial class Server
         ServerUtilities.AddFlag(arguments, request.List, "-l");
         ServerUtilities.AddFlag(arguments, request.ReadOnly, "-r");
         ServerUtilities.AddFlag(arguments, request.ReadWrite, "-w");
-        if ((request.AllowUser ?? request.DenyUser) is string user)
+        if (user is not null)
         {
             arguments.Add(user);
         }

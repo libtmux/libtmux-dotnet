@@ -22,8 +22,8 @@ nothing for it.
 using LibTmux;
 
 Server server = await Server.ConnectAsync();
-Session session = await server.CreateSessionAsync(new NewSessionRequest(name: "build"));
-Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "tests"));
+Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "build" });
+Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "tests" });
 Pane pane = (await window.GetPanesAsync())[0];
 
 await pane.SendTextAsync("dotnet test");
@@ -82,7 +82,7 @@ whole distribution with the tmux, host and date that produced it:
 
 ```csharp run
 // One command, a typed object back.
-Window built = await session.CreateWindowAsync(new NewWindowRequest(name: "build"), ct);
+Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 ```
 
 ```csharp run
@@ -151,7 +151,7 @@ Session and window lookups stay within their owner.
 
 <!-- snippet: ReadCapturedState -->
 ```csharp
-Window created = await session.CreateWindowAsync(new NewWindowRequest(name: "lookup"), ct);
+Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
 Server connected = await server.ConnectAsync(ct);
 Window read = await connected.GetWindowAsync(created.Id, ct);
 Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
@@ -390,7 +390,7 @@ an exception filter rather than a guess:
 ```csharp run
 try
 {
-    await server.CreateSessionAsync(new NewSessionRequest(name: "build"), ct);
+    await server.CreateSessionAsync(new NewSessionRequest { Name = "build" }, ct);
 }
 catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
 {

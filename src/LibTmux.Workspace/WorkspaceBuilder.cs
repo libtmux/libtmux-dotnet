@@ -82,11 +82,13 @@ public sealed class WorkspaceBuilder
             // tmux starts the first pane before session options exist. A
             // bootstrap keeps the session alive until the real window exists.
             session = await _server.CreateSessionAsync(
-                    new NewSessionRequest(
-                        name: workspace.SessionName,
-                        windowName: BootstrapWindowName,
-                        startDirectory: StartDirectoryFor(first, workspace),
-                        command: "/bin/sh"),
+                    new NewSessionRequest
+                    {
+                        Name = workspace.SessionName,
+                        WindowName = BootstrapWindowName,
+                        StartDirectory = StartDirectoryFor(first, workspace),
+                        Command = "/bin/sh",
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
             return await CompleteAsync(
@@ -135,11 +137,13 @@ public sealed class WorkspaceBuilder
                 cancellationToken)
             .ConfigureAwait(false);
         Window firstWindow = await session.CreateWindowAsync(
-                new NewWindowRequest(
-                    name: first.WindowName,
-                    startDirectory: StartDirectoryFor(first, workspace),
-                    index: firstIndex,
-                    killExisting: true),
+                new NewWindowRequest
+                {
+                    Name = first.WindowName,
+                    StartDirectory = StartDirectoryFor(first, workspace),
+                    Index = firstIndex,
+                    KillExisting = true,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
         if (firstWindow.Index != bootstrap.Index)
@@ -160,9 +164,11 @@ public sealed class WorkspaceBuilder
         foreach (WorkspaceWindow described in workspace.Windows.Skip(1))
         {
             Window window = await session.CreateWindowAsync(
-                    new NewWindowRequest(
-                        name: described.WindowName,
-                        startDirectory: StartDirectoryFor(described, workspace)),
+                    new NewWindowRequest
+                    {
+                        Name = described.WindowName,
+                        StartDirectory = StartDirectoryFor(described, workspace),
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
             windows.Add(window);
@@ -326,7 +332,7 @@ public sealed class WorkspaceBuilder
             try
             {
                 window = await window.SelectLayoutAsync(
-                        new SelectLayoutRequest(layout: described.Layout),
+                        new SelectLayoutRequest { Layout = described.Layout },
                         cancellationToken)
                     .ConfigureAwait(false);
             }

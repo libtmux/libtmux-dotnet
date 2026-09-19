@@ -58,7 +58,7 @@ public sealed class PaneSendKeysDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
@@ -107,7 +107,7 @@ public sealed class PaneSendKeysDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 cancellation.Token));
 
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
@@ -136,7 +136,7 @@ public sealed class PaneSendKeysDispatchTests
 
         TmuxTransportException failure = await Assert.ThrowsAsync<TmuxTransportException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);

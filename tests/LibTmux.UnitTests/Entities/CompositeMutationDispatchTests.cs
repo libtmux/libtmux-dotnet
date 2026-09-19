@@ -26,7 +26,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest("tiled"),
+                new SelectLayoutRequest { Layout = "tiled" },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
@@ -50,7 +50,7 @@ public sealed class CompositeMutationDispatchTests
         });
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
-            window.SelectLayoutAsync(new SelectLayoutRequest("tiled"), cancellation.Token));
+            window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "tiled" }, cancellation.Token));
 
         AssertPartialFailure(failure, typeof(OperationCanceledException));
     }
@@ -66,7 +66,7 @@ public sealed class CompositeMutationDispatchTests
 
         TmuxTransportException failure = await Assert.ThrowsAsync<TmuxTransportException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest("tiled"),
+                new SelectLayoutRequest { Layout = "tiled" },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
@@ -89,7 +89,7 @@ public sealed class CompositeMutationDispatchTests
 
         await Assert.ThrowsAsync<TmuxWindowException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest(layout),
+                new SelectLayoutRequest { Layout = layout },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(0, Volatile.Read(ref dispatches));
@@ -113,7 +113,7 @@ public sealed class CompositeMutationDispatchTests
         // it ever reaches tmux.
         await Assert.ThrowsAsync<TmuxWindowException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest("{\"V\":2,\"L\":{\"t\":\"p\"}}"),
+                new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(0, Volatile.Read(ref dispatches));
@@ -133,7 +133,7 @@ public sealed class CompositeMutationDispatchTests
 
         TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
             () => pane.DisplayMessageAsync(
-                new DisplayMessageRequest("#{pane_id}", targetClient: "/dev/tty0"),
+                new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
                 TestContext.Current.CancellationToken));
 
         // tmux 3.2a declares -c as a bare flag with no value, so naming a
@@ -158,7 +158,7 @@ public sealed class CompositeMutationDispatchTests
             rawVersion: "tmux 3.3");
 
         await pane.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pane_id}", targetClient: "/dev/tty0"),
+            new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
             TestContext.Current.CancellationToken);
 
         Assert.True(Volatile.Read(ref dispatches) > 0);
@@ -178,7 +178,7 @@ public sealed class CompositeMutationDispatchTests
 
         TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
             () => window.DisplayMessageAsync(
-                new DisplayMessageRequest("#{window_id}", targetClient: "/dev/tty0"),
+                new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxVersion.Parse("3.3"), failure.RequiredVersion);
@@ -198,7 +198,7 @@ public sealed class CompositeMutationDispatchTests
             rawVersion: "tmux 3.3");
 
         await window.DisplayMessageAsync(
-            new DisplayMessageRequest("#{window_id}", targetClient: "/dev/tty0"),
+            new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
             TestContext.Current.CancellationToken);
 
         Assert.True(Volatile.Read(ref dispatches) > 0);
@@ -310,7 +310,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.CreateSessionAsync(
-                new NewSessionRequest("replace-me", replaceExisting: true),
+                new NewSessionRequest { Name = "replace-me", ReplaceExisting = true },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
@@ -335,7 +335,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.CreateSessionAsync(
-                new NewSessionRequest("created"),
+                new NewSessionRequest { Name = "created" },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxCommandException));
@@ -369,7 +369,7 @@ public sealed class CompositeMutationDispatchTests
         }, "tmux 3.2a");
 
         Window selected = await session.CreateWindowAsync(
-            new NewWindowRequest("-#{session_name}-x", selectExisting: true),
+            new NewWindowRequest { Name = "-#{session_name}-x", SelectExisting = true },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(WindowId.Parse("@2"), selected.Id);
@@ -393,7 +393,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             window.CreateWindowAsync(
-                new NewWindowRequest("wanted", selectExisting: true),
+                new NewWindowRequest { Name = "wanted", SelectExisting = true },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxCommandException));
@@ -488,7 +488,7 @@ public sealed class CompositeMutationDispatchTests
             });
 
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest("created"),
+            new NewSessionRequest { Name = "created" },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(Generation, created.Generation);
@@ -509,7 +509,7 @@ public sealed class CompositeMutationDispatchTests
             });
 
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest("created"),
+            new NewSessionRequest { Name = "created" },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(changed, created.Generation);

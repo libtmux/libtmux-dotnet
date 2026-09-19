@@ -20,9 +20,9 @@ public sealed class WindowTopologyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        Session guest = await server.CreateSessionAsync(new NewSessionRequest(name: "guest"), token);
+        Session guest = await server.CreateSessionAsync(new NewSessionRequest { Name = "guest" }, token);
 
-        Window shared = await home.CreateWindowAsync(new NewWindowRequest(name: "shared"), token);
+        Window shared = await home.CreateWindowAsync(new NewWindowRequest { Name = "shared" }, token);
         int homeIndex = shared.Index;
 
         await shared.LinkAsync(new LinkWindowRequest(guest.Id.ToString(), "9"), token);
@@ -38,7 +38,7 @@ public sealed class WindowTopologyTests
         Assert.Equal(home.Id, (await shared.GetPanesAsync(token))[0].Session.Id);
         Assert.Equal(homeIndex, (await shared.RefreshAsync(token)).Index);
 
-        Window moved = await inGuest.MoveAsync(new MoveWindowRequest("3"), token);
+        Window moved = await inGuest.MoveAsync(new MoveWindowRequest { Destination = "3" }, token);
 
         // Moving the guest link leaves the home link exactly where it was; a
         // bare window id would have let tmux move whichever link it chose.
@@ -110,18 +110,20 @@ public sealed class WindowTopologyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        Window first = await session.CreateWindowAsync(new NewWindowRequest(name: "first"), token);
+        Window first = await session.CreateWindowAsync(new NewWindowRequest { Name = "first" }, token);
 
         // A window created against another lands next to it rather than at the
         // session's current window.
         Window inserted = await first.CreateWindowAsync(
-            new NewWindowRequest(name: "inserted", direction: WindowDirection.After),
+            new NewWindowRequest { Name = "inserted", Direction = WindowDirection.After },
             token);
         Assert.Equal(first.Index + 1, inserted.Index);
 
         // An index and a target window both say where the window goes.
-        Assert.Throws<ArgumentException>(
-            () => new NewWindowRequest(index: "4", targetWindow: "@0"));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => first.CreateWindowAsync(
+                new NewWindowRequest { Index = "4", TargetWindow = "@0" },
+                token));
 
         Pane split = await first.SplitPaneAsync(
             new SplitPaneRequest { Direction = PaneDirection.Right, Percentage = 40 },
@@ -138,15 +140,20 @@ public sealed class WindowTopologyTests
             () => first.SplitPaneAsync(ambiguous, token));
 
         // Resizing is exact on every lane, unlike new-session's -x/-y.
-        Window resized = await first.ResizeAsync(new ResizeWindowRequest(width: 92, height: 31), token);
+        Window resized = await first.ResizeAsync(new ResizeWindowRequest { Width = 92, Height = 31 }, token);
         Assert.Equal(92, resized.Width);
         Assert.Equal(31, resized.Height);
 
         // tmux applies a mode after a size and discards the loser, so the
         // request refuses the pair rather than letting one vanish.
-        Assert.Throws<ArgumentException>(
-            () => new ResizeWindowRequest(width: 10, mode: WindowResizeMode.Expand));
-        Assert.Throws<ArgumentException>(() => new ResizeWindowRequest(direction: ResizeDirection.Up));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => first.ResizeAsync(
+                new ResizeWindowRequest { Width = 10, Mode = WindowResizeMode.Expand },
+                token));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => first.ResizeAsync(
+                new ResizeWindowRequest { Direction = ResizeDirection.Up },
+                token));
 
         Window rotated = await first.RotateAsync(WindowRotationDirection.Down, cancellationToken: token);
         Assert.Equal(first.Id, rotated.Id);
@@ -154,11 +161,11 @@ public sealed class WindowTopologyTests
         // Respawning a live window needs permission to kill what is running.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => first.RespawnAsync(cancellationToken: token));
-        await first.RespawnAsync(new RespawnRequest(killExistingProcess: true), token);
+        await first.RespawnAsync(new RespawnRequest { KillExistingProcess = true }, token);
         Assert.Single(await first.GetPanesAsync(token));
 
         Window swapPartner = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "partner"),
+            new NewWindowRequest { Name = "partner" },
             token);
         int before = swapPartner.Index;
         await first.SwapAsync(swapPartner.Id, cancellationToken: token);
@@ -176,7 +183,7 @@ public sealed class WindowTopologyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        Window doomed = await session.CreateWindowAsync(new NewWindowRequest(name: "doomed"), token);
+        Window doomed = await session.CreateWindowAsync(new NewWindowRequest { Name = "doomed" }, token);
 
         await doomed.KillAsync(cancellationToken: token);
 
@@ -190,8 +197,8 @@ public sealed class WindowTopologyTests
         Assert.DoesNotContain(await session.GetWindowsAsync(token), w => w.Id == doomed.Id);
 
         // Killing every other window leaves exactly one behind.
-        Window keeper = await session.CreateWindowAsync(new NewWindowRequest(name: "keeper"), token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "spare"), token);
+        Window keeper = await session.CreateWindowAsync(new NewWindowRequest { Name = "keeper" }, token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "spare" }, token);
         await keeper.KillAsync(allExcept: true, cancellationToken: token);
         Assert.Single(await session.GetWindowsAsync(token));
     }
@@ -207,7 +214,7 @@ public sealed class WindowTopologyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "layouts"), token);
+        Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "layouts" }, token);
         await window.SplitPaneAsync(cancellationToken: token);
         window = await window.RefreshAsync(token);
 
@@ -227,12 +234,12 @@ public sealed class WindowTopologyTests
         // taking every session on the socket with it, so the name never
         // reaches tmux unless this version is known to accept it.
         await Assert.ThrowsAsync<TmuxWindowException>(
-            () => window.SelectLayoutAsync(new SelectLayoutRequest("not-a-layout"), token));
+            () => window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "not-a-layout" }, token));
         Assert.NotEmpty(await server.GetSessionsAsync(token));
 
         foreach (string layout in new[] { "even-horizontal", "tiled", "main-vertical" })
         {
-            Window applied = await window.SelectLayoutAsync(new SelectLayoutRequest(layout), token);
+            Window applied = await window.SelectLayoutAsync(new SelectLayoutRequest { Layout = layout }, token);
             Assert.Equal(window.Id, applied.Id);
         }
 
@@ -240,7 +247,7 @@ public sealed class WindowTopologyTests
         // here rather than by a server that would die reporting it.
         bool mirroredKnown = server.Version!.Value >= TmuxVersion.Parse("3.5");
         Task<Window> mirrored = window.SelectLayoutAsync(
-            new SelectLayoutRequest("main-vertical-mirrored"),
+            new SelectLayoutRequest { Layout = "main-vertical-mirrored" },
             token);
         if (mirroredKnown)
         {
@@ -262,7 +269,7 @@ public sealed class WindowTopologyTests
         Assert.Equal(read.RawFormatFields["window_layout"], dumpedLayout);
         Assert.Equal(jsonLayoutsKnown, dumpedLayout.StartsWith('{'));
         Window restored = await window.SelectLayoutAsync(
-            new SelectLayoutRequest(dumpedLayout),
+            new SelectLayoutRequest { Layout = dumpedLayout },
             token);
         Assert.Equal(window.Id, restored.Id);
 
@@ -295,15 +302,15 @@ public sealed class WindowTopologyTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "layout-prefixes"),
+            new NewWindowRequest { Name = "layout-prefixes" },
             token);
         await window.SplitPaneAsync(cancellationToken: token);
         window = await window.RefreshAsync(token);
 
-        Window tiled = await window.SelectLayoutAsync(new SelectLayoutRequest("tile"), token);
+        Window tiled = await window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "tile" }, token);
         Assert.Equal(window.Id, tiled.Id);
         Window evenHorizontal = await tiled.SelectLayoutAsync(
-            new SelectLayoutRequest("even-h"),
+            new SelectLayoutRequest { Layout = "even-h" },
             token);
         Assert.Equal(window.Id, evenHorizontal.Id);
 
@@ -311,7 +318,7 @@ public sealed class WindowTopologyTests
         // itself refuses it; the message names the guard's reason, not the
         // connected tmux version.
         TmuxWindowException ambiguous = await Assert.ThrowsAsync<TmuxWindowException>(
-            () => evenHorizontal.SelectLayoutAsync(new SelectLayoutRequest("even-"), token));
+            () => evenHorizontal.SelectLayoutAsync(new SelectLayoutRequest { Layout = "even-" }, token));
         Assert.Contains("even-horizontal", ambiguous.Message, StringComparison.Ordinal);
         Assert.Contains("even-vertical", ambiguous.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("does not know", ambiguous.Message, StringComparison.Ordinal);
@@ -322,7 +329,7 @@ public sealed class WindowTopologyTests
         // connected tmux the same way the exact name's availability does.
         bool mirroredKnown = server.Version!.Value >= TmuxVersion.Parse("3.5");
         Task<Window> byMainVPrefix = window.SelectLayoutAsync(
-            new SelectLayoutRequest("main-v"),
+            new SelectLayoutRequest { Layout = "main-v" },
             token);
         if (mirroredKnown)
         {
@@ -339,7 +346,7 @@ public sealed class WindowTopologyTests
         // A prefix naming no preset at all still refuses before dispatch,
         // with the version-blaming message the exact-unknown case always had.
         TmuxWindowException unknown = await Assert.ThrowsAsync<TmuxWindowException>(
-            () => window.SelectLayoutAsync(new SelectLayoutRequest("zz"), token));
+            () => window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "zz" }, token));
         Assert.Contains("does not know the layout 'zz'", unknown.Message, StringComparison.Ordinal);
         Assert.NotEmpty(await server.GetSessionsAsync(token));
     }
@@ -371,7 +378,7 @@ public sealed class WindowTopologyTests
             "display_message_literal");
 
         IReadOnlyList<string>? literal = await window.DisplayMessageAsync(
-            new DisplayMessageRequest("#{window_id}", returnText: true, noExpand: true),
+            new DisplayMessageRequest { Message = "#{window_id}", ReturnText = true, NoExpand = true },
             token);
 
         Assert.NotNull(literal);
@@ -391,14 +398,14 @@ public sealed class WindowTopologyTests
 
         // Expansion is the default either way, and it costs one command.
         IReadOnlyList<string>? expanded = await window.DisplayMessageAsync(
-            new DisplayMessageRequest("#{window_id}", returnText: true),
+            new DisplayMessageRequest { Message = "#{window_id}", ReturnText = true },
             token);
         Assert.Equal(window.Id.ToString(), Assert.Single(expanded!));
 
         // Redrawing a pane while a message shows is pane-scoped.
         await Assert.ThrowsAsync<ArgumentException>(
             () => window.DisplayMessageAsync(
-                new DisplayMessageRequest("x", updatePane: true),
+                new DisplayMessageRequest { Message = "x", UpdatePane = true },
                 token));
     }
 

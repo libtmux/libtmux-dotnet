@@ -198,23 +198,24 @@ public sealed class ServerUtilitiesTests
         await server.BindKeyAsync(
             new BindKeyRequest("F10", ["display-message", "kept"], keyTable: "root"),
             token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F11", "root"), token);
+        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F11", KeyTable = "root" }, token);
         IReadOnlyList<string> after = await server.GetKeysAsync("root", cancellationToken: token);
         Assert.DoesNotContain(after, line => line.Contains("F11", StringComparison.Ordinal));
         Assert.Contains(after, line => line.Contains("F10", StringComparison.Ordinal));
 
         // Unbinding a key nobody bound is not an error: tmux treats the
         // binding's absence as the state that was asked for.
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F9", "root"), token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F9", "root", quiet: true), token);
+        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root" }, token);
+        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F9", KeyTable = "root", Quiet = true }, token);
 
         // Removing them all empties the table.
-        await server.UnbindKeyAsync(new UnbindKeyRequest(all: true, keyTable: "root"), token);
+        await server.UnbindKeyAsync(new UnbindKeyRequest { All = true, KeyTable = "root" }, token);
         Assert.Empty(await server.GetKeysAsync("root", cancellationToken: token));
 
         // A request that names no key and does not ask for all of them cannot
         // mean anything, so it never reaches tmux.
-        Assert.Throws<ArgumentException>(() => new UnbindKeyRequest());
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => server.UnbindKeyAsync(new UnbindKeyRequest(), token));
         Assert.Throws<ArgumentException>(() => new BindKeyRequest("F1", []));
     }
 
@@ -244,7 +245,7 @@ public sealed class ServerUtilitiesTests
         // A message renders through the server without a client, which is what
         // separates it from the three above.
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pid}", returnText: true),
+            new DisplayMessageRequest { Message = "#{pid}", ReturnText = true },
             token);
         Assert.NotNull(rendered);
         Assert.NotEmpty(rendered);
@@ -252,7 +253,7 @@ public sealed class ServerUtilitiesTests
         // An unfinished format is not an error to tmux: it renders to nothing
         // and says so by printing nothing.
         IReadOnlyList<string>? empty = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{", returnText: true),
+            new DisplayMessageRequest { Message = "#{", ReturnText = true },
             token);
         Assert.NotNull(empty);
         Assert.All(empty, line => Assert.Equal(string.Empty, line));
@@ -296,7 +297,7 @@ public sealed class ServerUtilitiesTests
 
             // A format renders each buffer the caller's way instead.
             IReadOnlyList<string> named = await server.GetBufferLinesAsync(
-                new ListBuffersRequest("#{buffer_name}"),
+                new ListBuffersRequest { Format = "#{buffer_name}" },
                 token);
             Assert.Contains("libtmux-buffer", named);
 
@@ -388,10 +389,14 @@ public sealed class ServerUtilitiesTests
             await ReadMessagesAsync(server, ShowMessagesMode.Terminals, token);
 
             // A request that both grants and withdraws cannot mean anything.
-            Assert.Throws<ArgumentException>(
-                () => new ServerAccessRequest(allowUser: "a", denyUser: "b"));
-            Assert.Throws<ArgumentException>(
-                () => new ServerAccessRequest(readOnly: true, readWrite: true));
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => server.ConfigureAccessAsync(
+                    new ServerAccessRequest { AllowUser = "a", DenyUser = "b" },
+                    token));
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => server.ConfigureAccessAsync(
+                    new ServerAccessRequest { ReadOnly = true, ReadWrite = true },
+                    token));
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => new RunShellRequest("true", delay: TimeSpan.FromSeconds(-1)));
         }
@@ -418,7 +423,7 @@ public sealed class ServerUtilitiesTests
         ProvesWholeCommandGateAsync(
             ServerUtilities.ServerAccessCapability,
             (server, token) => server.ConfigureAccessAsync(
-                new ServerAccessRequest(list: true),
+                new ServerAccessRequest { List = true },
                 token));
 
     [UnixFact]
@@ -543,7 +548,7 @@ public sealed class ServerUtilitiesTests
         bool supported = Supports(server, ServerUtilities.DisplayMessageLiteralCapability);
 
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pid}", returnText: true, noExpand: true),
+            new DisplayMessageRequest { Message = "#{pid}", ReturnText = true, NoExpand = true },
             token);
 
         if (supported)
@@ -573,7 +578,7 @@ public sealed class ServerUtilitiesTests
         // the flag to a tmux that refuses it looks like. Asserting the call
         // succeeds is what makes dropping the gate visible here.
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("addressed", returnText: true, targetClient: "/dev/null"),
+            new DisplayMessageRequest { Message = "addressed", ReturnText = true, TargetClient = "/dev/null" },
             token);
 
         Assert.Equal("addressed", Assert.Single(rendered!));

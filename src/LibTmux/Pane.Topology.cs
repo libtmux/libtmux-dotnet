@@ -342,7 +342,7 @@ public sealed partial class Pane
     [UnsupportedOSPlatform("windows")]
     public Task<Pane> SetWidthAsync(int width, CancellationToken cancellationToken = default) =>
         ResizeAsync(
-            new ResizePaneRequest(width: width.ToString(CultureInfo.InvariantCulture)),
+            new ResizePaneRequest { Width = width.ToString(CultureInfo.InvariantCulture) },
             cancellationToken);
 
     /// <summary>Sets this pane's height.</summary>
@@ -352,7 +352,7 @@ public sealed partial class Pane
     [UnsupportedOSPlatform("windows")]
     public Task<Pane> SetHeightAsync(int height, CancellationToken cancellationToken = default) =>
         ResizeAsync(
-            new ResizePaneRequest(height: height.ToString(CultureInfo.InvariantCulture)),
+            new ResizePaneRequest { Height = height.ToString(CultureInfo.InvariantCulture) },
             cancellationToken);
 
     /// <summary>Sets this pane's title.</summary>
@@ -395,6 +395,7 @@ public sealed partial class Pane
 
     internal List<string> BuildSwapPaneArguments(SwapPaneRequest request)
     {
+        string? source = request.ResolveSource();
         List<string> arguments = ["swap-pane", "-t", Target];
         if (request.Detach)
         {
@@ -411,7 +412,7 @@ public sealed partial class Pane
             arguments.Add("-Z");
         }
 
-        AddValue(arguments, "-s", request.Target);
+        AddValue(arguments, "-s", source);
 
         return arguments;
     }
@@ -443,7 +444,7 @@ public sealed partial class Pane
 
         // tmux takes the adjustment as the trailing positional; as a flag value
         // it would be read as a second argument and refused.
-        if (request.Adjustment is int adjustment)
+        if (request.ResolveAdjustment() is int adjustment)
         {
             arguments.Add(adjustment.ToString(CultureInfo.InvariantCulture));
         }

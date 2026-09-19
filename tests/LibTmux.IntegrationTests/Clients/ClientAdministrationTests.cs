@@ -128,7 +128,7 @@ public sealed class ClientAdministrationTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
-        Session other = await server.CreateSessionAsync(new NewSessionRequest(name: "other"), token);
+        Session other = await server.CreateSessionAsync(new NewSessionRequest { Name = "other" }, token);
 
         // A server-level attach has no session to fall back to, and attaching
         // needs a terminal the test process does not have.
@@ -136,7 +136,7 @@ public sealed class ClientAdministrationTests
             () => server.AttachSessionAsync(new AttachSessionRequest(), token));
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.AttachSessionAsync(
-                new AttachSessionRequest(target: other.Id.ToString()),
+                new AttachSessionRequest { Target = other.Id.ToString() },
                 token));
 
         // With no client of its own, every client-scoped command is refused by

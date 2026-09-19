@@ -30,7 +30,7 @@ public static class Tour
     public static async Task ReadCapturedState(Server server, Session session, CancellationToken ct)
     {
         #region ReadCapturedState
-        Window created = await session.CreateWindowAsync(new NewWindowRequest(name: "lookup"), ct);
+        Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
         Server connected = await server.ConnectAsync(ct);
         Window read = await connected.GetWindowAsync(created.Id, ct);
         Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
@@ -102,8 +102,8 @@ public static class Tour
     [Example("Filter what is there")]
     public static async Task FilterWhatIsThere(Session session)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "build-one"));
-        await session.CreateWindowAsync(new NewWindowRequest(name: "build-two"));
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-one" });
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-two" });
 
         // Ordinary filtering is LINQ over what was read.
         IReadOnlyList<Window> windows = await session.GetWindowsAsync();

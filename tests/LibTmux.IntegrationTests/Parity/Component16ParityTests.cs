@@ -101,7 +101,7 @@ public sealed class Component16ParityTests
         await server.BindKeyAsync(
             new BindKeyRequest("F12", ["display-message", "bound"], keyTable: "root"),
             token);
-        await server.UnbindKeyAsync(new UnbindKeyRequest("F12", "root"), token);
+        await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F12", KeyTable = "root" }, token);
         return !(await server.GetKeysAsync("root", cancellationToken: token))
             .Any(line => line.Contains("F12", StringComparison.Ordinal));
     }
@@ -181,13 +181,13 @@ public sealed class Component16ParityTests
     private static async Task<bool> ProvesMessageAsync(Server server, CancellationToken token)
     {
         IReadOnlyList<string>? rendered = await server.DisplayMessageAsync(
-            new DisplayMessageRequest("#{socket_path}", returnText: true),
+            new DisplayMessageRequest { Message = "#{socket_path}", ReturnText = true },
             token);
         Assert.NotNull(rendered);
 
         // Without the flag that asks for the text, tmux shows it to a client
         // and there is nothing for the caller to read.
-        return await server.DisplayMessageAsync(new DisplayMessageRequest("hello"), token) is null;
+        return await server.DisplayMessageAsync(new DisplayMessageRequest { Message = "hello" }, token) is null;
     }
 
     private static async Task<bool> ProvesRunShellAsync(Server server, CancellationToken token)
@@ -275,12 +275,12 @@ public sealed class Component16ParityTests
         if (!TmuxCapabilities.IsSupported(version, ServerUtilities.ServerAccessCapability))
         {
             await Assert.ThrowsAsync<TmuxVersionTooLowException>(
-                () => server.ConfigureAccessAsync(new ServerAccessRequest(list: true), token));
+                () => server.ConfigureAccessAsync(new ServerAccessRequest { List = true }, token));
             return true;
         }
 
         IReadOnlyList<string>? listed = await server.ConfigureAccessAsync(
-            new ServerAccessRequest(list: true),
+            new ServerAccessRequest { List = true },
             token);
         Assert.NotNull(listed);
 
@@ -369,7 +369,7 @@ public sealed class Component16ParityTests
         Assert.Equal(6, buffer.Size);
 
         // A format renders each buffer the caller's way instead.
-        return (await server.GetBufferLinesAsync(new ListBuffersRequest("#{buffer_name}"), token))
+        return (await server.GetBufferLinesAsync(new ListBuffersRequest { Format = "#{buffer_name}" }, token))
             .SequenceEqual(["libtmux-parity"], StringComparer.Ordinal);
     }
 

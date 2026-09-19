@@ -106,16 +106,18 @@ internal sealed partial class WriteTools
         CancellationToken cancellationToken)
     {
         RefuseHumanOwnedMode(pane, toolName);
-        var request = new SendKeysRequest(
-            text: keys,
-            enter: false,
-            literal: literal,
-            suppressHistory: suppressHistory);
+        var request = new SendKeysRequest
+        {
+            Text = keys,
+            Enter = false,
+            Literal = literal,
+            SuppressHistory = suppressHistory,
+        };
         TmuxChain dispatch = pane.Server.Chain().Then(request.ToCommand(pane));
         if (enter)
         {
             dispatch = dispatch.Then(
-                new SendKeysRequest(text: "Enter", enter: false).ToCommand(pane));
+                new SendKeysRequest { Text = "Enter", Enter = false }.ToCommand(pane));
         }
 
         _ = await dispatch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
@@ -178,10 +180,7 @@ internal sealed partial class WriteTools
             await MutateAsync(
                     sequence,
                     () => pane.SendKeysAsync(
-                        new SendKeysRequest(
-                            text: step.Keys,
-                            enter: step.Enter,
-                            literal: step.Literal),
+                        new SendKeysRequest { Text = step.Keys, Enter = step.Enter, Literal = step.Literal },
                         cancellationToken),
                     $"Key batch step {index + 1} may have reached tmux. The pane may "
                     + "already have acted on it; do not retry the whole batch.")
@@ -391,7 +390,7 @@ internal sealed partial class WriteTools
             }
 
             await pane.PasteBufferAsync(
-                    new PasteBufferRequest(name: buffer, bracketed: bracketed),
+                    new PasteBufferRequest { Name = buffer, Bracketed = bracketed },
                     cancellationToken)
                 .ConfigureAwait(false);
             PaneTypedTextRegistry.Record(pane, text);

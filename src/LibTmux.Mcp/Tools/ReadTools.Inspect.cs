@@ -41,7 +41,7 @@ internal sealed partial class ReadTools
         // normally configured server came back empty.
         IReadOnlyList<TmuxOption> read = string.IsNullOrWhiteSpace(name)
             ? await options.GetAllAsync(
-                    new GetOptionsRequest(includeInherited: true, quiet: true),
+                    new GetOptionsRequest { IncludeInherited = true, Quiet = true },
                     cancellationToken)
                 .ConfigureAwait(false)
             : await options.GetAsync(

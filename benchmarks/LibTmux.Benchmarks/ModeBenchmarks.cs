@@ -54,7 +54,7 @@ public class ModeBenchmarks
         for (int index = 0; index < Commands; index++)
         {
             await _server.DisplayMessageAsync(
-                new DisplayMessageRequest("bench", returnText: true));
+                new DisplayMessageRequest { Message = "bench", ReturnText = true });
         }
     }
 

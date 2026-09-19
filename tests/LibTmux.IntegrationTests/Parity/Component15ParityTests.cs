@@ -212,7 +212,7 @@ public sealed class Component15ParityTests
     {
         await server.Hooks.SetAsync(new SetHookRequest("alert-bell", "display-message rang"), token);
         IReadOnlyList<TmuxHook> hooks = await server.Hooks.GetAllAsync(
-            new ListHooksRequest(global: true),
+            new ListHooksRequest { Global = true },
             token);
         return hooks.Any(hook => hook.Name == "alert-bell");
     }

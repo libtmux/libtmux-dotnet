@@ -73,7 +73,7 @@ public sealed class TmuxOptionsTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window first = await TestHierarchy.RequireFirstWindowAsync(session, token);
-        Window second = await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        Window second = await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
         Pane pane = (await first.GetPanesAsync(token))[0];
 
         // Each accessor knows the table it stands for without being told.
@@ -114,11 +114,11 @@ public sealed class TmuxOptionsTests
         // Hooks live beside options and appear only when asked for.
         await raw.ExecuteAsync(["set-hook", "-g", "alert-bell", "display-message 'rang'"], token);
         IReadOnlyList<TmuxOption> withHooks = await session.Options.GetAllAsync(
-            new GetOptionsRequest(global: true, includeHooks: true),
+            new GetOptionsRequest { Global = true, IncludeHooks = true },
             token);
         Assert.Contains(withHooks, option => option.Name == "alert-bell");
         Assert.DoesNotContain(
-            await session.Options.GetAllAsync(new GetOptionsRequest(global: true), token),
+            await session.Options.GetAllAsync(new GetOptionsRequest { Global = true }, token),
             option => option.Name == "alert-bell");
     }
 
@@ -274,7 +274,7 @@ public sealed class TmuxOptionsTests
             await window.Options.GetAllAsync(cancellationToken: token));
         Assert.Equal("automatic-rename", only.Name);
         IReadOnlyList<TmuxOption> inherited = await window.Options.GetAllAsync(
-            new GetOptionsRequest(includeInherited: true),
+            new GetOptionsRequest { IncludeInherited = true },
             token);
         Assert.Contains(inherited, entry => entry.Name == "automatic-rename");
         Assert.True(inherited.Count > 1);
@@ -329,7 +329,7 @@ public sealed class TmuxOptionsTests
         await using OwnedServerScope owned = await Server.CreateOwnedAsync(
             IsolatedOptions(),
             token);
-        await owned.Value.CreateSessionAsync(new NewSessionRequest(name: "main"), token);
+        await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "main" }, token);
         Assert.False(owned.Value.IsMaterialized);
 
         await owned.Value.Options.SetAsync(new SetOptionRequest("@dollar", "a$b"), token);

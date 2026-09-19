@@ -220,7 +220,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
     {
         // Control mode attaches, so it needs a session to attach to.
         Session = await Server.CreateSessionAsync(
-            new NewSessionRequest(name: "example"),
+            new NewSessionRequest { Name = "example" },
             cancellationToken);
         Window = (await Session.GetWindowsAsync(cancellationToken))[0];
         Pane = (await Window.GetPanesAsync(cancellationToken))[0];

@@ -1,13 +1,18 @@
 #nullable enable
 LibTmux.AttachSessionRequest
 LibTmux.AttachSessionRequest.<Clone>$() -> LibTmux.AttachSessionRequest!
-LibTmux.AttachSessionRequest.AttachSessionRequest(string? target = null, bool detachOthers = false, bool readOnly = false, bool exitOnDetach = false, System.Collections.Generic.IReadOnlyList<string!>? clientFlags = null) -> void
+LibTmux.AttachSessionRequest.AttachSessionRequest() -> void
 LibTmux.AttachSessionRequest.ClientFlags.get -> System.Collections.Generic.IReadOnlyList<string!>?
+LibTmux.AttachSessionRequest.ClientFlags.init -> void
 LibTmux.AttachSessionRequest.DetachOthers.get -> bool
+LibTmux.AttachSessionRequest.DetachOthers.init -> void
 LibTmux.AttachSessionRequest.Equals(LibTmux.AttachSessionRequest? other) -> bool
 LibTmux.AttachSessionRequest.ExitOnDetach.get -> bool
+LibTmux.AttachSessionRequest.ExitOnDetach.init -> void
 LibTmux.AttachSessionRequest.ReadOnly.get -> bool
+LibTmux.AttachSessionRequest.ReadOnly.init -> void
 LibTmux.AttachSessionRequest.Target.get -> string?
+LibTmux.AttachSessionRequest.Target.init -> void
 LibTmux.BindKeyRequest
 LibTmux.BindKeyRequest.<Clone>$() -> LibTmux.BindKeyRequest!
 LibTmux.BindKeyRequest.BindKeyRequest(string! key, System.Collections.Generic.IReadOnlyList<string!>! command, string? keyTable = null, string? note = null, bool repeat = false) -> void
@@ -25,21 +30,35 @@ LibTmux.CapturePanePosition.LineNumber.get -> int?
 LibTmux.CapturePaneRequest
 LibTmux.CapturePaneRequest.<Clone>$() -> LibTmux.CapturePaneRequest!
 LibTmux.CapturePaneRequest.AlternateScreen.get -> bool
-LibTmux.CapturePaneRequest.CapturePaneRequest(LibTmux.CapturePanePosition? startLine = null, LibTmux.CapturePanePosition? endLine = null, bool escapeSequences = false, bool escapeNonPrintable = false, bool joinWrappedLines = false, bool preserveTrailingSpaces = false, bool trimTrailingSpaces = false, bool alternateScreen = false, bool quiet = false, bool modeScreen = false, bool pending = false, bool hyperlinks = false, bool lineNumbers = false, bool lineFlags = false) -> void
+LibTmux.CapturePaneRequest.AlternateScreen.init -> void
+LibTmux.CapturePaneRequest.CapturePaneRequest() -> void
 LibTmux.CapturePaneRequest.EndLine.get -> LibTmux.CapturePanePosition?
+LibTmux.CapturePaneRequest.EndLine.init -> void
 LibTmux.CapturePaneRequest.Equals(LibTmux.CapturePaneRequest? other) -> bool
 LibTmux.CapturePaneRequest.EscapeNonPrintable.get -> bool
+LibTmux.CapturePaneRequest.EscapeNonPrintable.init -> void
 LibTmux.CapturePaneRequest.EscapeSequences.get -> bool
+LibTmux.CapturePaneRequest.EscapeSequences.init -> void
 LibTmux.CapturePaneRequest.Hyperlinks.get -> bool
+LibTmux.CapturePaneRequest.Hyperlinks.init -> void
 LibTmux.CapturePaneRequest.JoinWrappedLines.get -> bool
+LibTmux.CapturePaneRequest.JoinWrappedLines.init -> void
 LibTmux.CapturePaneRequest.LineFlags.get -> bool
+LibTmux.CapturePaneRequest.LineFlags.init -> void
 LibTmux.CapturePaneRequest.LineNumbers.get -> bool
+LibTmux.CapturePaneRequest.LineNumbers.init -> void
 LibTmux.CapturePaneRequest.ModeScreen.get -> bool
+LibTmux.CapturePaneRequest.ModeScreen.init -> void
 LibTmux.CapturePaneRequest.Pending.get -> bool
+LibTmux.CapturePaneRequest.Pending.init -> void
 LibTmux.CapturePaneRequest.PreserveTrailingSpaces.get -> bool
+LibTmux.CapturePaneRequest.PreserveTrailingSpaces.init -> void
 LibTmux.CapturePaneRequest.Quiet.get -> bool
+LibTmux.CapturePaneRequest.Quiet.init -> void
 LibTmux.CapturePaneRequest.StartLine.get -> LibTmux.CapturePanePosition?
+LibTmux.CapturePaneRequest.StartLine.init -> void
 LibTmux.CapturePaneRequest.TrimTrailingSpaces.get -> bool
+LibTmux.CapturePaneRequest.TrimTrailingSpaces.init -> void
 LibTmux.CapturedRelation<T>
 LibTmux.CapturedRelation<T>.CapturedDepth.get -> LibTmux.SnapshotDepth
 LibTmux.CapturedRelation<T>.Count.get -> int
@@ -57,15 +76,22 @@ LibTmux.CapturedValue<T>.TryGetValue(out T? value) -> bool
 LibTmux.CapturedValue<T>.Value.get -> T!
 LibTmux.ChooseTreeRequest
 LibTmux.ChooseTreeRequest.<Clone>$() -> LibTmux.ChooseTreeRequest!
-LibTmux.ChooseTreeRequest.ChooseTreeRequest(bool sessionsCollapsed = false, bool windowsCollapsed = false, string? format = null, LibTmux.UnsafeTmuxFilter? nativeFilter = null, LibTmux.ChooseTreeSort? sort = null, bool reverse = false, bool zoom = false) -> void
+LibTmux.ChooseTreeRequest.ChooseTreeRequest() -> void
 LibTmux.ChooseTreeRequest.Equals(LibTmux.ChooseTreeRequest? other) -> bool
 LibTmux.ChooseTreeRequest.Format.get -> string?
+LibTmux.ChooseTreeRequest.Format.init -> void
 LibTmux.ChooseTreeRequest.NativeFilter.get -> LibTmux.UnsafeTmuxFilter?
+LibTmux.ChooseTreeRequest.NativeFilter.init -> void
 LibTmux.ChooseTreeRequest.Reverse.get -> bool
+LibTmux.ChooseTreeRequest.Reverse.init -> void
 LibTmux.ChooseTreeRequest.SessionsCollapsed.get -> bool
+LibTmux.ChooseTreeRequest.SessionsCollapsed.init -> void
 LibTmux.ChooseTreeRequest.Sort.get -> LibTmux.ChooseTreeSort?
+LibTmux.ChooseTreeRequest.Sort.init -> void
 LibTmux.ChooseTreeRequest.WindowsCollapsed.get -> bool
+LibTmux.ChooseTreeRequest.WindowsCollapsed.init -> void
 LibTmux.ChooseTreeRequest.Zoom.get -> bool
+LibTmux.ChooseTreeRequest.Zoom.init -> void
 LibTmux.ChooseTreeSort
 LibTmux.ChooseTreeSort.Index = 0 -> LibTmux.ChooseTreeSort
 LibTmux.ChooseTreeSort.Name = 1 -> LibTmux.ChooseTreeSort
@@ -131,13 +157,19 @@ LibTmux.ControlModeSubscriptions
 LibTmux.CopyModeRequest
 LibTmux.CopyModeRequest.<Clone>$() -> LibTmux.CopyModeRequest!
 LibTmux.CopyModeRequest.Cancel.get -> bool
-LibTmux.CopyModeRequest.CopyModeRequest(bool scrollUp = false, bool exitOnBottom = false, bool mouseDrag = false, bool cancel = false, bool pageDown = false, string? sourcePane = null) -> void
+LibTmux.CopyModeRequest.Cancel.init -> void
+LibTmux.CopyModeRequest.CopyModeRequest() -> void
 LibTmux.CopyModeRequest.Equals(LibTmux.CopyModeRequest? other) -> bool
 LibTmux.CopyModeRequest.ExitOnBottom.get -> bool
+LibTmux.CopyModeRequest.ExitOnBottom.init -> void
 LibTmux.CopyModeRequest.MouseDrag.get -> bool
+LibTmux.CopyModeRequest.MouseDrag.init -> void
 LibTmux.CopyModeRequest.PageDown.get -> bool
+LibTmux.CopyModeRequest.PageDown.init -> void
 LibTmux.CopyModeRequest.ScrollUp.get -> bool
+LibTmux.CopyModeRequest.ScrollUp.init -> void
 LibTmux.CopyModeRequest.SourcePane.get -> string?
+LibTmux.CopyModeRequest.SourcePane.init -> void
 LibTmux.DisplayMenuRequest
 LibTmux.DisplayMenuRequest.<Clone>$() -> LibTmux.DisplayMenuRequest!
 LibTmux.DisplayMenuRequest.BorderLines.get -> string?
@@ -158,38 +190,65 @@ LibTmux.DisplayMenuRequest.Y.get -> string?
 LibTmux.DisplayMessageRequest
 LibTmux.DisplayMessageRequest.<Clone>$() -> LibTmux.DisplayMessageRequest!
 LibTmux.DisplayMessageRequest.AllFormats.get -> bool
+LibTmux.DisplayMessageRequest.AllFormats.init -> void
 LibTmux.DisplayMessageRequest.Delay.get -> System.TimeSpan?
-LibTmux.DisplayMessageRequest.DisplayMessageRequest(string! message = "", bool returnText = false, string? format = null, bool allFormats = false, bool verbose = false, bool noExpand = false, string? targetClient = null, System.TimeSpan? delay = null, bool notify = false, bool updatePane = false) -> void
+LibTmux.DisplayMessageRequest.Delay.init -> void
+LibTmux.DisplayMessageRequest.DisplayMessageRequest() -> void
 LibTmux.DisplayMessageRequest.Equals(LibTmux.DisplayMessageRequest? other) -> bool
 LibTmux.DisplayMessageRequest.Format.get -> string?
+LibTmux.DisplayMessageRequest.Format.init -> void
 LibTmux.DisplayMessageRequest.Message.get -> string!
+LibTmux.DisplayMessageRequest.Message.init -> void
 LibTmux.DisplayMessageRequest.NoExpand.get -> bool
+LibTmux.DisplayMessageRequest.NoExpand.init -> void
 LibTmux.DisplayMessageRequest.Notify.get -> bool
+LibTmux.DisplayMessageRequest.Notify.init -> void
 LibTmux.DisplayMessageRequest.ReturnText.get -> bool
+LibTmux.DisplayMessageRequest.ReturnText.init -> void
 LibTmux.DisplayMessageRequest.TargetClient.get -> string?
+LibTmux.DisplayMessageRequest.TargetClient.init -> void
 LibTmux.DisplayMessageRequest.UpdatePane.get -> bool
+LibTmux.DisplayMessageRequest.UpdatePane.init -> void
 LibTmux.DisplayMessageRequest.Verbose.get -> bool
+LibTmux.DisplayMessageRequest.Verbose.init -> void
 LibTmux.DisplayPopupRequest
 LibTmux.DisplayPopupRequest.<Clone>$() -> LibTmux.DisplayPopupRequest!
 LibTmux.DisplayPopupRequest.BorderLines.get -> string?
+LibTmux.DisplayPopupRequest.BorderLines.init -> void
 LibTmux.DisplayPopupRequest.BorderStyle.get -> string?
+LibTmux.DisplayPopupRequest.BorderStyle.init -> void
 LibTmux.DisplayPopupRequest.CloseExisting.get -> bool
+LibTmux.DisplayPopupRequest.CloseExisting.init -> void
 LibTmux.DisplayPopupRequest.CloseMode.get -> LibTmux.PopupCloseMode?
+LibTmux.DisplayPopupRequest.CloseMode.init -> void
 LibTmux.DisplayPopupRequest.CloseOnAnyKey.get -> bool
+LibTmux.DisplayPopupRequest.CloseOnAnyKey.init -> void
 LibTmux.DisplayPopupRequest.Command.get -> string?
-LibTmux.DisplayPopupRequest.DisplayPopupRequest(string? command = null, LibTmux.PopupCloseMode? closeMode = null, bool closeExisting = false, string? targetClient = null, string? width = null, string? height = null, string? x = null, string? y = null, string? startDirectory = null, string? title = null, string? borderLines = null, string? style = null, string? borderStyle = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, bool noBorder = false, bool closeOnAnyKey = false, bool noKeys = false) -> void
+LibTmux.DisplayPopupRequest.Command.init -> void
+LibTmux.DisplayPopupRequest.DisplayPopupRequest() -> void
 LibTmux.DisplayPopupRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.DisplayPopupRequest.Environment.init -> void
 LibTmux.DisplayPopupRequest.Equals(LibTmux.DisplayPopupRequest? other) -> bool
 LibTmux.DisplayPopupRequest.Height.get -> string?
+LibTmux.DisplayPopupRequest.Height.init -> void
 LibTmux.DisplayPopupRequest.NoBorder.get -> bool
+LibTmux.DisplayPopupRequest.NoBorder.init -> void
 LibTmux.DisplayPopupRequest.NoKeys.get -> bool
+LibTmux.DisplayPopupRequest.NoKeys.init -> void
 LibTmux.DisplayPopupRequest.StartDirectory.get -> string?
+LibTmux.DisplayPopupRequest.StartDirectory.init -> void
 LibTmux.DisplayPopupRequest.Style.get -> string?
+LibTmux.DisplayPopupRequest.Style.init -> void
 LibTmux.DisplayPopupRequest.TargetClient.get -> string?
+LibTmux.DisplayPopupRequest.TargetClient.init -> void
 LibTmux.DisplayPopupRequest.Title.get -> string?
+LibTmux.DisplayPopupRequest.Title.init -> void
 LibTmux.DisplayPopupRequest.Width.get -> string?
+LibTmux.DisplayPopupRequest.Width.init -> void
 LibTmux.DisplayPopupRequest.X.get -> string?
+LibTmux.DisplayPopupRequest.X.init -> void
 LibTmux.DisplayPopupRequest.Y.get -> string?
+LibTmux.DisplayPopupRequest.Y.init -> void
 LibTmux.FindWindowRequest
 LibTmux.FindWindowRequest.<Clone>$() -> LibTmux.FindWindowRequest!
 LibTmux.FindWindowRequest.Equals(LibTmux.FindWindowRequest? other) -> bool
@@ -213,12 +272,17 @@ LibTmux.GetOptionRequest.Scope.get -> LibTmux.OptionScope?
 LibTmux.GetOptionsRequest
 LibTmux.GetOptionsRequest.<Clone>$() -> LibTmux.GetOptionsRequest!
 LibTmux.GetOptionsRequest.Equals(LibTmux.GetOptionsRequest? other) -> bool
-LibTmux.GetOptionsRequest.GetOptionsRequest(LibTmux.OptionScope? scope = null, bool global = false, bool includeHooks = false, bool includeInherited = false, bool quiet = false) -> void
+LibTmux.GetOptionsRequest.GetOptionsRequest() -> void
 LibTmux.GetOptionsRequest.Global.get -> bool
+LibTmux.GetOptionsRequest.Global.init -> void
 LibTmux.GetOptionsRequest.IncludeHooks.get -> bool
+LibTmux.GetOptionsRequest.IncludeHooks.init -> void
 LibTmux.GetOptionsRequest.IncludeInherited.get -> bool
+LibTmux.GetOptionsRequest.IncludeInherited.init -> void
 LibTmux.GetOptionsRequest.Quiet.get -> bool
+LibTmux.GetOptionsRequest.Quiet.init -> void
 LibTmux.GetOptionsRequest.Scope.get -> LibTmux.OptionScope?
+LibTmux.GetOptionsRequest.Scope.init -> void
 LibTmux.HookRequest
 LibTmux.HookRequest.<Clone>$() -> LibTmux.HookRequest!
 LibTmux.HookRequest.Equals(LibTmux.HookRequest? other) -> bool
@@ -261,14 +325,18 @@ LibTmux.ListBuffersRequest
 LibTmux.ListBuffersRequest.<Clone>$() -> LibTmux.ListBuffersRequest!
 LibTmux.ListBuffersRequest.Equals(LibTmux.ListBuffersRequest? other) -> bool
 LibTmux.ListBuffersRequest.Filter.get -> LibTmux.UnsafeTmuxFilter?
+LibTmux.ListBuffersRequest.Filter.init -> void
 LibTmux.ListBuffersRequest.Format.get -> string?
-LibTmux.ListBuffersRequest.ListBuffersRequest(string? format = null, LibTmux.UnsafeTmuxFilter? filter = null) -> void
+LibTmux.ListBuffersRequest.Format.init -> void
+LibTmux.ListBuffersRequest.ListBuffersRequest() -> void
 LibTmux.ListHooksRequest
 LibTmux.ListHooksRequest.<Clone>$() -> LibTmux.ListHooksRequest!
 LibTmux.ListHooksRequest.Equals(LibTmux.ListHooksRequest? other) -> bool
 LibTmux.ListHooksRequest.Global.get -> bool
-LibTmux.ListHooksRequest.ListHooksRequest(LibTmux.OptionScope? scope = null, bool global = false) -> void
+LibTmux.ListHooksRequest.Global.init -> void
+LibTmux.ListHooksRequest.ListHooksRequest() -> void
 LibTmux.ListHooksRequest.Scope.get -> LibTmux.OptionScope?
+LibTmux.ListHooksRequest.Scope.init -> void
 LibTmux.MovePaneRequest
 LibTmux.MovePaneRequest.<Clone>$() -> LibTmux.MovePaneRequest!
 LibTmux.MovePaneRequest.Before.get -> bool
@@ -282,63 +350,107 @@ LibTmux.MovePaneRequest.Target.get -> string!
 LibTmux.MoveWindowRequest
 LibTmux.MoveWindowRequest.<Clone>$() -> LibTmux.MoveWindowRequest!
 LibTmux.MoveWindowRequest.Destination.get -> string!
+LibTmux.MoveWindowRequest.Destination.init -> void
 LibTmux.MoveWindowRequest.Direction.get -> LibTmux.WindowDirection?
+LibTmux.MoveWindowRequest.Direction.init -> void
 LibTmux.MoveWindowRequest.Equals(LibTmux.MoveWindowRequest? other) -> bool
-LibTmux.MoveWindowRequest.MoveWindowRequest(string! destination = "", string? session = null, LibTmux.WindowDirection? direction = null, bool noSelect = false, bool replaceExisting = false, bool renumber = false) -> void
+LibTmux.MoveWindowRequest.MoveWindowRequest() -> void
 LibTmux.MoveWindowRequest.NoSelect.get -> bool
+LibTmux.MoveWindowRequest.NoSelect.init -> void
 LibTmux.MoveWindowRequest.Renumber.get -> bool
+LibTmux.MoveWindowRequest.Renumber.init -> void
 LibTmux.MoveWindowRequest.ReplaceExisting.get -> bool
+LibTmux.MoveWindowRequest.ReplaceExisting.init -> void
 LibTmux.MoveWindowRequest.Session.get -> string?
+LibTmux.MoveWindowRequest.Session.init -> void
 LibTmux.NewPaneRequest
 LibTmux.NewPaneRequest.<Clone>$() -> LibTmux.NewPaneRequest!
 LibTmux.NewPaneRequest.ActiveBorderStyle.get -> string?
+LibTmux.NewPaneRequest.ActiveBorderStyle.init -> void
 LibTmux.NewPaneRequest.Attach.get -> bool
+LibTmux.NewPaneRequest.Attach.init -> void
 LibTmux.NewPaneRequest.Command.get -> string?
+LibTmux.NewPaneRequest.Command.init -> void
 LibTmux.NewPaneRequest.Empty.get -> bool
+LibTmux.NewPaneRequest.Empty.init -> void
 LibTmux.NewPaneRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.NewPaneRequest.Environment.init -> void
 LibTmux.NewPaneRequest.Equals(LibTmux.NewPaneRequest? other) -> bool
 LibTmux.NewPaneRequest.Height.get -> int?
+LibTmux.NewPaneRequest.Height.init -> void
 LibTmux.NewPaneRequest.InactiveBorderStyle.get -> string?
+LibTmux.NewPaneRequest.InactiveBorderStyle.init -> void
 LibTmux.NewPaneRequest.KeepOpen.get -> bool
+LibTmux.NewPaneRequest.KeepOpen.init -> void
 LibTmux.NewPaneRequest.Message.get -> string?
-LibTmux.NewPaneRequest.NewPaneRequest(string? target = null, string? startDirectory = null, bool attach = false, string? command = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, int? width = null, int? height = null, int? x = null, int? y = null, bool zoom = false, bool empty = false, string? style = null, string? activeBorderStyle = null, string? inactiveBorderStyle = null, string? message = null, bool keepOpen = false) -> void
+LibTmux.NewPaneRequest.Message.init -> void
+LibTmux.NewPaneRequest.NewPaneRequest() -> void
 LibTmux.NewPaneRequest.StartDirectory.get -> string?
+LibTmux.NewPaneRequest.StartDirectory.init -> void
 LibTmux.NewPaneRequest.Style.get -> string?
+LibTmux.NewPaneRequest.Style.init -> void
 LibTmux.NewPaneRequest.Target.get -> string?
+LibTmux.NewPaneRequest.Target.init -> void
 LibTmux.NewPaneRequest.Width.get -> int?
+LibTmux.NewPaneRequest.Width.init -> void
 LibTmux.NewPaneRequest.X.get -> int?
+LibTmux.NewPaneRequest.X.init -> void
 LibTmux.NewPaneRequest.Y.get -> int?
+LibTmux.NewPaneRequest.Y.init -> void
 LibTmux.NewPaneRequest.Zoom.get -> bool
+LibTmux.NewPaneRequest.Zoom.init -> void
 LibTmux.NewSessionRequest
 LibTmux.NewSessionRequest.<Clone>$() -> LibTmux.NewSessionRequest!
 LibTmux.NewSessionRequest.Attach.get -> bool
+LibTmux.NewSessionRequest.Attach.init -> void
 LibTmux.NewSessionRequest.ClientFlags.get -> string?
+LibTmux.NewSessionRequest.ClientFlags.init -> void
 LibTmux.NewSessionRequest.Command.get -> string?
+LibTmux.NewSessionRequest.Command.init -> void
 LibTmux.NewSessionRequest.DetachOthers.get -> bool
+LibTmux.NewSessionRequest.DetachOthers.init -> void
 LibTmux.NewSessionRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.NewSessionRequest.Environment.init -> void
 LibTmux.NewSessionRequest.Equals(LibTmux.NewSessionRequest? other) -> bool
 LibTmux.NewSessionRequest.Height.get -> string?
+LibTmux.NewSessionRequest.Height.init -> void
 LibTmux.NewSessionRequest.Name.get -> string?
-LibTmux.NewSessionRequest.NewSessionRequest(string? name = null, bool replaceExisting = false, bool attach = false, string? startDirectory = null, string? windowName = null, string? command = null, string? width = null, string? height = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, bool detachOthers = false, bool noSize = false, string? clientFlags = null) -> void
+LibTmux.NewSessionRequest.Name.init -> void
+LibTmux.NewSessionRequest.NewSessionRequest() -> void
 LibTmux.NewSessionRequest.NoSize.get -> bool
+LibTmux.NewSessionRequest.NoSize.init -> void
 LibTmux.NewSessionRequest.ReplaceExisting.get -> bool
+LibTmux.NewSessionRequest.ReplaceExisting.init -> void
 LibTmux.NewSessionRequest.StartDirectory.get -> string?
+LibTmux.NewSessionRequest.StartDirectory.init -> void
 LibTmux.NewSessionRequest.Width.get -> string?
+LibTmux.NewSessionRequest.Width.init -> void
 LibTmux.NewSessionRequest.WindowName.get -> string?
+LibTmux.NewSessionRequest.WindowName.init -> void
 LibTmux.NewWindowRequest
 LibTmux.NewWindowRequest.<Clone>$() -> LibTmux.NewWindowRequest!
 LibTmux.NewWindowRequest.Attach.get -> bool
+LibTmux.NewWindowRequest.Attach.init -> void
 LibTmux.NewWindowRequest.Command.get -> string?
+LibTmux.NewWindowRequest.Command.init -> void
 LibTmux.NewWindowRequest.Direction.get -> LibTmux.WindowDirection?
+LibTmux.NewWindowRequest.Direction.init -> void
 LibTmux.NewWindowRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.NewWindowRequest.Environment.init -> void
 LibTmux.NewWindowRequest.Equals(LibTmux.NewWindowRequest? other) -> bool
 LibTmux.NewWindowRequest.Index.get -> string?
+LibTmux.NewWindowRequest.Index.init -> void
 LibTmux.NewWindowRequest.KillExisting.get -> bool
+LibTmux.NewWindowRequest.KillExisting.init -> void
 LibTmux.NewWindowRequest.Name.get -> string?
-LibTmux.NewWindowRequest.NewWindowRequest(string? name = null, string? startDirectory = null, bool attach = false, string? index = null, string? command = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, LibTmux.WindowDirection? direction = null, string? targetWindow = null, bool killExisting = false, bool selectExisting = false) -> void
+LibTmux.NewWindowRequest.Name.init -> void
+LibTmux.NewWindowRequest.NewWindowRequest() -> void
 LibTmux.NewWindowRequest.SelectExisting.get -> bool
+LibTmux.NewWindowRequest.SelectExisting.init -> void
 LibTmux.NewWindowRequest.StartDirectory.get -> string?
+LibTmux.NewWindowRequest.StartDirectory.init -> void
 LibTmux.NewWindowRequest.TargetWindow.get -> string?
+LibTmux.NewWindowRequest.TargetWindow.init -> void
 LibTmux.OptionScope
 LibTmux.OptionScope.Pane = 3 -> LibTmux.OptionScope
 LibTmux.OptionScope.Server = 0 -> LibTmux.OptionScope
@@ -436,21 +548,31 @@ LibTmux.PaneSwapDirection.Up = 0 -> LibTmux.PaneSwapDirection
 LibTmux.PasteBufferRequest
 LibTmux.PasteBufferRequest.<Clone>$() -> LibTmux.PasteBufferRequest!
 LibTmux.PasteBufferRequest.Bracketed.get -> bool
+LibTmux.PasteBufferRequest.Bracketed.init -> void
 LibTmux.PasteBufferRequest.DeleteAfter.get -> bool
+LibTmux.PasteBufferRequest.DeleteAfter.init -> void
 LibTmux.PasteBufferRequest.Equals(LibTmux.PasteBufferRequest? other) -> bool
 LibTmux.PasteBufferRequest.Name.get -> string?
-LibTmux.PasteBufferRequest.PasteBufferRequest(string? name = null, bool deleteAfter = false, bool useLineFeedSeparator = false, bool bracketed = false, string? separator = null, bool rawBytes = false) -> void
+LibTmux.PasteBufferRequest.Name.init -> void
+LibTmux.PasteBufferRequest.PasteBufferRequest() -> void
 LibTmux.PasteBufferRequest.RawBytes.get -> bool
+LibTmux.PasteBufferRequest.RawBytes.init -> void
 LibTmux.PasteBufferRequest.Separator.get -> string?
+LibTmux.PasteBufferRequest.Separator.init -> void
 LibTmux.PasteBufferRequest.UseLineFeedSeparator.get -> bool
+LibTmux.PasteBufferRequest.UseLineFeedSeparator.init -> void
 LibTmux.PipePaneRequest
 LibTmux.PipePaneRequest.<Clone>$() -> LibTmux.PipePaneRequest!
 LibTmux.PipePaneRequest.Command.get -> string?
+LibTmux.PipePaneRequest.Command.init -> void
 LibTmux.PipePaneRequest.Equals(LibTmux.PipePaneRequest? other) -> bool
 LibTmux.PipePaneRequest.InputOnly.get -> bool
+LibTmux.PipePaneRequest.InputOnly.init -> void
 LibTmux.PipePaneRequest.OutputOnly.get -> bool
-LibTmux.PipePaneRequest.PipePaneRequest(string? command = null, bool outputOnly = false, bool inputOnly = false, bool toggle = false) -> void
+LibTmux.PipePaneRequest.OutputOnly.init -> void
+LibTmux.PipePaneRequest.PipePaneRequest() -> void
 LibTmux.PipePaneRequest.Toggle.get -> bool
+LibTmux.PipePaneRequest.Toggle.init -> void
 LibTmux.PopupCloseMode
 LibTmux.PopupCloseMode.AnyExit = 0 -> LibTmux.PopupCloseMode
 LibTmux.PopupCloseMode.SuccessfulExit = 1 -> LibTmux.PopupCloseMode
@@ -527,31 +649,47 @@ LibTmux.ResizeDirection.Up = 0 -> LibTmux.ResizeDirection
 LibTmux.ResizePaneRequest
 LibTmux.ResizePaneRequest.<Clone>$() -> LibTmux.ResizePaneRequest!
 LibTmux.ResizePaneRequest.Adjustment.get -> int?
+LibTmux.ResizePaneRequest.Adjustment.init -> void
 LibTmux.ResizePaneRequest.Direction.get -> LibTmux.ResizeDirection?
+LibTmux.ResizePaneRequest.Direction.init -> void
 LibTmux.ResizePaneRequest.Equals(LibTmux.ResizePaneRequest? other) -> bool
 LibTmux.ResizePaneRequest.Height.get -> string?
+LibTmux.ResizePaneRequest.Height.init -> void
 LibTmux.ResizePaneRequest.Mouse.get -> bool
-LibTmux.ResizePaneRequest.ResizePaneRequest(LibTmux.ResizeDirection? direction = null, int? adjustment = null, string? width = null, string? height = null, bool zoom = false, bool mouse = false, bool trimBelow = false) -> void
+LibTmux.ResizePaneRequest.Mouse.init -> void
+LibTmux.ResizePaneRequest.ResizePaneRequest() -> void
 LibTmux.ResizePaneRequest.TrimBelow.get -> bool
+LibTmux.ResizePaneRequest.TrimBelow.init -> void
 LibTmux.ResizePaneRequest.Width.get -> string?
+LibTmux.ResizePaneRequest.Width.init -> void
 LibTmux.ResizePaneRequest.Zoom.get -> bool
+LibTmux.ResizePaneRequest.Zoom.init -> void
 LibTmux.ResizeWindowRequest
 LibTmux.ResizeWindowRequest.<Clone>$() -> LibTmux.ResizeWindowRequest!
 LibTmux.ResizeWindowRequest.Adjustment.get -> int?
+LibTmux.ResizeWindowRequest.Adjustment.init -> void
 LibTmux.ResizeWindowRequest.Direction.get -> LibTmux.ResizeDirection?
+LibTmux.ResizeWindowRequest.Direction.init -> void
 LibTmux.ResizeWindowRequest.Equals(LibTmux.ResizeWindowRequest? other) -> bool
 LibTmux.ResizeWindowRequest.Height.get -> int?
+LibTmux.ResizeWindowRequest.Height.init -> void
 LibTmux.ResizeWindowRequest.Mode.get -> LibTmux.WindowResizeMode?
-LibTmux.ResizeWindowRequest.ResizeWindowRequest(LibTmux.ResizeDirection? direction = null, int? adjustment = null, int? width = null, int? height = null, LibTmux.WindowResizeMode? mode = null) -> void
+LibTmux.ResizeWindowRequest.Mode.init -> void
+LibTmux.ResizeWindowRequest.ResizeWindowRequest() -> void
 LibTmux.ResizeWindowRequest.Width.get -> int?
+LibTmux.ResizeWindowRequest.Width.init -> void
 LibTmux.RespawnRequest
 LibTmux.RespawnRequest.<Clone>$() -> LibTmux.RespawnRequest!
 LibTmux.RespawnRequest.Command.get -> string?
+LibTmux.RespawnRequest.Command.init -> void
 LibTmux.RespawnRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
+LibTmux.RespawnRequest.Environment.init -> void
 LibTmux.RespawnRequest.Equals(LibTmux.RespawnRequest? other) -> bool
 LibTmux.RespawnRequest.KillExistingProcess.get -> bool
-LibTmux.RespawnRequest.RespawnRequest(string? command = null, string? startDirectory = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, bool killExistingProcess = false) -> void
+LibTmux.RespawnRequest.KillExistingProcess.init -> void
+LibTmux.RespawnRequest.RespawnRequest() -> void
 LibTmux.RespawnRequest.StartDirectory.get -> string?
+LibTmux.RespawnRequest.StartDirectory.init -> void
 LibTmux.RunShellRequest
 LibTmux.RunShellRequest.<Clone>$() -> LibTmux.RunShellRequest!
 LibTmux.RunShellRequest.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>?
@@ -572,32 +710,50 @@ LibTmux.SelectLayoutRequest
 LibTmux.SelectLayoutRequest.<Clone>$() -> LibTmux.SelectLayoutRequest!
 LibTmux.SelectLayoutRequest.Equals(LibTmux.SelectLayoutRequest? other) -> bool
 LibTmux.SelectLayoutRequest.Layout.get -> string?
+LibTmux.SelectLayoutRequest.Layout.init -> void
 LibTmux.SelectLayoutRequest.Mode.get -> LibTmux.SelectLayoutMode?
-LibTmux.SelectLayoutRequest.SelectLayoutRequest(string? layout = null, LibTmux.SelectLayoutMode? mode = null) -> void
+LibTmux.SelectLayoutRequest.Mode.init -> void
+LibTmux.SelectLayoutRequest.SelectLayoutRequest() -> void
 LibTmux.SelectPaneRequest
 LibTmux.SelectPaneRequest.<Clone>$() -> LibTmux.SelectPaneRequest!
 LibTmux.SelectPaneRequest.Direction.get -> LibTmux.PaneSelectDirection?
+LibTmux.SelectPaneRequest.Direction.init -> void
 LibTmux.SelectPaneRequest.Equals(LibTmux.SelectPaneRequest? other) -> bool
 LibTmux.SelectPaneRequest.InputEnabled.get -> bool?
+LibTmux.SelectPaneRequest.InputEnabled.init -> void
 LibTmux.SelectPaneRequest.KeepZoom.get -> bool
+LibTmux.SelectPaneRequest.KeepZoom.init -> void
 LibTmux.SelectPaneRequest.Last.get -> bool
+LibTmux.SelectPaneRequest.Last.init -> void
 LibTmux.SelectPaneRequest.Mark.get -> bool?
-LibTmux.SelectPaneRequest.SelectPaneRequest(LibTmux.PaneSelectDirection? direction = null, bool keepZoom = false, bool? mark = null, bool? inputEnabled = null, bool last = false) -> void
+LibTmux.SelectPaneRequest.Mark.init -> void
+LibTmux.SelectPaneRequest.SelectPaneRequest() -> void
 LibTmux.SendKeysRequest
 LibTmux.SendKeysRequest.<Clone>$() -> LibTmux.SendKeysRequest!
 LibTmux.SendKeysRequest.CopyModeCommand.get -> string?
+LibTmux.SendKeysRequest.CopyModeCommand.init -> void
 LibTmux.SendKeysRequest.Enter.get -> bool
+LibTmux.SendKeysRequest.Enter.init -> void
 LibTmux.SendKeysRequest.Equals(LibTmux.SendKeysRequest? other) -> bool
 LibTmux.SendKeysRequest.ExpandFormats.get -> bool
+LibTmux.SendKeysRequest.ExpandFormats.init -> void
 LibTmux.SendKeysRequest.HexKeys.get -> bool
+LibTmux.SendKeysRequest.HexKeys.init -> void
 LibTmux.SendKeysRequest.KeyName.get -> bool
+LibTmux.SendKeysRequest.KeyName.init -> void
 LibTmux.SendKeysRequest.Literal.get -> bool
+LibTmux.SendKeysRequest.Literal.init -> void
 LibTmux.SendKeysRequest.Repeat.get -> int?
+LibTmux.SendKeysRequest.Repeat.init -> void
 LibTmux.SendKeysRequest.Reset.get -> bool
-LibTmux.SendKeysRequest.SendKeysRequest(string? text = null, bool enter = true, bool suppressHistory = false, bool literal = false, bool reset = false, string? copyModeCommand = null, int? repeat = null, bool expandFormats = false, bool hexKeys = false, string? targetClient = null, bool keyName = false) -> void
+LibTmux.SendKeysRequest.Reset.init -> void
+LibTmux.SendKeysRequest.SendKeysRequest() -> void
 LibTmux.SendKeysRequest.SuppressHistory.get -> bool
+LibTmux.SendKeysRequest.SuppressHistory.init -> void
 LibTmux.SendKeysRequest.TargetClient.get -> string?
+LibTmux.SendKeysRequest.TargetClient.init -> void
 LibTmux.SendKeysRequest.Text.get -> string?
+LibTmux.SendKeysRequest.Text.init -> void
 LibTmux.Server
 LibTmux.Server.AttachSessionAsync(LibTmux.AttachSessionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.BindKeyAsync(LibTmux.BindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -673,12 +829,17 @@ LibTmux.Server.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
 LibTmux.ServerAccessRequest
 LibTmux.ServerAccessRequest.<Clone>$() -> LibTmux.ServerAccessRequest!
 LibTmux.ServerAccessRequest.AllowUser.get -> string?
+LibTmux.ServerAccessRequest.AllowUser.init -> void
 LibTmux.ServerAccessRequest.DenyUser.get -> string?
+LibTmux.ServerAccessRequest.DenyUser.init -> void
 LibTmux.ServerAccessRequest.Equals(LibTmux.ServerAccessRequest? other) -> bool
 LibTmux.ServerAccessRequest.List.get -> bool
+LibTmux.ServerAccessRequest.List.init -> void
 LibTmux.ServerAccessRequest.ReadOnly.get -> bool
+LibTmux.ServerAccessRequest.ReadOnly.init -> void
 LibTmux.ServerAccessRequest.ReadWrite.get -> bool
-LibTmux.ServerAccessRequest.ServerAccessRequest(string? allowUser = null, string? denyUser = null, bool list = false, bool readOnly = false, bool readWrite = false) -> void
+LibTmux.ServerAccessRequest.ReadWrite.init -> void
+LibTmux.ServerAccessRequest.ServerAccessRequest() -> void
 LibTmux.ServerConnectionOptions
 LibTmux.ServerConnectionOptions.<Clone>$() -> LibTmux.ServerConnectionOptions!
 LibTmux.ServerConnectionOptions.ChildEnvironment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>?
@@ -855,11 +1016,15 @@ LibTmux.StaleServerGenerationException.StaleServerGenerationException(string! me
 LibTmux.SwapPaneRequest
 LibTmux.SwapPaneRequest.<Clone>$() -> LibTmux.SwapPaneRequest!
 LibTmux.SwapPaneRequest.Detach.get -> bool
+LibTmux.SwapPaneRequest.Detach.init -> void
 LibTmux.SwapPaneRequest.Direction.get -> LibTmux.PaneSwapDirection?
+LibTmux.SwapPaneRequest.Direction.init -> void
 LibTmux.SwapPaneRequest.Equals(LibTmux.SwapPaneRequest? other) -> bool
 LibTmux.SwapPaneRequest.KeepZoom.get -> bool
-LibTmux.SwapPaneRequest.SwapPaneRequest(string? target = null, LibTmux.PaneSwapDirection? direction = null, bool detach = false, bool keepZoom = false) -> void
+LibTmux.SwapPaneRequest.KeepZoom.init -> void
+LibTmux.SwapPaneRequest.SwapPaneRequest() -> void
 LibTmux.SwapPaneRequest.Target.get -> string?
+LibTmux.SwapPaneRequest.Target.init -> void
 LibTmux.TmuxBuffer
 LibTmux.TmuxBuffer.<Clone>$() -> LibTmux.TmuxBuffer!
 LibTmux.TmuxBuffer.Equals(LibTmux.TmuxBuffer? other) -> bool
@@ -1083,11 +1248,15 @@ LibTmux.TmuxWindowException.WindowId.get -> LibTmux.WindowId
 LibTmux.UnbindKeyRequest
 LibTmux.UnbindKeyRequest.<Clone>$() -> LibTmux.UnbindKeyRequest!
 LibTmux.UnbindKeyRequest.All.get -> bool
+LibTmux.UnbindKeyRequest.All.init -> void
 LibTmux.UnbindKeyRequest.Equals(LibTmux.UnbindKeyRequest? other) -> bool
 LibTmux.UnbindKeyRequest.Key.get -> string?
+LibTmux.UnbindKeyRequest.Key.init -> void
 LibTmux.UnbindKeyRequest.KeyTable.get -> string?
+LibTmux.UnbindKeyRequest.KeyTable.init -> void
 LibTmux.UnbindKeyRequest.Quiet.get -> bool
-LibTmux.UnbindKeyRequest.UnbindKeyRequest(string? key = null, string? keyTable = null, bool all = false, bool quiet = false) -> void
+LibTmux.UnbindKeyRequest.Quiet.init -> void
+LibTmux.UnbindKeyRequest.UnbindKeyRequest() -> void
 LibTmux.UnsafeTmuxFilter
 LibTmux.UnsafeTmuxFilter.<Clone>$() -> LibTmux.UnsafeTmuxFilter!
 LibTmux.UnsafeTmuxFilter.Deconstruct(out string! Value) -> void

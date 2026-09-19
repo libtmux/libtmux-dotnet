@@ -68,7 +68,7 @@ public sealed partial class Window
 
         // tmux takes the adjustment as the trailing positional; as a flag value
         // it would be read as a second argument and refused.
-        if (request.Adjustment is int adjustment)
+        if (request.ResolveAdjustment() is int adjustment)
         {
             arguments.Add(adjustment.ToString(CultureInfo.InvariantCulture));
         }

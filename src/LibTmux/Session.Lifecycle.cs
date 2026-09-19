@@ -406,11 +406,7 @@ public sealed partial class Session
         // A bare index or window name would resolve against the caller's
         // current session, so the target is always anchored to this session.
         yield return "-t";
-        yield return options.TargetWindow is not null
-            ? $"{sessionId}:{options.TargetWindow}"
-            : options.Index is null
-                ? $"{sessionId}:"
-                : $"{sessionId}:{options.Index}";
+        yield return $"{sessionId}:{options.ResolvePosition()}";
         foreach ((string flag, string? value) in new[]
         {
             ("-n", options.Name),
