@@ -278,7 +278,6 @@ public sealed class TmuxOptions
     // against whatever the owner discovers now, rather than freezing a
     // version at construction that handle may never carry.
     private async Task<bool> ResolveDoubleEscapesDollarAsync(CancellationToken cancellationToken) =>
-        _owner is null
-            ? false
-            : DoubleEscapesDollar(await _owner.ConnectAsync(cancellationToken).ConfigureAwait(false));
+        _owner is not null
+        && DoubleEscapesDollar(await _owner.ConnectAsync(cancellationToken).ConfigureAwait(false));
 }
