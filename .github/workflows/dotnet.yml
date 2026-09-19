@@ -296,7 +296,10 @@ jobs:
         # compile-time annotation, so a plain [Fact] inside an annotated class
         # runs here rather than skipping, and many do. The build above is what
         # this lane gates on; promote this step once a run shows it green.
+        # Bounded on its own so a hang here fails this step instead of
+        # cancelling the whole job past continue-on-error's reach.
         continue-on-error: true
+        timeout-minutes: 5
         run: >
           dotnet test tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
           --configuration Release --no-build --framework net10.0
