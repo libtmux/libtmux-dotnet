@@ -72,7 +72,7 @@ public sealed class ContractTests : IDisposable
         var result = await Run("search", "s:(a+)+$", "--json");
         Assert.Equal(2, result.Code);
         Assert.Empty(result.Output);
-        Assert.Equal("pattern_timeout", JsonNode.Parse(result.Error)!["code"]!.ToString());
+        Assert.Equal("usage", JsonNode.Parse(result.Error)!["code"]!.ToString());
     }
 
     [Fact]

@@ -33,7 +33,7 @@ internal static class CommandDocumentation
             "bash" => Bash(graph.Root),
             "zsh" => Zsh(graph.Root),
             "fish" => Fish(graph.Root),
-            _ => throw new CliException("invalid_format", "Unknown documentation format.", 2),
+            _ => throw new CliException("usage", "Unknown documentation format.", 2),
         };
     }
 

@@ -49,7 +49,7 @@ public sealed class CommandTests : IDisposable
         var result = await Run(["load", "missing.yaml", colors, .. outputMode]);
         Assert.Equal(2, result.Code);
         Assert.Empty(result.Output);
-        if (mode.Length > 0) Assert.Equal("unsupported_color_mode", JsonNode.Parse(result.Error)!["code"]!.ToString());
+        if (mode.Length > 0) Assert.Equal("usage", JsonNode.Parse(result.Error)!["code"]!.ToString());
         Assert.Contains("88-color", result.Error, StringComparison.Ordinal);
         Assert.Contains("-2", result.Error, StringComparison.Ordinal);
     }

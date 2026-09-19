@@ -17,7 +17,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
     internal void Search()
     {
         string[] terms = invocation.Many("patterns");
-        if (terms.Length == 0) throw new CliException("missing_pattern", "At least one search pattern is required.", 2);
+        if (terms.Length == 0) throw new CliException("usage", "At least one search pattern is required.", 2);
         string[] selected = invocation.Many("fields");
         if (selected.Length == 0) selected = ["name", "session_name", "path", "window", "pane"];
         selected = selected.Select(Field).Distinct(StringComparer.Ordinal).ToArray();
@@ -70,7 +70,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         }
         catch (RegexMatchTimeoutException failure)
         {
-            throw new CliException("pattern_timeout", $"Pattern '{failure.Pattern}' exceeded the match time limit. Simplify it, or match it literally with --fixed-strings.", 2);
+            throw new CliException("usage", $"Pattern '{failure.Pattern}' exceeded the match time limit. Simplify it, or match it literally with --fixed-strings.", 2);
         }
         output.Records(matches);
     }
@@ -167,7 +167,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         "w" => "window",
         "n" => "name",
         "name" or "path" or "window" or "pane" => name.ToLowerInvariant(),
-        _ => throw new CliException("invalid_field", $"Unknown search field '{name}'.", 2),
+        _ => throw new CliException("usage", $"Unknown search field '{name}'.", 2),
     };
 
     private static Dictionary<string, string[]> Fields(JsonObject document, string path)

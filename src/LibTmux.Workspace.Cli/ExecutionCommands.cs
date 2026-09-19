@@ -43,7 +43,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     internal async Task<int> LoadAsync()
     {
-        if (invocation.Flag("colors88")) throw new CliException("unsupported_color_mode", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
+        if (invocation.Flag("colors88")) throw new CliException("usage", "88-color mode is unsupported on tmux 3.2a and newer. Use -2 for 256 colors.", 2);
         if (invocation.Machine && !invocation.Flag("detached") && !invocation.Flag("append")) throw new CliException("usage", "Machine load requires -d or --append.", 2);
         output.PrepareProgress();
         string[] files = invocation.Many("files");
@@ -59,8 +59,8 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         bool extensions = inputs.Any(input => input.Document["plugins"] is not null and not JsonArray { Count: 0 } || input.Document["workspace_builder"] is not null);
         LoadHandoff handoff = new(context, invocation, output);
         await handoff.ResolveAsync(Connection(), inputs[^1].Plan.Name).ConfigureAwait(false);
-        if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("unsupported_append_extensions", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
-        if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("unsupported_attached_extensions", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
+        if (extensions && handoff.Mode == LoadMode.Append) throw new CliException("usage", "Append with Python workspace extensions is unsupported. Load the extensions into a separate session with -d.", 2);
+        if (extensions && handoff.Mode is LoadMode.Attach or LoadMode.Switch) throw new CliException("usage", "Python extension handoff is not yet supported. Load the extensions with -d.", 2);
         _server = handoff.Server;
         _loadGeneration = _server?.Generation;
         try
@@ -396,7 +396,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     internal async Task FreezeAsync()
     {
         if (!invocation.Machine && invocation.Text("save_to") is null)
-            throw new CliException("destination_required", "Capture needs a destination. Pass --save-to, or use --json or --ndjson for the document.", 2);
+            throw new CliException("usage", "Capture needs a destination. Pass --save-to, or use --json or --ndjson for the document.", 2);
         string? supplied = invocation.Many("sessions").FirstOrDefault();
         string? target = supplied is null ? await CurrentPaneTarget().ConfigureAwait(false) : await NamedSessionTarget(supplied).ConfigureAwait(false);
         if (target is null)
@@ -530,7 +530,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string? supplied = context.Environment.GetValueOrDefault(primary);
         string variable = supplied is null ? fallback : primary;
         string raw = supplied ?? context.Environment.GetValueOrDefault(fallback) ?? value.ToString(CultureInfo.InvariantCulture);
-        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid_dimension", variable + " must be an integer from 1 through 65535.", 2);
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("usage", variable + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 
@@ -538,7 +538,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
     {
         string? raw = context.Environment.GetValueOrDefault(name);
         if (string.IsNullOrEmpty(raw)) return current;
-        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("invalid_dimension", name + " must be an integer from 1 through 65535.", 2);
+        if (!int.TryParse(raw, CultureInfo.InvariantCulture, out int parsed) || parsed is < 1 or > 65535) throw new CliException("usage", name + " must be an integer from 1 through 65535.", 2);
         return raw;
     }
 
