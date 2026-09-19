@@ -56,4 +56,4 @@ is taken from it, so tmux commands are logged with everything else.
 
 ## License
 
-MIT. See [LICENSE](https://github.com/tony/libtmux-dotnet/blob/master/LICENSE).
+[MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
