@@ -108,6 +108,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             }
             // Resolved once per session: default-shell is static, unlike a
             // live pane_current_command read, which races the shell starting.
+            // Every shell gets the wait: bash echoes text that arrives before
+            // its line editor owns the terminal, then redraws it, so the
+            // command shows twice.
             bool readinessResolved = false;
             string? readinessShell = null;
             async Task<string?> ReadinessShellAsync()
@@ -116,8 +119,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                 readinessResolved = true;
                 if (input.Plan.Readiness == "never") return null;
                 if ((await Field(session!, "default-command").ConfigureAwait(false)).Length > 0) return null;
-                string shellName = Path.GetFileName(await Field(session!, "default-shell").ConfigureAwait(false));
-                return readinessShell = input.Plan.Readiness == "always" || shellName == "zsh" ? shellName : null;
+                return readinessShell = Path.GetFileName(await Field(session!, "default-shell").ConfigureAwait(false));
             }
             try
             {
@@ -250,7 +252,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(2))
                             {
                                 string[] sample = (await Command(["display-message", "-p", "-t", paneId, "#{pane_current_command}\t#{cursor_x},#{cursor_y}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
-                                if (sample.Length == 2 && sample[0] == expectedShell && sample[1] != "0,0") break;
+                                // macOS runs bash for /bin/sh, so the pane's
+                                // own report is the one that counts.
+                                if (sample.Length == 2 && sample[1] != "0,0" && (sample[0] == expectedShell || OrdinaryShellNames.Contains(sample[0].TrimStart('-'), StringComparer.Ordinal))) break;
                                 await Task.Delay(50, context.CancellationToken).ConfigureAwait(false);
                             }
                         }
