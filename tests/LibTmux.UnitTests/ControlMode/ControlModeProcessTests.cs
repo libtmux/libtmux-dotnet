@@ -24,7 +24,7 @@ public sealed class ControlModeProcessTests
         await using var input = new MemoryStream("123456\n"u8.ToArray());
         var reader = new ControlModeLineReader(input, maxLineBytes: 5, bufferSize: 2);
 
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        LibTmuxException error = await Assert.ThrowsAsync<LibTmuxException>(
             () => reader.ReadLineAsync(token));
 
         Assert.Equal("A tmux control-mode line exceeded 5 bytes.", error.Message);

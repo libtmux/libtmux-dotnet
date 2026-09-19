@@ -150,8 +150,9 @@ public sealed class TmuxEnvironment
         return sequence.Observe(() =>
             stored ?? (hidden
                 ? new TmuxEnvironmentEntry(name, null, false)
-                : throw new InvalidDataException(
-                    $"tmux did not report the stored environment variable '{name}'.")));
+                : throw new LibTmuxException(
+                    $"tmux did not report the stored environment variable '{name}'.",
+                    TmuxDispatchState.Dispatched)));
     }
 
     /// <summary>Marks a variable removed for the panes tmux spawns.</summary>

@@ -37,7 +37,9 @@ public sealed class PsmuxServer
 
     /// <summary>Gets the psmux compatibility version reported at connection time.</summary>
     public TmuxVersion Version => _inner.Version
-        ?? throw new InvalidDataException("The connected psmux client reported no usable version.");
+        ?? throw new LibTmuxException(
+            "The connected psmux client reported no usable version.",
+            TmuxDispatchState.Unknown);
 
     /// <summary>Connects to a separately provisioned psmux namespace.</summary>
     /// <param name="options">The executable trust and isolated endpoint settings.</param>

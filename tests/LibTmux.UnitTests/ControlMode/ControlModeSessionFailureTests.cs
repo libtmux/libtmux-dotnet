@@ -277,11 +277,11 @@ public sealed class ControlModeSessionFailureTests
         TruncatedBlockProcess process = TruncatedBlockProcess.ForAttach();
         var session = new ControlModeSession(process);
 
-        InvalidDataException readinessFailure =
-            await Assert.ThrowsAsync<InvalidDataException>(
+        LibTmuxException readinessFailure =
+            await Assert.ThrowsAsync<LibTmuxException>(
                 () => session.WaitForReadyAsync(token));
-        InvalidDataException disposalFailure =
-            await Assert.ThrowsAsync<InvalidDataException>(
+        LibTmuxException disposalFailure =
+            await Assert.ThrowsAsync<LibTmuxException>(
                 () => session.DisposeAsync().AsTask());
 
         Assert.Same(readinessFailure, disposalFailure);
@@ -319,12 +319,12 @@ public sealed class ControlModeSessionFailureTests
 
         process.EndCommandBlockEarly();
 
-        InvalidDataException firstFailure =
-            await Assert.ThrowsAsync<InvalidDataException>(async () => await first);
-        InvalidDataException secondFailure =
-            await Assert.ThrowsAsync<InvalidDataException>(async () => await second);
-        InvalidDataException disposalFailure =
-            await Assert.ThrowsAsync<InvalidDataException>(
+        LibTmuxException firstFailure =
+            await Assert.ThrowsAsync<LibTmuxException>(async () => await first);
+        LibTmuxException secondFailure =
+            await Assert.ThrowsAsync<LibTmuxException>(async () => await second);
+        LibTmuxException disposalFailure =
+            await Assert.ThrowsAsync<LibTmuxException>(
                 () => session.DisposeAsync().AsTask());
 
         Assert.Same(firstFailure, secondFailure);

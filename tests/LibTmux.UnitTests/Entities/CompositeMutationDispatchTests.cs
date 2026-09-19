@@ -457,7 +457,7 @@ public sealed class CompositeMutationDispatchTests
                 "value",
                 cancellationToken: TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(LibTmuxException));
     }
 
     [Fact]
