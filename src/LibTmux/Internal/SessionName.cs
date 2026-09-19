@@ -28,7 +28,8 @@ internal static class SessionName
             throw new ArgumentException(
                 "A session name here cannot contain ':' or '.'. tmux accepts them, but "
                 + "they separate session, window and pane in a tmux target, so a session "
-                + "named with one cannot be reached by name afterwards.",
+                + "named with one only resolves with an explicit 'name:' terminator, which "
+                + "this library's own addressing never emits.",
                 nameof(name));
         }
 
