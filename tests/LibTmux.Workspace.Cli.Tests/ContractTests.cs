@@ -266,6 +266,19 @@ public sealed class ContractTests : IDisposable
     }
 
     [Fact]
+    public async Task Help_names_the_argument_and_the_short_options_by_value_not_letter()
+    {
+        var result = await Run("load", "--help");
+        Assert.Equal(0, result.Code);
+        Assert.Contains("One or more tmuxp YAML or JSON workspace files.", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-L <socket-name>", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-S <socket-path>", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-f <file>", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-s <name>", result.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("-L <L>", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Help_shortcut_stops_at_the_argument_separator()
     {
         var result = await Run("load", "--json", "-d", "--", "-h");
