@@ -497,6 +497,13 @@ internal sealed partial class WriteTools
                 dispatch.Pane = await dispatchPreflight(cancellationToken).ConfigureAwait(false);
             }
 
+            // Recorded before dispatch, for the same reason as send_keys: a
+            // concurrent wait_for_text must never see the sourcing line's own
+            // echo before the record that discounts it exists. The payload
+            // already ends with a newline in this one paste, so there is no
+            // separate Enter dispatch to wait on before settling.
+            PaneEchoRegistry.PaneEchoNote note = PaneEchoRegistry.NoteLiteralWrite(
+                dispatch.Pane, payload, enter: false);
             try
             {
                 await dispatch.Pane.PasteBufferAsync(
@@ -508,15 +515,26 @@ internal sealed partial class WriteTools
             catch (TmuxOperationCanceledException error)
             {
                 dispatch.PayloadMayHaveReachedTmux = error.CommandMayHaveExecuted;
+                if (!dispatch.PayloadMayHaveReachedTmux)
+                {
+                    note.Rollback();
+                }
+
                 throw;
             }
             catch (LibTmuxException error)
             {
                 dispatch.PayloadMayHaveReachedTmux =
                     error.Dispatch != TmuxDispatchState.NotDispatched;
+                if (!dispatch.PayloadMayHaveReachedTmux)
+                {
+                    note.Rollback();
+                }
+
                 throw;
             }
 
+            note.Settle();
             bufferMayExist = false;
         }
         catch (Exception error)

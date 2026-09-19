@@ -43,11 +43,14 @@ internal sealed partial class ReadTools
             + "called is answered at once as outcome PresentAtEntry, not Timeout, so a "
             + "tail that contains it is never reported as a plain timeout. Text this "
             + "server itself typed into the pane is never a match by itself, however new "
-            + "tmux reports it — a not-yet-submitted line, or a shell re-printing what "
-            + "was typed, cannot satisfy a wait meant for the pane's own output. Omit or "
-            + "pass an empty list to return as soon as the pane prints anything new. "
-            + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
-            + "entry is at most 999 bytes.")]
+            + "tmux reports it — a not-yet-submitted line, a shell re-printing what was "
+            + "typed, or a line just submitted, stay discounted for a few seconds after "
+            + "the edit or the submit, so they cannot satisfy a wait meant for the pane's "
+            + "own output. This cannot protect a pane whose program has not yet configured "
+            + "its terminal — wait for a first prompt before typing into a freshly created "
+            + "pane. Omit or pass an empty list to return as soon as the pane prints "
+            + "anything new. Across both pattern lists: at most 32 entries and 16384 UTF-8 "
+            + "bytes; each entry is at most 999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -77,11 +80,43 @@ internal sealed partial class ReadTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
-        // A row that is only this server's own not-yet-confirmed input -
-        // never submitted, or echoed again by a redraw - is excluded before
-        // anything is matched, which keeps a shell re-printing what was
-        // typed from satisfying a wait the command itself never answered.
-        string? pending = PaneTypedTextRegistry.LastSent(pane);
+        // What this server itself typed is discounted before anything is
+        // matched, so a shell echoing or re-printing it cannot satisfy a
+        // wait the command itself never answered.
+        //
+        // `recentSoFar` accumulates every submitted or pre-edit line for this
+        // wait's whole lifetime, so a TTL expiring mid-wait cannot re-expose
+        // an echo already in its stream. `Pending` is re-read fresh each
+        // iteration instead, since an unmodelled key invalidates it at once.
+        var recentSoFar = new HashSet<string>(StringComparer.Ordinal);
+        IReadOnlyList<string> Discounted(IReadOnlyList<string> lines)
+        {
+            PaneEchoRegistry.LiveEcho echo = PaneEchoRegistry.GetLiveEcho(pane);
+            foreach (string line in echo.Recent)
+            {
+                recentSoFar.Add(line);
+            }
+
+            if (echo.Pending.Length == 0 && recentSoFar.Count == 0)
+            {
+                return lines;
+            }
+
+            IEnumerable<string> echoes = echo.Pending.Length == 0
+                ? recentSoFar
+                : recentSoFar.Prepend(echo.Pending);
+            List<string> kept = new(lines.Count);
+            foreach (string line in lines)
+            {
+                string masked = PaneEchoRegistry.WithoutEchoes(line, echoes);
+                if (masked.Length > 0)
+                {
+                    kept.Add(masked);
+                }
+            }
+
+            return kept;
+        }
 
         Stopwatch elapsed = Stopwatch.StartNew();
 
@@ -104,7 +139,7 @@ internal sealed partial class ReadTools
             ? null
             : Match(
                 wanted,
-                ExcludePending(PaneText.Scrub(first.Lines, pane.Width), pending),
+                Discounted(PaneText.Scrub(first.Lines, pane.Width)),
                 matchingWork,
                 cancellationToken);
         if (matchedAtEntry is not null)
@@ -147,10 +182,8 @@ internal sealed partial class ReadTools
             // Matched against the rows the caller receives, not the raw ones:
             // a concurrent run's payload echo could otherwise satisfy a wait
             // whose scrubbed tail never showed the line that matched. This
-            // server's own pending input is excluded the same way.
-            IReadOnlyList<string> visible = ExcludePending(
-                PaneText.Scrub(read.Lines, pane.Width),
-                pending);
+            // server's own typed text is discounted the same way.
+            IReadOnlyList<string> visible = Discounted(PaneText.Scrub(read.Lines, pane.Width));
             if (visible.Count > 0)
             {
                 if (Match(stops, visible, matchingWork, cancellationToken) is string stopped)
@@ -209,8 +242,6 @@ internal sealed partial class ReadTools
             // A full-screen program repaints rather than appending, so "what is
             // new" stops meaning anything. Saying so beats waiting out the
             // whole budget for a line that will never arrive as new text.
-            // matchedAtEntry can only be null here: a non-null one already
-            // returned before this loop began.
             if (!alternate && read.State.AlternateScreen)
             {
                 return await FinishAsync(
@@ -345,34 +376,6 @@ internal sealed partial class ReadTools
             + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
-
-    // A row this server typed is excluded by content, not by position: the
-    // kernel echoes it back at the end of the input line, and a redraw
-    // reprints it there again. Matching a suffix rather than any substring
-    // keeps unrelated output that merely contains the same characters -
-    // "y" inside "Successfully", say - from being excluded too.
-    private static IReadOnlyList<string> ExcludePending(IReadOnlyList<string> lines, string? pending)
-    {
-        if (string.IsNullOrEmpty(pending) || lines.Count == 0)
-        {
-            return lines;
-        }
-
-        List<string>? kept = null;
-        for (int row = 0; row < lines.Count; row++)
-        {
-            if (lines[row].EndsWith(pending, StringComparison.Ordinal))
-            {
-                kept ??= [.. lines.Take(row)];
-            }
-            else
-            {
-                kept?.Add(lines[row]);
-            }
-        }
-
-        return kept ?? lines;
-    }
 
     internal static string? Match(
         Regex[] patterns,

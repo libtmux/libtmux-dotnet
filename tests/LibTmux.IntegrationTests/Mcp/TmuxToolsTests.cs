@@ -980,7 +980,7 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
-    public async Task Wait_never_matches_this_servers_own_pending_input_reprinted_as_new_bytes()
+    public async Task An_unmodelled_key_fails_open_on_a_readline_redraw_of_pending_input()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -1028,10 +1028,10 @@ public sealed class TmuxToolsTests
             timeoutSeconds: 2,
             cancellationToken: token);
 
-        // A readline redraw (Ctrl-L) re-prints a still-pending, never-
-        // submitted line as genuinely new terminal bytes while the wait is
-        // already attached, the same shape a starting shell's line editor
-        // produces re-printing type-ahead; neither may count as a match.
+        // Ctrl-L is unmodelled, so it fails open (clears the pending line)
+        // rather than keep discounting text this server can no longer vouch
+        // for; readline's redraw of it then matches, the tolerated trade-off
+        // in the echo contract's S6.
         await Task.Delay(TimeSpan.FromMilliseconds(300), token);
         await mcp.Write.SendKeysAsync(
             "C-l",
@@ -1040,7 +1040,8 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
 
         WaitResult result = await waiting;
-        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+        Assert.Equal(WaitOutcome.Matched, result.Outcome);
+        Assert.Equal(marker, result.MatchedPattern);
     }
 
     [UnixFact]
