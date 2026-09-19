@@ -47,6 +47,9 @@ jobs:
           global-json-file: global.json
 
       - name: Install build dependencies
+        # zsh drives the Workspace CLI tests' pane-readiness regression test:
+        # the wait it guards once ran only for that shell, so the test still
+        # exercises a real one to prove the generalized wait did not regress it.
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
