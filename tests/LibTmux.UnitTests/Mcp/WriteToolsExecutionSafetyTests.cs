@@ -2495,8 +2495,12 @@ public sealed class WriteToolsExecutionSafetyTests
     public async Task Wait_matches_a_line_that_only_shares_a_character_with_recent_typed_input()
     {
         string[] staticRows = ["Successfully copied 1 file"];
+        // A generation of its own: PaneEchoRegistry keeps state across calls
+        // for "%1" under the default generation, which every other test in
+        // this file that does not care about it also shares.
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            generation: new ServerGeneration(121, 1_202))
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
             StateSequence = [new StateSample(0, 50_000, 40, 0)],
@@ -2522,8 +2526,11 @@ public sealed class WriteToolsExecutionSafetyTests
     public async Task Wait_still_excludes_a_line_ending_with_recent_typed_input()
     {
         string[] staticRows = ["$ y"];
+        // A generation of its own, for the same reason as the sibling test
+        // above: nothing else may have left this pane's echo record dirty.
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            generation: new ServerGeneration(121, 1_203))
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
             StateSequence = [new StateSample(0, 50_000, 40, 0)],
