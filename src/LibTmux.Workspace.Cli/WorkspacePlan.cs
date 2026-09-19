@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
-using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -63,7 +62,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
                 panePlans.Add(new PanePlan(ResolveDirectory(pane, windowDirectory, store, warnings), shell is null ? null : store.Expand(shell), Boolean(pane, "focus", false), Mapping(pane["environment"] ?? window["environment"], store), commands));
             }
             string? layout = Text(window, "layout");
-            if (layout is not null && !TmuxLayoutSyntax.IsValidCandidate(layout, panePlans.Count))
+            if (layout is not null && !Server.IsValidLayoutCandidate(layout, panePlans.Count))
             {
                 throw Invalid($"Layout '{layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
             }

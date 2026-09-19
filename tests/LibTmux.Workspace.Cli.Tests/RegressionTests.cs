@@ -238,7 +238,7 @@ public sealed class RegressionTests : IDisposable
         using StringWriter okError = new();
         using StringWriter badOutput = new();
         using StringWriter badError = new();
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             int okCode = await CliRunner.RunAsync(["load", accepted, "-d", "-S", socket, "-f", "/dev/null", "--json"], okOutput, okError, _root, null, token);
@@ -2086,7 +2086,7 @@ public sealed class RegressionTests : IDisposable
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, "decline.socket");
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             // The document mismatches the running session -- a decline test
@@ -2116,7 +2116,7 @@ public sealed class RegressionTests : IDisposable
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, "decline-multi.socket");
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "mismatch", "-n", "only");

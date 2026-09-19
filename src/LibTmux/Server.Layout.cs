@@ -5,6 +5,27 @@ namespace LibTmux;
 
 public sealed partial class Server
 {
+    /// <summary>Checks a layout's syntax without contacting a server.</summary>
+    /// <param name="layout">A custom layout string or a named layout.</param>
+    /// <param name="paneCount">The number of panes the layout must accommodate.</param>
+    /// <returns>
+    /// <see langword="true" /> when the checksum, cell tree and cell count are
+    /// consistent for a custom layout, or the name is an unambiguous prefix of
+    /// a named layout.
+    /// </returns>
+    /// <remarks>
+    /// This is the version-independent half of <see cref="ValidateLayoutsAsync" />:
+    /// it never contacts tmux, so it cannot catch a named layout that only some
+    /// daemon versions accept. Call it at parse time, before a document is
+    /// otherwise trusted; call <see cref="ValidateLayoutsAsync" /> afterward to
+    /// catch a version-sensitive name.
+    /// </remarks>
+    public static bool IsValidLayoutCandidate(string layout, int paneCount)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        return TmuxLayoutSyntax.IsValidCandidate(layout, paneCount);
+    }
+
     /// <summary>Checks layouts before a workspace changes the server.</summary>
     /// <param name="layouts">Layouts and the number of panes each must accommodate.</param>
     /// <param name="cancellationToken">Cancels version discovery.</param>

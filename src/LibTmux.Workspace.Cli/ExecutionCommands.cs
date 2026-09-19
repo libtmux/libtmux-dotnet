@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
-using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -164,7 +163,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                         string[] absent = MissingWindows(input.Plan.Windows, await Command(["list-windows", "-t", session, "-F", "#{window_index}\t#{window_name}"]).ConfigureAwait(false));
                         if (absent.Length > 0)
                             throw new CliException("session_mismatch", $"Session '{input.Plan.Name}' is already running without {string.Join(", ", absent)}. Remove it and load again, or load under another name.");
-                        finalSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identity[1])).ConfigureAwait(false);
+                        finalSession = await BindSessionAsync(session, ServerGeneration.Parse(identity[1])).ConfigureAwait(false);
                         results.Add(Result(index, input.Path, session, input.Plan.Name, "reused"));
                         await output.EventAsync("workspace-completed", new { input_index = index, session_id = session, status = "reused" }).ConfigureAwait(false);
                         if (!invocation.Machine) output.Human("Using existing session " + input.Plan.Name, "success");
@@ -184,7 +183,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                     session = identifiers[0];
                     bootstrap = identifiers[1];
                     created = true;
-                    finalSession = ownedSession = await BindSessionAsync(session, TmuxConnection.ParseGeneration(identifiers[2])).ConfigureAwait(false);
+                    finalSession = ownedSession = await BindSessionAsync(session, ServerGeneration.Parse(identifiers[2])).ConfigureAwait(false);
                     int temporaryIndex = 99999;
                     while (input.Plan.Windows.Any(window => window.Index == temporaryIndex)) temporaryIndex++;
                     await Change(["move-window", "-s", bootstrap, "-t", session + ":" + temporaryIndex.ToString(CultureInfo.InvariantCulture)]).ConfigureAwait(false);

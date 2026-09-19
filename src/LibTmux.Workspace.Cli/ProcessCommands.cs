@@ -1,7 +1,7 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json.Nodes;
-using LibTmux.Internal;
 
 namespace LibTmux.Workspace.Cli;
 
@@ -92,13 +92,22 @@ internal sealed class ProcessCommands(CliContext context, Invocation invocation,
         return result.ExitCode;
     }
 
+    [UnsupportedOSPlatform("windows")]
     internal async Task<int> AttachAsync(Session target)
     {
-        TmuxConnection connection = target.Server.Connection!;
-        IReadOnlyList<string> command = TmuxCommandRequest.Group(
-            TmuxGenerationGuard.Conditional(target.Generation, "workspace-server-replaced"),
-            ["attach-session", "-t", target.Id.ToString()]).EncodeArguments();
-        return (await RunProcessAsync(context, output, connection.Options.TmuxBinaryPath, [.. connection.PrefixArguments, .. command], context.Directory, stream: false, interactive: true).ConfigureAwait(false)).ExitCode;
+        IReadOnlyList<string> command = Server.BuildGuardedCommandLine(
+            target.Generation,
+            "workspace-server-replaced",
+            ["attach-session", "-t", target.Id.ToString()]);
+        return (await RunProcessAsync(
+                context,
+                output,
+                target.Server.ConnectionOptions.TmuxBinaryPath,
+                [.. target.Server.EndpointArguments, .. command],
+                context.Directory,
+                stream: false,
+                interactive: true)
+            .ConfigureAwait(false)).ExitCode;
     }
 
     private async Task<string> PythonAsync()

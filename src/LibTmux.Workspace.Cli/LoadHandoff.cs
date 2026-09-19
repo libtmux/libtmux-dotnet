@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
-using LibTmux.Internal;
 using Microsoft.Win32.SafeHandles;
 
 namespace LibTmux.Workspace.Cli;
@@ -119,9 +118,9 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         string? socket = CurrentSocket(context, out int processId);
         if (socket is null) throw new CliException("usage", "TMUX must name the current tmux server as socket,pid,session. Use -d.", 2);
         Server inherited = LibTmux.Server.Open(new ServerConnectionOptions { TmuxBinaryPath = options.TmuxBinaryPath, SocketPath = Path.GetFullPath(socket, context.Directory), ChildEnvironment = context.Environment });
-        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", TmuxConnection.GenerationFormat], context.CancellationToken).ConfigureAwait(false);
+        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", ServerGeneration.DisplayFormat], context.CancellationToken).ConfigureAwait(false);
         if (observed.ExitCode != 0) throw new CliException("usage", "The tmux server named by TMUX is not answering. Use -d.", 2);
-        ServerGeneration inheritedGeneration = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
+        ServerGeneration inheritedGeneration = ServerGeneration.Parse(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
         if (inheritedGeneration.ProcessId != processId)
             throw new CliException("usage", "The server recorded in TMUX has been replaced. Use -d.", 2);
         Server target;
