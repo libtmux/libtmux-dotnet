@@ -102,6 +102,10 @@ Load creates panes in configuration order, including windows with three or
 more panes. `pane-base-index` changes their starting index; explicit focus
 still selects the configured pane.
 
+`$VAR`, `${VAR}` and a leading `~` in a command or path expand against the
+environment `load` runs in, not the target pane's, matching tmuxp. A
+`$TMUX_PANE` written into a workspace file names the pane that ran `load`.
+
 A window with no `layout` key is tiled, not stacked: tmuxp halves the last
 pane repeatedly, giving four panes of 14, 6, 3 and 3 rows at 100x30, where
 this tool gives a 2x2 grid; that is a deliberate difference from tmuxp.
