@@ -55,8 +55,10 @@ public sealed class LayoutTests : IDisposable
         {
             Session keeper = await server.CreateSessionAsync(new NewSessionRequest("keeper", command: "/bin/sh"), token);
             server = keeper.Server;
+            TmuxCommandResult mirrors = await server.ExecuteCommandAsync(
+                ["select-layout", "-t", keeper.Id + ":", "main-horizontal-mirrored"], token);
             string before = await Keeper(server, token);
-            bool expected = server.Version >= TmuxVersion.Parse("3.5") ? afterMirrors : beforeMirrors;
+            bool expected = mirrors.ExitCode == 0 ? afterMirrors : beforeMirrors;
             bool geometry = id is "bad-inner-size" or "nested-invalid-width" or "nested-short-parent";
             using StringWriter output = new();
             using StringWriter error = new();

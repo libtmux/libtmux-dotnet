@@ -74,7 +74,8 @@ internal static class TmuxCapabilities
 
     internal static TmuxCapabilityState GetState(
         TmuxVersion version,
-        string capability)
+        string capability,
+        bool inferPrerelease = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(capability);
         if (!Intervals.TryGetValue(capability, out CapabilityInterval interval))
@@ -82,12 +83,12 @@ internal static class TmuxCapabilities
             throw new KeyNotFoundException($"Unknown tmux capability '{capability}'.");
         }
 
-        // A -dev snapshot or an -rc names an upcoming release that may still
-        // be mid-development, so nothing about its feature set is known.
+        if (inferPrerelease && version.Suffix?.StartsWith("rc", StringComparison.Ordinal) == true)
+        {
+            version = TmuxVersion.Parse($"{version.Major}.{version.Minor}");
+        }
 
-        // A rolling `next` build is the single tip of history, strictly ahead
-        // of every release and ordered below the one it names by TmuxVersion's
-        // comparer, so the interval math for a stable release answers it too.
+        // A rolling next build uses the same capability intervals as releases.
         if (!version.IsValid
             || (!version.IsStableRelease && !version.IsNextRelease)
             || version < LibTmuxInfo.MinimumTmuxVersion)

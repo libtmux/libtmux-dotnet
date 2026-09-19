@@ -94,7 +94,7 @@ public sealed partial class Server
         }
 
         TmuxVersion version = await ReadLayoutVersionAsync(generation, cancellationToken).ConfigureAwait(false);
-        TmuxCapabilityState mirrors = TmuxCapabilities.GetState(version, "layout_mirrors");
+        TmuxCapabilityState mirrors = TmuxCapabilities.GetState(version, "layout_mirrors", inferPrerelease: true);
         foreach (string layout in sensitive)
         {
             if (layout.StartsWith('{')

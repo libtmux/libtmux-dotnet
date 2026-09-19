@@ -15,7 +15,11 @@ public sealed class LayoutValidationTests
     [InlineData("3.3a", "3.7c", "main-h", false)]
     [InlineData("3.7c", "3.3a", "main-horizontal-mirrored", false)]
     [InlineData("3.3a", "3.7c", "main-horizontal-mirrored", true)]
-    [InlineData("3.7c", "next-3.8", "main-horizontal-mirrored", false)]
+    [InlineData("3.7c", "next-3.8", "main-horizontal-mirrored", true)]
+    [InlineData("3.7c", "3.8-rc", "main-horizontal-mirrored", true)]
+    [InlineData("3.7c", "3.5-rc1", "main-horizontal-mirrored", true)]
+    [InlineData("3.7c", "next-3.5", "main-h", true)]
+    [InlineData("3.7c", "next-3.5", "main-horizontal-mirrored", false)]
     [InlineData("3.3a", "3.5-rc1", "main-h", false)]
     public async Task Daemon_version_controls_names_instead_of_client_banner(
         string client, string daemon, string layout, bool accepted)
