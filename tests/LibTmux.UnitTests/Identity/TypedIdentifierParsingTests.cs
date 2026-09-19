@@ -21,7 +21,7 @@ public sealed class TypedIdentifierParsingTests
     [Fact]
     public void Span_parsing_agrees_with_the_string_overload_and_round_trips()
     {
-        foreach (string text in (string[])["%7", "@7", "$7"])
+        foreach (string text in new[] { "%7", "@7", "$7" })
         {
             Assert.True(PaneId.TryParse(text, out PaneId pane) == PaneId.TryParse(text.AsSpan(), out _));
             Assert.True(WindowId.TryParse(text, out _) == WindowId.TryParse(text.AsSpan(), out _));
