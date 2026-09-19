@@ -19,7 +19,7 @@ internal sealed record ProgressOptions(string Format, int Lines)
         int lines = DefaultLines;
         if (invocation.Values.GetValueOrDefault("progress_lines") is int selected) lines = selected;
         else if (environment.GetValueOrDefault(LinesEnvironment) is string supplied && (!int.TryParse(supplied, NumberStyles.Integer, CultureInfo.InvariantCulture, out lines) || lines < -1))
-            throw new CliException("invalid_progress_lines", "TMUXP_PROGRESS_LINES must be -1 or greater.", 2);
+            throw new CliException("usage", "TMUXP_PROGRESS_LINES must be -1 or greater.", 2);
         return new(invocation.Text("progress_format") ?? environment.GetValueOrDefault(FormatEnvironment) ?? DefaultFormat, lines);
     }
 }

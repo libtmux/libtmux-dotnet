@@ -185,6 +185,30 @@ Python shell code and workspace extensions require tmuxp **1.74.0**. Set `TMUX_W
 
 `--generate reference` exports Markdown, or command metadata with `--json`. `--generate man|bash|zsh|fish` exports a manual or completion definitions. Completion currently offers command and option words; contextual argument completion remains open.
 
+## Error codes
+
+Every machine diagnostic carries a `code`. Ten describe the workspace
+operation and are shared with the other libtmux workspace ports:
+
+`workspace_not_found`, `invalid_workspace`, `unsupported_key`,
+`session_not_found`, `session_mismatch`, `tmux_unavailable`, `tmux_failed`,
+`script_failed`, `destination_exists`, `usage`.
+
+`usage` covers every refusal about how the command was invoked or about the
+context it was invoked in, including a `TMUX` or `TMUX_PANE` that cannot be
+honoured; those exit 2.
+
+The rest report this tool's own plumbing rather than the workspace, and are
+specific to this port: `output_failed`, `log_file_unsupported`,
+`log_file_unavailable`, `log_file_write_failed`, `terminal_required`,
+`terminal_unsupported`, `terminal_changed`, `input_required`, `input_closed`,
+`input_failed`, `invalid_choice`, `confirmation_required`, `editor_required`,
+`invalid_editor`, `executable_unavailable`, `unsupported_runtime`,
+`unsupported_platform`, `bridge_failed`, `ambiguous_client`,
+`independent_pane`, `client_changed`, `pane_changed`, `attach_failed`,
+`stale_server`, `interrupted` and `internal_error`. Anything unhandled is
+`internal_error`, exit 70; nothing reaches a user as a stack trace.
+
 ## Validation and benchmarks
 
 The CLI tests target both supported .NET runtimes and use private tmux sockets. Python shell integration requires the pinned optional runtime. Test collections run sequentially. The installed-tool benchmark verifies every leaf, topology, directories and NDJSON framing before reporting timings. It compares against tmuxp 1.74.0 using the same fixture and subprocess timing boundaries; both freeze measurements write YAML files. Results include individual samples, median, range and standard deviation. `--reference-python` selects the pinned comparison runtime.

@@ -156,7 +156,7 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(2, code);
         Assert.Empty(output.ToString());
         JsonNode diagnostic = JsonNode.Parse(error.ToString())!;
-        Assert.Equal("invalid_dimension", diagnostic["code"]!.ToString());
+        Assert.Equal("usage", diagnostic["code"]!.ToString());
         Assert.StartsWith(variable + " must be", diagnostic["message"]!.ToString(), StringComparison.Ordinal);
     }
 
@@ -1314,7 +1314,7 @@ public sealed class RegressionTests : IDisposable
             int code = await CliRunner.RunAsync(["load", first, second, "--append", "--ndjson", "-S", socket], output, error, _root, environment, token);
             Assert.True(code == 2 && !File.Exists(trace), $"Exit {code}, Python invoked {File.Exists(trace)}, output {output}, error {error}");
             Assert.Empty(output.ToString());
-            Assert.Equal("unsupported_append_extensions", JsonNode.Parse(error.ToString())!["code"]!.ToString());
+            Assert.Equal("usage", JsonNode.Parse(error.ToString())!["code"]!.ToString());
             Assert.Equal("1", await Execute(server, "display-message", "-p", "#{session_windows}"));
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
