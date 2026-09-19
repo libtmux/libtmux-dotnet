@@ -213,12 +213,8 @@ specific to this port: `output_failed`, `log_file_unsupported`,
 `stale_server`, `interrupted` and `internal_error`. Anything unhandled is
 `internal_error`, exit 70; nothing reaches a user as a stack trace.
 
-## Validation and benchmarks
+## Validation
 
-The CLI tests target both supported .NET runtimes and use private tmux sockets. Python shell integration requires the pinned optional runtime. Test collections run sequentially. The installed-tool benchmark verifies every leaf, topology, directories and NDJSON framing before reporting timings. It compares against tmuxp 1.74.0 using the same fixture and subprocess timing boundaries; both freeze measurements write YAML files. Results include individual samples, median, range and standard deviation. `--reference-python` selects the pinned comparison runtime.
-
-```console
-$ python3 eng/workspace_cli_benchmark.py artifacts/tools/tmux-workspace \
-    --samples 5 \
-    --output artifacts/workspace-cli-benchmark.json
-```
+The CLI tests target both supported .NET runtimes and use private tmux
+sockets. Python shell integration requires the pinned optional runtime. Test
+collections run sequentially.
