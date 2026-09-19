@@ -340,31 +340,12 @@ internal static class Program
 | `T:LibTmux.PsmuxServer` | class | `public, sealed` | None | `object` | reference | A query-only connection to one isolated psmux namespace. | `LibTmux` |
 | `T:LibTmux.PsmuxSession` | class | `public, sealed` | None | `object` | value | An immutable observation of the sole psmux session. | `LibTmux` |
 | `T:LibTmux.PsmuxWindow` | class | `public, sealed` | None | `object` | value | An immutable window observation from the psmux query preview. | `LibTmux` |
-| `T:LibTmux.Query.AndNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical and query node. Equality: structural ordered operand equality and hashing. | `LibTmux` |
-| `T:LibTmux.Query.BooleanConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical boolean constant. | `LibTmux` |
-| `T:LibTmux.Query.ComparisonNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical comparison query node. | `LibTmux` |
-| `T:LibTmux.Query.ConstantNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical constant query node. | `LibTmux` |
-| `T:LibTmux.Query.FieldNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical field query node. | `LibTmux` |
-| `T:LibTmux.Query.Int64Constant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical int64 constant. | `LibTmux` |
 | `T:LibTmux.Query.Json.QueryJson` | static class | `public, static` | None | `object` | value | Serializes and parses v1 query documents. | `LibTmux.Query.Json` |
 | `T:LibTmux.Query.Json.QueryJsonLimits` | record | `public, sealed` | None | `object` | value | Tightens the fixed v1 JSON resource ceilings. | `LibTmux.Query.Json` |
-| `T:LibTmux.Query.NotNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical not query node. | `LibTmux` |
-| `T:LibTmux.Query.NullConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical null constant. | `LibTmux` |
-| `T:LibTmux.Query.OrNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical or query node. Equality: structural ordered operand equality and hashing. | `LibTmux` |
-| `T:LibTmux.Query.QuantifierNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical quantifier query node. | `LibTmux` |
-| `T:LibTmux.Query.QueryComparison` | enum | `public` | None | `Enum` | value | Defines QueryComparison values. | `LibTmux` |
-| `T:LibTmux.Query.QueryConstant` | abstract record | `public, abstract` | None | `object` | value | The closed base type for query constants. | `LibTmux` |
 | `T:LibTmux.Query.QueryDocument` | record | `public, sealed` | None | `object` | value | A versioned canonical query document. | `LibTmux` |
 | `T:LibTmux.Query.QueryEdgeParser` | static class | `public, static` | None | `object` | value | Parses the one supported Python-style edge lookup. | `LibTmux` |
 | `T:LibTmux.Query.QueryExtensions` | static class | `public, static` | None | `object` | value | Translates and evaluates closed snapshot queries. | `LibTmux` |
-| `T:LibTmux.Query.QueryNode` | abstract record | `public, abstract` | None | `object` | value | The closed base type for canonical query nodes. | `LibTmux` |
-| `T:LibTmux.Query.QueryQuantifier` | enum | `public` | None | `Enum` | value | Defines QueryQuantifier values. | `LibTmux` |
-| `T:LibTmux.Query.QueryStringOperation` | enum | `public` | None | `Enum` | value | Defines QueryStringOperation values. | `LibTmux` |
 | `T:LibTmux.Query.QueryTarget` | enum | `public` | None | `Enum` | value | Defines QueryTarget values. | `LibTmux` |
-| `T:LibTmux.Query.RegexNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical regex query node. | `LibTmux` |
-| `T:LibTmux.Query.StringConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical string constant. | `LibTmux` |
-| `T:LibTmux.Query.StringNode` | record | `public, sealed` | None | `QueryNode` | value | A canonical string query node. | `LibTmux` |
-| `T:LibTmux.Query.TypedIdConstant` | record | `public, sealed` | None | `QueryConstant` | value | A canonical typedid constant. | `LibTmux` |
 | `T:LibTmux.ResizeDirection` | enum | `public` | None | `Enum` | value | Defines ResizeDirection values. | `LibTmux` |
 | `T:LibTmux.ResizePaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizePane. Validation: exactly one primary resize mode; Direction requires Adjustment. | `LibTmux` |
 | `T:LibTmux.ResizeWindowRequest` | record | `public, sealed` | None | `object` | value | Parameters for ResizeWindow. Validation: exactly one primary resize mode; Direction requires Adjustment. | `LibTmux` |
@@ -1149,51 +1130,6 @@ internal static class Program
 | `P:LibTmux.PsmuxWindow.SessionId` | `SessionId LibTmux.PsmuxWindow.SessionId { get; }` | Public | No | Portable | Gets the captured parent session identifier. |
 | `P:LibTmux.PsmuxWindow.Width` | `int LibTmux.PsmuxWindow.Width { get; }` | Public | No | Portable | Gets the captured window width. |
 
-### `T:LibTmux.Query.AndNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.AndNode.#ctor(IReadOnlyList<QueryNode>)` | `AndNode(IReadOnlyList<QueryNode> operands)` | Public | No | Portable | Creates AndNode. |
-| `P:LibTmux.Query.AndNode.Operands` | `IReadOnlyList<QueryNode> LibTmux.Query.AndNode.Operands { get; }` | Public | No | Portable | Gets Operands. |
-
-### `T:LibTmux.Query.BooleanConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.BooleanConstant.#ctor(bool)` | `BooleanConstant(bool value)` | Public | No | Portable | Creates BooleanConstant. |
-| `P:LibTmux.Query.BooleanConstant.Value` | `bool LibTmux.Query.BooleanConstant.Value { get; }` | Public | No | Portable | Gets Value. |
-
-### `T:LibTmux.Query.ComparisonNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.ComparisonNode.#ctor(QueryComparison,QueryNode,QueryNode)` | `ComparisonNode(QueryComparison comparison, QueryNode left, QueryNode right)` | Public | No | Portable | Creates ComparisonNode. |
-| `P:LibTmux.Query.ComparisonNode.Left` | `QueryNode LibTmux.Query.ComparisonNode.Left { get; }` | Public | No | Portable | Gets Left. |
-| `P:LibTmux.Query.ComparisonNode.Operator` | `QueryComparison LibTmux.Query.ComparisonNode.Operator { get; }` | Public | No | Portable | Gets Operator. |
-| `P:LibTmux.Query.ComparisonNode.Right` | `QueryNode LibTmux.Query.ComparisonNode.Right { get; }` | Public | No | Portable | Gets Right. |
-
-### `T:LibTmux.Query.ConstantNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.ConstantNode.#ctor(QueryConstant)` | `ConstantNode(QueryConstant value)` | Public | No | Portable | Creates ConstantNode. |
-| `P:LibTmux.Query.ConstantNode.Value` | `QueryConstant LibTmux.Query.ConstantNode.Value { get; }` | Public | No | Portable | Gets Value. |
-
-### `T:LibTmux.Query.FieldNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.FieldNode.#ctor(QueryTarget,string)` | `FieldNode(QueryTarget target, string wireName)` | Public | No | Portable | Creates FieldNode. |
-| `P:LibTmux.Query.FieldNode.Target` | `QueryTarget LibTmux.Query.FieldNode.Target { get; }` | Public | No | Portable | Gets Target. |
-| `P:LibTmux.Query.FieldNode.WireName` | `string LibTmux.Query.FieldNode.WireName { get; }` | Public | No | Portable | Gets WireName. |
-
-### `T:LibTmux.Query.Int64Constant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.Int64Constant.#ctor(long)` | `Int64Constant(long value)` | Public | No | Portable | Creates Int64Constant. |
-| `P:LibTmux.Query.Int64Constant.Value` | `long LibTmux.Query.Int64Constant.Value { get; }` | Public | No | Portable | Gets Value. |
-
 ### `T:LibTmux.Query.Json.QueryJson`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -1212,52 +1148,10 @@ internal static class Program
 | `P:LibTmux.Query.Json.QueryJsonLimits.MaximumStringLength` | `int LibTmux.Query.Json.QueryJsonLimits.MaximumStringLength { get; }` | Public | No | Portable | Gets MaximumStringLength. |
 | `P:LibTmux.Query.Json.QueryJsonLimits.MaximumUtf8Bytes` | `int LibTmux.Query.Json.QueryJsonLimits.MaximumUtf8Bytes { get; }` | Public | No | Portable | Gets MaximumUtf8Bytes. |
 
-### `T:LibTmux.Query.NotNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.NotNode.#ctor(QueryNode)` | `NotNode(QueryNode operand)` | Public | No | Portable | Creates NotNode. |
-| `P:LibTmux.Query.NotNode.Operand` | `QueryNode LibTmux.Query.NotNode.Operand { get; }` | Public | No | Portable | Gets Operand. |
-
-### `T:LibTmux.Query.NullConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.NullConstant.#ctor()` | `NullConstant()` | Public | No | Portable | Creates NullConstant. |
-
-### `T:LibTmux.Query.OrNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.OrNode.#ctor(IReadOnlyList<QueryNode>)` | `OrNode(IReadOnlyList<QueryNode> operands)` | Public | No | Portable | Creates OrNode. |
-| `P:LibTmux.Query.OrNode.Operands` | `IReadOnlyList<QueryNode> LibTmux.Query.OrNode.Operands { get; }` | Public | No | Portable | Gets Operands. |
-
-### `T:LibTmux.Query.QuantifierNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.QuantifierNode.#ctor(QueryQuantifier,FieldNode,QueryNode)` | `QuantifierNode(QueryQuantifier quantifier, FieldNode relation, QueryNode predicate)` | Public | No | Portable | Creates QuantifierNode. |
-| `P:LibTmux.Query.QuantifierNode.Predicate` | `QueryNode LibTmux.Query.QuantifierNode.Predicate { get; }` | Public | No | Portable | Gets Predicate. |
-| `P:LibTmux.Query.QuantifierNode.Quantifier` | `QueryQuantifier LibTmux.Query.QuantifierNode.Quantifier { get; }` | Public | No | Portable | Gets Quantifier. |
-| `P:LibTmux.Query.QuantifierNode.Relation` | `FieldNode LibTmux.Query.QuantifierNode.Relation { get; }` | Public | No | Portable | Gets Relation. |
-
-### `T:LibTmux.Query.QueryComparison`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `F:LibTmux.Query.QueryComparison.Equal` | `Equal = 0` | Public | Implicit | Portable | The Equal value. Value: `0`. |
-| `F:LibTmux.Query.QueryComparison.GreaterThan` | `GreaterThan = 4` | Public | Implicit | Portable | The GreaterThan value. Value: `4`. |
-| `F:LibTmux.Query.QueryComparison.GreaterThanOrEqual` | `GreaterThanOrEqual = 5` | Public | Implicit | Portable | The GreaterThanOrEqual value. Value: `5`. |
-| `F:LibTmux.Query.QueryComparison.LessThan` | `LessThan = 2` | Public | Implicit | Portable | The LessThan value. Value: `2`. |
-| `F:LibTmux.Query.QueryComparison.LessThanOrEqual` | `LessThanOrEqual = 3` | Public | Implicit | Portable | The LessThanOrEqual value. Value: `3`. |
-| `F:LibTmux.Query.QueryComparison.NotEqual` | `NotEqual = 1` | Public | Implicit | Portable | The NotEqual value. Value: `1`. |
-
 ### `T:LibTmux.Query.QueryDocument`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.QueryDocument.#ctor(string,int,QueryTarget,QueryNode)` | `QueryDocument(string schema, int version, QueryTarget target, QueryNode predicate)` | Public | No | Portable | Creates QueryDocument. |
-| `P:LibTmux.Query.QueryDocument.Predicate` | `QueryNode LibTmux.Query.QueryDocument.Predicate { get; }` | Public | No | Portable | Gets Predicate. |
 | `P:LibTmux.Query.QueryDocument.RequiredSnapshotDepth` | `SnapshotDepth LibTmux.Query.QueryDocument.RequiredSnapshotDepth { get; }` | Public | No | Portable | Gets the minimum relation depth needed for complete local evaluation. |
 | `P:LibTmux.Query.QueryDocument.Schema` | `string LibTmux.Query.QueryDocument.Schema { get; }` | Public | No | Portable | Gets Schema. |
 | `P:LibTmux.Query.QueryDocument.Target` | `QueryTarget LibTmux.Query.QueryDocument.Target { get; }` | Public | No | Portable | Gets Target. |
@@ -1279,23 +1173,6 @@ internal static class Program
 | ``M:LibTmux.Query.QueryExtensions.Matching``1(IEnumerable<T>,QueryDocument,CancellationToken)`` | `static IReadOnlyList<T> LibTmux.Query.QueryExtensions.Matching<T>(this IEnumerable<T> source, QueryDocument document, CancellationToken cancellationToken)` | Public | Yes | Portable | Evaluates one canonical query document with cooperative cancellation. |
 | ``M:LibTmux.Query.QueryExtensions.Translate``1(Expression<Func<T,bool>>)`` | `static QueryDocument LibTmux.Query.QueryExtensions.Translate<T>(Expression<Func<T,bool>> predicate)` | Public | Yes | Portable | Translates a supported expression into the canonical query document. |
 
-### `T:LibTmux.Query.QueryQuantifier`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `F:LibTmux.Query.QueryQuantifier.All` | `All = 1` | Public | Implicit | Portable | The All value. Value: `1`. |
-| `F:LibTmux.Query.QueryQuantifier.Any` | `Any = 0` | Public | Implicit | Portable | The Any value. Value: `0`. |
-
-### `T:LibTmux.Query.QueryStringOperation`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `F:LibTmux.Query.QueryStringOperation.ContainsOrdinal` | `ContainsOrdinal = 4` | Public | Implicit | Portable | The ContainsOrdinal value. Value: `4`. |
-| `F:LibTmux.Query.QueryStringOperation.EndsWithOrdinal` | `EndsWithOrdinal = 3` | Public | Implicit | Portable | The EndsWithOrdinal value. Value: `3`. |
-| `F:LibTmux.Query.QueryStringOperation.EqualsOrdinal` | `EqualsOrdinal = 0` | Public | Implicit | Portable | The EqualsOrdinal value. Value: `0`. |
-| `F:LibTmux.Query.QueryStringOperation.EqualsOrdinalIgnoreCase` | `EqualsOrdinalIgnoreCase = 1` | Public | Implicit | Portable | The EqualsOrdinalIgnoreCase value. Value: `1`. |
-| `F:LibTmux.Query.QueryStringOperation.StartsWithOrdinal` | `StartsWithOrdinal = 2` | Public | Implicit | Portable | The StartsWithOrdinal value. Value: `2`. |
-
 ### `T:LibTmux.Query.QueryTarget`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
@@ -1304,40 +1181,6 @@ internal static class Program
 | `F:LibTmux.Query.QueryTarget.Pane` | `Pane = 2` | Public | Implicit | Portable | The Pane value. Value: `2`. |
 | `F:LibTmux.Query.QueryTarget.Session` | `Session = 0` | Public | Implicit | Portable | The Session value. Value: `0`. |
 | `F:LibTmux.Query.QueryTarget.Window` | `Window = 1` | Public | Implicit | Portable | The Window value. Value: `1`. |
-
-### `T:LibTmux.Query.RegexNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.RegexNode.#ctor(QueryNode,string,string,RegexOptions)` | `RegexNode(QueryNode input, string dialect, string pattern, RegexOptions semanticOptions)` | Public | No | Portable | Creates RegexNode. |
-| `P:LibTmux.Query.RegexNode.Dialect` | `string LibTmux.Query.RegexNode.Dialect { get; }` | Public | No | Portable | Gets Dialect. |
-| `P:LibTmux.Query.RegexNode.Input` | `QueryNode LibTmux.Query.RegexNode.Input { get; }` | Public | No | Portable | Gets Input. |
-| `P:LibTmux.Query.RegexNode.Pattern` | `string LibTmux.Query.RegexNode.Pattern { get; }` | Public | No | Portable | Gets Pattern. |
-| `P:LibTmux.Query.RegexNode.SemanticOptions` | `RegexOptions LibTmux.Query.RegexNode.SemanticOptions { get; }` | Public | No | Portable | Gets SemanticOptions. |
-
-### `T:LibTmux.Query.StringConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.StringConstant.#ctor(string)` | `StringConstant(string value)` | Public | No | Portable | Creates StringConstant. |
-| `P:LibTmux.Query.StringConstant.Value` | `string LibTmux.Query.StringConstant.Value { get; }` | Public | No | Portable | Gets Value. |
-
-### `T:LibTmux.Query.StringNode`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.StringNode.#ctor(QueryStringOperation,QueryNode,QueryNode)` | `StringNode(QueryStringOperation operation, QueryNode left, QueryNode right)` | Public | No | Portable | Creates StringNode. |
-| `P:LibTmux.Query.StringNode.Left` | `QueryNode LibTmux.Query.StringNode.Left { get; }` | Public | No | Portable | Gets Left. |
-| `P:LibTmux.Query.StringNode.Operator` | `QueryStringOperation LibTmux.Query.StringNode.Operator { get; }` | Public | No | Portable | Gets Operator. |
-| `P:LibTmux.Query.StringNode.Right` | `QueryNode LibTmux.Query.StringNode.Right { get; }` | Public | No | Portable | Gets Right. |
-
-### `T:LibTmux.Query.TypedIdConstant`
-
-| Member ID | Declaration | Visibility | Static | Platform | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.Query.TypedIdConstant.#ctor(QueryTarget,string)` | `TypedIdConstant(QueryTarget target, string value)` | Public | No | Portable | Creates TypedIdConstant. |
-| `P:LibTmux.Query.TypedIdConstant.Target` | `QueryTarget LibTmux.Query.TypedIdConstant.Target { get; }` | Public | No | Portable | Gets Target. |
-| `P:LibTmux.Query.TypedIdConstant.Value` | `string LibTmux.Query.TypedIdConstant.Value { get; }` | Public | No | Portable | Gets Value. |
 
 ### `T:LibTmux.ResizeDirection`
 

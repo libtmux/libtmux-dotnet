@@ -15,64 +15,61 @@ public sealed class QueryDocumentStructuralGuardTests
 
     private sealed record UnknownConstant : QueryConstant;
 
-    public static TheoryData<string, QueryNode> NodesWithDeepChildren
+    // Keyed by edge rather than carrying the node: QueryNode is internal to
+    // LibTmux, and a public theory parameter cannot name it.
+    public static TheoryData<string> NodesWithDeepChildren =>
+    [
+        "and operand",
+        "or operand",
+        "not operand",
+        "comparison left",
+        "comparison right",
+        "string left",
+        "string right",
+        "regex input",
+        "quantifier predicate",
+    ];
+
+    private static QueryNode DeepChild(string edge)
     {
-        get
+        QueryNode deep = NestedNot(True, VersionOneMaximumDepth - 1);
+        return edge switch
         {
-            QueryNode deep = NestedNot(True, VersionOneMaximumDepth - 1);
-            return new()
-            {
-                { "and operand", new AndNode([deep]) },
-                { "or operand", new OrNode([deep]) },
-                { "not operand", new NotNode(deep) },
-                {
-                    "comparison left",
-                    new ComparisonNode(QueryComparison.Equal, deep, True)
-                },
-                {
-                    "comparison right",
-                    new ComparisonNode(QueryComparison.Equal, True, deep)
-                },
-                {
-                    "string left",
-                    new StringNode(QueryStringOperation.EqualsOrdinal, deep, True)
-                },
-                {
-                    "string right",
-                    new StringNode(QueryStringOperation.EqualsOrdinal, True, deep)
-                },
-                {
-                    "regex input",
-                    new RegexNode(deep, QueryRegexSemantics.Dialect, "x", RegexOptions.None)
-                },
-                {
-                    "quantifier predicate",
-                    new QuantifierNode(
-                        QueryQuantifier.Any,
-                        new FieldNode(QueryTarget.Session, "session_windows"),
-                        deep)
-                },
-            };
-        }
+            "and operand" => new AndNode([deep]),
+            "or operand" => new OrNode([deep]),
+            "not operand" => new NotNode(deep),
+            "comparison left" => new ComparisonNode(QueryComparison.Equal, deep, True),
+            "comparison right" => new ComparisonNode(QueryComparison.Equal, True, deep),
+            "string left" => new StringNode(QueryStringOperation.EqualsOrdinal, deep, True),
+            "string right" => new StringNode(QueryStringOperation.EqualsOrdinal, True, deep),
+            "regex input" => new RegexNode(deep, QueryRegexSemantics.Dialect, "x", RegexOptions.None),
+            "quantifier predicate" => new QuantifierNode(
+                QueryQuantifier.Any,
+                new FieldNode(QueryTarget.Session, "session_windows"),
+                deep),
+            _ => throw new ArgumentOutOfRangeException(nameof(edge), edge, "Unknown edge."),
+        };
     }
 
-    public static TheoryData<string, QueryNode, string> MalformedShapes =>
+    public static TheoryData<string, string> MalformedShapes =>
         new()
         {
-            { "root", null!, "null" },
-            {
-                "quantifier relation",
-                new QuantifierNode(QueryQuantifier.Any, null!, True),
-                "null"
-            },
-            { "constant value", new ConstantNode(null!), "null" },
-            { "unknown node", new UnknownNode(), "not supported" },
-            {
-                "unknown constant",
-                new ConstantNode(new UnknownConstant()),
-                "not supported"
-            },
+            { "root", "null" },
+            { "quantifier relation", "null" },
+            { "constant value", "null" },
+            { "unknown node", "not supported" },
+            { "unknown constant", "not supported" },
         };
+
+    private static QueryNode Malformed(string shape) => shape switch
+    {
+        "root" => null!,
+        "quantifier relation" => new QuantifierNode(QueryQuantifier.Any, null!, True),
+        "constant value" => new ConstantNode(null!),
+        "unknown node" => new UnknownNode(),
+        "unknown constant" => new ConstantNode(new UnknownConstant()),
+        _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, "Unknown shape."),
+    };
 
     [Fact]
     public void Depth_limit_accepts_the_boundary_and_rejects_the_next_level()
@@ -103,24 +100,13 @@ public sealed class QueryDocumentStructuralGuardTests
 
     [Theory]
     [MemberData(nameof(NodesWithDeepChildren))]
-    public void Guard_visits_every_query_node_edge(string edge, QueryNode predicate)
-    {
-        Assert.NotEmpty(edge);
-
-        AssertRejected(predicate, "nesting depth");
-    }
+    public void Guard_visits_every_query_node_edge(string edge) =>
+        AssertRejected(DeepChild(edge), "nesting depth");
 
     [Theory]
     [MemberData(nameof(MalformedShapes))]
-    public void Entry_points_reject_malformed_shapes(
-        string shape,
-        QueryNode predicate,
-        string messageFragment)
-    {
-        Assert.NotEmpty(shape);
-
-        AssertRejected(predicate, messageFragment);
-    }
+    public void Entry_points_reject_malformed_shapes(string shape, string messageFragment) =>
+        AssertRejected(Malformed(shape), messageFragment);
 
     [Fact]
     public void Cancellation_is_checked_during_the_structural_walk()

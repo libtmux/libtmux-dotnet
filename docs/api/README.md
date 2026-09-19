@@ -67,29 +67,10 @@ modes differ.
 | `LibTmux.PsmuxServer` | Reads one isolated, single-session psmux namespace. |
 | `LibTmux.PsmuxSession` | An immutable observation of the sole psmux session. |
 | `LibTmux.PsmuxWindow` | An immutable observation of one psmux window. |
-| `LibTmux.Query.AndNode` | The conjunction of ordered operands. |
-| `LibTmux.Query.BooleanConstant` | A boolean literal. |
-| `LibTmux.Query.ComparisonNode` | An ordering or equality comparison. |
-| `LibTmux.Query.ConstantNode` | A literal operand. |
-| `LibTmux.Query.FieldNode` | A tmux format field operand. |
-| `LibTmux.Query.Int64Constant` | A 64-bit integer literal. |
-| `LibTmux.Query.NotNode` | The negation of one predicate. |
-| `LibTmux.Query.NullConstant` | The absence of a value. |
-| `LibTmux.Query.OrNode` | The disjunction of ordered operands. |
-| `LibTmux.Query.QuantifierNode` | A quantifier over a relation field. |
-| `LibTmux.Query.QueryComparison` | Names an ordering or equality comparison. |
-| `LibTmux.Query.QueryConstant` | One literal value in a query predicate. |
 | `LibTmux.Query.QueryDocument` | One translated query predicate and its wire schema. |
 | `LibTmux.Query.QueryEdgeParser` | Parses the one legacy lookup spelling this port still carries. |
 | `LibTmux.Query.QueryExtensions` | Translates, compiles, and applies declarative query predicates. |
-| `LibTmux.Query.QueryNode` | One node of a translated query predicate. |
-| `LibTmux.Query.QueryQuantifier` | Names how a quantifier folds a relation. |
-| `LibTmux.Query.QueryStringOperation` | Names a string comparison, always ordinal. |
 | `LibTmux.Query.QueryTarget` | Names the tmux object a field or quantifier reads. |
-| `LibTmux.Query.RegexNode` | A constant-pattern regular expression match. |
-| `LibTmux.Query.StringConstant` | A string literal. |
-| `LibTmux.Query.StringNode` | An ordinal string comparison. |
-| `LibTmux.Query.TypedIdConstant` | A typed tmux identifier literal. |
 | `LibTmux.ResizeDirection` | Defines pane resize directions. |
 | `LibTmux.ResizePaneRequest` | Describes one resize-pane invocation. |
 | `LibTmux.ResizeWindowRequest` | Describes one resize-window invocation. |
@@ -278,26 +259,12 @@ modes differ.
 | `LibTmux.PsmuxSession.GetPanesAsync(System.Threading.CancellationToken)` | Reads the session's current panes. |
 | `LibTmux.PsmuxSession.GetWindowsAsync(System.Threading.CancellationToken)` | Reads the session's current windows. |
 | `LibTmux.PsmuxWindow.GetPanesAsync(System.Threading.CancellationToken)` | Reads the window's current panes. |
-| `LibTmux.Query.AndNode.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.Query.QueryNode})` | Initializes a conjunction. |
-| `LibTmux.Query.BooleanConstant.#ctor(System.Boolean)` | A boolean literal. |
-| `LibTmux.Query.ComparisonNode.#ctor(LibTmux.Query.QueryComparison,LibTmux.Query.QueryNode,LibTmux.Query.QueryNode)` | An ordering or equality comparison. |
-| `LibTmux.Query.ConstantNode.#ctor(LibTmux.Query.QueryConstant)` | A literal operand. |
-| `LibTmux.Query.FieldNode.#ctor(LibTmux.Query.QueryTarget,System.String)` | A tmux format field operand. |
-| `LibTmux.Query.Int64Constant.#ctor(System.Int64)` | A 64-bit integer literal. |
-| `LibTmux.Query.NotNode.#ctor(LibTmux.Query.QueryNode)` | The negation of one predicate. |
-| `LibTmux.Query.OrNode.#ctor(System.Collections.Generic.IReadOnlyList{LibTmux.Query.QueryNode})` | Initializes a disjunction. |
-| `LibTmux.Query.QuantifierNode.#ctor(LibTmux.Query.QueryQuantifier,LibTmux.Query.FieldNode,LibTmux.Query.QueryNode)` | A quantifier over a relation field. |
-| `LibTmux.Query.QueryDocument.#ctor(System.String,System.Int32,LibTmux.Query.QueryTarget,LibTmux.Query.QueryNode)` | One translated query predicate and its wire schema. |
 | `LibTmux.Query.QueryEdgeParser.ParseNameContains(LibTmux.Query.QueryTarget,System.String)` | Parses a name__contains lookup into a query document. |
 | ```LibTmux.Query.QueryExtensions.Compile``1(LibTmux.Query.QueryDocument)``` | Compiles a document into an in-memory predicate. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument)``` | Filters a snapshot with an already translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument,System.Threading.CancellationToken)``` | Filters a snapshot with a cancellable translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Filters a snapshot with a declarative predicate. |
 | ```LibTmux.Query.QueryExtensions.Translate``1(System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Translates an expression into a wire document. |
-| `LibTmux.Query.RegexNode.#ctor(LibTmux.Query.QueryNode,System.String,System.String,System.Text.RegularExpressions.RegexOptions)` | A constant-pattern regular expression match. |
-| `LibTmux.Query.StringConstant.#ctor(System.String)` | A string literal. |
-| `LibTmux.Query.StringNode.#ctor(LibTmux.Query.QueryStringOperation,LibTmux.Query.QueryNode,LibTmux.Query.QueryNode)` | An ordinal string comparison. |
-| `LibTmux.Query.TypedIdConstant.#ctor(LibTmux.Query.QueryTarget,System.String)` | A typed tmux identifier literal. |
 | `LibTmux.ResizePaneRequest.#ctor(System.Nullable{LibTmux.ResizeDirection},System.Nullable{System.Int32},System.String,System.String,System.Boolean,System.Boolean,System.Boolean)` | Initializes a pane-resize request. |
 | `LibTmux.ResizeWindowRequest.#ctor(System.Nullable{LibTmux.ResizeDirection},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{System.Int32},System.Nullable{LibTmux.WindowResizeMode})` | Initializes a window-resize request. |
 | `LibTmux.RespawnRequest.#ctor(System.String,System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Boolean)` | Initializes a respawn request. |
@@ -893,35 +860,10 @@ modes differ.
 | `LibTmux.PsmuxWindow.Server` | Gets the psmux endpoint that produced this observation. |
 | `LibTmux.PsmuxWindow.SessionId` | Gets the captured parent session identifier. |
 | `LibTmux.PsmuxWindow.Width` | Gets the captured width in columns. |
-| `LibTmux.Query.AndNode.Operands` | Gets the ordered operands. |
-| `LibTmux.Query.BooleanConstant.Value` | The literal value. |
-| `LibTmux.Query.ComparisonNode.Left` | The left operand. |
-| `LibTmux.Query.ComparisonNode.Operator` | The comparison. |
-| `LibTmux.Query.ComparisonNode.Right` | The right operand. |
-| `LibTmux.Query.ConstantNode.Value` | The literal. |
-| `LibTmux.Query.FieldNode.Target` | The object that owns the field. |
-| `LibTmux.Query.FieldNode.WireName` | The tmux format token name. |
-| `LibTmux.Query.Int64Constant.Value` | The literal value. |
-| `LibTmux.Query.NotNode.Operand` | The negated predicate. |
-| `LibTmux.Query.OrNode.Operands` | Gets the ordered operands. |
-| `LibTmux.Query.QuantifierNode.Predicate` | The predicate applied to each child. |
-| `LibTmux.Query.QuantifierNode.Quantifier` | How the relation is folded. |
-| `LibTmux.Query.QuantifierNode.Relation` | The relation field to fold. |
-| `LibTmux.Query.QueryDocument.Predicate` | The translated predicate. |
 | `LibTmux.Query.QueryDocument.RequiredSnapshotDepth` | Gets the snapshot depth this predicate needs to evaluate. |
-| `LibTmux.Query.QueryDocument.Schema` | The wire schema identifier. |
-| `LibTmux.Query.QueryDocument.Target` | The object the predicate selects. |
-| `LibTmux.Query.QueryDocument.Version` | The wire schema version. |
-| `LibTmux.Query.RegexNode.Dialect` | The regex dialect the pattern is written in. |
-| `LibTmux.Query.RegexNode.Input` | The operand to match. |
-| `LibTmux.Query.RegexNode.Pattern` | The constant pattern. |
-| `LibTmux.Query.RegexNode.SemanticOptions` | Options that change what the pattern means. |
-| `LibTmux.Query.StringConstant.Value` | The literal value. |
-| `LibTmux.Query.StringNode.Left` | The left operand. |
-| `LibTmux.Query.StringNode.Operator` | The string operation. |
-| `LibTmux.Query.StringNode.Right` | The right operand. |
-| `LibTmux.Query.TypedIdConstant.Target` | The object the identifier names. |
-| `LibTmux.Query.TypedIdConstant.Value` | The identifier text. |
+| `LibTmux.Query.QueryDocument.Schema` | Gets the wire schema identifier. |
+| `LibTmux.Query.QueryDocument.Target` | Gets the object the predicate selects. |
+| `LibTmux.Query.QueryDocument.Version` | Gets the wire schema version. |
 | `LibTmux.ResizePaneRequest.Adjustment` | Gets how many cells to move the edge by. |
 | `LibTmux.ResizePaneRequest.Direction` | Gets the edge to move. |
 | `LibTmux.ResizePaneRequest.Height` | Gets the explicit height in cells or as a percentage. |
@@ -1185,19 +1127,6 @@ modes differ.
 | `LibTmux.PsmuxServer.SupportedBinarySha256` | Gets the exact psmux client executable SHA-256 accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedCommit` | Gets the exact psmux source commit accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedImplementationBanner` | Gets the exact clean implementation banner accepted by this preview. |
-| `LibTmux.Query.QueryComparison.Equal` | Operands are equal. |
-| `LibTmux.Query.QueryComparison.GreaterThan` | The left operand is larger. |
-| `LibTmux.Query.QueryComparison.GreaterThanOrEqual` | The left operand is not smaller. |
-| `LibTmux.Query.QueryComparison.LessThan` | The left operand is smaller. |
-| `LibTmux.Query.QueryComparison.LessThanOrEqual` | The left operand is not larger. |
-| `LibTmux.Query.QueryComparison.NotEqual` | Operands differ. |
-| `LibTmux.Query.QueryQuantifier.All` | True when every child matches; true when empty. |
-| `LibTmux.Query.QueryQuantifier.Any` | True when at least one child matches; false when empty. |
-| `LibTmux.Query.QueryStringOperation.ContainsOrdinal` | Ordinal substring match. |
-| `LibTmux.Query.QueryStringOperation.EndsWithOrdinal` | Ordinal suffix match. |
-| `LibTmux.Query.QueryStringOperation.EqualsOrdinal` | Ordinal equality. |
-| `LibTmux.Query.QueryStringOperation.EqualsOrdinalIgnoreCase` | Case-insensitive ordinal equality. |
-| `LibTmux.Query.QueryStringOperation.StartsWithOrdinal` | Ordinal prefix match. |
 | `LibTmux.Query.QueryTarget.Client` | A tmux client. |
 | `LibTmux.Query.QueryTarget.Pane` | A tmux pane. |
 | `LibTmux.Query.QueryTarget.Session` | A tmux session. |

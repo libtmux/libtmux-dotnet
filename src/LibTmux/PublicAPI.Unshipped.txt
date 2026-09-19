@@ -505,86 +505,9 @@ LibTmux.PsmuxWindow.Name.get -> string!
 LibTmux.PsmuxWindow.Server.get -> LibTmux.PsmuxServer!
 LibTmux.PsmuxWindow.SessionId.get -> LibTmux.SessionId
 LibTmux.PsmuxWindow.Width.get -> int
-LibTmux.Query.AndNode
-LibTmux.Query.AndNode.AndNode(System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryNode!>! operands) -> void
-LibTmux.Query.AndNode.Equals(LibTmux.Query.AndNode? other) -> bool
-LibTmux.Query.AndNode.Operands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryNode!>!
-LibTmux.Query.BooleanConstant
-LibTmux.Query.BooleanConstant.BooleanConstant(bool Value) -> void
-LibTmux.Query.BooleanConstant.Deconstruct(out bool Value) -> void
-LibTmux.Query.BooleanConstant.Equals(LibTmux.Query.BooleanConstant? other) -> bool
-LibTmux.Query.BooleanConstant.Value.get -> bool
-LibTmux.Query.BooleanConstant.Value.init -> void
-LibTmux.Query.ComparisonNode
-LibTmux.Query.ComparisonNode.ComparisonNode(LibTmux.Query.QueryComparison Operator, LibTmux.Query.QueryNode! Left, LibTmux.Query.QueryNode! Right) -> void
-LibTmux.Query.ComparisonNode.Deconstruct(out LibTmux.Query.QueryComparison Operator, out LibTmux.Query.QueryNode! Left, out LibTmux.Query.QueryNode! Right) -> void
-LibTmux.Query.ComparisonNode.Equals(LibTmux.Query.ComparisonNode? other) -> bool
-LibTmux.Query.ComparisonNode.Left.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.ComparisonNode.Left.init -> void
-LibTmux.Query.ComparisonNode.Operator.get -> LibTmux.Query.QueryComparison
-LibTmux.Query.ComparisonNode.Operator.init -> void
-LibTmux.Query.ComparisonNode.Right.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.ComparisonNode.Right.init -> void
-LibTmux.Query.ConstantNode
-LibTmux.Query.ConstantNode.ConstantNode(LibTmux.Query.QueryConstant! Value) -> void
-LibTmux.Query.ConstantNode.Deconstruct(out LibTmux.Query.QueryConstant! Value) -> void
-LibTmux.Query.ConstantNode.Equals(LibTmux.Query.ConstantNode? other) -> bool
-LibTmux.Query.ConstantNode.Value.get -> LibTmux.Query.QueryConstant!
-LibTmux.Query.ConstantNode.Value.init -> void
-LibTmux.Query.FieldNode
-LibTmux.Query.FieldNode.Deconstruct(out LibTmux.Query.QueryTarget Target, out string! WireName) -> void
-LibTmux.Query.FieldNode.Equals(LibTmux.Query.FieldNode? other) -> bool
-LibTmux.Query.FieldNode.FieldNode(LibTmux.Query.QueryTarget Target, string! WireName) -> void
-LibTmux.Query.FieldNode.Target.get -> LibTmux.Query.QueryTarget
-LibTmux.Query.FieldNode.Target.init -> void
-LibTmux.Query.FieldNode.WireName.get -> string!
-LibTmux.Query.FieldNode.WireName.init -> void
-LibTmux.Query.Int64Constant
-LibTmux.Query.Int64Constant.Deconstruct(out long Value) -> void
-LibTmux.Query.Int64Constant.Equals(LibTmux.Query.Int64Constant? other) -> bool
-LibTmux.Query.Int64Constant.Int64Constant(long Value) -> void
-LibTmux.Query.Int64Constant.Value.get -> long
-LibTmux.Query.Int64Constant.Value.init -> void
-LibTmux.Query.NotNode
-LibTmux.Query.NotNode.Deconstruct(out LibTmux.Query.QueryNode! Operand) -> void
-LibTmux.Query.NotNode.Equals(LibTmux.Query.NotNode? other) -> bool
-LibTmux.Query.NotNode.NotNode(LibTmux.Query.QueryNode! Operand) -> void
-LibTmux.Query.NotNode.Operand.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.NotNode.Operand.init -> void
-LibTmux.Query.NullConstant
-LibTmux.Query.NullConstant.Equals(LibTmux.Query.NullConstant? other) -> bool
-LibTmux.Query.NullConstant.NullConstant() -> void
-LibTmux.Query.OrNode
-LibTmux.Query.OrNode.Equals(LibTmux.Query.OrNode? other) -> bool
-LibTmux.Query.OrNode.Operands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryNode!>!
-LibTmux.Query.OrNode.OrNode(System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryNode!>! operands) -> void
-LibTmux.Query.QuantifierNode
-LibTmux.Query.QuantifierNode.Deconstruct(out LibTmux.Query.QueryQuantifier Quantifier, out LibTmux.Query.FieldNode! Relation, out LibTmux.Query.QueryNode! Predicate) -> void
-LibTmux.Query.QuantifierNode.Equals(LibTmux.Query.QuantifierNode? other) -> bool
-LibTmux.Query.QuantifierNode.Predicate.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.QuantifierNode.Predicate.init -> void
-LibTmux.Query.QuantifierNode.Quantifier.get -> LibTmux.Query.QueryQuantifier
-LibTmux.Query.QuantifierNode.Quantifier.init -> void
-LibTmux.Query.QuantifierNode.QuantifierNode(LibTmux.Query.QueryQuantifier Quantifier, LibTmux.Query.FieldNode! Relation, LibTmux.Query.QueryNode! Predicate) -> void
-LibTmux.Query.QuantifierNode.Relation.get -> LibTmux.Query.FieldNode!
-LibTmux.Query.QuantifierNode.Relation.init -> void
-LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.Equal = 0 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.GreaterThan = 4 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.GreaterThanOrEqual = 5 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.LessThan = 2 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.LessThanOrEqual = 3 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryComparison.NotEqual = 1 -> LibTmux.Query.QueryComparison
-LibTmux.Query.QueryConstant
-LibTmux.Query.QueryConstant.QueryConstant() -> void
-LibTmux.Query.QueryConstant.QueryConstant(LibTmux.Query.QueryConstant! original) -> void
 LibTmux.Query.QueryDocument
 LibTmux.Query.QueryDocument.<Clone>$() -> LibTmux.Query.QueryDocument!
-LibTmux.Query.QueryDocument.Deconstruct(out string! Schema, out int Version, out LibTmux.Query.QueryTarget Target, out LibTmux.Query.QueryNode! Predicate) -> void
 LibTmux.Query.QueryDocument.Equals(LibTmux.Query.QueryDocument? other) -> bool
-LibTmux.Query.QueryDocument.Predicate.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.QueryDocument.Predicate.init -> void
-LibTmux.Query.QueryDocument.QueryDocument(string! Schema, int Version, LibTmux.Query.QueryTarget Target, LibTmux.Query.QueryNode! Predicate) -> void
 LibTmux.Query.QueryDocument.RequiredSnapshotDepth.get -> LibTmux.SnapshotDepth
 LibTmux.Query.QueryDocument.Schema.get -> string!
 LibTmux.Query.QueryDocument.Schema.init -> void
@@ -594,59 +517,11 @@ LibTmux.Query.QueryDocument.Version.get -> int
 LibTmux.Query.QueryDocument.Version.init -> void
 LibTmux.Query.QueryEdgeParser
 LibTmux.Query.QueryExtensions
-LibTmux.Query.QueryNode
-LibTmux.Query.QueryNode.QueryNode() -> void
-LibTmux.Query.QueryNode.QueryNode(LibTmux.Query.QueryNode! original) -> void
-LibTmux.Query.QueryQuantifier
-LibTmux.Query.QueryQuantifier.All = 1 -> LibTmux.Query.QueryQuantifier
-LibTmux.Query.QueryQuantifier.Any = 0 -> LibTmux.Query.QueryQuantifier
-LibTmux.Query.QueryStringOperation
-LibTmux.Query.QueryStringOperation.ContainsOrdinal = 4 -> LibTmux.Query.QueryStringOperation
-LibTmux.Query.QueryStringOperation.EndsWithOrdinal = 3 -> LibTmux.Query.QueryStringOperation
-LibTmux.Query.QueryStringOperation.EqualsOrdinal = 0 -> LibTmux.Query.QueryStringOperation
-LibTmux.Query.QueryStringOperation.EqualsOrdinalIgnoreCase = 1 -> LibTmux.Query.QueryStringOperation
-LibTmux.Query.QueryStringOperation.StartsWithOrdinal = 2 -> LibTmux.Query.QueryStringOperation
 LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Client = 3 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Pane = 2 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Session = 0 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Window = 1 -> LibTmux.Query.QueryTarget
-LibTmux.Query.RegexNode
-LibTmux.Query.RegexNode.Deconstruct(out LibTmux.Query.QueryNode! Input, out string! Dialect, out string! Pattern, out System.Text.RegularExpressions.RegexOptions SemanticOptions) -> void
-LibTmux.Query.RegexNode.Dialect.get -> string!
-LibTmux.Query.RegexNode.Dialect.init -> void
-LibTmux.Query.RegexNode.Equals(LibTmux.Query.RegexNode? other) -> bool
-LibTmux.Query.RegexNode.Input.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.RegexNode.Input.init -> void
-LibTmux.Query.RegexNode.Pattern.get -> string!
-LibTmux.Query.RegexNode.Pattern.init -> void
-LibTmux.Query.RegexNode.RegexNode(LibTmux.Query.QueryNode! Input, string! Dialect, string! Pattern, System.Text.RegularExpressions.RegexOptions SemanticOptions) -> void
-LibTmux.Query.RegexNode.SemanticOptions.get -> System.Text.RegularExpressions.RegexOptions
-LibTmux.Query.RegexNode.SemanticOptions.init -> void
-LibTmux.Query.StringConstant
-LibTmux.Query.StringConstant.Deconstruct(out string! Value) -> void
-LibTmux.Query.StringConstant.Equals(LibTmux.Query.StringConstant? other) -> bool
-LibTmux.Query.StringConstant.StringConstant(string! Value) -> void
-LibTmux.Query.StringConstant.Value.get -> string!
-LibTmux.Query.StringConstant.Value.init -> void
-LibTmux.Query.StringNode
-LibTmux.Query.StringNode.Deconstruct(out LibTmux.Query.QueryStringOperation Operator, out LibTmux.Query.QueryNode! Left, out LibTmux.Query.QueryNode! Right) -> void
-LibTmux.Query.StringNode.Equals(LibTmux.Query.StringNode? other) -> bool
-LibTmux.Query.StringNode.Left.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.StringNode.Left.init -> void
-LibTmux.Query.StringNode.Operator.get -> LibTmux.Query.QueryStringOperation
-LibTmux.Query.StringNode.Operator.init -> void
-LibTmux.Query.StringNode.Right.get -> LibTmux.Query.QueryNode!
-LibTmux.Query.StringNode.Right.init -> void
-LibTmux.Query.StringNode.StringNode(LibTmux.Query.QueryStringOperation Operator, LibTmux.Query.QueryNode! Left, LibTmux.Query.QueryNode! Right) -> void
-LibTmux.Query.TypedIdConstant
-LibTmux.Query.TypedIdConstant.Deconstruct(out LibTmux.Query.QueryTarget Target, out string! Value) -> void
-LibTmux.Query.TypedIdConstant.Equals(LibTmux.Query.TypedIdConstant? other) -> bool
-LibTmux.Query.TypedIdConstant.Target.get -> LibTmux.Query.QueryTarget
-LibTmux.Query.TypedIdConstant.Target.init -> void
-LibTmux.Query.TypedIdConstant.TypedIdConstant(LibTmux.Query.QueryTarget Target, string! Value) -> void
-LibTmux.Query.TypedIdConstant.Value.get -> string!
-LibTmux.Query.TypedIdConstant.Value.init -> void
 LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Down = 1 -> LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Left = 2 -> LibTmux.ResizeDirection
@@ -1276,8 +1151,6 @@ LibTmux.WindowResizeMode.Shrink = 1 -> LibTmux.WindowResizeMode
 LibTmux.WindowRotationDirection
 LibTmux.WindowRotationDirection.Down = 1 -> LibTmux.WindowRotationDirection
 LibTmux.WindowRotationDirection.Up = 0 -> LibTmux.WindowRotationDirection
-abstract LibTmux.Query.QueryConstant.<Clone>$() -> LibTmux.Query.QueryConstant!
-abstract LibTmux.Query.QueryNode.<Clone>$() -> LibTmux.Query.QueryNode!
 abstract LibTmux.TmuxEvent.<Clone>$() -> LibTmux.TmuxEvent!
 const LibTmux.PsmuxServer.SupportedBinarySha256 = "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d" -> string!
 const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d61ffdb" -> string!
@@ -1378,71 +1251,9 @@ override LibTmux.PasteBufferRequest.ToString() -> string!
 override LibTmux.PipePaneRequest.Equals(object? obj) -> bool
 override LibTmux.PipePaneRequest.GetHashCode() -> int
 override LibTmux.PipePaneRequest.ToString() -> string!
-override LibTmux.Query.AndNode.<Clone>$() -> LibTmux.Query.AndNode!
-override LibTmux.Query.AndNode.Equals(object? obj) -> bool
-override LibTmux.Query.AndNode.GetHashCode() -> int
-override LibTmux.Query.AndNode.ToString() -> string!
-override LibTmux.Query.BooleanConstant.<Clone>$() -> LibTmux.Query.BooleanConstant!
-override LibTmux.Query.BooleanConstant.Equals(object? obj) -> bool
-override LibTmux.Query.BooleanConstant.GetHashCode() -> int
-override LibTmux.Query.BooleanConstant.ToString() -> string!
-override LibTmux.Query.ComparisonNode.<Clone>$() -> LibTmux.Query.ComparisonNode!
-override LibTmux.Query.ComparisonNode.Equals(object? obj) -> bool
-override LibTmux.Query.ComparisonNode.GetHashCode() -> int
-override LibTmux.Query.ComparisonNode.ToString() -> string!
-override LibTmux.Query.ConstantNode.<Clone>$() -> LibTmux.Query.ConstantNode!
-override LibTmux.Query.ConstantNode.Equals(object? obj) -> bool
-override LibTmux.Query.ConstantNode.GetHashCode() -> int
-override LibTmux.Query.ConstantNode.ToString() -> string!
-override LibTmux.Query.FieldNode.<Clone>$() -> LibTmux.Query.FieldNode!
-override LibTmux.Query.FieldNode.Equals(object? obj) -> bool
-override LibTmux.Query.FieldNode.GetHashCode() -> int
-override LibTmux.Query.FieldNode.ToString() -> string!
-override LibTmux.Query.Int64Constant.<Clone>$() -> LibTmux.Query.Int64Constant!
-override LibTmux.Query.Int64Constant.Equals(object? obj) -> bool
-override LibTmux.Query.Int64Constant.GetHashCode() -> int
-override LibTmux.Query.Int64Constant.ToString() -> string!
-override LibTmux.Query.NotNode.<Clone>$() -> LibTmux.Query.NotNode!
-override LibTmux.Query.NotNode.Equals(object? obj) -> bool
-override LibTmux.Query.NotNode.GetHashCode() -> int
-override LibTmux.Query.NotNode.ToString() -> string!
-override LibTmux.Query.NullConstant.<Clone>$() -> LibTmux.Query.NullConstant!
-override LibTmux.Query.NullConstant.Equals(object? obj) -> bool
-override LibTmux.Query.NullConstant.GetHashCode() -> int
-override LibTmux.Query.NullConstant.ToString() -> string!
-override LibTmux.Query.OrNode.<Clone>$() -> LibTmux.Query.OrNode!
-override LibTmux.Query.OrNode.Equals(object? obj) -> bool
-override LibTmux.Query.OrNode.GetHashCode() -> int
-override LibTmux.Query.OrNode.ToString() -> string!
-override LibTmux.Query.QuantifierNode.<Clone>$() -> LibTmux.Query.QuantifierNode!
-override LibTmux.Query.QuantifierNode.Equals(object? obj) -> bool
-override LibTmux.Query.QuantifierNode.GetHashCode() -> int
-override LibTmux.Query.QuantifierNode.ToString() -> string!
-override LibTmux.Query.QueryConstant.Equals(object? obj) -> bool
-override LibTmux.Query.QueryConstant.GetHashCode() -> int
-override LibTmux.Query.QueryConstant.ToString() -> string!
 override LibTmux.Query.QueryDocument.Equals(object? obj) -> bool
 override LibTmux.Query.QueryDocument.GetHashCode() -> int
 override LibTmux.Query.QueryDocument.ToString() -> string!
-override LibTmux.Query.QueryNode.Equals(object? obj) -> bool
-override LibTmux.Query.QueryNode.GetHashCode() -> int
-override LibTmux.Query.QueryNode.ToString() -> string!
-override LibTmux.Query.RegexNode.<Clone>$() -> LibTmux.Query.RegexNode!
-override LibTmux.Query.RegexNode.Equals(object? obj) -> bool
-override LibTmux.Query.RegexNode.GetHashCode() -> int
-override LibTmux.Query.RegexNode.ToString() -> string!
-override LibTmux.Query.StringConstant.<Clone>$() -> LibTmux.Query.StringConstant!
-override LibTmux.Query.StringConstant.Equals(object? obj) -> bool
-override LibTmux.Query.StringConstant.GetHashCode() -> int
-override LibTmux.Query.StringConstant.ToString() -> string!
-override LibTmux.Query.StringNode.<Clone>$() -> LibTmux.Query.StringNode!
-override LibTmux.Query.StringNode.Equals(object? obj) -> bool
-override LibTmux.Query.StringNode.GetHashCode() -> int
-override LibTmux.Query.StringNode.ToString() -> string!
-override LibTmux.Query.TypedIdConstant.<Clone>$() -> LibTmux.Query.TypedIdConstant!
-override LibTmux.Query.TypedIdConstant.Equals(object? obj) -> bool
-override LibTmux.Query.TypedIdConstant.GetHashCode() -> int
-override LibTmux.Query.TypedIdConstant.ToString() -> string!
 override LibTmux.ResizePaneRequest.Equals(object? obj) -> bool
 override LibTmux.ResizePaneRequest.GetHashCode() -> int
 override LibTmux.ResizePaneRequest.ToString() -> string!
@@ -1577,20 +1388,6 @@ override LibTmux.WindowId.Equals(object obj) -> bool
 override LibTmux.WindowId.Equals(object? obj) -> bool
 override LibTmux.WindowId.GetHashCode() -> int
 override LibTmux.WindowId.ToString() -> string!
-override sealed LibTmux.Query.AndNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.BooleanConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-override sealed LibTmux.Query.ComparisonNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.ConstantNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.FieldNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.Int64Constant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-override sealed LibTmux.Query.NotNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.NullConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-override sealed LibTmux.Query.OrNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.QuantifierNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.RegexNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.StringConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-override sealed LibTmux.Query.StringNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-override sealed LibTmux.Query.TypedIdConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
 override sealed LibTmux.TmuxEventsDroppedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxExitEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxNotificationEvent.Equals(LibTmux.TmuxEvent? other) -> bool
@@ -1674,28 +1471,6 @@ static LibTmux.PasteBufferRequest.operator ==(LibTmux.PasteBufferRequest? left, 
 static LibTmux.PipePaneRequest.operator !=(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool
 static LibTmux.PipePaneRequest.operator ==(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool
 static LibTmux.PsmuxServer.ConnectAsync(LibTmux.PsmuxConnectionOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PsmuxServer!>!
-static LibTmux.Query.AndNode.operator !=(LibTmux.Query.AndNode? left, LibTmux.Query.AndNode? right) -> bool
-static LibTmux.Query.AndNode.operator ==(LibTmux.Query.AndNode? left, LibTmux.Query.AndNode? right) -> bool
-static LibTmux.Query.BooleanConstant.operator !=(LibTmux.Query.BooleanConstant? left, LibTmux.Query.BooleanConstant? right) -> bool
-static LibTmux.Query.BooleanConstant.operator ==(LibTmux.Query.BooleanConstant? left, LibTmux.Query.BooleanConstant? right) -> bool
-static LibTmux.Query.ComparisonNode.operator !=(LibTmux.Query.ComparisonNode? left, LibTmux.Query.ComparisonNode? right) -> bool
-static LibTmux.Query.ComparisonNode.operator ==(LibTmux.Query.ComparisonNode? left, LibTmux.Query.ComparisonNode? right) -> bool
-static LibTmux.Query.ConstantNode.operator !=(LibTmux.Query.ConstantNode? left, LibTmux.Query.ConstantNode? right) -> bool
-static LibTmux.Query.ConstantNode.operator ==(LibTmux.Query.ConstantNode? left, LibTmux.Query.ConstantNode? right) -> bool
-static LibTmux.Query.FieldNode.operator !=(LibTmux.Query.FieldNode? left, LibTmux.Query.FieldNode? right) -> bool
-static LibTmux.Query.FieldNode.operator ==(LibTmux.Query.FieldNode? left, LibTmux.Query.FieldNode? right) -> bool
-static LibTmux.Query.Int64Constant.operator !=(LibTmux.Query.Int64Constant? left, LibTmux.Query.Int64Constant? right) -> bool
-static LibTmux.Query.Int64Constant.operator ==(LibTmux.Query.Int64Constant? left, LibTmux.Query.Int64Constant? right) -> bool
-static LibTmux.Query.NotNode.operator !=(LibTmux.Query.NotNode? left, LibTmux.Query.NotNode? right) -> bool
-static LibTmux.Query.NotNode.operator ==(LibTmux.Query.NotNode? left, LibTmux.Query.NotNode? right) -> bool
-static LibTmux.Query.NullConstant.operator !=(LibTmux.Query.NullConstant? left, LibTmux.Query.NullConstant? right) -> bool
-static LibTmux.Query.NullConstant.operator ==(LibTmux.Query.NullConstant? left, LibTmux.Query.NullConstant? right) -> bool
-static LibTmux.Query.OrNode.operator !=(LibTmux.Query.OrNode? left, LibTmux.Query.OrNode? right) -> bool
-static LibTmux.Query.OrNode.operator ==(LibTmux.Query.OrNode? left, LibTmux.Query.OrNode? right) -> bool
-static LibTmux.Query.QuantifierNode.operator !=(LibTmux.Query.QuantifierNode? left, LibTmux.Query.QuantifierNode? right) -> bool
-static LibTmux.Query.QuantifierNode.operator ==(LibTmux.Query.QuantifierNode? left, LibTmux.Query.QuantifierNode? right) -> bool
-static LibTmux.Query.QueryConstant.operator !=(LibTmux.Query.QueryConstant? left, LibTmux.Query.QueryConstant? right) -> bool
-static LibTmux.Query.QueryConstant.operator ==(LibTmux.Query.QueryConstant? left, LibTmux.Query.QueryConstant? right) -> bool
 static LibTmux.Query.QueryDocument.operator !=(LibTmux.Query.QueryDocument? left, LibTmux.Query.QueryDocument? right) -> bool
 static LibTmux.Query.QueryDocument.operator ==(LibTmux.Query.QueryDocument? left, LibTmux.Query.QueryDocument? right) -> bool
 static LibTmux.Query.QueryEdgeParser.ParseNameContains(LibTmux.Query.QueryTarget target, string! value) -> LibTmux.Query.QueryDocument!
@@ -1704,16 +1479,6 @@ static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, LibTmux.Query.QueryDocument! document, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Translate<T>(System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> LibTmux.Query.QueryDocument!
-static LibTmux.Query.QueryNode.operator !=(LibTmux.Query.QueryNode? left, LibTmux.Query.QueryNode? right) -> bool
-static LibTmux.Query.QueryNode.operator ==(LibTmux.Query.QueryNode? left, LibTmux.Query.QueryNode? right) -> bool
-static LibTmux.Query.RegexNode.operator !=(LibTmux.Query.RegexNode? left, LibTmux.Query.RegexNode? right) -> bool
-static LibTmux.Query.RegexNode.operator ==(LibTmux.Query.RegexNode? left, LibTmux.Query.RegexNode? right) -> bool
-static LibTmux.Query.StringConstant.operator !=(LibTmux.Query.StringConstant? left, LibTmux.Query.StringConstant? right) -> bool
-static LibTmux.Query.StringConstant.operator ==(LibTmux.Query.StringConstant? left, LibTmux.Query.StringConstant? right) -> bool
-static LibTmux.Query.StringNode.operator !=(LibTmux.Query.StringNode? left, LibTmux.Query.StringNode? right) -> bool
-static LibTmux.Query.StringNode.operator ==(LibTmux.Query.StringNode? left, LibTmux.Query.StringNode? right) -> bool
-static LibTmux.Query.TypedIdConstant.operator !=(LibTmux.Query.TypedIdConstant? left, LibTmux.Query.TypedIdConstant? right) -> bool
-static LibTmux.Query.TypedIdConstant.operator ==(LibTmux.Query.TypedIdConstant? left, LibTmux.Query.TypedIdConstant? right) -> bool
 static LibTmux.ResizePaneRequest.operator !=(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizePaneRequest.operator ==(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizeWindowRequest.operator !=(LibTmux.ResizeWindowRequest? left, LibTmux.ResizeWindowRequest? right) -> bool
@@ -1921,12 +1686,6 @@ static LibTmux.WindowId.operator <=(LibTmux.WindowId left, LibTmux.WindowId righ
 static LibTmux.WindowId.operator ==(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
 static LibTmux.WindowId.operator >(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
 static LibTmux.WindowId.operator >=(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
-virtual LibTmux.Query.QueryConstant.EqualityContract.get -> System.Type!
-virtual LibTmux.Query.QueryConstant.Equals(LibTmux.Query.QueryConstant? other) -> bool
-virtual LibTmux.Query.QueryConstant.PrintMembers(System.Text.StringBuilder! builder) -> bool
-virtual LibTmux.Query.QueryNode.EqualityContract.get -> System.Type!
-virtual LibTmux.Query.QueryNode.Equals(LibTmux.Query.QueryNode? other) -> bool
-virtual LibTmux.Query.QueryNode.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
