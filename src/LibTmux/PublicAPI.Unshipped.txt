@@ -1708,7 +1708,9 @@ static LibTmux.NewWindowRequest.operator ==(LibTmux.NewWindowRequest? left, LibT
 static LibTmux.Pane.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 static LibTmux.Pane.operator !=(LibTmux.Pane? left, LibTmux.Pane? right) -> bool
 static LibTmux.Pane.operator ==(LibTmux.Pane? left, LibTmux.Pane? right) -> bool
+static LibTmux.PaneId.Parse(System.ReadOnlySpan<char> text) -> LibTmux.PaneId
 static LibTmux.PaneId.Parse(string! text) -> LibTmux.PaneId
+static LibTmux.PaneId.TryParse(System.ReadOnlySpan<char> text, out LibTmux.PaneId result) -> bool
 static LibTmux.PaneId.TryParse(string? text, out LibTmux.PaneId result) -> bool
 static LibTmux.PaneId.operator !=(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
 static LibTmux.PaneId.operator <(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
@@ -1792,7 +1794,9 @@ static LibTmux.ServerGeneration.operator ==(LibTmux.ServerGeneration left, LibTm
 static LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 static LibTmux.Session.operator !=(LibTmux.Session? left, LibTmux.Session? right) -> bool
 static LibTmux.Session.operator ==(LibTmux.Session? left, LibTmux.Session? right) -> bool
+static LibTmux.SessionId.Parse(System.ReadOnlySpan<char> text) -> LibTmux.SessionId
 static LibTmux.SessionId.Parse(string! text) -> LibTmux.SessionId
+static LibTmux.SessionId.TryParse(System.ReadOnlySpan<char> text, out LibTmux.SessionId result) -> bool
 static LibTmux.SessionId.TryParse(string? text, out LibTmux.SessionId result) -> bool
 static LibTmux.SessionId.operator !=(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
 static LibTmux.SessionId.operator <(LibTmux.SessionId left, LibTmux.SessionId right) -> bool
@@ -1964,7 +1968,9 @@ static LibTmux.Window.operator !=(LibTmux.Window? left, LibTmux.Window? right) -
 static LibTmux.Window.operator ==(LibTmux.Window? left, LibTmux.Window? right) -> bool
 static LibTmux.WindowEntityKey.operator !=(LibTmux.WindowEntityKey left, LibTmux.WindowEntityKey right) -> bool
 static LibTmux.WindowEntityKey.operator ==(LibTmux.WindowEntityKey left, LibTmux.WindowEntityKey right) -> bool
+static LibTmux.WindowId.Parse(System.ReadOnlySpan<char> text) -> LibTmux.WindowId
 static LibTmux.WindowId.Parse(string! text) -> LibTmux.WindowId
+static LibTmux.WindowId.TryParse(System.ReadOnlySpan<char> text, out LibTmux.WindowId result) -> bool
 static LibTmux.WindowId.TryParse(string? text, out LibTmux.WindowId result) -> bool
 static LibTmux.WindowId.operator !=(LibTmux.WindowId left, LibTmux.WindowId right) -> bool
 static LibTmux.WindowId.operator <(LibTmux.WindowId left, LibTmux.WindowId right) -> bool

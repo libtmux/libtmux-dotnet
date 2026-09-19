@@ -1055,7 +1055,9 @@
       ],
       "baseType": "ValueType",
       "interfaces": [
-        "IComparable<PaneId>"
+        "IComparable<PaneId>",
+        "IParsable<PaneId>",
+        "ISpanParsable<PaneId>"
       ],
       "ownership": "value",
       "state": [],
@@ -1925,7 +1927,9 @@
       ],
       "baseType": "ValueType",
       "interfaces": [
-        "IComparable<SessionId>"
+        "IComparable<SessionId>",
+        "IParsable<SessionId>",
+        "ISpanParsable<SessionId>"
       ],
       "ownership": "value",
       "state": [],
@@ -3004,7 +3008,9 @@
       ],
       "baseType": "ValueType",
       "interfaces": [
-        "IComparable<WindowId>"
+        "IComparable<WindowId>",
+        "IParsable<WindowId>",
+        "ISpanParsable<WindowId>"
       ],
       "ownership": "value",
       "state": [],
@@ -8078,6 +8084,48 @@
       "summary": "Tries to parse a prefixed identifier without throwing."
     },
     {
+      "id": "M:LibTmux.PaneId.Parse(ReadOnlySpan<char>)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "Parse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "PaneId",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        }
+      ],
+      "signature": "static PaneId LibTmux.PaneId.Parse(ReadOnlySpan<char> text)",
+      "portable": true,
+      "summary": "Parses a prefixed pane identifier from a span."
+    },
+    {
+      "id": "M:LibTmux.PaneId.TryParse(ReadOnlySpan<char>,PaneId)",
+      "declaringType": "T:LibTmux.PaneId",
+      "name": "TryParse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        },
+        {
+          "name": "result",
+          "type": "PaneId"
+        }
+      ],
+      "signature": "static bool LibTmux.PaneId.TryParse(ReadOnlySpan<char> text, out PaneId result)",
+      "portable": true,
+      "summary": "Tries to parse a prefixed pane identifier from a span."
+    },
+    {
       "id": "M:LibTmux.PasteBufferRequest.#ctor(string?,bool,bool,bool,string?,bool)",
       "declaringType": "T:LibTmux.PasteBufferRequest",
       "name": ".ctor",
@@ -11919,6 +11967,48 @@
       "summary": "Tries to parse a prefixed identifier without throwing."
     },
     {
+      "id": "M:LibTmux.SessionId.Parse(ReadOnlySpan<char>)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "Parse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "SessionId",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        }
+      ],
+      "signature": "static SessionId LibTmux.SessionId.Parse(ReadOnlySpan<char> text)",
+      "portable": true,
+      "summary": "Parses a prefixed session identifier from a span."
+    },
+    {
+      "id": "M:LibTmux.SessionId.TryParse(ReadOnlySpan<char>,SessionId)",
+      "declaringType": "T:LibTmux.SessionId",
+      "name": "TryParse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        },
+        {
+          "name": "result",
+          "type": "SessionId"
+        }
+      ],
+      "signature": "static bool LibTmux.SessionId.TryParse(ReadOnlySpan<char> text, out SessionId result)",
+      "portable": true,
+      "summary": "Tries to parse a prefixed session identifier from a span."
+    },
+    {
       "id": "M:LibTmux.SetHookRequest.#ctor(string,string,OptionScope?,bool,bool,bool,bool)",
       "declaringType": "T:LibTmux.SetHookRequest",
       "name": ".ctor",
@@ -15755,6 +15845,48 @@
       "portable": true,
       "platformAnnotations": [],
       "summary": "Tries to parse a prefixed identifier without throwing."
+    },
+    {
+      "id": "M:LibTmux.WindowId.Parse(ReadOnlySpan<char>)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "Parse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "WindowId",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        }
+      ],
+      "signature": "static WindowId LibTmux.WindowId.Parse(ReadOnlySpan<char> text)",
+      "portable": true,
+      "summary": "Parses a prefixed window identifier from a span."
+    },
+    {
+      "id": "M:LibTmux.WindowId.TryParse(ReadOnlySpan<char>,WindowId)",
+      "declaringType": "T:LibTmux.WindowId",
+      "name": "TryParse",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": true,
+      "returnType": "bool",
+      "parameters": [
+        {
+          "name": "text",
+          "type": "ReadOnlySpan<char>"
+        },
+        {
+          "name": "result",
+          "type": "WindowId"
+        }
+      ],
+      "signature": "static bool LibTmux.WindowId.TryParse(ReadOnlySpan<char> text, out WindowId result)",
+      "portable": true,
+      "summary": "Tries to parse a prefixed window identifier from a span."
     },
     {
       "id": "P:LibTmux.AttachSessionRequest.ClientFlags",

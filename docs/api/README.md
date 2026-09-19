@@ -262,8 +262,10 @@ modes differ.
 | `LibTmux.Pane.op_Inequality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name different panes. |
 | `LibTmux.PaneId.#ctor(System.Int32)` | Initializes a pane identifier. |
 | `LibTmux.PaneId.CompareTo(LibTmux.PaneId)` | Orders this identifier against another numerically. |
+| `LibTmux.PaneId.Parse(System.ReadOnlySpan{System.Char})` | Parses a prefixed pane identifier from a span. |
 | `LibTmux.PaneId.Parse(System.String)` | Parses a prefixed pane identifier. |
 | `LibTmux.PaneId.ToString` | Returns the canonical prefixed identifier. |
+| `LibTmux.PaneId.TryParse(System.ReadOnlySpan{System.Char},LibTmux.PaneId@)` | Tries to parse a prefixed pane identifier from a span. |
 | `LibTmux.PaneId.TryParse(System.String,LibTmux.PaneId@)` | Tries to parse a prefixed pane identifier. |
 | `LibTmux.PaneId.op_GreaterThan(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out after another. |
 | `LibTmux.PaneId.op_GreaterThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no earlier than another. |
@@ -406,8 +408,10 @@ modes differ.
 | `LibTmux.Session.op_Inequality(LibTmux.Session,LibTmux.Session)` | Reports whether two handles name different sessions. |
 | `LibTmux.SessionId.#ctor(System.Int32)` | Initializes a session identifier. |
 | `LibTmux.SessionId.CompareTo(LibTmux.SessionId)` | Orders this identifier against another numerically. |
+| `LibTmux.SessionId.Parse(System.ReadOnlySpan{System.Char})` | Parses a prefixed session identifier from a span. |
 | `LibTmux.SessionId.Parse(System.String)` | Parses a prefixed session identifier. |
 | `LibTmux.SessionId.ToString` | Returns the canonical prefixed identifier. |
+| `LibTmux.SessionId.TryParse(System.ReadOnlySpan{System.Char},LibTmux.SessionId@)` | Tries to parse a prefixed session identifier from a span. |
 | `LibTmux.SessionId.TryParse(System.String,LibTmux.SessionId@)` | Tries to parse a prefixed session identifier. |
 | `LibTmux.SessionId.op_GreaterThan(LibTmux.SessionId,LibTmux.SessionId)` | Reports whether one identifier was handed out after another. |
 | `LibTmux.SessionId.op_GreaterThanOrEqual(LibTmux.SessionId,LibTmux.SessionId)` | Reports whether one identifier was handed out no earlier than another. |
@@ -631,8 +635,10 @@ modes differ.
 | `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window linked into one session. |
 | `LibTmux.WindowId.#ctor(System.Int32)` | Initializes a window identifier. |
 | `LibTmux.WindowId.CompareTo(LibTmux.WindowId)` | Orders this identifier against another numerically. |
+| `LibTmux.WindowId.Parse(System.ReadOnlySpan{System.Char})` | Parses a prefixed window identifier from a span. |
 | `LibTmux.WindowId.Parse(System.String)` | Parses a prefixed window identifier. |
 | `LibTmux.WindowId.ToString` | Returns the canonical prefixed identifier. |
+| `LibTmux.WindowId.TryParse(System.ReadOnlySpan{System.Char},LibTmux.WindowId@)` | Tries to parse a prefixed window identifier from a span. |
 | `LibTmux.WindowId.TryParse(System.String,LibTmux.WindowId@)` | Tries to parse a prefixed window identifier. |
 | `LibTmux.WindowId.op_GreaterThan(LibTmux.WindowId,LibTmux.WindowId)` | Reports whether one identifier was handed out after another. |
 | `LibTmux.WindowId.op_GreaterThanOrEqual(LibTmux.WindowId,LibTmux.WindowId)` | Reports whether one identifier was handed out no earlier than another. |
