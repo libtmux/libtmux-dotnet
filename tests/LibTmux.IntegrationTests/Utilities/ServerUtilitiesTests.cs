@@ -67,7 +67,7 @@ public sealed class ServerUtilitiesTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        string prefix = Path.Combine(
+        string prefix = Path.Join(
             Path.GetTempPath(),
             $"libtmux-dotnet-runshell-cancel-{Guid.NewGuid():N}");
         string started = $"{prefix}-started";
@@ -125,7 +125,7 @@ public sealed class ServerUtilitiesTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
 
-        string pidFile = Path.Combine(
+        string pidFile = Path.Join(
             Path.GetTempPath(),
             $"libtmux-dotnet-runshell-kill-{Guid.NewGuid():N}");
         int childPid = -1;
