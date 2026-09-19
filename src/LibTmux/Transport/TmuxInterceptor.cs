@@ -7,7 +7,7 @@ namespace LibTmux;
 /// retry, or not at all to refuse or to answer in tmux's place.
 /// </param>
 /// <param name="cancellationToken">
-/// The command's token, already bounded by
+/// The token the invocation runs under, already bounded by
 /// <see cref="ServerConnectionOptions.CommandTimeout" /> when one is set.
 /// </param>
 /// <returns>tmux's answer, or one the interceptor made instead.</returns>

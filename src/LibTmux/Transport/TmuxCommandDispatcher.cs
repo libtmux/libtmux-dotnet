@@ -174,7 +174,7 @@ internal sealed class TmuxCommandDispatcher
         "Design",
         "CA1001:Types that own disposable fields should be disposable",
         Justification = "It is disposable; the rule does not see a struct's own Dispose.")]
-    private readonly struct Deadline : IDisposable
+    internal readonly struct Deadline : IDisposable
     {
         private readonly CancellationTokenSource? _expiry;
         private readonly CancellationTokenSource? _linked;

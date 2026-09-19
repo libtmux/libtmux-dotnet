@@ -68,6 +68,30 @@ public sealed class DispatchInterceptionTests
         Assert.Equal(2, sent);
     }
 
+    [ConnectionUnixFact]
+    public async Task Discovery_that_outlives_the_timeout_fails_as_dispatch_unknown()
+    {
+        // Connecting asks tmux its version and its generation. Those are tmux
+        // commands too, so a tmux that stops answering must not hang a caller
+        // who set a timeout.
+        var connection = new TmuxConnection(
+            new ServerConnectionOptions { CommandTimeout = TimeSpan.FromMilliseconds(50) },
+            FakeMultiplexer.AnsweringVersion(static async (_, token) =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("unreachable");
+            }));
+
+        // Without the timeout this would wait on the caller alone, so bound it.
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken);
+        caller.CancelAfter(TimeSpan.FromSeconds(5));
+        TmuxTransportException expired = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => connection.DiscoverAsync(caller.Token));
+
+        Assert.Equal(TmuxDispatchState.Unknown, expired.Dispatch);
+    }
+
     private static TmuxConnection Connect(TmuxInterceptor interceptor, Action onSend) =>
         new(
             new ServerConnectionOptions { Interceptor = interceptor },

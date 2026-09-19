@@ -100,9 +100,32 @@ internal sealed class TmuxConnection
     internal (string? SocketName, string? SocketPath) ResolvedSocket =>
         (_resolvedSocketName, _resolvedSocketPath);
 
-    internal Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
-        CancellationToken cancellationToken) =>
-        _dialect.DiscoverAsync(cancellationToken);
+    /// <summary>Reads the version and generation of the server behind this connection.</summary>
+    /// <remarks>
+    /// Discovery is two tmux commands rather than one, and it runs before a
+    /// dispatcher exists, so the timeout is applied here: a tmux that stops
+    /// answering must not hang a caller who set one.
+    /// </remarks>
+    internal async Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
+        CancellationToken cancellationToken)
+    {
+        using var deadline = new TmuxCommandDispatcher.Deadline(
+            Options.CommandTimeout,
+            cancellationToken);
+        try
+        {
+            return await _dialect.DiscoverAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException error)
+            when (deadline.Expired && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TmuxTransportException(
+                $"tmux did not answer within {Options.CommandTimeout}.",
+                ["display-message", "-p", GenerationFormat],
+                TmuxDispatchState.Unknown,
+                error);
+        }
+    }
 
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {

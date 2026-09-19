@@ -155,6 +155,8 @@ public sealed record ServerConnectionOptions
     /// <see cref="LibTmuxException.Dispatch" /> is
     /// <see cref="TmuxDispatchState.Unknown" />: tmux may already have acted.
     /// A caller's own cancellation still wins, and reads as cancellation.
+    /// Connecting is bounded by it too: reading the version and the server's
+    /// generation are tmux commands like any other.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout does not run forward.</exception>
     public TimeSpan? CommandTimeout
@@ -240,10 +242,12 @@ public sealed record ServerConnectionOptions
     /// </para>
     /// <para>
     /// A command runs its interceptor inside <see cref="CommandTimeout" /> and
-    /// the command's span, so a retry shares both. An exception the
-    /// interceptor throws reaches the caller unchanged. Running a command
-    /// again repeats whatever it did; <see cref="LibTmuxException.Dispatch" />
-    /// on a failure says whether tmux may already have acted.
+    /// the command's span, so a retry shares both. The version probe and the
+    /// discovery a connection makes first are bounded by the same timeout but
+    /// are not recorded as commands. An exception the interceptor throws
+    /// reaches the caller unchanged. Running a command again repeats whatever
+    /// it did; <see cref="LibTmuxException.Dispatch" /> on a failure says
+    /// whether tmux may already have acted.
     /// </para>
     /// </remarks>
     public TmuxInterceptor? Interceptor { get; init; }
