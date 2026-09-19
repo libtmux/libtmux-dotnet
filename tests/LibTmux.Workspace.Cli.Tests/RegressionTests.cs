@@ -1374,6 +1374,17 @@ public sealed class RegressionTests : IDisposable
             Assert.Contains("two", issue["message"]!.ToString(), StringComparison.Ordinal);
             Assert.False(issue["removed"]!.GetValue<bool>());
             Assert.Equal("one", await Execute(server, "list-windows", "-t", "reuse", "-F", "#{window_name}"));
+            // The envelope answers for what each input retained, not for the
+            // worst code in errors[]: a second input that did build keeps it
+            // partial.
+            string built = Path.Combine(_root, "built.yaml");
+            await File.WriteAllTextAsync(built, "session_name: built\nwindows: [{window_name: w, panes: [null]}]\n", token);
+            var mixed = await Run("load", built, file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            JsonNode both = JsonNode.Parse(mixed.Output)!;
+            Assert.True(mixed.Code == 1 && both["status"]!.ToString() == "partial", $"Exit {mixed.Code}, {mixed.Output}");
+            Assert.Equal("created", both["results"]![0]!["status"]!.ToString());
+            Assert.Equal("session_mismatch", both["errors"]![0]!["code"]!.ToString());
+            await Execute(server, "kill-session", "-t", "=built");
             await Execute(server, "new-window", "-d", "-t", "reuse", "-n", "two");
             var accepted = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
             Assert.True(accepted.Code == 0, accepted.Output + accepted.Error);
@@ -1719,6 +1730,31 @@ public sealed class RegressionTests : IDisposable
             Assert.True(code == 1, $"Exit {code}: {output}{error}");
             JsonNode[] records = error.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!).ToArray();
             Assert.Equal("tmux_failed", records[^1]["code"]!.ToString());
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    // tmuxp splits without -d, so the pane it leaves active is the last one
+    // created. A document that says nothing about focus gets that, and one
+    // that declares focus gets what it declared.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_last_pane_created_is_active_unless_a_pane_declares_focus(bool declared)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "active" + declared + ".socket");
+        string file = Path.Combine(_root, "active" + declared + ".yaml");
+        string focus = declared ? ", {focus: true}" : "";
+        await File.WriteAllTextAsync(file, "session_name: active\nwindows: [{window_name: one, panes: [null" + focus + ", null]}, {window_name: two, panes: [null, null]}]\n", token);
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            Assert.True(result.Code == 0, $"Exit {result.Code}: {result.Error}");
+            string[] one = (await Execute(server, "list-panes", "-t", "=active:one", "-F", "#{pane_index}:#{pane_active}")).Split('\n');
+            Assert.Equal(declared ? ["0:0", "1:1", "2:0"] : ["0:0", "1:1"], one);
+            Assert.Equal(["0:0", "1:1"], (await Execute(server, "list-panes", "-t", "=active:two", "-F", "#{pane_index}:#{pane_active}")).Split('\n'));
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
