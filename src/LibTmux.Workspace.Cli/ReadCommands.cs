@@ -87,7 +87,12 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
     {
         string directory = teamocil ? Path.Combine(context.Home, ".teamocil") : _documents.Expand(context.Environment.GetValueOrDefault("TMUXINATOR_CONFIG") ?? Path.Combine(context.Home, ".tmuxinator"));
         string path = _documents.Resolve(invocation.Many("files")[0], directory);
-        string content = File.ReadAllText(path);
+        string content;
+        try { content = File.ReadAllText(path); }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            throw new CliException("invalid_workspace", $"Workspace '{path}' could not be read: {failure.Message}");
+        }
         if (!teamocil && content.Contains("<%", StringComparison.Ordinal)) throw new CliException("invalid_workspace", "Tmuxinator ERB templates require expanded YAML or JSON before import.");
         JsonObject document = ImportCommands.Convert(DocumentStore.Parse(content), teamocil);
         document["session_name"] ??= Path.GetFileNameWithoutExtension(path);

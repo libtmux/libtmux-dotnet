@@ -67,7 +67,21 @@ internal sealed class DocumentStore(CliContext context)
         return System.Text.RegularExpressions.Regex.Replace(value, @"\$(?:\{(?<name>[A-Za-z_][A-Za-z0-9_]*)\}|(?<name>[A-Za-z_][A-Za-z0-9_]*))", match => context.Environment.GetValueOrDefault(match.Groups["name"].Value) ?? match.Value, System.Text.RegularExpressions.RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
     }
 
-    internal static JsonObject Read(string path) => Parse(File.ReadAllText(path));
+    internal static JsonObject Read(string path) => Parse(ReadText(path));
+
+    // A missing file is workspace_not_found, raised by Resolve before this
+    // runs. Once a path is known to exist, anything stopping the read --
+    // permissions, a device, a race that removed it -- is still a workspace
+    // this tool could not use, the same bucket as one it could read but not
+    // parse.
+    private static string ReadText(string path)
+    {
+        try { return File.ReadAllText(path); }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            throw new CliException("invalid_workspace", $"Workspace '{path}' could not be read: {failure.Message}");
+        }
+    }
 
     internal static JsonObject Parse(string text)
     {
