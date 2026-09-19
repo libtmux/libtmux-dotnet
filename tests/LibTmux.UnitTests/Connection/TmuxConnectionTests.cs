@@ -671,6 +671,30 @@ public sealed class ConnectionValueTests
 [UnsupportedOSPlatform("windows")]
 public sealed class GenerationGuardTests
 {
+    [Fact]
+    public void Capture_and_event_ceilings_are_set_as_initializers_and_must_count_upward()
+    {
+        // Set through an object initializer, not a constructor argument: the
+        // ten-parameter constructor is a promise to every compiled caller.
+        ServerConnectionOptions bounded = new()
+        {
+            MaxCapturedBytesPerStream = 4096,
+            ControlModeEventBufferCapacity = 8,
+        };
+
+        Assert.Equal(4096, bounded.MaxCapturedBytesPerStream);
+        Assert.Equal(8, bounded.ControlModeEventBufferCapacity);
+
+        // Unset means the library's own ceiling, not "no ceiling".
+        Assert.Null(ServerConnectionOptions.Default.MaxCapturedBytesPerStream);
+        Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferCapacity);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { MaxCapturedBytesPerStream = 0 });
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { ControlModeEventBufferCapacity = -1 });
+    }
+
     [ConnectionUnixFact]
     public async Task Guard_uses_one_structural_group_and_hides_guard_output_and_arguments()
     {

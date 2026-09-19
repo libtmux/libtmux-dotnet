@@ -33,7 +33,7 @@ internal sealed class ControlModeSession : IControlModeSession
     /// </remarks>
     internal const int EventBufferCapacity = 512;
 
-    private readonly ControlModeEventBuffer _events = new(EventBufferCapacity);
+    private readonly ControlModeEventBuffer _events;
 
     private readonly Queue<PendingControlModeCommand> _pending = new();
     private readonly SemaphoreSlim _pendingSlots;
@@ -60,9 +60,11 @@ internal sealed class ControlModeSession : IControlModeSession
         ServerGeneration? generation = null,
         Func<string>? sentinelFactory = null,
         ControlModeLimits? limits = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        int? eventBufferCapacity = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
+        _events = new ControlModeEventBuffer(eventBufferCapacity ?? EventBufferCapacity);
         _generation = generation;
         _limits = limits ?? new ControlModeLimits();
         _pendingSlots = new SemaphoreSlim(
@@ -90,7 +92,8 @@ internal sealed class ControlModeSession : IControlModeSession
         IReadOnlyList<string> prefixArguments,
         string? target,
         ServerGeneration generation,
-        Action<ProcessStartInfo> configureEnvironment)
+        Action<ProcessStartInfo> configureEnvironment,
+        int? eventBufferCapacity = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -126,7 +129,8 @@ internal sealed class ControlModeSession : IControlModeSession
         return new ControlModeSession(
             new SystemControlModeProcess(process, limits),
             generation: generation,
-            limits: limits);
+            limits: limits,
+            eventBufferCapacity: eventBufferCapacity);
     }
 
     /// <summary>Waits until tmux has answered its own attach.</summary>

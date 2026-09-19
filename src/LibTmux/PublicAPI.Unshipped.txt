@@ -688,9 +688,13 @@ LibTmux.ServerConnectionOptions.ChildEnvironment.get -> System.Collections.Gener
 LibTmux.ServerConnectionOptions.ColorMode.get -> LibTmux.TmuxColorMode
 LibTmux.ServerConnectionOptions.CommandTimeout.get -> System.TimeSpan?
 LibTmux.ServerConnectionOptions.ConfigurationFile.get -> string?
+LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.get -> int?
+LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.init -> void
 LibTmux.ServerConnectionOptions.Equals(LibTmux.ServerConnectionOptions? other) -> bool
 LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 LibTmux.ServerConnectionOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.get -> int?
+LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.init -> void
 LibTmux.ServerConnectionOptions.ServerConnectionOptions(string! tmuxBinaryPath = "tmux", string? socketName = null, string? socketPath = null, System.Func<string!>? socketNameFactory = null, string? configurationFile = null, LibTmux.TmuxColorMode colorMode = LibTmux.TmuxColorMode.Default, System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>? initializeAsync = null, System.Collections.Generic.IReadOnlyDictionary<string!, string?>? childEnvironment = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.TimeSpan? commandTimeout = null) -> void
 LibTmux.ServerConnectionOptions.SocketName.get -> string?
 LibTmux.ServerConnectionOptions.SocketNameFactory.get -> System.Func<string!>?

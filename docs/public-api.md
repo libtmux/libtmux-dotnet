@@ -1384,9 +1384,11 @@ internal static class Program
 | `P:LibTmux.ServerConnectionOptions.ColorMode` | `TmuxColorMode LibTmux.ServerConnectionOptions.ColorMode { get; }` | Public | No | Portable | Gets ColorMode. |
 | `P:LibTmux.ServerConnectionOptions.CommandTimeout` | `TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; }` | Public | No | Portable | How long one tmux command may run, or null to wait indefinitely. |
 | `P:LibTmux.ServerConnectionOptions.ConfigurationFile` | `string? LibTmux.ServerConnectionOptions.ConfigurationFile { get; }` | Public | No | Portable | Gets ConfigurationFile. |
+| `P:LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | `int? LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity { get; init; }` | Public | No | Portable | How many control-mode events are buffered before the oldest are dropped. |
 | `P:LibTmux.ServerConnectionOptions.Default` | `static ServerConnectionOptions LibTmux.ServerConnectionOptions.Default { get; }` | Public | Yes | Portable | Gets conventional connection defaults using the tmux executable on PATH. |
 | `P:LibTmux.ServerConnectionOptions.InitializeAsync` | `Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; }` | Public | No | Portable | Gets InitializeAsync. |
 | `P:LibTmux.ServerConnectionOptions.Logger` | `ILogger? LibTmux.ServerConnectionOptions.Logger { get; }` | Public | No | Portable | Gets Logger. |
+| `P:LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | `int? LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream { get; init; }` | Public | No | Portable | The largest output one command may capture, in bytes. |
 | `P:LibTmux.ServerConnectionOptions.SocketName` | `string? LibTmux.ServerConnectionOptions.SocketName { get; }` | Public | No | Portable | Gets SocketName. |
 | `P:LibTmux.ServerConnectionOptions.SocketNameFactory` | `Func<string>? LibTmux.ServerConnectionOptions.SocketNameFactory { get; }` | Public | No | Portable | Gets SocketNameFactory. |
 | `P:LibTmux.ServerConnectionOptions.SocketPath` | `string? LibTmux.ServerConnectionOptions.SocketPath { get; }` | Public | No | Portable | Gets SocketPath. |

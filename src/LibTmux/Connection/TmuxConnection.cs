@@ -196,13 +196,18 @@ internal sealed class TmuxConnection
             CancellationToken cancellationToken) =>
             PsmuxBinaryTrust.VerifyIfPreviewAsync(Options, cancellationToken);
 
+        TmuxTransportLimits? limits = Options.MaxCapturedBytesPerStream is int ceiling
+            ? new TmuxTransportLimits(MaxCapturedBytesPerStream: ceiling)
+            : null;
         var transport = new TmuxProcessTransport(
             Options.TmuxBinaryPath,
             PrefixArguments,
+            limits,
             launcher: Launch,
             beforeStart: VerifyBeforeStartAsync);
         var versionTransport = new TmuxProcessTransport(
             Options.TmuxBinaryPath,
+            limits: limits,
             launcher: Launch,
             beforeStart: VerifyBeforeStartAsync);
         return (transport.ExecuteAsync, versionTransport.ExecuteAsync);

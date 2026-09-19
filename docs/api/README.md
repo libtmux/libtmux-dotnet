@@ -926,9 +926,11 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.ColorMode` | Gets the requested tmux color mode. |
 | `LibTmux.ServerConnectionOptions.CommandTimeout` | Gets how long one tmux command may run, or null to wait indefinitely. |
 | `LibTmux.ServerConnectionOptions.ConfigurationFile` | Gets the tmux configuration file. |
+| `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before the oldest are dropped. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
 | `LibTmux.ServerConnectionOptions.Logger` | Gets the connection logger. |
+| `LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | Gets the largest output one command may capture, in bytes. |
 | `LibTmux.ServerConnectionOptions.SocketName` | Gets the explicit socket name. |
 | `LibTmux.ServerConnectionOptions.SocketNameFactory` | Gets the deferred socket-name factory. |
 | `LibTmux.ServerConnectionOptions.SocketPath` | Gets the explicit socket path. |

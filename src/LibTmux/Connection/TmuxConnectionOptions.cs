@@ -36,6 +36,9 @@ internal sealed class PsmuxPreviewOptions : IEquatable<PsmuxPreviewOptions>
 /// <summary>Configures a tmux server connection without mutating process-wide state.</summary>
 public sealed record ServerConnectionOptions
 {
+    private readonly int? _maxCapturedBytesPerStream;
+    private readonly int? _controlModeEventBufferCapacity;
+
     /// <summary>Initializes connection options.</summary>
     public ServerConnectionOptions(
         string tmuxBinaryPath = "tmux",
@@ -247,6 +250,55 @@ public sealed record ServerConnectionOptions
     /// A caller's own cancellation still wins, and reads as cancellation.
     /// </remarks>
     public TimeSpan? CommandTimeout { get; }
+
+    /// <summary>Gets the largest output one command may capture, in bytes.</summary>
+    /// <remarks>
+    /// Defaults to 64 MiB. A command whose output passes it fails rather than
+    /// growing without bound, so a service that runs many captures at once can
+    /// bound what one of them costs. Raise it for a capture that legitimately
+    /// needs more. Set as an initializer, not a constructor argument: the
+    /// constructor's shape is a promise to every compiled caller, and an
+    /// option added to it breaks them.
+    /// </remarks>
+    public int? MaxCapturedBytesPerStream
+    {
+        get => _maxCapturedBytesPerStream;
+        init
+        {
+            if (value is int bytes && bytes <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(MaxCapturedBytesPerStream),
+                    bytes,
+                    "A capture ceiling counts upward.");
+            }
+
+            _maxCapturedBytesPerStream = value;
+        }
+    }
+
+    /// <summary>Gets how many control-mode events are buffered before the oldest are dropped.</summary>
+    /// <remarks>
+    /// Defaults to 512. A consumer slower than its panes loses the oldest
+    /// events and is told so by <see cref="TmuxEventsDroppedEvent" />; raising
+    /// this buys time rather than memory without bound.
+    /// </remarks>
+    public int? ControlModeEventBufferCapacity
+    {
+        get => _controlModeEventBufferCapacity;
+        init
+        {
+            if (value is int events && events <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ControlModeEventBufferCapacity),
+                    events,
+                    "An event buffer holds at least one event.");
+            }
+
+            _controlModeEventBufferCapacity = value;
+        }
+    }
 
     internal PsmuxPreviewOptions? PsmuxPreview { get; }
 }

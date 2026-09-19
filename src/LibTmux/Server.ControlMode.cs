@@ -50,7 +50,8 @@ public sealed partial class Server
             live.Generation!.Value,
             startInfo => TmuxConnection.ApplyChildEnvironment(
                 startInfo,
-                connection.Options.ChildEnvironment));
+                connection.Options.ChildEnvironment),
+            connection.Options.ControlModeEventBufferCapacity);
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.

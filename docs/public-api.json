@@ -20108,6 +20108,30 @@
       "summary": "How long one tmux command may run, or null to wait indefinitely."
     },
     {
+      "id": "P:LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream",
+      "declaringType": "T:LibTmux.ServerConnectionOptions",
+      "name": "MaxCapturedBytesPerStream",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "int? LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream { get; init; }",
+      "returnType": "int?",
+      "portable": true,
+      "summary": "The largest output one command may capture, in bytes."
+    },
+    {
+      "id": "P:LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity",
+      "declaringType": "T:LibTmux.ServerConnectionOptions",
+      "name": "ControlModeEventBufferCapacity",
+      "kind": "property",
+      "visibility": "public",
+      "package": "LibTmux",
+      "signature": "int? LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity { get; init; }",
+      "returnType": "int?",
+      "portable": true,
+      "summary": "How many control-mode events are buffered before the oldest are dropped."
+    },
+    {
       "id": "P:LibTmux.ServerConnectionOptions.SocketName",
       "declaringType": "T:LibTmux.ServerConnectionOptions",
       "name": "SocketName",
