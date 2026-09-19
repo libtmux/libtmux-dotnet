@@ -1366,9 +1366,11 @@ public sealed class RegressionTests : IDisposable
             await Execute(server, "new-session", "-d", "-s", "reuse", "-n", "one");
             var refused = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
             JsonNode summary = JsonNode.Parse(refused.Output)!;
-            Assert.True(refused.Code == 1 && summary["status"]!.ToString() == "partial", $"Exit {refused.Code}, {refused.Output}");
+            Assert.True(refused.Code == 1 && summary["status"]!.ToString() == "error", $"Exit {refused.Code}, {refused.Output}");
             JsonNode issue = Assert.Single(summary["errors"]!.AsArray())!;
-            Assert.Equal("destination_exists", issue["code"]!.ToString());
+            Assert.Equal("session_mismatch", issue["code"]!.ToString());
+            Assert.False(issue["created"]!.GetValue<bool>());
+            Assert.False(issue["changed"]!.GetValue<bool>());
             Assert.Contains("two", issue["message"]!.ToString(), StringComparison.Ordinal);
             Assert.False(issue["removed"]!.GetValue<bool>());
             Assert.Equal("one", await Execute(server, "list-windows", "-t", "reuse", "-F", "#{window_name}"));
@@ -1490,7 +1492,12 @@ public sealed class RegressionTests : IDisposable
 
             Assert.Equal(0, code);
             Assert.Equal([asked], Directory.GetFiles(working));
-            Assert.Contains("session_name", await File.ReadAllTextAsync(asked, token), StringComparison.Ordinal);
+            string document = await File.ReadAllTextAsync(asked, token);
+            Assert.Contains("session_name", document, StringComparison.Ordinal);
+            // --save-to suppresses the stderr warning, so the artifact has to
+            // carry the fact that it is not a round trip.
+            Assert.Contains("x-capture-lossy: true", document, StringComparison.Ordinal);
+            Assert.Empty(savedError.ToString());
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
