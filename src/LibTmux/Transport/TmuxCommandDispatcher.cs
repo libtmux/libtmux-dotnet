@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -149,7 +150,11 @@ internal sealed class TmuxCommandDispatcher
     /// source raised is reported as a timeout, so a caller who cancels still
     /// sees cancellation.
     /// </remarks>
-    private sealed class Deadline : IDisposable
+    [SuppressMessage(
+        "Design",
+        "CA1001:Types that own disposable fields should be disposable",
+        Justification = "It is disposable; the rule does not see a struct's own Dispose.")]
+    private readonly struct Deadline : IDisposable
     {
         private readonly CancellationTokenSource? _expiry;
         private readonly CancellationTokenSource? _linked;
