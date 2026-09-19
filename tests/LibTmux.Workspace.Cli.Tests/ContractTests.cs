@@ -35,6 +35,25 @@ public sealed class ContractTests : IDisposable
         Assert.Equal("alpha", Assert.Single(JsonNode.Parse(result.Output)!.AsArray())!["session_name"]!.ToString());
     }
 
+    // Every machine answer carries the same envelope, whichever machine flag
+    // asked for it, and quotes in a path or a command survive it readable.
+    [Theory]
+    [InlineData("convert", "document")]
+    [InlineData("--ndjson", "document")]
+    public async Task Machine_output_carries_one_envelope(string first, string key)
+    {
+        string file = Path.Combine(_root, "envelope.yaml");
+        await File.WriteAllTextAsync(file, "session_name: envelope\nwindows: [{panes: [\"echo 'quoted' > out\"]}]\n", TestContext.Current.CancellationToken);
+        var result = first == "convert" ? await Run("convert", file, "--json") : await Run("convert", file, "--json", "--ndjson");
+        Assert.Equal(0, result.Code);
+        JsonNode envelope = JsonNode.Parse(result.Output)!;
+        Assert.Equal(1, envelope["schema_version"]!.GetValue<int>());
+        Assert.Equal("convert", envelope["command"]!.ToString());
+        Assert.Equal("ok", envelope["status"]!.ToString());
+        Assert.Equal("envelope", envelope[key]!["session_name"]!.ToString());
+        Assert.Contains("echo 'quoted' > out", result.Output, StringComparison.Ordinal);
+    }
+
     // A pattern that does not compile is a mistake in the command line, so
     // it answers with the same code as any other invocation error.
     [Fact]

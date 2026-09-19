@@ -398,15 +398,20 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
         return context.Environment.GetValueOrDefault("CLICOLOR") != "0" && (ReferenceEquals(writer, context.Error) ? context.ErrorTerminal : context.Terminal);
     }
 
+    // The payload is shell commands and paths. The default encoder escapes
+    // the quotes, angle brackets and ampersands they are made of, which
+    // costs a reader everything and gains a JSON parser nothing.
+    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private static void Json(TextWriter writer, object? value)
     {
-        writer.WriteLine(JsonSerializer.Serialize(value));
+        writer.WriteLine(JsonSerializer.Serialize(value, Relaxed));
         writer.Flush();
     }
 
     private static async ValueTask JsonAsync(TextWriter writer, object? value, CancellationToken token)
     {
-        await writer.WriteLineAsync(JsonSerializer.Serialize(value).AsMemory(), token).ConfigureAwait(false);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(value, Relaxed).AsMemory(), token).ConfigureAwait(false);
         await writer.FlushAsync(token).ConfigureAwait(false);
     }
 }

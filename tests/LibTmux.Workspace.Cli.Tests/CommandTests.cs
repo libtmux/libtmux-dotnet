@@ -72,7 +72,7 @@ public sealed class CommandTests : IDisposable
         await File.WriteAllTextAsync(file, "session_name: demo\nwindows: []\ncustom: {value: retained}\n", TestContext.Current.CancellationToken);
         (int code, string output, _) = await Run("convert", file, "--json");
         Assert.Equal(0, code);
-        Assert.Equal("retained", JsonNode.Parse(output)!["custom"]!["value"]!.GetValue<string>());
+        Assert.Equal("retained", JsonNode.Parse(output)!["document"]!["custom"]!["value"]!.GetValue<string>());
         Assert.False(File.Exists(Path.ChangeExtension(file, ".json")));
     }
 

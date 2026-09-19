@@ -108,9 +108,10 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         string? destination = invocation.Text("save_to");
         if (destination is null && invocation.Machine)
         {
-            if (invocation.Flag("ndjson") && invocation.Command == "freeze") output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", workspace = document, warnings = CaptureWarnings });
-            else if (invocation.Flag("ndjson")) output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", document });
-            else output.Result(document);
+            // One envelope whichever machine flag asked for it, so a
+            // consumer parses the tool rather than each flag.
+            if (invocation.Command == "freeze") output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", workspace = document, warnings = CaptureWarnings });
+            else output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", document });
             return;
         }
         // An explicit --save-to is itself consent; the prompt below is only
