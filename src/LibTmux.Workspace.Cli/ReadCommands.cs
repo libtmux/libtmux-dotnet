@@ -125,7 +125,13 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
         destination ??= suggested;
         if (destination is null) destination = Prompt("Save to: ");
         if (!Path.IsPathRooted(destination)) destination = Path.Combine(context.Directory, destination);
-        if (!explicitDestination && !invocation.Flag("yes") && !invocation.Machine && !Confirm($"Save workspace to '{destination}'?")) return;
+        if (!explicitDestination && !invocation.Flag("yes") && !invocation.Machine && !Confirm($"Save workspace to '{destination}'?"))
+        {
+            // A user asked a question and answered it has not failed: this
+            // exits 0, same as a save that happened.
+            output.Human("Not saved.", "information");
+            return;
+        }
         DocumentStore.Save(destination, document, format, invocation.Flag("force"));
         if (invocation.Machine || !invocation.Flag("quiet")) output.Result(new { schema_version = 1, command = invocation.Command, status = "ok", destination, format, warnings = invocation.Command == "freeze" ? CaptureWarnings : [] }, $"Saved {destination}");
     }
@@ -134,16 +140,19 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
 
     internal bool Confirm(string message)
     {
-        if (invocation.Machine) throw new CliException("confirmation_required", message);
+        // Machine output categorically cannot ask; that is an invocation
+        // mistake, not a refusal, so it exits 2 like every other case of a
+        // prompt this tool could not put to anyone.
+        if (invocation.Machine) throw new CliException("confirmation_required", message, 2);
         string answer = Prompt(message + " [y/N] ");
         return answer.Equals("y", StringComparison.OrdinalIgnoreCase) || answer.Equals("yes", StringComparison.OrdinalIgnoreCase);
     }
 
     internal string Prompt(string message)
     {
-        if (!context.Terminal) throw new CliException("input_required", message + " Supply explicit arguments for noninteractive use.");
+        if (!context.Terminal) throw new CliException("input_required", message + " Supply explicit arguments for noninteractive use.", 2);
         context.Error.Write(message);
-        return Console.ReadLine() ?? throw new CliException("input_closed", "Input closed before a response was received.");
+        return Console.ReadLine() ?? throw new CliException("input_closed", "Input closed before a response was received.", 2);
     }
 
     private JsonObject Describe(string path, string source)

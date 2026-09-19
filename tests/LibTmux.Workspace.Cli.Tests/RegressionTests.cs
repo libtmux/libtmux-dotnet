@@ -1592,7 +1592,9 @@ public sealed class RegressionTests : IDisposable
             {
                 Assert.Empty(output.ToString());
                 Assert.Equal("input_required", JsonNode.Parse(error.ToString())!["code"]!.ToString());
-                Assert.Equal(1, code);
+                // A prompt this tool cannot put to anyone -- no terminal to
+                // ask on -- is an invocation problem, not a refusal.
+                Assert.Equal(2, code);
             }
         }
         finally
@@ -2076,6 +2078,83 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
 
+    // A user asked a question and answered it has not failed: declining
+    // "already running. Attach?" is exit 0, and the server is untouched --
+    // the reuse check that runs either way issues no mutating command.
+    [Fact]
+    public async Task Declining_attach_exits_zero_and_leaves_the_session_untouched()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "decline.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            // The document mismatches the running session -- a decline test
+            // only bites if the comparison it must not reach would otherwise
+            // fire. A document that already matches never reaches the
+            // session-mismatch check at all, decline or not.
+            await Execute(server, "new-session", "-d", "-s", "decline", "-n", "only");
+            string created = await Execute(server, "display-message", "-p", "-t", "=decline:only", "#{window_id}");
+            string file = Path.Combine(_root, "decline.yaml");
+            await File.WriteAllTextAsync(file, "session_name: decline\nwindows: [{window_name: only, panes: [null]}, {window_name: extra, panes: [null]}]\n", token);
+            (int code, string output) = await RunCliUnderPtyAnsweredAsync(["load", file, "-S", socket, "--color", "never"], "Attach?", "n", token);
+            Assert.Contains("Attach?", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("session_mismatch", output, StringComparison.Ordinal);
+            Assert.Equal(0, code);
+            Assert.Equal("only", await Execute(server, "list-windows", "-t", "decline", "-F", "#{window_name}"));
+            Assert.Equal(created, await Execute(server, "display-message", "-p", "-t", "=decline:only", "#{window_id}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    // The prompt is asked about the last input only. An earlier input in the
+    // same load still builds normally: a control-flow return out of the
+    // whole load, rather than a disposition checked at the comparison site,
+    // would silently skip building it.
+    [Fact]
+    public async Task Declining_attach_still_builds_an_earlier_input()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "decline-multi.socket");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            await Execute(server, "new-session", "-d", "-s", "mismatch", "-n", "only");
+            string built = Path.Combine(_root, "declined-first.yaml");
+            string mismatched = Path.Combine(_root, "declined-second.yaml");
+            await File.WriteAllTextAsync(built, "session_name: built\nwindows: [{window_name: w, panes: [null]}]\n", token);
+            await File.WriteAllTextAsync(mismatched, "session_name: mismatch\nwindows: [{window_name: only, panes: [null]}, {window_name: extra, panes: [null]}]\n", token);
+            (int code, string output) = await RunCliUnderPtyAnsweredAsync(["load", built, mismatched, "-S", socket, "--color", "never"], "Attach?", "n", token);
+            Assert.Contains("Attach?", output, StringComparison.Ordinal);
+            Assert.DoesNotContain("session_mismatch", output, StringComparison.Ordinal);
+            Assert.Equal(0, code);
+            Assert.Equal(0, (await server.ExecuteCommandAsync(["has-session", "-t", "=built"], token)).ExitCode);
+            Assert.Equal("only", await Execute(server, "list-windows", "-t", "mismatch", "-F", "#{window_name}"));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
+    // Same principle for convert's save confirmation, fired only when no
+    // --save-to was given: "n" leaves nothing written and exits 0, with one
+    // line saying so -- not confirmation_required, which is for a prompt
+    // that could not be asked at all. rs shipped this exact prompt reporting
+    // a declined save as an error, invisible to its suite because every
+    // automated case passed either --json (skips the prompt) or --yes
+    // (answers it) -- this is the missing decline-with-exit-code case.
+    [Fact]
+    public async Task Declining_the_save_prompt_exits_zero_and_writes_nothing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string file = Path.Combine(_root, "declinesave.yaml");
+        await File.WriteAllTextAsync(file, "session_name: declinesave\nwindows: [{panes: [null]}]\n", token);
+        string suggested = Path.ChangeExtension(file, ".json");
+        (int code, string output) = await RunCliUnderPtyAnsweredAsync(["convert", file, "--color", "never"], "Save workspace to", "n", token);
+        Assert.Contains("Save workspace to", output, StringComparison.Ordinal);
+        Assert.Contains("Not saved.", output, StringComparison.Ordinal);
+        Assert.Equal(0, code);
+        Assert.False(File.Exists(suggested));
+    }
+
     private static async Task<string> RunCliUnderPtyAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
         StringBuilder command = new(PtyShellQuote("dotnet"));
@@ -2101,6 +2180,52 @@ public sealed class RegressionTests : IDisposable
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
         await process.WaitForExitAsync(linked.Token);
         return await stdout.WaitAsync(linked.Token);
+    }
+
+    // Like RunCliUnderPtyAsync, but keeps the pty's input open so a scripted
+    // answer can be typed once the prompt appears, and reports the exit
+    // code -- declining a prompt is a completed command, not a crash, so the
+    // code is the point of the test, not just the transcript.
+    private static async Task<(int Code, string Output)> RunCliUnderPtyAnsweredAsync(IReadOnlyList<string> arguments, string promptPattern, string answer, CancellationToken cancellationToken)
+    {
+        StringBuilder command = new(PtyShellQuote("dotnet"));
+        command.Append(' ').Append(PtyShellQuote(WorkspaceCliAssemblyPath()));
+        foreach (string argument in arguments) command.Append(' ').Append(PtyShellQuote(argument));
+        ProcessStartInfo startInfo = new("/usr/bin/script")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("-q");
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add("-c");
+        startInfo.ArgumentList.Add(command.ToString());
+        startInfo.ArgumentList.Add("/dev/null");
+        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("The PTY launcher did not start.");
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
+        Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, linked.Token);
+        StringBuilder captured = new();
+        char[] buffer = new char[4096];
+        bool answered = false;
+        while (true)
+        {
+            int read = await process.StandardOutput.ReadAsync(buffer, linked.Token);
+            if (read == 0) break;
+            captured.Append(buffer, 0, read);
+            if (!answered && captured.ToString().Contains(promptPattern, StringComparison.Ordinal))
+            {
+                answered = true;
+                await process.StandardInput.WriteAsync(answer + "\n");
+                await process.StandardInput.FlushAsync(linked.Token);
+                process.StandardInput.Close();
+            }
+        }
+        await process.WaitForExitAsync(linked.Token);
+        await stderr.WaitAsync(linked.Token);
+        return (process.ExitCode, captured.ToString());
     }
 
     private static string PtyShellQuote(string value) => $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
