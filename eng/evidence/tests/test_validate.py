@@ -216,10 +216,12 @@ def test_matrix_runner_skips_transition_outside_component_three_cohort(
     assert not transition_install.exists()
 
 
+@pytest.mark.parametrize("cohort", [CAPABILITY_COHORT, "workspace"])
 def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
     tmp_path: pathlib.Path,
+    cohort: str,
 ) -> None:
-    """Run exactly four filtered transition tests for the Component 3 cohort."""
+    """Run all stable lanes and four source-bound transition tests."""
     repository, artifact_root, log, environment = _fake_matrix_environment(tmp_path)
     evidence = tmp_path / "0001"
 
@@ -229,7 +231,7 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
             "--evidence-dir",
             str(evidence),
             "--capability-cohort",
-            CAPABILITY_COHORT,
+            cohort,
             "tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj",
         ],
         check=True,
@@ -266,7 +268,7 @@ def test_matrix_runner_runs_exact_source_bound_tmux_3_7_transition(
     environment_observation = json.loads(
         (evidence / "environment.json").read_text(encoding="utf-8")
     )
-    assert environment_observation["capabilityCohort"] == CAPABILITY_COHORT
+    assert environment_observation["capabilityCohort"] == cohort
     assert environment_observation["includeMasterAdvisory"] is False
     source_commands = (tmp_path / "source-identity.txt").read_text().splitlines()
     assert len(source_commands) == 2
@@ -390,6 +392,29 @@ def test_matrix_runner_rejects_invalid_capability_cohort_combinations(
     )
 
     assert completed.returncode == 2
+
+
+def test_workspace_matrix_requires_the_complete_integration_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Do not admit a smaller test project as the complete native proof cohort."""
+    repository, _artifact_root, _log, environment = _fake_matrix_environment(tmp_path)
+    completed = subprocess.run(
+        [
+            str(repository / "eng" / "tmux" / "run-matrix.sh"),
+            "--evidence-dir",
+            str(tmp_path / "workspace"),
+            "--capability-cohort",
+            "workspace",
+            "tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj",
+        ],
+        cwd=repository,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 2
+    assert "requires the complete integration project" in completed.stderr
 
 
 def _matrix_rows(commit: str) -> list[dict[str, t.Any]]:
@@ -539,14 +564,17 @@ def test_matrix_phase_retains_previous_complete_release_set(
     "mutation",
     ["missing-marker", "missing-transition", "unknown-marker"],
 )
+@pytest.mark.parametrize("cohort", [CAPABILITY_COHORT, "workspace"])
 def test_matrix_phase_requires_exact_component_three_cohort_contract(
     tmp_path: pathlib.Path,
     mutation: str,
+    cohort: str,
 ) -> None:
-    """Bind transition provenance to the explicit Component 3 cohort marker."""
+    """Require the declared cohort and authenticated transition provenance."""
     bundle = _matrix_bundle(tmp_path)
     environment_path = bundle / "environment.json"
     environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    environment["capabilityCohort"] = cohort
     if mutation == "missing-marker":
         environment.pop("capabilityCohort")
         environment.pop("evaluatedCommitTree")
@@ -560,6 +588,25 @@ def test_matrix_phase_requires_exact_component_three_cohort_contract(
     )
 
     with pytest.raises(validate.EvidenceValidationError, match=r"cohort|environment"):
+        validate.validate_bundle(bundle, phase="matrix")
+
+
+def test_workspace_matrix_requires_current_stable_versions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Legacy cohort version sets cannot satisfy a fresh workspace matrix."""
+    bundle = _matrix_bundle(tmp_path)
+    environment_path = bundle / "environment.json"
+    environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    environment["capabilityCohort"] = "workspace"
+    environment["tmuxVersions"] = REQUIRED_TMUX_VERSIONS[:-1]
+    environment_path.write_text(json.dumps(environment) + "\n", encoding="utf-8")
+    _write_rows(
+        bundle, [row for row in _matrix_rows(COMMIT) if row["tmuxVersion"] != "3.7c"]
+    )
+    with pytest.raises(
+        validate.EvidenceValidationError, match="environment observations"
+    ):
         validate.validate_bundle(bundle, phase="matrix")
 
 

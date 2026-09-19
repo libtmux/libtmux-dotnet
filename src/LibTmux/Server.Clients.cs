@@ -13,25 +13,20 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The clients tmux reports.</returns>
     /// <remarks>
-    /// A server with no clients is the ordinary case rather than a failure, so
-    /// this answers empty when tmux cannot list them.
+    /// A server with no clients is the ordinary case: <c>list-clients</c>
+    /// answers zero rows without tmux treating it as a failure, and this
+    /// reports that as an empty list. It does not answer empty for anything
+    /// else -- a handle that has not discovered a server, or a genuine tmux
+    /// command failure, is not the same thing as no clients being attached,
+    /// and reporting it that way would hide the real problem from the caller.
     /// </remarks>
+    /// <exception cref="IncompleteSnapshotException">
+    /// This handle has not discovered a server generation.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The handle has no connection.</exception>
+    /// <exception cref="TmuxCommandException">The tmux command failed.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<Client>> GetClientsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await GetClientsStrictAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (LibTmuxException)
-        {
-            return [];
-        }
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    internal async Task<IReadOnlyList<Client>> GetClientsStrictAsync(
         CancellationToken cancellationToken = default)
     {
         ServerGeneration generation = _generation

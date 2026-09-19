@@ -10,6 +10,7 @@ readonly REQUIRED_VERSIONS=(3.2a 3.3a 3.4 3.5 3.6 3.7a 3.7b 3.7c)
 readonly FRAMEWORKS=(net10.0 net8.0)
 readonly COMPONENT_THREE_COHORT=0001
 readonly CLOSURE_COHORT=closure
+readonly WORKSPACE_COHORT=workspace
 readonly TRANSITION_VERSION=3.7
 readonly SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly CSHARP_DIRECTORY="$(cd -- "${SCRIPT_DIRECTORY}/../.." && pwd)"
@@ -60,7 +61,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 if [[ $# -ne 1 ]]; then
-    echo "usage: run-matrix.sh [--include-master-advisory] [--evidence-dir PATH] [--capability-cohort 0001|closure] PROJECT" >&2
+    echo "usage: run-matrix.sh [--include-master-advisory] [--evidence-dir PATH] [--capability-cohort 0001|closure|workspace] PROJECT" >&2
     exit 2
 fi
 readonly PROJECT="$1"
@@ -81,7 +82,8 @@ if [[ -n "${evidence_directory}" ]]; then
 fi
 if [[ -n "${capability_cohort}" ]]; then
     if [[ "${capability_cohort}" != "${COMPONENT_THREE_COHORT}" \
-        && "${capability_cohort}" != "${CLOSURE_COHORT}" ]]; then
+        && "${capability_cohort}" != "${CLOSURE_COHORT}" \
+        && "${capability_cohort}" != "${WORKSPACE_COHORT}" ]]; then
         echo "unknown capability cohort: ${capability_cohort}" >&2
         exit 2
     fi
@@ -89,11 +91,17 @@ if [[ -n "${capability_cohort}" ]]; then
         echo "--capability-cohort requires --evidence-dir" >&2
         exit 2
     fi
+    if [[ "${capability_cohort}" == "${WORKSPACE_COHORT}" \
+        && "${PROJECT}" != tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj ]]; then
+        echo "workspace cohort requires the complete integration project" >&2
+        exit 2
+    fi
     if [[ ${include_master} -eq 1 ]]; then
         echo "capability cohort ${capability_cohort} forbids master advisory lanes" >&2
         exit 2
     fi
-    if [[ "${capability_cohort}" == "${COMPONENT_THREE_COHORT}" ]]; then
+    if [[ "${capability_cohort}" == "${COMPONENT_THREE_COHORT}" \
+        || "${capability_cohort}" == "${WORKSPACE_COHORT}" ]]; then
         transition_proof=1
     fi
 fi

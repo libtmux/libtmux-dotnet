@@ -64,7 +64,7 @@ internal abstract class MultiplexerDialect
     /// <c>-V</c> answers from the client rather than from a server, and a socket
     /// that names nothing running would fail the question.
     /// </remarks>
-    private protected async Task<string> EnsureVerifiedAsync(CancellationToken cancellationToken)
+    internal async Task<string> EnsureVerifiedAsync(CancellationToken cancellationToken)
     {
         AcceptEndpoint();
         if (Volatile.Read(ref _rawVersion) is string known)

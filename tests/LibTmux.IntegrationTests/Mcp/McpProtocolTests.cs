@@ -1022,20 +1022,16 @@ public sealed class McpProtocolTests
         Assert.Contains("not-a-real-layout", refusedLayout, StringComparison.Ordinal);
         Assert.DoesNotContain("may have acted", refusedLayout, StringComparison.Ordinal);
 
-        // tmux validates a name before it renames anything (cmd-rename-session.c
-        // check_name), exercising the plain TmuxCommandException path.
+        // SessionName.Validate refuses a control character before this
+        // reaches tmux, on every version, the same class of refusal as
+        // create_session's "a:b" case above.
         CallToolResult badName = await harness.Client.CallToolAsync(
             "rename_session",
             new Dictionary<string, object?> { ["name"] = "bad\nname" },
             cancellationToken: token);
-        // tmux only began validating names in 3.7 — older servers accept the
-        // newline — so this asserts the advice, not the refusal.
         string refusedName = Assert.IsType<TextContentBlock>(Assert.Single(badName.Content)).Text;
         Assert.DoesNotContain("may have acted", refusedName, StringComparison.Ordinal);
-        if (badName.IsError ?? false)
-        {
-            Assert.Contains("invalid session name", refusedName, StringComparison.Ordinal);
-        }
+        Assert.DoesNotContain("(Parameter", refusedName, StringComparison.Ordinal);
     }
 
     private static readonly string[] NeverArrives = ["TEXT_THAT_NEVER_ARRIVES"];

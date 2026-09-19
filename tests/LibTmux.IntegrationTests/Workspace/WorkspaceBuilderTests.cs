@@ -55,7 +55,7 @@ public sealed class WorkspaceBuilderTests
 
     [Theory]
     [InlineData(PaneReadiness.Auto, "", "/bin/zsh", "zsh")]
-    [InlineData(PaneReadiness.Auto, "", "/bin/bash", null)]
+    [InlineData(PaneReadiness.Auto, "", "/bin/bash", "bash")]
     [InlineData(PaneReadiness.Always, "", "/bin/bash", "bash")]
     [InlineData(PaneReadiness.Never, "", "/bin/zsh", null)]
     [InlineData(PaneReadiness.Always, "top", "/bin/zsh", null)]
@@ -122,6 +122,53 @@ public sealed class WorkspaceBuilderTests
         Assert.Empty(result.Unsupported);
     }
 
+    // A session the builder creates is 80x24, and halving the previous pane
+    // in turn runs out of rows before the fifth. Rebalancing between splits
+    // is what the CLI learned; the library builds the same window.
+    [UnixFact]
+    public async Task A_window_of_six_panes_builds_at_the_default_size()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporaryServerScope scope = await factory.CreateServerAsync(
+            HarnessOptions(),
+            token);
+
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: libtmux-six
+            windows:
+              - window_name: six
+                panes: [one, two, three, four, five, six]
+            """);
+        WorkspaceBuilder builder = new(scope.Server, Readiness);
+        WorkspaceResult result = await builder.BuildAsync(workspace, token);
+
+        IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
+        Assert.Equal(6, panes.Count);
+        Assert.Empty(result.Unsupported);
+    }
+
+    [Theory]
+    [InlineData("32d2,80x24,0,0{}")]
+    [InlineData("ffff,80x24,0,0,0")]
+    [InlineData("b25d,80x24,0,0,0")]
+    public async Task Invalid_later_layout_is_refused_before_workspace_creation(string layout)
+    {
+        Server server = Server.Open(new ServerConnectionOptions(
+            tmuxBinaryPath: "/tmp/libtmux-dotnet-test/missing-layout-backend",
+            socketPath: "/tmp/libtmux-dotnet-test/unused-layout-socket"));
+        WorkspaceFile workspace = WorkspaceFile.Parse($$"""
+            session_name: invalid-layout
+            windows:
+              - panes: [null]
+              - layout: "{{layout}}"
+                panes: [null, null]
+            """);
+
+        await Assert.ThrowsAsync<WorkspaceFormatException>(() =>
+            new WorkspaceBuilder(server).BuildAsync(workspace, TestContext.Current.CancellationToken));
+    }
+
     [UnixFact]
     public async Task What_tmux_cannot_do_is_reported_rather_than_dropped()
     {
@@ -135,9 +182,10 @@ public sealed class WorkspaceBuilderTests
             session_name: libtmux-unsupported
             windows:
               - window_name: only
-                layout: "0000,not-a-layout"
+                layout: "79f5,80x24,0,0{39x23,0,0,0,40x24,40,0,1}"
                 panes:
                   - echo hello
+                  - echo other
             """);
 
         WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
@@ -148,7 +196,7 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal("libtmux-unsupported", result.Session.Name);
         Assert.Contains(
             result.Unsupported,
-            message => message.Contains("0000,not-a-layout", StringComparison.Ordinal));
+            message => message.Contains("79f5,80x24,0,0{39x23,0,0,0,40x24,40,0,1}", StringComparison.Ordinal));
     }
 
     [UnixFact]

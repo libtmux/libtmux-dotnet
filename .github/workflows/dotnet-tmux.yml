@@ -47,6 +47,9 @@ jobs:
           global-json-file: global.json
 
       - name: Install build dependencies
+        # zsh drives the Workspace CLI tests' pane-readiness regression test:
+        # the wait it guards once ran only for that shell, so the test still
+        # exercises a real one to prove the generalized wait did not regress it.
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
@@ -57,7 +60,8 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
-            pkg-config
+            pkg-config \
+            zsh
 
       - name: Restore the tmux build
         id: tmux-cache
@@ -77,6 +81,29 @@ jobs:
 
       - name: Build
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Prepare the Python compatibility runtime
+        run: |
+          uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
+          uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
+          echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
+
+      - name: Workspace CLI tests
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+        run: |
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          dotnet test \
+            --project tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
+            --configuration Release \
+            --framework "${MATRIX_FRAMEWORK}" \
+            --no-build \
+            --fail-skips on \
+            --minimum-expected-tests 80
 
       - name: Integration tests
         env:
@@ -100,7 +127,8 @@ jobs:
         # workflow runs them. The floor on the count is what stops a filter
         # that excluded more than that from passing quietly.
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \
@@ -159,7 +187,8 @@ jobs:
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \

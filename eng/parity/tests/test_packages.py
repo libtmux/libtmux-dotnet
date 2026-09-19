@@ -207,11 +207,14 @@ def test_an_optional_package_is_still_held_to_its_own_contract(
     assert "LibTmux.Query.Json declares dependency YamlDotNet" in inspect(package)
 
 
-def test_a_tool_carries_its_binaries_under_tools(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("identifier", ["LibTmux.Mcp", "LibTmux.Workspace.Cli"])
+def test_a_tool_carries_its_binaries_under_tools(
+    tmp_path: pathlib.Path, identifier: str
+) -> None:
     """A tool has no lib folder, and reporting one missing would be noise."""
     package = build(
         tmp_path,
-        identifier="LibTmux.Mcp",
+        identifier=identifier,
         tool=True,
         symbols=False,
         dependency=None,

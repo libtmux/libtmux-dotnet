@@ -27951,6 +27951,36 @@
       "summary": "Reports whether two handles reach different server endpoints."
     },
     {
+      "id": "M:LibTmux.Server.ValidateLayoutsAsync(IEnumerable<(string Layout,int PaneCount)>,CancellationToken)",
+      "declaringType": "T:LibTmux.Server",
+      "name": "ValidateLayoutsAsync",
+      "kind": "method",
+      "visibility": "public",
+      "package": "LibTmux",
+      "static": false,
+      "genericParameters": [],
+      "returnType": "Task",
+      "parameters": [
+        {
+          "name": "layouts",
+          "type": "IEnumerable<(string Layout,int PaneCount)>"
+        },
+        {
+          "name": "cancellationToken",
+          "type": "CancellationToken",
+          "default": "default"
+        }
+      ],
+      "signature": "Task LibTmux.Server.ValidateLayoutsAsync(IEnumerable<(string Layout, int PaneCount)> layouts, CancellationToken cancellationToken = default)",
+      "performsIO": true,
+      "processBacked": true,
+      "portable": false,
+      "platformAnnotations": [
+        "UnsupportedOSPlatform(\"windows\")"
+      ],
+      "summary": "Checks layout syntax and minimum cell counts before mutation, resolving version-sensitive names against the daemon or an authenticated cold client."
+    },
+    {
       "id": "M:LibTmux.Session.op_Equality(Session?,Session?)",
       "declaringType": "T:LibTmux.Session",
       "name": "op_Equality",

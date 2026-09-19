@@ -302,7 +302,7 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
         left.CompareTo(right) >= 0;
 
     [GeneratedRegex(
-        "\\A(?:next-(?<nextMajor>0|[1-9][0-9]*)\\.(?<nextMinor>0|[1-9][0-9]*)|(?<major>0|[1-9][0-9]*)\\.(?<minor>0|[1-9][0-9]*)(?:\\.(?<micro>0|[1-9][0-9]*)|(?<patch>[a-z]+)(?<patchVendor>-openbsd)?|(?<finalVendor>-openbsd)|-rc(?<rc>[1-9][0-9]*)|-dev(?:\\.(?<dev>0|[1-9][0-9]*))?)?)\\z",
+        "\\A(?:next-(?<nextMajor>0|[1-9][0-9]*)\\.(?<nextMinor>0|[1-9][0-9]*)|(?<major>0|[1-9][0-9]*)\\.(?<minor>0|[1-9][0-9]*)(?:\\.(?<micro>0|[1-9][0-9]*)|(?<patch>[a-z]+)(?<patchVendor>-openbsd)?|(?<finalVendor>-openbsd)|(?<rcTag>-rc)(?<rc>[1-9][0-9]*)?|-dev(?:\\.(?<dev>0|[1-9][0-9]*))?)?)\\z",
         RegexOptions.CultureInvariant)]
     private static partial Regex VersionRegex();
 
@@ -335,16 +335,27 @@ public readonly partial record struct TmuxVersion : IComparable<TmuxVersion>
             kind = VersionKind.Next;
             suffix = "next";
         }
-        else if (match.Groups["rc"].Success)
+        else if (match.Groups["rcTag"].Success)
         {
-            if (!TryParseComponent(match.Groups["rc"].Value, out sequence))
+            // tmux 3.8's own candidate reports itself as "3.8-rc", with no
+            // trailing digit, unlike the numbered form older releases used.
+            if (match.Groups["rc"].Success)
             {
-                result = default;
-                return false;
+                if (!TryParseComponent(match.Groups["rc"].Value, out sequence))
+                {
+                    result = default;
+                    return false;
+                }
+
+                suffix = $"rc{sequence.ToString(CultureInfo.InvariantCulture)}";
+            }
+            else
+            {
+                sequence = -1;
+                suffix = "rc";
             }
 
             kind = VersionKind.ReleaseCandidate;
-            suffix = $"rc{sequence.ToString(CultureInfo.InvariantCulture)}";
         }
         else if (text.Contains("-dev", StringComparison.Ordinal))
         {

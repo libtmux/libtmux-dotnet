@@ -181,7 +181,16 @@ public sealed class Component10ParityTests
     {
         await server.CreateSessionAsync(new NewSessionRequest(name: "doomed"), token);
         await server.KillSessionAsync("doomed", token);
-        return !await server.HasSessionAsync("doomed", true, token);
+        bool exactNameWasKilled = !await server.HasSessionAsync("doomed", true, token);
+
+        // tmux reads an unanchored -t as a prefix, so "doom" would otherwise
+        // resolve to this session and kill it instead of refusing.
+        await server.CreateSessionAsync(new NewSessionRequest(name: "doomsday"), token);
+        await Assert.ThrowsAsync<TmuxCommandException>(() => server.KillSessionAsync("doom", token));
+        bool prefixMatchWasRefused = await server.HasSessionAsync("doomsday", true, token);
+        await server.KillSessionAsync("doomsday", token);
+
+        return exactNameWasKilled && prefixMatchWasRefused;
     }
 
     private static async Task<bool> ProvesKillServerAsync(Server server, CancellationToken token)

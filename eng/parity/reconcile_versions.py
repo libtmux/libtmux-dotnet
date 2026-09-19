@@ -72,7 +72,8 @@ COMMAND_GATE_CAPABILITIES = {
     "split_window_appearance",
     "split_window_empty",
 }
-REQUIRED_CAPABILITIES = PROTOCOL_CAPABILITIES | COMMAND_GATE_CAPABILITIES
+LAYOUT_CAPABILITIES = {"layout_mirrors"}
+REQUIRED_CAPABILITIES = PROTOCOL_CAPABILITIES | COMMAND_GATE_CAPABILITIES | LAYOUT_CAPABILITIES
 VERSION_PARITY_TEST = (
     "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::"
 )
@@ -105,6 +106,7 @@ VERSION_PARITY_METHODS = {
     "hook_scope_pane_window_set": "HookScopePaneWindowSet",
     "hook_scope_pane_window_show": "HookScopePaneWindowShow",
     "kill_session_group": "KillSessionGroup",
+    "layout_mirrors": "LayoutMirrors",
     "list_keys_format": "ListKeysFormat",
     "new_pane_command": "NewPaneCommand",
     "option_dollar_double_escape": "OptionDollarDoubleEscape",
@@ -132,6 +134,7 @@ EVIDENCE_COHORT_TESTS: dict[str, dict[str, tuple[str, ...]]] = {
 }
 CAPABILITY_COHORT = "0001"
 CLOSURE_COHORT = "closure"
+WORKSPACE_COHORT = "workspace"
 POLICY_OWNER_COMPONENTS = {
     "break_pane_3_7_workaround": (12,),
     "capture_pane_3_7_metadata": (12,),
@@ -219,6 +222,11 @@ POLICY_PROOF_CONTRACTS = {
     for capability in COMMAND_GATE_CAPABILITIES
 }
 EVIDENCE_COHORT_TESTS[CLOSURE_COHORT] = POLICY_WRAPPER_TESTS
+EVIDENCE_COHORT_TESTS[WORKSPACE_COHORT] = {
+    **EVIDENCE_COHORT_TESTS[CAPABILITY_COHORT],
+    **POLICY_WRAPPER_TESTS,
+    "layout_mirrors": PRODUCTION_CAPABILITY_TESTS["layout_mirrors"],
+}
 HOOK_SCOPE_CAPABILITIES = {
     "hook_scope_pane_window_set",
     "hook_scope_pane_window_show",
@@ -799,13 +807,22 @@ def validate(document: dict[str, t.Any]) -> list[str]:
         if not is_real_server_test(row.get("namedRealServerTest")):
             violations.append(f"invalid real-server test: {capability}")
         if status == "verified":
+            evidence = row.get("evidence")
+            workspace_cohort = (
+                isinstance(evidence, dict)
+                and evidence.get("capabilityCohort") == WORKSPACE_COHORT
+            ) or capability in LAYOUT_CAPABILITIES
             expected_cohort = (
-                CLOSURE_COHORT
+                WORKSPACE_COHORT
+                if workspace_cohort
+                else CLOSURE_COHORT
                 if capability in COMMAND_GATE_CAPABILITIES
                 else CAPABILITY_COHORT
             )
             expected_tests = (
-                POLICY_WRAPPER_TESTS[capability]
+                EVIDENCE_COHORT_TESTS[WORKSPACE_COHORT].get(capability)
+                if workspace_cohort
+                else POLICY_WRAPPER_TESTS[capability]
                 if capability in COMMAND_GATE_CAPABILITIES
                 else None
             )
@@ -853,7 +870,7 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
     cohort = environment.get("capabilityCohort")
     expected_keys = (
         ENVIRONMENT_KEYS
-        if cohort == CAPABILITY_COHORT
+        if cohort in {CAPABILITY_COHORT, WORKSPACE_COHORT}
         else CLOSURE_ENVIRONMENT_KEYS
         if cohort == CLOSURE_COHORT
         else set()
@@ -877,9 +894,10 @@ def _load_environment(path: pathlib.Path) -> dict[str, t.Any]:
         or not isinstance(fingerprint, str)
         or FINGERPRINT_PATTERN.fullmatch(fingerprint) is None
         or required_versions is None
+        or (cohort == WORKSPACE_COHORT and required_versions != REQUIRED_TMUX_VERSIONS)
     ):
         _fail("matrix environment observations are invalid")
-    if cohort == CAPABILITY_COHORT:
+    if cohort in {CAPABILITY_COHORT, WORKSPACE_COHORT}:
         transition_commits = environment["transitionTmuxSourceCommits"]
         if (
             not isinstance(transition_commits, dict)
@@ -1155,8 +1173,8 @@ def _verify_capability_tests(
             source_state_value,
         )
         test_pattern = re.compile(
-            rf"\[(?:UnixFact|Fact|Theory)(?:\([^\]\r\n]*\))?\]\s*"
-            rf"(?:\[[^\]\r\n]+\]\s*)*"
+            rf"\[(?:UnixFact|Fact|Theory)(?:\([^\]]*\))?\]\s*"
+            rf"(?:\[[^\]]+\]\s*)*"
             rf"\b(?:public|internal)\s+(?:async\s+)?(?:Task|void)\s+"
             rf"{re.escape(method)}\s*\("
         )
@@ -1207,7 +1225,7 @@ def reconcile(
         matrix,
     )
     cohort = source_environment["capabilityCohort"]
-    if cohort == CAPABILITY_COHORT:
+    if cohort in {CAPABILITY_COHORT, WORKSPACE_COHORT}:
         _inspect_break_pane_transition(
             evidence_path,
             repository,
@@ -1226,6 +1244,11 @@ def reconcile(
         _fail("command policy evidence must remain pending for capability cohort 0001")
     if cohort == CLOSURE_COHORT and dict(selected_tests) != POLICY_WRAPPER_TESTS:
         _fail("closure capability mapping is not exact")
+    if (
+        cohort == WORKSPACE_COHORT
+        and dict(selected_tests) != EVIDENCE_COHORT_TESTS[WORKSPACE_COHORT]
+    ):
+        _fail("workspace capability mapping is not exact")
     reconciled = json.loads(json.dumps(document))
     for row in reconciled["capabilities"]:
         capability = row["capability"]
@@ -1305,7 +1328,7 @@ def _validate_persisted_result_group(
     if environment["evaluatedCommit"] != matrix["evaluatedCommit"]:
         _fail("persisted matrix environment differs from results")
     cohort = t.cast(str, environment["capabilityCohort"])
-    if cohort == CAPABILITY_COHORT:
+    if cohort in {CAPABILITY_COHORT, WORKSPACE_COHORT}:
         _inspect_break_pane_transition(
             results,
             repository,
@@ -1336,7 +1359,7 @@ def _validate_persisted_result_group(
         row_evidence = t.cast(dict[str, t.Any], row["evidence"])
         capability = t.cast(str, row["capability"])
         expected_tests = EVIDENCE_COHORT_TESTS[cohort].get(capability)
-        if cohort == CLOSURE_COHORT and (
+        if cohort in {CLOSURE_COHORT, WORKSPACE_COHORT} and (
             expected_tests is None or row_evidence["tests"] != list(expected_tests)
         ):
             _fail("persisted capability tests differ from the cohort contract")

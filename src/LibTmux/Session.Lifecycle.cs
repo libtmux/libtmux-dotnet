@@ -357,7 +357,7 @@ public sealed partial class Session
     {
         yield return "attach-session";
         yield return "-t";
-        yield return options.Target ?? fallbackTarget;
+        yield return options.Target is null ? fallbackTarget : AttachTarget(options.Target);
         if (options.DetachOthers)
         {
             yield return "-d";
@@ -380,6 +380,20 @@ public sealed partial class Session
             yield return "-f";
             yield return string.Join(',', clientFlags);
         }
+    }
+
+    // A session id addresses exactly one session. A name is anchored, because
+    // tmux matches a bare -t name as a prefix and would attach to a different
+    // session that merely starts with it.
+    private static string AttachTarget(string target)
+    {
+        if (SessionId.TryParse(target, out _))
+        {
+            return target;
+        }
+
+        SessionName.Validate(target);
+        return $"={target}";
     }
 
     internal static IEnumerable<string> BuildNewWindowArguments(

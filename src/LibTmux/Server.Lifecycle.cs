@@ -80,8 +80,11 @@ public sealed partial class Server
         CancellationToken cancellationToken = default)
     {
         SessionName.Validate(target);
+        // tmux treats -t as a prefix match, so an unanchored target could
+        // resolve to, and kill, a different session that merely starts with
+        // the requested name.
         TmuxCommandResult result = await Dispatch(
-                ["kill-session", "-t", target],
+                ["kill-session", "-t", $"={target}"],
                 cancellationToken)
             .ConfigureAwait(false);
         TmuxCommandFailure.ThrowIfFailed(result, "kill-session");
