@@ -87,6 +87,11 @@ and effective tools. Closing the MCP connection cancels pending work and
 leaves this separately loaded tmux session running. See the
 [MCP tool reference](../../docs/mcp/tools.md) for exact schemas.
 
+This tool does not use `LibTmux.Workspace`, the workspace library in the same
+repository. The two are separate implementations: this one reads a wider
+document language and refuses a rejected layout where the library records it
+and carries on. That package's README names every difference.
+
 ## Commands and output
 
 `load`, `freeze`, `convert`, `import teamocil`, `import tmuxinator`, `ls`, `search`, `edit`, `debug-info` and `shell` accept inherited `--json` and `--ndjson`. NDJSON wins when both flags are present. Explicit `--help` prints human help, and `--` ends option scanning, so a workspace file named `-h` is loaded rather than treated as a help request. Machine diagnostics are JSON lines on stderr.

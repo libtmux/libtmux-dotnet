@@ -70,10 +70,10 @@ contains only layouts that tmux rejected; those windows remain usable.
 Other tmux failures throw `WorkspaceBuildException`. Its `PartialResult`
 contains the session and windows materialized before failure, or is null when
 none could be read. The builder is not transactional. Before sending workspace
-commands, `PaneReadiness.Auto`, the default, waits only for panes using a zsh
-session `default-shell`.
-`PaneReadiness.Always` waits before commands sent to every default-shell pane;
-`PaneReadiness.Never` sends them immediately. A nonempty session
+commands, `PaneReadiness.Auto`, the default, waits for the pane's prompt
+whatever the session `default-shell` is.
+`PaneReadiness.Always` waits the same way and does not consult the policy;
+`PaneReadiness.Never` sends commands immediately. A nonempty session
 `default-command` skips the wait under every policy because that command is not
 treated as an interactive shell.
 
@@ -103,6 +103,25 @@ multiple YAML documents, and inputs over 1 MiB raise
 
 It is **not** a tmuxp runtime. Plugins, before/after hooks, and tmuxp's own
 configuration search path are rejected — if you need those, run tmuxp.
+
+## This is not the CLI's builder
+
+`tmux-workspace`, the [command-line tool](https://www.nuget.org/packages/LibTmux.Workspace.Cli),
+does not call `WorkspaceBuilder`. It is a second implementation of the same
+domain in the same repository, and the two answer some questions differently.
+Read a workspace file against the side that will build it:
+
+| | This library | `tmux-workspace` |
+|---|---|---|
+| Document language | 4 root, 6 window and 3 pane keys | 15, 12 and 10, plus `x-` passthrough |
+| A layout tmux rejects | recorded in `Unsupported`, the load continues | refuses the load |
+| A readiness timeout | throws `TmuxWaitTimeoutException` | sends the command anyway |
+| A failure partway | throws, keeping what was built | removes a session it created |
+| Session size | tmux's default, 80x24 | the invoking terminal |
+
+A file the CLI loads can therefore raise `WorkspaceFormatException` here. Both
+build the same topology for the subset they share, including the rebalance
+between splits that a window of five or more panes needs at 80x24.
 
 ## Related packages
 

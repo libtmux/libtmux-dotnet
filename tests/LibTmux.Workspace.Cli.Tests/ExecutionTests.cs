@@ -199,7 +199,7 @@ public sealed class ExecutionTests : IDisposable
         CancellationToken token = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, form + "-dotted.socket");
         string destination = Path.Combine(_root, form + "-dotted.yaml");
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             TmuxCommandResult started = await server.ExecuteCommandAsync(["new-session", "-d", "-s", "my.proj"], token);

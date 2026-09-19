@@ -1713,7 +1713,7 @@ public sealed class RegressionTests : IDisposable
         File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
         Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal) { ["LIBTMUX_TMUX"] = wrapper, ["REAL_TMUX"] = binary };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = binary, SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             using StringWriter output = new();
@@ -1747,7 +1747,7 @@ public sealed class RegressionTests : IDisposable
         string file = Path.Combine(_root, "active" + declared + ".yaml");
         string focus = declared ? ", {focus: true}" : "";
         await File.WriteAllTextAsync(file, "session_name: active\nwindows: [{window_name: one, panes: [null" + focus + ", null]}, {window_name: two, panes: [null, null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -1769,7 +1769,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "scope.socket");
         string file = Path.Combine(_root, "scope.yaml");
         await File.WriteAllTextAsync(file, "session_name: scope\noptions: {pane-base-index: 1, base-index: 3}\nwindows: [{window_name: one, panes: [null, null]}, {window_name: two, panes: [null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -1792,7 +1792,7 @@ public sealed class RegressionTests : IDisposable
         string socket = Path.Combine(_root, "warn.socket");
         string file = Path.Combine(_root, "warn.yaml");
         await File.WriteAllTextAsync(file, "session_name: warn\nstart_directory: /nonexistent/definitely/not/here\nworkspace_builder_options: {pane_readiness: auto, not_a_real_setting: 1}\nwindows: [{window_name: w, panes: [null]}]\n", token);
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             var result = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
@@ -1829,7 +1829,7 @@ public sealed class RegressionTests : IDisposable
             ["REAL_TMUX"] = binary,
             ["TRACE"] = trace,
         };
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = binary, SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             using StringWriter output = new();
@@ -2046,7 +2046,7 @@ public sealed class RegressionTests : IDisposable
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string socket = Path.Combine(_root, "tty.socket");
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
             await Execute(server, "new-session", "-d", "-s", "tty");
