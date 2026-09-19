@@ -2,6 +2,14 @@
   <!-- Items that depend on what a project decided about itself belong here
        rather than in Directory.Build.props: props is imported before the
        project body, where IsPackable is still whatever the default was. -->
+  <!-- Runs at pack time. With no shipped baseline to compare against yet, what
+       it catches is the half that does not need one: a member present on one
+       target framework and absent on the other, which a consumer meets as a
+       missing method rather than a build error. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true' and '$(PackAsTool)' != 'true'">
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)assets/icon.png"
           Pack="true"
