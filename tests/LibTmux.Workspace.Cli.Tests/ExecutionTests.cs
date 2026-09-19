@@ -150,7 +150,7 @@ public sealed class ExecutionTests : IDisposable
             (code, output, error) = await Run("freeze", "native", "-S", socket, "--json");
             Assert.Equal("capture_lossy", JsonNode.Parse(error)!["code"]!.ToString());
             Assert.Equal(0, code);
-            JsonNode capture = JsonNode.Parse(output)!;
+            JsonNode capture = JsonNode.Parse(output)!["workspace"]!;
             Assert.Equal("native", capture["session_name"]!.ToString());
             JsonArray windows = capture["windows"]!.AsArray();
             Assert.Equal(2, windows.Count);
@@ -165,7 +165,7 @@ public sealed class ExecutionTests : IDisposable
             (code, output, error) = await Run("--log-level", "error", "freeze", "native", "-S", socket, "--json");
             Assert.Equal(0, code);
             Assert.Empty(error);
-            Assert.Equal("native", JsonNode.Parse(output)!["session_name"]!.ToString());
+            Assert.Equal("native", JsonNode.Parse(output)!["workspace"]!["session_name"]!.ToString());
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
     }
@@ -243,7 +243,7 @@ public sealed class ExecutionTests : IDisposable
             }
             (code, output, error) = await Run("freeze", "shellomit", "-S", socket, "--json");
             Assert.Equal(0, code);
-            JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
+            JsonArray panes = JsonNode.Parse(output)!["workspace"]!["windows"]![0]!["panes"]!.AsArray();
             Assert.Equal(2, panes.Count);
             Assert.Null(panes[0]!["shell_command"]);
             Assert.Equal(["sleep"], panes[1]!["shell_command"]!.AsArray().Select(node => node!.ToString()));
@@ -283,7 +283,7 @@ public sealed class ExecutionTests : IDisposable
             }
             (code, output, error) = await Run("freeze", "shellmismatch", "-S", socket, "--json");
             Assert.Equal(0, code);
-            JsonArray panes = JsonNode.Parse(output)!["windows"]![0]!["panes"]!.AsArray();
+            JsonArray panes = JsonNode.Parse(output)!["workspace"]!["windows"]![0]!["panes"]!.AsArray();
             Assert.Null(panes[0]!["shell_command"]);
         }
         finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
@@ -297,7 +297,7 @@ public sealed class ExecutionTests : IDisposable
         (int code, string output, string error) = await Run("import", "tmuxinator", file, "--json");
         Assert.Empty(error);
         Assert.Equal(0, code);
-        JsonNode result = JsonNode.Parse(output)!;
+        JsonNode result = JsonNode.Parse(output)!["document"]!;
         Assert.Equal("project", result["session_name"]!.ToString());
         Assert.Equal("editor", result["windows"]![0]!["window_name"]!.ToString());
         Assert.Single(result["windows"]![0]!["panes"]!.AsArray());
@@ -398,7 +398,7 @@ public sealed class ExecutionTests : IDisposable
         (int converted, string document, string conversionError) = await Run("convert", source, "--json");
         Assert.Equal(0, converted);
         Assert.Empty(conversionError);
-        JsonNode value = JsonNode.Parse(document)!;
+        JsonNode value = JsonNode.Parse(document)!["document"]!;
         JsonObject window = value["windows"]!.AsArray()[0]!.AsObject();
         string observed = field switch
         {
@@ -428,7 +428,7 @@ public sealed class ExecutionTests : IDisposable
             // verbatim rather than being refused like tmuxinator's.
             Assert.Empty(error);
             Assert.Equal(0, code);
-            JsonNode imported = save ? JsonNode.Parse(await File.ReadAllTextAsync(destination, token))! : JsonNode.Parse(output)!;
+            JsonNode imported = save ? JsonNode.Parse(await File.ReadAllTextAsync(destination, token))! : JsonNode.Parse(output)!["document"]!;
             Assert.Equal(template, imported["windows"]![0]!["panes"]![0]!["shell_command"]!.ToString());
         }
     }

@@ -1556,7 +1556,7 @@ public sealed class RegressionTests : IDisposable
             if (endpoint == "same")
             {
                 Assert.Equal(0, code);
-                Assert.Equal("inherited-second", JsonNode.Parse(output.ToString())!["session_name"]!.ToString());
+                Assert.Equal("inherited-second", JsonNode.Parse(output.ToString())!["workspace"]!["session_name"]!.ToString());
             }
             else
             {
