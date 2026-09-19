@@ -1676,6 +1676,44 @@ public sealed class RegressionTests : IDisposable
         finally { if (await server.IsAliveAsync(TestContext.Current.CancellationToken)) await server.KillAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 
+    // bash echoes text that lands before its line editor owns the terminal
+    // and readline then redraws it, so a command sent too early shows twice.
+    // The wait is not conditional on the shell being zsh.
+    [Theory]
+    [InlineData("/bin/bash")]
+    [InlineData("/bin/zsh")]
+    public async Task Pane_commands_wait_for_the_panes_shell_whatever_it_is(string shell)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, "readyshell.socket");
+        string file = Path.Combine(_root, "readyshell.yaml");
+        string trace = Path.Combine(_root, "readyshell-arguments");
+        string wrapper = Path.Combine(_root, "readyshell-wrapper");
+        await File.WriteAllTextAsync(wrapper, "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"$TRACE\"\nexec \"$REAL_TMUX\" \"$@\"\n", token);
+        File.SetUnixFileMode(wrapper, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await File.WriteAllTextAsync(file, "session_name: readyshell\nglobal_options: {default-shell: " + shell + "}\nwindows: [{panes: ['printf ready']}]\n", token);
+        string binary = Context(TextWriter.Null).Executable(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        Dictionary<string, string?> environment = new(Context(TextWriter.Null).Environment, StringComparer.Ordinal)
+        {
+            ["LIBTMUX_TMUX"] = wrapper,
+            ["REAL_TMUX"] = binary,
+            ["TRACE"] = trace,
+        };
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: binary, socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            using StringWriter output = new();
+            using StringWriter error = new();
+            int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, environment, token);
+            Assert.True(code == 0, error.ToString());
+            string arguments = await File.ReadAllTextAsync(trace, token);
+            Assert.Contains("#{pane_current_command}", arguments, StringComparison.Ordinal);
+            Assert.Contains("#{cursor_x},#{cursor_y}", arguments, StringComparison.Ordinal);
+            Assert.True(arguments.IndexOf("#{cursor_x},#{cursor_y}", StringComparison.Ordinal) < arguments.IndexOf("send-keys", StringComparison.Ordinal), arguments);
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     [Theory]
     [InlineData("always")]
     [InlineData("auto")]
