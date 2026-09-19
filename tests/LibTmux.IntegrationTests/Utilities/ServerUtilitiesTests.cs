@@ -23,7 +23,7 @@ public sealed class ServerUtilitiesTests
         // lists the tables it already knows, so the binding goes in one of
         // those rather than in a table of its own.
         await server.BindKeyAsync(
-            new BindKeyRequest("F12", ["display-message", "bound"], keyTable: "root"),
+            new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
         Assert.Contains(
             await server.GetKeysAsync("root", cancellationToken: token),
@@ -183,12 +183,12 @@ public sealed class ServerUtilitiesTests
         Server server = await ConnectAsync(raw, token);
 
         await server.BindKeyAsync(
-            new BindKeyRequest(
-                "F11",
-                ["display-message", "noted"],
-                keyTable: "root",
-                note: "a libtmux binding",
-                repeat: true),
+            new BindKeyRequest("F11", ["display-message", "noted"])
+            {
+                KeyTable = "root",
+                Note = "a libtmux binding",
+                Repeat = true,
+            },
             token);
 
         IReadOnlyList<string> bound = await server.GetKeysAsync("root", cancellationToken: token);
@@ -196,7 +196,7 @@ public sealed class ServerUtilitiesTests
 
         // Unbinding one key leaves the table's other bindings alone.
         await server.BindKeyAsync(
-            new BindKeyRequest("F10", ["display-message", "kept"], keyTable: "root"),
+            new BindKeyRequest("F10", ["display-message", "kept"]) { KeyTable = "root" },
             token);
         await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F11", KeyTable = "root" }, token);
         IReadOnlyList<string> after = await server.GetKeysAsync("root", cancellationToken: token);
@@ -348,10 +348,10 @@ public sealed class ServerUtilitiesTests
                 new IfShellRequest("true", ["set-option", "-g", "@then", "taken"]),
                 token);
             await server.IfShellAsync(
-                new IfShellRequest(
-                    "false",
-                    ["set-option", "-g", "@then", "wrong"],
-                    ["set-option", "-g", "@else", "taken"]),
+                new IfShellRequest("false", ["set-option", "-g", "@then", "wrong"])
+                {
+                    ElseCommand = ["set-option", "-g", "@else", "taken"],
+                },
                 token);
             await WaitForOptionAsync(server, "@then", "taken", token);
             await WaitForOptionAsync(server, "@else", "taken", token);

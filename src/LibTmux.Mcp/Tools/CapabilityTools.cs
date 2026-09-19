@@ -877,7 +877,7 @@ internal sealed class CapabilityTools
     {
         Server server = await ServerAsync(cancellationToken).ConfigureAwait(false);
         _ = await server.Options.SetAsync(
-                new SetOptionRequest("mouse", enabled ? "on" : "off", OptionScope.Session, global: true),
+                new SetOptionRequest("mouse", enabled ? "on" : "off") { Scope = OptionScope.Session, Global = true },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Mouse support is {(enabled ? "enabled" : "disabled")}.");
@@ -906,7 +906,7 @@ internal sealed class CapabilityTools
         // expandFormat stays off: it is the flag that would make tmux read the
         // value as a format, which is the one thing the grammar rules out.
         _ = await options.SetAsync(
-                new SetOptionRequest(name, value, global: scope is OptionScope.Server),
+                new SetOptionRequest(name, value) { Global = scope is OptionScope.Server },
                 cancellationToken)
             .ConfigureAwait(false);
         return new ActionResult($"Set {name} to {value} at {scope} scope.");

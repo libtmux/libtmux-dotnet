@@ -61,8 +61,10 @@ is a clear then one command per entry, so it answers a list:
 ```csharp
 IReadOnlyList<TmuxCommand> commands = new SetHooksRequest(
     "after-new-window",
-    new Dictionary<int, string> { [0] = "display-message first" },
-    clearExisting: true).ToCommands(server.Hooks);
+    new Dictionary<int, string> { [0] = "display-message first" })
+{
+    ClearExisting = true,
+}.ToCommands(server.Hooks);
 ```
 
 ## Building reaches nothing

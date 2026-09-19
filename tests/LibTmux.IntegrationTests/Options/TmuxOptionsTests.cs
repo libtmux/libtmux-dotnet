@@ -22,7 +22,7 @@ public sealed class TmuxOptionsTests
 
         // A value set globally is not in the session's own table, and shows up
         // there only when inherited values are asked for.
-        await session.Options.SetAsync(new SetOptionRequest("status-keys", "vi", global: true), token);
+        await session.Options.SetAsync(new SetOptionRequest("status-keys", "vi") { Global = true }, token);
         Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("status-keys") { Quiet = true }, token));
         IReadOnlyList<TmuxOption> inherited = await session.Options.GetAsync(
             new GetOptionRequest("status-keys") { IncludeInherited = true },
@@ -94,7 +94,7 @@ public sealed class TmuxOptionsTests
         // A request may name a scope other than the accessor's own, which is
         // how a session reaches the global table it inherits from.
         await session.Options.SetAsync(
-            new SetOptionRequest("@shared", "everywhere", global: true),
+            new SetOptionRequest("@shared", "everywhere") { Global = true },
             token);
         Assert.Equal(
             "everywhere",
@@ -146,7 +146,7 @@ public sealed class TmuxOptionsTests
         // Appending joins the existing value rather than replacing it.
         await session.Options.SetAsync(new SetOptionRequest("@joined", "left"), token);
         TmuxOptionValue joined = await session.Options.SetAsync(
-            new SetOptionRequest("@joined", "-right", append: true),
+            new SetOptionRequest("@joined", "-right") { Append = true },
             token);
         Assert.Equal("left-right", joined.Raw);
 
@@ -154,7 +154,7 @@ public sealed class TmuxOptionsTests
         // that the option is already set and leaves it alone.
         TmuxOptionException occupied = await Assert.ThrowsAsync<TmuxOptionException>(
             () => session.Options.SetAsync(
-                new SetOptionRequest("@joined", "ignored", preventOverwrite: true),
+                new SetOptionRequest("@joined", "ignored") { PreventOverwrite = true },
                 token));
         Assert.Contains("already set", occupied.Message, StringComparison.Ordinal);
         Assert.Equal(
@@ -165,7 +165,7 @@ public sealed class TmuxOptionsTests
         // A format is expanded before it is stored, so the value that lands is
         // not the one that was sent.
         TmuxOptionValue expanded = await session.Options.SetAsync(
-            new SetOptionRequest("@expanded", "#{session_name}", expandFormat: true),
+            new SetOptionRequest("@expanded", "#{session_name}") { ExpandFormat = true },
             token);
         Assert.Equal(session.Name, expanded.Raw);
 

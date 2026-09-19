@@ -161,7 +161,7 @@ public sealed class Component15ParityTests
         Assert.Equal(0, Assert.Single(one.Values).Index);
 
         TmuxHook two = await server.Hooks.SetAsync(
-            new SetHookRequest("alert-bell", "display-message second", append: true),
+            new SetHookRequest("alert-bell", "display-message second") { Append = true },
             token);
         return two.Values.Select(entry => entry.Index).SequenceEqual([0, 1]);
     }
@@ -179,14 +179,14 @@ public sealed class Component15ParityTests
     {
         await server.Hooks.SetAsync(new SetHookRequest("alert-bell", "display-message stale"), token);
         TmuxHook hook = await server.Hooks.SetAsync(
-            new SetHooksRequest(
-                "alert-bell",
-                new Dictionary<int, string>
-                {
-                    [1] = "display-message second",
-                    [4] = "display-message fifth",
-                },
-                clearExisting: true),
+            new SetHooksRequest("alert-bell", new Dictionary<int, string>
+            {
+                [1] = "display-message second",
+                [4] = "display-message fifth",
+            })
+            {
+                ClearExisting = true,
+            },
             token);
 
         // Clearing first means the entry that was at index zero is gone, and

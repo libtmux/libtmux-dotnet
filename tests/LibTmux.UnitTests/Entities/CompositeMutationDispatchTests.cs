@@ -246,7 +246,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.Options.SetAsync(
-                new SetOptionRequest("status-left", "next", append: true),
+                new SetOptionRequest("status-left", "next") { Append = true },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));

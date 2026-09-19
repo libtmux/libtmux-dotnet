@@ -15,13 +15,16 @@ LibTmux.AttachSessionRequest.Target.get -> string?
 LibTmux.AttachSessionRequest.Target.init -> void
 LibTmux.BindKeyRequest
 LibTmux.BindKeyRequest.<Clone>$() -> LibTmux.BindKeyRequest!
-LibTmux.BindKeyRequest.BindKeyRequest(string! key, System.Collections.Generic.IReadOnlyList<string!>! command, string? keyTable = null, string? note = null, bool repeat = false) -> void
+LibTmux.BindKeyRequest.BindKeyRequest(string! key, System.Collections.Generic.IReadOnlyList<string!>! command) -> void
 LibTmux.BindKeyRequest.Command.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.BindKeyRequest.Equals(LibTmux.BindKeyRequest? other) -> bool
 LibTmux.BindKeyRequest.Key.get -> string!
 LibTmux.BindKeyRequest.KeyTable.get -> string?
+LibTmux.BindKeyRequest.KeyTable.init -> void
 LibTmux.BindKeyRequest.Note.get -> string?
+LibTmux.BindKeyRequest.Note.init -> void
 LibTmux.BindKeyRequest.Repeat.get -> bool
+LibTmux.BindKeyRequest.Repeat.init -> void
 LibTmux.CapturePanePosition
 LibTmux.CapturePanePosition.CapturePanePosition() -> void
 LibTmux.CapturePanePosition.CapturePanePosition(int lineNumber) -> void
@@ -337,11 +340,14 @@ LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand! command, System.Threa
 LibTmux.IfShellRequest
 LibTmux.IfShellRequest.<Clone>$() -> LibTmux.IfShellRequest!
 LibTmux.IfShellRequest.Background.get -> bool
+LibTmux.IfShellRequest.Background.init -> void
 LibTmux.IfShellRequest.ElseCommand.get -> System.Collections.Generic.IReadOnlyList<string!>?
+LibTmux.IfShellRequest.ElseCommand.init -> void
 LibTmux.IfShellRequest.Equals(LibTmux.IfShellRequest? other) -> bool
-LibTmux.IfShellRequest.IfShellRequest(string! shellCommand, System.Collections.Generic.IReadOnlyList<string!>! thenCommand, System.Collections.Generic.IReadOnlyList<string!>? elseCommand = null, bool background = false, string? targetPane = null) -> void
+LibTmux.IfShellRequest.IfShellRequest(string! shellCommand, System.Collections.Generic.IReadOnlyList<string!>! thenCommand) -> void
 LibTmux.IfShellRequest.ShellCommand.get -> string!
 LibTmux.IfShellRequest.TargetPane.get -> string?
+LibTmux.IfShellRequest.TargetPane.init -> void
 LibTmux.IfShellRequest.ThenCommand.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.IncompleteSnapshotException
 LibTmux.IncompleteSnapshotException.CapturedDepth.get -> LibTmux.SnapshotDepth
@@ -990,34 +996,48 @@ LibTmux.SessionWindowEdge.WindowIndex.init -> void
 LibTmux.SetHookRequest
 LibTmux.SetHookRequest.<Clone>$() -> LibTmux.SetHookRequest!
 LibTmux.SetHookRequest.Append.get -> bool
+LibTmux.SetHookRequest.Append.init -> void
 LibTmux.SetHookRequest.Equals(LibTmux.SetHookRequest? other) -> bool
 LibTmux.SetHookRequest.Global.get -> bool
+LibTmux.SetHookRequest.Global.init -> void
 LibTmux.SetHookRequest.Name.get -> string!
 LibTmux.SetHookRequest.RunImmediately.get -> bool
+LibTmux.SetHookRequest.RunImmediately.init -> void
 LibTmux.SetHookRequest.Scope.get -> LibTmux.OptionScope?
-LibTmux.SetHookRequest.SetHookRequest(string! name, string! value, LibTmux.OptionScope? scope = null, bool global = false, bool unset = false, bool runImmediately = false, bool append = false) -> void
+LibTmux.SetHookRequest.Scope.init -> void
+LibTmux.SetHookRequest.SetHookRequest(string! name, string! value) -> void
 LibTmux.SetHookRequest.Unset.get -> bool
+LibTmux.SetHookRequest.Unset.init -> void
 LibTmux.SetHookRequest.Value.get -> string!
 LibTmux.SetHooksRequest
 LibTmux.SetHooksRequest.<Clone>$() -> LibTmux.SetHooksRequest!
 LibTmux.SetHooksRequest.ClearExisting.get -> bool
+LibTmux.SetHooksRequest.ClearExisting.init -> void
 LibTmux.SetHooksRequest.Equals(LibTmux.SetHooksRequest? other) -> bool
 LibTmux.SetHooksRequest.Global.get -> bool
+LibTmux.SetHooksRequest.Global.init -> void
 LibTmux.SetHooksRequest.Name.get -> string!
 LibTmux.SetHooksRequest.Scope.get -> LibTmux.OptionScope?
-LibTmux.SetHooksRequest.SetHooksRequest(string! name, System.Collections.Generic.IReadOnlyDictionary<int, string!>! values, LibTmux.OptionScope? scope = null, bool global = false, bool clearExisting = false) -> void
+LibTmux.SetHooksRequest.Scope.init -> void
+LibTmux.SetHooksRequest.SetHooksRequest(string! name, System.Collections.Generic.IReadOnlyDictionary<int, string!>! values) -> void
 LibTmux.SetHooksRequest.Values.get -> System.Collections.Generic.IReadOnlyDictionary<int, string!>!
 LibTmux.SetOptionRequest
 LibTmux.SetOptionRequest.<Clone>$() -> LibTmux.SetOptionRequest!
 LibTmux.SetOptionRequest.Append.get -> bool
+LibTmux.SetOptionRequest.Append.init -> void
 LibTmux.SetOptionRequest.Equals(LibTmux.SetOptionRequest? other) -> bool
 LibTmux.SetOptionRequest.ExpandFormat.get -> bool
+LibTmux.SetOptionRequest.ExpandFormat.init -> void
 LibTmux.SetOptionRequest.Global.get -> bool
+LibTmux.SetOptionRequest.Global.init -> void
 LibTmux.SetOptionRequest.Name.get -> string!
 LibTmux.SetOptionRequest.PreventOverwrite.get -> bool
+LibTmux.SetOptionRequest.PreventOverwrite.init -> void
 LibTmux.SetOptionRequest.Quiet.get -> bool
+LibTmux.SetOptionRequest.Quiet.init -> void
 LibTmux.SetOptionRequest.Scope.get -> LibTmux.OptionScope?
-LibTmux.SetOptionRequest.SetOptionRequest(string! name, string! value, LibTmux.OptionScope? scope = null, bool expandFormat = false, bool preventOverwrite = false, bool quiet = false, bool append = false, bool global = false) -> void
+LibTmux.SetOptionRequest.Scope.init -> void
+LibTmux.SetOptionRequest.SetOptionRequest(string! name, string! value) -> void
 LibTmux.SetOptionRequest.Value.get -> string!
 LibTmux.ShowMessagesMode
 LibTmux.ShowMessagesMode.Jobs = 1 -> LibTmux.ShowMessagesMode

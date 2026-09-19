@@ -3976,7 +3976,7 @@
       "static": true
     },
     {
-      "id": "M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>,string?,string?,bool)",
+      "id": "M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>)",
       "declaringType": "T:LibTmux.BindKeyRequest",
       "name": ".ctor",
       "kind": "constructor",
@@ -3992,24 +3992,9 @@
         {
           "name": "command",
           "type": "IReadOnlyList<string>"
-        },
-        {
-          "name": "keyTable",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "note",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "repeat",
-          "type": "bool",
-          "default": "false"
         }
       ],
-      "signature": "BindKeyRequest(string key, IReadOnlyList<string> command, string? keyTable = null, string? note = null, bool repeat = false)",
+      "signature": "BindKeyRequest(string key, IReadOnlyList<string> command)",
       "portable": true,
       "summary": "Creates BindKeyRequest."
     },
@@ -4392,7 +4377,7 @@
       "summary": "Creates HookRequest."
     },
     {
-      "id": "M:LibTmux.IfShellRequest.#ctor(string,IReadOnlyList<string>,IReadOnlyList<string>?,bool,string?)",
+      "id": "M:LibTmux.IfShellRequest.#ctor(string,IReadOnlyList<string>)",
       "declaringType": "T:LibTmux.IfShellRequest",
       "name": ".ctor",
       "kind": "constructor",
@@ -4408,24 +4393,9 @@
         {
           "name": "thenCommand",
           "type": "IReadOnlyList<string>"
-        },
-        {
-          "name": "elseCommand",
-          "type": "IReadOnlyList<string>?",
-          "default": "null"
-        },
-        {
-          "name": "background",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "targetPane",
-          "type": "string?",
-          "default": "null"
         }
       ],
-      "signature": "IfShellRequest(string shellCommand, IReadOnlyList<string> thenCommand, IReadOnlyList<string>? elseCommand = null, bool background = false, string? targetPane = null)",
+      "signature": "IfShellRequest(string shellCommand, IReadOnlyList<string> thenCommand)",
       "portable": true,
       "summary": "Creates IfShellRequest."
     },
@@ -9768,7 +9738,7 @@
       "summary": "Tries to parse a prefixed session identifier from a span."
     },
     {
-      "id": "M:LibTmux.SetHookRequest.#ctor(string,string,OptionScope?,bool,bool,bool,bool)",
+      "id": "M:LibTmux.SetHookRequest.#ctor(string,string)",
       "declaringType": "T:LibTmux.SetHookRequest",
       "name": ".ctor",
       "kind": "constructor",
@@ -9784,39 +9754,14 @@
         {
           "name": "value",
           "type": "string"
-        },
-        {
-          "name": "scope",
-          "type": "OptionScope?",
-          "default": "null"
-        },
-        {
-          "name": "global",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "unset",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "runImmediately",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "append",
-          "type": "bool",
-          "default": "false"
         }
       ],
-      "signature": "SetHookRequest(string name, string value, OptionScope? scope = null, bool global = false, bool unset = false, bool runImmediately = false, bool append = false)",
+      "signature": "SetHookRequest(string name, string value)",
       "portable": true,
       "summary": "Creates SetHookRequest."
     },
     {
-      "id": "M:LibTmux.SetHooksRequest.#ctor(string,IReadOnlyDictionary<int,string>,OptionScope?,bool,bool)",
+      "id": "M:LibTmux.SetHooksRequest.#ctor(string,IReadOnlyDictionary<int,string>)",
       "declaringType": "T:LibTmux.SetHooksRequest",
       "name": ".ctor",
       "kind": "constructor",
@@ -9832,29 +9777,14 @@
         {
           "name": "values",
           "type": "IReadOnlyDictionary<int,string>"
-        },
-        {
-          "name": "scope",
-          "type": "OptionScope?",
-          "default": "null"
-        },
-        {
-          "name": "global",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "clearExisting",
-          "type": "bool",
-          "default": "false"
         }
       ],
-      "signature": "SetHooksRequest(string name, IReadOnlyDictionary<int,string> values, OptionScope? scope = null, bool global = false, bool clearExisting = false)",
+      "signature": "SetHooksRequest(string name, IReadOnlyDictionary<int,string> values)",
       "portable": true,
       "summary": "Creates SetHooksRequest."
     },
     {
-      "id": "M:LibTmux.SetOptionRequest.#ctor(string,string,OptionScope?,bool,bool,bool,bool,bool)",
+      "id": "M:LibTmux.SetOptionRequest.#ctor(string,string)",
       "declaringType": "T:LibTmux.SetOptionRequest",
       "name": ".ctor",
       "kind": "constructor",
@@ -9870,39 +9800,9 @@
         {
           "name": "value",
           "type": "string"
-        },
-        {
-          "name": "scope",
-          "type": "OptionScope?",
-          "default": "null"
-        },
-        {
-          "name": "expandFormat",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "preventOverwrite",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "quiet",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "append",
-          "type": "bool",
-          "default": "false"
-        },
-        {
-          "name": "global",
-          "type": "bool",
-          "default": "false"
         }
       ],
-      "signature": "SetOptionRequest(string name, string value, OptionScope? scope = null, bool expandFormat = false, bool preventOverwrite = false, bool quiet = false, bool append = false, bool global = false)",
+      "signature": "SetOptionRequest(string name, string value)",
       "portable": true,
       "summary": "Creates SetOptionRequest."
     },
@@ -13570,7 +13470,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.BindKeyRequest.KeyTable { get; }",
+      "signature": "string? LibTmux.BindKeyRequest.KeyTable { get; init; }",
       "portable": true,
       "summary": "Gets KeyTable."
     },
@@ -13584,7 +13484,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.BindKeyRequest.Note { get; }",
+      "signature": "string? LibTmux.BindKeyRequest.Note { get; init; }",
       "portable": true,
       "summary": "Gets Note."
     },
@@ -13598,7 +13498,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.BindKeyRequest.Repeat { get; }",
+      "signature": "bool LibTmux.BindKeyRequest.Repeat { get; init; }",
       "portable": true,
       "summary": "Gets Repeat."
     },
@@ -15311,7 +15211,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.IfShellRequest.Background { get; }",
+      "signature": "bool LibTmux.IfShellRequest.Background { get; init; }",
       "portable": true,
       "summary": "Gets Background."
     },
@@ -15325,7 +15225,7 @@
       "static": false,
       "returnType": "IReadOnlyList<string>?",
       "parameters": [],
-      "signature": "IReadOnlyList<string>? LibTmux.IfShellRequest.ElseCommand { get; }",
+      "signature": "IReadOnlyList<string>? LibTmux.IfShellRequest.ElseCommand { get; init; }",
       "portable": true,
       "summary": "Gets ElseCommand."
     },
@@ -15353,7 +15253,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.IfShellRequest.TargetPane { get; }",
+      "signature": "string? LibTmux.IfShellRequest.TargetPane { get; init; }",
       "portable": true,
       "summary": "Gets TargetPane."
     },
@@ -18852,7 +18752,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHookRequest.Append { get; }",
+      "signature": "bool LibTmux.SetHookRequest.Append { get; init; }",
       "portable": true,
       "summary": "Gets Append."
     },
@@ -18866,7 +18766,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHookRequest.Global { get; }",
+      "signature": "bool LibTmux.SetHookRequest.Global { get; init; }",
       "portable": true,
       "summary": "Gets Global."
     },
@@ -18894,7 +18794,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHookRequest.RunImmediately { get; }",
+      "signature": "bool LibTmux.SetHookRequest.RunImmediately { get; init; }",
       "portable": true,
       "summary": "Gets RunImmediately."
     },
@@ -18908,7 +18808,7 @@
       "static": false,
       "returnType": "OptionScope?",
       "parameters": [],
-      "signature": "OptionScope? LibTmux.SetHookRequest.Scope { get; }",
+      "signature": "OptionScope? LibTmux.SetHookRequest.Scope { get; init; }",
       "portable": true,
       "summary": "Gets Scope."
     },
@@ -18922,7 +18822,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHookRequest.Unset { get; }",
+      "signature": "bool LibTmux.SetHookRequest.Unset { get; init; }",
       "portable": true,
       "summary": "Gets Unset."
     },
@@ -18950,7 +18850,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHooksRequest.ClearExisting { get; }",
+      "signature": "bool LibTmux.SetHooksRequest.ClearExisting { get; init; }",
       "portable": true,
       "summary": "Gets ClearExisting."
     },
@@ -18964,7 +18864,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetHooksRequest.Global { get; }",
+      "signature": "bool LibTmux.SetHooksRequest.Global { get; init; }",
       "portable": true,
       "summary": "Gets Global."
     },
@@ -18992,7 +18892,7 @@
       "static": false,
       "returnType": "OptionScope?",
       "parameters": [],
-      "signature": "OptionScope? LibTmux.SetHooksRequest.Scope { get; }",
+      "signature": "OptionScope? LibTmux.SetHooksRequest.Scope { get; init; }",
       "portable": true,
       "summary": "Gets Scope."
     },
@@ -19020,7 +18920,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetOptionRequest.Append { get; }",
+      "signature": "bool LibTmux.SetOptionRequest.Append { get; init; }",
       "portable": true,
       "summary": "Gets Append."
     },
@@ -19034,7 +18934,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetOptionRequest.ExpandFormat { get; }",
+      "signature": "bool LibTmux.SetOptionRequest.ExpandFormat { get; init; }",
       "portable": true,
       "summary": "Gets ExpandFormat."
     },
@@ -19048,7 +18948,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetOptionRequest.Global { get; }",
+      "signature": "bool LibTmux.SetOptionRequest.Global { get; init; }",
       "portable": true,
       "summary": "Gets Global."
     },
@@ -19076,7 +18976,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetOptionRequest.PreventOverwrite { get; }",
+      "signature": "bool LibTmux.SetOptionRequest.PreventOverwrite { get; init; }",
       "portable": true,
       "summary": "Gets PreventOverwrite."
     },
@@ -19090,7 +18990,7 @@
       "static": false,
       "returnType": "bool",
       "parameters": [],
-      "signature": "bool LibTmux.SetOptionRequest.Quiet { get; }",
+      "signature": "bool LibTmux.SetOptionRequest.Quiet { get; init; }",
       "portable": true,
       "summary": "Gets Quiet."
     },
@@ -19104,7 +19004,7 @@
       "static": false,
       "returnType": "OptionScope?",
       "parameters": [],
-      "signature": "OptionScope? LibTmux.SetOptionRequest.Scope { get; }",
+      "signature": "OptionScope? LibTmux.SetOptionRequest.Scope { get; init; }",
       "portable": true,
       "summary": "Gets Scope."
     },

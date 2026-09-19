@@ -90,7 +90,7 @@ public sealed class Component16ParityTests
     private static async Task<bool> ProvesBindAsync(Server server, CancellationToken token)
     {
         await server.BindKeyAsync(
-            new BindKeyRequest("F12", ["display-message", "bound"], keyTable: "root"),
+            new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
         return (await server.GetKeysAsync("root", cancellationToken: token))
             .Any(line => line.Contains("F12", StringComparison.Ordinal));
@@ -99,7 +99,7 @@ public sealed class Component16ParityTests
     private static async Task<bool> ProvesUnbindAsync(Server server, CancellationToken token)
     {
         await server.BindKeyAsync(
-            new BindKeyRequest("F12", ["display-message", "bound"], keyTable: "root"),
+            new BindKeyRequest("F12", ["display-message", "bound"]) { KeyTable = "root" },
             token);
         await server.UnbindKeyAsync(new UnbindKeyRequest { Key = "F12", KeyTable = "root" }, token);
         return !(await server.GetKeysAsync("root", cancellationToken: token))
@@ -220,10 +220,10 @@ public sealed class Component16ParityTests
             new IfShellRequest("true", ["set-option", "-g", "@if-then", "taken"]),
             token);
         await server.IfShellAsync(
-            new IfShellRequest(
-                "false",
-                ["set-option", "-g", "@if-then", "wrong"],
-                ["set-option", "-g", "@if-else", "taken"]),
+            new IfShellRequest("false", ["set-option", "-g", "@if-then", "wrong"])
+            {
+                ElseCommand = ["set-option", "-g", "@if-else", "taken"],
+            },
             token);
         await WaitForOptionAsync(server, "@if-then", "taken", token);
         await WaitForOptionAsync(server, "@if-else", "taken", token);

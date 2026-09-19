@@ -152,7 +152,7 @@ modes differ.
 
 | Member | Summary |
 |---|---|
-| `LibTmux.BindKeyRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.String,System.String,System.Boolean)` | Initializes a key binding. |
+| `LibTmux.BindKeyRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a key binding. |
 | `LibTmux.CapturePanePosition.#ctor(System.Int32)` | Initializes a position at one line. |
 | ``LibTmux.CapturedRelation`1.OrEmpty`` | Returns the captured children, or an empty list when unread. |
 | ``LibTmux.CapturedValue`1.OrNull`` | Gets the captured child, or null when the snapshot never read it. |
@@ -175,7 +175,7 @@ modes differ.
 | `LibTmux.GetOptionRequest.#ctor(System.String)` | Initializes a request for one option. |
 | `LibTmux.HookRequest.#ctor(System.String)` | Initializes a request naming one hook. |
 | `LibTmux.IControlModeSession.SendAsync(LibTmux.TmuxCommand,System.Threading.CancellationToken)` | Runs one command on this client and reads what it answered. |
-| `LibTmux.IfShellRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.String)` | Initializes a conditional command. |
+| `LibTmux.IfShellRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a conditional command. |
 | `LibTmux.IncompleteSnapshotException.#ctor(System.String,LibTmux.SnapshotDepth)` | Initializes the exception for one uncaptured relation. |
 | `LibTmux.LibTmuxException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes a LibTmux exception that knows whether tmux ran the command. |
 | `LibTmux.LibTmuxException.#ctor(System.String,System.Exception)` | Initializes a LibTmux exception whose dispatch state is unknown. |
@@ -356,9 +356,9 @@ modes differ.
 | `LibTmux.SessionId.op_GreaterThanOrEqual(LibTmux.SessionId,LibTmux.SessionId)` | Reports whether one identifier was handed out no earlier than another. |
 | `LibTmux.SessionId.op_LessThan(LibTmux.SessionId,LibTmux.SessionId)` | Reports whether one identifier was handed out before another. |
 | `LibTmux.SessionId.op_LessThanOrEqual(LibTmux.SessionId,LibTmux.SessionId)` | Reports whether one identifier was handed out no later than another. |
-| `LibTmux.SetHookRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one hook. |
-| `LibTmux.SetHooksRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.Int32,System.String},System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean)` | Initializes a request to set several entries of one hook. |
-| `LibTmux.SetOptionRequest.#ctor(System.String,System.String,System.Nullable{LibTmux.OptionScope},System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)` | Initializes a request to set one option. |
+| `LibTmux.SetHookRequest.#ctor(System.String,System.String)` | Initializes a request to set one hook. |
+| `LibTmux.SetHooksRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.Int32,System.String})` | Initializes a request to set several entries of one hook. |
+| `LibTmux.SetOptionRequest.#ctor(System.String,System.String)` | Initializes a request to set one option. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.TmuxBuffer.#ctor(System.String,System.Int64,System.String)` | Initializes one buffer. |

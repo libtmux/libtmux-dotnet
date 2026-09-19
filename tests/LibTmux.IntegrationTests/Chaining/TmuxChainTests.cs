@@ -1091,14 +1091,14 @@ public sealed class TmuxChainTests
 
         // One request, several tmux commands. The one-shot path sends these a
         // process at a time, so this is the case batching helps most.
-        SetHooksRequest entries = new(
-            "after-new-window",
-            new Dictionary<int, string>
-            {
-                [0] = "display-message first",
-                [1] = "display-message second",
-            },
-            clearExisting: true);
+        SetHooksRequest entries = new("after-new-window", new Dictionary<int, string>
+        {
+            [0] = "display-message first",
+            [1] = "display-message second",
+        })
+        {
+            ClearExisting = true,
+        };
 
         Assert.Equal(3, entries.ToCommands(server.Hooks).Count);
 

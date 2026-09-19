@@ -452,12 +452,12 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>,string?,string?,bool)` | `BindKeyRequest(string key, IReadOnlyList<string> command, string? keyTable = null, string? note = null, bool repeat = false)` | Public | No | Portable | Creates BindKeyRequest. |
+| `M:LibTmux.BindKeyRequest.#ctor(string,IReadOnlyList<string>)` | `BindKeyRequest(string key, IReadOnlyList<string> command)` | Public | No | Portable | Creates BindKeyRequest. |
 | `P:LibTmux.BindKeyRequest.Command` | `IReadOnlyList<string> LibTmux.BindKeyRequest.Command { get; }` | Public | No | Portable | Gets Command. |
 | `P:LibTmux.BindKeyRequest.Key` | `string LibTmux.BindKeyRequest.Key { get; }` | Public | No | Portable | Gets Key. |
-| `P:LibTmux.BindKeyRequest.KeyTable` | `string? LibTmux.BindKeyRequest.KeyTable { get; }` | Public | No | Portable | Gets KeyTable. |
-| `P:LibTmux.BindKeyRequest.Note` | `string? LibTmux.BindKeyRequest.Note { get; }` | Public | No | Portable | Gets Note. |
-| `P:LibTmux.BindKeyRequest.Repeat` | `bool LibTmux.BindKeyRequest.Repeat { get; }` | Public | No | Portable | Gets Repeat. |
+| `P:LibTmux.BindKeyRequest.KeyTable` | `string? LibTmux.BindKeyRequest.KeyTable { get; init; }` | Public | No | Portable | Gets KeyTable. |
+| `P:LibTmux.BindKeyRequest.Note` | `string? LibTmux.BindKeyRequest.Note { get; init; }` | Public | No | Portable | Gets Note. |
+| `P:LibTmux.BindKeyRequest.Repeat` | `bool LibTmux.BindKeyRequest.Repeat { get; init; }` | Public | No | Portable | Gets Repeat. |
 
 ### `T:LibTmux.CapturePanePosition`
 
@@ -726,11 +726,11 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.IfShellRequest.#ctor(string,IReadOnlyList<string>,IReadOnlyList<string>?,bool,string?)` | `IfShellRequest(string shellCommand, IReadOnlyList<string> thenCommand, IReadOnlyList<string>? elseCommand = null, bool background = false, string? targetPane = null)` | Public | No | Portable | Creates IfShellRequest. |
-| `P:LibTmux.IfShellRequest.Background` | `bool LibTmux.IfShellRequest.Background { get; }` | Public | No | Portable | Gets Background. |
-| `P:LibTmux.IfShellRequest.ElseCommand` | `IReadOnlyList<string>? LibTmux.IfShellRequest.ElseCommand { get; }` | Public | No | Portable | Gets ElseCommand. |
+| `M:LibTmux.IfShellRequest.#ctor(string,IReadOnlyList<string>)` | `IfShellRequest(string shellCommand, IReadOnlyList<string> thenCommand)` | Public | No | Portable | Creates IfShellRequest. |
+| `P:LibTmux.IfShellRequest.Background` | `bool LibTmux.IfShellRequest.Background { get; init; }` | Public | No | Portable | Gets Background. |
+| `P:LibTmux.IfShellRequest.ElseCommand` | `IReadOnlyList<string>? LibTmux.IfShellRequest.ElseCommand { get; init; }` | Public | No | Portable | Gets ElseCommand. |
 | `P:LibTmux.IfShellRequest.ShellCommand` | `string LibTmux.IfShellRequest.ShellCommand { get; }` | Public | No | Portable | Gets ShellCommand. |
-| `P:LibTmux.IfShellRequest.TargetPane` | `string? LibTmux.IfShellRequest.TargetPane { get; }` | Public | No | Portable | Gets TargetPane. |
+| `P:LibTmux.IfShellRequest.TargetPane` | `string? LibTmux.IfShellRequest.TargetPane { get; init; }` | Public | No | Portable | Gets TargetPane. |
 | `P:LibTmux.IfShellRequest.ThenCommand` | `IReadOnlyList<string> LibTmux.IfShellRequest.ThenCommand { get; }` | Public | No | Portable | Gets ThenCommand. |
 
 ### `T:LibTmux.IncompleteSnapshotException`
@@ -1455,38 +1455,38 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.SetHookRequest.#ctor(string,string,OptionScope?,bool,bool,bool,bool)` | `SetHookRequest(string name, string value, OptionScope? scope = null, bool global = false, bool unset = false, bool runImmediately = false, bool append = false)` | Public | No | Portable | Creates SetHookRequest. |
-| `P:LibTmux.SetHookRequest.Append` | `bool LibTmux.SetHookRequest.Append { get; }` | Public | No | Portable | Gets Append. |
-| `P:LibTmux.SetHookRequest.Global` | `bool LibTmux.SetHookRequest.Global { get; }` | Public | No | Portable | Gets Global. |
+| `M:LibTmux.SetHookRequest.#ctor(string,string)` | `SetHookRequest(string name, string value)` | Public | No | Portable | Creates SetHookRequest. |
+| `P:LibTmux.SetHookRequest.Append` | `bool LibTmux.SetHookRequest.Append { get; init; }` | Public | No | Portable | Gets Append. |
+| `P:LibTmux.SetHookRequest.Global` | `bool LibTmux.SetHookRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.SetHookRequest.Name` | `string LibTmux.SetHookRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.SetHookRequest.RunImmediately` | `bool LibTmux.SetHookRequest.RunImmediately { get; }` | Public | No | Portable | Gets RunImmediately. |
-| `P:LibTmux.SetHookRequest.Scope` | `OptionScope? LibTmux.SetHookRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
-| `P:LibTmux.SetHookRequest.Unset` | `bool LibTmux.SetHookRequest.Unset { get; }` | Public | No | Portable | Gets Unset. |
+| `P:LibTmux.SetHookRequest.RunImmediately` | `bool LibTmux.SetHookRequest.RunImmediately { get; init; }` | Public | No | Portable | Gets RunImmediately. |
+| `P:LibTmux.SetHookRequest.Scope` | `OptionScope? LibTmux.SetHookRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.SetHookRequest.Unset` | `bool LibTmux.SetHookRequest.Unset { get; init; }` | Public | No | Portable | Gets Unset. |
 | `P:LibTmux.SetHookRequest.Value` | `string LibTmux.SetHookRequest.Value { get; }` | Public | No | Portable | Gets Value. |
 
 ### `T:LibTmux.SetHooksRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.SetHooksRequest.#ctor(string,IReadOnlyDictionary<int,string>,OptionScope?,bool,bool)` | `SetHooksRequest(string name, IReadOnlyDictionary<int,string> values, OptionScope? scope = null, bool global = false, bool clearExisting = false)` | Public | No | Portable | Creates SetHooksRequest. |
-| `P:LibTmux.SetHooksRequest.ClearExisting` | `bool LibTmux.SetHooksRequest.ClearExisting { get; }` | Public | No | Portable | Gets ClearExisting. |
-| `P:LibTmux.SetHooksRequest.Global` | `bool LibTmux.SetHooksRequest.Global { get; }` | Public | No | Portable | Gets Global. |
+| `M:LibTmux.SetHooksRequest.#ctor(string,IReadOnlyDictionary<int,string>)` | `SetHooksRequest(string name, IReadOnlyDictionary<int,string> values)` | Public | No | Portable | Creates SetHooksRequest. |
+| `P:LibTmux.SetHooksRequest.ClearExisting` | `bool LibTmux.SetHooksRequest.ClearExisting { get; init; }` | Public | No | Portable | Gets ClearExisting. |
+| `P:LibTmux.SetHooksRequest.Global` | `bool LibTmux.SetHooksRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.SetHooksRequest.Name` | `string LibTmux.SetHooksRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.SetHooksRequest.Scope` | `OptionScope? LibTmux.SetHooksRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.SetHooksRequest.Scope` | `OptionScope? LibTmux.SetHooksRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
 | `P:LibTmux.SetHooksRequest.Values` | `IReadOnlyDictionary<int,string> LibTmux.SetHooksRequest.Values { get; }` | Public | No | Portable | Gets Values. |
 
 ### `T:LibTmux.SetOptionRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.SetOptionRequest.#ctor(string,string,OptionScope?,bool,bool,bool,bool,bool)` | `SetOptionRequest(string name, string value, OptionScope? scope = null, bool expandFormat = false, bool preventOverwrite = false, bool quiet = false, bool append = false, bool global = false)` | Public | No | Portable | Creates SetOptionRequest. |
-| `P:LibTmux.SetOptionRequest.Append` | `bool LibTmux.SetOptionRequest.Append { get; }` | Public | No | Portable | Gets Append. |
-| `P:LibTmux.SetOptionRequest.ExpandFormat` | `bool LibTmux.SetOptionRequest.ExpandFormat { get; }` | Public | No | Portable | Gets ExpandFormat. |
-| `P:LibTmux.SetOptionRequest.Global` | `bool LibTmux.SetOptionRequest.Global { get; }` | Public | No | Portable | Gets Global. |
+| `M:LibTmux.SetOptionRequest.#ctor(string,string)` | `SetOptionRequest(string name, string value)` | Public | No | Portable | Creates SetOptionRequest. |
+| `P:LibTmux.SetOptionRequest.Append` | `bool LibTmux.SetOptionRequest.Append { get; init; }` | Public | No | Portable | Gets Append. |
+| `P:LibTmux.SetOptionRequest.ExpandFormat` | `bool LibTmux.SetOptionRequest.ExpandFormat { get; init; }` | Public | No | Portable | Gets ExpandFormat. |
+| `P:LibTmux.SetOptionRequest.Global` | `bool LibTmux.SetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.SetOptionRequest.Name` | `string LibTmux.SetOptionRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.SetOptionRequest.PreventOverwrite` | `bool LibTmux.SetOptionRequest.PreventOverwrite { get; }` | Public | No | Portable | Gets PreventOverwrite. |
-| `P:LibTmux.SetOptionRequest.Quiet` | `bool LibTmux.SetOptionRequest.Quiet { get; }` | Public | No | Portable | Gets Quiet. |
-| `P:LibTmux.SetOptionRequest.Scope` | `OptionScope? LibTmux.SetOptionRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.SetOptionRequest.PreventOverwrite` | `bool LibTmux.SetOptionRequest.PreventOverwrite { get; init; }` | Public | No | Portable | Gets PreventOverwrite. |
+| `P:LibTmux.SetOptionRequest.Quiet` | `bool LibTmux.SetOptionRequest.Quiet { get; init; }` | Public | No | Portable | Gets Quiet. |
+| `P:LibTmux.SetOptionRequest.Scope` | `OptionScope? LibTmux.SetOptionRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
 | `P:LibTmux.SetOptionRequest.Value` | `string LibTmux.SetOptionRequest.Value { get; }` | Public | No | Portable | Gets Value. |
 
 ### `T:LibTmux.ShowMessagesMode`

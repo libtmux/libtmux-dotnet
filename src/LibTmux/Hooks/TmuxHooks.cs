@@ -161,12 +161,12 @@ public sealed class TmuxHooks
         List<List<string>> commands = [];
         if (request.ClearExisting)
         {
-            commands.Add(BuildSetArguments(new SetHookRequest(
-                request.Name,
-                string.Empty,
-                request.Scope,
-                request.Global,
-                unset: true)));
+            commands.Add(BuildSetArguments(new SetHookRequest(request.Name, string.Empty)
+            {
+                Scope = request.Scope,
+                Global = request.Global,
+                Unset = true,
+            }));
         }
 
         foreach (KeyValuePair<int, string> entry in request.Values.OrderBy(static value => value.Key))
@@ -263,12 +263,12 @@ public sealed class TmuxHooks
         if (request.ClearExisting)
         {
             await sequence.MutateAsync(() => SetAsync(
-                new SetHookRequest(
-                    request.Name,
-                    string.Empty,
-                    request.Scope,
-                    request.Global,
-                    unset: true),
+                new SetHookRequest(request.Name, string.Empty)
+                {
+                    Scope = request.Scope,
+                    Global = request.Global,
+                    Unset = true,
+                },
                 cancellationToken))
                 .ConfigureAwait(false);
         }
