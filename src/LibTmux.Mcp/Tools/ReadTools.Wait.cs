@@ -347,8 +347,10 @@ internal sealed partial class ReadTools
 
 
     // A row this server typed is excluded by content, not by position: the
-    // kernel echoes it back on the input line, and a redraw can print it
-    // again anywhere tmux chooses to put the cursor.
+    // kernel echoes it back at the end of the input line, and a redraw
+    // reprints it there again. Matching a suffix rather than any substring
+    // keeps unrelated output that merely contains the same characters -
+    // "y" inside "Successfully", say - from being excluded too.
     private static IReadOnlyList<string> ExcludePending(IReadOnlyList<string> lines, string? pending)
     {
         if (string.IsNullOrEmpty(pending) || lines.Count == 0)
@@ -359,7 +361,7 @@ internal sealed partial class ReadTools
         List<string>? kept = null;
         for (int row = 0; row < lines.Count; row++)
         {
-            if (lines[row].Contains(pending, StringComparison.Ordinal))
+            if (lines[row].EndsWith(pending, StringComparison.Ordinal))
             {
                 kept ??= [.. lines.Take(row)];
             }
