@@ -1,0 +1,65 @@
+#nullable enable
+LibTmux.Testing.TemporaryHierarchyScope
+LibTmux.Testing.TemporaryHierarchyScope.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.Testing.TemporaryHierarchyScope.Pane.get -> LibTmux.Pane!
+LibTmux.Testing.TemporaryHierarchyScope.Server.get -> LibTmux.Server!
+LibTmux.Testing.TemporaryHierarchyScope.Session.get -> LibTmux.Session!
+LibTmux.Testing.TemporaryHierarchyScope.Window.get -> LibTmux.Window!
+LibTmux.Testing.TemporaryServerScope
+LibTmux.Testing.TemporaryServerScope.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.Testing.TemporaryServerScope.Server.get -> LibTmux.Server!
+LibTmux.Testing.TemporarySessionScope
+LibTmux.Testing.TemporarySessionScope.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.Testing.TemporarySessionScope.Session.get -> LibTmux.Session!
+LibTmux.Testing.TemporaryWindowScope
+LibTmux.Testing.TemporaryWindowScope.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.Testing.TemporaryWindowScope.Window.get -> LibTmux.Window!
+LibTmux.Testing.TestEnvironment
+LibTmux.Testing.TestEnvironment.<Clone>$() -> LibTmux.Testing.TestEnvironment!
+LibTmux.Testing.TestEnvironment.Equals(LibTmux.Testing.TestEnvironment? other) -> bool
+LibTmux.Testing.TestEnvironment.TestEnvironment(string! workingDirectory, System.Collections.Generic.IReadOnlyDictionary<string!, string?>! variables) -> void
+LibTmux.Testing.TestEnvironment.Variables.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>!
+LibTmux.Testing.TestEnvironment.WithVariable(string! name, string! value) -> LibTmux.Testing.TestEnvironment!
+LibTmux.Testing.TestEnvironment.WithoutVariable(string! name) -> LibTmux.Testing.TestEnvironment!
+LibTmux.Testing.TestEnvironment.WorkingDirectory.get -> string!
+LibTmux.Testing.TmuxNameGenerator
+LibTmux.Testing.TmuxNameGenerator.CreateAvailableSessionNameAsync(LibTmux.Server! server, string? prefix = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+LibTmux.Testing.TmuxNameGenerator.CreateAvailableWindowNameAsync(LibTmux.Session! session, string? prefix = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
+LibTmux.Testing.TmuxNameGenerator.CreateSessionName() -> string!
+LibTmux.Testing.TmuxNameGenerator.CreateWindowName() -> string!
+LibTmux.Testing.TmuxNameGenerator.TmuxNameGenerator(string! prefix = "lt") -> void
+LibTmux.Testing.TmuxTestContext
+LibTmux.Testing.TmuxTestContext.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.Testing.TmuxTestContext.Environment.get -> LibTmux.Testing.TestEnvironment!
+LibTmux.Testing.TmuxTestContext.Server.get -> LibTmux.Server!
+LibTmux.Testing.TmuxTestFactory
+LibTmux.Testing.TmuxTestFactory.CreateContextAsync(LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TmuxTestContext!>!
+LibTmux.Testing.TmuxTestFactory.CreateHierarchyAsync(LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporaryHierarchyScope!>!
+LibTmux.Testing.TmuxTestFactory.CreateServerAsync(LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporaryServerScope!>!
+LibTmux.Testing.TmuxTestFactory.CreateSessionAsync(LibTmux.Server! server, LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporarySessionScope!>!
+LibTmux.Testing.TmuxTestFactory.CreateSessionAsync(LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporarySessionScope!>!
+LibTmux.Testing.TmuxTestFactory.CreateWindowAsync(LibTmux.Session! session, LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporaryWindowScope!>!
+LibTmux.Testing.TmuxTestFactory.CreateWindowAsync(LibTmux.Testing.TmuxTestOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Testing.TemporaryWindowScope!>!
+LibTmux.Testing.TmuxTestFactory.TmuxTestFactory() -> void
+LibTmux.Testing.TmuxTestOptions
+LibTmux.Testing.TmuxTestOptions.<Clone>$() -> LibTmux.Testing.TmuxTestOptions!
+LibTmux.Testing.TmuxTestOptions.ConnectionOptions.get -> LibTmux.ServerConnectionOptions!
+LibTmux.Testing.TmuxTestOptions.Equals(LibTmux.Testing.TmuxTestOptions? other) -> bool
+LibTmux.Testing.TmuxTestOptions.PollInterval.get -> System.TimeSpan
+LibTmux.Testing.TmuxTestOptions.SessionNamePrefix.get -> string!
+LibTmux.Testing.TmuxTestOptions.Timeout.get -> System.TimeSpan
+LibTmux.Testing.TmuxTestOptions.TmuxTestOptions(LibTmux.ServerConnectionOptions? connectionOptions = null, System.TimeSpan? timeout = null, System.TimeSpan? pollInterval = null, string! sessionNamePrefix = "lt") -> void
+LibTmux.Testing.TmuxWait
+override LibTmux.Testing.TestEnvironment.Equals(object? obj) -> bool
+override LibTmux.Testing.TestEnvironment.GetHashCode() -> int
+override LibTmux.Testing.TestEnvironment.ToString() -> string!
+override LibTmux.Testing.TmuxTestOptions.Equals(object? obj) -> bool
+override LibTmux.Testing.TmuxTestOptions.GetHashCode() -> int
+override LibTmux.Testing.TmuxTestOptions.ToString() -> string!
+static LibTmux.Testing.TestEnvironment.operator !=(LibTmux.Testing.TestEnvironment? left, LibTmux.Testing.TestEnvironment? right) -> bool
+static LibTmux.Testing.TestEnvironment.operator ==(LibTmux.Testing.TestEnvironment? left, LibTmux.Testing.TestEnvironment? right) -> bool
+static LibTmux.Testing.TmuxTestOptions.Default.get -> LibTmux.Testing.TmuxTestOptions!
+static LibTmux.Testing.TmuxTestOptions.operator !=(LibTmux.Testing.TmuxTestOptions? left, LibTmux.Testing.TmuxTestOptions? right) -> bool
+static LibTmux.Testing.TmuxTestOptions.operator ==(LibTmux.Testing.TmuxTestOptions? left, LibTmux.Testing.TmuxTestOptions? right) -> bool
+static LibTmux.Testing.TmuxWait.UntilAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>!>! probe, System.TimeSpan timeout, System.TimeSpan interval, bool throwOnTimeout = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static LibTmux.Testing.TmuxWait.UntilAsync<T>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<T>!>! probe, System.Func<T, bool>! predicate, System.TimeSpan timeout, System.TimeSpan interval, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!

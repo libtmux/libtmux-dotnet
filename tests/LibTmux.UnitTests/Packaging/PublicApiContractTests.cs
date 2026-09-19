@@ -174,10 +174,11 @@ public sealed class PublicApiContractTests
         {
             string id = member.GetProperty("id").GetString()!;
 
-            // The contract also pins the optional JSON package and the internal
-            // helpers, neither of which this assembly exports.
+            // The contract pins every package in the suite, and the internal
+            // helpers. Read which package owns a type rather than naming the
+            // optional ones here, so a new one cannot be forgotten.
             if (!id.StartsWith("T:", StringComparison.Ordinal)
-                || id.Contains("LibTmux.Query.Json", StringComparison.Ordinal)
+                || member.GetProperty("package").GetString() != "LibTmux"
                 || id.Contains(".Internal.", StringComparison.Ordinal))
             {
                 continue;

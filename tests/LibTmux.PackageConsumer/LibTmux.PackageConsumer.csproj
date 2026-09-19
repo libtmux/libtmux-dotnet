@@ -24,6 +24,7 @@
     <!-- All references consume the package version this repository builds. -->
     <PackageReference Include="LibTmux" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="LibTmux.Query.Json" Version="$(LibTmuxPackageVersion)" />
+    <PackageReference Include="LibTmux.Testing" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="LibTmux.Workspace" Version="$(LibTmuxPackageVersion)" />
   </ItemGroup>
 </Project>

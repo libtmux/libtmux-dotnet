@@ -126,8 +126,9 @@ The complete parsing, ordering, detection, and support contract follows.
 
 | Package | Dependency | Responsibility |
 | --- | --- | --- |
-| `LibTmux` | Microsoft.Extensions.Logging.Abstractions (centrally-managed) | hierarchy, values, query AST, local evaluator, testing |
+| `LibTmux` | Microsoft.Extensions.Logging.Abstractions (centrally-managed) | hierarchy, values, query AST, local evaluator |
 | `LibTmux.Query.Json` | LibTmux (same) | System.Text.Json converters and source-generated context |
+| `LibTmux.Testing` | LibTmux (same) | scoped tmux servers, sessions and windows for tests |
 
 ## Conventions
 
@@ -387,16 +388,16 @@ internal static class Program
 | `T:LibTmux.SplitPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SplitPane. Validation: Size and Percentage are mutually exclusive. | `LibTmux` |
 | `T:LibTmux.StaleServerGenerationException` | class | `public, sealed` | None | `InvalidOperationException` | value | Reports StaleServerGeneration failure. State: Expected, Actual. | `LibTmux` |
 | `T:LibTmux.SwapPaneRequest` | record | `public, sealed` | None | `object` | value | Parameters for SwapPane. Validation: exactly one of Target or Direction. | `LibTmux` |
-| `T:LibTmux.Testing.TemporaryHierarchyScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryHierarchyScope testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TemporaryServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryServerScope testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TemporarySessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporarySessionScope testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TemporaryWindowScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryWindowScope testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TestEnvironment` | record | `public, sealed` | None | `object` | value | Provides TestEnvironment testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TmuxNameGenerator` | class | `public, sealed` | None | `object` | value | Provides TmuxNameGenerator testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TmuxTestContext` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TmuxTestContext testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TmuxTestFactory` | class | `public, sealed` | None | `object` | value | Provides TmuxTestFactory testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TmuxTestOptions` | record | `public, sealed` | None | `object` | value | Provides TmuxTestOptions testing support. | `LibTmux` |
-| `T:LibTmux.Testing.TmuxWait` | static class | `public, static` | None | `object` | value | Provides TmuxWait testing support. | `LibTmux` |
+| `T:LibTmux.Testing.TemporaryHierarchyScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryHierarchyScope testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TemporaryServerScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryServerScope testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TemporarySessionScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporarySessionScope testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TemporaryWindowScope` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TemporaryWindowScope testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TestEnvironment` | record | `public, sealed` | None | `object` | value | Provides TestEnvironment testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TmuxNameGenerator` | class | `public, sealed` | None | `object` | value | Provides TmuxNameGenerator testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TmuxTestContext` | class | `public, sealed` | `IAsyncDisposable` | `object` | owned | Provides TmuxTestContext testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TmuxTestFactory` | class | `public, sealed` | None | `object` | value | Provides TmuxTestFactory testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TmuxTestOptions` | record | `public, sealed` | None | `object` | value | Provides TmuxTestOptions testing support. | `LibTmux.Testing` |
+| `T:LibTmux.Testing.TmuxWait` | static class | `public, static` | None | `object` | value | Provides TmuxWait testing support. | `LibTmux.Testing` |
 | `T:LibTmux.TmuxBuffer` | record | `public, sealed` | None | `object` | value | One tmux paste buffer snapshot. | `LibTmux` |
 | `T:LibTmux.TmuxCleanupException` | class | `public, sealed` | None | `LibTmuxException` | value | Reports TmuxCleanup failure. State: OriginalCancellation, ClientProcessId, CleanupFailure. | `LibTmux` |
 | `T:LibTmux.TmuxColorMode` | enum | `public` | None | `Enum` | value | Defines valid tmux color modes. Numeric value 1 is reserved; ServerConnectionOptions rejects undefined values with ArgumentOutOfRangeException. | `LibTmux` |

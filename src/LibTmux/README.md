@@ -312,8 +312,14 @@ Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVer
 
 ## Testing your own code
 
-`LibTmux.Testing` ships in this package. It gives a test a tmux server of its
-own, on its own socket, killed deterministically:
+[`LibTmux.Testing`](../LibTmux.Testing/README.md) is a separate package, so
+test scaffolding stays out of an application's output. It gives a test a tmux
+server of its own, on its own socket, killed deterministically:
+
+```console
+$ dotnet package add LibTmux.Testing --prerelease
+```
+
 
 ```csharp
 using LibTmux.Testing;

@@ -113,16 +113,6 @@ modes differ.
 | `LibTmux.SplitPaneRequest` | Describes one split-window invocation. |
 | `LibTmux.StaleServerGenerationException` | Reports a stale server generation. |
 | `LibTmux.SwapPaneRequest` | Describes one swap-pane invocation. |
-| `LibTmux.Testing.TemporaryHierarchyScope` | A server, session, window, and pane a test owns together. |
-| `LibTmux.Testing.TemporaryServerScope` | Creates a throwaway server for a test and stops it afterwards. |
-| `LibTmux.Testing.TemporarySessionScope` | Owns a throwaway session and any private server created with it. |
-| `LibTmux.Testing.TemporaryWindowScope` | Owns a throwaway window and any private session and server created with it. |
-| `LibTmux.Testing.TestEnvironment` | The directory and variables a test's tmux runs with. |
-| `LibTmux.Testing.TmuxNameGenerator` | Makes names no other test is using. |
-| `LibTmux.Testing.TmuxTestContext` | A tmux server a test owns, and the environment it runs in. |
-| `LibTmux.Testing.TmuxTestFactory` | Makes the tmux objects a test needs, each owning its own cleanup. |
-| `LibTmux.Testing.TmuxTestOptions` | How a test's tmux is reached and how long it is waited on. |
-| `LibTmux.Testing.TmuxWait` | Waits for tmux to reach a state instead of sleeping. |
 | `LibTmux.TmuxBuffer` | One tmux paste buffer. |
 | `LibTmux.TmuxChain` | Commands tmux runs together, in one process. |
 | `LibTmux.TmuxChaining` | Turns a request record into a command a chain can carry. |
@@ -424,25 +414,6 @@ modes differ.
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception. |
 | `LibTmux.StaleServerGenerationException.#ctor(System.String,LibTmux.ServerGeneration,System.Exception)` | Initializes a stale-generation exception when the replacement is unknown. |
 | `LibTmux.SwapPaneRequest.#ctor(System.String,System.Nullable{LibTmux.PaneSwapDirection},System.Boolean,System.Boolean)` | Initializes a pane-swap request. |
-| `LibTmux.Testing.TestEnvironment.#ctor(System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String})` | Initializes a test environment. |
-| `LibTmux.Testing.TestEnvironment.WithVariable(System.String,System.String)` | Answers a copy that also sets one variable. |
-| `LibTmux.Testing.TestEnvironment.WithoutVariable(System.String)` | Answers a copy that removes one variable. |
-| `LibTmux.Testing.TmuxNameGenerator.#ctor(System.String)` | Initializes a generator. |
-| `LibTmux.Testing.TmuxNameGenerator.CreateAvailableSessionNameAsync(LibTmux.Server,System.String,System.Threading.CancellationToken)` | Makes a session name the server does not already hold. |
-| `LibTmux.Testing.TmuxNameGenerator.CreateAvailableWindowNameAsync(LibTmux.Session,System.String,System.Threading.CancellationToken)` | Makes a window name the session does not already hold. |
-| `LibTmux.Testing.TmuxNameGenerator.CreateSessionName` | Makes a session name. |
-| `LibTmux.Testing.TmuxNameGenerator.CreateWindowName` | Makes a window name. |
-| `LibTmux.Testing.TmuxTestFactory.#ctor` | Initializes a factory. |
-| `LibTmux.Testing.TmuxTestFactory.CreateContextAsync(LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a server this test owns, with its environment. |
-| `LibTmux.Testing.TmuxTestFactory.CreateHierarchyAsync(LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a server, session, window, and pane a test can type into. |
-| `LibTmux.Testing.TmuxTestFactory.CreateServerAsync(LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a server this test owns. |
-| `LibTmux.Testing.TmuxTestFactory.CreateSessionAsync(LibTmux.Server,LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a session on a server the caller already has. |
-| `LibTmux.Testing.TmuxTestFactory.CreateSessionAsync(LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a server and a session in it, both owned by this test. |
-| `LibTmux.Testing.TmuxTestFactory.CreateWindowAsync(LibTmux.Session,LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a window in a session the caller already has. |
-| `LibTmux.Testing.TmuxTestFactory.CreateWindowAsync(LibTmux.Testing.TmuxTestOptions,System.Threading.CancellationToken)` | Starts a server, a session, and a window, all owned by this test. |
-| `LibTmux.Testing.TmuxTestOptions.#ctor(LibTmux.ServerConnectionOptions,System.Nullable{System.TimeSpan},System.Nullable{System.TimeSpan},System.String)` | Initializes test options. |
-| `LibTmux.Testing.TmuxWait.UntilAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Boolean}},System.TimeSpan,System.TimeSpan,System.Boolean,System.Threading.CancellationToken)` | Waits until a probe reports the state was reached. |
-| ```LibTmux.Testing.TmuxWait.UntilAsync``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.Func{``0,System.Boolean},System.TimeSpan,System.TimeSpan,System.Threading.CancellationToken)``` | Waits until a reading satisfies a predicate, and answers it. |
 | `LibTmux.TmuxBuffer.#ctor(System.String,System.Int64,System.String)` | Initializes one buffer. |
 | `LibTmux.TmuxChain.ExecuteAsync(System.Threading.CancellationToken)` | Runs every command in one tmux invocation. |
 | `LibTmux.TmuxChain.Then(LibTmux.TmuxCommand)` | Adds one command and returns the longer chain. |
@@ -1076,22 +1047,6 @@ modes differ.
 | `LibTmux.SwapPaneRequest.Direction` | Gets the neighbour to swap with instead. |
 | `LibTmux.SwapPaneRequest.KeepZoom` | Gets whether a zoomed pane stays zoomed. |
 | `LibTmux.SwapPaneRequest.Target` | Gets the pane to swap with. |
-| `LibTmux.Testing.TemporaryHierarchyScope.Pane` | Gets the pane. |
-| `LibTmux.Testing.TemporaryHierarchyScope.Server` | Gets the server the rest live in. |
-| `LibTmux.Testing.TemporaryHierarchyScope.Session` | Gets the session. |
-| `LibTmux.Testing.TemporaryHierarchyScope.Window` | Gets the window. |
-| `LibTmux.Testing.TemporaryServerScope.Server` | Gets the temporary server. |
-| `LibTmux.Testing.TemporarySessionScope.Session` | Gets the temporary session. |
-| `LibTmux.Testing.TemporaryWindowScope.Window` | Gets the temporary window. |
-| `LibTmux.Testing.TestEnvironment.Variables` | Gets the variables to set, with null meaning remove. |
-| `LibTmux.Testing.TestEnvironment.WorkingDirectory` | Gets the directory tmux starts in. |
-| `LibTmux.Testing.TmuxTestContext.Environment` | Gets the directory and variables the server was started with. |
-| `LibTmux.Testing.TmuxTestContext.Server` | Gets the server this test owns. |
-| `LibTmux.Testing.TmuxTestOptions.ConnectionOptions` | Gets how to reach tmux. |
-| `LibTmux.Testing.TmuxTestOptions.Default` | Gets options a test can use without choosing anything. |
-| `LibTmux.Testing.TmuxTestOptions.PollInterval` | Gets how long a wait pauses between askings. |
-| `LibTmux.Testing.TmuxTestOptions.SessionNamePrefix` | Gets what generated names start with. |
-| `LibTmux.Testing.TmuxTestOptions.Timeout` | Gets how long a wait keeps asking. |
 | `LibTmux.TmuxBuffer.Name` | Gets the buffer name. |
 | `LibTmux.TmuxBuffer.Sample` | Gets the start of its contents, as tmux chose to show it. |
 | `LibTmux.TmuxBuffer.Size` | Gets how many bytes it holds. |
