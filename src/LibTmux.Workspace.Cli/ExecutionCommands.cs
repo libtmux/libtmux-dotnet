@@ -386,7 +386,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
             target = sessions.Length == 1 ? sessions[0] : await NamedSessionTarget(new ReadCommands(context, invocation, output).Prompt("Session name: ")).ConfigureAwait(false);
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
-        JsonObject document = new() { ["session_name"] = await Field(session, "session_name").ConfigureAwait(false) };
+        string sessionName = await Field(session, "session_name").ConfigureAwait(false);
+        RefuseUncapturable(sessionName);
+        JsonObject document = new() { ["session_name"] = sessionName };
         // Omit shell_command for the session's own default shell.
         // A leading '-' marks a login-shell invocation of the same binary.
         string defaultShell = Path.GetFileName(await Field(session, "default-shell").ConfigureAwait(false));
@@ -426,6 +428,14 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         string format = invocation.Text("workspace_format") ?? "yaml";
         new ReadCommands(context, invocation, output).SaveOrPrint(document, format);
         if (!invocation.Flag("ndjson") && invocation.Text("save_to") is null) await output.WarningAsync("capture_lossy", "Capture preserves current commands and window options. Original command arguments, history, hooks and plugin state cannot be recovered.").ConfigureAwait(false);
+    }
+
+    // Capture refuses whatever load refuses: a file freeze writes and load
+    // then rejects is worse than no file at all.
+    private static void RefuseUncapturable(string name)
+    {
+        if (WorkspacePlan.NameRefusal(name) is string refusal)
+            throw new CliException("invalid_workspace", $"Session '{name}' cannot be captured into a workspace: {refusal}");
     }
 
     private static JsonObject Result(int index, string path, string session, string name, string status) => new() { ["input_index"] = index, ["input"] = path, ["session_id"] = session, ["session_name"] = name, ["status"] = status, ["reused"] = status is "reused" or "appended", ["completed_stage"] = "workspace-completed" };
@@ -525,6 +535,10 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
 
     private async Task<string> NamedSessionTarget(string name)
     {
+        // tmux answers has-session for a dotted name by reading the dot as a
+        // window separator, so the refusal has to come first or it reads as
+        // a session that is not there.
+        RefuseUncapturable(name);
         TmuxCommandResult exists = await Server.ExecuteCommandAsync(["has-session", "-t", "=" + name], context.CancellationToken).ConfigureAwait(false);
         if (exists.ExitCode != 0) throw new CliException("session_not_found", $"Session '{name}' was not found.");
         return "=" + name + ":";

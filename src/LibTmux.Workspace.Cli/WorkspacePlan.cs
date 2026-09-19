@@ -20,12 +20,7 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         Keys(document, RootKeys, "workspace");
         string name = overrideName ?? Text(document, "session_name") ?? throw Invalid("session_name is required.");
         name = store.Expand(name);
-        // Each refusal states what actually breaks, not a shared "cannot
-        // preserve" claim that was false for whitespace and imprecise for
-        // ':'/'.', which are target separators.
-        if (string.IsNullOrWhiteSpace(name)) throw Invalid("session_name must contain a non-whitespace character.");
-        if (name.Any(char.IsControl)) throw Invalid("session_name must not contain control characters, which corrupt tmux's own session listings.");
-        if (name.Any(character => character is ':' or '.')) throw Invalid("session_name must not contain ':' or '.', which tmux uses as target separators.");
+        if (NameRefusal(name) is string refusal) throw Invalid(refusal);
         string fileDirectory = Path.GetDirectoryName(source)!;
         string directory = document["start_directory"] is null ? store.WorkingDirectory : ResolveDirectory(document, fileDirectory, store);
         JsonArray windows = document["windows"] as JsonArray ?? throw Invalid("windows must be a list.");
@@ -73,6 +68,16 @@ internal sealed record WorkspacePlan(string Name, string Source, string Director
         }
         return new WorkspacePlan(name, source, directory, Text(document, "before_script") is string script ? store.Expand(script) : null, readiness, Mapping(document["options"], store), Mapping(document["global_options"], store), Mapping(document["environment"], store), plans.ToArray());
     }
+
+    // Each refusal states what actually breaks, not a shared "cannot
+    // preserve" claim that was false for whitespace and imprecise for
+    // ':'/'.', which are target separators. Capture asks the same question,
+    // so a session freeze writes out is one load will take back.
+    internal static string? NameRefusal(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "session_name must contain a non-whitespace character."
+        : name.Any(char.IsControl) ? "session_name must not contain control characters, which corrupt tmux's own session listings."
+        : name.Any(character => character is ':' or '.') ? "session_name must not contain ':' or '.', which tmux uses as target separators."
+        : null;
 
     private sealed class CommandSettings(bool enter, double before, double after)
     {

@@ -188,6 +188,36 @@ public sealed class ExecutionTests : IDisposable
         Assert.DoesNotContain("error connecting to", error, StringComparison.Ordinal);
     }
 
+    // tmux runs a session whose name load cannot address. Capturing it would
+    // write a file load refuses, so capture refuses first, with the reason
+    // and without writing anything.
+    [Theory]
+    [InlineData("named")]
+    [InlineData("bare")]
+    public async Task Freeze_refuses_a_session_name_load_would_reject(string form)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string socket = Path.Combine(_root, form + "-dotted.socket");
+        string destination = Path.Combine(_root, form + "-dotted.yaml");
+        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", socketPath: socket, configurationFile: "/dev/null"));
+        try
+        {
+            TmuxCommandResult started = await server.ExecuteCommandAsync(["new-session", "-d", "-s", "my.proj"], token);
+            Assert.Equal(0, started.ExitCode);
+            (int code, string output, string error) = form == "named"
+                ? await Run("freeze", "my.proj", "-S", socket, "--save-to", destination, "--json")
+                : await Run("freeze", "-S", socket, "--save-to", destination, "--json");
+            Assert.True(code == 1, $"Exit {code}: {output}{error}");
+            Assert.Empty(output);
+            JsonNode refusal = JsonNode.Parse(error)!;
+            Assert.Equal("invalid_workspace", refusal["code"]!.ToString());
+            Assert.Contains("my.proj", refusal["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.Contains("target separators", refusal["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.False(File.Exists(destination));
+        }
+        finally { if (await server.IsAliveAsync(token)) await server.KillAsync(cancellationToken: token); }
+    }
+
     // freeze omits shell_command (an empty array) for the default
     // shell and keeps it, as an array, for anything else.
     [Fact]
