@@ -44,15 +44,17 @@ ALLOWED_FILES = frozenset(
     },
 )
 
-#: Exact matched text, keyed by the relative path it is allowed in. These are
-#: not capabilities the ledger tracks -- they recognise which shape of an
-#: opaque, already-dispatched value (a dumped layout string) the connected
-#: tmux can have produced, checked here because sending the wrong shape to an
-#: old tmux crashes its whole server (see the comment above ValidateLayout).
-#: Each was verified against tmux's own tagged source, not against this
-#: project's CI matrix; a third one added anywhere in the file still trips
-#: this check, by exact text, so growing the allowlist is a deliberate edit
-#: a reviewer sees.
+#: Exact matched text, keyed by the relative path it is allowed in. Neither
+#: is a capability the ledger tracks. The JSON-layout entry recognises which
+#: shape of an already-dispatched layout string the connected tmux can have
+#: produced, checked here because sending the wrong shape to an old tmux
+#: crashes its whole server (see the comment above ValidateLayout). The
+#: mirrored-preset entry decides which preset names this client accepts
+#: before a request is even sent, because those presets did not exist before
+#: tmux 3.5. Each was verified against tmux's own tagged source, not against
+#: this project's CI matrix; a third one added anywhere in the file still
+#: trips this check, by exact text, so growing the allowlist is a deliberate
+#: edit a reviewer sees.
 ALLOWED_MATCHES = frozenset(
     {
         ("Window.Layout.cs", 'version >= TmuxVersion.Parse("3.5")'),
