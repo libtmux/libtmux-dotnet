@@ -202,16 +202,23 @@ public sealed class ExecutionTests : IDisposable
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
-            TmuxCommandResult started = await server.ExecuteCommandAsync(["new-session", "-d", "-s", "my.proj"], token);
+            TmuxCommandResult started = await server.ExecuteCommandAsync(["new-session", "-d", "-s", "my.proj", "-P", "-F", "#{session_name}"], token);
             Assert.Equal(0, started.ExitCode);
+            // tmux before 3.5 rewrites the dot, so there is no name to refuse.
+            string name = System.Text.Encoding.UTF8.GetString(started.StandardOutput.Span).TrimEnd('\n');
+            if (!name.Contains('.', StringComparison.Ordinal))
+            {
+                return;
+            }
+
             (int code, string output, string error) = form == "named"
-                ? await Run("freeze", "my.proj", "-S", socket, "--save-to", destination, "--json")
+                ? await Run("freeze", name, "-S", socket, "--save-to", destination, "--json")
                 : await Run("freeze", "-S", socket, "--save-to", destination, "--json");
             Assert.True(code == 1, $"Exit {code}: {output}{error}");
             Assert.Empty(output);
             JsonNode refusal = JsonNode.Parse(error)!;
             Assert.Equal("invalid_workspace", refusal["code"]!.ToString());
-            Assert.Contains("my.proj", refusal["message"]!.ToString(), StringComparison.Ordinal);
+            Assert.Contains(name, refusal["message"]!.ToString(), StringComparison.Ordinal);
             Assert.Contains("target separators", refusal["message"]!.ToString(), StringComparison.Ordinal);
             Assert.False(File.Exists(destination));
         }

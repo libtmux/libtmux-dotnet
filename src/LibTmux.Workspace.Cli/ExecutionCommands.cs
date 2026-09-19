@@ -266,9 +266,9 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
                             while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(2))
                             {
                                 string[] sample = (await Command(["display-message", "-p", "-t", paneId, "#{pane_current_command}\t#{cursor_x},#{cursor_y}"]).ConfigureAwait(false)).TrimEnd('\n').Split('\t');
-                                // macOS runs bash for /bin/sh, so the pane's
-                                // own report is the one that counts.
-                                if (sample.Length == 2 && sample[1] != "0,0" && (sample[0] == expectedShell || OrdinaryShellNames.Contains(sample[0].TrimStart('-'), StringComparer.Ordinal))) break;
+                                // macOS runs bash for /bin/sh, so only that
+                                // name accepts another shell's report.
+                                if (sample.Length == 2 && sample[1] != "0,0" && (sample[0] == expectedShell || (expectedShell == "sh" && OrdinaryShellNames.Contains(sample[0].TrimStart('-'), StringComparer.Ordinal)))) break;
                                 await Task.Delay(50, context.CancellationToken).ConfigureAwait(false);
                             }
                         }
