@@ -114,9 +114,10 @@ public sealed partial class Session
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The window, or null when this session has no such window.</returns>
     /// <remarks>
-    /// A typed identifier names exactly one window. The string overload also
-    /// accepts a window name, which two windows in one session can share, so
-    /// prefer this one where the identifier is already in hand.
+    /// A typed identifier is unique in a session that links a window at only
+    /// one index; the string overload also accepts a window name, which two
+    /// windows can share. When this session links the same window at more
+    /// than one index, this returns whichever placement tmux lists first.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window?> FindWindowAsync(
