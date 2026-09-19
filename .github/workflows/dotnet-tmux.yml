@@ -97,7 +97,8 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
-            pkg-config
+            pkg-config \
+            zsh
 
       - name: Restore the tmux build
         id: tmux-cache
