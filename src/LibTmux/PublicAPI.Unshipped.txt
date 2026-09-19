@@ -732,6 +732,7 @@ LibTmux.Server.DeleteBufferAsync(string? name = null, System.Threading.Cancellat
 LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DetachClientAsync(string? targetClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
+LibTmux.Server.EndpointArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.Server.EnterControlModeAsync(string? target = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.IControlModeSession!>!
 LibTmux.Server.Environment.get -> LibTmux.TmuxEnvironment!
 LibTmux.Server.Equals(LibTmux.Server? other) -> bool
@@ -1310,6 +1311,7 @@ const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d6
 const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
 const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
 const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
+const LibTmux.ServerGeneration.DisplayFormat = "#{pid}:#{start_time}" -> string!
 override LibTmux.AttachSessionRequest.Equals(object? obj) -> bool
 override LibTmux.AttachSessionRequest.GetHashCode() -> int
 override LibTmux.AttachSessionRequest.ToString() -> string!
@@ -1748,9 +1750,11 @@ static LibTmux.SelectPaneRequest.operator !=(LibTmux.SelectPaneRequest? left, Li
 static LibTmux.SelectPaneRequest.operator ==(LibTmux.SelectPaneRequest? left, LibTmux.SelectPaneRequest? right) -> bool
 static LibTmux.SendKeysRequest.operator !=(LibTmux.SendKeysRequest? left, LibTmux.SendKeysRequest? right) -> bool
 static LibTmux.SendKeysRequest.operator ==(LibTmux.SendKeysRequest? left, LibTmux.SendKeysRequest? right) -> bool
+static LibTmux.Server.BuildGuardedCommandLine(LibTmux.ServerGeneration expected, string! mismatchCommand, params System.Collections.Generic.IReadOnlyList<string!>![]! commands) -> System.Collections.Generic.IReadOnlyList<string!>!
 static LibTmux.Server.ConnectAsync(LibTmux.ServerConnectionOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 static LibTmux.Server.CreateOwnedAsync(LibTmux.ServerConnectionOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope!>!
 static LibTmux.Server.FromEnvironment(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null) -> LibTmux.Server!
+static LibTmux.Server.IsValidLayoutCandidate(string! layout, int paneCount) -> bool
 static LibTmux.Server.Open(LibTmux.ServerConnectionOptions? options = null) -> LibTmux.Server!
 static LibTmux.Server.operator !=(LibTmux.Server? left, LibTmux.Server? right) -> bool
 static LibTmux.Server.operator ==(LibTmux.Server? left, LibTmux.Server? right) -> bool
@@ -1759,6 +1763,7 @@ static LibTmux.ServerAccessRequest.operator ==(LibTmux.ServerAccessRequest? left
 static LibTmux.ServerConnectionOptions.Default.get -> LibTmux.ServerConnectionOptions!
 static LibTmux.ServerConnectionOptions.operator !=(LibTmux.ServerConnectionOptions? left, LibTmux.ServerConnectionOptions? right) -> bool
 static LibTmux.ServerConnectionOptions.operator ==(LibTmux.ServerConnectionOptions? left, LibTmux.ServerConnectionOptions? right) -> bool
+static LibTmux.ServerGeneration.Parse(string! text) -> LibTmux.ServerGeneration
 static LibTmux.ServerGeneration.operator !=(LibTmux.ServerGeneration left, LibTmux.ServerGeneration right) -> bool
 static LibTmux.ServerGeneration.operator ==(LibTmux.ServerGeneration left, LibTmux.ServerGeneration right) -> bool
 static LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!

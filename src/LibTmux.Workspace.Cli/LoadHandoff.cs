@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
-using LibTmux.Internal;
 using Microsoft.Win32.SafeHandles;
 
 namespace LibTmux.Workspace.Cli;
@@ -82,7 +81,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         // client, and skip everything below that needs one.
         if (!await TryResolveInvokingPaneAsync().ConfigureAwait(false)) return;
 
-        IReadOnlyList<Client> clients = await Server!.GetClientsStrictAsync(context.CancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
         RefuseIndependent(clients);
         Client[] eligible = clients.Where(Eligible).OrderBy(client => client.Name, StringComparer.Ordinal).ToArray();
         if (eligible.Length == 0) throw new CliException("usage", "No ordinary client is viewing the invoking pane. Use -d or --append.", 2);
@@ -119,9 +118,9 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
         string? socket = CurrentSocket(context, out int processId);
         if (socket is null) throw new CliException("usage", "TMUX must name the current tmux server as socket,pid,session. Use -d.", 2);
         Server inherited = LibTmux.Server.Open(new ServerConnectionOptions(tmuxBinaryPath: options.TmuxBinaryPath, socketPath: Path.GetFullPath(socket, context.Directory), childEnvironment: context.Environment));
-        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", TmuxConnection.GenerationFormat], context.CancellationToken).ConfigureAwait(false);
+        TmuxCommandResult observed = await inherited.ExecuteCommandAsync(["display-message", "-p", ServerGeneration.DisplayFormat], context.CancellationToken).ConfigureAwait(false);
         if (observed.ExitCode != 0) throw new CliException("usage", "The tmux server named by TMUX is not answering. Use -d.", 2);
-        ServerGeneration inheritedGeneration = TmuxConnection.ParseGeneration(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
+        ServerGeneration inheritedGeneration = ServerGeneration.Parse(Encoding.UTF8.GetString(observed.StandardOutput.Span).TrimEnd('\n'));
         if (inheritedGeneration.ProcessId != processId)
             throw new CliException("usage", "The server recorded in TMUX has been replaced. Use -d.", 2);
         Server target;
@@ -227,7 +226,7 @@ internal sealed partial class LoadHandoff(CliContext context, Invocation invocat
             Pane current = await _pane.RefreshAsync(context.CancellationToken).ConfigureAwait(false);
             if (current.RawFormatFields.GetValueOrDefault("pane_tty") != _tty || current.RawFormatFields.GetValueOrDefault("window_id") != _window)
                 throw new CliException("pane_changed", "The invoking pane changed before handoff.");
-            IReadOnlyList<Client> clients = await Server!.GetClientsStrictAsync(context.CancellationToken).ConfigureAwait(false);
+            IReadOnlyList<Client> clients = await Server!.GetClientsAsync(context.CancellationToken).ConfigureAwait(false);
             RefuseIndependent(clients);
             Client? selected = clients.FirstOrDefault(client => client.Name == _client!.Name);
             string[] identity = ["client_pid", "client_created", "client_tty", "session_id", "window_id", "pane_id"];
