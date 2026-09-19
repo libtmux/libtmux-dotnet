@@ -92,7 +92,7 @@ public sealed class ServerPolicyTests
         _ = McpServerComposition.Add(
             services,
             new ServerPolicy(),
-            new ServerConnectionOptions(socketName: "unknown-provenance"),
+            new ServerConnectionOptions { SocketName = "unknown-provenance" },
             callerPaneId: null);
         using ServiceProvider provider = services.BuildServiceProvider();
 
@@ -119,7 +119,7 @@ public sealed class ServerPolicyTests
             _ = McpServerComposition.Add(
                 services,
                 new ServerPolicy(),
-                new ServerConnectionOptions(relative, socketName: "embedded"),
+                new ServerConnectionOptions { TmuxBinaryPath = relative, SocketName = "embedded" },
                 callerPaneId: null);
             using ServiceProvider provider = services.BuildServiceProvider();
 

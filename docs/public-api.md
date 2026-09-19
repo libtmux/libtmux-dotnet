@@ -1380,20 +1380,19 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.ServerConnectionOptions.#ctor(string,string?,string?,Func<string>?,string?,TmuxColorMode,Func<Server,CancellationToken,ValueTask>?,IReadOnlyDictionary<string,string?>?,ILogger?,TimeSpan?)` | `ServerConnectionOptions(string tmuxBinaryPath = "tmux", string? socketName = null, string? socketPath = null, Func<string>? socketNameFactory = null, string? configurationFile = null, TmuxColorMode colorMode = TmuxColorMode.Default, Func<Server,CancellationToken,ValueTask>? initializeAsync = null, IReadOnlyDictionary<string,string?>? childEnvironment = null, ILogger? logger = null, TimeSpan? commandTimeout = null)` | Public | No | Portable | Creates ServerConnectionOptions. |
-| `P:LibTmux.ServerConnectionOptions.ChildEnvironment` | `IReadOnlyDictionary<string,string?>? LibTmux.ServerConnectionOptions.ChildEnvironment { get; }` | Public | No | Portable | Gets ChildEnvironment. |
-| `P:LibTmux.ServerConnectionOptions.ColorMode` | `TmuxColorMode LibTmux.ServerConnectionOptions.ColorMode { get; }` | Public | No | Portable | Gets ColorMode. |
-| `P:LibTmux.ServerConnectionOptions.CommandTimeout` | `TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; }` | Public | No | Portable | How long one tmux command may run, or null to wait indefinitely. |
-| `P:LibTmux.ServerConnectionOptions.ConfigurationFile` | `string? LibTmux.ServerConnectionOptions.ConfigurationFile { get; }` | Public | No | Portable | Gets ConfigurationFile. |
+| `P:LibTmux.ServerConnectionOptions.ChildEnvironment` | `IReadOnlyDictionary<string,string?>? LibTmux.ServerConnectionOptions.ChildEnvironment { get; init; }` | Public | No | Portable | Gets ChildEnvironment. |
+| `P:LibTmux.ServerConnectionOptions.ColorMode` | `TmuxColorMode LibTmux.ServerConnectionOptions.ColorMode { get; init; }` | Public | No | Portable | Gets ColorMode. |
+| `P:LibTmux.ServerConnectionOptions.CommandTimeout` | `TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; init; }` | Public | No | Portable | How long one tmux command may run, or null to wait indefinitely. |
+| `P:LibTmux.ServerConnectionOptions.ConfigurationFile` | `string? LibTmux.ServerConnectionOptions.ConfigurationFile { get; init; }` | Public | No | Portable | Gets ConfigurationFile. |
 | `P:LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | `int? LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity { get; init; }` | Public | No | Portable | How many control-mode events are buffered before the oldest are dropped. |
 | `P:LibTmux.ServerConnectionOptions.Default` | `static ServerConnectionOptions LibTmux.ServerConnectionOptions.Default { get; }` | Public | Yes | Portable | Gets conventional connection defaults using the tmux executable on PATH. |
-| `P:LibTmux.ServerConnectionOptions.InitializeAsync` | `Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; }` | Public | No | Portable | Gets InitializeAsync. |
-| `P:LibTmux.ServerConnectionOptions.Logger` | `ILogger? LibTmux.ServerConnectionOptions.Logger { get; }` | Public | No | Portable | Gets Logger. |
+| `P:LibTmux.ServerConnectionOptions.InitializeAsync` | `Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; init; }` | Public | No | Portable | Gets InitializeAsync. |
+| `P:LibTmux.ServerConnectionOptions.Logger` | `ILogger? LibTmux.ServerConnectionOptions.Logger { get; init; }` | Public | No | Portable | Gets Logger. |
 | `P:LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | `int? LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream { get; init; }` | Public | No | Portable | The largest output one command may capture, in bytes. |
-| `P:LibTmux.ServerConnectionOptions.SocketName` | `string? LibTmux.ServerConnectionOptions.SocketName { get; }` | Public | No | Portable | Gets SocketName. |
-| `P:LibTmux.ServerConnectionOptions.SocketNameFactory` | `Func<string>? LibTmux.ServerConnectionOptions.SocketNameFactory { get; }` | Public | No | Portable | Gets SocketNameFactory. |
-| `P:LibTmux.ServerConnectionOptions.SocketPath` | `string? LibTmux.ServerConnectionOptions.SocketPath { get; }` | Public | No | Portable | Gets SocketPath. |
-| `P:LibTmux.ServerConnectionOptions.TmuxBinaryPath` | `string LibTmux.ServerConnectionOptions.TmuxBinaryPath { get; }` | Public | No | Portable | Gets TmuxBinaryPath. |
+| `P:LibTmux.ServerConnectionOptions.SocketName` | `string? LibTmux.ServerConnectionOptions.SocketName { get; init; }` | Public | No | Portable | Gets SocketName. |
+| `P:LibTmux.ServerConnectionOptions.SocketNameFactory` | `Func<string>? LibTmux.ServerConnectionOptions.SocketNameFactory { get; init; }` | Public | No | Portable | Gets SocketNameFactory. |
+| `P:LibTmux.ServerConnectionOptions.SocketPath` | `string? LibTmux.ServerConnectionOptions.SocketPath { get; init; }` | Public | No | Portable | Gets SocketPath. |
+| `P:LibTmux.ServerConnectionOptions.TmuxBinaryPath` | `string LibTmux.ServerConnectionOptions.TmuxBinaryPath { get; init; }` | Public | No | Portable | Gets TmuxBinaryPath. |
 
 ### `T:LibTmux.ServerGeneration`
 

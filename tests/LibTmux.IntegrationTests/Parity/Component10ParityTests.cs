@@ -60,10 +60,7 @@ public sealed class Component10ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
             token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
@@ -163,10 +160,12 @@ public sealed class Component10ParityTests
     }
 
     private static ServerConnectionOptions IsolatedOptions() =>
-        new(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltcs-parity-{Guid.NewGuid():N}",
-            configurationFile: "/dev/null");
+        new()
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltcs-parity-{Guid.NewGuid():N}",
+            ConfigurationFile = "/dev/null",
+        };
 
     private static async Task<bool> ProvesCreateSessionAsync(Server server, CancellationToken token)
     {

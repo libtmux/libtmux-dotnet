@@ -596,9 +596,7 @@ public sealed class CompositeMutationDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
         Func<Server, CancellationToken, ValueTask>? initializeAsync = null) =>
         new(
-            new ServerConnectionOptions(
-                socketName: "composite-mutation-test",
-                initializeAsync: initializeAsync),
+            new ServerConnectionOptions { SocketName = "composite-mutation-test", InitializeAsync = initializeAsync },
             execute);
 
     private static TmuxTransportException NotDispatched(

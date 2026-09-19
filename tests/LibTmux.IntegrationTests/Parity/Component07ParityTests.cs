@@ -45,10 +45,7 @@ public sealed class Component07ParityTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
 

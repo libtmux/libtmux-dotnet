@@ -134,15 +134,6 @@ public static class McpServerComposition
             return options;
         }
 
-        return new ServerConnectionOptions(
-            tmuxBinaryPath: executable,
-            socketName: options.SocketName,
-            socketPath: options.SocketPath,
-            socketNameFactory: options.SocketNameFactory,
-            configurationFile: options.ConfigurationFile,
-            colorMode: options.ColorMode,
-            initializeAsync: options.InitializeAsync,
-            childEnvironment: options.ChildEnvironment,
-            logger: options.Logger);
+        return new ServerConnectionOptions { TmuxBinaryPath = executable, SocketName = options.SocketName, SocketPath = options.SocketPath, SocketNameFactory = options.SocketNameFactory, ConfigurationFile = options.ConfigurationFile, ColorMode = options.ColorMode, InitializeAsync = options.InitializeAsync, ChildEnvironment = options.ChildEnvironment, Logger = options.Logger };
     }
 }

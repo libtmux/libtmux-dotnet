@@ -123,14 +123,16 @@ public sealed class ExampleNamespace : IAsyncDisposable
         try
         {
             OwnedServerScope server = await Server.CreateOwnedAsync(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
                         ?? "tmux",
-                    socketName: socketName,
-                    childEnvironment: new Dictionary<string, string?>
+                    SocketName = socketName,
+                    ChildEnvironment = new Dictionary<string, string?>
                     {
                         ["TMUX_TMPDIR"] = SocketRoot,
-                    }),
+                    }
+                },
                 cancellationToken: cancellationToken);
 
             if (FindSocket(socketName) is null)

@@ -273,7 +273,7 @@ public sealed class StructuredTextResultBudgetTests
     private static string WidestCursor()
     {
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "budget-cursor"),
+            new ServerConnectionOptions { SocketName = "budget-cursor" },
             FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(new TmuxCommandResult(
                 request.LogicalArguments,
                 0,

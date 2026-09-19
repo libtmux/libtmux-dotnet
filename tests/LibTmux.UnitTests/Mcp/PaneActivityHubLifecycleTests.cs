@@ -13,7 +13,7 @@ public sealed class PaneActivityHubLifecycleTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using PaneActivityHub hub = new();
         using var accessor = new TmuxConnectionAccessor(Server.Open(
-            new ServerConnectionOptions(socketName: "supplied-tools")));
+            new ServerConnectionOptions { SocketName = "supplied-tools" }));
         var tools = new WriteTools(accessor, new ServerPolicy(), hub);
 
         await Assert.IsAssignableFrom<IAsyncDisposable>(tools).DisposeAsync();

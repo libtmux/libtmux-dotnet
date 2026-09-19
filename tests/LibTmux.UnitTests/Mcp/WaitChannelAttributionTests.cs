@@ -168,7 +168,7 @@ public sealed class WaitChannelAttributionTests
         internal WaitChannelEndpoint()
         {
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(socketName: "wait-attribution"),
+                new ServerConnectionOptions { SocketName = "wait-attribution" },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             Server = new Server(connection, new ServerGeneration(17, 29), "tmux 3.7");
         }

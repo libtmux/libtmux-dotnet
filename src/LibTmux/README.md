@@ -33,7 +33,7 @@ To reach one server in particular:
 
 ```csharp
 Server elsewhere = await Server.ConnectAsync(
-    new ServerConnectionOptions(socketName: "build-box"));
+    new ServerConnectionOptions { SocketName = "build-box" });
 ```
 
 ### Where a bare connect lands
@@ -341,7 +341,7 @@ Pass an `ILogger` when connecting and every tmux command is recorded once, at
 the single point they all pass through:
 
 ```csharp
-Server logged = await Server.ConnectAsync(new ServerConnectionOptions(logger: logger));
+Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
 ```
 
 Commands are recorded at `Debug` and failures at `Error`, with stable scalar

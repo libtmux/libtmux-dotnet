@@ -60,7 +60,7 @@ public sealed class HierarchyRelationErrorTests
 
     private static TmuxConnection CreateConnection() =>
         new(
-            new ServerConnectionOptions(socketName: "hierarchy-relation-error-test"),
+            new ServerConnectionOptions { SocketName = "hierarchy-relation-error-test" },
             FakeMultiplexer.AnsweringVersion(NeverDispatchedAsync));
 
     private static Task<TmuxCommandResult> NeverDispatchedAsync(

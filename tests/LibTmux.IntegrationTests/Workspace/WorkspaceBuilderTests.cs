@@ -423,30 +423,34 @@ public sealed class WorkspaceBuilderTests
     }
 
     private static TmuxTestOptions HarnessOptions(string? shell = null) =>
-        new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltw-{Guid.NewGuid():N}"[..20],
-            configurationFile: shell is null
+        new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltw-{Guid.NewGuid():N}"[..20],
+            ConfigurationFile = shell is null
                 ? "/dev/null"
                 : Path.ChangeExtension(shell, ".tmux.conf"),
-            childEnvironment: shell is null
+            ChildEnvironment = shell is null
                 ? null
-                : new Dictionary<string, string?> { ["SHELL"] = shell }));
+                : new Dictionary<string, string?> { ["SHELL"] = shell }
+        });
 
     private static TmuxTestOptions StartupProfileHarnessOptions(
         string configuration,
         string profile,
         string home) =>
-        new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltw-{Guid.NewGuid():N}"[..20],
-            configurationFile: configuration,
-            childEnvironment: new Dictionary<string, string?>
+        new(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltw-{Guid.NewGuid():N}"[..20],
+            ConfigurationFile = configuration,
+            ChildEnvironment = new Dictionary<string, string?>
             {
                 ["BASH_ENV"] = profile,
                 ["HOME"] = home,
                 ["SHELL"] = "/bin/bash",
-            }));
+            }
+        });
 
     private static async Task<(string Configuration, string Profile, string Received)>
         WriteStartupProfileAsync(

@@ -10406,71 +10406,6 @@
       "summary": "Creates ServerAccessRequest."
     },
     {
-      "id": "M:LibTmux.ServerConnectionOptions.#ctor(string,string?,string?,Func<string>?,string?,TmuxColorMode,Func<Server,CancellationToken,ValueTask>?,IReadOnlyDictionary<string,string?>?,ILogger?,TimeSpan?)",
-      "declaringType": "T:LibTmux.ServerConnectionOptions",
-      "name": ".ctor",
-      "kind": "constructor",
-      "visibility": "public",
-      "package": "LibTmux",
-      "static": false,
-      "returnType": "ServerConnectionOptions",
-      "parameters": [
-        {
-          "name": "tmuxBinaryPath",
-          "type": "string",
-          "default": "\"tmux\""
-        },
-        {
-          "name": "socketName",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "socketPath",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "socketNameFactory",
-          "type": "Func<string>?",
-          "default": "null"
-        },
-        {
-          "name": "configurationFile",
-          "type": "string?",
-          "default": "null"
-        },
-        {
-          "name": "colorMode",
-          "type": "TmuxColorMode",
-          "default": "TmuxColorMode.Default"
-        },
-        {
-          "name": "initializeAsync",
-          "type": "Func<Server,CancellationToken,ValueTask>?",
-          "default": "null"
-        },
-        {
-          "name": "childEnvironment",
-          "type": "IReadOnlyDictionary<string,string?>?",
-          "default": "null"
-        },
-        {
-          "name": "logger",
-          "type": "ILogger?",
-          "default": "null"
-        },
-        {
-          "name": "commandTimeout",
-          "type": "TimeSpan?",
-          "default": "null"
-        }
-      ],
-      "signature": "ServerConnectionOptions(string tmuxBinaryPath = \"tmux\", string? socketName = null, string? socketPath = null, Func<string>? socketNameFactory = null, string? configurationFile = null, TmuxColorMode colorMode = TmuxColorMode.Default, Func<Server,CancellationToken,ValueTask>? initializeAsync = null, IReadOnlyDictionary<string,string?>? childEnvironment = null, ILogger? logger = null, TimeSpan? commandTimeout = null)",
-      "portable": true,
-      "summary": "Creates ServerConnectionOptions."
-    },
-    {
       "id": "M:LibTmux.ServerGeneration.#ctor(int,long)",
       "declaringType": "T:LibTmux.ServerGeneration",
       "name": ".ctor",
@@ -19944,7 +19879,7 @@
       "static": false,
       "returnType": "IReadOnlyDictionary<string,string?>?",
       "parameters": [],
-      "signature": "IReadOnlyDictionary<string,string?>? LibTmux.ServerConnectionOptions.ChildEnvironment { get; }",
+      "signature": "IReadOnlyDictionary<string,string?>? LibTmux.ServerConnectionOptions.ChildEnvironment { get; init; }",
       "portable": true,
       "summary": "Gets ChildEnvironment."
     },
@@ -19958,7 +19893,7 @@
       "static": false,
       "returnType": "TmuxColorMode",
       "parameters": [],
-      "signature": "TmuxColorMode LibTmux.ServerConnectionOptions.ColorMode { get; }",
+      "signature": "TmuxColorMode LibTmux.ServerConnectionOptions.ColorMode { get; init; }",
       "portable": true,
       "summary": "Gets ColorMode."
     },
@@ -19972,7 +19907,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ServerConnectionOptions.ConfigurationFile { get; }",
+      "signature": "string? LibTmux.ServerConnectionOptions.ConfigurationFile { get; init; }",
       "portable": true,
       "summary": "Gets ConfigurationFile."
     },
@@ -20000,7 +19935,7 @@
       "static": false,
       "returnType": "Func<Server,CancellationToken,ValueTask>?",
       "parameters": [],
-      "signature": "Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; }",
+      "signature": "Func<Server,CancellationToken,ValueTask>? LibTmux.ServerConnectionOptions.InitializeAsync { get; init; }",
       "portable": true,
       "summary": "Gets InitializeAsync."
     },
@@ -20014,7 +19949,7 @@
       "static": false,
       "returnType": "ILogger?",
       "parameters": [],
-      "signature": "ILogger? LibTmux.ServerConnectionOptions.Logger { get; }",
+      "signature": "ILogger? LibTmux.ServerConnectionOptions.Logger { get; init; }",
       "portable": true,
       "summary": "Gets Logger."
     },
@@ -20025,7 +19960,7 @@
       "kind": "property",
       "visibility": "public",
       "package": "LibTmux",
-      "signature": "TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; }",
+      "signature": "TimeSpan? LibTmux.ServerConnectionOptions.CommandTimeout { get; init; }",
       "returnType": "TimeSpan?",
       "portable": true,
       "summary": "How long one tmux command may run, or null to wait indefinitely."
@@ -20064,7 +19999,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ServerConnectionOptions.SocketName { get; }",
+      "signature": "string? LibTmux.ServerConnectionOptions.SocketName { get; init; }",
       "portable": true,
       "summary": "Gets SocketName."
     },
@@ -20078,7 +20013,7 @@
       "static": false,
       "returnType": "Func<string>?",
       "parameters": [],
-      "signature": "Func<string>? LibTmux.ServerConnectionOptions.SocketNameFactory { get; }",
+      "signature": "Func<string>? LibTmux.ServerConnectionOptions.SocketNameFactory { get; init; }",
       "portable": true,
       "summary": "Gets SocketNameFactory."
     },
@@ -20092,7 +20027,7 @@
       "static": false,
       "returnType": "string?",
       "parameters": [],
-      "signature": "string? LibTmux.ServerConnectionOptions.SocketPath { get; }",
+      "signature": "string? LibTmux.ServerConnectionOptions.SocketPath { get; init; }",
       "portable": true,
       "summary": "Gets SocketPath."
     },
@@ -20106,7 +20041,7 @@
       "static": false,
       "returnType": "string",
       "parameters": [],
-      "signature": "string LibTmux.ServerConnectionOptions.TmuxBinaryPath { get; }",
+      "signature": "string LibTmux.ServerConnectionOptions.TmuxBinaryPath { get; init; }",
       "portable": true,
       "summary": "Gets TmuxBinaryPath."
     },

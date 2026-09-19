@@ -282,10 +282,7 @@ public sealed class TmuxOptionsTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
             token);
     [UnixFact]
     public async Task A_dollar_sign_survives_the_option_round_trip()
@@ -339,8 +336,10 @@ public sealed class TmuxOptionsTests
     }
 
     private static ServerConnectionOptions IsolatedOptions() =>
-        new(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltcs-options-{Guid.NewGuid():N}",
-            configurationFile: "/dev/null");
+        new()
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltcs-options-{Guid.NewGuid():N}",
+            ConfigurationFile = "/dev/null",
+        };
 }

@@ -20,10 +20,7 @@ public sealed class TmuxToolsTests
         await using PtyAttachedClientScope client = await PtyAttachedClientScope.StartAsync(
             raw,
             token);
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: raw.TmuxBinaryPath,
-            socketPath: raw.SocketPath,
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" });
         await using McpToolFixture mcp = McpToolFixture.Create(options);
         string pane = Assert.Single(await mcp.Read.ListPanesAsync(cancellationToken: token)).PaneId;
         string marker = $"attended-{Guid.NewGuid():N}";
@@ -1290,10 +1287,7 @@ public sealed class TmuxToolsTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: raw.TmuxBinaryPath,
-            socketPath: raw.SocketPath,
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" });
         await using McpToolFixture mcp = McpToolFixture.Create(options);
 
         // Regression for DOTNET2-10: a path-selected socket has no -L name of

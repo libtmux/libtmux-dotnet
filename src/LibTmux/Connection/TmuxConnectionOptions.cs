@@ -34,211 +34,118 @@ internal sealed class PsmuxPreviewOptions : IEquatable<PsmuxPreviewOptions>
 }
 
 /// <summary>Configures a tmux server connection without mutating process-wide state.</summary>
+/// <remarks>
+/// Every option is set through an initializer. A constructor parameter binds
+/// at the call site when it compiles, so adding one would break an assembly
+/// already built against the old signature - and this is the type most likely
+/// to grow one.
+/// </remarks>
 public sealed record ServerConnectionOptions
 {
+    private readonly string _tmuxBinaryPath = "tmux";
+    private readonly string? _socketName;
+    private readonly string? _socketPath;
+    private readonly string? _configurationFile;
+    private readonly TmuxColorMode _colorMode;
+    private readonly IReadOnlyDictionary<string, string?>? _childEnvironment;
+    private readonly TimeSpan? _commandTimeout;
     private readonly int? _maxCapturedBytesPerStream;
     private readonly int? _controlModeEventBufferCapacity;
 
-    /// <summary>Initializes connection options.</summary>
-    public ServerConnectionOptions(
-        string tmuxBinaryPath = "tmux",
-        string? socketName = null,
-        string? socketPath = null,
-        Func<string>? socketNameFactory = null,
-        string? configurationFile = null,
-        TmuxColorMode colorMode = TmuxColorMode.Default,
-        Func<Server, CancellationToken, ValueTask>? initializeAsync = null,
-        IReadOnlyDictionary<string, string?>? childEnvironment = null,
-        ILogger? logger = null,
-        TimeSpan? commandTimeout = null)
-        : this(
-            tmuxBinaryPath,
-            socketName,
-            socketPath,
-            socketNameFactory,
-            configurationFile,
-            colorMode,
-            initializeAsync,
-            childEnvironment,
-            logger,
-            commandTimeout,
-            psmuxPreview: null)
-    {
-    }
-
-    private ServerConnectionOptions(
-        string tmuxBinaryPath,
-        string? socketName,
-        string? socketPath,
-        Func<string>? socketNameFactory,
-        string? configurationFile,
-        TmuxColorMode colorMode,
-        Func<Server, CancellationToken, ValueTask>? initializeAsync,
-        IReadOnlyDictionary<string, string?>? childEnvironment,
-        ILogger? logger,
-        TimeSpan? commandTimeout,
-        PsmuxPreviewOptions? psmuxPreview)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(tmuxBinaryPath);
-        if (socketName is not null)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(socketName);
-        }
-
-        if (socketPath is not null)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
-        }
-
-        if (configurationFile is not null)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(configurationFile);
-        }
-
-        if (!Enum.IsDefined(colorMode))
-        {
-            throw new ArgumentOutOfRangeException(nameof(colorMode));
-        }
-
-        if (commandTimeout is TimeSpan limit && limit <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(commandTimeout),
-                limit,
-                "A command timeout runs forward.");
-        }
-
-        Dictionary<string, string?>? childEnvironmentCopy = null;
-        if (childEnvironment is not null)
-        {
-            childEnvironmentCopy = new Dictionary<string, string?>(StringComparer.Ordinal);
-            foreach ((string key, string? value) in childEnvironment)
-            {
-                ArgumentException.ThrowIfNullOrWhiteSpace(key);
-                if (key.Contains('\0') || key.Contains('='))
-                {
-                    throw new ArgumentException(
-                        "Child environment variable names cannot contain NUL or '='.",
-                        nameof(childEnvironment));
-                }
-
-                if (value is not null && value.Contains('\0'))
-                {
-                    throw new ArgumentException(
-                        "Child environment variable values cannot contain NUL.",
-                        nameof(childEnvironment));
-                }
-
-                childEnvironmentCopy.Add(key, value);
-            }
-        }
-
-        if (psmuxPreview is not null)
-        {
-            if (!Path.IsPathFullyQualified(tmuxBinaryPath))
-            {
-                throw new ArgumentException(
-                    "The psmux preview requires a fully qualified executable path.",
-                    nameof(tmuxBinaryPath));
-            }
-
-            if (socketName is null && socketNameFactory is null)
-            {
-                throw new ArgumentException(
-                    "The psmux preview requires an explicit socket name or socket-name factory.",
-                    nameof(socketName));
-            }
-
-            string[] reservedVariables =
-            [
-                "LIBTMUX_SOCKET_NAME",
-                "LIBTMUX_SOCKET_PATH",
-                "TMUX",
-                "PSMUX_ACTIVE",
-                "PSMUX_CLIENT_LAST_SESSION",
-                "PSMUX_CONFIG_FILE",
-                "PSMUX_DATA_DIR",
-                "PSMUX_DEFAULT_SESSION",
-                "PSMUX_SESSION",
-                "PSMUX_SESSION_NAME",
-                "PSMUX_SWITCH_TO",
-                "PSMUX_TARGET_FULL",
-                "PSMUX_TARGET_SESSION",
-            ];
-            if (childEnvironmentCopy is not null
-                && childEnvironmentCopy.Keys.Any(key => reservedVariables.Contains(
-                    key,
-                    StringComparer.OrdinalIgnoreCase)))
-            {
-                throw new ArgumentException(
-                    "The psmux preview owns its routing environment variables.",
-                    nameof(childEnvironment));
-            }
-        }
-
-        TmuxBinaryPath = tmuxBinaryPath;
-        SocketName = socketName;
-        SocketPath = socketPath;
-        SocketNameFactory = socketNameFactory;
-        ConfigurationFile = configurationFile;
-        ColorMode = colorMode;
-        InitializeAsync = initializeAsync;
-        ChildEnvironment = childEnvironmentCopy is null
-            ? null
-            : new ReadOnlyDictionary<string, string?>(childEnvironmentCopy);
-        Logger = logger;
-        CommandTimeout = commandTimeout;
-        PsmuxPreview = psmuxPreview;
-    }
-
-    /// <summary>Gets conventional connection defaults.</summary>
-    public static ServerConnectionOptions Default { get; } = new();
-
-    internal static ServerConnectionOptions ForPsmux(PsmuxConnectionOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        return new ServerConnectionOptions(
-            tmuxBinaryPath: options.ExecutablePath,
-            socketName: options.NamespaceName,
-            socketPath: null,
-            socketNameFactory: null,
-            configurationFile: null,
-            colorMode: TmuxColorMode.Default,
-            initializeAsync: null,
-            childEnvironment: null,
-            logger: options.Logger,
-            commandTimeout: null,
-            psmuxPreview: new PsmuxPreviewOptions(
-                options.ExpectedBinarySha256,
-                options.DataDirectory));
-    }
-
     /// <summary>Gets the tmux executable path.</summary>
-    public string TmuxBinaryPath { get; }
+    /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
+    public string TmuxBinaryPath
+    {
+        get => _tmuxBinaryPath;
+        init
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            _tmuxBinaryPath = value;
+        }
+    }
 
     /// <summary>Gets the explicit socket name.</summary>
-    public string? SocketName { get; }
+    /// <exception cref="ArgumentException">The name is empty or whitespace.</exception>
+    public string? SocketName
+    {
+        get => _socketName;
+        init
+        {
+            if (value is not null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            }
+
+            _socketName = value;
+        }
+    }
 
     /// <summary>Gets the explicit socket path.</summary>
-    public string? SocketPath { get; }
+    /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
+    public string? SocketPath
+    {
+        get => _socketPath;
+        init
+        {
+            if (value is not null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            }
+
+            _socketPath = value;
+        }
+    }
 
     /// <summary>Gets the deferred socket-name factory.</summary>
-    public Func<string>? SocketNameFactory { get; }
+    public Func<string>? SocketNameFactory { get; init; }
 
     /// <summary>Gets the tmux configuration file.</summary>
-    public string? ConfigurationFile { get; }
+    /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
+    public string? ConfigurationFile
+    {
+        get => _configurationFile;
+        init
+        {
+            if (value is not null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            }
+
+            _configurationFile = value;
+        }
+    }
 
     /// <summary>Gets the requested tmux color mode.</summary>
-    public TmuxColorMode ColorMode { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The mode is not a defined value.</exception>
+    public TmuxColorMode ColorMode
+    {
+        get => _colorMode;
+        init
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(ColorMode));
+            }
+
+            _colorMode = value;
+        }
+    }
 
     /// <summary>Gets the post-connect initializer.</summary>
-    public Func<Server, CancellationToken, ValueTask>? InitializeAsync { get; }
+    public Func<Server, CancellationToken, ValueTask>? InitializeAsync { get; init; }
 
     /// <summary>Gets the child-process environment overrides.</summary>
-    public IReadOnlyDictionary<string, string?>? ChildEnvironment { get; }
+    /// <exception cref="ArgumentException">
+    /// A name is empty, contains NUL or <c>=</c>, or a value contains NUL.
+    /// </exception>
+    public IReadOnlyDictionary<string, string?>? ChildEnvironment
+    {
+        get => _childEnvironment;
+        init => _childEnvironment = CopyChildEnvironment(value);
+    }
 
     /// <summary>Gets the connection logger.</summary>
-    public ILogger? Logger { get; }
+    public ILogger? Logger { get; init; }
 
     /// <summary>Gets how long one tmux command may run, or null to wait indefinitely.</summary>
     /// <remarks>
@@ -249,17 +156,32 @@ public sealed record ServerConnectionOptions
     /// <see cref="TmuxDispatchState.Unknown" />: tmux may already have acted.
     /// A caller's own cancellation still wins, and reads as cancellation.
     /// </remarks>
-    public TimeSpan? CommandTimeout { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The timeout does not run forward.</exception>
+    public TimeSpan? CommandTimeout
+    {
+        get => _commandTimeout;
+        init
+        {
+            if (value is TimeSpan limit && limit <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(CommandTimeout),
+                    limit,
+                    "A command timeout runs forward.");
+            }
+
+            _commandTimeout = value;
+        }
+    }
 
     /// <summary>Gets the largest output one command may capture, in bytes.</summary>
     /// <remarks>
     /// Defaults to 64 MiB. A command whose output passes it fails rather than
     /// growing without bound, so a service that runs many captures at once can
     /// bound what one of them costs. Raise it for a capture that legitimately
-    /// needs more. Set as an initializer, not a constructor argument: the
-    /// constructor's shape is a promise to every compiled caller, and an
-    /// option added to it breaks them.
+    /// needs more.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The ceiling does not count upward.</exception>
     public int? MaxCapturedBytesPerStream
     {
         get => _maxCapturedBytesPerStream;
@@ -283,6 +205,7 @@ public sealed record ServerConnectionOptions
     /// events and is told so by <see cref="TmuxEventsDroppedEvent" />; raising
     /// this buys time rather than memory without bound.
     /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The capacity holds no events.</exception>
     public int? ControlModeEventBufferCapacity
     {
         get => _controlModeEventBufferCapacity;
@@ -300,5 +223,54 @@ public sealed record ServerConnectionOptions
         }
     }
 
-    internal PsmuxPreviewOptions? PsmuxPreview { get; }
+    internal PsmuxPreviewOptions? PsmuxPreview { get; init; }
+
+    private static ReadOnlyDictionary<string, string?>? CopyChildEnvironment(
+        IReadOnlyDictionary<string, string?>? childEnvironment)
+    {
+        if (childEnvironment is null)
+        {
+            return null;
+        }
+
+        Dictionary<string, string?> copy = new(StringComparer.Ordinal);
+        foreach ((string key, string? value) in childEnvironment)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            if (key.Contains('\0') || key.Contains('='))
+            {
+                throw new ArgumentException(
+                    "Child environment variable names cannot contain NUL or '='.",
+                    nameof(childEnvironment));
+            }
+
+            if (value is not null && value.Contains('\0'))
+            {
+                throw new ArgumentException(
+                    "Child environment variable values cannot contain NUL.",
+                    nameof(childEnvironment));
+            }
+
+            copy.Add(key, value);
+        }
+
+        return new ReadOnlyDictionary<string, string?>(copy);
+    }
+
+    /// <summary>Gets conventional connection defaults.</summary>
+    public static ServerConnectionOptions Default { get; } = new();
+
+    internal static ServerConnectionOptions ForPsmux(PsmuxConnectionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return new ServerConnectionOptions
+        {
+            TmuxBinaryPath = options.ExecutablePath,
+            SocketName = options.NamespaceName,
+            Logger = options.Logger,
+            PsmuxPreview = new PsmuxPreviewOptions(
+                options.ExpectedBinarySha256,
+                options.DataDirectory),
+        };
+    }
 }

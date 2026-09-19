@@ -682,21 +682,31 @@ LibTmux.ServerAccessRequest.ServerAccessRequest(string? allowUser = null, string
 LibTmux.ServerConnectionOptions
 LibTmux.ServerConnectionOptions.<Clone>$() -> LibTmux.ServerConnectionOptions!
 LibTmux.ServerConnectionOptions.ChildEnvironment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>?
+LibTmux.ServerConnectionOptions.ChildEnvironment.init -> void
 LibTmux.ServerConnectionOptions.ColorMode.get -> LibTmux.TmuxColorMode
+LibTmux.ServerConnectionOptions.ColorMode.init -> void
 LibTmux.ServerConnectionOptions.CommandTimeout.get -> System.TimeSpan?
+LibTmux.ServerConnectionOptions.CommandTimeout.init -> void
 LibTmux.ServerConnectionOptions.ConfigurationFile.get -> string?
+LibTmux.ServerConnectionOptions.ConfigurationFile.init -> void
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.get -> int?
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.init -> void
 LibTmux.ServerConnectionOptions.Equals(LibTmux.ServerConnectionOptions? other) -> bool
 LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+LibTmux.ServerConnectionOptions.InitializeAsync.init -> void
 LibTmux.ServerConnectionOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+LibTmux.ServerConnectionOptions.Logger.init -> void
 LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.get -> int?
 LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.init -> void
-LibTmux.ServerConnectionOptions.ServerConnectionOptions(string! tmuxBinaryPath = "tmux", string? socketName = null, string? socketPath = null, System.Func<string!>? socketNameFactory = null, string? configurationFile = null, LibTmux.TmuxColorMode colorMode = LibTmux.TmuxColorMode.Default, System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>? initializeAsync = null, System.Collections.Generic.IReadOnlyDictionary<string!, string?>? childEnvironment = null, Microsoft.Extensions.Logging.ILogger? logger = null, System.TimeSpan? commandTimeout = null) -> void
+LibTmux.ServerConnectionOptions.ServerConnectionOptions() -> void
 LibTmux.ServerConnectionOptions.SocketName.get -> string?
+LibTmux.ServerConnectionOptions.SocketName.init -> void
 LibTmux.ServerConnectionOptions.SocketNameFactory.get -> System.Func<string!>?
+LibTmux.ServerConnectionOptions.SocketNameFactory.init -> void
 LibTmux.ServerConnectionOptions.SocketPath.get -> string?
+LibTmux.ServerConnectionOptions.SocketPath.init -> void
 LibTmux.ServerConnectionOptions.TmuxBinaryPath.get -> string!
+LibTmux.ServerConnectionOptions.TmuxBinaryPath.init -> void
 LibTmux.ServerGeneration
 LibTmux.ServerGeneration.Equals(LibTmux.ServerGeneration other) -> bool
 LibTmux.ServerGeneration.ProcessId.get -> int

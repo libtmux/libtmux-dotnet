@@ -147,7 +147,7 @@ public sealed class PaneSendKeysDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
     {
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "send-keys-dispatch-test"),
+            new ServerConnectionOptions { SocketName = "send-keys-dispatch-test" },
             FakeMultiplexer.AnsweringVersion(execute));
         return new Pane(
             new Server(connection, Generation, "tmux 3.7"),

@@ -75,10 +75,7 @@ public sealed class EntityFilterTests
     private static Task<TemporaryHierarchyScope> Scope(CancellationToken cancellationToken)
     {
         TmuxTestFactory factory = new();
-        TmuxTestOptions options = new(new ServerConnectionOptions(
-            tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: $"ltquery-{Guid.NewGuid():N}"[..24],
-            configurationFile: "/dev/null"));
+        TmuxTestOptions options = new(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketName = $"ltquery-{Guid.NewGuid():N}"[..24], ConfigurationFile = "/dev/null" });
         return factory.CreateHierarchyAsync(options, cancellationToken);
     }
 }

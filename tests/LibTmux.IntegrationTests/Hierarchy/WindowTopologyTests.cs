@@ -355,11 +355,7 @@ public sealed class WindowTopologyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         RecordingLogger logger = new();
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null", Logger = logger },
             token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await TestHierarchy.RequireFirstWindowAsync(session, token);
@@ -404,10 +400,7 @@ public sealed class WindowTopologyTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions { TmuxBinaryPath = raw.TmuxBinaryPath, SocketPath = raw.SocketPath, ConfigurationFile = "/dev/null" },
             token);
 
     private sealed class RecordingLogger : ILogger
