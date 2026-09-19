@@ -216,7 +216,10 @@ public sealed class Component11ParityTests
         CancellationToken token)
     {
         Session guest = await server.CreateSessionAsync(new NewSessionRequest { Name = "guest" }, token);
-        await window.LinkAsync(new LinkWindowRequest(guest.Id.ToString(), "7"), token);
+        await window.LinkAsync(new LinkWindowRequest(guest.Id.ToString())
+        {
+            TargetIndex = "7",
+        }, token);
         Window linked = (await guest.GetWindowsAsync(token)).Single(w => w.Id == window.Id);
         await linked.UnlinkAsync(cancellationToken: token);
         return linked.Index == 7

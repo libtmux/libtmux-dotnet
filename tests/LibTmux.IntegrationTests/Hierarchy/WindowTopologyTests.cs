@@ -25,7 +25,10 @@ public sealed class WindowTopologyTests
         Window shared = await home.CreateWindowAsync(new NewWindowRequest { Name = "shared" }, token);
         int homeIndex = shared.Index;
 
-        await shared.LinkAsync(new LinkWindowRequest(guest.Id.ToString(), "9"), token);
+        await shared.LinkAsync(new LinkWindowRequest(guest.Id.ToString())
+        {
+            TargetIndex = "9",
+        }, token);
 
         // The same window now holds a different index in each session, so a
         // handle's Index is the index of the session it was read through.
@@ -77,7 +80,10 @@ public sealed class WindowTopologyTests
         // Link the window into its own session a second time. Both
         // placements now answer to the same window id, so a target naming
         // only the session and that id cannot tell them apart.
-        await first.LinkAsync(new LinkWindowRequest(session.Id.ToString(), "7"), token);
+        await first.LinkAsync(new LinkWindowRequest(session.Id.ToString())
+        {
+            TargetIndex = "7",
+        }, token);
 
         Window[] placements =
         [

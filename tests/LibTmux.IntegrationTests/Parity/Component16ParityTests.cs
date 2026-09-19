@@ -122,7 +122,7 @@ public sealed class Component16ParityTests
         // attached, so tmux refuses rather than prompting nobody.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ShowCommandPromptAsync(
-                new CommandPromptRequest("display-message %1", prompt: "say:"),
+                new CommandPromptRequest("display-message %1") { Prompt = "say:" },
                 token));
         return true;
     }
@@ -205,12 +205,12 @@ public sealed class Component16ParityTests
         }
 
         await server.RunShellAsync(
-            new RunShellRequest("set-option -g @shell-ran yes", asTmuxCommand: true),
+            new RunShellRequest("set-option -g @shell-ran yes") { AsTmuxCommand = true },
             token);
         await WaitForOptionAsync(server, "@shell-ran", "yes", token);
 
         // Backgrounding means tmux has not waited, so there is nothing to report.
-        return await server.RunShellAsync(new RunShellRequest("true", background: true), token)
+        return await server.RunShellAsync(new RunShellRequest("true") { Background = true }, token)
             is null;
     }
 
@@ -405,7 +405,7 @@ public sealed class Component16ParityTests
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<TmuxOption> read = await server.Options.GetAsync(
-                new GetOptionRequest(name, OptionScope.Session, global: true, quiet: true),
+                new GetOptionRequest(name) { Scope = OptionScope.Session, Global = true, Quiet = true },
                 token);
             seen = read.Count > 0 ? read[0].Value.Raw : null;
             if (string.Equals(seen, expected, StringComparison.Ordinal))

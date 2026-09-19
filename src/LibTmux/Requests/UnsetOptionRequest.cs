@@ -5,23 +5,10 @@ public sealed record UnsetOptionRequest
 {
     /// <summary>Initializes a request to unset one option.</summary>
     /// <param name="name">The option to unset, optionally with an array index.</param>
-    /// <param name="scope">The scope to unset in, or null for the owner's own.</param>
-    /// <param name="global">Whether the global table is unset instead of the local one.</param>
-    /// <param name="unsetPaneOverrides">Whether every pane's override of the option goes too.</param>
-    /// <param name="quiet">Whether a missing option is answered with nothing instead of an error.</param>
-    public UnsetOptionRequest(
-        string name,
-        OptionScope? scope = null,
-        bool global = false,
-        bool unsetPaneOverrides = false,
-        bool quiet = false)
+    public UnsetOptionRequest(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name;
-        Scope = scope;
-        Global = global;
-        UnsetPaneOverrides = unsetPaneOverrides;
-        Quiet = quiet;
     }
 
     /// <summary>Gets the option to unset, optionally with an array index.</summary>
@@ -32,14 +19,14 @@ public sealed record UnsetOptionRequest
     public string Name { get; }
 
     /// <summary>Gets the scope to unset in, or null for the owner's own.</summary>
-    public OptionScope? Scope { get; }
+    public OptionScope? Scope { get; init; }
 
     /// <summary>Gets whether the global table is unset instead of the local one.</summary>
-    public bool Global { get; }
+    public bool Global { get; init; }
 
     /// <summary>Gets whether every pane's override of the option goes too.</summary>
-    public bool UnsetPaneOverrides { get; }
+    public bool UnsetPaneOverrides { get; init; }
 
     /// <summary>Gets whether a missing option is answered with nothing instead of an error.</summary>
-    public bool Quiet { get; }
+    public bool Quiet { get; init; }
 }

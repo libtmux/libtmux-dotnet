@@ -78,7 +78,7 @@ public static class Tour
         // An option the window does not hold is inherited rather than missing,
         // and asking for inherited values is what shows it.
         IReadOnlyList<TmuxOption> inherited = await window.Options.GetAsync(
-            new GetOptionRequest("mode-keys", includeInherited: true));
+            new GetOptionRequest("mode-keys") { IncludeInherited = true });
         Console.WriteLine($"mode-keys        {inherited[0].Value.Raw} (inherited)");
     }
 
@@ -94,7 +94,7 @@ public static class Tour
 
         await server.Hooks.RunAsync(new HookRequest("alert-bell"));
         IReadOnlyList<TmuxOption> rang = await server.Options.GetAsync(
-            new GetOptionRequest("@rang", OptionScope.Session, global: true, quiet: true));
+            new GetOptionRequest("@rang") { Scope = OptionScope.Session, Global = true, Quiet = true });
         Console.WriteLine($"hook ran         {rang.Count == 1}");
     }
 

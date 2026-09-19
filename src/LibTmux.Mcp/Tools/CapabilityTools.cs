@@ -787,7 +787,11 @@ internal sealed class CapabilityTools
         }
 
         await pane.JoinAsync(
-                new MovePaneRequest(target.Id.ToString(), direction, detach: detach),
+                new MovePaneRequest(target.Id.ToString())
+                {
+                    Direction = direction,
+                    Detach = detach,
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 

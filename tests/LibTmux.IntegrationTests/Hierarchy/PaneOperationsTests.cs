@@ -183,7 +183,7 @@ public sealed class PaneOperationsTests
         // percentage flag itself is broken from 3.4 through 3.6.
         Window other = await session.CreateWindowAsync(new NewWindowRequest { Name = "target" }, token);
         await explicitTarget.MoveAsync(
-            new MovePaneRequest(other.Id.ToString(), size: "30%"),
+            new MovePaneRequest(other.Id.ToString()) { Size = "30%" },
             token);
         Assert.Equal(2, (await other.GetPanesAsync(token)).Count);
 

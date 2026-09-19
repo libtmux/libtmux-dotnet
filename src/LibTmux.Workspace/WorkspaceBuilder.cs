@@ -246,7 +246,7 @@ public sealed class WorkspaceBuilder
         CancellationToken cancellationToken)
     {
         IReadOnlyList<TmuxOption> reported = await options.GetAsync(
-                new GetOptionRequest(name, includeInherited: true),
+                new GetOptionRequest(name) { IncludeInherited = true },
                 cancellationToken)
             .ConfigureAwait(false);
         if (reported.Count != 1)

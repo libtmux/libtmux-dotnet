@@ -233,11 +233,7 @@ public sealed class Component15ParityTests
             token);
         // The hook writes into the global session table, which is not the
         // server table the server's own accessor reads.
-        GetOptionRequest written = new(
-            "@hook-ran",
-            OptionScope.Session,
-            global: true,
-            quiet: true);
+        GetOptionRequest written = new("@hook-ran") { Scope = OptionScope.Session, Global = true, Quiet = true };
         Assert.Empty(await server.Options.GetAsync(written, token));
 
         await server.Hooks.RunAsync(new HookRequest("alert-bell"), token);

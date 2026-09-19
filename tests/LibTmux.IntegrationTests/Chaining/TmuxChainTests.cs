@@ -402,10 +402,7 @@ public sealed class TmuxChainTests
         Server server = await ConnectAsync(raw, token);
         Pane pane = (await server.GetPanesAsync(token))[0];
 
-        TmuxCommand command = new FindWindowRequest(
-            "needle",
-            matchName: true,
-            ignoreCase: true).ToCommand(pane);
+        TmuxCommand command = new FindWindowRequest("needle") { MatchName = true, IgnoreCase = true }.ToCommand(pane);
 
         Assert.Equal("find-window", command.Name);
         Assert.Contains("-N", command.Arguments);
@@ -415,7 +412,7 @@ public sealed class TmuxChainTests
         // A search opens a chooser, which needs a client to open in. With none
         // attached there is nothing to observe afterwards, so this asserts the
         // command tmux accepted rather than an effect it cannot have had.
-        await new FindWindowRequest("needle", matchName: true).ExecuteAsync(pane, token);
+        await new FindWindowRequest("needle") { MatchName = true }.ExecuteAsync(pane, token);
 
         Assert.True(await server.IsAliveAsync(token));
     }
@@ -538,9 +535,10 @@ public sealed class TmuxChainTests
         // Showing standard error arrived in 3.6 and passing arguments in 3.7,
         // so asking for both has to drop what the running tmux lacks rather
         // than send a flag it refuses.
-        TmuxCommandResult result = await new RunShellRequest(
-            "echo chained-shell",
-            showStandardError: true).ExecuteAsync(server, token);
+        TmuxCommandResult result = await new RunShellRequest("echo chained-shell")
+        {
+            ShowStandardError = true,
+        }.ExecuteAsync(server, token);
 
         // tmux 3.3a/3.4 accept run-shell but report nothing; 3.2a and 3.5+
         // return what it printed, so output is asserted only where sent.
@@ -595,10 +593,11 @@ public sealed class TmuxChainTests
         // Styles arrived in 3.4 and the mouse flag in 3.5. A menu needs a
         // client to open in, so what is asserted is the command tmux built
         // rather than a menu nobody could see.
-        TmuxCommand command = new DisplayMenuRequest(
-            [new TmuxMenuItem("Build", "b", "display-message built")],
-            title: "chained",
-            mouse: true).ToCommand(server);
+        TmuxCommand command = new DisplayMenuRequest([new TmuxMenuItem("Build", "b", "display-message built")])
+        {
+            Title = "chained",
+            Mouse = true,
+        }.ToCommand(server);
 
         Assert.Equal("display-menu", command.Name);
         Assert.Contains("Build", command.Arguments);
@@ -698,7 +697,7 @@ public sealed class TmuxChainTests
                 .Value.Raw);
 
         IReadOnlyList<TmuxOption> gone = await server.Options.GetAsync(
-            new GetOptionRequest("@chained-temp", quiet: true),
+            new GetOptionRequest("@chained-temp") { Quiet = true },
             token);
 
         Assert.True(gone.Count == 0 || gone[0].Value.State == TmuxOptionState.Absent);
@@ -744,10 +743,11 @@ public sealed class TmuxChainTests
         // Naming the accepting key arrived in 3.4. A confirmation needs a
         // client to ask, so what is asserted is the command tmux built rather
         // than an answer nobody could give.
-        TmuxCommand command = new ConfirmBeforeRequest(
-            ["display-message", "confirmed"],
-            prompt: "sure?",
-            confirmKey: "y").ToCommand(server);
+        TmuxCommand command = new ConfirmBeforeRequest(["display-message", "confirmed"])
+        {
+            Prompt = "sure?",
+            ConfirmKey = "y",
+        }.ToCommand(server);
 
         Assert.Equal("confirm-before", command.Name);
         Assert.Contains("sure?", command.Arguments);
@@ -771,7 +771,7 @@ public sealed class TmuxChainTests
             server.Version!.Value,
             "command_prompt_background");
 
-        CommandPromptRequest typed = new("display-message %%", type: PromptType.Command);
+        CommandPromptRequest typed = new("display-message %%") { Type = PromptType.Command };
 
         if (!carriesTypes)
         {
@@ -950,7 +950,7 @@ public sealed class TmuxChainTests
             .First(candidate => candidate.Name != "link-target");
 
         // A link names the session and index captured with the window.
-        await new LinkWindowRequest("link-target", detach: true).ExecuteAsync(window, token);
+        await new LinkWindowRequest("link-target") { Detach = true }.ExecuteAsync(window, token);
 
         // The same window now appears under both sessions, which is what a
         // link is.

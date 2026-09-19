@@ -23,9 +23,9 @@ public sealed class TmuxOptionsTests
         // A value set globally is not in the session's own table, and shows up
         // there only when inherited values are asked for.
         await session.Options.SetAsync(new SetOptionRequest("status-keys", "vi", global: true), token);
-        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("status-keys", quiet: true), token));
+        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("status-keys") { Quiet = true }, token));
         IReadOnlyList<TmuxOption> inherited = await session.Options.GetAsync(
-            new GetOptionRequest("status-keys", includeInherited: true),
+            new GetOptionRequest("status-keys") { IncludeInherited = true },
             token);
         Assert.Equal("vi", Assert.Single(inherited).Value.Raw);
 
@@ -40,7 +40,7 @@ public sealed class TmuxOptionsTests
         Assert.Equal(
             "vi",
             Assert.Single(await session.Options.GetAsync(
-                    new GetOptionRequest("status-keys", includeInherited: true),
+                    new GetOptionRequest("status-keys") { IncludeInherited = true },
                     token))
                 .Value.Raw);
 
@@ -89,7 +89,7 @@ public sealed class TmuxOptionsTests
             "first",
             Assert.Single(await first.Options.GetAsync(new GetOptionRequest("@marker"), token))
                 .Value.Raw);
-        Assert.Empty(await second.Options.GetAsync(new GetOptionRequest("@marker", quiet: true), token));
+        Assert.Empty(await second.Options.GetAsync(new GetOptionRequest("@marker") { Quiet = true }, token));
 
         // A request may name a scope other than the accessor's own, which is
         // how a session reaches the global table it inherits from.
@@ -99,16 +99,16 @@ public sealed class TmuxOptionsTests
         Assert.Equal(
             "everywhere",
             Assert.Single(await session.Options.GetAsync(
-                    new GetOptionRequest("@shared", global: true),
+                    new GetOptionRequest("@shared") { Global = true },
                     token))
                 .Value.Raw);
 
         // Unsetting removes the entry rather than blanking it.
         await session.Options.UnsetAsync(
-            new UnsetOptionRequest("@shared", global: true),
+            new UnsetOptionRequest("@shared") { Global = true },
             token);
         Assert.Empty(await session.Options.GetAsync(
-            new GetOptionRequest("@shared", global: true, quiet: true),
+            new GetOptionRequest("@shared") { Global = true, Quiet = true },
             token));
 
         // Hooks live beside options and appear only when asked for.
@@ -226,7 +226,7 @@ public sealed class TmuxOptionsTests
 
         // Asking quietly turns a missing option into no rows instead.
         Assert.Empty(await session.Options.GetAsync(
-            new GetOptionRequest("@never-set", quiet: true),
+            new GetOptionRequest("@never-set") { Quiet = true },
             token));
 
         // A name that is not a name never reaches tmux at all.

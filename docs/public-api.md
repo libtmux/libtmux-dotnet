@@ -563,31 +563,31 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.CommandPromptRequest.#ctor(string,string?,string?,string?,bool,bool,bool,bool,PromptType?,bool,bool,bool,bool)` | `CommandPromptRequest(string template, string? prompt = null, string? inputs = null, string? targetClient = null, bool oneKey = false, bool keyOnly = false, bool onInputChange = false, bool numeric = false, PromptType? type = null, bool expandFormat = false, bool literal = false, bool backspaceExits = false, bool noFreeze = false)` | Public | No | Portable | Creates CommandPromptRequest. |
-| `P:LibTmux.CommandPromptRequest.BackspaceExits` | `bool LibTmux.CommandPromptRequest.BackspaceExits { get; }` | Public | No | Portable | Gets BackspaceExits. |
-| `P:LibTmux.CommandPromptRequest.ExpandFormat` | `bool LibTmux.CommandPromptRequest.ExpandFormat { get; }` | Public | No | Portable | Gets ExpandFormat. |
-| `P:LibTmux.CommandPromptRequest.Inputs` | `string? LibTmux.CommandPromptRequest.Inputs { get; }` | Public | No | Portable | Gets Inputs. |
-| `P:LibTmux.CommandPromptRequest.KeyOnly` | `bool LibTmux.CommandPromptRequest.KeyOnly { get; }` | Public | No | Portable | Gets KeyOnly. |
-| `P:LibTmux.CommandPromptRequest.Literal` | `bool LibTmux.CommandPromptRequest.Literal { get; }` | Public | No | Portable | Gets Literal. |
-| `P:LibTmux.CommandPromptRequest.NoFreeze` | `bool LibTmux.CommandPromptRequest.NoFreeze { get; }` | Public | No | Portable | Gets NoFreeze. |
-| `P:LibTmux.CommandPromptRequest.Numeric` | `bool LibTmux.CommandPromptRequest.Numeric { get; }` | Public | No | Portable | Gets Numeric. |
-| `P:LibTmux.CommandPromptRequest.OnInputChange` | `bool LibTmux.CommandPromptRequest.OnInputChange { get; }` | Public | No | Portable | Gets OnInputChange. |
-| `P:LibTmux.CommandPromptRequest.OneKey` | `bool LibTmux.CommandPromptRequest.OneKey { get; }` | Public | No | Portable | Gets OneKey. |
-| `P:LibTmux.CommandPromptRequest.Prompt` | `string? LibTmux.CommandPromptRequest.Prompt { get; }` | Public | No | Portable | Gets Prompt. |
-| `P:LibTmux.CommandPromptRequest.TargetClient` | `string? LibTmux.CommandPromptRequest.TargetClient { get; }` | Public | No | Portable | Gets TargetClient. |
+| `M:LibTmux.CommandPromptRequest.#ctor(string)` | `CommandPromptRequest(string template)` | Public | No | Portable | Creates CommandPromptRequest. |
+| `P:LibTmux.CommandPromptRequest.BackspaceExits` | `bool LibTmux.CommandPromptRequest.BackspaceExits { get; init; }` | Public | No | Portable | Gets BackspaceExits. |
+| `P:LibTmux.CommandPromptRequest.ExpandFormat` | `bool LibTmux.CommandPromptRequest.ExpandFormat { get; init; }` | Public | No | Portable | Gets ExpandFormat. |
+| `P:LibTmux.CommandPromptRequest.Inputs` | `string? LibTmux.CommandPromptRequest.Inputs { get; init; }` | Public | No | Portable | Gets Inputs. |
+| `P:LibTmux.CommandPromptRequest.KeyOnly` | `bool LibTmux.CommandPromptRequest.KeyOnly { get; init; }` | Public | No | Portable | Gets KeyOnly. |
+| `P:LibTmux.CommandPromptRequest.Literal` | `bool LibTmux.CommandPromptRequest.Literal { get; init; }` | Public | No | Portable | Gets Literal. |
+| `P:LibTmux.CommandPromptRequest.NoFreeze` | `bool LibTmux.CommandPromptRequest.NoFreeze { get; init; }` | Public | No | Portable | Gets NoFreeze. |
+| `P:LibTmux.CommandPromptRequest.Numeric` | `bool LibTmux.CommandPromptRequest.Numeric { get; init; }` | Public | No | Portable | Gets Numeric. |
+| `P:LibTmux.CommandPromptRequest.OnInputChange` | `bool LibTmux.CommandPromptRequest.OnInputChange { get; init; }` | Public | No | Portable | Gets OnInputChange. |
+| `P:LibTmux.CommandPromptRequest.OneKey` | `bool LibTmux.CommandPromptRequest.OneKey { get; init; }` | Public | No | Portable | Gets OneKey. |
+| `P:LibTmux.CommandPromptRequest.Prompt` | `string? LibTmux.CommandPromptRequest.Prompt { get; init; }` | Public | No | Portable | Gets Prompt. |
+| `P:LibTmux.CommandPromptRequest.TargetClient` | `string? LibTmux.CommandPromptRequest.TargetClient { get; init; }` | Public | No | Portable | Gets TargetClient. |
 | `P:LibTmux.CommandPromptRequest.Template` | `string LibTmux.CommandPromptRequest.Template { get; }` | Public | No | Portable | Gets Template. |
-| `P:LibTmux.CommandPromptRequest.Type` | `PromptType? LibTmux.CommandPromptRequest.Type { get; }` | Public | No | Portable | Gets Type. |
+| `P:LibTmux.CommandPromptRequest.Type` | `PromptType? LibTmux.CommandPromptRequest.Type { get; init; }` | Public | No | Portable | Gets Type. |
 
 ### `T:LibTmux.ConfirmBeforeRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.ConfirmBeforeRequest.#ctor(IReadOnlyList<string>,string?,string?,bool,string?)` | `ConfirmBeforeRequest(IReadOnlyList<string> command, string? prompt = null, string? confirmKey = null, bool defaultYes = false, string? targetClient = null)` | Public | No | Portable | Creates ConfirmBeforeRequest. |
+| `M:LibTmux.ConfirmBeforeRequest.#ctor(IReadOnlyList<string>)` | `ConfirmBeforeRequest(IReadOnlyList<string> command)` | Public | No | Portable | Creates ConfirmBeforeRequest. |
 | `P:LibTmux.ConfirmBeforeRequest.Command` | `IReadOnlyList<string> LibTmux.ConfirmBeforeRequest.Command { get; }` | Public | No | Portable | Gets Command. |
-| `P:LibTmux.ConfirmBeforeRequest.ConfirmKey` | `string? LibTmux.ConfirmBeforeRequest.ConfirmKey { get; }` | Public | No | Portable | Gets ConfirmKey. |
-| `P:LibTmux.ConfirmBeforeRequest.DefaultYes` | `bool LibTmux.ConfirmBeforeRequest.DefaultYes { get; }` | Public | No | Portable | Gets DefaultYes. |
-| `P:LibTmux.ConfirmBeforeRequest.Prompt` | `string? LibTmux.ConfirmBeforeRequest.Prompt { get; }` | Public | No | Portable | Gets Prompt. |
-| `P:LibTmux.ConfirmBeforeRequest.TargetClient` | `string? LibTmux.ConfirmBeforeRequest.TargetClient { get; }` | Public | No | Portable | Gets TargetClient. |
+| `P:LibTmux.ConfirmBeforeRequest.ConfirmKey` | `string? LibTmux.ConfirmBeforeRequest.ConfirmKey { get; init; }` | Public | No | Portable | Gets ConfirmKey. |
+| `P:LibTmux.ConfirmBeforeRequest.DefaultYes` | `bool LibTmux.ConfirmBeforeRequest.DefaultYes { get; init; }` | Public | No | Portable | Gets DefaultYes. |
+| `P:LibTmux.ConfirmBeforeRequest.Prompt` | `string? LibTmux.ConfirmBeforeRequest.Prompt { get; init; }` | Public | No | Portable | Gets Prompt. |
+| `P:LibTmux.ConfirmBeforeRequest.TargetClient` | `string? LibTmux.ConfirmBeforeRequest.TargetClient { get; init; }` | Public | No | Portable | Gets TargetClient. |
 
 ### `T:LibTmux.ControlModeCommandException`
 
@@ -619,20 +619,20 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.DisplayMenuRequest.#ctor(IReadOnlyList<TmuxMenuItem>,string?,string?,string?,string?,string?,string?,string?,string?,string?,string?,bool,bool)` | `DisplayMenuRequest(IReadOnlyList<TmuxMenuItem> items, string? title = null, string? targetPane = null, string? targetClient = null, string? x = null, string? y = null, string? startingChoice = null, string? borderLines = null, string? style = null, string? borderStyle = null, string? selectedStyle = null, bool mouse = false, bool stayOpen = false)` | Public | No | Portable | Creates DisplayMenuRequest. |
-| `P:LibTmux.DisplayMenuRequest.BorderLines` | `string? LibTmux.DisplayMenuRequest.BorderLines { get; }` | Public | No | Portable | Gets BorderLines. |
-| `P:LibTmux.DisplayMenuRequest.BorderStyle` | `string? LibTmux.DisplayMenuRequest.BorderStyle { get; }` | Public | No | Portable | Gets BorderStyle. |
+| `M:LibTmux.DisplayMenuRequest.#ctor(IReadOnlyList<TmuxMenuItem>)` | `DisplayMenuRequest(IReadOnlyList<TmuxMenuItem> items)` | Public | No | Portable | Creates DisplayMenuRequest. |
+| `P:LibTmux.DisplayMenuRequest.BorderLines` | `string? LibTmux.DisplayMenuRequest.BorderLines { get; init; }` | Public | No | Portable | Gets BorderLines. |
+| `P:LibTmux.DisplayMenuRequest.BorderStyle` | `string? LibTmux.DisplayMenuRequest.BorderStyle { get; init; }` | Public | No | Portable | Gets BorderStyle. |
 | `P:LibTmux.DisplayMenuRequest.Items` | `IReadOnlyList<TmuxMenuItem> LibTmux.DisplayMenuRequest.Items { get; }` | Public | No | Portable | Gets Items. |
-| `P:LibTmux.DisplayMenuRequest.Mouse` | `bool LibTmux.DisplayMenuRequest.Mouse { get; }` | Public | No | Portable | Gets Mouse. |
-| `P:LibTmux.DisplayMenuRequest.SelectedStyle` | `string? LibTmux.DisplayMenuRequest.SelectedStyle { get; }` | Public | No | Portable | Gets SelectedStyle. |
-| `P:LibTmux.DisplayMenuRequest.StartingChoice` | `string? LibTmux.DisplayMenuRequest.StartingChoice { get; }` | Public | No | Portable | Gets StartingChoice. |
-| `P:LibTmux.DisplayMenuRequest.StayOpen` | `bool LibTmux.DisplayMenuRequest.StayOpen { get; }` | Public | No | Portable | Gets StayOpen. |
-| `P:LibTmux.DisplayMenuRequest.Style` | `string? LibTmux.DisplayMenuRequest.Style { get; }` | Public | No | Portable | Gets Style. |
-| `P:LibTmux.DisplayMenuRequest.TargetClient` | `string? LibTmux.DisplayMenuRequest.TargetClient { get; }` | Public | No | Portable | Gets TargetClient. |
-| `P:LibTmux.DisplayMenuRequest.TargetPane` | `string? LibTmux.DisplayMenuRequest.TargetPane { get; }` | Public | No | Portable | Gets TargetPane. |
-| `P:LibTmux.DisplayMenuRequest.Title` | `string? LibTmux.DisplayMenuRequest.Title { get; }` | Public | No | Portable | Gets Title. |
-| `P:LibTmux.DisplayMenuRequest.X` | `string? LibTmux.DisplayMenuRequest.X { get; }` | Public | No | Portable | Gets X. |
-| `P:LibTmux.DisplayMenuRequest.Y` | `string? LibTmux.DisplayMenuRequest.Y { get; }` | Public | No | Portable | Gets Y. |
+| `P:LibTmux.DisplayMenuRequest.Mouse` | `bool LibTmux.DisplayMenuRequest.Mouse { get; init; }` | Public | No | Portable | Gets Mouse. |
+| `P:LibTmux.DisplayMenuRequest.SelectedStyle` | `string? LibTmux.DisplayMenuRequest.SelectedStyle { get; init; }` | Public | No | Portable | Gets SelectedStyle. |
+| `P:LibTmux.DisplayMenuRequest.StartingChoice` | `string? LibTmux.DisplayMenuRequest.StartingChoice { get; init; }` | Public | No | Portable | Gets StartingChoice. |
+| `P:LibTmux.DisplayMenuRequest.StayOpen` | `bool LibTmux.DisplayMenuRequest.StayOpen { get; init; }` | Public | No | Portable | Gets StayOpen. |
+| `P:LibTmux.DisplayMenuRequest.Style` | `string? LibTmux.DisplayMenuRequest.Style { get; init; }` | Public | No | Portable | Gets Style. |
+| `P:LibTmux.DisplayMenuRequest.TargetClient` | `string? LibTmux.DisplayMenuRequest.TargetClient { get; init; }` | Public | No | Portable | Gets TargetClient. |
+| `P:LibTmux.DisplayMenuRequest.TargetPane` | `string? LibTmux.DisplayMenuRequest.TargetPane { get; init; }` | Public | No | Portable | Gets TargetPane. |
+| `P:LibTmux.DisplayMenuRequest.Title` | `string? LibTmux.DisplayMenuRequest.Title { get; init; }` | Public | No | Portable | Gets Title. |
+| `P:LibTmux.DisplayMenuRequest.X` | `string? LibTmux.DisplayMenuRequest.X { get; init; }` | Public | No | Portable | Gets X. |
+| `P:LibTmux.DisplayMenuRequest.Y` | `string? LibTmux.DisplayMenuRequest.Y { get; init; }` | Public | No | Portable | Gets Y. |
 
 ### `T:LibTmux.DisplayMessageRequest`
 
@@ -675,25 +675,25 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.FindWindowRequest.#ctor(string,bool,bool,bool,bool,bool)` | `FindWindowRequest(string pattern, bool matchContent = false, bool ignoreCase = false, bool matchName = false, bool regex = false, bool matchTitle = false)` | Public | No | Portable | Creates FindWindowRequest. |
-| `P:LibTmux.FindWindowRequest.IgnoreCase` | `bool LibTmux.FindWindowRequest.IgnoreCase { get; }` | Public | No | Portable | Gets IgnoreCase. |
-| `P:LibTmux.FindWindowRequest.MatchContent` | `bool LibTmux.FindWindowRequest.MatchContent { get; }` | Public | No | Portable | Gets MatchContent. |
-| `P:LibTmux.FindWindowRequest.MatchName` | `bool LibTmux.FindWindowRequest.MatchName { get; }` | Public | No | Portable | Gets MatchName. |
-| `P:LibTmux.FindWindowRequest.MatchTitle` | `bool LibTmux.FindWindowRequest.MatchTitle { get; }` | Public | No | Portable | Gets MatchTitle. |
+| `M:LibTmux.FindWindowRequest.#ctor(string)` | `FindWindowRequest(string pattern)` | Public | No | Portable | Creates FindWindowRequest. |
+| `P:LibTmux.FindWindowRequest.IgnoreCase` | `bool LibTmux.FindWindowRequest.IgnoreCase { get; init; }` | Public | No | Portable | Gets IgnoreCase. |
+| `P:LibTmux.FindWindowRequest.MatchContent` | `bool LibTmux.FindWindowRequest.MatchContent { get; init; }` | Public | No | Portable | Gets MatchContent. |
+| `P:LibTmux.FindWindowRequest.MatchName` | `bool LibTmux.FindWindowRequest.MatchName { get; init; }` | Public | No | Portable | Gets MatchName. |
+| `P:LibTmux.FindWindowRequest.MatchTitle` | `bool LibTmux.FindWindowRequest.MatchTitle { get; init; }` | Public | No | Portable | Gets MatchTitle. |
 | `P:LibTmux.FindWindowRequest.Pattern` | `string LibTmux.FindWindowRequest.Pattern { get; }` | Public | No | Portable | Gets Pattern. |
-| `P:LibTmux.FindWindowRequest.Regex` | `bool LibTmux.FindWindowRequest.Regex { get; }` | Public | No | Portable | Gets Regex. |
+| `P:LibTmux.FindWindowRequest.Regex` | `bool LibTmux.FindWindowRequest.Regex { get; init; }` | Public | No | Portable | Gets Regex. |
 
 ### `T:LibTmux.GetOptionRequest`
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.GetOptionRequest.#ctor(string,OptionScope?,bool,bool,bool,bool)` | `GetOptionRequest(string name, OptionScope? scope = null, bool global = false, bool includeHooks = false, bool includeInherited = false, bool quiet = false)` | Public | No | Portable | Creates GetOptionRequest. |
-| `P:LibTmux.GetOptionRequest.Global` | `bool LibTmux.GetOptionRequest.Global { get; }` | Public | No | Portable | Gets Global. |
-| `P:LibTmux.GetOptionRequest.IncludeHooks` | `bool LibTmux.GetOptionRequest.IncludeHooks { get; }` | Public | No | Portable | Gets IncludeHooks. |
-| `P:LibTmux.GetOptionRequest.IncludeInherited` | `bool LibTmux.GetOptionRequest.IncludeInherited { get; }` | Public | No | Portable | Gets IncludeInherited. |
+| `M:LibTmux.GetOptionRequest.#ctor(string)` | `GetOptionRequest(string name)` | Public | No | Portable | Creates GetOptionRequest. |
+| `P:LibTmux.GetOptionRequest.Global` | `bool LibTmux.GetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
+| `P:LibTmux.GetOptionRequest.IncludeHooks` | `bool LibTmux.GetOptionRequest.IncludeHooks { get; init; }` | Public | No | Portable | Gets IncludeHooks. |
+| `P:LibTmux.GetOptionRequest.IncludeInherited` | `bool LibTmux.GetOptionRequest.IncludeInherited { get; init; }` | Public | No | Portable | Gets IncludeInherited. |
 | `P:LibTmux.GetOptionRequest.Name` | `string LibTmux.GetOptionRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.GetOptionRequest.Quiet` | `bool LibTmux.GetOptionRequest.Quiet { get; }` | Public | No | Portable | Gets Quiet. |
-| `P:LibTmux.GetOptionRequest.Scope` | `OptionScope? LibTmux.GetOptionRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.GetOptionRequest.Quiet` | `bool LibTmux.GetOptionRequest.Quiet { get; init; }` | Public | No | Portable | Gets Quiet. |
+| `P:LibTmux.GetOptionRequest.Scope` | `OptionScope? LibTmux.GetOptionRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
 
 ### `T:LibTmux.GetOptionsRequest`
 
@@ -709,10 +709,10 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.HookRequest.#ctor(string,OptionScope?,bool)` | `HookRequest(string name, OptionScope? scope = null, bool global = false)` | Public | No | Portable | Creates HookRequest. |
-| `P:LibTmux.HookRequest.Global` | `bool LibTmux.HookRequest.Global { get; }` | Public | No | Portable | Gets Global. |
+| `M:LibTmux.HookRequest.#ctor(string)` | `HookRequest(string name)` | Public | No | Portable | Creates HookRequest. |
+| `P:LibTmux.HookRequest.Global` | `bool LibTmux.HookRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.HookRequest.Name` | `string LibTmux.HookRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.HookRequest.Scope` | `OptionScope? LibTmux.HookRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.HookRequest.Scope` | `OptionScope? LibTmux.HookRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
 
 ### `T:LibTmux.IControlModeSession`
 
@@ -761,11 +761,11 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.LinkWindowRequest.#ctor(string,string?,WindowDirection?,bool,bool)` | `LinkWindowRequest(string targetSession, string? targetIndex = null, WindowDirection? direction = null, bool replaceExisting = false, bool detach = false)` | Public | No | Portable | Creates LinkWindowRequest. |
-| `P:LibTmux.LinkWindowRequest.Detach` | `bool LibTmux.LinkWindowRequest.Detach { get; }` | Public | No | Portable | Gets Detach. |
-| `P:LibTmux.LinkWindowRequest.Direction` | `WindowDirection? LibTmux.LinkWindowRequest.Direction { get; }` | Public | No | Portable | Gets Direction. |
-| `P:LibTmux.LinkWindowRequest.ReplaceExisting` | `bool LibTmux.LinkWindowRequest.ReplaceExisting { get; }` | Public | No | Portable | Gets ReplaceExisting. |
-| `P:LibTmux.LinkWindowRequest.TargetIndex` | `string? LibTmux.LinkWindowRequest.TargetIndex { get; }` | Public | No | Portable | Gets TargetIndex. |
+| `M:LibTmux.LinkWindowRequest.#ctor(string)` | `LinkWindowRequest(string targetSession)` | Public | No | Portable | Creates LinkWindowRequest. |
+| `P:LibTmux.LinkWindowRequest.Detach` | `bool LibTmux.LinkWindowRequest.Detach { get; init; }` | Public | No | Portable | Gets Detach. |
+| `P:LibTmux.LinkWindowRequest.Direction` | `WindowDirection? LibTmux.LinkWindowRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
+| `P:LibTmux.LinkWindowRequest.ReplaceExisting` | `bool LibTmux.LinkWindowRequest.ReplaceExisting { get; init; }` | Public | No | Portable | Gets ReplaceExisting. |
+| `P:LibTmux.LinkWindowRequest.TargetIndex` | `string? LibTmux.LinkWindowRequest.TargetIndex { get; init; }` | Public | No | Portable | Gets TargetIndex. |
 | `P:LibTmux.LinkWindowRequest.TargetSession` | `string LibTmux.LinkWindowRequest.TargetSession { get; }` | Public | No | Portable | Gets TargetSession. |
 
 ### `T:LibTmux.ListBuffersRequest`
@@ -786,12 +786,12 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.MovePaneRequest.#ctor(string,PaneDirection,string?,bool,bool,bool)` | `MovePaneRequest(string target, PaneDirection direction = PaneDirection.Below, string? size = null, bool detach = true, bool fullWindow = false, bool before = false)` | Public | No | Portable | Creates MovePaneRequest. |
-| `P:LibTmux.MovePaneRequest.Before` | `bool LibTmux.MovePaneRequest.Before { get; }` | Public | No | Portable | Gets Before. |
-| `P:LibTmux.MovePaneRequest.Detach` | `bool LibTmux.MovePaneRequest.Detach { get; }` | Public | No | Portable | Gets Detach. |
-| `P:LibTmux.MovePaneRequest.Direction` | `PaneDirection LibTmux.MovePaneRequest.Direction { get; }` | Public | No | Portable | Gets Direction. |
-| `P:LibTmux.MovePaneRequest.FullWindow` | `bool LibTmux.MovePaneRequest.FullWindow { get; }` | Public | No | Portable | Gets FullWindow. |
-| `P:LibTmux.MovePaneRequest.Size` | `string? LibTmux.MovePaneRequest.Size { get; }` | Public | No | Portable | Gets Size. |
+| `M:LibTmux.MovePaneRequest.#ctor(string)` | `MovePaneRequest(string target)` | Public | No | Portable | Creates MovePaneRequest. |
+| `P:LibTmux.MovePaneRequest.Before` | `bool LibTmux.MovePaneRequest.Before { get; init; }` | Public | No | Portable | Gets Before. |
+| `P:LibTmux.MovePaneRequest.Detach` | `bool LibTmux.MovePaneRequest.Detach { get; init; }` | Public | No | Portable | Gets Detach. |
+| `P:LibTmux.MovePaneRequest.Direction` | `PaneDirection LibTmux.MovePaneRequest.Direction { get; init; }` | Public | No | Portable | Gets Direction. |
+| `P:LibTmux.MovePaneRequest.FullWindow` | `bool LibTmux.MovePaneRequest.FullWindow { get; init; }` | Public | No | Portable | Gets FullWindow. |
+| `P:LibTmux.MovePaneRequest.Size` | `string? LibTmux.MovePaneRequest.Size { get; init; }` | Public | No | Portable | Gets Size. |
 | `P:LibTmux.MovePaneRequest.Target` | `string LibTmux.MovePaneRequest.Target { get; }` | Public | No | Portable | Gets Target. |
 
 ### `T:LibTmux.MoveWindowRequest`
@@ -1212,15 +1212,15 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.RunShellRequest.#ctor(string,IReadOnlyList<string>?,bool,TimeSpan?,bool,string?,string?,bool)` | `RunShellRequest(string command, IReadOnlyList<string>? arguments = null, bool background = false, TimeSpan? delay = null, bool asTmuxCommand = false, string? targetPane = null, string? workingDirectory = null, bool showStandardError = false)` | Public | No | Portable | Creates RunShellRequest. |
-| `P:LibTmux.RunShellRequest.Arguments` | `IReadOnlyList<string>? LibTmux.RunShellRequest.Arguments { get; }` | Public | No | Portable | Gets Arguments. |
-| `P:LibTmux.RunShellRequest.AsTmuxCommand` | `bool LibTmux.RunShellRequest.AsTmuxCommand { get; }` | Public | No | Portable | Gets AsTmuxCommand. |
-| `P:LibTmux.RunShellRequest.Background` | `bool LibTmux.RunShellRequest.Background { get; }` | Public | No | Portable | Gets Background. |
+| `M:LibTmux.RunShellRequest.#ctor(string)` | `RunShellRequest(string command)` | Public | No | Portable | Creates RunShellRequest. |
+| `P:LibTmux.RunShellRequest.Arguments` | `IReadOnlyList<string>? LibTmux.RunShellRequest.Arguments { get; init; }` | Public | No | Portable | Gets Arguments. |
+| `P:LibTmux.RunShellRequest.AsTmuxCommand` | `bool LibTmux.RunShellRequest.AsTmuxCommand { get; init; }` | Public | No | Portable | Gets AsTmuxCommand. |
+| `P:LibTmux.RunShellRequest.Background` | `bool LibTmux.RunShellRequest.Background { get; init; }` | Public | No | Portable | Gets Background. |
 | `P:LibTmux.RunShellRequest.Command` | `string LibTmux.RunShellRequest.Command { get; }` | Public | No | Portable | Gets Command. |
-| `P:LibTmux.RunShellRequest.Delay` | `TimeSpan? LibTmux.RunShellRequest.Delay { get; }` | Public | No | Portable | Gets Delay. |
-| `P:LibTmux.RunShellRequest.ShowStandardError` | `bool LibTmux.RunShellRequest.ShowStandardError { get; }` | Public | No | Portable | Gets ShowStandardError. |
-| `P:LibTmux.RunShellRequest.TargetPane` | `string? LibTmux.RunShellRequest.TargetPane { get; }` | Public | No | Portable | Gets TargetPane. |
-| `P:LibTmux.RunShellRequest.WorkingDirectory` | `string? LibTmux.RunShellRequest.WorkingDirectory { get; }` | Public | No | Portable | Gets WorkingDirectory. |
+| `P:LibTmux.RunShellRequest.Delay` | `TimeSpan? LibTmux.RunShellRequest.Delay { get; init; }` | Public | No | Portable | Gets Delay. |
+| `P:LibTmux.RunShellRequest.ShowStandardError` | `bool LibTmux.RunShellRequest.ShowStandardError { get; init; }` | Public | No | Portable | Gets ShowStandardError. |
+| `P:LibTmux.RunShellRequest.TargetPane` | `string? LibTmux.RunShellRequest.TargetPane { get; init; }` | Public | No | Portable | Gets TargetPane. |
+| `P:LibTmux.RunShellRequest.WorkingDirectory` | `string? LibTmux.RunShellRequest.WorkingDirectory { get; init; }` | Public | No | Portable | Gets WorkingDirectory. |
 
 ### `T:LibTmux.SelectLayoutMode`
 
@@ -2090,12 +2090,12 @@ internal static class Program
 
 | Member ID | Declaration | Visibility | Static | Platform | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `M:LibTmux.UnsetOptionRequest.#ctor(string,OptionScope?,bool,bool,bool)` | `UnsetOptionRequest(string name, OptionScope? scope = null, bool global = false, bool unsetPaneOverrides = false, bool quiet = false)` | Public | No | Portable | Creates UnsetOptionRequest. |
-| `P:LibTmux.UnsetOptionRequest.Global` | `bool LibTmux.UnsetOptionRequest.Global { get; }` | Public | No | Portable | Gets Global. |
+| `M:LibTmux.UnsetOptionRequest.#ctor(string)` | `UnsetOptionRequest(string name)` | Public | No | Portable | Creates UnsetOptionRequest. |
+| `P:LibTmux.UnsetOptionRequest.Global` | `bool LibTmux.UnsetOptionRequest.Global { get; init; }` | Public | No | Portable | Gets Global. |
 | `P:LibTmux.UnsetOptionRequest.Name` | `string LibTmux.UnsetOptionRequest.Name { get; }` | Public | No | Portable | Gets Name. |
-| `P:LibTmux.UnsetOptionRequest.Quiet` | `bool LibTmux.UnsetOptionRequest.Quiet { get; }` | Public | No | Portable | Gets Quiet. |
-| `P:LibTmux.UnsetOptionRequest.Scope` | `OptionScope? LibTmux.UnsetOptionRequest.Scope { get; }` | Public | No | Portable | Gets Scope. |
-| `P:LibTmux.UnsetOptionRequest.UnsetPaneOverrides` | `bool LibTmux.UnsetOptionRequest.UnsetPaneOverrides { get; }` | Public | No | Portable | Gets UnsetPaneOverrides. |
+| `P:LibTmux.UnsetOptionRequest.Quiet` | `bool LibTmux.UnsetOptionRequest.Quiet { get; init; }` | Public | No | Portable | Gets Quiet. |
+| `P:LibTmux.UnsetOptionRequest.Scope` | `OptionScope? LibTmux.UnsetOptionRequest.Scope { get; init; }` | Public | No | Portable | Gets Scope. |
+| `P:LibTmux.UnsetOptionRequest.UnsetPaneOverrides` | `bool LibTmux.UnsetOptionRequest.UnsetPaneOverrides { get; init; }` | Public | No | Portable | Gets UnsetPaneOverrides. |
 
 ### `T:LibTmux.UnsupportedQueryExpressionException`
 

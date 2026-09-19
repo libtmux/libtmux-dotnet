@@ -455,7 +455,7 @@ public sealed class TmuxHooks
         // The name may carry an index, and what comes back is the whole hook.
         int bracket = name.IndexOf('[', StringComparison.Ordinal);
         string bare = bracket > 0 ? name[..bracket] : name;
-        TmuxHook? hook = await GetAsync(new HookRequest(bare, scope, global), cancellationToken)
+        TmuxHook? hook = await GetAsync(new HookRequest(bare) { Scope = scope, Global = global }, cancellationToken)
             .ConfigureAwait(false);
         return hook ?? new TmuxHook(bare, []);
     }

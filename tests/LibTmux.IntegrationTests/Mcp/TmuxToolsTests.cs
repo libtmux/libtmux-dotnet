@@ -118,10 +118,11 @@ public sealed class TmuxToolsTests
             token);
         int secondIndex = scope.Window.Index == 7 ? 8 : 7;
         await scope.Window.LinkAsync(
-            new LinkWindowRequest(
-                scope.Session.Id.ToString(),
-                secondIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                detach: true),
+            new LinkWindowRequest(scope.Session.Id.ToString())
+            {
+                TargetIndex = secondIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Detach = true,
+            },
             token);
 
         PaneInputResult sent = await mcp.Capabilities.SendKeysAsync(

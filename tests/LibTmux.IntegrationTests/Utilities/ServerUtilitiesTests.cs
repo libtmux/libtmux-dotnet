@@ -49,7 +49,7 @@ public sealed class ServerUtilitiesTests
         }
 
         await server.RunShellAsync(
-            new RunShellRequest("set-option -g @shell-ran yes", asTmuxCommand: true),
+            new RunShellRequest("set-option -g @shell-ran yes") { AsTmuxCommand = true },
             token);
         await WaitForOptionAsync(server, "@shell-ran", "yes", token);
 
@@ -231,11 +231,11 @@ public sealed class ServerUtilitiesTests
         // process has none, so tmux refuses rather than doing nothing.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ShowCommandPromptAsync(
-                new CommandPromptRequest("display-message %1", prompt: "say:"),
+                new CommandPromptRequest("display-message %1") { Prompt = "say:" },
                 token));
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ConfirmBeforeAsync(
-                new ConfirmBeforeRequest(["display-message", "confirmed"], prompt: "sure?"),
+                new ConfirmBeforeRequest(["display-message", "confirmed"]) { Prompt = "sure?" },
                 token));
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.ShowMenuAsync(
@@ -329,17 +329,17 @@ public sealed class ServerUtilitiesTests
             // A backgrounded command has not run yet, so there is nothing it
             // could have printed.
             Assert.Null(await server.RunShellAsync(
-                new RunShellRequest("true", background: true),
+                new RunShellRequest("true") { Background = true },
                 token));
 
             // A tmux command run this way goes through tmux rather than a shell.
             await server.RunShellAsync(
-                new RunShellRequest("set-option -g @ran yes", asTmuxCommand: true),
+                new RunShellRequest("set-option -g @ran yes") { AsTmuxCommand = true },
                 token);
             Assert.Equal(
                 "yes",
                 Assert.Single(await server.Options.GetAsync(
-                        new GetOptionRequest("@ran", OptionScope.Session, global: true),
+                        new GetOptionRequest("@ran") { Scope = OptionScope.Session, Global = true },
                         token))
                     .Value.Raw);
 
@@ -398,7 +398,7 @@ public sealed class ServerUtilitiesTests
                     new ServerAccessRequest { ReadOnly = true, ReadWrite = true },
                     token));
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => new RunShellRequest("true", delay: TimeSpan.FromSeconds(-1)));
+                () => new RunShellRequest("true") { Delay = TimeSpan.FromSeconds(-1) });
         }
         finally
         {
@@ -438,8 +438,8 @@ public sealed class ServerUtilitiesTests
         // tmux 3.2a spells the type flag as booleans meaning something else, so
         // asking for one there would ask a different question rather than fail.
         // Nothing is sent at all instead.
-        CommandPromptRequest typed = new("display-message %1", type: PromptType.Command);
-        CommandPromptRequest formatted = new("display-message %1", expandFormat: true);
+        CommandPromptRequest typed = new("display-message %1") { Type = PromptType.Command };
+        CommandPromptRequest formatted = new("display-message %1") { ExpandFormat = true };
         if (supported)
         {
             await Assert.ThrowsAsync<TmuxCommandException>(
@@ -461,7 +461,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.CommandPromptLiteralCapability,
             (server, token) => server.ShowCommandPromptAsync(
-                new CommandPromptRequest("display-message %1", literal: true),
+                new CommandPromptRequest("display-message %1") { Literal = true },
                 token));
 
     [UnixFact]
@@ -469,10 +469,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.CommandPrompt37Capability,
             (server, token) => server.ShowCommandPromptAsync(
-                new CommandPromptRequest(
-                    "display-message %1",
-                    backspaceExits: true,
-                    noFreeze: true),
+                new CommandPromptRequest("display-message %1") { BackspaceExits = true, NoFreeze = true },
                 token),
             expectedWarnings: 2);
 
@@ -481,10 +478,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.ConfirmBeforeAcceptanceCapability,
             (server, token) => server.ConfirmBeforeAsync(
-                new ConfirmBeforeRequest(
-                    ["display-message", "confirmed"],
-                    confirmKey: "y",
-                    defaultYes: true),
+                new ConfirmBeforeRequest(["display-message", "confirmed"]) { ConfirmKey = "y", DefaultYes = true },
                 token),
             expectedWarnings: 2);
 
@@ -519,9 +513,10 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.DisplayMenuStylesCapability,
             (server, token) => server.ShowMenuAsync(
-                new DisplayMenuRequest(
-                    [new TmuxMenuItem("Item", "i", "display-message chosen")],
-                    style: "fg=red"),
+                new DisplayMenuRequest([new TmuxMenuItem("Item", "i", "display-message chosen")])
+                {
+                    Style = "fg=red",
+                },
                 token));
 
     [UnixFact]
@@ -529,9 +524,10 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.DisplayMenuMouseCapability,
             (server, token) => server.ShowMenuAsync(
-                new DisplayMenuRequest(
-                    [new TmuxMenuItem("Item", "i", "display-message chosen")],
-                    mouse: true),
+                new DisplayMenuRequest([new TmuxMenuItem("Item", "i", "display-message chosen")])
+                {
+                    Mouse = true,
+                },
                 token),
             // The style flags are gated a release earlier, so an older tmux
             // warns about both families for one menu.
@@ -604,7 +600,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellWorkingDirectoryCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("pwd", workingDirectory: "/"),
+                new RunShellRequest("pwd") { WorkingDirectory = "/" },
                 token));
 
     [UnixFact]
@@ -612,7 +608,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellStandardErrorCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("true", showStandardError: true),
+                new RunShellRequest("true") { ShowStandardError = true },
                 token));
 
     [UnixFact]
@@ -620,7 +616,7 @@ public sealed class ServerUtilitiesTests
         ProvesWarnAndOmitAsync(
             ServerUtilities.RunShellArgumentsCapability,
             (server, token) => server.RunShellAsync(
-                new RunShellRequest("echo", ["libtmux"]),
+                new RunShellRequest("echo") { Arguments = ["libtmux"] },
                 token));
 
     private static async Task ReadMessagesAsync(
@@ -720,7 +716,7 @@ public sealed class ServerUtilitiesTests
         while (DateTimeOffset.UtcNow < deadline)
         {
             IReadOnlyList<TmuxOption> read = await server.Options.GetAsync(
-                new GetOptionRequest(name, OptionScope.Session, global: true, quiet: true),
+                new GetOptionRequest(name) { Scope = OptionScope.Session, Global = true, Quiet = true },
                 token);
             seen = read.Count > 0 ? read[0].Value.Raw : null;
             if (string.Equals(seen, expected, StringComparison.Ordinal))

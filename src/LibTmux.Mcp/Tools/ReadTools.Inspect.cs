@@ -45,7 +45,7 @@ internal sealed partial class ReadTools
                     cancellationToken)
                 .ConfigureAwait(false)
             : await options.GetAsync(
-                    new GetOptionRequest(name, includeInherited: true, quiet: true),
+                    new GetOptionRequest(name) { IncludeInherited = true, Quiet = true },
                     cancellationToken)
                 .ConfigureAwait(false);
 

@@ -167,7 +167,7 @@ public sealed class TmuxOptions
 
         IReadOnlyList<TmuxOption> stored = await sequence
             .ObserveAsync(() => GetAsync(
-                new GetOptionRequest(request.Name, request.Scope, request.Global, quiet: true),
+                new GetOptionRequest(request.Name) { Scope = request.Scope, Global = request.Global, Quiet = true },
                 cancellationToken))
             .ConfigureAwait(false);
         return sequence.Observe(() =>

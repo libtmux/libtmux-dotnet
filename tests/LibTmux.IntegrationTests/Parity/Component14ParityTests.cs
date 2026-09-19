@@ -125,7 +125,7 @@ public sealed class Component14ParityTests
                 Assert.Single(await options.GetAsync(new GetOptionRequest("@mixed"), token))
                     .Value.Raw);
             await options.UnsetAsync(new UnsetOptionRequest("@mixed"), token);
-            Assert.Empty(await options.GetAsync(new GetOptionRequest("@mixed", quiet: true), token));
+            Assert.Empty(await options.GetAsync(new GetOptionRequest("@mixed") { Quiet = true }, token));
         }
 
         return true;
@@ -157,7 +157,7 @@ public sealed class Component14ParityTests
         Assert.Equal(TmuxOptionState.Off, stored.State);
 
         Assert.Empty(await session.Options.GetAsync(
-            new GetOptionRequest("@window-only", quiet: true),
+            new GetOptionRequest("@window-only") { Quiet = true },
             token));
         return stored.Boolean == false;
     }
@@ -174,7 +174,7 @@ public sealed class Component14ParityTests
 
         // Asking the session for the same name finds nothing, which is what
         // makes the window flag load-bearing rather than decorative.
-        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("@one", quiet: true), token));
+        Assert.Empty(await session.Options.GetAsync(new GetOptionRequest("@one") { Quiet = true }, token));
         return option.Value.Raw == "value";
     }
 
@@ -198,7 +198,7 @@ public sealed class Component14ParityTests
         await session.Options.SetAsync(new SetOptionRequest("@gone", "here"), token);
         await session.Options.UnsetAsync(new UnsetOptionRequest("@gone"), token);
         IReadOnlyList<TmuxOption> after = await session.Options.GetAsync(
-            new GetOptionRequest("@gone", quiet: true),
+            new GetOptionRequest("@gone") { Quiet = true },
             token);
 
         // The option is missing, not present and empty.

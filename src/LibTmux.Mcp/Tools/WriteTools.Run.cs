@@ -1049,7 +1049,7 @@ internal sealed partial class WriteTools
         CancellationToken cancellationToken)
     {
         IReadOnlyList<TmuxOption> options = await pane.Options
-            .GetAsync(new GetOptionRequest(token.StatusOption, quiet: true), cancellationToken)
+            .GetAsync(new GetOptionRequest(token.StatusOption) { Quiet = true }, cancellationToken)
             .ConfigureAwait(false);
 
         return options.Count > 0
@@ -1069,7 +1069,7 @@ internal sealed partial class WriteTools
         {
             await pane.Options
                 .UnsetAsync(
-                    new UnsetOptionRequest(token.StatusOption, quiet: true),
+                    new UnsetOptionRequest(token.StatusOption) { Quiet = true },
                     cleanup.Token)
                 .ConfigureAwait(false);
         }
