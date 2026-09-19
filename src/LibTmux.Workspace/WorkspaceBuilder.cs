@@ -3,6 +3,14 @@ using System.Runtime.Versioning;
 namespace LibTmux.Workspace;
 
 /// <summary>Builds a tmux session from a tmuxp workspace file.</summary>
+/// <remarks>
+/// <para>
+/// This is not the builder behind <c>tmux-workspace</c>. That command-line
+/// tool carries its own implementation, reads a wider document language, and
+/// answers a rejected layout, a readiness timeout and a failure partway
+/// differently. The package README names each difference.
+/// </para>
+/// </remarks>
 [UnsupportedOSPlatform("windows")]
 public sealed class WorkspaceBuilder
 {
@@ -296,44 +304,33 @@ public sealed class WorkspaceBuilder
         CancellationToken cancellationToken)
     {
         string? directory = described.StartDirectory ?? workspace.StartDirectory;
-        IReadOnlyList<Pane> panes = await window.GetPanesAsync(cancellationToken)
+        IReadOnlyList<Pane> existing = await window.GetPanesAsync(cancellationToken)
             .ConfigureAwait(false);
-        Pane current = panes[0];
+        List<Pane> panes = [existing[0]];
 
-        for (int index = 0; index < described.Panes.Count; index++)
+        // The window already has one pane, so the first described pane is
+        // that one and the rest are splits of it.
+        for (int index = 1; index < described.Panes.Count; index++)
         {
             WorkspacePane pane = described.Panes[index];
-
-            // The window already has one pane, so the first described pane is
-            // that one and the rest are splits of it.
-            Pane target = index == 0
-                ? current
-                : await current.SplitAsync(
+            panes.Add(await panes[^1].SplitAsync(
                         new SplitPaneRequest(startDirectory: pane.StartDirectory ?? directory),
                         cancellationToken)
-                    .ConfigureAwait(false);
+                    .ConfigureAwait(false));
 
-            if (expectedShellCommand is not null && pane.ShellCommands.Count > 0)
-            {
-                await PaneReadinessWaiter.WaitAsync(
-                        target,
-                        expectedShellCommand,
-                        _readinessTimeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            foreach (string command in pane.ShellCommands)
-            {
-                await target.SendTextAsync(command, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            current = target;
+            // Halving each pane in turn runs out of room by the fifth at
+            // 80x24; rebalancing after every split reclaims it. The window's
+            // own layout below still has the final say.
+            window = await window.SelectLayoutAsync(
+                    new SelectLayoutRequest(layout: "tiled"),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         // The layout is applied after the panes exist, because tmux arranges
-        // what is there rather than what is coming.
+        // what is there rather than what is coming, and before anything is
+        // typed: a pane resized after its command redraws the prompt at a
+        // stale width and strands the shell's partial-line marker.
         if (!string.IsNullOrWhiteSpace(described.Layout))
         {
             try
@@ -349,6 +346,31 @@ public sealed class WorkspaceBuilder
                 unsupported.Add(
                     $"window '{described.WindowName}' layout '{described.Layout}' "
                     + $"was rejected: {failure.Message}");
+            }
+        }
+
+        for (int index = 0; index < described.Panes.Count; index++)
+        {
+            WorkspacePane pane = described.Panes[index];
+            if (pane.ShellCommands.Count == 0)
+            {
+                continue;
+            }
+
+            if (expectedShellCommand is not null)
+            {
+                await PaneReadinessWaiter.WaitAsync(
+                        panes[index],
+                        expectedShellCommand,
+                        _readinessTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            foreach (string command in pane.ShellCommands)
+            {
+                await panes[index].SendTextAsync(command, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
 
