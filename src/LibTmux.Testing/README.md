@@ -26,4 +26,4 @@ does not carry test scaffolding in its output or its trim closure.
 
 ## License
 
-MIT. See [LICENSE](../../LICENSE).
+[MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
