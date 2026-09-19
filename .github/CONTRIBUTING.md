@@ -587,6 +587,27 @@ During alpha the public API can change in any release with no deprecation
 period, so a consumer pins an exact version. Widening the supported range means
 a row in the ledger, an entry in the tmux matrix, and a README that says so.
 
+### Removing a public member
+
+Alpha decides the notice period, not the mechanism. From the first stable
+release the mechanism is `[Obsolete]`:
+
+- Mark the member `[Obsolete("Use X instead.")]` in the release that replaces
+  it, and say so in `CHANGELOG.md` under `### Changed` using the four-part
+  frame in [WRITING.md](WRITING.md).
+- Delete it no earlier than the next minor release, in an entry under
+  `### Removed`.
+- `[Obsolete(error: true)]` is for a member that cannot work as documented —
+  a wrong answer is worse than a build failure.
+
+A rename is a removal and an addition. Renaming without the obsolete step is
+what alpha buys, and the entry still names both spellings so a reader can
+follow it: `Server.RaiseIfDeadAsync` became `Server.ThrowIfDeadAsync` that way.
+
+Until then, carry every call site in the repository with the change. A member
+that no longer exists must not exist in the examples, the tests, the READMEs,
+`docs/public-api.json` or the API baselines either.
+
 ## Reporting a vulnerability
 
 Not here — see [SECURITY.md](../SECURITY.md).
