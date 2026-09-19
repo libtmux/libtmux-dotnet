@@ -311,6 +311,28 @@ public sealed class ExecutionTests : IDisposable
         Assert.Equal("echo hello", result["windows"]![0]!["panes"]![0]!["shell_command"]![0]!.ToString());
     }
 
+    // A file that exists but cannot be read is the same class of problem as
+    // one that cannot be parsed -- this tool could not use it as a workspace
+    // -- so both commands that read a document directly report the shared
+    // invalid_workspace code rather than a code of their own.
+    [Theory]
+    [InlineData("import", "teamocil")]
+    [InlineData("convert")]
+    public async Task An_unreadable_document_reports_invalid_workspace(params string[] command)
+    {
+        string file = Path.Combine(_root, "unreadable.yaml");
+        await File.WriteAllTextAsync(file, "session_name: unreadable\nwindows: []\n", TestContext.Current.CancellationToken);
+        File.SetUnixFileMode(file, UnixFileMode.None);
+        try
+        {
+            (int code, string output, string error) = await Run([.. command, file, "--json"]);
+            Assert.Equal(1, code);
+            Assert.Empty(output);
+            Assert.Equal("invalid_workspace", JsonNode.Parse(error)!["code"]!.ToString());
+        }
+        finally { File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite); }
+    }
+
     [Fact]
     public async Task Imported_teamocil_preserves_commands_options_and_first_focus()
     {
