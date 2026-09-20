@@ -48,17 +48,20 @@ public sealed class LayoutTests : IDisposable
             ["windows"] = new JsonArray(new JsonObject { ["layout"] = layout, ["panes"] = panes }),
         };
         await File.WriteAllTextAsync(file, document.ToJsonString(), token);
-        Server server = Server.Open(new ServerConnectionOptions { 
+        Server server = Server.Open(new ServerConnectionOptions
+        {
             TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            SocketPath = socket, ConfigurationFile = "/dev/null" });
+            SocketPath = socket,
+            ConfigurationFile = "/dev/null"
+        });
         try
         {
-            Session keeper = await server.CreateSessionAsync(new NewSessionRequest("keeper", command: "/bin/sh"), token);
+            Session keeper = await server.CreateSessionAsync(new NewSessionRequest { Name = "keeper", Command = "/bin/sh" }, token);
             server = keeper.Server;
-            TmuxCommandResult mirrors = await server.ExecuteCommandAsync(
-                ["select-layout", "-t", keeper.Id + ":", "main-horizontal-mirrored"], token);
             string before = await Keeper(server, token);
-            bool expected = mirrors.ExitCode == 0 ? afterMirrors : beforeMirrors;
+            // An unsupported select-layout crashes tmux 3.3a, so the fixture
+            // chooses its corpus column without sending a layout to the keeper.
+            bool expected = server.Version >= TmuxVersion.Parse("3.5") ? afterMirrors : beforeMirrors;
             bool geometry = id is "bad-inner-size" or "nested-invalid-width" or "nested-short-parent";
             using StringWriter output = new();
             using StringWriter error = new();
