@@ -17,12 +17,139 @@ public sealed class ProcessEnvironmentCollectionDefinition
 [UnsupportedOSPlatform("windows")]
 public sealed class ServerGenerationTests
 {
+    [UnixFact]
+    public async Task Inspection_reads_live_identity_without_initializing_or_starting_a_daemon()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        int initialized = 0;
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            InitializeAsync = (_, _) =>
+            {
+                initialized++;
+                throw new InvalidOperationException("Inspection ran an initializer.");
+            },
+        });
+        RawTmuxResult before = await context.ExecuteAsync(["list-sessions", "-F", "#{session_id}"], token);
+
+        Server inspected = Assert.IsType<Server>(await endpoint.InspectAsync(token));
+        RawTmuxResult version = await context.ExecuteAsync(["display-message", "-p", "#{version}"], token);
+        Assert.Equal(TmuxVersion.Parse(Assert.Single(version.StandardOutputLines)), inspected.DaemonVersion);
+        Assert.False(inspected.Sessions.IsCaptured);
+        Assert.Same(inspected, await inspected.ConnectAsync(token));
+        Assert.Equal(0, initialized);
+        Assert.Equal(before.StandardOutputLines,
+            (await context.ExecuteAsync(["list-sessions", "-F", "#{session_id}"], token)).StandardOutputLines);
+
+        Assert.Equal(0, (await context.ExecuteAsync(["kill-server"], token)).ExitCode);
+        await context.WaitForSettledAsync(token);
+        Assert.Null(await endpoint.InspectAsync(token));
+        Assert.Null(await inspected.InspectAsync(token));
+        Assert.Equal(1, (await context.ExecuteAsync(["list-sessions"], token)).ExitCode);
+        Assert.Equal(0, initialized);
+    }
+
     public static TheoryData<TmuxColorMode> SupportedColorModes =>
         [
             TmuxColorMode.Default,
             TmuxColorMode.Colors256,
             TmuxColorMode.TrueColor,
         ];
+
+    [UnixFact]
+    public async Task Generation_bound_creation_cannot_create_on_a_replacement_daemon()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+        });
+        Server previous = Assert.IsType<Server>(await endpoint.InspectAsync(token));
+        Assert.Equal(0, (await context.ExecuteAsync(["kill-server"], token)).ExitCode);
+        await context.WaitForSettledAsync(token);
+        Assert.Equal(0, (await context.ExecuteAsync(
+            ["new-session", "-d", "-s", context.SessionName], token)).ExitCode);
+
+        StaleServerGenerationException stale = await Assert.ThrowsAsync<StaleServerGenerationException>(
+            () => previous.CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "guarded",
+                ExpectedGeneration = previous.Generation,
+            }, token));
+
+        Assert.Equal(previous.Generation, stale.Expected);
+        Assert.Equal(1, (await context.ExecuteAsync(["has-session", "-t", "=guarded"], token)).ExitCode);
+        Assert.Equal(0, (await context.ExecuteAsync(["has-session", "-t", context.SessionName], token)).ExitCode);
+
+        Server current = Assert.IsType<Server>(await endpoint.InspectAsync(token));
+        Assert.NotEqual(previous.Generation, current.Generation);
+        Assert.Equal(current.Generation, stale.Actual);
+        Session created = await current.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "guarded",
+            ExpectedGeneration = current.Generation,
+        }, token);
+        Assert.Equal(current.Generation, created.Generation);
+        Assert.Equal("guarded", created.Name);
+        Assert.Equal(0, (await context.ExecuteAsync(["has-session", "-t", "=guarded"], token)).ExitCode);
+    }
+
+    [UnixFact]
+    public async Task Generation_bound_creation_never_starts_an_absent_daemon_or_loads_configuration()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        string configuration = context.SocketPath + ".conf";
+        await File.WriteAllTextAsync(configuration,
+            "set -g exit-empty off\nnew-session -d -s configuration-side-effect\n", token);
+        try
+        {
+            Server endpoint = Server.Open(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = context.TmuxBinaryPath,
+                SocketPath = context.SocketPath,
+                ConfigurationFile = configuration,
+            });
+            Server previous = Assert.IsType<Server>(await endpoint.InspectAsync(token));
+            Assert.Equal(0, (await context.ExecuteAsync(["kill-server"], token)).ExitCode);
+            await context.WaitForSettledAsync(token);
+
+            Exception? failure = await Record.ExceptionAsync(() => previous.CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "guarded",
+                ExpectedGeneration = previous.Generation,
+            }, token));
+            Assert.True(failure is LibTmuxException or StaleServerGenerationException);
+
+            RawTmuxResult remaining = await context.ExecuteAsync(["list-sessions"], token);
+            Assert.Equal(1, remaining.ExitCode);
+            Assert.Empty(remaining.StandardOutputLines);
+
+            await Assert.ThrowsAsync<TmuxCommandException>(() => previous.Chain()
+                .Then(new NewSessionRequest
+                {
+                    Name = "guarded-chain",
+                    ExpectedGeneration = previous.Generation,
+                }.ToCommand())
+                .ExecuteAsync(token));
+            Assert.Equal(1, (await context.ExecuteAsync(["list-sessions"], token)).ExitCode);
+
+            Session ordinary = await endpoint.CreateSessionAsync(new NewSessionRequest { Name = "ordinary" }, token);
+            Assert.Equal("ordinary", ordinary.Name);
+            Assert.Equal(0, (await context.ExecuteAsync(["has-session", "-t", "=configuration-side-effect"], token)).ExitCode);
+        }
+        finally
+        {
+            File.Delete(configuration);
+        }
+    }
 
     [Theory(
         Skip = "Requires a Unix process environment.",

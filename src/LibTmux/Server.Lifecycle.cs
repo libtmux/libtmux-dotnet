@@ -116,12 +116,19 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The created session.</returns>
     /// <exception cref="TmuxSessionExistsException">The name is already taken.</exception>
+    /// <exception cref="ArgumentException">Generation-bound creation requests replacement.</exception>
+    /// <remarks>
+    /// Set <see cref="NewSessionRequest.ExpectedGeneration" /> to bind dispatch and readback
+    /// to one daemon. If the daemon changes after creation, the operation reports a partial
+    /// failure rather than returning a session from its replacement.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> CreateSessionAsync(
         NewSessionRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         NewSessionRequest options = request ?? new NewSessionRequest();
+        options.ValidateGenerationBinding();
         var sequence = new TmuxMutationSequence();
         if (options.Name is not null)
         {
@@ -139,7 +146,7 @@ public sealed partial class Server
         }
 
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => Dispatch([.. BuildNewSessionArguments(options)], cancellationToken),
+                () => Dispatch([.. BuildNewSessionArguments(options)], cancellationToken, options.ExpectedGeneration),
                 value =>
                 {
                     if (value.ExitCode != 0
@@ -172,7 +179,7 @@ public sealed partial class Server
         // Re-list directly so Name is materialized and listing errors remain failures.
         // Replacing the last session may restart the daemon, so rediscover first.
         Server materialized = await sequence
-            .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken))
+            .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken, options.ExpectedGeneration))
             .ConfigureAwait(false);
         IReadOnlyDictionary<string, string?>? row = await sequence
             .ObserveAsync(() => RelationReader.FindAsync(
@@ -261,6 +268,7 @@ public sealed partial class Server
 
     internal static IEnumerable<string> BuildNewSessionArguments(NewSessionRequest options)
     {
+        options.ValidateGenerationBinding();
         yield return "new-session";
         yield return "-P";
         yield return "-F";
@@ -354,10 +362,13 @@ public sealed partial class Server
     [UnsupportedOSPlatform("windows")]
     private Task<TmuxCommandResult> Dispatch(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        ServerGeneration? expectedGeneration = null) =>
         Connection is null
             ? throw new InvalidOperationException("The server handle has no connection.")
-            : Connection.ServerDispatcher.ExecuteAsync(arguments, cancellationToken);
+            : (expectedGeneration is ServerGeneration expected
+                ? Connection.CreateEntityDispatcher(expected)
+                : Connection.ServerDispatcher).ExecuteAsync(arguments, cancellationToken);
 }
 
 /// <summary>Owns a server and stops it when disposed.</summary>

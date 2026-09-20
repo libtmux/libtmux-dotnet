@@ -87,7 +87,7 @@ internal sealed class TmuxProcessTransport
                 TmuxDispatchState.NotDispatched);
         }
 
-        ProcessStartInfo startInfo = CreateStartInfo(encodedArguments);
+        ProcessStartInfo startInfo = CreateStartInfo(encodedArguments, request.PreventServerStart);
         cancellationToken.ThrowIfCancellationRequested();
         ITmuxProcessHandle process;
         try
@@ -219,7 +219,7 @@ internal sealed class TmuxProcessTransport
         }
     }
 
-    private ProcessStartInfo CreateStartInfo(IReadOnlyList<string> encodedArguments)
+    private ProcessStartInfo CreateStartInfo(IReadOnlyList<string> encodedArguments, bool preventServerStart)
     {
         var startInfo = new ProcessStartInfo(_executablePath)
         {
@@ -228,6 +228,11 @@ internal sealed class TmuxProcessTransport
             RedirectStandardOutput = true,
             UseShellExecute = false,
         };
+        if (preventServerStart)
+        {
+            startInfo.ArgumentList.Add("-N");
+        }
+
         foreach (string prefixArgument in _prefixArguments)
         {
             startInfo.ArgumentList.Add(prefixArgument);

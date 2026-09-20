@@ -35,7 +35,10 @@ internal sealed class TmuxGenerationGuard(
         TmuxCommandResult grouped;
         try
         {
-            grouped = await execute(TmuxCommandRequest.Group(guarded), cancellationToken)
+            // tmux scans the entire command list for server-starting commands
+            // before the guard can run. A generation-bound request must disable
+            // client-side startup, including loading the server configuration.
+            grouped = await execute(TmuxCommandRequest.Group(preventServerStart: true, guarded), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (TmuxTransportException error)

@@ -82,6 +82,8 @@ internal sealed class TmuxConnection
 
     internal bool IsPsmux => _dialect.IsPsmux;
 
+    internal string VerifiedRawVersion => _dialect.VerifiedRawVersion;
+
     internal bool HasSameEndpoint(TmuxConnection other)
     {
         ArgumentNullException.ThrowIfNull(other);

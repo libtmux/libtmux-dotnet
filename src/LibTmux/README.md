@@ -131,6 +131,22 @@ matched nothing. Catch the relevant exception when absence is acceptable;
 failures. Raw `ExecuteCommandAsync` keeps completed nonzero exit codes in its
 `TmuxCommandResult`.
 
+`Server.Open(options).InspectAsync(ct)` reads an endpoint without running
+`InitializeAsync` or starting a daemon. It returns null only for verified
+daemon absence; permission and transport failures remain errors. The returned
+handle exposes the observed `DaemonVersion` separately from the client
+executable's `Version`. Its relationships remain uncaptured until an explicit
+listing or snapshot. Inspecting a materialized handle rejects a replacement
+daemon instead of adopting it.
+
+Set `NewSessionRequest.ExpectedGeneration` to the inspected handle's `Generation`
+when creation must use that daemon. Direct creation and `ToCommand()` both refuse
+a replacement; direct creation also verifies the generation during readback.
+A missing daemon stays stopped, without loading its configuration.
+A failure after creation reports that state may already have changed. The
+default remains endpoint-scoped creation. `ExpectedGeneration` cannot be combined
+with `ReplaceExisting`.
+
 A handle says what it read, and that stays true. Operations that change what an
 object is hand back a replacement:
 

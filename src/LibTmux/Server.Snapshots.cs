@@ -17,12 +17,13 @@ public sealed partial class Server
         TmuxConnection connection,
         ServerGeneration? generation,
         string? rawVersion,
+        TmuxVersion? daemonVersion,
         ServerSnapshot.Rows rows,
         TimeProvider timeProvider,
         long started,
         DateTimeOffset startedAtUtc,
         CancellationToken cancellationToken)
-        : this(connection, generation, rawVersion)
+        : this(connection, generation, rawVersion, daemonVersion)
     {
         _snapshot = ServerSnapshot.Build(this, rows, cancellationToken);
         SnapshotMetadata = new SnapshotMetadata(
@@ -112,7 +113,7 @@ public sealed partial class Server
         // Only the newly constructed root owns these children; earlier captures
         // and refreshed handles keep their original graph membership.
         return new Server(
-            connection, live.Generation, live.RawVersion, rows,
+            connection, live.Generation, live.RawVersion, live.DaemonVersion, rows,
             timeProvider, started, startedAtUtc, cancellationToken);
     }
 

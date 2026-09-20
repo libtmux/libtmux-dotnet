@@ -10,6 +10,7 @@ namespace LibTmux;
 public sealed record NewSessionRequest : ITmuxRequest<Server>
 {
     private readonly IReadOnlyDictionary<string, string>? _environment;
+    private readonly ServerGeneration? _expectedGeneration;
 
     /// <summary>Gets the session name, or null to let tmux choose.</summary>
     /// <remarks>
@@ -20,6 +21,28 @@ public sealed record NewSessionRequest : ITmuxRequest<Server>
 
     /// <summary>Gets whether a session of the same name is removed first.</summary>
     public bool ReplaceExisting { get; init; }
+
+    /// <summary>Gets the daemon generation required for creation, or null for endpoint-scoped creation.</summary>
+    /// <remarks>
+    /// Use a generation obtained from <see cref="Server.InspectAsync(CancellationToken)" />
+    /// to refuse creation on a replacement daemon. An absent daemon is never
+    /// started and its configuration is not loaded. Cannot be combined with
+    /// <see cref="ReplaceExisting" />.
+    /// </remarks>
+    public ServerGeneration? ExpectedGeneration
+    {
+        get => _expectedGeneration;
+        init
+        {
+            if (value is ServerGeneration generation)
+            {
+                ArgumentOutOfRangeException.ThrowIfNegativeOrZero(generation.ProcessId, nameof(ExpectedGeneration));
+                ArgumentOutOfRangeException.ThrowIfNegativeOrZero(generation.StartTime, nameof(ExpectedGeneration));
+            }
+
+            _expectedGeneration = value;
+        }
+    }
 
     /// <summary>Gets whether the new session is attached rather than detached.</summary>
     public bool Attach { get; init; }
@@ -71,8 +94,22 @@ public sealed record NewSessionRequest : ITmuxRequest<Server>
 
     /// <summary>Returns a session request as one tmux command.</summary>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentException">Generation-bound creation requests replacement.</exception>
     public TmuxCommand ToCommand() =>
-        TmuxChaining.Command([.. Server.BuildNewSessionArguments(this)]);
+        TmuxChaining.Command([.. Server.BuildNewSessionArguments(this)]) with
+        {
+            RequiredGeneration = ExpectedGeneration,
+        };
+
+    internal void ValidateGenerationBinding()
+    {
+        if (ExpectedGeneration is not null && ReplaceExisting)
+        {
+            throw new ArgumentException(
+                "Generation-bound creation cannot replace an existing session.",
+                nameof(ReplaceExisting));
+        }
+    }
 
     /// <inheritdoc />
     TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)

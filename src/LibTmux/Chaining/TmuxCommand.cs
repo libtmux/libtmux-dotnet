@@ -78,10 +78,9 @@ public sealed record TmuxCommand
     /// it; a restarted server reuses those IDs for different objects. A command
     /// built from an entity therefore records which server the entity was read
     /// from, and <see cref="TmuxChain.ExecuteAsync" /> refuses to run it against
-    /// a different one.
+    /// a different one. Generation-bound dispatch never starts an absent daemon.
     ///
-    /// Null means the command names no entity -- a raw command, or one whose
-    /// target is a name rather than an ID -- and carries no such requirement.
+    /// Null leaves dispatch endpoint-scoped, without a generation requirement.
     /// </remarks>
     public ServerGeneration? RequiredGeneration { get; init; }
 
