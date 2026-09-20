@@ -90,7 +90,7 @@ modes differ.
 | `LibTmux.SessionId` | Represents a generation-independent tmux session identifier. |
 | `LibTmux.SessionWindowEdge` | Places one window at one index inside one session. |
 | `LibTmux.SetHookRequest` | Describes one set-hook invocation. |
-| `LibTmux.SetHooksRequest` | Describes setting several entries of one hook at once. |
+| `LibTmux.SetHooksRequest` | Describes setting several entries of one hook. |
 | `LibTmux.SetOptionRequest` | Describes one set-option invocation. |
 | `LibTmux.ShowMessagesMode` | What show-messages should list. |
 | `LibTmux.SnapshotDepth` | Names how far down the tmux hierarchy a snapshot captured. |

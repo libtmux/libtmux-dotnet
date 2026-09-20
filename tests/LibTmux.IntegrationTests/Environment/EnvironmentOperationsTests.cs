@@ -39,8 +39,8 @@ public sealed class EnvironmentOperationsTests
             cancellationToken: token);
         Assert.Equal(session.Name, expanded.Value);
 
-        // Hidden means tmux keeps the value for the panes it spawns but will
-        // not read it back, so there is nothing to report.
+        // Hidden values are omitted from ordinary environment reads and from
+        // newly spawned processes; tmux can still use them in formats.
         TmuxEnvironmentEntry hidden = await server.Environment.SetAsync(
             "LIBTMUX_HIDDEN",
             "secret",

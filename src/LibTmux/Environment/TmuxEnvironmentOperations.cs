@@ -58,8 +58,8 @@ public sealed class TmuxEnvironment
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>Every variable tmux reported, in the order it reported them.</returns>
     /// <remarks>
-    /// Variables set hidden are not reported. tmux keeps them for the panes it
-    /// spawns but will not read them back out.
+    /// Hidden variables are omitted. tmux can use them in formats, but excludes
+    /// them from the environment of new processes.
     /// </remarks>
     public async Task<IReadOnlyList<TmuxEnvironmentEntry>> GetAllAsync(
         CancellationToken cancellationToken = default)
