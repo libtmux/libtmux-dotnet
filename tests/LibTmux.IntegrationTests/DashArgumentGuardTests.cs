@@ -372,7 +372,7 @@ public sealed class DashArgumentGuardTests
         string buffer = await server.Buffers.GetAsync("dash-guard-buffer", token);
         Assert.Equal(DashMarker, buffer);
 
-        string tempFile = Path.Combine(
+        string tempFile = Path.Join(
             Directory.CreateTempSubdirectory("libtmux-dash-guard-").FullName,
             "buffer.txt");
         try
