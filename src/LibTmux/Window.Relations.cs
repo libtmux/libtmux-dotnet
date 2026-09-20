@@ -96,10 +96,13 @@ public sealed partial class Window
     /// when the index was not captured still narrows a bare identifier to the
     /// session this handle can prove.
     /// </remarks>
+    // psmux's target grammar takes a canonical session, window or pane, so
+    // the placement index tmux needs to tell two linkings of one window apart
+    // is not a target it accepts; there the window id names the placement.
     private TmuxTarget? ScopedTarget() =>
         RelationReader.CapturedSession(_snapshot) is not SessionId session
             ? null
-            : TryReadIndex(out int index)
+            : TryReadIndex(out int index) && _owner?.Connection?.IsPsmux != true
                 ? TmuxTarget.In(session, index)
                 : TmuxTarget.In(session, _id);
 
