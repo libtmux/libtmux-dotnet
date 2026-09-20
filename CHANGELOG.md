@@ -30,6 +30,9 @@ version.
 
 ### Fixed
 
+- MCP stdin EOF cancels pending requests before session and owned-daemon
+  cleanup, so a disconnected client cannot leave a text wait running.
+
 - The registered MCP `wait_for_text` tool forwards progress notifications
   while a wait is pending, allowing clients to coordinate concurrent work.
 
