@@ -266,6 +266,7 @@ public sealed class PsmuxConnectionTests
             TestContext.Current.CancellationToken);
 
         Assert.True(connection.IsPsmux);
+        Assert.DoesNotContain("-u", connection.PrefixArguments);
         Assert.Equal(new ServerGeneration(41, 100), generation);
         Assert.Equal("tmux 3.3.8", rawVersion);
         Assert.Equal(["-V"], calls[0]);
