@@ -491,8 +491,7 @@ def component(module: str) -> str:
 
 
 MATCHING_REPLACEMENT = (
-    "M:LibTmux.Query.QueryExtensions.Matching``1("
-    "IEnumerable<T>,Expression<Func<T,bool>>)"
+    'M:LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})'
 )
 PROPERTY_TOMBSTONE_IDS = {
     "libtmux.server:Server._sessions",
@@ -513,57 +512,57 @@ CSHARP_TOMBSTONE_REPLACEMENTS = {
         "typed Pane property, otherwise P:LibTmux.Pane.RawFormatFields"
     ),
     "libtmux.pane:Pane.resize_pane": (
-        "M:LibTmux.Pane.ResizeAsync(ResizePaneRequest,CancellationToken)"
+        "M:LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest,System.Threading.CancellationToken)"
     ),
     "libtmux.pane:Pane.select_pane": (
-        "M:LibTmux.Pane.SelectAsync(SelectPaneRequest?,CancellationToken)"
+        "M:LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest,System.Threading.CancellationToken)"
     ),
     "libtmux.pane:Pane.split_window": (
-        "M:LibTmux.Pane.SplitAsync(SplitPaneRequest?,CancellationToken)"
+        "M:LibTmux.Pane.SplitAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._list_panes": (
-        "M:LibTmux.Server.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._list_sessions": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._list_windows": (
-        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._sessions": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._update_panes": (
-        "M:LibTmux.Server.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server._update_windows": (
-        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.children": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.find_where": "Matching(predicate).SingleOrDefault()",
     "libtmux.server:Server.get_by_id": (
-        "M:LibTmux.Server.GetSessionAsync(SessionId,CancellationToken)"
+        "M:LibTmux.Server.GetSessionAsync(LibTmux.SessionId,System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.kill_server": (
-        "M:LibTmux.Server.KillAsync(CancellationToken)"
+        "M:LibTmux.Server.KillAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.list_sessions": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.where": MATCHING_REPLACEMENT,
     "libtmux.session:Session.__getitem__": (
         "typed Session property, otherwise P:LibTmux.Session.RawFormatFields"
     ),
     "libtmux.session:Session._list_windows": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session._windows": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.attach_session": (
-        "M:LibTmux.Session.AttachAsync(AttachSessionRequest?,CancellationToken)"
+        "M:LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.attached_pane": (
         "(await session.RefreshAsync(cancellationToken)).ActivePane"
@@ -572,55 +571,55 @@ CSHARP_TOMBSTONE_REPLACEMENTS = {
         "(await session.RefreshAsync(cancellationToken)).ActiveWindow"
     ),
     "libtmux.session:Session.children": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.find_where": "Matching(predicate).SingleOrDefault()",
     "libtmux.session:Session.get": (
         "typed Session property, otherwise P:LibTmux.Session.RawFormatFields"
     ),
     "libtmux.session:Session.get_by_id": (
-        "M:LibTmux.Session.GetWindowAsync(string,CancellationToken)"
+        "M:LibTmux.Session.GetWindowAsync(System.String,System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.kill_session": (
-        "M:LibTmux.Session.KillAsync(bool,bool,bool,CancellationToken)"
+        "M:LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.list_windows": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.where": MATCHING_REPLACEMENT,
     "libtmux.window:Window.__getitem__": (
         "typed Window property, otherwise P:LibTmux.Window.RawFormatFields"
     ),
     "libtmux.window:Window._list_panes": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window._panes": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.attached_pane": (
         "(await window.RefreshAsync(cancellationToken)).ActivePane"
     ),
     "libtmux.window:Window.children": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.find_where": "Matching(predicate).SingleOrDefault()",
     "libtmux.window:Window.get": (
         "typed Window property, otherwise P:LibTmux.Window.RawFormatFields"
     ),
     "libtmux.window:Window.get_by_id": (
-        "M:LibTmux.Window.GetPaneAsync(string,CancellationToken)"
+        "M:LibTmux.Window.GetPaneAsync(System.String,System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.kill_window": (
-        "M:LibTmux.Window.KillAsync(bool,CancellationToken)"
+        "M:LibTmux.Window.KillAsync(System.Boolean,System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.list_panes": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.select_window": (
-        "M:LibTmux.Window.SelectAsync(CancellationToken)"
+        "M:LibTmux.Window.SelectAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.split_window": (
-        "M:LibTmux.Window.SplitPaneAsync(SplitPaneRequest?,CancellationToken)"
+        "M:LibTmux.Window.SplitPaneAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.where": MATCHING_REPLACEMENT,
 }
@@ -1425,8 +1424,7 @@ def error_policies(
                 "mappings": [
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Pane.DisplayMessageAsync("
-                            "DisplayMessageRequest,CancellationToken)"
+                            'M:LibTmux.Pane.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)'
                         ),
                         "disposition": "log_warning_and_return",
                         "logLevel": "Warning",
@@ -1435,8 +1433,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.DisplayMessageAsync("
-                            "DisplayMessageRequest,CancellationToken)"
+                            'M:LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)'
                         ),
                         "disposition": "log_warning_and_return",
                         "logLevel": "Warning",
@@ -1445,8 +1442,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Window.DisplayMessageAsync("
-                            "DisplayMessageRequest,CancellationToken)"
+                            'M:LibTmux.Window.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)'
                         ),
                         "disposition": "log_warning_and_return",
                         "logLevel": "Warning",
@@ -1460,8 +1456,7 @@ def error_policies(
                 "mappings": [
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.HasSessionAsync("
-                            "string,bool,CancellationToken)"
+                            'M:LibTmux.Server.HasSessionAsync(System.String,System.Boolean,System.Threading.CancellationToken)'
                         ),
                         "exitCodeDisposition": "zero_true_nonzero_false",
                         "sourceSymbolId": "libtmux.server:Server.has_session",
@@ -1475,8 +1470,7 @@ def error_policies(
                 "mappings": [
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.GetAttachedSessionsAsync("
-                            "CancellationToken)"
+                            'M:LibTmux.Server.GetAttachedSessionsAsync(System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.attached_sessions",
@@ -1484,7 +1478,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.GetClientsAsync(CancellationToken)"
+                            "M:LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.clients",
@@ -1492,7 +1486,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.GetPanesAsync(CancellationToken)"
+                            "M:LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.panes",
@@ -1500,8 +1494,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.SearchPanesAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.search_panes",
@@ -1509,8 +1502,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.SearchSessionsAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.search_sessions",
@@ -1518,8 +1510,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.SearchWindowsAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.search_windows",
@@ -1527,7 +1518,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+                            "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.sessions",
@@ -1535,7 +1526,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.GetWindowsAsync(CancellationToken)"
+                            "M:LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.windows",
@@ -1543,7 +1534,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Session.GetPanesAsync(CancellationToken)"
+                            "M:LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.session:Session.panes",
@@ -1551,8 +1542,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Session.SearchPanesAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Session.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.session:Session.search_panes",
@@ -1560,8 +1550,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Session.SearchWindowsAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Session.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.session:Session.search_windows",
@@ -1569,7 +1558,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+                            "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.session:Session.windows",
@@ -1577,7 +1566,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)"
+                            "M:LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.window:Window.linked_sessions",
@@ -1585,7 +1574,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+                            "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.window:Window.panes",
@@ -1593,8 +1582,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Window.SearchPanesAsync("
-                            "UnsafeTmuxFilter,CancellationToken)"
+                            'M:LibTmux.Window.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)'
                         ),
                         "failureDisposition": "throw",
                         "sourceSymbolId": "libtmux.window:Window.search_panes",
@@ -1607,7 +1595,7 @@ def error_policies(
                 "mappings": [
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.IsAliveAsync(CancellationToken)"
+                            "M:LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken)"
                         ),
                         "disposition": "return_false",
                         "sourceSymbolId": "libtmux.server:Server.is_alive",
@@ -1620,7 +1608,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)"
+                            "M:LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)"
                         ),
                         "disposition": "throw",
                         "sourceSymbolId": "libtmux.server:Server.raise_if_dead",
@@ -1638,7 +1626,7 @@ def error_policies(
                 "mappings": [
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.KillAsync(CancellationToken)"
+                            "M:LibTmux.Server.KillAsync(System.Threading.CancellationToken)"
                         ),
                         "missingDaemonDisposition": "return_success",
                         "otherFailureDisposition": "throw",
@@ -1647,8 +1635,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Server.KillSessionAsync("
-                            "string,CancellationToken)"
+                            'M:LibTmux.Server.KillSessionAsync(System.String,System.Threading.CancellationToken)'
                         ),
                         "missingDaemonDisposition": "throw",
                         "otherFailureDisposition": "throw",
@@ -1657,8 +1644,7 @@ def error_policies(
                     },
                     {
                         "csharpMemberId": (
-                            "M:LibTmux.Session.KillAsync("
-                            "bool,bool,bool,CancellationToken)"
+                            'M:LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)'
                         ),
                         "missingDaemonDisposition": "throw",
                         "otherFailureDisposition": "throw",
@@ -1693,8 +1679,7 @@ def error_policies(
                 ],
                 "csharpExceptionId": "T:LibTmux.TmuxOptionException",
                 "csharpHandlerId": (
-                    "M:LibTmux.Internal.OptionFailure.ThrowIfFailed("
-                    "TmuxCommandResult,string)"
+                    'M:LibTmux.Internal.OptionFailure.ThrowIfFailed(LibTmux.TmuxCommandResult,System.String)'
                 ),
                 "mappings": [
                     {

@@ -308,7 +308,7 @@ startup and reported through `tmux://capabilities`.
 - [Windows psmux preview](docs/psmux.md) — what it reads, and what it refuses
 - [API reference](docs/api/README.md) — rendered from the doc comments
 - [tmux MCP tools](docs/mcp/tools.md) — every tool, capability row and resource, generated
-- [Public API](docs/public-api.md) — the reviewed, approved surface
+- [API policy](docs/public-api.md) — ownership and parity rules
 - [Version deltas](docs/parity/version-deltas.json) — every tmux difference, with its proof
 - [Decisions](docs/decisions/) — why the transport, object model and query catalog are shaped this way
 - [Examples](examples/README.md) — every example here is a test, and the C# in this README is quoted from one

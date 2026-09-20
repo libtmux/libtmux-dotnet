@@ -97,6 +97,14 @@ jobs:
           --no-build
           --minimum-expected-tests 119
 
+      - name: Compiler API inventory
+        run: >
+          dotnet run
+          --project eng/LibTmux.Engineering
+          --configuration Release
+          --no-build
+          -- api-inventory . artifacts/api-inventory.json
+
       - name: Pack
         run: dotnet pack LibTmux.slnx --configuration Release --no-build --output artifacts/packages
 
@@ -183,7 +191,6 @@ jobs:
         # code that runs, and this is what says so out loud.
         run: |
           uv run python eng/parity/verify_public_api.py
-          uv run python eng/parity/render_public_api.py --check
           uv run python eng/parity/verify_capabilities.py
           uv run python eng/parity/verify_version_literals.py
           uv run python eng/parity/verify_tmux_versions.py

@@ -1,24 +1,17 @@
-"""Render the API reference from the compiler's own XML documentation.
-
-The reference takes summaries from ``LibTmux.xml`` and visibility from the
-approved contract. The compiler XML contains comments for internal helpers too;
-only exact public member identifiers approved for the core package may render.
-"""
+"""Render public source declarations from the Roslyn API inventory."""
 
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import json
 import pathlib
-import re
 import sys
 import typing as t
 from xml.etree import ElementTree
 
 CSHARP_ROOT = pathlib.Path(__file__).parents[2]
+INVENTORY_PATH = CSHARP_ROOT / "artifacts/api-inventory.json"
 OUTPUT_PATH = CSHARP_ROOT / "docs" / "api" / "README.md"
-PUBLIC_API_PATH = CSHARP_ROOT / "docs" / "public-api.json"
 KIND_TITLES = {
     "T": "Types",
     "M": "Methods",
@@ -26,151 +19,15 @@ KIND_TITLES = {
     "F": "Fields",
     "E": "Events",
 }
-MemberShape = tuple[str, str, str, int, int]
 
 
-def documentation_paths() -> list[pathlib.Path]:
-    """Return built core XML documentation, preferring the CI configuration."""
-    paths = (CSHARP_ROOT / "src" / "LibTmux" / "bin").glob(
-        "*/net*/LibTmux.xml"
-    )
-    return sorted(
-        paths,
-        key=lambda path: (
-            path.parent.parent.name != "Release",
-            path.parent.name != "net10.0",
-            str(path),
-        ),
-    )
-
-
-def public_type_names(path: pathlib.Path = PUBLIC_API_PATH) -> frozenset[str]:
-    """Return the contract names of public types in the core assembly."""
-    contract = json.loads(path.read_text(encoding="utf-8"))
+def public_member_ids(path: pathlib.Path = INVENTORY_PATH) -> frozenset[str]:
+    """Read externally visible, explicitly declared core symbols from Roslyn."""
     return frozenset(
-        entry["id"][2:]
-        for entry in contract["types"]
-        if entry["package"] == "LibTmux" and "public" in entry["modifiers"]
+        member["id"] for member in json.loads(path.read_text())["members"]
+        if member["package"] == "LibTmux" and member["visibility"] == "public"
+        and not member["implicitDeclaration"] and not member["accessor"]
     )
-
-
-def contract_surface(
-    path: pathlib.Path = PUBLIC_API_PATH,
-) -> tuple[frozenset[str], Counter[MemberShape]]:
-    """Return approved public types and member shapes for the core assembly."""
-    contract = json.loads(path.read_text(encoding="utf-8"))
-    public_types = {
-        entry["id"]
-        for entry in contract["types"]
-        if entry["package"] == "LibTmux" and "public" in entry["modifiers"]
-    }
-    public_members = [
-        entry
-        for entry in contract["members"]
-        if entry.get("package") == "LibTmux"
-        and entry.get("visibility") in {"public", "explicit"}
-        and entry.get("declaringType") in public_types
-        and entry.get("kind") != "type"
-    ]
-    shapes: Counter[MemberShape] = Counter(
-        (
-            entry["id"][0],
-            entry["declaringType"][2:],
-            entry["name"],
-            len(entry.get("genericParameters", [])),
-            len(entry.get("parameters", [])),
-        )
-        for entry in public_members
-    )
-    return frozenset(public_types), shapes
-
-
-def public_member_ids(
-    documentation_path: pathlib.Path,
-    contract_path: pathlib.Path = PUBLIC_API_PATH,
-) -> frozenset[str]:
-    """Map approved public source IDs to exact compiler XML member IDs."""
-    public_types, approved_shapes = contract_surface(contract_path)
-    type_names = frozenset(identifier[2:] for identifier in public_types)
-    candidates: dict[MemberShape, list[str]] = defaultdict(list)
-    selected = set(public_types)
-    root = ElementTree.parse(documentation_path).getroot()
-    for member in root.findall("./members/member"):
-        name = member.get("name")
-        if name is None:
-            continue
-        shape = xml_member_shape(name, type_names)
-        if shape is not None and shape in approved_shapes:
-            candidates[shape].append(name)
-
-    for shape, identifiers in candidates.items():
-        if len(identifiers) > approved_shapes[shape]:
-            joined = ", ".join(sorted(identifiers))
-            raise ValueError(
-                "XML documentation has more members than the approved public shape "
-                f"{shape}: {joined}"
-            )
-        selected.update(identifiers)
-    return frozenset(selected)
-
-
-def xml_member_shape(
-    identifier: str,
-    public_types: frozenset[str],
-) -> MemberShape | None:
-    """Return the contract-comparable shape of one compiler XML identifier."""
-    if len(identifier) < 3 or identifier[1] != ":" or identifier[0] == "T":
-        return None
-
-    body = identifier[2:]
-    declaring = next(
-        (
-            type_name
-            for type_name in sorted(public_types, key=len, reverse=True)
-            if body.startswith(f"{type_name}.")
-        ),
-        None,
-    )
-    if declaring is None:
-        return None
-
-    member = body[len(declaring) + 1 :]
-    head, separator, parameters = member.partition("(")
-    arity_match = re.search(r"``(?P<arity>[1-9][0-9]*)$", head)
-    generic_arity = int(arity_match.group("arity")) if arity_match else 0
-    if arity_match:
-        head = head[: arity_match.start()]
-    parameter_count = count_xml_parameters(parameters) if separator else 0
-    return (
-        identifier[0],
-        declaring,
-        head.replace("#", "."),
-        generic_arity,
-        parameter_count,
-    )
-
-
-def count_xml_parameters(parameters: str) -> int:
-    """Count top-level parameters in the tail of a compiler XML identifier."""
-    closing = parameters.rfind(")")
-    if closing < 0:
-        raise ValueError("Malformed XML documentation member identifier.")
-    body = parameters[:closing]
-    if not body:
-        return 0
-
-    depth = 0
-    count = 1
-    for character in body:
-        if character in "{[":
-            depth += 1
-        elif character in "}]":
-            depth -= 1
-        elif character == "," and depth == 0:
-            count += 1
-    if depth != 0:
-        raise ValueError("Malformed XML documentation parameter list.")
-    return count
 
 
 def flatten(node: ElementTree.Element | None) -> str:
@@ -182,11 +39,11 @@ def flatten(node: ElementTree.Element | None) -> str:
 
 
 def read_members(
-    path: pathlib.Path,
+    path: pathlib.Path | ElementTree.Element,
     approved_members: frozenset[str],
 ) -> dict[str, str]:
     """Return each documented member identifier and its summary."""
-    root = ElementTree.parse(path).getroot()
+    root = path if isinstance(path, ElementTree.Element) else ElementTree.parse(path).getroot()
     members: dict[str, str] = {}
     for member in root.findall("./members/member"):
         name = member.get("name")
@@ -194,9 +51,12 @@ def read_members(
             continue
 
         summary = flatten(member.find("summary"))
-        if summary:
-            members[name] = summary
+        if summary or member.find("inheritdoc") is not None:
+            members[name] = summary or "Inherits the base member contract."
 
+    missing = approved_members - members.keys()
+    if missing:
+        raise ValueError("Missing documentation: " + ", ".join(sorted(missing)))
     return members
 
 
@@ -209,8 +69,8 @@ def render(members: dict[str, str]) -> str:
     lines = [
         "# API reference",
         "",
-        "Generated from compiler XML summaries and gated by the approved public",
-        "contract, so documented internal helpers never render. Regenerate with",
+        "Generated from compiler symbols and their XML summaries. Only public",
+        "source declarations render. Regenerate with",
         "`uv run python eng/docs/render_api_reference.py`.",
         "",
         "See [choosing a mode](../modes/matrix.md) for how the three execution",
@@ -246,12 +106,13 @@ def main(arguments: t.Sequence[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true")
     parsed = parser.parse_args(arguments)
 
-    paths = documentation_paths()
-    if not paths:
-        print("no built XML documentation found; build first", file=sys.stderr)
-        return 1
-
-    rendered = render(read_members(paths[0], public_member_ids(paths[0])))
+    inventory = json.loads(INVENTORY_PATH.read_text())
+    root = ElementTree.Element("doc")
+    nodes = ElementTree.SubElement(root, "members")
+    for member in inventory["members"]:
+        if member["documentation"]:
+            nodes.append(ElementTree.fromstring(member["documentation"]))
+    rendered = render(read_members(root, public_member_ids(INVENTORY_PATH)))
     if parsed.check:
         current = (
             OUTPUT_PATH.read_text(encoding="utf-8") if OUTPUT_PATH.exists() else ""
