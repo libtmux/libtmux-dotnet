@@ -30,6 +30,8 @@ public sealed class DeferredControlModeResultsTests
         }, token);
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
+        TmuxVersion version = Assert.NotNull(server.Version);
+        bool reportsDeferredShellResults = version >= TmuxVersion.Parse("3.5");
         string channel = $"deferred-{Guid.NewGuid():N}";
         string tmux = $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}'";
         string shell = $"{tmux} wait-for -S {channel}-started; "
@@ -49,15 +51,28 @@ public sealed class DeferredControlModeResultsTests
                 ["wait-for", "-S", $"{channel}-release"], token)).ExitCode);
             if (fail)
             {
-                ControlModeCommandException error = await Assert.ThrowsAsync<ControlModeCommandException>(
-                    async () => await result);
-                Assert.Equal(command, error.Command);
-                Assert.Equal(["stdout-marker", "stderr-marker"], error.OutputLines);
-                Assert.Contains(error.ErrorLines, line => line.EndsWith("returned 7", StringComparison.Ordinal));
+                if (reportsDeferredShellResults)
+                {
+                    ControlModeCommandException error = await Assert.ThrowsAsync<ControlModeCommandException>(
+                        async () => await result);
+                    Assert.Equal(command, error.Command);
+                    Assert.Equal(["stdout-marker", "stderr-marker"], error.OutputLines);
+                    Assert.Contains(error.ErrorLines, line => line.EndsWith("returned 7", StringComparison.Ordinal));
+                }
+                else
+                {
+                    // Before 3.5, tmux keeps run-shell text in the pane and
+                    // completes the control command without its child status.
+                    Assert.Empty(await result);
+                }
+            }
+            else if (reportsDeferredShellResults)
+            {
+                Assert.Equal(["stdout-marker", "stderr-marker"], await result);
             }
             else
             {
-                Assert.Equal(["stdout-marker", "stderr-marker"], await result);
+                Assert.Empty(await result);
             }
 
             Assert.Equal(["following-marker"], await following);
