@@ -45,12 +45,20 @@ internal static partial class Log
 
     [LoggerMessage(
         EventId = 5,
-        Level = LogLevel.Debug,
-        Message = "Control client for socket {Socket} could not start; falling back to polling.")]
+        Level = LogLevel.Warning,
+        Message = "Control client for session {Session} could not start; pane observation uses polling every {IntervalMilliseconds}ms.")]
     internal static partial void ControlClientUnavailable(
         ILogger logger,
         Exception error,
-        string? socket);
+        string? session,
+        double intervalMilliseconds);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Warning,
+        Message = "Control client for session {Session} ended; pane observation uses polling every {IntervalMilliseconds}ms.")]
+    internal static partial void PollingFallbackActivated(
+        ILogger logger, string session, double intervalMilliseconds);
 
     [LoggerMessage(
         EventId = 7,

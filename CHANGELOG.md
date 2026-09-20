@@ -31,7 +31,11 @@ version.
 ### Fixed
 
 - `PaneObservation.WatchAsync` forwards notification loss and rechecks whether
-  the pane exists.
+  the pane exists. MCP waits wake and capture current state after loss, with
+  `eventsDropped` reporting the session stream's loss during that wait.
+
+- MCP text waits honor control timeouts without rereading pane contents when
+  deadline timers expire before the elapsed-time clock reaches the budget.
 
 - Workspace declaration errors include the offending source line and column.
   Environment entries reject empty names, `=` in names and NUL before dispatch.
@@ -44,6 +48,11 @@ version.
 - **Query documents use schema v2.** Recreate previously stored v1 documents
   with the current translator; the old schema is no longer accepted. Use
   `QueryJsonLimits.Default` in place of `QueryJsonLimits.V1`.
+
+- **MCP pane waits require control mode by default.** Set
+  `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit timed reads after control
+  observation fails. Results report `pollingFallback`; capabilities describe
+  the policy and stderr records activation.
 
 - **Control notification queues default to a 4 MiB payload ceiling.**
   Oversized events and evicted older events produce `TmuxEventsDroppedEvent`.

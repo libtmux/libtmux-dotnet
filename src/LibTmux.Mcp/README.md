@@ -57,9 +57,9 @@ eleven panes is showing the stack trace. Read visible text and scrollback with
 structured and incremental observation. Lay out a workspace and drive it.
 
 The design goal is that an assistant never gets **stuck** and never **wastes
-context**: waits are event-driven when control mode is available and use a
-bounded polling fallback otherwise; no tool returns unbounded output, and no
-failure comes back as "an error occurred".
+context**: pane text waits use control-mode events; no tool returns unbounded
+output, and no failure comes back as "an error occurred". Control startup or
+stream failure ends a text wait unless polling fallback is explicitly enabled.
 
 Pane modes belong to attached humans. The MCP observes but never enters,
 drives, or exits a mode. Input refuses modal targets; wait for the human to
@@ -89,6 +89,17 @@ cannot describe a tool that is not there:
 | `LIBTMUX_MCP_WAIT_MAX_SECONDS` | `30` | Ceiling on any one wait |
 | `LIBTMUX_MCP_MAX_LINES` | `500` | Default line budget |
 | `LIBTMUX_MCP_MAX_BYTES` | `128000` | Byte budget per result |
+| `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK` | `false` | Permit pane text waits to poll after control observation fails |
+
+Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` only when timed pane reads are
+acceptable. Fallback waits 60 ms between repeated captures,
+reports `pollingFallback: true` in the wait result, and logs a warning to stderr.
+`tmux://capabilities` reports the startup policy and interval. This replaces
+implicit fallback: an unset or invalid setting requires control observation.
+`eventsDropped` reports session notifications lost during the wait and triggers
+a fresh pane read; it is separate from fallback and cannot recover intermediate
+output. `run_shell_command` completion uses tmux wait channels independently of
+this setting; cancellation or timeout may leave the shell command running.
 
 The default dedicated socket with minimal configuration enables all four
 toolsets when it does not already exist. Existing and user-configured sockets

@@ -67,7 +67,8 @@ public static class McpServerComposition
             connectionOptions.SocketName,
             provider.GetService<ILoggerFactory>()?.CreateLogger<TmuxConnectionAccessor>()));
         services.AddSingleton(provider => new PaneActivityHub(
-            provider.GetService<ILoggerFactory>()?.CreateLogger<PaneActivityHub>()));
+            provider.GetService<ILoggerFactory>()?.CreateLogger<PaneActivityHub>(),
+            policy.AllowPollingFallback));
         services.AddSingleton<ReadTools>();
         services.AddSingleton<WriteTools>();
         services.AddSingleton<CapabilityTools>();

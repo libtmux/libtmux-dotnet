@@ -306,8 +306,9 @@ internal sealed class CapabilityTools
         [Description("A pane id. Omit for the active pane.")] string? paneId = null,
         [Description(
             "Linear-time regular expressions that end the wait successfully: .NET "
-            + "syntax without lookarounds, backreferences or atomic groups. Only output "
-            + "arriving after this call counts; text already on screen never matches. "
+            + "syntax without lookarounds, backreferences or atomic groups. Output "
+            + "arriving after this call counts unless the pattern is already present, "
+            + "which returns PresentAtEntry. "
             + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
             + "entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? patterns = null,
