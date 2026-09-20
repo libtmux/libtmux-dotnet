@@ -15,12 +15,9 @@ namespace LibTmux.Mcp;
 /// in a log: it corrupts the protocol and the client disconnects.
 /// </para>
 /// <para>
-/// The session is run directly rather than as a hosted service. A generic host
-/// stops the application as soon as standard input reaches end of file, which
-/// races the reply still being written — measured: a client that wrote one
-/// <c>initialize</c> frame and closed stdin got no answer at all, while the
-/// same frame followed by a one second pause was answered. Owning the lifetime
-/// here means the process ends when the session does, not before.
+/// The SDK owns protocol dispatch. Input EOF cancels unfinished requests, and
+/// the session finishes before its services are disposed. A disconnected
+/// client is not guaranteed replies to requests that were still pending.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -80,7 +77,16 @@ internal static class Program
             logging,
             provider);
 
-        await server.RunAsync().ConfigureAwait(false);
+        using CancellationTokenSource shutdown = new();
+        Task running = server.RunAsync(shutdown.Token);
+        await Task.WhenAny(running, transport.MessageReader.Completion).ConfigureAwait(false);
+        if (!running.IsCompleted)
+        {
+            // The SDK drains handlers after EOF without cancelling them. End
+            // their waits before disposing the observer and owned daemon.
+            await shutdown.CancelAsync().ConfigureAwait(false);
+        }
+        await running.ConfigureAwait(false);
         return 0;
     }
 

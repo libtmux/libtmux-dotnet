@@ -37,6 +37,9 @@ version.
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
 
+- MCP stdin EOF cancels pending requests before session and owned-daemon
+  cleanup, so a disconnected client cannot leave a text wait running.
+
 - The registered MCP `wait_for_text` tool forwards progress notifications
   while a wait is pending, allowing clients to coordinate concurrent work.
 
