@@ -101,3 +101,54 @@ def test_renderer_preserves_generic_metadata_names_as_code() -> None:
     )
 
     assert "| ```LibTmux.Query.QueryExtensions.Compile``1``` | Compiles a query. |" in rendered
+
+
+def test_fsharp_renderer_uses_compiled_signatures_and_declaring_modules() -> None:
+    """F# readers need source signatures, not CLR documentation identifiers."""
+    render_fsharp = load_renderer()["render_fsharp"]
+
+    rendered = render_fsharp(
+        [
+            {
+                "id": "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
+                "declaringType": "T:LibTmux.FSharp.Filter",
+                "kind": "member",
+                "signature": "val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>",
+                "summary": "Matches a field against a constant.",
+            },
+        ]
+    )
+
+    assert "# F# API reference" in rendered
+    assert "## Filter" in rendered
+    assert "`val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>`" in rendered
+    assert "M:LibTmux.FSharp.Filter.eq" not in rendered
+
+
+def test_fsharp_check_rejects_stale_generated_output(tmp_path: pathlib.Path, capsys) -> None:
+    """The F# reference must be checked from the compiler inventory."""
+    import json
+
+    renderer = load_renderer()
+    inventory = tmp_path / "inventory.json"
+    inventory.write_text(json.dumps({"members": [{
+        "id": "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
+        "package": "LibTmux.FSharp",
+        "visibility": "public",
+        "implicitDeclaration": False,
+        "accessor": False,
+        "declaringType": "T:LibTmux.FSharp.Filter",
+        "kind": "member",
+        "signature": "val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>",
+        "documentation": '<member name="M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})"><summary>Matches a field against a constant.</summary></member>',
+    }]}))
+    output = tmp_path / "api.md"
+    context = renderer["main"].__globals__
+    context["INVENTORY_PATH"] = inventory
+    context["FSHARP_OUTPUT_PATH"] = output
+
+    assert renderer["main"](["--fsharp"]) == 0
+    assert renderer["main"](["--fsharp", "--check"]) == 0
+    output.write_text("stale")
+    assert renderer["main"](["--fsharp", "--check"]) == 1
+    assert "differs" in capsys.readouterr().err

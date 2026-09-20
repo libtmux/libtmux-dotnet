@@ -29,6 +29,8 @@ snapshot. A null command becomes `None`; an uncaptured command still raises
 
 Use [portable filters](queries.md) when the condition must become a
 `QueryDocument`; use `Seq.filter` for application-specific snapshot work.
+The [F# API reference](api.md) is generated from compiled signatures and XML
+summaries.
 
 Use the core request records and entity methods for mutations. Task
 cancellation stops waiting; it does not undo a mutation that tmux received.

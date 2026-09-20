@@ -170,6 +170,17 @@ def verify(root: pathlib.Path) -> list[str]:
         "examples" in fsharp_format.get("run", "").split(),
         "dotnet.build.fsharp-format must check F# examples",
     )
+    document_steps = [
+        step for step in job("dotnet", "build").get("steps", [])
+        if step.get("name") == "Documents"
+    ]
+    require(len(document_steps) == 1, "dotnet.build: missing Documents step")
+    if len(document_steps) == 1:
+        require(
+            "uv run python eng/docs/render_api_reference.py --fsharp --check"
+            in document_steps[0].get("run", ""),
+            "dotnet.build.Documents must check the F# API reference",
+        )
 
     matrix = needs("dotnet-tmux", "matrix", {"build"})
     strategy = matrix.get("strategy", {})
