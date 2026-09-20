@@ -60,6 +60,9 @@ version.
 
 ### Fixed
 
+- Option command rejections retain `TmuxDispatchState.Dispatched`, including
+  failed option actions in workspace journals.
+
 - `Session.AttachAsync` accepts successful terminal detach after a guarded
   acknowledgement and preserves owned-client cancellation metadata.
 
