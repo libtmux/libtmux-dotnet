@@ -11,6 +11,9 @@ Each scope owns what it created and tears it down on dispose, including after a
 failure, so a test that throws does not leave a server behind.
 
 ```csharp
+using LibTmux.Testing;
+
+var factory = new TmuxTestFactory();
 await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");

@@ -1,293 +1,182 @@
-"""Prove the workflow check notices a workflow that stops covering the range."""
+"""Exercise release policy against real workflows and structural mutations."""
 
 from __future__ import annotations
 
-import json
 import pathlib
-import runpy
 import shutil
-import typing as t
 
 import pytest
+import yaml
+
+from eng.parity.verify_workflows import verify
+
+ROOT = pathlib.Path(__file__).parents[3]
 
 
-def load_checker() -> dict[str, t.Any]:
-    """Load the workflow check as an import-free test namespace."""
-    return runpy.run_path(
-        str(pathlib.Path(__file__).parents[1] / "verify_workflows.py")
+@pytest.fixture
+def repository(tmp_path: pathlib.Path) -> pathlib.Path:
+    """Copy only the inputs owned by the policy checker."""
+    shutil.copytree(ROOT / ".github/workflows", tmp_path / ".github/workflows")
+    manifest = pathlib.Path("eng/tmux/versions.json")
+    (tmp_path / manifest).parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / manifest, tmp_path / manifest)
+    return tmp_path
+
+
+def test_current_workflows_pass(repository: pathlib.Path) -> None:
+    assert verify(repository) == []
+
+
+def test_commented_dependencies_do_not_gate_publication(
+    repository: pathlib.Path,
+) -> None:
+    path = repository / ".github/workflows/release.yml"
+    path.write_text(
+        path.read_text().replace(
+            "needs: [dotnet, compatibility, psmux]",
+            "needs: [validate] # needs: [dotnet, compatibility, psmux]",
+        )
     )
-
-
-REPOSITORY_ROOT = pathlib.Path(__file__).parents[3]
-MANIFEST = REPOSITORY_ROOT / "eng" / "tmux" / "versions.json"
-SUPPORTED_TMUX_VERSIONS: tuple[str, ...] = tuple(
-    json.loads(MANIFEST.read_text(encoding="utf-8"))["supported"]
-)
-
-
-def verify(root: pathlib.Path) -> list[str]:
-    """Run the workflow check against one repository root."""
-    checked: list[str] = load_checker()["verify"](root)
-    return checked
-
-
-BUILD = """
-on:
-  workflow_call:
-jobs:
-  build:
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - run: dotnet restore --locked-mode
-      - run: dotnet format --verify-no-changes
-      - run: dotnet build --warnaserror
-      - run: dotnet pack src/LibTmux/LibTmux.csproj
-      - env:
-          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke
-        run: |
-          dotnet restore tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --configfile tests/NuGet.config
-          dotnet publish tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj --no-restore
-      - env:
-          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer
-        run: dotnet run --project tests/LibTmux.PackageConsumer
-      - run: dotnet run --project examples/LibTmux.Examples
-      - run: dotnet test --project tests/LibTmux.ExampleTests
-      - run: uv run python eng/docs/render_api_reference.py --check
-      - run: uv run python eng/parity/render_public_api.py --check
-      - run: uv run python eng/docs/sync_snippets.py --check
-"""
-
-MATRIX = """
-on:
-  workflow_call:
-jobs:
-  matrix:
-    strategy:
-      fail-fast: false
-      matrix:
-        tmux: [{versions}]
-        framework: ['net8.0', 'net10.0']
-    steps:
-      - env:
-          LIBTMUX_INTEGRATION_REQUIRED: '1'
-        run: dotnet test
-"""
-
-RELEASE = """
-jobs:
-  dotnet:
-    uses: ./.github/workflows/dotnet.yml
-  compatibility:
-    uses: ./.github/workflows/dotnet-tmux.yml
-  psmux:
-    runs-on: [self-hosted, Windows, X64, psmux]
-    steps:
-      - run: |
-          $env:NUGET_PACKAGES = 'fresh'
-          dotnet restore LibTmux.slnx
-      - env:
-          ARTIFACT_URL: https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip
-          ARCHIVE_SHA256: 1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe
-          WSL_DISTRIBUTION: ${{ vars.PSMUX_WSL_DISTRIBUTION }}
-          WSL_DOTNET_PATH: ${{ vars.PSMUX_WSL_DOTNET_PATH }}
-        run: Invoke-PsmuxSmoke.ps1 -RunWslSmoke -WslDotnetPath /dotnet -WslRepository $env:GITHUB_WORKSPACE 54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d
-      - run: echo 'net8.0' 'net10.0'
-  publish:
-    needs: [dotnet, compatibility, psmux]
-    steps:
-      - uses: actions/download-artifact@pinned
-      - env:
-          REF_TYPE: ${{ github.ref_type }}
-        run: dotnet nuget push package.nupkg
-"""
-
-
-def write(
-    root: pathlib.Path,
-    build: str,
-    matrix: str,
-    release: str = RELEASE,
-) -> pathlib.Path:
-    """Lay out a repository holding the release's workflow set."""
-    workflows = root / ".github" / "workflows"
-    workflows.mkdir(parents=True)
-    (workflows / "dotnet.yml").write_text(build, encoding="utf-8")
-    (workflows / "dotnet-tmux.yml").write_text(matrix, encoding="utf-8")
-    (workflows / "release.yml").write_text(release, encoding="utf-8")
-
-    # The check measures a root against that root's own version manifest, so a
-    # laid-out repository needs one.
-    manifest = root / "eng" / "tmux" / "versions.json"
-    manifest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(MANIFEST, manifest)
-    return root
-
-
-def every_version() -> str:
-    """Return the matrix entry naming every supported tmux."""
-    return ", ".join(f"'{version}'" for version in SUPPORTED_TMUX_VERSIONS)
-
-
-def test_complete_workflows_pass(tmp_path: pathlib.Path) -> None:
-    """A pair of workflows covering the whole range has nothing to report."""
-    root = write(tmp_path, BUILD, MATRIX.format(versions=every_version()))
-
-    assert verify(root) == []
-
-
-def test_a_dropped_tmux_version_is_reported(tmp_path: pathlib.Path) -> None:
-    """Quietly dropping a lane is exactly what this exists to catch."""
-    versions = ", ".join(f"'{version}'" for version in SUPPORTED_TMUX_VERSIONS[:-1])
-    root = write(tmp_path, BUILD, MATRIX.format(versions=versions))
-
-    assert verify(root) == [f"dotnet-tmux.yml omits tmux {SUPPORTED_TMUX_VERSIONS[-1]}"]
-
-
-def test_a_matrix_that_stops_early_is_reported(tmp_path: pathlib.Path) -> None:
-    """One lane failing should not hide what the others would have said."""
-    matrix = MATRIX.format(versions=every_version()).replace("fail-fast: false", "")
-    root = write(tmp_path, BUILD, matrix)
-
-    assert "dotnet-tmux.yml stops the matrix at the first failure" in verify(root)
-
-
-def test_skipped_integration_tests_are_reported(tmp_path: pathlib.Path) -> None:
-    """A lane whose tests skipped would pass while proving nothing."""
-    matrix = MATRIX.format(versions=every_version()).replace(
-        "LIBTMUX_INTEGRATION_REQUIRED", "SOMETHING_ELSE"
-    )
-    root = write(tmp_path, BUILD, matrix)
-
-    assert "dotnet-tmux.yml does not require its integration tests to run" in verify(
-        root
-    )
+    assert any("publish.needs" in error for error in verify(repository))
 
 
 @pytest.mark.parametrize(
-    "step",
+    ("workflow", "keys", "value", "diagnostic"),
     [
-        "--locked-mode",
-        "--warnaserror",
-        "dotnet pack",
-        "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
-        "--configfile tests/NuGet.config",
-        "LibTmux.PackageConsumer",
-        "LibTmux.ExampleTests",
-        "render_api_reference.py --check",
-        "render_public_api.py --check",
-        "sync_snippets.py --check",
-    ],
-)
-def test_a_dropped_build_step_is_reported(tmp_path: pathlib.Path, step: str) -> None:
-    """A workflow gating less than the repository does lets changes through."""
-    root = write(
-        tmp_path,
-        BUILD.replace(step, "echo skipped"),
-        MATRIX.format(versions=every_version()),
-    )
-
-    assert f"dotnet.yml omits {step}" in verify(root)
-
-
-def test_a_shared_package_consumer_cache_is_reported(tmp_path: pathlib.Path) -> None:
-    """A warm solution cache can hide an incomplete package restore graph."""
-    isolation = "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer"
-    root = write(
-        tmp_path,
-        BUILD.replace(isolation, "NUGET_PACKAGES: shared"),
-        MATRIX.format(versions=every_version()),
-    )
-
-    assert f"dotnet.yml omits {isolation}" in verify(root)
-
-
-def test_a_missing_workflow_is_reported(tmp_path: pathlib.Path) -> None:
-    """Deleting a workflow is the loudest way to stop testing."""
-    root = write(tmp_path, BUILD, MATRIX.format(versions=every_version()))
-    (root / ".github" / "workflows" / "dotnet-tmux.yml").unlink()
-
-    assert verify(root) == ["missing workflow: dotnet-tmux.yml"]
-
-
-@pytest.mark.parametrize(
-    "step",
-    [
-        "uses: ./.github/workflows/dotnet.yml",
-        "uses: ./.github/workflows/dotnet-tmux.yml",
-        "needs: [dotnet, compatibility, psmux]",
-        "github.ref_type",
-        "actions/download-artifact@",
-        "https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip",
-        "1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe",
-        "PSMUX_WSL_DISTRIBUTION",
-        "PSMUX_WSL_DOTNET_PATH",
-        "runs-on: [self-hosted, Windows, X64, psmux]",
-        "Invoke-PsmuxSmoke.ps1",
-        "-RunWslSmoke",
-        "-WslDotnetPath",
-        "-WslRepository $env:GITHUB_WORKSPACE",
-    ],
-)
-def test_a_dropped_release_gate_is_reported(
-    tmp_path: pathlib.Path,
-    step: str,
-) -> None:
-    """Publishing must consume every same-commit and psmux proof."""
-    root = write(
-        tmp_path,
-        BUILD,
-        MATRIX.format(versions=every_version()),
-        RELEASE.replace(step, "echo skipped"),
-    )
-
-    assert f"release.yml omits {step}" in verify(root)
-
-
-def test_release_cannot_hide_an_existing_version(tmp_path: pathlib.Path) -> None:
-    """NuGet's immutable duplicate must fail rather than look published."""
-    root = write(
-        tmp_path,
-        BUILD,
-        MATRIX.format(versions=every_version()),
-        RELEASE + "\n# --skip-duplicate\n",
-    )
-
-    assert "release.yml can hide an existing immutable package version" in verify(root)
-
-
-def test_release_seeds_its_fresh_cache_before_the_solution_restore(
-    tmp_path: pathlib.Path,
-) -> None:
-    """The packed consumer needs external dependencies in its isolated cache."""
-    root = write(
-        tmp_path,
-        BUILD,
-        MATRIX.format(versions=every_version()),
-        RELEASE.replace(
-            "$env:NUGET_PACKAGES = 'fresh'\n          dotnet restore LibTmux.slnx",
-            "dotnet restore LibTmux.slnx\n          $env:NUGET_PACKAGES = 'fresh'",
+        ("release", ("jobs", "psmux", "needs"), ["validate"], "psmux.needs"),
+        ("dotnet-tmux", ("jobs", "matrix", "needs"), [], "matrix.needs"),
+        ("release", ("jobs", "publish", "permissions"), "write-all", "permissions"),
+        ("release", ("jobs", "publish", "if"), "always()", "publish.if"),
+        (
+            "release",
+            ("jobs", "dotnet", "continue-on-error"),
+            "true",
+            "continue-on-error",
         ),
-    )
-
-    assert (
-        "release.yml isolates NuGet only after restoring dependencies" in verify(root)
-    )
-
-
-@pytest.mark.parametrize("name", ["dotnet.yml", "dotnet-tmux.yml"])
-def test_release_gate_workflows_must_be_callable(
-    tmp_path: pathlib.Path,
-    name: str,
+        (
+            "release",
+            ("jobs", "dotnet", "uses"),
+            "./.github/workflows/other.yml",
+            "dotnet.uses",
+        ),
+        ("dotnet", ("jobs", "gate", "needs"), ["build"], "gate.needs"),
+        (
+            "dotnet-tmux",
+            ("jobs", "matrix", "strategy", "matrix", "tmux"),
+            ["3.7c"],
+            "tmux matrix",
+        ),
+        (
+            "dotnet-tmux",
+            ("jobs", "matrix", "strategy", "matrix", "framework"),
+            ["net10.0"],
+            "framework matrix",
+        ),
+        (
+            "dotnet-tmux",
+            ("jobs", "matrix", "strategy", "matrix", "exclude"),
+            [{"tmux": "3.7c"}],
+            "matrix exclusions",
+        ),
+        (
+            "dotnet-tmux",
+            ("jobs", "matrix", "strategy", "fail-fast"),
+            "true",
+            "fail-fast",
+        ),
+    ],
+)
+def test_weakened_policy_fails(
+    repository: pathlib.Path,
+    workflow: str,
+    keys: tuple[str, ...],
+    value: object,
+    diagnostic: str,
 ) -> None:
-    """A same-commit release call needs a workflow_call entry point."""
-    build = BUILD if name != "dotnet.yml" else BUILD.replace("workflow_call:", "manual:")
-    matrix = (
-        MATRIX.format(versions=every_version())
-        if name != "dotnet-tmux.yml"
-        else MATRIX.format(versions=every_version()).replace("workflow_call:", "manual:")
-    )
-    root = write(tmp_path, build, matrix)
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    target = document
+    for key in keys[:-1]:
+        target = target[key]
+    target[keys[-1]] = value
+    path.write_text(yaml.safe_dump(document, sort_keys=True))
+    assert any(diagnostic in error for error in verify(repository))
 
-    assert f"{name} cannot be called by release.yml" in verify(root)
+
+def test_reformatting_and_key_order_are_irrelevant(repository: pathlib.Path) -> None:
+    for path in (repository / ".github/workflows").glob("*.yml"):
+        document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+        path.write_text(
+            yaml.safe_dump(document, sort_keys=True, default_flow_style=True)
+        )
+    assert verify(repository) == []
+
+
+def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
+    path = repository / ".github/workflows/release.yml"
+    path.write_text(path.read_text() + "\npermissions: write-all\n")
+    assert any("duplicate" in error for error in verify(repository))
+
+
+@pytest.mark.parametrize("workflow,job_name,step_name", [
+    ("dotnet-tmux", "matrix", "Integration tests"),
+    ("release", "validate", "Check the tag matches the version"),
+])
+@pytest.mark.parametrize("key,value", [("if", "false"), ("continue-on-error", "true")])
+def test_required_steps_cannot_skip_or_forgive_failures(
+    repository, workflow, job_name, step_name, key, value
+):
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"][job_name]["steps"]
+        if step.get("name") == step_name
+    )
+    step[key] = value
+    path.write_text(yaml.safe_dump(document))
+    assert any(
+        f"{workflow}.{job_name}" in error and key in error
+        for error in verify(repository)
+    )
+
+
+@pytest.mark.parametrize("workflow,job_name", [
+    ("dotnet", "gate"), ("dotnet-tmux", "compatibility"), ("dotnet-tmux", "build"),
+])
+def test_required_aggregate_and_producer_cannot_skip(repository, workflow, job_name):
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["jobs"][job_name]["if"] = "false"
+    path.write_text(yaml.safe_dump(document))
+    assert any(f"{workflow}.{job_name}.if" in error for error in verify(repository))
+
+
+@pytest.mark.parametrize("workflow,job_name", [
+    ("dotnet", "gate"), ("dotnet-tmux", "compatibility"),
+])
+@pytest.mark.parametrize("key,value", [
+    ("run", "exit 0"), ("if", "false"), ("continue-on-error", "true"),
+])
+def test_aggregate_rejection_cannot_be_weakened(
+    repository, workflow, job_name, key, value
+):
+    path = repository / f".github/workflows/{workflow}.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"][job_name]["steps"]
+        if step.get("id") == "require-success"
+    )
+    step[key] = value
+    path.write_text(yaml.safe_dump(document))
+    assert any(
+        f"{workflow}.{job_name}.require-success" in error
+        for error in verify(repository)
+    )
+
+
+def test_aggregate_checks_every_declared_dependency(repository):
+    path = repository / ".github/workflows/dotnet.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    document["jobs"]["gate"]["needs"].append("macos")
+    path.write_text(yaml.safe_dump(document))
+    assert any("gate.require-success.if" in error for error in verify(repository))

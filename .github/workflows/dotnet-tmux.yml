@@ -26,7 +26,47 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
+  build:
+    name: build integration assemblies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore integration dependencies
+        run: dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
+
+      - name: Build both frameworks once
+        run: >
+          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
+          --configuration Release --no-restore --warnaserror
+
+      - name: Archive runnable assemblies
+        run: |
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/integration-revision
+          tar -czf artifacts/integration.tar.gz \
+            artifacts/integration-revision \
+            tests/LibTmux.IntegrationTests/bin/Release/net8.0 \
+            tests/LibTmux.IntegrationTests/bin/Release/net10.0 \
+            tests/LibTmux.TestChild/bin/Release/net8.0 \
+            tests/LibTmux.TestChild/bin/Release/net10.0
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-${{ github.sha }}-Release
+          path: artifacts/integration.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
   matrix:
+    needs: build
     name: tmux ${{ matrix.tmux }} on ${{ matrix.framework }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -72,13 +112,18 @@ jobs:
           TMUX_VERSION: ${{ matrix.tmux }}
         run: eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Restore
-        run: dotnet restore LibTmux.slnx --locked-mode
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: integration-${{ github.sha }}-Release
+          path: artifacts
 
-      - name: Build
-        run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
+      - name: Extract the same-commit assemblies
+        run: |
+          tar -xzf artifacts/integration.tar.gz
+          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
       - name: Integration tests
+        id: integration-tests
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
@@ -94,22 +139,18 @@ jobs:
         # has no other, and reaching a different version would prove nothing
         # about this lane.
         #
-        # The packaging tests are excluded because they read what a pack, a
-        # consumer build and an ahead-of-time publish produced, none of which
-        # this lane does and none of which depends on a tmux version. The build
-        # workflow runs them. The floor on the count is what stops a filter
-        # that excluded more than that from passing quietly.
+        # Package checks and documentation run in the main build gate.
+        # Each lane executes the same assemblies against a different tmux.
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
-            --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
-            --configuration Release \
-            --framework "${MATRIX_FRAMEWORK}" \
-            --no-build \
-            --filter-not-class LibTmux.IntegrationTests.Packaging.PackageClosureTests \
+            --test-modules "tests/LibTmux.IntegrationTests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.IntegrationTests.dll" \
+            --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
             --minimum-expected-tests 800
 
   advisory:
+    needs: build
     name: tmux master (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -147,11 +188,15 @@ jobs:
         id: tmux
         run: eng/tmux/build-version.sh master | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Restore
-        run: dotnet restore LibTmux.slnx --locked-mode
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: integration-${{ github.sha }}-Release
+          path: artifacts
 
-      - name: Build
-        run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
+      - name: Extract the same-commit assemblies
+        run: |
+          tar -xzf artifacts/integration.tar.gz
+          test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
       - name: Integration tests
         env:
@@ -159,13 +204,11 @@ jobs:
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
-            --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
-            --configuration Release \
-            --framework net10.0 \
-            --no-build \
-            --filter-not-class LibTmux.IntegrationTests.Packaging.PackageClosureTests \
+            --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
+            --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
             --minimum-expected-tests 800
 
   # The matrix is what proves the compatibility range, so it needs one name to
@@ -173,15 +216,12 @@ jobs:
   # which can break for reasons that are not this library's problem.
   compatibility:
     name: compatibility
-    needs: [matrix]
+    needs: [build, matrix]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Report whether every supported tmux passed
-        run: |
-          if [ "${{ needs.matrix.result }}" != "success" ]; then
-            echo "matrix: ${{ needs.matrix.result }}" >&2
-            exit 1
-          fi
-          echo "matrix: success"
+      - name: Reject unsuccessful dependencies
+        id: require-success
+        if: ${{ always() && (needs.build.result != 'success' || needs.matrix.result != 'success') }}
+        run: exit 1

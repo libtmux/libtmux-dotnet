@@ -135,7 +135,9 @@ public sealed class ControlModeSessionFailureTests
             token);
         Assert.False(admitted.IsCompleted);
 
-        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2), token);
+        Task disposal = session.DisposeAsync().AsTask();
+        process.Kill();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(2), token);
         await Assert.ThrowsAsync<IOException>(async () => await first);
         await Assert.ThrowsAsync<ObjectDisposedException>(async () => await admitted);
     }

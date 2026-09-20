@@ -37,6 +37,7 @@ jobs:
           global-json-file: global.json
 
       - name: Check the tag matches the version
+        id: validate-tag
         env:
           REF_TYPE: ${{ github.ref_type }}
           TAG: ${{ github.ref_name }}
@@ -235,16 +236,17 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-
       - name: Download the packages proved by the gate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: packages
-          path: artifacts/packages
+          path: artifacts
 
       - name: Inspect the packages
-        run: uv run python eng/parity/inspect_packages.py
+        run: |
+          dotnet restore eng/LibTmux.Engineering/LibTmux.Engineering.csproj --locked-mode
+          dotnet run --project eng/LibTmux.Engineering --configuration Release --no-restore \
+            -- packages . artifacts/packages artifacts/api-inventory.json
 
       - name: NuGet login
         # The key this returns lasts an hour, so it is asked for immediately

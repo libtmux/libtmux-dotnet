@@ -50,12 +50,9 @@ ships separately and carries this repository's version:
 The library's surface and behavior are recorded rather than described,
 and each record has a validator that fails when the code disagrees.
 
-- [Public API](public-api.md) — the approved surface of `LibTmux`,
-  `LibTmux.Query.Json`, `LibTmux.Testing` and
-  `LibTmux.Extensions.DependencyInjection`, rendered from
-  `public-api.json`. `LibTmux.Workspace` ships a public surface this
-  contract does not yet record; the analyzer baseline beside its source
-  is what gates it today.
+- [API policy](public-api.md) — ownership, parity destinations, and process
+  policy checked against compiler symbols. Analyzer baselines define the
+  declarations for every packable library.
 - [Version deltas](parity/version-deltas.json) — every tmux behavior
   difference the library gates on, each naming the test that proves it
 - [Parity ledger](parity/parity-ledger.json) — where each Python libtmux

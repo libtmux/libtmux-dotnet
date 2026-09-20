@@ -38,7 +38,7 @@ Both are absences, not defects.
 | Criterion | Evidence |
 |---|---|
 | Warnings are errors | `TreatWarningsAsErrors`, `AnalysisLevel 10-recommended`, `EnforceCodeStyleInBuild`, `Nullable enable` |
-| Public API cannot drift silently | Roslyn `PublicAPI.{Shipped,Unshipped}.txt` **plus** `docs/public-api.json` and a reflection test comparing both directions |
+| Public API cannot drift silently | Roslyn `PublicAPI.{Shipped,Unshipped}.txt`; compiler symbols supply documentation identities and parity destinations |
 | Trimming and AOT | `IsTrimmable`, `IsAotCompatible`, both analyzers on, and a [publish smoke test](../tests/LibTmux.AotSmoke) that runs the AOT binary |
 | Reproducible restore | Central Package Management, lock files, `RestoreLockedMode` in CI, `Deterministic`, `ContinuousIntegrationBuild` |
 | Multi-targeting is real | net8.0 and net10.0 both tested; net8.0 consumers resolve an 8.0 logging abstraction, [verified from the live feed](benchmarks/README.md) |
@@ -78,7 +78,6 @@ there, so the AOT claim is still proven on Linux alone.
 |---|---|
 | Examples compile | **51** C# blocks across the READMEs and mode documents are compiled by [a Roslyn harness](../tests/LibTmux.IntegrationTests/Documentation/ReadmeExampleTests.cs) in CI |
 | Examples run | **32** of those are marked `csharp run` and execute against a live tmux, each on a socket of its own |
-| Contract examples too | The four examples in `public-api.json` are compiled by the same harness |
 | A broken example is a failing test | This is why `session.IsAttached` — which did not compile — cannot ship again |
 | A standalone project | [`examples/LibTmux.Examples`](../examples/LibTmux.Examples) builds and runs in CI |
 

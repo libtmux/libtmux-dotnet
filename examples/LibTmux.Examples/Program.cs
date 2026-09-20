@@ -20,9 +20,10 @@ internal static class Program
             return 0;
         }
 
-        if (args.Length != 0)
+        bool smoke = args is ["--smoke"];
+        if (args.Length != 0 && !smoke)
         {
-            Console.Error.WriteLine("usage: LibTmux.Examples [--psmux]");
+            Console.Error.WriteLine("Usage: LibTmux.Examples [--smoke | --psmux].");
             return 2;
         }
 
@@ -33,14 +34,14 @@ internal static class Program
             return 1;
         }
 
-        return await RunTmuxExamplesAsync();
+        return await RunTmuxExamplesAsync(smoke);
     }
 
     [UnsupportedOSPlatform("windows")]
-    private static async Task<int> RunTmuxExamplesAsync()
+    private static async Task<int> RunTmuxExamplesAsync(bool smoke)
     {
         int failed = 0;
-        foreach (ExampleCase example in ExampleCase.Discover())
+        foreach (ExampleCase example in ExampleCase.Discover().Take(smoke ? 1 : int.MaxValue))
         {
             Console.WriteLine();
             Console.WriteLine($"── {example.Topic}.{example.Id} — {example.Title}");

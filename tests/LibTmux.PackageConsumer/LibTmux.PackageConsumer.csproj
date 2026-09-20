@@ -31,5 +31,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="LibTmux.Testing" Version="$(LibTmuxPackageVersion)" />
     <PackageReference Include="LibTmux.Workspace" Version="$(LibTmuxPackageVersion)" />
+    <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
+             Link="WorkspaceSocketRoot.cs" />
   </ItemGroup>
 </Project>

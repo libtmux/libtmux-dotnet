@@ -18,7 +18,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 from eng.parity import python_source  # noqa: E402
 
 DOCUMENT_ROOT = pathlib.Path(__file__).parents[2] / "docs" / "parity"
-CSHARP_CONTRACT_PATH = DOCUMENT_ROOT.parent / "public-api.json"
+CSHARP_INVENTORY_PATH = DOCUMENT_ROOT.parent.parent / "artifacts/api-inventory.json"
 GENERATOR_PATH = pathlib.Path(__file__).with_name("generate_inventory.py")
 SOURCE_URL_PREFIX = python_source.BLOB_URL_PREFIX
 DESTINATION_STATUSES = {"approved", "internalized", "excluded"}
@@ -631,7 +631,7 @@ def validate_error_policies(
     expected_has_session = [
         {
             "csharpMemberId": (
-                "M:LibTmux.Server.HasSessionAsync(string,bool,CancellationToken)"
+                "M:LibTmux.Server.HasSessionAsync(System.String,System.Boolean,System.Threading.CancellationToken)"
             ),
             "exitCodeDisposition": "zero_true_nonzero_false",
             "sourceSymbolId": "libtmux.server:Server.has_session",
@@ -812,7 +812,7 @@ def validate_error_policies(
         != ["set-hook", "set-option", "show-hooks", "show-options"]
         or option_policy.get("csharpExceptionId") != "T:LibTmux.TmuxOptionException"
         or option_policy.get("csharpHandlerId")
-        != ("M:LibTmux.Internal.OptionFailure.ThrowIfFailed(TmuxCommandResult,string)")
+        != ("M:LibTmux.Internal.OptionFailure.ThrowIfFailed(LibTmux.TmuxCommandResult,System.String)")
         or option_policy.get("pythonHandlerSymbolId")
         != "libtmux.options:handle_option_error"
         or [
@@ -859,13 +859,13 @@ def validate_error_policies(
             symbol_kind(symbols, symbol_id, expected_kind, violations)
 
     try:
-        public_api = json.loads(CSHARP_CONTRACT_PATH.read_text(encoding="utf-8"))
+        public_api = json.loads(CSHARP_INVENTORY_PATH.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        violations.append("C# public API contract cannot be read")
+        violations.append("C# compiler inventory cannot be read")
         return violations
     public_ids = {
         row["id"]
-        for section in ("types", "members")
+        for section in ("members",)
         for row in public_api.get(section, [])
         if isinstance(row, dict) and isinstance(row.get("id"), str)
     }

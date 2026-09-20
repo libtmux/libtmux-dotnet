@@ -1,7 +1,7 @@
 # API reference
 
-Generated from compiler XML summaries and gated by the approved public
-contract, so documented internal helpers never render. Regenerate with
+Generated from compiler symbols and their XML summaries. Only public
+source declarations render. Regenerate with
 `uv run python eng/docs/render_api_reference.py`.
 
 See [choosing a mode](../modes/matrix.md) for how the three execution
@@ -162,14 +162,18 @@ modes differ.
 | `LibTmux.BindKeyRequest.ToCommand` | Returns a key-binding request as one tmux command. |
 | `LibTmux.CapturePanePosition.#ctor(System.Int32)` | Initializes a position at one line. |
 | `LibTmux.CapturePaneRequest.ToCommand(LibTmux.Pane)` | Returns a capture request as one tmux command. |
+| ``LibTmux.CapturedRelation`1.GetEnumerator`` | Inherits the base member contract. |
 | ``LibTmux.CapturedRelation`1.OrEmpty`` | Returns the captured children, or an empty list when unread. |
 | ``LibTmux.CapturedValue`1.OrNull`` | Gets the captured child, or null when the snapshot never read it. |
 | ``LibTmux.CapturedValue`1.TryGetValue(`0@)`` | Tries to read the captured child. |
 | `LibTmux.ChooseTreeRequest.ToCommand(LibTmux.Pane)` | Returns a chooser request as one tmux command. |
+| `LibTmux.Client.Equals(LibTmux.Client)` | Inherits the base member contract. |
+| `LibTmux.Client.Equals(System.Object)` | Inherits the base member contract. |
 | `LibTmux.Client.GetAsync(LibTmux.Server,System.String,System.Threading.CancellationToken)` | Reads one client by name. |
 | `LibTmux.Client.GetAttachedPaneAsync(System.Threading.CancellationToken)` | Reads the pane this client has active now. |
 | `LibTmux.Client.GetAttachedSessionAsync(System.Threading.CancellationToken)` | Reads the session this client is attached to now. |
 | `LibTmux.Client.GetAttachedWindowAsync(System.Threading.CancellationToken)` | Reads the window this client is showing now. |
+| `LibTmux.Client.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Client.RefreshAsync(System.Threading.CancellationToken)` | Re-reads this client from tmux. |
 | `LibTmux.Client.ResolveAttachmentAsync(System.Threading.CancellationToken)` | Reads where this client is looking now. |
 | `LibTmux.Client.op_Equality(LibTmux.Client,LibTmux.Client)` | Reports whether two handles name the same client. |
@@ -228,9 +232,12 @@ modes differ.
 | `LibTmux.Pane.EnterClockModeAsync(System.Threading.CancellationToken)` | Puts the pane into clock mode. |
 | `LibTmux.Pane.EnterCopyModeAsync(LibTmux.CopyModeRequest,System.Threading.CancellationToken)` | Puts the pane into copy mode. |
 | `LibTmux.Pane.EnterCustomizeModeAsync(System.Threading.CancellationToken)` | Puts the pane into customize mode. |
+| `LibTmux.Pane.Equals(LibTmux.Pane)` | Inherits the base member contract. |
+| `LibTmux.Pane.Equals(System.Object)` | Inherits the base member contract. |
 | `LibTmux.Pane.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this pane. |
 | `LibTmux.Pane.FindWindowAsync(LibTmux.FindWindowRequest,System.Threading.CancellationToken)` | Opens the window finder in this pane. |
 | `LibTmux.Pane.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the pane this process was spawned in. |
+| `LibTmux.Pane.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Pane.JoinAsync(LibTmux.MovePaneRequest,System.Threading.CancellationToken)` | Joins this pane into another window. |
 | `LibTmux.Pane.KillAsync(System.Boolean,System.Threading.CancellationToken)` | Stops this pane. |
 | `LibTmux.Pane.MoveAsync(LibTmux.MovePaneRequest,System.Threading.CancellationToken)` | Moves this pane to another position. |
@@ -305,6 +312,8 @@ modes differ.
 | `LibTmux.Server.DetachClientAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches one client. |
 | `LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)` | Shows a message on a client. |
 | `LibTmux.Server.EnterControlModeAsync(System.String,System.Threading.CancellationToken)` | Starts a tmux control client and keeps it running. |
+| `LibTmux.Server.Equals(LibTmux.Server)` | Inherits the base member contract. |
+| `LibTmux.Server.Equals(System.Object)` | Inherits the base member contract. |
 | `LibTmux.Server.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.Threading.CancellationToken)` | Executes one raw tmux command. |
 | `LibTmux.Server.FindPaneAsync(LibTmux.PaneId,System.Threading.CancellationToken)` | Reads one pane by identifier, returning null when it is absent. |
 | `LibTmux.Server.FindSessionAsync(LibTmux.SessionId,System.Threading.CancellationToken)` | Reads one session by identifier, returning null when it is absent. |
@@ -313,6 +322,7 @@ modes differ.
 | `LibTmux.Server.GetAttachedSessionsAsync(System.Threading.CancellationToken)` | Reads every session with at least one attached client. |
 | `LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken)` | Reads the clients attached to this server. |
 | `LibTmux.Server.GetCommandsAsync(System.String,System.Threading.CancellationToken)` | Reads the commands this tmux knows. |
+| `LibTmux.Server.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Server.GetMessagesAsync(System.String,LibTmux.ShowMessagesMode,System.Threading.CancellationToken)` | Reads what the server has been logging. |
 | `LibTmux.Server.GetPaneAsync(LibTmux.PaneId,System.Threading.CancellationToken)` | Reads one pane by identifier, throwing when it is absent. |
 | `LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)` | Reads every pane on this server. |
@@ -351,10 +361,13 @@ modes differ.
 | `LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session and takes ownership of it. |
 | `LibTmux.Session.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session. |
 | `LibTmux.Session.DetachClientAsync(System.String,System.Threading.CancellationToken)` | Detaches every client attached to this session. |
+| `LibTmux.Session.Equals(LibTmux.Session)` | Inherits the base member contract. |
+| `LibTmux.Session.Equals(System.Object)` | Inherits the base member contract. |
 | `LibTmux.Session.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this session. |
 | `LibTmux.Session.FindWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one of this session's windows by identifier. |
 | `LibTmux.Session.FindWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one of this session's windows by target. |
 | `LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the session holding the pane this process runs in. |
+| `LibTmux.Session.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)` | Reads this session's panes from tmux. |
 | `LibTmux.Session.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
 | `LibTmux.Session.GetWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
@@ -419,10 +432,15 @@ modes differ.
 | `LibTmux.TmuxCleanupException.#ctor(System.String,System.OperationCanceledException,System.Int32,System.Exception)` | Initializes a cleanup exception. |
 | `LibTmux.TmuxCommand.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a tmux command. |
 | `LibTmux.TmuxCommand.Create(System.String,System.String[])` | Creates a command from its name and arguments. |
+| `LibTmux.TmuxCommand.Deconstruct(System.String@,System.Collections.Generic.IReadOnlyList{System.String}@)` | Deconstructs the command into its name and arguments. |
+| `LibTmux.TmuxCommand.Equals(LibTmux.TmuxCommand)` | Inherits the base member contract. |
+| `LibTmux.TmuxCommand.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.TmuxCommand.ToArguments` | Returns this command the way tmux receives it. |
 | `LibTmux.TmuxCommandException.#ctor(System.String,LibTmux.TmuxCommandResult,System.Exception)` | Initializes a command exception. |
 | `LibTmux.TmuxCommandNotFoundException.#ctor(System.String,System.String,System.Exception)` | Initializes a command-not-found exception. |
 | `LibTmux.TmuxCommandResult.#ctor(System.Collections.Generic.IReadOnlyList{System.String},System.Int32,System.ReadOnlyMemory{System.Byte},System.ReadOnlyMemory{System.Byte},System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a command result. |
+| `LibTmux.TmuxCommandResult.Equals(LibTmux.TmuxCommandResult)` | Inherits the base member contract. |
+| `LibTmux.TmuxCommandResult.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.TmuxEnvironment.GetAllAsync(System.Threading.CancellationToken)` | Reads every variable in this environment. |
 | `LibTmux.TmuxEnvironment.GetAsync(System.String,System.Threading.CancellationToken)` | Reads one variable. |
 | `LibTmux.TmuxEnvironment.RemoveAsync(System.String,System.Threading.CancellationToken)` | Marks a variable removed for the panes tmux spawns. |
@@ -477,6 +495,7 @@ modes differ.
 | `LibTmux.TmuxVersion.IsInstalledVersionAsync(LibTmux.TmuxVersion,System.String,System.Threading.CancellationToken)` | Checks exact installed version equality. |
 | `LibTmux.TmuxVersion.IsMinimumSupportedVersionInstalledAsync(System.String,System.Threading.CancellationToken)` | Reports whether installed tmux meets the package minimum. |
 | `LibTmux.TmuxVersion.Parse(System.String)` | Parses a tmux version string. |
+| `LibTmux.TmuxVersion.ToString` | Inherits the base member contract. |
 | `LibTmux.TmuxVersion.TryParse(System.String,LibTmux.TmuxVersion@)` | Tries to parse a tmux version string. |
 | `LibTmux.TmuxVersion.op_GreaterThan(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is newer. |
 | `LibTmux.TmuxVersion.op_GreaterThanOrEqual(LibTmux.TmuxVersion,LibTmux.TmuxVersion)` | Reports whether the left version is at least the right version. |
@@ -501,9 +520,12 @@ modes differ.
 | `LibTmux.Window.CreatePaneAsync(LibTmux.NewPaneRequest,System.Threading.CancellationToken)` | Creates a floating pane in this window. |
 | `LibTmux.Window.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window next to this one. |
 | `LibTmux.Window.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)` | Shows a message on the client viewing this window. |
+| `LibTmux.Window.Equals(LibTmux.Window)` | Inherits the base member contract. |
+| `LibTmux.Window.Equals(System.Object)` | Inherits the base member contract. |
 | `LibTmux.Window.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this window. |
 | `LibTmux.Window.FindPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window. |
 | `LibTmux.Window.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the window holding the pane this process runs in. |
+| `LibTmux.Window.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken)` | Reads every session this window is linked into. |
 | `LibTmux.Window.GetPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window, throwing when it is absent. |
 | `LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)` | Reads this window's panes from tmux. |
@@ -528,6 +550,7 @@ modes differ.
 | `LibTmux.Window.op_Equality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name the same window. |
 | `LibTmux.Window.op_Inequality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name different windows. |
 | `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window linked into one session. |
+| `LibTmux.WindowEntityKey.ToString` | Inherits the base member contract. |
 | `LibTmux.WindowId.#ctor(System.Int32)` | Initializes a window identifier. |
 | `LibTmux.WindowId.CompareTo(LibTmux.WindowId)` | Orders this identifier against another numerically. |
 | `LibTmux.WindowId.Parse(System.ReadOnlySpan{System.Char})` | Parses a prefixed window identifier from a span. |
@@ -571,7 +594,11 @@ modes differ.
 | `LibTmux.CapturePaneRequest.Quiet` | Gets whether a missing alternate screen is not an error. |
 | `LibTmux.CapturePaneRequest.StartLine` | Gets the first line to capture. |
 | `LibTmux.CapturePaneRequest.TrimTrailingSpaces` | Gets whether trailing spaces are removed. |
+| ``LibTmux.CapturedRelation`1.CapturedDepth`` | Gets the depth the owning snapshot reached. |
+| ``LibTmux.CapturedRelation`1.Count`` | Inherits the base member contract. |
 | ``LibTmux.CapturedRelation`1.IsCaptured`` | Gets whether the snapshot read this relation. |
+| ``LibTmux.CapturedRelation`1.Item(System.Int32)`` | Inherits the base member contract. |
+| ``LibTmux.CapturedRelation`1.Relation`` | Gets the relation name this instance carries. |
 | ``LibTmux.CapturedValue`1.CapturedDepth`` | Gets the depth the owning snapshot reached. |
 | ``LibTmux.CapturedValue`1.IsCaptured`` | Gets whether the snapshot read this relation. |
 | ``LibTmux.CapturedValue`1.Relation`` | Gets the relation name this instance carries. |
@@ -964,6 +991,7 @@ modes differ.
 | `LibTmux.TmuxCleanupException.OriginalCancellation` | Gets the original cancellation. |
 | `LibTmux.TmuxCommand.Arguments` | Gets the arguments, separated as tmux will receive them. |
 | `LibTmux.TmuxCommand.Name` | Gets the tmux command name. |
+| `LibTmux.TmuxCommand.RequiredGeneration` | Gets the server generation this command's target belongs to. |
 | `LibTmux.TmuxCommandException.Result` | Gets the inspectable command result. |
 | `LibTmux.TmuxCommandNotFoundException.TmuxBinaryPath` | Gets the configured tmux executable path. |
 | `LibTmux.TmuxCommandResult.Arguments` | Gets the logical tmux arguments. |
@@ -1088,6 +1116,8 @@ modes differ.
 | `LibTmux.PsmuxServer.SupportedBinarySha256` | Gets the exact psmux client executable SHA-256 accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedCommit` | Gets the exact psmux source commit accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedImplementationBanner` | Gets the exact clean implementation banner accepted by this preview. |
+| `LibTmux.Query.QueryDocument.CurrentSchema` | The current wire schema identifier. |
+| `LibTmux.Query.QueryDocument.CurrentVersion` | The current wire schema version. |
 | `LibTmux.Query.QueryTarget.Client` | A tmux client. |
 | `LibTmux.Query.QueryTarget.Pane` | A tmux pane. |
 | `LibTmux.Query.QueryTarget.Session` | A tmux session. |

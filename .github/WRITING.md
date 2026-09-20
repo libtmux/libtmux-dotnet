@@ -207,8 +207,8 @@ release — it buries the lede.
 
 ## API documentation
 
-Every public member carries XML documentation. `CS1591` is unsuppressed in all
-four shipped projects and `TreatWarningsAsErrors` is on, so a missing comment
+Every public member carries XML documentation. `CS1591` is unsuppressed in every
+shipped project and `TreatWarningsAsErrors` is on, so a missing comment
 is a build error rather than a warning.
 
 `<summary>` is one sentence on one line. Start with a verb: `Gets` for a

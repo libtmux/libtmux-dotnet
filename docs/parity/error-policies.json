@@ -22,21 +22,21 @@
     {
       "mappings": [
         {
-          "csharpMemberId": "M:LibTmux.Pane.DisplayMessageAsync(DisplayMessageRequest,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Pane.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)",
           "disposition": "log_warning_and_return",
           "logLevel": "Warning",
           "sourceSymbolId": "libtmux.pane:Pane.display_message",
           "tmuxCommand": "display-message"
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.DisplayMessageAsync(DisplayMessageRequest,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)",
           "disposition": "log_warning_and_return",
           "logLevel": "Warning",
           "sourceSymbolId": "libtmux.server:Server.display_message",
           "tmuxCommand": "display-message"
         },
         {
-          "csharpMemberId": "M:LibTmux.Window.DisplayMessageAsync(DisplayMessageRequest,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Window.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)",
           "disposition": "log_warning_and_return",
           "logLevel": "Warning",
           "sourceSymbolId": "libtmux.window:Window.display_message",
@@ -48,7 +48,7 @@
     {
       "mappings": [
         {
-          "csharpMemberId": "M:LibTmux.Server.HasSessionAsync(string,bool,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.HasSessionAsync(System.String,System.Boolean,System.Threading.CancellationToken)",
           "exitCodeDisposition": "zero_true_nonzero_false",
           "sourceSymbolId": "libtmux.server:Server.has_session",
           "tmuxCommand": "has-session",
@@ -60,7 +60,7 @@
     {
       "mappings": [
         {
-          "csharpMemberId": "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.GetAttachedSessionsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.attached_sessions",
           "tmuxCommands": [
@@ -68,7 +68,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.GetClientsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.clients",
           "tmuxCommands": [
@@ -76,7 +76,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.GetPanesAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.panes",
           "tmuxCommands": [
@@ -84,7 +84,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.search_panes",
           "tmuxCommands": [
@@ -92,7 +92,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.SearchSessionsAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.search_sessions",
           "tmuxCommands": [
@@ -100,7 +100,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.SearchWindowsAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.search_windows",
           "tmuxCommands": [
@@ -108,7 +108,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.GetSessionsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.sessions",
           "tmuxCommands": [
@@ -116,7 +116,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.GetWindowsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.windows",
           "tmuxCommands": [
@@ -124,7 +124,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Session.GetPanesAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.session:Session.panes",
           "tmuxCommands": [
@@ -132,7 +132,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Session.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Session.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.session:Session.search_panes",
           "tmuxCommands": [
@@ -140,7 +140,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Session.SearchWindowsAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Session.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.session:Session.search_windows",
           "tmuxCommands": [
@@ -148,7 +148,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Session.GetWindowsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.session:Session.windows",
           "tmuxCommands": [
@@ -156,7 +156,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.window:Window.linked_sessions",
           "tmuxCommands": [
@@ -165,7 +165,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Window.GetPanesAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.window:Window.panes",
           "tmuxCommands": [
@@ -173,7 +173,7 @@
           ]
         },
         {
-          "csharpMemberId": "M:LibTmux.Window.SearchPanesAsync(UnsafeTmuxFilter,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Window.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)",
           "failureDisposition": "throw",
           "sourceSymbolId": "libtmux.window:Window.search_panes",
           "tmuxCommands": [
@@ -186,7 +186,7 @@
     {
       "mappings": [
         {
-          "csharpMemberId": "M:LibTmux.Server.IsAliveAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken)",
           "disposition": "return_false",
           "sourceSymbolId": "libtmux.server:Server.is_alive",
           "suppressedFailures": [
@@ -197,7 +197,7 @@
           "tmuxCommand": "list-sessions"
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.ThrowIfDeadAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)",
           "disposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.raise_if_dead",
           "thrownFailures": [
@@ -213,21 +213,21 @@
     {
       "mappings": [
         {
-          "csharpMemberId": "M:LibTmux.Server.KillAsync(CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.KillAsync(System.Threading.CancellationToken)",
           "missingDaemonDisposition": "return_success",
           "otherFailureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.kill",
           "tmuxCommand": "kill-server"
         },
         {
-          "csharpMemberId": "M:LibTmux.Server.KillSessionAsync(string,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Server.KillSessionAsync(System.String,System.Threading.CancellationToken)",
           "missingDaemonDisposition": "throw",
           "otherFailureDisposition": "throw",
           "sourceSymbolId": "libtmux.server:Server.kill_session",
           "tmuxCommand": "kill-session"
         },
         {
-          "csharpMemberId": "M:LibTmux.Session.KillAsync(bool,bool,bool,CancellationToken)",
+          "csharpMemberId": "M:LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)",
           "missingDaemonDisposition": "throw",
           "otherFailureDisposition": "throw",
           "sourceSymbolId": "libtmux.session:Session.kill",
@@ -260,7 +260,7 @@
         "show-options"
       ],
       "csharpExceptionId": "T:LibTmux.TmuxOptionException",
-      "csharpHandlerId": "M:LibTmux.Internal.OptionFailure.ThrowIfFailed(TmuxCommandResult,string)",
+      "csharpHandlerId": "M:LibTmux.Internal.OptionFailure.ThrowIfFailed(LibTmux.TmuxCommandResult,System.String)",
       "mappings": [
         {
           "match": "unknown option",

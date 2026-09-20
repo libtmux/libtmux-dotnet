@@ -33,6 +33,23 @@ It also only ever sees what it asked for. To notice a window appearing, or read
 what a program writes into a pane, you need a client that stays —
 [control mode](control-mode.md).
 
+## Ownership and replacement snapshots
+
+An owned scope cleans up the resource it created. A listed handle has no
+cleanup responsibility. Mutations return a fresh snapshot; keep the result
+when later calls need the changed state.
+
+```csharp
+using LibTmux;
+
+await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync();
+await using OwnedSessionScope ownedSession =
+    await ownedServer.Value.CreateOwnedSessionAsync(new NewSessionRequest { Name = "work" });
+Session original = ownedSession.Value;
+Session renamed = await original.RenameAsync("review");
+Console.WriteLine($"{original.Name} -> {renamed.Name}");
+```
+
 ## Cancellation is the deadline
 
 No call carries a deadline of its own. A `CancellationToken` is what bounds

@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
@@ -32,7 +31,9 @@ public sealed class ReadmeExampleTests
     [
         "README.md",
         "src/LibTmux/README.md",
+        "src/LibTmux.Extensions.DependencyInjection/README.md",
         "src/LibTmux.Query.Json/README.md",
+        "src/LibTmux.Testing/README.md",
         "src/LibTmux.Workspace/README.md",
         "src/LibTmux.Mcp/README.md",
         "docs/mcp/README.md",
@@ -81,35 +82,10 @@ public sealed class ReadmeExampleTests
         """;
 
     [UnixFact]
-    public void Every_shipped_package_carries_a_readme()
-    {
-        string root = RepositoryRoot();
-        foreach (string document in Documents)
-        {
-            Assert.True(
-                File.Exists(Path.Combine(root, document)),
-                $"{document} is missing. A package without a readme is a package "
-                + "whose page on nuget.org says nothing.");
-        }
-    }
-
-    [UnixFact]
-    public void Every_documented_example_compiles()
+    public async Task Documented_examples_compile_and_run()
     {
         IReadOnlyList<Example> examples = Read();
         Assert.NotEmpty(examples);
-
-        Compile(examples, out IReadOnlyList<Diagnostic> errors);
-        Assert.True(
-            errors.Count == 0,
-            "Documented examples do not compile:\n  "
-            + string.Join("\n  ", errors.Select(Describe)));
-    }
-
-    [UnixFact]
-    public async Task Every_runnable_example_runs_against_tmux()
-    {
-        IReadOnlyList<Example> examples = Read();
         Example[] runnable = [.. examples.Where(example => example.Run)];
         Assert.True(
             runnable.Length > 0,
@@ -117,7 +93,10 @@ public sealed class ReadmeExampleTests
             + "that drifts.");
 
         byte[] assembly = Compile(examples, out IReadOnlyList<Diagnostic> errors);
-        Assert.True(errors.Count == 0, string.Join("\n", errors.Select(Describe)));
+        Assert.True(
+            errors.Count == 0,
+            "Documented examples do not compile:\n  "
+            + string.Join("\n  ", errors.Select(Describe)));
 
         Type documented = Assembly.Load(assembly).GetType("Documented", throwOnError: true)!;
 
@@ -158,57 +137,6 @@ public sealed class ReadmeExampleTests
                     invocation.InnerException);
             }
         }
-    }
-
-    [UnixFact]
-    public void Every_example_in_the_approved_contract_compiles()
-    {
-        // The contract's examples are whole programs, so nothing else compiles
-        // them: a reviewed surface documenting calls that do not exist is
-        // describing a library nobody has.
-        string contract = File.ReadAllText(
-            Path.Combine(RepositoryRoot(), "docs", "public-api.json"));
-        using JsonDocument document = JsonDocument.Parse(contract);
-
-        List<(string Name, string Source)> examples =
-        [
-            .. document.RootElement.GetProperty("examples").EnumerateObject()
-                .Select(example =>
-                    (example.Name, example.Value.GetProperty("source").GetString()!)),
-        ];
-        Assert.NotEmpty(examples);
-
-        foreach ((string name, string source) in examples)
-        {
-            IReadOnlyList<Diagnostic> errors = Build(source, name);
-            Assert.True(
-                errors.Count == 0,
-                $"The {name} example does not compile:\n  "
-                + string.Join("\n  ", errors.Select(Describe)));
-        }
-    }
-
-    /// <summary>Compiles one standalone program against the build under test.</summary>
-    private static IReadOnlyList<Diagnostic> Build(string source, string name)
-    {
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            $"LibTmux.Contract.{name.Replace("-", string.Empty, StringComparison.Ordinal)}",
-            [
-                CSharpSyntaxTree.ParseText(
-                    source,
-                    new CSharpParseOptions(LanguageVersion.CSharp12)),
-            ],
-            References(),
-            new CSharpCompilationOptions(
-                OutputKind.ConsoleApplication,
-                nullableContextOptions: NullableContextOptions.Enable));
-
-        using MemoryStream stream = new();
-        return
-        [
-            .. compilation.Emit(stream).Diagnostics.Where(
-                diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
-        ];
     }
 
     /// <summary>Hands a live object to the examples under the name they use.</summary>

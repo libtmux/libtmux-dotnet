@@ -40,6 +40,19 @@ jobs:
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
+      - name: Check workflows
+        env:
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          version="$(awk '$1 == "actionlint" {print $2}' .tool-versions)"
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
+            --output "${RUNNER_TEMP}/actionlint.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint"
+          uv run --locked --script eng/parity/verify_workflows.py
+
       - name: Install tmux
         # The examples, the ahead-of-time smoke test and the package consumer
         # all drive a real server rather than a stub.
@@ -84,11 +97,26 @@ jobs:
           --no-build
           --minimum-expected-tests 119
 
+      - name: Compiler API inventory
+        run: >
+          dotnet run
+          --project eng/LibTmux.Engineering
+          --configuration Release
+          --no-build
+          -- api-inventory . artifacts/api-inventory.json
+
       - name: Pack
         run: dotnet pack LibTmux.slnx --configuration Release --no-build --output artifacts/packages
 
       - name: Inspect the packages
-        run: uv run python eng/parity/inspect_packages.py
+        run: >
+          dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll
+          packages . artifacts/packages artifacts/api-inventory.json
+
+      - name: Package mutation tests
+        env:
+          LIBTMUX_PACKAGE_ARTIFACTS: artifacts/packages
+        run: uv run --locked --script eng/run_tests.py --quiet -m packaging
 
       - name: Package consumer
         # Reaching the library through the package is the point: a missing
@@ -127,19 +155,16 @@ jobs:
             "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
           done
 
-      - name: Examples
-        # An ordinary-tmux example that stopped working should fail here,
-        # before a reader copies it.
+      - name: Example console smoke
         run: >
           dotnet run
           --project examples/LibTmux.Examples/LibTmux.Examples.csproj
           --configuration Release
           --framework net10.0
           --no-build
+          -- --smoke
 
       - name: Example tests
-        # The ordinary-tmux examples run again, one test each, through the
-        # same compiled surface a caller reads.
         run: >
           dotnet test
           --project tests/LibTmux.ExampleTests/LibTmux.ExampleTests.csproj
@@ -148,11 +173,21 @@ jobs:
           --no-build
           --minimum-expected-tests 1
 
+      - name: README examples on both frameworks
+        env:
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+        run: |
+          for framework in net8.0 net10.0; do
+            dotnet test \
+              --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-build \
+              --filter-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
+              --minimum-expected-tests 1
+          done
+
       - name: Integration tests
-        # These run last because the packaging tests among them read what the
-        # steps above produced: the package, the consumer, and the native
-        # binary. The runner's tmux is whatever Ubuntu ships; which versions
-        # are supported is proven by dotnet-tmux.yml, which builds each one.
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: >
@@ -161,6 +196,7 @@ jobs:
           --configuration Release
           --framework net10.0
           --no-build
+          --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests
           --minimum-expected-tests 1
 
       - name: Documents
@@ -170,10 +206,8 @@ jobs:
         # code that runs, and this is what says so out loud.
         run: |
           uv run python eng/parity/verify_public_api.py
-          uv run python eng/parity/render_public_api.py --check
           uv run python eng/parity/verify_capabilities.py
           uv run python eng/parity/verify_version_literals.py
-          uv run python eng/parity/verify_workflows.py
           uv run python eng/parity/verify_tmux_versions.py
           uv run python eng/docs/render_api_reference.py --check
           uv run python eng/docs/sync_snippets.py --check
@@ -200,8 +234,10 @@ jobs:
         if: always()
         with:
           name: packages
-          path: artifacts/packages
-          if-no-files-found: warn
+          path: |
+            artifacts/packages
+            artifacts/api-inventory.json
+          if-no-files-found: error
 
   # macOS exercises the advertised platform but stays advisory; failures remain
   # visible without making the primary Linux gate depend on hosted macOS.
@@ -254,13 +290,10 @@ jobs:
         # not Linux's.
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
-        # The packaging tests read what a pack produced and this lane does not
-        # pack: packaging is a property of the artifacts, which are built and
-        # proven once on Linux, not of the platform driving tmux.
         run: >
           dotnet test tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --filter-not-class '*PackageClosureTests*' --minimum-expected-tests 400
+          -- --minimum-expected-tests 400
 
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
@@ -315,17 +348,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Report whether everything this workflow gates on passed
-        # A skipped or cancelled dependency is not a pass. Comparing against
-        # 'success' rather than checking for 'failure' is what makes that true
-        # for statuses nobody has invented yet.
-        run: |
-          failed=0
-          for pair in "build:${{ needs.build.result }}" \
-                      "windows:${{ needs.windows.result }}"; do
-            name="${pair%%:*}"
-            result="${pair#*:}"
-            echo "${name}: ${result}"
-            [ "$result" = "success" ] || failed=1
-          done
-          exit "$failed"
+      - name: Reject unsuccessful dependencies
+        id: require-success
+        if: ${{ always() && (needs.build.result != 'success' || needs.windows.result != 'success') }}
+        run: exit 1

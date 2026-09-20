@@ -448,10 +448,18 @@
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
         }
       },
+      "libtmux.extensions.dependencyinjection": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.14, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )",
+          "Microsoft.Extensions.Options": "[10.0.10, )"
+        }
+      },
       "libtmux.mcp": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "Microsoft.Extensions.Hosting": "[10.0.11, )",
           "ModelContextProtocol": "[2.2.0, )",
           "ModelContextProtocol.Extensions.Tasks": "[2.2.0, )"
@@ -460,19 +468,19 @@
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )"
+          "LibTmux": "[0.0.0-alpha.14, )"
         }
       },
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )"
+          "LibTmux": "[0.0.0-alpha.14, )"
         }
       },
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
@@ -1051,10 +1059,18 @@
           "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )"
         }
       },
+      "libtmux.extensions.dependencyinjection": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.14, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.0, )",
+          "Microsoft.Extensions.Options": "[8.0.0, )"
+        }
+      },
       "libtmux.mcp": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "Microsoft.Extensions.Hosting": "[10.0.11, )",
           "ModelContextProtocol": "[2.2.0, )",
           "ModelContextProtocol.Extensions.Tasks": "[2.2.0, )"
@@ -1063,19 +1079,19 @@
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )"
+          "LibTmux": "[0.0.0-alpha.14, )"
         }
       },
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )"
+          "LibTmux": "[0.0.0-alpha.14, )"
         }
       },
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.12, )",
+          "LibTmux": "[0.0.0-alpha.14, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },

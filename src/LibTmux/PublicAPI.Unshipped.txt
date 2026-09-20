@@ -1498,11 +1498,9 @@ override LibTmux.AttachSessionRequest.ToString() -> string!
 override LibTmux.BindKeyRequest.Equals(object? obj) -> bool
 override LibTmux.BindKeyRequest.GetHashCode() -> int
 override LibTmux.BindKeyRequest.ToString() -> string!
-override LibTmux.CapturePanePosition.Equals(object obj) -> bool
-override LibTmux.CapturePanePosition.Equals(object? obj) -> bool
+~override LibTmux.CapturePanePosition.Equals(object obj) -> bool
 override LibTmux.CapturePanePosition.GetHashCode() -> int
-override LibTmux.CapturePanePosition.ToString() -> string
-override LibTmux.CapturePanePosition.ToString() -> string!
+~override LibTmux.CapturePanePosition.ToString() -> string
 override LibTmux.CapturePaneRequest.Equals(object? obj) -> bool
 override LibTmux.CapturePaneRequest.GetHashCode() -> int
 override LibTmux.CapturePaneRequest.ToString() -> string!
@@ -1573,8 +1571,7 @@ override LibTmux.NewWindowRequest.GetHashCode() -> int
 override LibTmux.NewWindowRequest.ToString() -> string!
 override LibTmux.Pane.Equals(object? obj) -> bool
 override LibTmux.Pane.GetHashCode() -> int
-override LibTmux.PaneId.Equals(object obj) -> bool
-override LibTmux.PaneId.Equals(object? obj) -> bool
+~override LibTmux.PaneId.Equals(object obj) -> bool
 override LibTmux.PaneId.GetHashCode() -> int
 override LibTmux.PaneId.ToString() -> string!
 override LibTmux.PasteBufferRequest.Equals(object? obj) -> bool
@@ -1615,15 +1612,12 @@ override LibTmux.ServerAccessRequest.ToString() -> string!
 override LibTmux.ServerConnectionOptions.Equals(object? obj) -> bool
 override LibTmux.ServerConnectionOptions.GetHashCode() -> int
 override LibTmux.ServerConnectionOptions.ToString() -> string!
-override LibTmux.ServerGeneration.Equals(object obj) -> bool
-override LibTmux.ServerGeneration.Equals(object? obj) -> bool
+~override LibTmux.ServerGeneration.Equals(object obj) -> bool
 override LibTmux.ServerGeneration.GetHashCode() -> int
-override LibTmux.ServerGeneration.ToString() -> string
-override LibTmux.ServerGeneration.ToString() -> string!
+~override LibTmux.ServerGeneration.ToString() -> string
 override LibTmux.Session.Equals(object? obj) -> bool
 override LibTmux.Session.GetHashCode() -> int
-override LibTmux.SessionId.Equals(object obj) -> bool
-override LibTmux.SessionId.Equals(object? obj) -> bool
+~override LibTmux.SessionId.Equals(object obj) -> bool
 override LibTmux.SessionId.GetHashCode() -> int
 override LibTmux.SessionId.ToString() -> string!
 override LibTmux.SessionWindowEdge.Equals(object? obj) -> bool
@@ -1694,8 +1688,7 @@ override LibTmux.TmuxPaneGoneEvent.<Clone>$() -> LibTmux.TmuxPaneGoneEvent!
 override LibTmux.TmuxPaneGoneEvent.Equals(object? obj) -> bool
 override LibTmux.TmuxPaneGoneEvent.GetHashCode() -> int
 override LibTmux.TmuxPaneGoneEvent.ToString() -> string!
-override LibTmux.TmuxVersion.Equals(object obj) -> bool
-override LibTmux.TmuxVersion.Equals(object? obj) -> bool
+~override LibTmux.TmuxVersion.Equals(object obj) -> bool
 override LibTmux.TmuxVersion.GetHashCode() -> int
 override LibTmux.TmuxVersion.ToString() -> string!
 override LibTmux.UnbindKeyRequest.Equals(object? obj) -> bool
@@ -1712,12 +1705,10 @@ override LibTmux.WaitForRequest.GetHashCode() -> int
 override LibTmux.WaitForRequest.ToString() -> string!
 override LibTmux.Window.Equals(object? obj) -> bool
 override LibTmux.Window.GetHashCode() -> int
-override LibTmux.WindowEntityKey.Equals(object obj) -> bool
-override LibTmux.WindowEntityKey.Equals(object? obj) -> bool
+~override LibTmux.WindowEntityKey.Equals(object obj) -> bool
 override LibTmux.WindowEntityKey.GetHashCode() -> int
 override LibTmux.WindowEntityKey.ToString() -> string!
-override LibTmux.WindowId.Equals(object obj) -> bool
-override LibTmux.WindowId.Equals(object? obj) -> bool
+~override LibTmux.WindowId.Equals(object obj) -> bool
 override LibTmux.WindowId.GetHashCode() -> int
 override LibTmux.WindowId.ToString() -> string!
 override sealed LibTmux.TmuxEventsDroppedEvent.Equals(LibTmux.TmuxEvent? other) -> bool

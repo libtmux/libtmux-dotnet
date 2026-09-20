@@ -12,9 +12,8 @@
     <PackageTags>tmux;testing;xunit;integration-testing</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- Same reasoning as the core library: keep the rule that catches new
-         public API and drop the ones multi-targeting cannot satisfy. -->
-    <NoWarn>$(NoWarn);RS0017;RS0026;RS0036</NoWarn>
+    <!-- Optional parameters are part of the intended public API. -->
+    <NoWarn>$(NoWarn);RS0026</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,12 +26,4 @@
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
-    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
-    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
 </Project>

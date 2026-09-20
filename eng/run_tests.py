@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pytest>=8.3", "tomlkit>=0.13"]
+# dependencies = ["pytest>=8.3", "tomlkit>=0.13", "PyYAML>=6,<7"]
 # ///
 """Run the engineering test suite against locked dependencies.
 

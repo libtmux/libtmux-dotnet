@@ -42,6 +42,10 @@ $ mise exec -- dotnet run \
     --configuration Release
 ```
 
+CI runs the ordinary suite through `ExampleSuite`. The console entry point
+runs one discovered example with `--smoke` to check selection and reporting;
+its default still runs the complete suite for local use.
+
 ## Quoting an example in a document
 
 The `#region` name is what a document publishes, and it matches the method

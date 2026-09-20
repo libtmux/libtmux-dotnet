@@ -14,14 +14,8 @@ public sealed class ServerSnapshotAccessorTests
         TmuxTestFactory factory = new();
         TmuxTestOptions options = HarnessOptions();
         await using TemporaryServerScope scope = await factory.CreateServerAsync(options, token);
-        await using TemporarySessionScope one = await factory.CreateSessionAsync(
-            scope.Server,
-            options,
-            token);
-        await using TemporarySessionScope two = await factory.CreateSessionAsync(
-            scope.Server,
-            options,
-            token);
+        Session one = await scope.Server.CreateSessionAsync(cancellationToken: token);
+        await scope.Server.CreateSessionAsync(cancellationToken: token);
 
         // A scope hands back the endpoint it started, which has not discovered
         // a server yet. Capturing off it is the obvious call, so it is the one
@@ -41,7 +35,7 @@ public sealed class ServerSnapshotAccessorTests
 
         // Killing a session leaves the capture saying what it found, because a
         // capture is a reading rather than a live view.
-        await one.Session.KillAsync(cancellationToken: token);
+        await one.KillAsync(cancellationToken: token);
         Assert.Equal(2, captured.Sessions.Count);
         Assert.Single(await captured.GetSessionsAsync(token));
 

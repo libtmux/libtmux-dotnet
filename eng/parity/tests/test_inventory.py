@@ -17,13 +17,13 @@ from eng.parity import python_source  # noqa: E402
 
 PROPERTY_TOMBSTONE_REPLACEMENTS = {
     "libtmux.server:Server._sessions": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.server:Server.children": (
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)"
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session._windows": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.session:Session.attached_pane": (
         "(await session.RefreshAsync(cancellationToken)).ActivePane"
@@ -32,16 +32,16 @@ PROPERTY_TOMBSTONE_REPLACEMENTS = {
         "(await session.RefreshAsync(cancellationToken)).ActiveWindow"
     ),
     "libtmux.session:Session.children": (
-        "M:LibTmux.Session.GetWindowsAsync(CancellationToken)"
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window._panes": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
     "libtmux.window:Window.attached_pane": (
         "(await window.RefreshAsync(cancellationToken)).ActivePane"
     ),
     "libtmux.window:Window.children": (
-        "M:LibTmux.Window.GetPanesAsync(CancellationToken)"
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)"
     ),
 }
 
