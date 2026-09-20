@@ -248,8 +248,13 @@ public sealed partial class Session
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A refreshed handle for this session.</returns>
     /// <remarks>
-    /// Attaching needs a terminal, so this fails outside one rather than
-    /// silently doing nothing.
+    /// Attaching inherits the caller's terminal on stdin and waits for detach.
+    /// A positive acknowledgement is required within five seconds, or a shorter
+    /// <see cref="ServerConnectionOptions.CommandTimeout" />. CommandTimeout
+    /// still bounds the whole attachment; null permits an indefinite interactive
+    /// lifetime after acknowledgement. Cancellation stops only the owned client.
+    /// <see cref="AttachSessionRequest.Target" /> remains a raw target override;
+    /// leave it unset to attach this session by its identifier.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> AttachAsync(
@@ -257,10 +262,18 @@ public sealed partial class Session
         CancellationToken cancellationToken = default)
     {
         AttachSessionRequest options = request ?? new AttachSessionRequest();
+        Server owner = RequireOwner("attachment");
+        TmuxConnection connection = owner.Connection
+            ?? throw new InvalidOperationException("This session has no connection identity.");
+        TmuxCommandDispatcher dispatcher = connection.CreateAttachmentDispatcher(_generation);
         return await TmuxMutationSequence.RunAsync(
-                () => RunAsync(
-                    [.. BuildAttachArguments(options, _id.ToString())],
-                    cancellationToken),
+                async () =>
+                {
+                    TmuxCommandResult result = await dispatcher.ExecuteAsync(
+                            [.. BuildAttachArguments(options, _id.ToString())], cancellationToken)
+                        .ConfigureAwait(false);
+                    TmuxCommandFailure.ThrowIfFailed(result, "attach-session");
+                },
                 () => RefreshAsync(cancellationToken))
             .ConfigureAwait(false);
     }

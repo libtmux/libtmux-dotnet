@@ -262,6 +262,10 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
         {
             // A command failure did not leave a registered waiter.
         }
+        catch (StaleServerGenerationException)
+        {
+            // The generation guard rejected the command before registration.
+        }
         catch (OperationCanceledException cancellation) when (wasPending
             && _waiterLifetime.IsCancellationRequested
             && (cancellation.CancellationToken == _waiterLifetime.Token || cancellation is TmuxOperationCanceledException))
@@ -295,6 +299,7 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 
         Exception failure = _waiter.Exception!.GetBaseException();
         return failure is not TmuxCommandException
+            && failure is not StaleServerGenerationException
             && failure is not LibTmuxException
             {
                 Dispatch: TmuxDispatchState.NotDispatched,

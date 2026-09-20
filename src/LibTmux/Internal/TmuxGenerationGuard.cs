@@ -4,7 +4,7 @@ using System.Text;
 namespace LibTmux.Internal;
 
 /// <summary>Executes tmux commands only while a materialized server generation is live.</summary>
-internal sealed class TmuxGenerationGuard(
+internal sealed partial class TmuxGenerationGuard(
     Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
     Func<string> markerFactory)
 {
@@ -16,17 +16,20 @@ internal sealed class TmuxGenerationGuard(
         IReadOnlyList<string> logicalArguments = [.. commands.SelectMany(static command => command)];
         string marker = markerFactory();
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
-        string generationText = GenerationText(expected);
         TmuxCommandRequest request = CreateRequest(expected, commands, marker);
+        TmuxCommandResult grouped = await ExecuteRequestAsync(request, logicalArguments, cancellationToken)
+            .ConfigureAwait(false);
+        return InterpretResult(expected, logicalArguments, marker, grouped);
+    }
 
-        TmuxCommandResult grouped;
+    private async Task<TmuxCommandResult> ExecuteRequestAsync(
+        TmuxCommandRequest request,
+        IReadOnlyList<string> logicalArguments,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            // tmux scans the entire command list for server-starting commands
-            // before the guard can run. A generation-bound request must disable
-            // client-side startup, including loading the server configuration.
-            grouped = await execute(request, cancellationToken)
-                .ConfigureAwait(false);
+            return await execute(request, cancellationToken).ConfigureAwait(false);
         }
         catch (TmuxTransportException error)
         {
@@ -36,7 +39,14 @@ internal sealed class TmuxGenerationGuard(
                 error.Dispatch,
                 error.InnerException);
         }
+    }
 
+    private static TmuxCommandResult InterpretResult(
+        ServerGeneration expected,
+        IReadOnlyList<string> logicalArguments,
+        string marker,
+        TmuxCommandResult grouped)
+    {
         if (!TryStripGenerationPrefix(
                 grouped.StandardOutput.Span,
                 out ServerGeneration actual,
@@ -60,7 +70,7 @@ internal sealed class TmuxGenerationGuard(
         if (grouped.ExitCode == 1 && IsExactMarkerFailure(grouped.StandardError.Span, marker))
         {
             throw new StaleServerGenerationException(
-                $"The tmux server generation changed from {generationText} to "
+                $"The tmux server generation changed from {GenerationText(expected)} to "
                 + $"{actual.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
                 + $"{actual.StartTime.ToString(CultureInfo.InvariantCulture)}.",
                 expected,
@@ -75,6 +85,8 @@ internal sealed class TmuxGenerationGuard(
     // internal test seam.
     internal const int MarkerLength = 46;
 
+    // tmux scans the entire list for server-starting commands before the
+    // guard runs. Bound requests must disable client-side server startup.
     internal static TmuxCommandRequest CreateRequest(
         ServerGeneration expected,
         IReadOnlyList<IReadOnlyList<string>> commands,
