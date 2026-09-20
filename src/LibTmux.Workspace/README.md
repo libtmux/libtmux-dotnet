@@ -1,7 +1,7 @@
 # LibTmux.Workspace
 
 Build tmux sessions from [tmuxp](https://github.com/tmux-python/tmuxp)
-workspace files, on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
+YAML or JSON workspace files, on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
 
 > **Alpha.** The public API is not settled and can change between prereleases
 > without notice, so pin an exact version.
@@ -53,14 +53,45 @@ WorkspaceResult result = await new WorkspaceBuilder(server).BuildAsync(workspace
 Console.WriteLine($"{result.Session.Name}: {result.Windows.Count} windows");
 ```
 
-Reading one off disk is the same call:
+Resolve directories relative to the file when reading from disk:
 
 ```csharp
-WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText("session.yaml"));
+string source = Path.GetFullPath("session.yaml");
+WorkspaceFile fromDisk = WorkspaceFile.Parse(File.ReadAllText(source))
+    .Resolve(Path.GetDirectoryName(source)!);
 ```
 
-`start_directory` values are passed to tmux unchanged. Relative paths are not
-rebased to the directory containing `session.yaml`.
+`Parse` preserves the declaration. `Resolve` returns a new declaration whose
+directories are absolute: a window inherits the session directory, and a pane
+inherits its window directory. Each explicit relative path is resolved against
+that parent. Omitted session directories inherit the supplied document base.
+Neither operation contacts tmux or checks whether a directory exists.
+The builder treats resolved directories as literal paths, including characters
+that tmux would otherwise interpret as formats or styles.
+
+Directory expansion accepts `$NAME` and `${NAME}` from the `variables` argument.
+A leading `~` requires an absolute `HOME` value in that map; `$$` means a literal
+dollar sign. Unknown variables fail. The resolver does not read process
+environment variables, and leaves commands, names and option values literal.
+Calling `BuildAsync` on an unresolved declaration retains the previous behavior:
+it passes directory strings to tmux unchanged, including native tmux formats.
+
+## Environment and commands
+
+`environment` contributes entries at session, window and pane level. Child
+entries override the same ordinal key; other parent entries remain available.
+`shell_command_before` accepts the same scalar or ordered command list as
+`shell_command`. Commands are sent in session-before, window-before, pane-before,
+then pane-command order. A window with no pane declarations still creates one
+pane and receives the inherited commands.
+
+For programmatic declarations, `WithDefaults(environment, shellCommandsBefore)`
+returns a new value and copies both inputs. Null preserves the local defaults;
+an empty collection clears them. Resolving directories preserves these values.
+Environment values and command text remain literal until tmux or the receiving
+shell interprets them.
+Environment names must be nonempty and cannot contain `=` or NUL; values cannot
+contain NUL. Invalid declarations fail before dispatch.
 
 ## Failure behavior
 
@@ -96,10 +127,11 @@ observe each sample. A missing session name or empty window list raises
 ## What is in scope
 
 This reads a closed tmuxp subset: session name, start directory, scalar
-options, windows, panes, layouts, focus, and scalar or ordered
-`shell_command` values. Duplicate or unknown keys, wrong value shapes,
+options, windows, panes, layouts, focus, environment and scalar or ordered
+`shell_command` and `shell_command_before` values. Duplicate or unknown keys, wrong value shapes,
 multiple YAML documents, and inputs over 1 MiB raise
-`WorkspaceFormatException` instead of being ignored.
+`WorkspaceFormatException` instead of being ignored. Declaration errors name
+the property path and its line and column in the input.
 
 It is **not** a tmuxp runtime. Plugins, before/after hooks, and tmuxp's own
 configuration search path are rejected — if you need those, run tmuxp.

@@ -38,6 +38,110 @@ public sealed class WorkspaceBuilderTests
                   - echo command-two
         """;
 
+    [UnixFact]
+    public async Task Resolved_directories_reach_the_panes_from_the_document_origin()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string origin = Directory.CreateTempSubdirectory("libtmux-workspace-origin-").FullName;
+        try
+        {
+            string source = Directory.CreateDirectory(Path.Combine(origin, "#{session_name}-#[bold]")).FullName;
+            string tests = Directory.CreateDirectory(Path.Combine(source, "#{pane_id}-##[literal]")).FullName;
+            TmuxTestFactory factory = new();
+            await using TemporaryServerScope scope = await factory.CreateServerAsync(HarnessOptions(), token);
+            WorkspaceFile workspace = WorkspaceFile.Parse("""
+                session_name: resolved-directories
+                start_directory: '#{session_name}-#[bold]'
+                options:
+                  default-command: exec /bin/cat
+                windows:
+                  - window_name: project
+                    panes:
+                      - shell_command: []
+                      - shell_command: []
+                        start_directory: '#{pane_id}-##[literal]'
+                """).Resolve(origin).WithDefaults();
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server, paneReadiness: PaneReadiness.Never)
+                .BuildAsync(workspace, token);
+            IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
+
+            Assert.Equal(2, panes.Count);
+            Assert.Equal(source, panes[0].CurrentPath);
+            Assert.Equal(tests, panes[1].CurrentPath);
+
+            WorkspaceFile native = new(
+                sessionName: "native-directories",
+                startDirectory: origin,
+                options: workspace.Options,
+                windows: [new WorkspaceWindow(), new WorkspaceWindow(startDirectory: "#{session_path}")]);
+            WorkspaceResult nativeResult = await new WorkspaceBuilder(scope.Server, paneReadiness: PaneReadiness.Never)
+                .BuildAsync(native, token);
+            Pane nativePane = Assert.Single(await nativeResult.Windows[1].GetPanesAsync(token));
+            Assert.Equal(origin, nativePane.CurrentPath);
+        }
+        finally
+        {
+            Directory.Delete(origin, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Environment_and_before_commands_inherit_in_declaration_order()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string origin = Directory.CreateTempSubdirectory("libtmux-workspace-inheritance-").FullName;
+        try
+        {
+            TmuxTestFactory factory = new();
+            await using TemporaryServerScope scope = await factory.CreateServerAsync(HarnessOptions(), token);
+            string output = Path.Combine(origin, "result");
+            string destination = ShellQuote(output);
+            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string ready = $"workspace-ready-{Guid.NewGuid():N}";
+            await scope.Server.CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "wait-anchor",
+                Command = "exec /bin/cat",
+            }, token);
+            await using TmuxWaitChannel wait = scope.Server.OpenWaitChannel(ready);
+            WorkspaceFile workspace = WorkspaceFile.Parse($$"""
+                session_name: inherited-declarations
+                environment:
+                  SESSION_VALUE: present
+                  LAYER: session
+                options:
+                  default-command: exec /bin/sh
+                shell_command_before: >-
+                  printf 'session:' >> {{destination}}
+                windows:
+                  - window_name: project
+                    environment:
+                      LAYER: window
+                    shell_command_before: >-
+                      printf 'window:' >> {{destination}}
+                    panes:
+                      - environment:
+                          LAYER: pane
+                        shell_command_before: >-
+                          printf 'pane:' >> {{destination}}
+                        shell_command: >-
+                          printf '%s:%s:done' "$SESSION_VALUE" "$LAYER" >> {{destination}}; {{tmux}} wait-for -S {{ready}}
+                """).Resolve(origin);
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server, paneReadiness: PaneReadiness.Never)
+                .BuildAsync(workspace, token);
+
+            Assert.True(await wait.WaitAsync(TimeSpan.FromSeconds(5), token));
+            Assert.Equal("session:window:pane:present:pane:done", await File.ReadAllTextAsync(output, token));
+            Assert.Equal("inherited-declarations", result.Session.Name);
+        }
+        finally
+        {
+            Directory.Delete(origin, recursive: true);
+        }
+    }
+
     [Fact]
     public void Readiness_timeout_must_be_positive()
     {
@@ -431,7 +535,12 @@ public sealed class WorkspaceBuilderTests
                 ? "/dev/null"
                 : Path.ChangeExtension(shell, ".tmux.conf"),
             ChildEnvironment = shell is null
-                ? null
+                ? new Dictionary<string, string?>
+                {
+                    ["SHELL"] = "/bin/sh",
+                    ["ENV"] = null,
+                    ["BASH_ENV"] = null,
+                }
                 : new Dictionary<string, string?> { ["SHELL"] = shell }
         });
 

@@ -88,6 +88,7 @@ public sealed class WorkspaceBuilder
                         WindowName = BootstrapWindowName,
                         StartDirectory = StartDirectoryFor(first, workspace),
                         Command = "/bin/sh",
+                        Environment = workspace.Environment,
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -143,6 +144,7 @@ public sealed class WorkspaceBuilder
                     StartDirectory = StartDirectoryFor(first, workspace),
                     Index = firstIndex,
                     KillExisting = true,
+                    Environment = EnvironmentFor(workspace, first, first.Panes.Count == 0 ? null : first.Panes[0]),
                 },
                 cancellationToken)
             .ConfigureAwait(false);
@@ -168,6 +170,7 @@ public sealed class WorkspaceBuilder
                     {
                         Name = described.WindowName,
                         StartDirectory = StartDirectoryFor(described, workspace),
+                        Environment = EnvironmentFor(workspace, described, described.Panes.Count == 0 ? null : described.Panes[0]),
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -194,9 +197,38 @@ public sealed class WorkspaceBuilder
     private static string? StartDirectoryFor(
         WorkspaceWindow window,
         WorkspaceFile workspace) =>
-        (window.Panes.Count == 0 ? null : window.Panes[0].StartDirectory)
+        DispatchDirectory(workspace, (window.Panes.Count == 0 ? null : window.Panes[0].StartDirectory)
         ?? window.StartDirectory
-        ?? workspace.StartDirectory;
+        ?? workspace.StartDirectory);
+
+    private static string? DispatchDirectory(WorkspaceFile workspace, string? directory) =>
+        // tmux preserves ##[ as style syntax. Character expansion emits a literal
+        // hash without rescanning the resulting path as another format.
+        workspace.DirectoriesAreResolved
+            ? directory?.Replace("#", "#{a:35}", StringComparison.Ordinal)
+            : directory;
+
+    private static Dictionary<string, string> EnvironmentFor(
+        WorkspaceFile workspace,
+        WorkspaceWindow window,
+        WorkspacePane? pane)
+    {
+        Dictionary<string, string> environment = new(workspace.Environment, StringComparer.Ordinal);
+        foreach ((string key, string value) in window.Environment)
+        {
+            environment[key] = value;
+        }
+
+        if (pane is not null)
+        {
+            foreach ((string key, string value) in pane.Environment)
+            {
+                environment[key] = value;
+            }
+        }
+
+        return environment;
+    }
 
     private static async Task ApplyOptionsAsync(
         TmuxOptions options,
@@ -293,20 +325,26 @@ public sealed class WorkspaceBuilder
             .ConfigureAwait(false);
         Pane current = panes[0];
 
-        for (int index = 0; index < described.Panes.Count; index++)
+        for (int index = 0; index < Math.Max(1, described.Panes.Count); index++)
         {
-            WorkspacePane pane = described.Panes[index];
+            WorkspacePane pane = index < described.Panes.Count ? described.Panes[index] : new WorkspacePane();
+            string[] commands = [.. workspace.ShellCommandsBefore, .. described.ShellCommandsBefore,
+                .. pane.ShellCommandsBefore, .. pane.ShellCommands];
 
             // The window already has one pane, so the first described pane is
             // that one and the rest are splits of it.
             Pane target = index == 0
                 ? current
                 : await current.SplitAsync(
-                        new SplitPaneRequest { StartDirectory = pane.StartDirectory ?? directory },
+                        new SplitPaneRequest
+                        {
+                            StartDirectory = DispatchDirectory(workspace, pane.StartDirectory ?? directory),
+                            Environment = EnvironmentFor(workspace, described, pane),
+                        },
                         cancellationToken)
                     .ConfigureAwait(false);
 
-            if (expectedShellCommand is not null && pane.ShellCommands.Count > 0)
+            if (expectedShellCommand is not null && commands.Length > 0)
             {
                 await PaneReadinessWaiter.WaitAsync(
                         target,
@@ -316,7 +354,7 @@ public sealed class WorkspaceBuilder
                     .ConfigureAwait(false);
             }
 
-            foreach (string command in pane.ShellCommands)
+            foreach (string command in commands)
             {
                 await target.SendTextAsync(command, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);

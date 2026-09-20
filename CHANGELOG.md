@@ -18,7 +18,20 @@ version.
 - `Window.IsActive` reads whether the captured placement is selected in its
   session, including repeated links to the same window.
 
+- `WorkspaceFile.Resolve` resolves inherited directories against an explicit
+  document base and supplied variables without reading process context.
+
+- Workspace `environment` and `shell_command_before` declarations inherit
+  through session, window and pane levels. `WithDefaults` copies these values
+  for programmatic declarations.
+
 ### Fixed
+
+- Workspace declaration errors include the offending source line and column.
+  Environment entries reject empty names, `=` in names and NUL before dispatch.
+
+- Resolved workspace directories preserve literal tmux format and style
+  characters when creating windows and panes.
 
 ### Changed
 
