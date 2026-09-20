@@ -24,6 +24,9 @@ public sealed record ServerPolicy
     /// <summary>The environment variable naming the response byte budget.</summary>
     public const string MaxBytesVariable = "LIBTMUX_MCP_MAX_BYTES";
 
+    /// <summary>The environment variable allowing timed reads when control observation fails.</summary>
+    public const string AllowPollingFallbackVariable = "LIBTMUX_MCP_ALLOW_POLLING_FALLBACK";
+
     /// <summary>Ceiling applied when nothing names one.</summary>
     public const double DefaultWaitCeilingSeconds = 30.0;
 
@@ -56,6 +59,10 @@ public sealed record ServerPolicy
     /// <summary>Gets the byte budget one content-bearing result may carry.</summary>
     public int MaxBytes { get; init; } = DefaultMaxBytes;
 
+    /// <summary>Gets whether pane text waits may poll when control observation is unavailable.</summary>
+    /// <remarks>Disabled by default. Results disclose activation; command completion still uses tmux wait channels.</remarks>
+    public bool AllowPollingFallback { get; init; }
+
     /// <summary>Reads the policy out of a set of environment variables.</summary>
     /// <param name="read">Answers an environment variable, or null when it is unset.</param>
     /// <param name="logger">Records a clamped or unreadable value.</param>
@@ -67,6 +74,7 @@ public sealed record ServerPolicy
         ArgumentNullException.ThrowIfNull(read);
         return new ServerPolicy
         {
+            AllowPollingFallback = ParsePollingFallback(read(AllowPollingFallbackVariable), logger),
             WaitCeiling = TimeSpan.FromSeconds(ParseDouble(
                 read(WaitCeilingVariable),
                 WaitCeilingVariable,
@@ -107,6 +115,26 @@ public sealed record ServerPolicy
         }
 
         return asked > WaitCeiling ? WaitCeiling : asked;
+    }
+
+    private static bool ParsePollingFallback(string? value, ILogger? logger)
+    {
+        if (value is null)
+        {
+            return false;
+        }
+
+        if (bool.TryParse(value, out bool allowed))
+        {
+            return allowed;
+        }
+
+        if (logger is not null)
+        {
+            Log.UnrecognisedSetting(logger, AllowPollingFallbackVariable, value, "false");
+        }
+
+        return false;
     }
 
     private static double ParseDouble(

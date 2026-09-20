@@ -156,6 +156,8 @@ internal sealed partial class ReadTools
         // Told, rather than left silent. A client showing a wait needs to know
         // it is still running; without this a thirty second wait is
         // indistinguishable from a hung one.
+        IAsyncDisposable? lease = null;
+        bool pollingFallback = false;
         (PaneWaitOutcome outcome, string? matched, TimeSpan elapsed) = await PaneTextWaiter
             .WaitAsync(
                 pane,
@@ -171,7 +173,12 @@ internal sealed partial class ReadTools
                 // Process reads are slow enough that the record has nearly
                 // always settled first; they narrow that race rather than
                 // close it, which settling before the dispatch would.
-                readThroughControl: false)
+                readThroughControl: false,
+                observe: (watch, signal) =>
+                {
+                    lease = watch;
+                    pollingFallback |= _activity.RequireObservation(signal);
+                })
             .ConfigureAwait(false);
 
         // The wire contract predates an alternate-screen outcome and reports
@@ -185,7 +192,7 @@ internal sealed partial class ReadTools
             PaneWaitOutcome.PaneExited => WaitOutcome.PaneDied,
             _ => WaitOutcome.Timeout,
         };
-        return await FinishAsync(pane, id, reported, matched, elapsed, budget, cancellationToken)
+        return await FinishAsync(pane, id, reported, matched, elapsed, budget, pollingFallback, lease!, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -341,6 +348,8 @@ internal sealed partial class ReadTools
         string? matched,
         TimeSpan elapsed,
         TimeSpan budget,
+        bool pollingFallback,
+        IAsyncDisposable lease,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> tail = await PaneReader.CaptureAsync(pane, null, cancellationToken)
@@ -356,7 +365,11 @@ internal sealed partial class ReadTools
                 matched,
                 content,
                 elapsedSeconds,
-                budget.TotalSeconds),
+                budget.TotalSeconds)
+            {
+                PollingFallback = pollingFallback,
+                EventsDropped = PaneActivityHub.EventsDropped(lease),
+            },
             "pane wait");
     }
 

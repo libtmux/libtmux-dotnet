@@ -2475,6 +2475,7 @@ public sealed class WriteToolsExecutionSafetyTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+        Assert.True(result.PollingFallback);
     }
 
     // A pane busy through every attempt of a read, such as one a progress bar
@@ -2550,6 +2551,7 @@ public sealed class WriteToolsExecutionSafetyTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.True(result.PollingFallback);
         Assert.Equal("ALREADY_HERE_MARKER", result.MatchedPattern);
         Assert.Contains("ALREADY_HERE_MARKER", result.Tail.Lines);
 
@@ -2930,7 +2932,8 @@ public sealed class WriteToolsExecutionSafetyTests
             _generation = generation ?? Generation;
             _activity = new PaneActivityHub(static (_, _) =>
                 Task.FromException<IControlModeSession>(
-                    new InvalidOperationException("Fake control attach unavailable.")));
+                    new InvalidOperationException("Fake control attach unavailable.")),
+                allowPollingFallback: true);
             var connection = new TmuxConnection(
                 new ServerConnectionOptions
                 {

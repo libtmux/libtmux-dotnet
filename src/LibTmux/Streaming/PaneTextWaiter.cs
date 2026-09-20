@@ -36,6 +36,7 @@ internal static class PaneTextWaiter
     /// Whether to read through the control client the wait attaches, a round
     /// trip in place of a tmux process for each read.
     /// </param>
+    /// <param name="observe">Receives the owned watch and signal before each read.</param>
     /// <returns>How the wait ended, what matched, and how long it took.</returns>
     internal static async Task<(PaneWaitOutcome Outcome, string? Match, TimeSpan Elapsed)> WaitAsync(
         Pane pane,
@@ -46,7 +47,8 @@ internal static class PaneTextWaiter
         Action<TimeSpan, string>? progress,
         CancellationToken cancellationToken,
         Func<CancellationToken, Task>? afterEntry = null,
-        bool readThroughControl = true)
+        bool readThroughControl = true,
+        Action<IAsyncDisposable, object?>? observe = null)
     {
         Stopwatch elapsed = Stopwatch.StartNew();
         IAsyncDisposable lease = await activity.WatchAsync(pane, cancellationToken).ConfigureAwait(false);
@@ -57,6 +59,7 @@ internal static class PaneTextWaiter
         while (first is null)
         {
             object? entrySignal = activity.CaptureSignal(pane);
+            observe?.Invoke(lease, entrySignal);
             try
             {
                 first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
@@ -78,12 +81,21 @@ internal static class PaneTextWaiter
                     return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
                 }
 
-                await activity.WaitForActivityAsync(
+                bool signaled = await activity.WaitForActivityAsync(
                         pane.Id.ToString(),
                         entrySignal,
                         budget - elapsed.Elapsed,
                         cancellationToken)
                     .ConfigureAwait(false);
+                if (!signaled && entrySignal is Task)
+                {
+                    if (afterEntry is not null)
+                    {
+                        throw;
+                    }
+
+                    return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
+                }
             }
             catch (Exception error) when (error is not OperationCanceledException and not TmuxPaneException)
             {
@@ -115,6 +127,7 @@ internal static class PaneTextWaiter
             // Taken before the read, so output arriving during the read wakes
             // the next sleep instead of being slept through.
             object? signal = activity.CaptureSignal(pane);
+            observe?.Invoke(lease, signal);
             PaneRead? read = null;
             try
             {
@@ -168,12 +181,17 @@ internal static class PaneTextWaiter
             }
 
             progress?.Invoke(elapsed.Elapsed, read is { Lines.Count: > 0 } ? read.Lines[^1] : string.Empty);
-            await activity.WaitForActivityAsync(
+            bool signaled = await activity.WaitForActivityAsync(
                     pane.Id.ToString(),
                     signal,
                     budget - elapsed.Elapsed,
                     cancellationToken)
                 .ConfigureAwait(false);
+            // A control timer can finish before the elapsed clock reaches its deadline.
+            if (!signaled && signal is Task)
+            {
+                return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
+            }
         }
     }
 
