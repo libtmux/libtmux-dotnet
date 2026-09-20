@@ -226,9 +226,10 @@ public sealed partial class Pane
         CancellationToken cancellationToken = default)
     {
         SplitPaneRequest options = request ?? new SplitPaneRequest();
-        List<string> arguments = BuildSplitArguments(options);
+        TmuxCommand? guarded = options.ExpectedWindowId is null ? null : options.ToCommand(this);
+        List<string> arguments = guarded is null ? BuildSplitArguments(options) : [.. guarded.ToArguments()];
 
-        return await CreatePaneFromAsync(arguments, "split-window", cancellationToken)
+        return await CreatePaneFromAsync(arguments, "split-window", cancellationToken, guarded)
             .ConfigureAwait(false);
     }
 
@@ -566,11 +567,14 @@ public sealed partial class Pane
     private async Task<Pane> CreatePaneFromAsync(
         List<string> arguments,
         string subcommand,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TmuxCommand? guarded = null)
     {
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => _commandDispatcher.ExecuteAsync(arguments, cancellationToken),
+                () => guarded is null
+                    ? _commandDispatcher.ExecuteAsync(arguments, cancellationToken)
+                    : Server.Chain().Then(guarded).ExecuteAsync(cancellationToken),
                 value => TmuxCommandFailure.ThrowIfFailed(value, subcommand))
             .ConfigureAwait(false);
         PaneId created = sequence.Observe(() =>

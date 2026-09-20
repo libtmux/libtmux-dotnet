@@ -16,15 +16,8 @@ internal sealed class TmuxGenerationGuard(
         IReadOnlyList<string> logicalArguments = [.. commands.SelectMany(static command => command)];
         string marker = markerFactory();
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
-        string generationText =
-            $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
-            + expected.StartTime.ToString(CultureInfo.InvariantCulture);
-        IReadOnlyList<string>[] guarded =
-        [
-            ["display-message", "-p", TmuxConnection.GenerationFormat],
-            Conditional(expected, marker),
-            .. commands,
-        ];
+        string generationText = GenerationText(expected);
+        TmuxCommandRequest request = CreateRequest(expected, commands, marker);
 
         TmuxCommandResult grouped;
         try
@@ -32,7 +25,7 @@ internal sealed class TmuxGenerationGuard(
             // tmux scans the entire command list for server-starting commands
             // before the guard can run. A generation-bound request must disable
             // client-side startup, including loading the server configuration.
-            grouped = await execute(TmuxCommandRequest.Group(preventServerStart: true, guarded), cancellationToken)
+            grouped = await execute(request, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (TmuxTransportException error)
@@ -80,9 +73,26 @@ internal sealed class TmuxGenerationGuard(
     internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mismatchCommand);
-        string identity = string.Create(CultureInfo.InvariantCulture, $"{expected.ProcessId}:{expected.StartTime}");
-        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{identity}}}", string.Empty, mismatchCommand];
+        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}", string.Empty, mismatchCommand];
     }
+
+    // The planner budgets the same encoded request used by dispatch. The
+    // native connection owns its fixed-length marker; custom markers are an
+    // internal test seam.
+    internal const int MarkerLength = 46;
+
+    internal static TmuxCommandRequest CreateRequest(
+        ServerGeneration expected,
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        string marker) =>
+        TmuxCommandRequest.Group(preventServerStart: true, [
+            ["display-message", "-p", TmuxConnection.GenerationFormat],
+            Conditional(expected, marker),
+            .. commands]);
+
+    private static string GenerationText(ServerGeneration expected) =>
+        $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
+        + expected.StartTime.ToString(CultureInfo.InvariantCulture);
 
     private static bool TryStripGenerationPrefix(
         ReadOnlySpan<byte> standardOutput,
