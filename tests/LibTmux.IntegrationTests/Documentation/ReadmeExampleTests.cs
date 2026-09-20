@@ -31,7 +31,9 @@ public sealed class ReadmeExampleTests
     [
         "README.md",
         "src/LibTmux/README.md",
+        "src/LibTmux.Extensions.DependencyInjection/README.md",
         "src/LibTmux.Query.Json/README.md",
+        "src/LibTmux.Testing/README.md",
         "src/LibTmux.Workspace/README.md",
         "src/LibTmux.Mcp/README.md",
         "docs/mcp/README.md",
