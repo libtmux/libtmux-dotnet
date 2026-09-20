@@ -654,6 +654,11 @@ public sealed class PaneOperationsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Pane pane = await FirstPaneAsync(raw, token);
 
+        // Prompt hooks from the user's shell must not replace the test prompt.
+        await pane.RespawnAsync(
+            new RespawnRequest { Command = "/bin/sh -i", KillExistingProcess = true },
+            token);
+
         // A prompt this wide leaves two columns, so the payload wraps. It is
         // built in the shell so the command that sets it cannot match it.
         string prompt = new('x', 78);
