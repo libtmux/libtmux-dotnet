@@ -16,6 +16,10 @@ version.
   `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
   `None` for absent objects and propagate read errors and cancellation.
 
+- `WorkspaceFile.FromSnapshot` converts a captured session into a declaration
+  without contacting tmux. It preserves ordered placements, layouts, focus and
+  directories; commands, environment, options and shared links remain unspecified.
+
 - `WorkspaceBuilder.PlanAsync` exposes immutable actions and cleanup policies;
   `ApplyAsync` executes that plan and retains per-action outcomes. Declarations
   support pane options and opt-in `before_script` execution with bounded output.
