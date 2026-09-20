@@ -86,11 +86,20 @@ public sealed record TmuxCommand
 
     internal WindowEntityKey? RequiredWindowPlacement { get; init; }
 
+    internal string? RequiredWindowPaneMembership { get; init; }
+
+    internal (string Target, WindowId WindowId)? RequiredTargetWindow { get; init; }
+
     internal IEnumerable<IReadOnlyList<string>> ToDispatchCommands()
     {
         if (RequiredWindowPlacement is WindowEntityKey placement)
         {
-            yield return TmuxWindowPlacementGuard.CreateArguments(placement);
+            yield return TmuxWindowPlacementGuard.CreateArguments(placement, RequiredWindowPaneMembership);
+        }
+
+        if (RequiredTargetWindow is { } targetWindow)
+        {
+            yield return TmuxWindowPlacementGuard.CreateTargetWindowArguments(targetWindow.Target, targetWindow.WindowId);
         }
 
         yield return ToArguments();
@@ -100,7 +109,7 @@ public sealed record TmuxCommand
     /// <returns>The command name followed by its arguments.</returns>
     /// <remarks>
     /// This is raw argv. Execute the command through a chain or control session
-    /// to retain its checks for server generation and captured window placement.
+    /// to retain its checks for server generation, window placement, and pane containment.
     /// </remarks>
     public IReadOnlyList<string> ToArguments() => [Name, .. Arguments];
 
@@ -110,6 +119,8 @@ public sealed record TmuxCommand
         && string.Equals(Name, other.Name, StringComparison.Ordinal)
         && RequiredGeneration == other.RequiredGeneration
         && RequiredWindowPlacement == other.RequiredWindowPlacement
+        && string.Equals(RequiredWindowPaneMembership, other.RequiredWindowPaneMembership, StringComparison.Ordinal)
+        && RequiredTargetWindow == other.RequiredTargetWindow
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -119,6 +130,8 @@ public sealed record TmuxCommand
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(RequiredGeneration);
         hash.Add(RequiredWindowPlacement);
+        hash.Add(RequiredWindowPaneMembership, StringComparer.Ordinal);
+        hash.Add(RequiredTargetWindow);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

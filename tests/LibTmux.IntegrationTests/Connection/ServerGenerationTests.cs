@@ -102,6 +102,182 @@ public sealed class ServerGenerationTests
     }
 
     [UnixFact]
+    public async Task Creation_receipt_cannot_return_a_reused_identifier_from_a_replacement_daemon()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        Assert.Equal(0, (await context.ExecuteAsync(["kill-server"], token)).ExitCode);
+        await context.WaitForSettledAsync(token);
+        int initialized = 0;
+        ServerGeneration? createdGeneration = null;
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            InitializeAsync = (_, _) =>
+            {
+                initialized++;
+                return ValueTask.CompletedTask;
+            },
+            Interceptor = async (invocation, next, cancellationToken) =>
+            {
+                TmuxCommandResult result = await next(cancellationToken);
+                if (invocation.Arguments.Contains("new-session", StringComparer.Ordinal))
+                {
+                    RawTmuxResult generation = await context.ExecuteAsync(
+                        ["display-message", "-p", TmuxConnection.GenerationFormat], cancellationToken);
+                    createdGeneration = TmuxConnection.ParseGeneration(Assert.Single(generation.StandardOutputLines));
+                    Assert.Equal(0, (await context.ExecuteAsync(["kill-server"], cancellationToken)).ExitCode);
+                    await context.WaitForSettledAsync(cancellationToken);
+                    Assert.Equal(0, (await context.ExecuteAsync(
+                        ["new-session", "-d", "-s", "replacement"], cancellationToken)).ExitCode);
+                }
+
+                return result;
+            },
+        });
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() => endpoint.CreateSessionAsync(
+            new NewSessionRequest { Name = "created" }, token));
+
+        StaleServerGenerationException stale = Assert.IsType<StaleServerGenerationException>(failure.InnerException);
+        Assert.Equal(createdGeneration, stale.Expected);
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+        Assert.Equal(0, initialized);
+        RawTmuxResult replacement = await context.ExecuteAsync(
+            ["list-sessions", "-F", "#{session_id}\t#{session_name}"], token);
+        Assert.Equal(["$0\treplacement"], replacement.StandardOutputLines);
+        RawTmuxResult replacementGeneration = await context.ExecuteAsync(
+            ["display-message", "-p", TmuxConnection.GenerationFormat], token);
+        Assert.Equal(TmuxConnection.ParseGeneration(Assert.Single(replacementGeneration.StandardOutputLines)), stale.Actual);
+    }
+
+    [UnixFact]
+    public async Task Session_creation_receipt_keeps_initial_children_when_another_window_moves_in()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        string[]? createdChildren = null;
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            Interceptor = async (invocation, next, cancellationToken) =>
+            {
+                TmuxCommandResult result = await next(cancellationToken);
+                if (invocation.Arguments.Contains("new-session", StringComparer.Ordinal))
+                {
+                    RawTmuxResult children = await context.ExecuteAsync(
+                        ["display-message", "-p", "-t", "created:", "#{window_id}\t#{pane_id}\t#{window_index}"], cancellationToken);
+                    createdChildren = Assert.Single(children.StandardOutputLines).Split('\t');
+                    Assert.Equal(0, (await context.ExecuteAsync(
+                        ["swap-window", "-s", context.SessionName + ":0", "-t", "created:0"], cancellationToken)).ExitCode);
+                }
+
+                return result;
+            },
+        });
+
+        SessionCreationResult created = await endpoint.CreateSessionWithReceiptAsync(
+            new NewSessionRequest { Name = "created" }, token);
+
+        Assert.NotNull(createdChildren);
+        Assert.Equal(WindowId.Parse(createdChildren[0]), created.InitialWindowId);
+        Assert.Equal(PaneId.Parse(createdChildren[1]), created.InitialPaneId);
+        Assert.Equal(0, created.InitialWindowIndex);
+        Assert.False(created.Session.Windows.IsCaptured);
+        Window replacement = Assert.Single(await created.Session.GetWindowsAsync(token));
+        Assert.NotEqual(created.InitialWindowId, replacement.Id);
+        Assert.NotEqual(created.InitialPaneId, Assert.Single(await replacement.GetPanesAsync(token)).Id);
+        RawTmuxResult original = await context.ExecuteAsync(
+            ["display-message", "-p", "-t", context.SessionName + ":0", "#{window_id}\t#{pane_id}\t#{window_index}"], token);
+        Assert.Equal(string.Join('\t', createdChildren), Assert.Single(original.StandardOutputLines));
+    }
+
+    [UnixFact]
+    public async Task Window_creation_receipt_keeps_initial_pane_when_another_pane_moves_in()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        PaneId? initialPaneId = null;
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            Interceptor = async (invocation, next, cancellationToken) =>
+            {
+                TmuxCommandResult result = await next(cancellationToken);
+                if (invocation.Arguments.Contains("new-window", StringComparer.Ordinal))
+                {
+                    RawTmuxResult pane = await context.ExecuteAsync(
+                        ["display-message", "-p", "-t", context.SessionName + ":receipt-window", "#{pane_id}"], cancellationToken);
+                    initialPaneId = PaneId.Parse(Assert.Single(pane.StandardOutputLines));
+                    Assert.Equal(0, (await context.ExecuteAsync(
+                        ["swap-pane", "-s", context.SessionName + ":0.0", "-t", context.SessionName + ":receipt-window.0"], cancellationToken)).ExitCode);
+                }
+
+                return result;
+            },
+        });
+        Session session = await endpoint.GetSessionAsync(new SessionId(0), token);
+
+        WindowCreationResult created = await session.CreateWindowWithReceiptAsync(
+            new NewWindowRequest { Name = "receipt-window" }, token);
+
+        Assert.Equal(initialPaneId, created.InitialPaneId);
+        Assert.Equal(session.Id, created.Window.Session.Id);
+        Assert.False(created.Window.Panes.IsCaptured);
+        Assert.NotEqual(created.InitialPaneId, Assert.Single(await created.Window.GetPanesAsync(token)).Id);
+        RawTmuxResult moved = await context.ExecuteAsync(
+            ["display-message", "-p", "-t", context.SessionName + ":0.0", "#{pane_id}"], token);
+        Assert.Equal(created.InitialPaneId.ToString(), Assert.Single(moved.StandardOutputLines));
+    }
+
+    [UnixFact]
+    public async Task Window_creation_receipt_refuses_a_relinked_placement()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(token);
+        WindowId? initialWindowId = null;
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            Interceptor = async (invocation, next, cancellationToken) =>
+            {
+                TmuxCommandResult result = await next(cancellationToken);
+                if (invocation.Arguments.Contains("new-window", StringComparer.Ordinal))
+                {
+                    RawTmuxResult window = await context.ExecuteAsync(
+                        ["display-message", "-p", "-t", context.SessionName + ":1", "#{window_id}"], cancellationToken);
+                    initialWindowId = WindowId.Parse(Assert.Single(window.StandardOutputLines));
+                    Assert.Equal(0, (await context.ExecuteAsync(
+                        ["link-window", "-s", context.SessionName + ":1", "-t", context.SessionName + ":9"], cancellationToken)).ExitCode);
+                    Assert.Equal(0, (await context.ExecuteAsync(
+                        ["unlink-window", "-t", context.SessionName + ":1"], cancellationToken)).ExitCode);
+                }
+
+                return result;
+            },
+        });
+        Session session = await endpoint.GetSessionAsync(new SessionId(0), token);
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() => session.CreateWindowWithReceiptAsync(
+            new NewWindowRequest { Name = "receipt-window", Index = "1" }, token));
+
+        Assert.IsType<TmuxObjectNotFoundException>(failure.InnerException);
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+        RawTmuxResult remaining = await context.ExecuteAsync(
+            ["list-windows", "-t", context.SessionName, "-F", "#{window_id}\t#{window_index}"], token);
+        Assert.Contains(initialWindowId + "\t9", remaining.StandardOutputLines);
+        Assert.Equal(2, remaining.StandardOutputLines.Count);
+    }
+
+    [UnixFact]
     public async Task Generation_bound_creation_never_starts_an_absent_daemon_or_loads_configuration()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

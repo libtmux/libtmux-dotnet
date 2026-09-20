@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace LibTmux.Internal;
 
 internal sealed class TmuxCommandRequest
@@ -89,6 +91,10 @@ internal sealed class TmuxCommandRequest
 
         return encoded;
     }
+
+    // MAX_IMSGSIZE minus imsg header (16) and msg_command header (4).
+    internal bool FitsNativeArgumentBudget() =>
+        EncodeArguments().Sum(static argument => Encoding.UTF8.GetByteCount(argument) + 1L) <= 16_364;
 
     private static string EncodeLiteral(string value)
     {

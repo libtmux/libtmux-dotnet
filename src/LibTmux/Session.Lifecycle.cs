@@ -272,10 +272,45 @@ public sealed partial class Session
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> CreateWindowAsync(
         NewWindowRequest? request = null,
+        CancellationToken cancellationToken = default) =>
+        (await CreateWindowCoreAsync(request ?? new NewWindowRequest(), false, cancellationToken)
+            .ConfigureAwait(false)).Window;
+
+    /// <summary>Creates a window and returns its initial pane identity.</summary>
+    /// <param name="request">The window to create.</param>
+    /// <param name="cancellationToken">Cancels creation and readback.</param>
+    /// <returns>The created window in this session and its initial pane identifier.</returns>
+    /// <exception cref="ArgumentException">The request may select an existing window.</exception>
+    /// <exception cref="LibTmuxException">Creation or readback failed; a failure after creation has unknown dispatch outcome.</exception>
+    /// <remarks>
+    /// Rejects <see cref="NewWindowRequest.SelectExisting" /> before dispatch because an
+    /// existing window has no creation receipt. The pane identifier comes from creation,
+    /// not a later listing; the pane may have moved or disappeared before readback.
+    /// A failed readback publishes no receipt or cleanup ownership.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<WindowCreationResult> CreateWindowWithReceiptAsync(
+        NewWindowRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         NewWindowRequest options = request ?? new NewWindowRequest();
-        Server owner = RequireOwner("windows");
+        if (options.SelectExisting)
+        {
+            throw new ArgumentException("A creation receipt cannot select an existing window.", nameof(request));
+        }
+
+        (Window window, PaneId? initialPaneId) = await CreateWindowCoreAsync(options, true, cancellationToken)
+            .ConfigureAwait(false);
+        return new WindowCreationResult(window, initialPaneId!.Value);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<(Window Window, PaneId? InitialPaneId)> CreateWindowCoreAsync(
+        NewWindowRequest options,
+        bool captureReceipt,
+        CancellationToken cancellationToken)
+    {
+        _ = RequireOwner("windows");
         bool maySelectExisting = options.SelectExisting
             && options.Name is not null
             && options.Index is null
@@ -286,7 +321,8 @@ public sealed partial class Session
         var sequence = new TmuxMutationSequence();
         TmuxCommandResult result = await sequence.MutateAsync(
                 () => _commandDispatcher.ExecuteAsync(
-                    [.. BuildNewWindowArguments(options, _id.ToString())],
+                    [.. BuildNewWindowArguments(options, _id.ToString(),
+                        captureReceipt ? TmuxCreationReceipt.Format : "#{window_id}")],
                     cancellationToken),
                 static value => TmuxCommandFailure.ThrowIfFailed(value, "new-window"))
             .ConfigureAwait(false);
@@ -296,7 +332,7 @@ public sealed partial class Session
             IReadOnlyList<Window> selectedWindows = await sequence
                 .ObserveAsync(() => GetWindowsAsync(cancellationToken))
                 .ConfigureAwait(false);
-            return sequence.Observe(() =>
+            Window selected = sequence.Observe(() =>
             {
                 Window[] matches =
                 [.. selectedWindows.Where(window =>
@@ -307,9 +343,24 @@ public sealed partial class Session
                         $"tmux did not report exactly one selected window named '{selectedName}'.",
                         result);
             });
+            return (selected, null);
         }
 
-        WindowId created = sequence.Observe(() =>
+        TmuxCreationReceipt? receipt = captureReceipt ? sequence.Observe(() =>
+        {
+            TmuxCreationReceipt parsed = TmuxCreationReceipt.Parse(result);
+            if (parsed.Generation != _generation)
+            {
+                throw new StaleServerGenerationException("The creating daemon generation changed.", _generation, parsed.Generation);
+            }
+            if (parsed.SessionId != _id)
+            {
+                throw new TmuxCommandException("tmux reported a window created in another session.", result);
+            }
+
+            return parsed;
+        }) : null;
+        WindowId created = receipt?.WindowId ?? sequence.Observe(() =>
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
@@ -318,13 +369,16 @@ public sealed partial class Session
                         result));
 
         IReadOnlyList<Window> windows = await sequence
-            .ObserveAsync(() => owner.GetWindowsAsync(cancellationToken))
+            .ObserveAsync(() => GetWindowsAsync(cancellationToken))
             .ConfigureAwait(false);
-        return sequence.Observe(() =>
-            windows.FirstOrDefault(window => window.Id == created)
+        Window window = sequence.Observe(() =>
+            (receipt is TmuxCreationReceipt bound
+                ? windows.SingleOrDefault(window => window.Id == created && window.Index == bound.WindowIndex)
+                : windows.FirstOrDefault(window => window.Id == created))
                 ?? throw new TmuxObjectNotFoundException(
                     $"tmux did not report the created window '{created}'.",
                     created.ToString()));
+        return (window, receipt?.PaneId);
     }
 
     [UnsupportedOSPlatform("windows")]
@@ -377,12 +431,13 @@ public sealed partial class Session
 
     internal static IEnumerable<string> BuildNewWindowArguments(
         NewWindowRequest options,
-        string sessionId)
+        string sessionId,
+        string format = "#{window_id}")
     {
         yield return "new-window";
         yield return "-P";
         yield return "-F";
-        yield return "#{window_id}";
+        yield return format;
         if (!options.Attach)
         {
             yield return "-d";

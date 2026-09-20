@@ -7,6 +7,16 @@ namespace LibTmux.UnitTests.Connection;
 [UnsupportedOSPlatform("windows")]
 public sealed class ServerCreationGenerationTests
 {
+    [Theory]
+    [InlineData("bad:name")]
+    [InlineData("bad.name")]
+    public void Session_commands_reject_names_that_direct_creation_rejects(string name)
+    {
+        var request = new NewSessionRequest { Name = name };
+
+        Assert.Throws<ArgumentException>(() => request.ToCommand());
+    }
+
     [Fact]
     public void Session_commands_retain_the_expected_generation()
     {
@@ -14,6 +24,7 @@ public sealed class ServerCreationGenerationTests
         var request = new NewSessionRequest { Name = "build", ExpectedGeneration = expected };
 
         Assert.Equal(expected, request.ToCommand().RequiredGeneration);
+        Assert.Contains("#{session_id}", request.ToCommand().Arguments);
         Assert.Null(new NewSessionRequest().ToCommand().RequiredGeneration);
         Assert.Throws<ArgumentOutOfRangeException>(() => new NewSessionRequest
         {
@@ -43,8 +54,10 @@ public sealed class ServerCreationGenerationTests
         Assert.Equal(0, dispatches);
     }
 
-    [Fact]
-    public async Task Replacement_after_creation_cannot_be_initialized_or_returned_by_readback()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Replacement_after_creation_cannot_be_initialized_or_returned_by_readback(bool bindBeforeCreation)
     {
         var expected = new ServerGeneration(91, 901);
         var actual = new ServerGeneration(91, 902);
@@ -63,7 +76,11 @@ public sealed class ServerCreationGenerationTests
             if (command.LogicalArguments.Contains("new-session", StringComparer.Ordinal))
             {
                 string prefix = command.LogicalArguments.Contains("if-shell", StringComparer.Ordinal) ? "91:901\n" : string.Empty;
-                return Task.FromResult(Result(command, prefix + "$2\n"));
+                string receipt = command.LogicalArguments.Contains(
+                    TmuxCreationReceipt.Format, StringComparer.Ordinal)
+                    ? "91:901\t$2\t@3\t%4\t0\n"
+                    : "$2\n";
+                return Task.FromResult(Result(command, prefix + receipt));
             }
             if (command.LogicalArguments is ["display-message", "-p", TmuxConnection.GenerationFormat])
             {
@@ -74,15 +91,40 @@ public sealed class ServerCreationGenerationTests
         var server = new Server(connection, expected, "tmux 3.7");
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() => server.CreateSessionAsync(
-            new NewSessionRequest { Name = "build", ExpectedGeneration = expected }, TestContext.Current.CancellationToken));
+            new NewSessionRequest
+            {
+                Name = "build",
+                ExpectedGeneration = bindBeforeCreation ? expected : null,
+            }, TestContext.Current.CancellationToken));
 
         StaleServerGenerationException stale = Assert.IsType<StaleServerGenerationException>(failure.InnerException);
         Assert.Equal(expected, stale.Expected);
         Assert.Equal(actual, stale.Actual);
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
-        Assert.Contains("if-shell", requests[0].LogicalArguments);
+        Assert.Equal(bindBeforeCreation, requests[0].LogicalArguments.Contains("if-shell", StringComparer.Ordinal));
         Assert.Equal(2, requests.Count);
         Assert.Equal(0, initializers);
+    }
+
+    [Fact]
+    public async Task Window_receipts_reject_select_existing_before_dispatch()
+    {
+        int dispatches = 0;
+        var connection = new TmuxConnection(new ServerConnectionOptions(), (_, _) =>
+        {
+            dispatches++;
+            throw new InvalidOperationException("Invalid receipt creation dispatched.");
+        });
+        var generation = new ServerGeneration(91, 901);
+        var server = new Server(connection, generation, "tmux 3.7");
+        var session = new Session(server, connection, generation, new SessionId(2), new Dictionary<string, string?>());
+        var request = new NewWindowRequest { SelectExisting = true };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => session.CreateWindowWithReceiptAsync(
+            request, TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, dispatches);
+        Assert.Contains("#{window_id}", request.ToCommand(session).Arguments);
     }
 
     private static TmuxCommandResult Result(TmuxCommandRequest request, string output)

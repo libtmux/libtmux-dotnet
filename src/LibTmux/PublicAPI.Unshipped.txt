@@ -1989,3 +1989,16 @@ virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual LibTmux.TmuxInterceptor.Invoke(LibTmux.TmuxInvocation! invocation, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!>! next, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!
+LibTmux.SessionCreationResult
+LibTmux.SessionCreationResult.Session.get -> LibTmux.Session!
+LibTmux.SessionCreationResult.InitialWindowId.get -> LibTmux.WindowId
+LibTmux.SessionCreationResult.InitialWindowIndex.get -> int
+LibTmux.SessionCreationResult.InitialPaneId.get -> LibTmux.PaneId
+LibTmux.WindowCreationResult
+LibTmux.WindowCreationResult.Window.get -> LibTmux.Window!
+LibTmux.WindowCreationResult.InitialPaneId.get -> LibTmux.PaneId
+LibTmux.Server.CreateSessionWithReceiptAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.SessionCreationResult!>!
+LibTmux.Session.CreateWindowWithReceiptAsync(LibTmux.NewWindowRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.WindowCreationResult!>!
+LibTmux.Window.UnlinkAsync(bool killIfLast, System.Collections.Generic.IReadOnlyList<LibTmux.PaneId>! expectedPaneIds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.SplitPaneRequest.ExpectedWindowId.get -> LibTmux.WindowId?
+LibTmux.SplitPaneRequest.ExpectedWindowId.init -> void
