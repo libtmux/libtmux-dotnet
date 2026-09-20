@@ -156,8 +156,10 @@ Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
 | Guarantee | Owner |
 | --- | --- |
-| Public declarations and nullability | PublicApiAnalyzers and shared `PublicAPI.*.txt` baselines |
-| Public XML comments and documentation identities | C# compiler and Roslyn inventory |
+| C# public declarations and nullability | PublicApiAnalyzers and shared `PublicAPI.*.txt` baselines |
+| F# public signatures and argument groups | Compiled F# inventory and `LibTmux.FSharp/PublicAPI.json` |
+| F# formatting | Pinned Fantomas local tool |
+| Public XML comments and documentation identities | Roslyn and F# compiler inventories |
 | Ownership, parity destinations, platform and I/O policies | `verify_public_api.py` over compiler metadata |
 | Current package asset compatibility | SDK Package Validation; no historical baseline |
 | Workflow syntax and repository policy | Pinned actionlint and `verify_workflows.py` |
@@ -211,6 +213,32 @@ content, and checks portable PDB identity and SourceLink against `HEAD`. The
 compiler inventory travels with the packages so the publisher repeats this
 inspection without rebuilding the libraries.
 
+The F# inventory uses the compiler service bundled with the pinned SDK. It
+reads both compiled target frameworks, including curried argument groups,
+generic constraints and union cases, and requires matching XML summaries.
+It also type-checks every F# fence in the package README and rejects invalid
+portable-filter field, target, relation, constructor and unsupported-field
+uses.
+The package inspector binds each F# DLL and XML file to that inventory by
+SHA-256. `verify_public_api.py` compares its declarations with the reviewed
+F# baseline; changing `.fsi` alone does not update that baseline.
+
+Restore the pinned formatter during setup:
+
+```console
+$ mise exec -- dotnet tool restore
+```
+
+Check F# source, signatures and scripts:
+
+```console
+$ mise exec -- dotnet fantomas check src examples tests eng
+```
+
+The F# formatting, unit and packed-consumer steps run in `dotnet.build`, a
+required predecessor of `dotnet.gate`. Workflow policy rejects skipped or
+non-failing versions of those steps.
+
 The outer-loop regression suite mutates real packages:
 
 ```console
@@ -259,10 +287,21 @@ socket isolation in the executables; do not add integration wrappers that run
 the same payload again. `LibTmux.PackageConsumer` and `LibTmux.AotSmoke` stay
 outside `LibTmux.slnx` because they restore packed artifacts.
 
-Only `LibTmux.AotSmoke` names a runtime identifier. Its restore is separate
-from the portable library graph. Its package inputs retain the development
-version between builds, so a new cache is required even when the version has
-not changed. Historical package compatibility is not a release gate.
+Run `LibTmux.FSharp.PackageConsumer.fsproj` from
+`tests/LibTmux.FSharp.PackageConsumer` with the same restore/run sequence and a
+separate empty cache. It also stays outside the solution. Its executable
+checks the loaded F# package version and bytes before exercising the task
+helpers, captured state and cleanup against an owned tmux server.
+
+`LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
+native binary for both target frameworks. It covers the static snapshot and
+native sequence route. `Selection.exactlyOne` is not a NativeAOT route while
+FSharp.Core emits linker diagnostics for its `Result` return type.
+
+The two AOT owners name a runtime identifier. Their restores are separate from
+the portable library graph. Their package inputs retain the development version
+between builds, so a new cache is required even when the version has not
+changed. Historical package compatibility is not a release gate.
 
 ### Compiler inventory, policy and documents
 
@@ -599,10 +638,10 @@ hour.
 
 Stable tmux **3.2a and newer**, on **net8.0** and **net10.0**. The required
 Linux matrix covers 3.2a through 3.7c; the advisory macOS lane uses the current
-Homebrew tmux. Windows is unsupported. The `LibTmux` core package is trim- and
-ahead-of-time-analyzer gated and has a Linux NativeAOT execution smoke test.
-Optional packages make narrower compatibility claims in their project files
-and package READMEs.
+Homebrew tmux. Windows is unsupported. The `LibTmux` core package and the
+static `LibTmux.FSharp` snapshot route have Linux NativeAOT execution smoke
+tests. Optional packages make narrower compatibility claims in their project
+files and package READMEs.
 
 During alpha the public API can change in any release with no deprecation
 period, so a consumer pins an exact version. Widening the supported range means

@@ -51,6 +51,7 @@ documented ordinary-tmux examples that are executed against live tmux in CI.
 | Package | | Add it when |
 |---|---|---|
 | **[LibTmux](src/LibTmux/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux) | Always. The client. One dependency: logging abstractions. |
+| **[LibTmux.FSharp](src/LibTmux.FSharp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.FSharp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.FSharp) | You write F# and want curried task helpers, ordinary `seq` queries, and typed portable filters over the core values. |
 | **[LibTmux.Query.Json](src/LibTmux.Query.Json/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Query.Json?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Query.Json) | You send queries between processes and want them as JSON. |
 | **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Testing?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
 | **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Extensions.DependencyInjection?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
@@ -65,6 +66,13 @@ The core takes exactly one dependency. Anything that would add another ships as
 its own package, so a caller who does not want YAML never sees YamlDotNet. They
 all carry one version, so any `LibTmux.Workspace` goes with the `LibTmux` of the
 same version, without a table to consult.
+
+`LibTmux.FSharp` is the F# companion built on
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/). Both packages are
+maintained in the `libtmux` organization by the same primary author. It keeps
+the core handles and task I/O, then adds F#-native composition for snapshots and
+portable filters. Start with its
+[compiler-checked F# example](src/LibTmux.FSharp/README.md).
 
 ## Three ways to reach tmux
 

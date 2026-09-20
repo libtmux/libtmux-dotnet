@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -50,7 +51,8 @@ internal static class PackageInspection
                     .Select(dependency => dependency.GetString()!).ToHashSet(StringComparer.OrdinalIgnoreCase),
                 StringComparer.OrdinalIgnoreCase);
         using var projects = new ProjectCollection(new Dictionary<string, string> { ["Configuration"] = "Release" });
-        var expected = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.csproj", SearchOption.AllDirectories)
+        var expected = Directory.EnumerateFiles(Path.Join(root, "src"), "*.*proj", SearchOption.AllDirectories)
+            .Where(path => Path.GetExtension(path) is ".csproj" or ".fsproj")
             .Select(path => projects.LoadProject(path))
             .Where(project => project.GetPropertyValue("IsPackable") == "true")
             .ToDictionary(project => project.GetPropertyValue("PackageId"), StringComparer.OrdinalIgnoreCase);
@@ -93,6 +95,15 @@ internal static class PackageInspection
                 }
 
                 CheckDocumentation(package, $"{prefix}/{id}.xml", id, inventory.RootElement);
+                if (id == "LibTmux.FSharp")
+                {
+                    var artifacts = inventory.RootElement.GetProperty("fsharpArtifacts").EnumerateArray()
+                        .Where(artifact => artifact.GetProperty("package").GetString() == id && artifact.GetProperty("framework").GetString() == framework).ToArray();
+                    Require(artifacts.Length == 1, $"{id}/{framework}: missing unique F# compiler artifact identity.");
+                    Require(Convert.ToHexStringLower(SHA256.HashData(ReadContents(package, $"{prefix}/{id}.dll"))) == artifacts[0].GetProperty("assemblySha256").GetString(), $"{id}/{framework}: assembly differs from F# compiler inventory.");
+                    Require(Convert.ToHexStringLower(SHA256.HashData(ReadContents(package, $"{prefix}/{id}.xml"))) == artifacts[0].GetProperty("xmlSha256").GetString(), $"{id}/{framework}: XML differs from F# compiler inventory.");
+                }
+
                 CheckSymbols(package, symbols ?? package, $"{prefix}/{id}", revision);
                 if (tool)
                 {
@@ -147,10 +158,20 @@ internal static class PackageInspection
         foreach (var reference in project.GetItems("ProjectReference").Where(item => item.GetMetadataValue("PrivateAssets") != "all"))
         {
             var target = projects.Values.Single(value => value.FullPath == reference.GetMetadataValue("FullPath"));
-            expected.Add(target.GetPropertyValue("PackageId"), VersionRange.Parse(target.GetPropertyValue("PackageVersion")));
+            var targetId = target.GetPropertyValue("PackageId");
+            var targetVersion = target.GetPropertyValue("PackageVersion");
+            expected.Add(targetId, VersionRange.Parse(id == "LibTmux.FSharp" && targetId == "LibTmux" ? $"[{targetVersion}]" : targetVersion));
         }
 
         var dependencies = group.Packages.ToArray();
+        Require(dependencies.Select(dependency => dependency.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() == dependencies.Length, $"{id}/{group.TargetFramework.GetShortFolderName()}: duplicate dependencies.");
+        if (id == "LibTmux.FSharp")
+        {
+            Require(dependencies.Select(dependency => dependency.Id).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(["LibTmux", "FSharp.Core"]), $"{id}/{group.TargetFramework.GetShortFolderName()}: requires LibTmux and FSharp.Core dependencies.");
+            var core = dependencies.Single(dependency => dependency.Id == "LibTmux");
+            Require(core.VersionRange.Equals(VersionRange.Parse($"[{project.GetPropertyValue("PackageVersion")}]")), $"{id}/{group.TargetFramework.GetShortFolderName()}: requires the exact matching LibTmux version.");
+        }
+
         Require(dependencies.Length == expected.Count && dependencies.All(dependency => expected.TryGetValue(dependency.Id, out var version) && version.Equals(dependency.VersionRange)), $"{id}/{group.TargetFramework.GetShortFolderName()}: dependencies or versions differ from evaluated project.");
     }
 

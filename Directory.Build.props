@@ -16,6 +16,12 @@
     <RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.fsproj'">
+    <LangVersion>10.0</LangVersion>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
+  </PropertyGroup>
+
   <!-- Packaging identity every published package shares. A project says what
        it is; where it came from and who to ask is the same answer for all of
        them, so it is answered once. -->

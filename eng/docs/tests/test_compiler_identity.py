@@ -1,8 +1,29 @@
 """Exact compiler identities must control documentation membership."""
+import json
 import pathlib
 import runpy
 
 import pytest
+
+
+def test_inventory_preserves_compiled_fsharp_contracts():
+    root = pathlib.Path(__file__).parents[3]
+    inventory = json.loads((root / "artifacts/api-inventory.json").read_text())
+    members = {
+        member["id"]: member
+        for member in inventory["members"]
+        if member["package"] == "LibTmux.FSharp"
+    }
+    assert members, "F# compiled symbols are missing from the inventory"
+    capture = members[
+        "M:LibTmux.FSharp.Server.capture(System.Threading.CancellationToken,"
+        "LibTmux.SnapshotDepth,LibTmux.Server)"
+    ]
+    assert capture["argumentGroups"] == [1, 1, 1]
+    assert capture["documentation"]
+    assert members["T:LibTmux.FSharp.CardinalityError.NoMatches"]["kind"] == "unionCase"
+    value = members["M:LibTmux.FSharp.Snapshot.value``1(LibTmux.CapturedValue{``0})"]
+    assert "not struct" in value["signature"]
 
 
 def test_same_arity_overload_cannot_supply_missing_documentation(tmp_path):

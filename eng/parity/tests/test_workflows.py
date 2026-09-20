@@ -27,6 +27,32 @@ def test_current_workflows_pass(repository: pathlib.Path) -> None:
     assert verify(repository) == []
 
 
+def test_fsharp_reference_check_is_required(repository: pathlib.Path) -> None:
+    """Generated F# API documentation must fail CI when it drifts."""
+    path = repository / ".github/workflows/dotnet.yml"
+    path.write_text(
+        path.read_text().replace(
+            "          uv run python eng/docs/render_api_reference.py --fsharp --check\n",
+            "",
+        )
+    )
+
+    assert any("F# API reference" in error for error in verify(repository))
+
+
+def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
+    """Published F# snippets must not drift from their compiled example source."""
+    path = repository / ".github/workflows/dotnet.yml"
+    path.write_text(
+        path.read_text().replace(
+            "          uv run python eng/docs/sync_fsharp_snippets.py --check\n",
+            "",
+        )
+    )
+
+    assert any("F# snippets" in error for error in verify(repository))
+
+
 def test_commented_dependencies_do_not_gate_publication(
     repository: pathlib.Path,
 ) -> None:
@@ -121,6 +147,13 @@ def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
 @pytest.mark.parametrize("workflow,job_name,step_name", [
     ("dotnet-tmux", "matrix", "Integration tests"),
     ("release", "validate", "Check the tag matches the version"),
+    ("dotnet", "build", "F# formatting"),
+    ("dotnet", "build", "F# unit tests (net8.0)"),
+    ("dotnet", "build", "F# unit tests (net10.0)"),
+    ("dotnet", "build", "F# package consumer"),
+    ("dotnet", "build", "F# packed example console"),
+    ("dotnet", "build", "F# ahead-of-time smoke test"),
+    ("dotnet", "build", "F# example console"),
 ])
 @pytest.mark.parametrize("key,value", [("if", "false"), ("continue-on-error", "true")])
 def test_required_steps_cannot_skip_or_forgive_failures(
