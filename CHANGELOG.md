@@ -12,6 +12,22 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.15] — 2026-09-20
+
+Corrects snapshot identity, window placement mutations and typed pane input.
+`WindowEntityKey` and composite `SendKeysRequest` callers must follow the
+migrations below.
+
+### Added
+
 - This port's guides and examples now publish to libtmux.org at
   `/en/dotnet/latest/`, a path the site's port switcher and every page's
   sidebar already linked and which returned 403 until now. libtmux.org's own
@@ -77,10 +93,6 @@ version.
 
 - `Pane.SendTextAsync` and `SendKeysRequest` reject NUL text before sending any
   command. (#33)
-
-### Removed
-
-### Development
 
 ## [0.0.0-alpha.14] — 2026-09-20
 
@@ -951,7 +963,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.14...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.15...HEAD
+[0.0.0-alpha.15]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.15
 [0.0.0-alpha.14]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.14
 [0.0.0-alpha.13]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.13
 [0.0.0-alpha.12]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.12
