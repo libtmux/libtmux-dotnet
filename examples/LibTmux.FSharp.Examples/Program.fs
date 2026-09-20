@@ -111,6 +111,19 @@ let private runAsync () =
         then
             failwith "The portable filter did not match the native captured-pane query."
 
+        let! observed =
+            scope.Server
+            |> Control.withSession cancellationToken (fun control ->
+                task {
+                    let events = GuideSnippets.readUntilTerminalAsync cancellationToken control
+                    do! scope.Server.KillAsync(cancellationToken)
+                    return! events
+                })
+
+        match List.tryLast observed with
+        | Some(:? TmuxExitEvent) -> ()
+        | _ -> failwith "The control-mode guide did not observe tmux exiting."
+
         printfn "PASS F# snapshot and portable query example"
     }
 

@@ -93,3 +93,28 @@ module internal GuideSnippets =
     let matchingSessions (captured: Server) =
         captured.Sessions |> Query.matching editorSessions
     // endfsharp-snippet
+
+    // fsharp-snippet: ObserveControlEvents
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
+        session
+        |> Control.foldEventsWhile
+            cancellationToken
+            (fun events event ->
+                task {
+                    let retained = event :: events
+
+                    match event with
+                    | :? TmuxEventsDroppedEvent
+                    | :? TmuxExitEvent -> return StreamStep.Stop(List.rev retained)
+                    | _ -> return StreamStep.Continue retained
+                })
+            []
+
+    let observeUntilTerminalAsync cancellationToken server =
+        server
+        |> Control.withSession cancellationToken (readUntilTerminalAsync cancellationToken)
+    // endfsharp-snippet

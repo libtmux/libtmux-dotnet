@@ -3,6 +3,225 @@
   "version": 1,
   "members": [
     {
+      "id": "M:LibTmux.FSharp.Control.enter(System.Threading.CancellationToken,LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "enter",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "enter",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.foldEventsWhile``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{LibTmux.TmuxEvent,System.Threading.Tasks.Task{LibTmux.FSharp.StreamStep{``0}}}},``0,LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "foldEventsWhile",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val foldEventsWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> 'State -> LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "folder",
+          "optional": false,
+          "type": "'State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>"
+        },
+        {
+          "name": "initial",
+          "optional": false,
+          "type": "'State"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "foldEventsWhile",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.iterEvents(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{LibTmux.TmuxEvent,System.Threading.Tasks.Task},LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "iterEvents",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val iterEvents: cancellationToken: System.Threading.CancellationToken -> handler: (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "handler",
+          "optional": false,
+          "type": "LibTmux.TmuxEvent -> System.Threading.Tasks.Task"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "iterEvents",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.useSession``1(Microsoft.FSharp.Core.FSharpFunc{LibTmux.IControlModeSession,System.Threading.Tasks.Task{``0}},LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "useSession",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val useSession: work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "(LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "work",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "useSession",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.withSession``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{LibTmux.IControlModeSession,System.Threading.Tasks.Task{``0}},LibTmux.Server)",
+      "package": "LibTmux.FSharp",
+      "name": "withSession",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val withSession: cancellationToken: System.Threading.CancellationToken -> work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> server: LibTmux.Server -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> LibTmux.Server -> System.Threading.Tasks.Task<'State>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "work",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>"
+        },
+        {
+          "name": "server",
+          "optional": false,
+          "type": "LibTmux.Server"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "withSession",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Filter.allOf``1(Microsoft.FSharp.Collections.FSharpList{LibTmux.FSharp.Filter{``0}})",
       "package": "LibTmux.FSharp",
       "name": "allOf",
@@ -1438,6 +1657,33 @@
       "publicRepresentation": true
     },
     {
+      "id": "T:LibTmux.FSharp.Control",
+      "package": "LibTmux.FSharp",
+      "name": "Control",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.Control",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Control"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
       "id": "T:LibTmux.FSharp.Field`2",
       "package": "LibTmux.FSharp",
       "name": "Field",
@@ -1756,6 +2002,83 @@
       "argumentGroups": [],
       "genericParameters": [],
       "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.StreamStep`1",
+      "package": "LibTmux.FSharp",
+      "name": "StreamStep",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "union",
+      "signature": "LibTmux.FSharp.StreamStep`1",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [
+        "System.Collections.IStructuralEquatable",
+        "System.IComparable<LibTmux.FSharp.StreamStep<'State>>",
+        "System.IComparable",
+        "System.Collections.IStructuralComparable"
+      ],
+      "exposedTypes": [
+        "LibTmux.FSharp.StreamStep`1"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "State"
+        }
+      ],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.StreamStep`1.Continue",
+      "package": "LibTmux.FSharp",
+      "name": "Continue",
+      "declaringType": "T:LibTmux.FSharp.StreamStep`1",
+      "visibility": "public",
+      "kind": "unionCase",
+      "signature": "Continue of state: 'State",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "state: 'State"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "caseIndex": 0
+    },
+    {
+      "id": "T:LibTmux.FSharp.StreamStep`1.Stop",
+      "package": "LibTmux.FSharp",
+      "name": "Stop",
+      "declaringType": "T:LibTmux.FSharp.StreamStep`1",
+      "visibility": "public",
+      "kind": "unionCase",
+      "signature": "Stop of state: 'State",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "state: 'State"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "caseIndex": 1
     },
     {
       "id": "T:LibTmux.FSharp.Window",

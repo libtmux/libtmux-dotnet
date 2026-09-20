@@ -27,6 +27,17 @@ Generated from compiled F# signatures and XML summaries. Regenerate with
 | `val controlMode: LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.bool>` | Identifies whether the captured client uses control mode. |
 | `val name: LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.string>` | Identifies the captured client name for ordinal string and null comparisons. |
 
+## Control
+
+| Signature | Summary |
+|---|---|
+| `LibTmux.FSharp.Control` | Provides scoped access to core control-mode event streams. |
+| `val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>` | Opens a core control client with the caller's cancellation token. |
+| `val foldEventsWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>` | Folds events until the source ends or the folder returns Stop. |
+| `val iterEvents: cancellationToken: System.Threading.CancellationToken -> handler: (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>` | Awaits one handler at a time for each event from a borrowed control client. |
+| `val useSession: work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>` | Runs work with an owned control client and disposes it after the returned task completes. |
+| `val withSession: cancellationToken: System.Threading.CancellationToken -> work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> server: LibTmux.Server -> System.Threading.Tasks.Task<'State>` | Opens a control client, runs work, and disposes the client after the returned task completes. |
+
 ## Field
 
 | Signature | Summary |
@@ -118,6 +129,14 @@ Generated from compiled F# signatures and XML summaries. Regenerate with
 | `LibTmux.FSharp.Snapshot` | Reads captured values without contacting tmux. |
 | `val relation: relation: LibTmux.CapturedRelation<'T> -> LibTmux.FSharp.CaptureState<System.Collections.Generic.IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
 | `val value: value: LibTmux.CapturedValue<'T> -> LibTmux.FSharp.CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
+
+## StreamStep
+
+| Signature | Summary |
+|---|---|
+| `Continue of state: 'State` | Retains state and reads the next event. |
+| ``LibTmux.FSharp.StreamStep`1`` | Represents a decision to continue or stop an event fold. |
+| `Stop of state: 'State` | Retains state and stops before reading another event. |
 
 ## Window
 
