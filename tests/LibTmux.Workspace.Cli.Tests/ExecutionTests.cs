@@ -246,7 +246,7 @@ public sealed class ExecutionTests : IDisposable
         Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux", SocketPath = socket, ConfigurationFile = "/dev/null" });
         try
         {
-            (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            (int code, _, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
             Assert.Equal(0, code);
             Assert.Empty(error);
             for (int attempt = 0; attempt < 100; attempt++)
@@ -257,8 +257,10 @@ public sealed class ExecutionTests : IDisposable
                 if (current == "sleep") break;
                 await Task.Delay(20, token);
             }
+            string output;
             (code, output, error) = await Run("freeze", "shellomit", "-S", socket, "--json");
             Assert.Equal(0, code);
+            Assert.Equal("capture_lossy", JsonNode.Parse(error)!["code"]!.ToString());
             JsonArray panes = JsonNode.Parse(output)!["workspace"]!["windows"]![0]!["panes"]!.AsArray();
             Assert.Equal(2, panes.Count);
             Assert.Null(panes[0]!["shell_command"]);
@@ -286,7 +288,7 @@ public sealed class ExecutionTests : IDisposable
             await server.ExecuteCommandAsync(["set-option", "-g", "default-shell", "/bin/sh"], token);
             await server.ExecuteCommandAsync(["set-option", "-g", "default-command", "/bin/bash -i"], token);
 
-            (int code, string output, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
+            (int code, _, string error) = await Run("load", file, "-d", "-S", socket, "-f", "/dev/null", "--json");
             Assert.Equal(0, code);
             Assert.Empty(error);
             for (int attempt = 0; attempt < 100; attempt++)
@@ -297,8 +299,10 @@ public sealed class ExecutionTests : IDisposable
                 if (current == "bash") break;
                 await Task.Delay(20, token);
             }
+            string output;
             (code, output, error) = await Run("freeze", "shellmismatch", "-S", socket, "--json");
             Assert.Equal(0, code);
+            Assert.Equal("capture_lossy", JsonNode.Parse(error)!["code"]!.ToString());
             JsonArray panes = JsonNode.Parse(output)!["workspace"]!["windows"]![0]!["panes"]!.AsArray();
             Assert.Null(panes[0]!["shell_command"]);
         }

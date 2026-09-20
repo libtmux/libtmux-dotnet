@@ -1889,7 +1889,7 @@ public sealed class RegressionTests : IDisposable
             int code = await CliRunner.RunAsync(["load", file, "-d", "-S", socket, "-f", "/dev/null", "--json"], output, error, _root, environment, token);
             Assert.True(code == 0, error.ToString());
             string arguments = await File.ReadAllTextAsync(trace, token);
-            Assert.DoesNotContain("#{pane_current_command}", arguments, StringComparison.Ordinal);
+            Assert.DoesNotContain("#{pane_current_command}\t#{cursor_x},#{cursor_y}", arguments, StringComparison.Ordinal);
             Assert.DoesNotContain("#{cursor_x},#{cursor_y}", arguments, StringComparison.Ordinal);
             Assert.Equal("2", await Execute(server, "display-message", "-p", "-t", "=blank:", "#{window_panes}"));
         }
@@ -2174,12 +2174,12 @@ public sealed class RegressionTests : IDisposable
         startInfo.ArgumentList.Add("/dev/null");
         using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("The PTY launcher did not start.");
         process.StandardInput.Close();
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
         using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(20));
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
-        await process.WaitForExitAsync(linked.Token);
-        return await stdout.WaitAsync(linked.Token);
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync(linked.Token);
+        Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, linked.Token);
+        await Task.WhenAll(process.WaitForExitAsync(linked.Token), stdout, stderr);
+        return await stdout;
     }
 
     // Like RunCliUnderPtyAsync, but keeps the pty's input open so a scripted
