@@ -64,6 +64,9 @@ def test_real_packages_pass(artifacts: pathlib.Path) -> None:
         ("symbols", None),
         ("repository", "repository revision"),
         ("sourcelink", "SourceLink repository revision"),
+        ("bundled-assembly", "missing packaged tools/net8.0/any/LibTmux.dll"),
+        ("sourcelink-wildcard", "SourceLink mapping"),
+        ("sourcelink-path", "SourceLink mapping"),
         ("extra", "Package set"),
     ],
 )
@@ -79,9 +82,12 @@ def test_corrupt_packages_fail(
     for package in artifacts.glob("*.snupkg"):
         shutil.copy2(package, tmp_path)
     core = next(tmp_path.glob("LibTmux.[0-9]*.nupkg"))
-    target = (
-        core.with_suffix(".snupkg") if mutation in {"symbols", "sourcelink"} else core
-    )
+    if mutation in {"symbols", "sourcelink", "sourcelink-wildcard", "sourcelink-path"}:
+        target = core.with_suffix(".snupkg")
+    elif mutation == "bundled-assembly":
+        target = next(tmp_path.glob("LibTmux.Mcp.*.nupkg"))
+    else:
+        target = core
     if mutation == "extra":
         shutil.copy2(core, tmp_path / "unexpected.nupkg")
     else:
@@ -99,6 +105,20 @@ def test_corrupt_packages_fail(
             )
         elif mutation == "framework":
             del entries["lib/net8.0/LibTmux.dll"]
+        elif mutation == "bundled-assembly":
+            del entries["tools/net8.0/any/LibTmux.dll"]
+        elif mutation in {"sourcelink-wildcard", "sourcelink-path"}:
+            name = "lib/net8.0/LibTmux.pdb"
+            revision = json.loads((ROOT / "artifacts/api-inventory.json").read_text())[
+                "revision"
+            ].encode()
+            before, after = (
+                (revision + b'/*"', revision + b'/x"')
+                if mutation == "sourcelink-wildcard"
+                else (b'"/_/*":', b'"/_*" :')
+            )
+            assert len(before) == len(after) and before in entries[name]
+            entries[name] = entries[name].replace(before, after)
         elif mutation == "xml":
             name = "lib/net8.0/LibTmux.xml"
             xml = ElementTree.fromstring(entries[name])

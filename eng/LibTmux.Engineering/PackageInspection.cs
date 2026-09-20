@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.Build.Evaluation;
+using Microsoft.Build.Graph;
 using NuGet.Packaging;
 using NuGet.Versioning;
 
@@ -87,7 +88,16 @@ internal static class PackageInspection
                 CheckSymbols(package, symbols ?? package, $"{prefix}/{id}", revision);
                 if (tool)
                 {
-                    foreach (var dependency in expected.Keys.Where(name => name != id && package.GetFiles().Contains($"{prefix}/{name}.dll")))
+                    var graph = new ProjectGraph(project.FullPath, new Dictionary<string, string>
+                    {
+                        ["Configuration"] = "Release",
+                        ["TargetFramework"] = framework,
+                    }, projects);
+                    var dependencies = graph.ProjectNodes
+                        .Where(node => node.ProjectInstance.FullPath != project.FullPath)
+                        .Select(node => node.ProjectInstance.GetPropertyValue("AssemblyName"))
+                        .Distinct(StringComparer.Ordinal);
+                    foreach (var dependency in dependencies)
                     {
                         CheckSymbols(package, package, $"{prefix}/{dependency}", revision);
                     }
@@ -182,14 +192,15 @@ internal static class PackageInspection
         var mappings = sourceLink.RootElement.GetProperty("documents").EnumerateObject().ToArray();
         var expectedUrl = $"https://raw.githubusercontent.com/libtmux/libtmux-dotnet/{revision}/";
         Require(mappings.Length > 0 && mappings.All(mapping => mapping.Value.GetString()!.StartsWith(expectedUrl, StringComparison.Ordinal)), $"{prefix}: SourceLink repository revision differs from HEAD.");
+        Require(mappings.Length == 1
+            && mappings[0].Name == "/_/*"
+            && mappings[0].Value.GetString() == expectedUrl + "*",
+            $"{prefix}: SourceLink mapping differs from the canonical repository path.");
         foreach (var handle in pdb.Documents)
         {
             var document = pdb.GetDocument(handle);
             var name = pdb.GetString(document.Name);
             Require(name.StartsWith("/_/", StringComparison.Ordinal), $"{prefix}: source document exposes an unmapped build path.");
-            var embedded = pdb.GetCustomDebugInformation(handle).Select(pdb.GetCustomDebugInformation)
-                .Any(info => pdb.GetGuid(info.Kind) == new Guid("0E8A571B-6926-466E-B4AD-8AB04611F5FE"));
-            Require(embedded || mappings.Any(mapping => mapping.Name.EndsWith('*') ? name.StartsWith(mapping.Name[..^1], StringComparison.Ordinal) : name == mapping.Name), $"{prefix}: source document has neither SourceLink mapping nor embedded source.");
         }
     }
 
