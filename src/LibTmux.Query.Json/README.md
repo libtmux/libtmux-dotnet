@@ -118,22 +118,11 @@ Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJs
 
 ## The field catalog is closed
 
-Sessions: `session_name`, `session_attached`, `session_id`, `session_windows`.
-Windows: `window_name`, `window_id`, `window_index`, `window_width`,
-`window_height`, `window_panes`, `window_active`, `window_zoomed_flag`,
-`window_bell_flag`, `window_activity_flag`, `window_silence_flag`,
-`window_flags`, `window_layout`. Panes:
-`pane_id`, `pane_command`, `pane_index`, `pane_title`, `pane_current_path`,
-`pane_width`, `pane_height`, `pane_left`, `pane_top`, `pane_at_top`,
-`pane_at_bottom`, `pane_at_left`, `pane_at_right`, `pane_active`, `pane_dead`,
-`pane_dead_status`, `pane_in_mode`, `pane_pid`, `pane_synchronized`,
-`history_size`, `pane_tty`, `pane_start_command`. Clients:
-`client_id`, `client_name`, `client_control_mode`.
-
-You write these as the properties they are, such as `Session.Name`,
-`Pane.Width`, `Client.IsControlClient` and `Pane.CurrentCommand`. The wire name
-`pane_command` binds to the captured tmux `pane_current_command` value; every
-other name is the tmux format it reads.
+Discover fields, native properties and accepted operators through
+`QueryFieldCatalog.GetFields(QueryTarget.Pane)`. Write predicates against
+properties such as `Session.Name`,
+`Client.IsControlClient` and `Pane.CurrentCommand`. The wire name `pane_command`
+binds to the captured tmux `pane_current_command` value.
 
 ```csharp run
 QueryDocument paths = QueryExtensions.Translate<Pane>(
@@ -145,6 +134,16 @@ Console.WriteLine(restoredPaths.Version);
 Pane properties read captured state without I/O. They throw
 `IncompleteSnapshotException` when the field was never captured; captured
 null and empty-string values remain distinct during local matching.
+
+Pane dimensions support numeric comparisons over the same captured objects:
+
+```csharp run
+QueryDocument widePanes = QueryExtensions.Translate<Pane>(
+    pane => pane.Width >= 50 && pane.Height >= 20);
+QueryDocument restoredDimensions = QueryJson.Deserialize(QueryJson.Serialize(widePanes));
+Server capturedPanes = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
+Console.WriteLine(capturedPanes.Panes.Matching(restoredDimensions).Count);
+```
 
 `pane_current_path`, `window_active` and `window_index` query captured
 working directories and session-relative window placements.

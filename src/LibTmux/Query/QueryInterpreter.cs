@@ -77,6 +77,12 @@ internal static class QueryInterpreter
         return element => predicate(element!);
     }
 
+    internal static Func<T, bool> CompileNative<T>(QueryDocument document, CancellationToken cancellationToken)
+    {
+        QuerySourcePlanner.RequireNativeTarget<T>(document.Target);
+        return CompileEntity<T>(document, cancellationToken);
+    }
+
     private static Func<object, bool> BindPredicate(
         QueryNode node,
         Type elementType,
@@ -311,7 +317,7 @@ internal static class QueryInterpreter
             quantifier.Relation,
             elementType,
             QueryFieldRole.Relation);
-        Type childType = QueryPlanBindings.RelationElementType(
+        Type childType = bindings.RelationElementType(
             quantifier.Relation,
             relation.ValueType);
         Func<object, bool> predicate = BindPredicate(
