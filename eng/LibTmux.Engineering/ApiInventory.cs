@@ -86,6 +86,7 @@ internal static class ApiInventory
                 interfaces = type?.AllInterfaces.Select(i => i.ToDisplayString()).ToArray() ?? [],
                 sealedType = type?.IsSealed ?? false,
                 returnType = method?.ReturnType.ToDisplayString(),
+                exposedTypes = ExposedTypes(symbol).Select(t => t.ToDisplayString()).ToArray(),
                 parameters = method?.Parameters.Select(p => new { name = p.Name, type = p.Type.ToDisplayString(), optional = p.IsOptional }).ToArray(),
                 attributes = symbol.GetAttributes().Select(a => new { type = a.AttributeClass?.ToDisplayString(), arguments = a.ConstructorArguments.Select(v => v.Value?.ToString()).ToArray() }).ToArray(),
             });
@@ -99,6 +100,20 @@ internal static class ApiInventory
             }
         }
     }
+
+    private static IEnumerable<ITypeSymbol> ExposedTypes(ISymbol symbol) => symbol switch
+    {
+        IMethodSymbol method => method.Parameters.Select(p => p.Type)
+            .Append(method.ReturnType)
+            .Concat(method.TypeParameters.SelectMany(p => p.ConstraintTypes)),
+        IPropertySymbol property => property.Parameters.Select(p => p.Type).Append(property.Type),
+        IFieldSymbol field => [field.Type],
+        IEventSymbol @event => [@event.Type],
+        INamedTypeSymbol type => type.Interfaces.Cast<ITypeSymbol>()
+            .Concat(type.TypeParameters.SelectMany(p => p.ConstraintTypes))
+            .Concat(type.BaseType is null ? [] : new[] { type.BaseType }),
+        _ => [],
+    };
 
     private static bool IsPublic(ISymbol symbol) =>
         symbol.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal

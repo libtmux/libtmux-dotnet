@@ -49,3 +49,44 @@ def test_compiler_policy_rejects_broken_contract(documents, mutation, expected):
         member["attributes"] = []
         symbols[member["declaringType"]]["attributes"] = []
     assert any(expected in violation for violation in VALIDATE(policy, ledger, inventory))
+
+
+@pytest.mark.parametrize("identifier,name", [
+    ("M:LibTmux.Server.QuerySessions", "QuerySessions"),
+    ("P:LibTmux.Server.QuerySessions", "QuerySessions"),
+    ("F:LibTmux.Server.QuerySessions", "QuerySessions"),
+])
+def test_forbidden_exposed_type_is_rejected(documents, identifier, name):
+    policy, ledger, inventory = copy.deepcopy(documents)
+    inventory["members"].append({
+        "id": identifier, "name": name, "declaringType": "T:LibTmux.Server",
+        "visibility": "public", "signature": "LibTmux.Server.QuerySessions",
+        "exposedTypes": ["System.Linq.IQueryable<LibTmux.Session>"],
+    })
+    assert any("forbidden public API token: IQueryable" in error for error in VALIDATE(policy, ledger, inventory))
+
+
+@pytest.mark.parametrize("name", ["Dispose", "DisposeAsync"])
+def test_borrowed_public_disposal_method_is_rejected(documents, name):
+    policy, ledger, inventory = copy.deepcopy(documents)
+    inventory["members"].append({
+        "id": f"M:LibTmux.Server.{name}", "name": name,
+        "declaringType": "T:LibTmux.Server", "visibility": "public",
+        "signature": f"LibTmux.Server.{name}()", "exposedTypes": [],
+    })
+    assert any("borrowed type exposes disposal" in error for error in VALIDATE(policy, ledger, inventory))
+
+
+@pytest.mark.parametrize("target", ["member", "type"])
+def test_portable_platform_restriction_is_rejected(documents, target):
+    policy, ledger, inventory = copy.deepcopy(documents)
+    symbols = {m["id"]: m for m in inventory["members"]}
+    rule = next(r for r in policy["members"] if r.get("portable"))
+    symbol = symbols[rule["id"]]
+    if target == "type":
+        symbol = symbols[symbol["declaringType"]]
+    symbol["attributes"].append({
+        "type": "System.Runtime.Versioning.UnsupportedOSPlatformAttribute",
+        "arguments": ["windows"],
+    })
+    assert any("portable member has platform annotation" in error for error in VALIDATE(policy, ledger, inventory))
