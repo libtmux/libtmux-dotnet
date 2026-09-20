@@ -192,6 +192,32 @@ creates the described first window under them, and removes the bootstrap.
 tmux hooks can observe that extra window lifecycle. A missing session name or
 empty window list raises `WorkspaceFormatException` before creating anything.
 
+## Keep a captured session's structure
+
+`FromSnapshot` converts an already captured session locally. Capture through
+`SnapshotDepth.Panes` first; missing fields or relations raise
+`IncompleteSnapshotException`. Conversion also works after that daemon exits.
+
+```csharp run
+Server captured = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
+Session source = captured.Sessions.Single(value => value.Id == session.Id);
+WorkspaceFile frozen = WorkspaceFile.FromSnapshot(source);
+WorkspaceFile resolved = frozen.Resolve("/tmp");
+Console.WriteLine($"{resolved.SessionName}: {resolved.Windows.Count} windows");
+```
+
+The declaration preserves window and pane order, names, layouts, pane directories,
+and selected window and pane flags. Each linked window placement becomes a
+separate declared window. Literal dollars in captured paths are escaped for
+`Resolve`; a captured null path stays unspecified. Conversion supplies no document
+origin, so choose one explicitly before planning or exporting resolved paths.
+
+This is a starting declaration, not a process checkpoint. It omits commands,
+environment, options, terminal text, entity IDs, indices, and shared-link identity.
+A foreground command name cannot recover the shell command that started it.
+Applying a native custom layout can rotate which pane occupies each position;
+the layout text does not establish a mapping from old panes to new processes.
+
 ## What is in scope
 
 This reads a closed tmuxp subset: session name, start directory, options at

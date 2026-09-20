@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Runtime.Versioning;
 
 namespace LibTmux.Workspace;
 
@@ -248,6 +249,48 @@ public sealed class WorkspaceFile
         string baseDirectory,
         IReadOnlyDictionary<string, string>? variables = null) =>
         WorkspacePathResolver.Resolve(this, baseDirectory, variables);
+
+    /// <summary>Creates a workspace declaration from a captured session without reaching tmux.</summary>
+    /// <param name="session">The session with captured windows, panes, and active pane relations.</param>
+    /// <returns>An unresolved declaration without a document directory.</returns>
+    /// <remarks>
+    /// Preserves captured window placements and pane order, names, layouts, and focus.
+    /// Repeated links become separate declared windows. Captured pane directories
+    /// escape literal dollars for a later explicit <see cref="Resolve" />; captured
+    /// null paths remain unspecified. Commands, environment, options, terminal text,
+    /// entity identifiers, indices, and shared-link identity are not reconstructed.
+    /// Foreground command names do not establish shell intent. Restoring a native
+    /// custom layout can change which pane occupies a position; see
+    /// <see cref="Window.SelectLayoutAsync" />.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The session is null.</exception>
+    /// <exception cref="IncompleteSnapshotException">A required field or relation was not captured.</exception>
+    /// <exception cref="TmuxProtocolException">A captured window active flag is malformed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public static WorkspaceFile FromSnapshot(Session session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        CapturedRelation<Window> captured = session.Windows;
+        WorkspaceWindow[] windows = new WorkspaceWindow[captured.Count];
+        for (int windowIndex = 0; windowIndex < windows.Length; windowIndex++)
+        {
+            Window window = captured[windowIndex];
+            Pane activePane = window.ActivePane.Value;
+            WorkspacePane[] panes = new WorkspacePane[window.Panes.Count];
+            for (int paneIndex = 0; paneIndex < panes.Length; paneIndex++)
+            {
+                Pane pane = window.Panes[paneIndex];
+                panes[paneIndex] = new WorkspacePane(
+                    startDirectory: pane.CurrentPath?.Replace("$", "$$", StringComparison.Ordinal),
+                    focus: pane == activePane);
+            }
+
+            windows[windowIndex] = new WorkspaceWindow(
+                windowName: window.Name, layout: window.Layout, focus: window.IsActive, panes: panes);
+        }
+
+        return new WorkspaceFile(sessionName: session.Name, windows: windows);
+    }
 
     /// <summary>Reads a workspace from tmuxp YAML or JSON.</summary>
     /// <param name="yaml">The file contents.</param>

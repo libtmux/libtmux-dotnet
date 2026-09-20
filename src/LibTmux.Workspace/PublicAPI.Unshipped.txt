@@ -163,3 +163,4 @@ LibTmux.Workspace.WorkspaceActionKind.CaptureResult = 18 -> LibTmux.Workspace.Wo
 LibTmux.Workspace.WorkspacePlan.SessionName.get -> string!
 LibTmux.Workspace.WorkspaceActionKind.ArrangePanes = 19 -> LibTmux.Workspace.WorkspaceActionKind
 static LibTmux.Workspace.WorkspaceBuilder.Validate(LibTmux.Workspace.WorkspaceFile! workspace, LibTmux.Workspace.WorkspacePlanOptions? options = null) -> void
+static LibTmux.Workspace.WorkspaceFile.FromSnapshot(LibTmux.Session! session) -> LibTmux.Workspace.WorkspaceFile!
