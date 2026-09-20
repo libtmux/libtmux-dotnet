@@ -100,7 +100,8 @@ jobs:
         # workflow runs them. The floor on the count is what stops a filter
         # that excluded more than that from passing quietly.
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \
@@ -159,7 +160,8 @@ jobs:
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: |
-          export PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
           dotnet test \
             --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
             --configuration Release \

@@ -234,7 +234,7 @@ $ uv run python eng/parity/verify_version_literals.py
 ```
 
 ```console
-$ uv run python eng/parity/verify_workflows.py
+$ uv run --locked --script eng/parity/verify_workflows.py
 ```
 
 ```console

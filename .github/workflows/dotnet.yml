@@ -40,6 +40,19 @@ jobs:
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
+      - name: Check workflows
+        env:
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          version="$(awk '$1 == "actionlint" {print $2}' .tool-versions)"
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
+            --output "${RUNNER_TEMP}/actionlint.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint"
+          uv run --locked --script eng/parity/verify_workflows.py
+
       - name: Install tmux
         # The examples, the ahead-of-time smoke test and the package consumer
         # all drive a real server rather than a stub.
@@ -173,7 +186,6 @@ jobs:
           uv run python eng/parity/render_public_api.py --check
           uv run python eng/parity/verify_capabilities.py
           uv run python eng/parity/verify_version_literals.py
-          uv run python eng/parity/verify_workflows.py
           uv run python eng/parity/verify_tmux_versions.py
           uv run python eng/docs/render_api_reference.py --check
           uv run python eng/docs/sync_snippets.py --check
@@ -222,6 +234,19 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+
+      - name: Check workflows
+        env:
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          version="$(awk '$1 == "actionlint" {print $2}' .tool-versions)"
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
+            --output "${RUNNER_TEMP}/actionlint.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint"
+          uv run --locked --script eng/parity/verify_workflows.py
 
       - name: Install tmux
         run: |

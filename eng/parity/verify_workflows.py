@@ -1,9 +1,11 @@
-"""Check the CI workflows test everything the library claims to support.
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["PyYAML>=6,<7"]
+# ///
+"""Validate the required CI dependency graph, permissions and coverage.
 
-The README and the package name the tmux versions and target frameworks this
-works on. A workflow that covers fewer turns that claim into something nobody
-checks, and the gap is invisible until a user on the missing version reports
-it.
+Actionlint owns workflow syntax and expressions. This checker owns the release
+policy, using YAML values so comments cannot satisfy required dependencies.
 """
 
 from __future__ import annotations
@@ -12,148 +14,199 @@ import argparse
 import json
 import pathlib
 import sys
+import typing as t
 
-#: Read rather than repeated. eng/parity/verify_tmux_versions.py checks the
-#: lists that cannot read it, such as the workflow matrix this one inspects.
-TMUX_VERSION_MANIFEST = pathlib.Path("eng/tmux/versions.json")
+import yaml
 
-
-def supported_tmux_versions(root: pathlib.Path) -> tuple[str, ...]:
-    """Answer the tmux versions the repository claims to support."""
-    with (root / TMUX_VERSION_MANIFEST).open(encoding="utf-8") as handle:
-        return tuple(json.load(handle)["supported"])
+TARGET_FRAMEWORKS = {"net8.0", "net10.0"}
 
 
-TARGET_FRAMEWORKS = ("net8.0", "net10.0")
+class WorkflowLoader(yaml.CBaseLoader):
+    """Read scalars literally, including GitHub's YAML 1.2 `on` key."""
 
-#: Checks a change has to pass locally. A workflow missing one of these would
-#: let a change through that the repository itself would refuse.
-REQUIRED_BUILD_STEPS = (
-    "--locked-mode",
-    "--verify-no-changes",
-    "--warnaserror",
-    "dotnet pack",
-    "LibTmux.AotSmoke",
-    "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-aot-smoke",
-    "--configfile tests/NuGet.config",
-    "LibTmux.PackageConsumer",
-    "NUGET_PACKAGES: ${{ runner.temp }}/libtmux-package-consumer",
-    "LibTmux.Examples",
-    "LibTmux.ExampleTests",
-    "render_api_reference.py --check",
-    "render_public_api.py --check",
-    "sync_snippets.py --check",
-    "fetch-depth: 0",
-)
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
+        """Reject duplicate keys instead of silently replacing policy."""
+        result = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in result:
+                raise ValueError(f"duplicate YAML key: {key}")
+            result[key] = self.construct_object(value_node, deep=deep)
+        return result
 
-REQUIRED_RELEASE_STEPS = (
-    "uses: ./.github/workflows/dotnet.yml",
-    "uses: ./.github/workflows/dotnet-tmux.yml",
-    "needs: [dotnet, compatibility, psmux]",
-    "github.ref_type",
-    "actions/download-artifact@",
-    "https://github.com/psmux/psmux/releases/download/v3.3.8/psmux-v3.3.8-windows-x64.zip",
-    "1ad127ba937194a890b933a73d9b023e297bd73dc742abd841bf159984c2effe",
-    "PSMUX_WSL_DISTRIBUTION",
-    "PSMUX_WSL_DOTNET_PATH",
-    "runs-on: [self-hosted, Windows, X64, psmux]",
-    "Invoke-PsmuxSmoke.ps1",
-    "-RunWslSmoke",
-    "-WslDotnetPath",
-    "-WslRepository $env:GITHUB_WORKSPACE",
-    "54e5c54db259218348f966b5d0d0b5153fdef6350074855ea9ce627d20537b0d",
-)
+
+def names(value: object) -> set[str]:
+    """Normalize a literal GitHub dependency or event list."""
+    if isinstance(value, str):
+        return {value}
+    if isinstance(value, (list, dict)):
+        return set(value)
+    return set()
 
 
 def verify(root: pathlib.Path) -> list[str]:
-    """Return one message per way the workflows fall short."""
-    violations: list[str] = []
-    workflows = root / ".github" / "workflows"
+    """Return violations of the repository's required workflow policy."""
+    errors: list[str] = []
+    documents: dict[str, dict[str, t.Any]] = {}
+    for name in ("dotnet", "dotnet-tmux", "release"):
+        try:
+            source = (root / f".github/workflows/{name}.yml").read_text(
+                encoding="utf-8"
+            )
+            document = yaml.load(source, Loader=WorkflowLoader)
+            if not isinstance(document, dict) or not isinstance(
+                document.get("jobs"), dict
+            ):
+                raise TypeError("expected a workflow with jobs")
+            documents[name] = document
+        except (OSError, TypeError, ValueError, yaml.YAMLError) as error:
+            errors.append(f"{name}.yml: {error}")
+    if errors:
+        return errors
 
-    build = workflows / "dotnet.yml"
-    matrix = workflows / "dotnet-tmux.yml"
-    release = workflows / "release.yml"
-    violations.extend(
-        f"missing workflow: {path.name}"
-        for path in (build, matrix, release)
-        if not path.is_file()
-    )
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
 
-    if violations:
-        return violations
+    def job(workflow: str, name: str) -> dict[str, t.Any]:
+        value = documents[workflow]["jobs"].get(name)
+        if not isinstance(value, dict):
+            errors.append(f"{workflow}.{name}: missing required job")
+            return {}
+        require(
+            value.get("continue-on-error", "false") == "false",
+            f"{workflow}.{name}.continue-on-error must be false",
+        )
+        return value
 
-    build_text = build.read_text(encoding="utf-8")
-    matrix_text = matrix.read_text(encoding="utf-8")
-    release_text = release.read_text(encoding="utf-8")
+    def needs(workflow: str, name: str, expected: set[str]) -> dict[str, t.Any]:
+        value = job(workflow, name)
+        require(
+            expected <= names(value.get("needs")),
+            f"{workflow}.{name}.needs must include {', '.join(sorted(expected))}",
+        )
+        return value
 
-    violations.extend(
-        f"dotnet.yml omits {step}"
-        for step in REQUIRED_BUILD_STEPS
-        if step not in build_text
-    )
-    violations.extend(
-        f"dotnet-tmux.yml omits tmux {version}"
-        for version in supported_tmux_versions(root)
-        if f"'{version}'" not in matrix_text
-    )
-    violations.extend(
-        f"dotnet-tmux.yml omits {framework}"
-        for framework in TARGET_FRAMEWORKS
-        if f"'{framework}'" not in matrix_text
-    )
-    violations.extend(
-        f"release.yml omits {step}"
-        for step in REQUIRED_RELEASE_STEPS
-        if step not in release_text
-    )
+    for name, document in documents.items():
+        require(
+            document.get("permissions") == {"contents": "read"},
+            f"{name}.permissions must default to contents: read",
+        )
+        for job_name, value in document["jobs"].items():
+            if name == "release" and job_name == "publish":
+                continue
+            require(
+                "permissions" not in value
+                or value["permissions"] == {"contents": "read"},
+                f"{name}.{job_name}.permissions may not elevate the workflow default",
+            )
 
-    for name, content in (("dotnet.yml", build_text), ("dotnet-tmux.yml", matrix_text)):
-        if "workflow_call:" not in content:
-            violations.append(f"{name} cannot be called by release.yml")
-
-    if "--skip-duplicate" in release_text:
-        violations.append("release.yml can hide an existing immutable package version")
-
-    cache = release_text.find("$env:NUGET_PACKAGES")
-    restore = release_text.find("dotnet restore LibTmux.slnx")
-    if cache < 0 or restore < 0 or cache > restore:
-        violations.append("release.yml isolates NuGet only after restoring dependencies")
-
-    for framework in TARGET_FRAMEWORKS:
-        if f"'{framework}'" not in release_text:
-            violations.append(f"release.yml omits psmux {framework}")
-
-    # One lane failing says something about that tmux version, which is only
-    # readable when the other lanes still run.
-    if "fail-fast: false" not in matrix_text:
-        violations.append("dotnet-tmux.yml stops the matrix at the first failure")
-
-    # A lane whose integration tests silently skipped would pass while proving
-    # nothing at all.
-    if "LIBTMUX_INTEGRATION_REQUIRED" not in matrix_text:
-        violations.append(
-            "dotnet-tmux.yml does not require its integration tests to run"
+    for name in ("dotnet", "dotnet-tmux"):
+        require(
+            "workflow_call" in names(documents[name].get("on")),
+            f"{name} must expose workflow_call",
         )
 
-    return violations
+    needs("dotnet", "gate", {"build", "windows"})
+    for name in ("build", "windows"):
+        required = job("dotnet", name)
+        require("if" not in required, f"dotnet.{name}.if may not skip a required build")
+
+    matrix = job("dotnet-tmux", "matrix")
+    strategy = matrix.get("strategy", {})
+    coverage = strategy.get("matrix", {})
+    supported = set(
+        json.loads((root / "eng/tmux/versions.json").read_text())["supported"]
+    )
+    require(
+        names(coverage.get("tmux")) == supported,
+        "supported tmux matrix differs from manifest",
+    )
+    require(
+        names(coverage.get("framework")) == TARGET_FRAMEWORKS,
+        "supported framework matrix differs",
+    )
+    require(not coverage.get("exclude"), "supported matrix exclusions are forbidden")
+    require(
+        strategy.get("fail-fast") == "false", "supported matrix fail-fast must be false"
+    )
+    require("if" not in matrix, "dotnet-tmux.matrix.if may not skip compatibility")
+    require(
+        any(
+            {**matrix.get("env", {}), **step.get("env", {})}.get(
+                "LIBTMUX_INTEGRATION_REQUIRED"
+            )
+            == "1"
+            for step in matrix.get("steps", [])
+            if "run" in step
+        ),
+        "supported matrix must require integration execution",
+    )
+    needs("dotnet-tmux", "compatibility", {"matrix"})
+
+    release = documents["release"]
+    triggers = release.get("on", {})
+    require(
+        isinstance(triggers, dict) and triggers.get("push", {}).get("tags") == ["v*"],
+        "release must trigger on v* tags",
+    )
+    require(
+        release.get("concurrency", {}).get("cancel-in-progress") == "false",
+        "release must not cancel publication in progress",
+    )
+    for name in (
+        "validate",
+        "dotnet",
+        "compatibility",
+        "psmux-metadata",
+        "psmux",
+        "publish",
+    ):
+        required = job("release", name)
+        require(
+            "if" not in required,
+            f"release.{name}.if may not bypass prerequisite success",
+        )
+    for name, workflow in (("dotnet", "dotnet"), ("compatibility", "dotnet-tmux")):
+        required = needs("release", name, {"validate"})
+        require(
+            required.get("uses") == f"./.github/workflows/{workflow}.yml",
+            f"release.{name}.uses must run the same-commit {workflow} workflow",
+        )
+    needs("release", "psmux-metadata", {"validate"})
+    psmux = needs("release", "psmux", {"validate", "psmux-metadata"})
+    require(
+        names(psmux.get("runs-on")) == {"self-hosted", "Windows", "X64", "psmux"},
+        "release.psmux must use the provisioned Windows runner",
+    )
+    publish = needs("release", "publish", {"dotnet", "compatibility", "psmux"})
+    require(
+        publish.get("environment") == "nuget",
+        "release.publish must use the nuget environment",
+    )
+    require(
+        publish.get("permissions")
+        == {
+            "contents": "read",
+            "id-token": "write",
+            "attestations": "write",
+        },
+        "release.publish.permissions must grant only publication and attestation access",
+    )
+    return errors
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Report whether the workflows cover what is claimed."""
+    """Check release policy; actionlint separately checks workflow syntax."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--root",
-        type=pathlib.Path,
-        default=pathlib.Path(__file__).resolve().parents[2],
-        help="the repository root holding .github/workflows",
+        "--root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[2]
     )
-    arguments = parser.parse_args(argv)
-    violations = verify(arguments.root)
-    for violation in violations:
-        print(violation)
-
-    return 1 if violations else 0
+    errors = verify(parser.parse_args(argv).root)
+    for error in errors:
+        print(error, file=sys.stderr)
+    return int(bool(errors))
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
