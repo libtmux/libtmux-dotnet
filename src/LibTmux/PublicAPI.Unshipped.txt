@@ -725,11 +725,31 @@ LibTmux.Query.QueryDocument.Target.get -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryDocument.Version.get -> int
 LibTmux.Query.QueryEdgeParser
 LibTmux.Query.QueryExtensions
+LibTmux.Query.QueryFieldCatalog
+LibTmux.Query.QueryFieldDescriptor
+LibTmux.Query.QueryFieldDescriptor.Cardinality.get -> LibTmux.Query.QueryRelationCardinality?
+LibTmux.Query.QueryFieldDescriptor.IsNullable.get -> bool?
+LibTmux.Query.QueryFieldDescriptor.MinimumSnapshotDepth.get -> LibTmux.SnapshotDepth?
+LibTmux.Query.QueryFieldDescriptor.Operators.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Query.QueryFieldDescriptor.RelatedTarget.get -> LibTmux.Query.QueryTarget?
+LibTmux.Query.QueryFieldDescriptor.RelationPropertyPath.get -> string?
+LibTmux.Query.QueryFieldDescriptor.ScalarPropertyPath.get -> string?
+LibTmux.Query.QueryFieldDescriptor.Target.get -> LibTmux.Query.QueryTarget
+LibTmux.Query.QueryFieldDescriptor.ValueKind.get -> LibTmux.Query.QueryValueKind?
+LibTmux.Query.QueryFieldDescriptor.WireName.get -> string!
+LibTmux.Query.QueryRelationCardinality
+LibTmux.Query.QueryRelationCardinality.Many = 1 -> LibTmux.Query.QueryRelationCardinality
+LibTmux.Query.QueryRelationCardinality.One = 0 -> LibTmux.Query.QueryRelationCardinality
 LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Client = 3 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Pane = 2 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Session = 0 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Window = 1 -> LibTmux.Query.QueryTarget
+LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.Boolean = 0 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.Int64 = 1 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.String = 2 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.TypedId = 3 -> LibTmux.Query.QueryValueKind
 LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Down = 1 -> LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Left = 2 -> LibTmux.ResizeDirection
@@ -1825,6 +1845,7 @@ static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, LibTmux.Query.QueryDocument! document, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Translate<T>(System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> LibTmux.Query.QueryDocument!
+static LibTmux.Query.QueryFieldCatalog.GetFields(LibTmux.Query.QueryTarget target) -> System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryFieldDescriptor!>!
 static LibTmux.ResizePaneRequest.operator !=(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizePaneRequest.operator ==(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizeWindowRequest.operator !=(LibTmux.ResizeWindowRequest? left, LibTmux.ResizeWindowRequest? right) -> bool

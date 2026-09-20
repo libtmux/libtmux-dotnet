@@ -346,16 +346,25 @@ QueryDocument document = QueryExtensions.Translate<Session>(
 ```
 
 The document carries stable wire names: `Session.Name` is `session_name` and
-`Client.IsControlClient` is `client_control_mode`. The catalog is closed over
-twelve queryable fields:
+`Client.IsControlClient` is `client_control_mode`. Discover the supported
+fields and wire operations without contacting tmux:
 
-| Session | Window | Pane | Client |
-|---|---|---|---|
-| `Name`, `Id`, `Attached`, `Windows` | `Name`, `Id`, `Panes` | `Id`, `pane_command` | `Name`, `IsControlClient`, `client_id` |
+```csharp run
+foreach (QueryFieldDescriptor field in QueryFieldCatalog.GetFields(QueryTarget.Pane))
+{
+    Console.WriteLine($"{field.WireName}: {string.Join(", ", field.Operators)}");
+}
+```
 
-Two fields have no property on their entity, and are reached by declaring a row
-whose property names are the wire names — which is also how you query a
-projection rather than an entity:
+Descriptors distinguish scalar paths such as `Panes.Count` from relation paths
+such as `Panes` and `ActiveWindow.Value`. They report related targets,
+cardinality, scalar nullability and minimum capture depth. Nested predicates
+use `QueryDocument.RequiredSnapshotDepth` for the complete requirement. An
+uncaptured relation remains an error; it is not empty or null. Clients have no
+hierarchy snapshot depth, and the schema-only `client_id` has no entity binding.
+
+Documents can also filter records whose property names are the PascalCase wire
+names:
 
 ```csharp
 internal sealed record PaneRow(string PaneId, string PaneCommand);
@@ -376,8 +385,7 @@ and a warning says what was left off. Where a whole command is missing, nothing
 is sent and `TmuxVersionTooLowException` says which version would be needed.
 
 ```csharp run
-// A handle says what it read: the version is what tmux reported when this
-// server was reached, and null when it reported something unparsable.
+// The materialized handle records the verified client executable version.
 TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```

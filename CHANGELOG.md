@@ -12,6 +12,9 @@ version.
 
 ### Added
 
+- `QueryFieldCatalog.GetFields` exposes immutable field, operator and relation
+  descriptors for criteria builders, including capture depth and native bindings.
+
 - `Server.InspectAsync` reads endpoint identity without initialization or
   daemon startup. `DaemonVersion` reports the inspected server version
   separately from the client executable version.
