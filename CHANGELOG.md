@@ -67,6 +67,9 @@ version.
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
 
+- Option command rejections retain `TmuxDispatchState.Dispatched`, including
+  failed option actions in workspace journals.
+
 - `Session.AttachAsync` accepts successful terminal detach after a guarded
   acknowledgement and preserves owned-client cancellation metadata.
 
