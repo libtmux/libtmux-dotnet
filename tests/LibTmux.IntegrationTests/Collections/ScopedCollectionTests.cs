@@ -109,6 +109,11 @@ public sealed class ScopedCollectionTests
         await server.ThrowIfDeadAsync(token);
         await raw.ExecuteAsync(["kill-server"], token);
 
+        // Asserting on tmux's own wording means waiting for the socket to
+        // stop being half-dead; until then the reason is the transport's
+        // "server exited unexpectedly", not tmux's.
+        await raw.WaitForSettledAsync(token);
+
         TmuxCommandException listingFailure = await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.GetSessionsAsync(token));
 
