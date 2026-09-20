@@ -46,14 +46,26 @@ The stream ends with `TmuxExitEvent` and then completes, so an `await foreach`
 is released rather than hanging when the server goes away.
 
 Notifications use a bounded, non-blocking buffer so a slow observer cannot
-stall command replies or the control reader. If the buffer fills, the oldest
-events are discarded and a `TmuxEventsDroppedEvent` appears immediately before
-the next retained event. `Count` is the loss since the previous marker and
-`TotalDropped` is the lifetime total. Treat the marker as cache invalidation:
-re-read any state that depends on notifications. Command replies travel through
-a separate queue and are not dropped by this buffer.
+stall command replies or the control reader. `ControlModeEventBufferCapacity`
+defaults to 512 events; `ControlModeEventBufferMaxBytes` defaults to 4 MiB of
+decoded UTF-8 payload. Set either property on `ServerConnectionOptions` before
+opening the control client. Payload counts output text, notification names and
+arguments, and exit reasons. It is not a managed-heap measurement; the event
+count and the separate protocol line limit bound object overhead.
 
-The marker arrives in sequence, where the discarded events would have been:
+The buffer discards oldest events until both ceilings hold. It rejects an
+individually oversized event; an oversized final exit reason is omitted while
+the terminal exit notification is retained. Each discard produces a
+`TmuxEventsDroppedEvent`. The marker precedes the next delivered event, or
+arrives alone when no event fits. It does not identify the panes or stream
+positions lost. `Count` is the loss since the previous marker and
+`TotalDropped` is the lifetime total.
+
+Treat the marker as cache invalidation: re-read state derived from
+notifications. `control.WatchAsync(pane)` forwards loss and rechecks whether
+the pane still exists. Stopping that iterator leaves the borrowed control
+client open. Command replies travel through a separate queue and are never
+dropped by the event buffer.
 
 <!-- snippet: NoticeDroppedEvents -->
 ```csharp

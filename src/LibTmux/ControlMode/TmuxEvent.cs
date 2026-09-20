@@ -27,19 +27,18 @@ public sealed record TmuxNotificationEvent(
     IReadOnlyList<string> Arguments) : TmuxEvent;
 
 /// <summary>Reports notifications discarded because the bounded event buffer was full.</summary>
-/// <param name="Count">The events discarded since the previous loss report.</param>
-/// <param name="TotalDropped">The events discarded over this control client's lifetime.</param>
+/// <param name="Count">The discarded events represented by this report.</param>
+/// <param name="TotalDropped">The cumulative events discarded by this client when the report was created.</param>
 /// <remarks>
-/// LibTmux synthesizes this event before the next retained event. A full buffer
-/// discards the oldest output of the pane with the most output waiting, and a
-/// notification only when it holds no output. Command replies use a separate queue and are never discarded.
+/// A full buffer discards the oldest output of the pane with the most queued
+/// bytes under byte pressure, or events under count pressure. It discards
+/// notifications only when no output is queued. An oversized event can produce
+/// loss by itself. Command replies use a separate queue.
 /// </remarks>
 public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent
 {
-    /// <summary>
-    /// Gets whether every discarded event was pane output, so notifications about
-    /// sessions, windows and layout since the previous report all arrived.
-    /// </summary>
+    /// <summary>Gets whether this report proves that only pane output was lost.</summary>
+    /// <remarks>A false value also covers uncertainty after the bounded loss history is compacted.</remarks>
     public bool OnlyOutput { get; init; }
 }
 
