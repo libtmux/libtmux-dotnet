@@ -4,6 +4,67 @@ namespace LibTmux.IntegrationTests;
 
 public sealed class WorkspaceFileTests
 {
+    [Fact]
+    public void Pane_options_parse_and_survive_immutable_resolution()
+    {
+        const string yaml = "windows:\n  - panes:\n      - options:\n          remain-on-exit: 'on'\n";
+        const string json = "{\"windows\":[{\"panes\":[{\"options\":{\"remain-on-exit\":\"on\"}}]}]}";
+        foreach (string document in new[] { yaml, json })
+        {
+            WorkspaceFile parsed = WorkspaceFile.Parse(document);
+            Assert.Equal("on", Assert.Single(Assert.Single(parsed.Windows).Panes).Options["remain-on-exit"]);
+        }
+
+        Dictionary<string, string> options = new() { ["remain-on-exit"] = "on" };
+        WorkspacePane pane = new WorkspacePane(options: options).WithDefaults(
+            environment: new Dictionary<string, string> { ["MODE"] = "test" },
+            shellCommandsBefore: ["echo before"]);
+        options["remain-on-exit"] = "off";
+        WorkspaceFile declaration = new(windows: [new WorkspaceWindow(panes: [pane])]);
+        WorkspacePane resolved = declaration.Resolve(Path.GetTempPath()).Windows[0].Panes[0];
+
+        Assert.Equal("on", pane.Options["remain-on-exit"]);
+        Assert.Equal("on", resolved.Options["remain-on-exit"]);
+        Assert.Equal("test", resolved.Environment["MODE"]);
+        Assert.Equal(["echo before"], resolved.ShellCommandsBefore);
+        Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)resolved.Options).Add("@changed", "yes"));
+    }
+
+    [Fact]
+    public void Before_script_stays_literal_through_parse_defaults_and_resolution()
+    {
+        const string command = "./prepare '$UNDEFINED' #{session_name}";
+        WorkspaceFile yaml = WorkspaceFile.Parse("before_script: \"./prepare '$UNDEFINED' #{session_name}\"\n");
+        WorkspaceFile json = WorkspaceFile.Parse("{\"before_script\":\"./prepare '$UNDEFINED' #{session_name}\"}");
+
+        Assert.Equal(command, yaml.BeforeScript);
+        Assert.Equal(command, json.BeforeScript);
+        Assert.Equal(command, new WorkspaceFile(beforeScript: command).BeforeScript);
+        Assert.Equal(command, yaml.WithDefaults().Resolve(Path.GetTempPath()).WithDefaults().BeforeScript);
+    }
+
+    [Theory]
+    [InlineData("''")]
+    [InlineData("'   '")]
+    [InlineData("\"bad\\0value\"")]
+    [InlineData("null")]
+    [InlineData("[echo, invalid]")]
+    public void Invalid_before_script_values_report_the_value_location(string value)
+    {
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(() =>
+            WorkspaceFile.Parse($"session_name: project\nbefore_script: {value}\n"));
+
+        Assert.Contains("before_script", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 2, column 16", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" \t ")]
+    [InlineData("bad\0value")]
+    public void Invalid_before_script_commands_fail_before_construction(string value) =>
+        Assert.Throws<ArgumentException>(() => new WorkspaceFile(beforeScript: value));
+
     [Theory]
     [InlineData("", "value")]
     [InlineData("A=B", "value")]
@@ -46,7 +107,7 @@ public sealed class WorkspaceFileTests
             """);
         string origin = Path.Combine(Path.GetTempPath(), "workspace-origin");
         string home = Path.Combine(origin, "home");
-        WorkspaceFile resolved = declaration.Resolve(origin, new Dictionary<string, string>
+        WorkspaceFile resolved = declaration.Resolve(Path.Combine(origin, "nested", ".."), new Dictionary<string, string>
         {
             ["PROJECT"] = "project",
             ["HOME"] = home,
@@ -59,6 +120,9 @@ public sealed class WorkspaceFileTests
         Assert.Equal(Path.Combine(home, "src", "$literal"), resolved.Windows[1].Panes[0].StartDirectory);
         Assert.Equal("echo $PROJECT", Assert.Single(resolved.Windows[0].Panes[0].ShellCommands));
         Assert.Equal("./source", declaration.StartDirectory);
+        Assert.Null(declaration.DocumentDirectory);
+        Assert.Equal(Path.GetFullPath(origin), resolved.DocumentDirectory);
+        Assert.Equal(resolved.DocumentDirectory, resolved.WithDefaults().DocumentDirectory);
     }
 
     [Fact]
@@ -170,7 +234,7 @@ public sealed class WorkspaceFileTests
         Assert.Throws<WorkspaceFormatException>(() => WorkspaceFile.Parse(yaml));
 
     [Theory]
-    [InlineData("before_script: echo no\nwindows: []\n", "$", "before_script")]
+    [InlineData("plugin: no\nwindows: []\n", "$", "plugin")]
     [InlineData("windows:\n  - panes:\n      - plugin: no\n", "windows[0].panes[0]", "plugin")]
     public void Unsupported_keys_report_their_path(
         string yaml,
