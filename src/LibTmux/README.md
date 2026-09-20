@@ -173,8 +173,9 @@ if (current.ActiveWindow.IsCaptured)
 `TryGetValue` when absence is expected; `OrNull` answers null instead of
 throwing. A session reached through an inactive window has that window's row,
 so its own active window may be uncaptured, and reading `Value` then throws
-`IncompleteSnapshotException` rather than reporting that there is none. `RefreshAsync` captures the entity's current active
-child. `CaptureSnapshotAsync(SnapshotDepth.Panes)` also preserves the captured
+`IncompleteSnapshotException` rather than reporting that there is none.
+`RefreshAsync` captures the entity's current active child.
+`CaptureSnapshotAsync(SnapshotDepth.Panes)` also preserves the captured
 parent and child graph. Reading any of these properties performs no I/O.
 
 ### Migrating from identity-only lookups

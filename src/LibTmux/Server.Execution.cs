@@ -169,11 +169,7 @@ public sealed partial class Server
         }
         catch (Exception)
         {
-            // Every way this dispatch can fail ends the same: the lock
-            // request never reached the server or the server rejected it, so
-            // there is nothing this abandoned caller left holding. Narrowing
-            // the catch would leave some of those failures unhandled for no
-            // release this cleanup could still perform.
+            // Observe a detached acquisition failure after its caller cancels.
             return;
         }
 

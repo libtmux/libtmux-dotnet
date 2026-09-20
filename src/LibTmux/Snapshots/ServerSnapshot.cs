@@ -147,12 +147,7 @@ internal sealed class ServerSnapshot
             }
         }
 
-        // Each window's own Panes relation was already filtered to its exact
-        // placement above (session_id, window_id and window_index all
-        // matched), so walking it back here assigns every pane's parent
-        // without re-deriving the placement from the pane's row a second
-        // time. Skipped below Panes depth, where every window's relation is
-        // uncaptured rather than empty.
+        // Each window's Panes relation already identifies the exact placement.
         if (depth >= SnapshotDepth.Panes)
         {
             foreach (Window window in windows)
