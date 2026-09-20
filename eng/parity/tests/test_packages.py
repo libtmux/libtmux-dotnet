@@ -28,7 +28,9 @@ def artifacts() -> pathlib.Path:
     return path
 
 
-def inspect(directory: pathlib.Path) -> subprocess.CompletedProcess[str]:
+def inspect(
+    directory: pathlib.Path, root: pathlib.Path = ROOT
+) -> subprocess.CompletedProcess[str]:
     """Invoke the owning validator without restoring or building."""
     return subprocess.run(
         [
@@ -38,7 +40,7 @@ def inspect(directory: pathlib.Path) -> subprocess.CompletedProcess[str]:
                 / "eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll"
             ),
             "packages",
-            str(ROOT),
+            str(root),
             str(directory),
             str(ROOT / "artifacts/api-inventory.json"),
         ],
@@ -51,6 +53,49 @@ def inspect(directory: pathlib.Path) -> subprocess.CompletedProcess[str]:
 def test_real_packages_pass(artifacts: pathlib.Path) -> None:
     result = inspect(artifacts)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
+    artifacts: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    source = tmp_path / "source"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--shared", str(ROOT), str(source)],
+        check=True,
+    )
+    shutil.copy2(ROOT / "docs/public-api.json", source / "docs/public-api.json")
+    packages = tmp_path / "packages"
+    shutil.copytree(artifacts, packages)
+    baseline = inspect(packages, source)
+    assert baseline.returncode == 0, baseline.stdout + baseline.stderr
+
+    project = source / "src/LibTmux/LibTmux.csproj"
+    project.write_text(
+        project.read_text().replace(
+            "</Project>",
+            '<ItemGroup><PackageReference Include="YamlDotNet" /></ItemGroup></Project>',
+        )
+    )
+    central = ElementTree.parse(source / "Directory.Packages.props")
+    version = central.find(".//PackageVersion[@Include='YamlDotNet']").attrib["Version"]
+    core = next(packages.glob("LibTmux.[0-9]*.nupkg"))
+    with zipfile.ZipFile(core) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    name = next(name for name in entries if name.endswith(".nuspec"))
+    spec = ElementTree.fromstring(entries[name])
+    namespace = spec.tag.removesuffix("package")
+    ElementTree.register_namespace("", namespace[1:-1])
+    for group in spec.findall(f".//{namespace}group"):
+        ElementTree.SubElement(
+            group, f"{namespace}dependency", {"id": "YamlDotNet", "version": version}
+        )
+    entries[name] = ElementTree.tostring(spec)
+    with zipfile.ZipFile(core, "w") as archive:
+        for name, contents in entries.items():
+            archive.writestr(name, contents)
+    result = inspect(packages, source)
+    assert result.returncode != 0, "validator accepted matching forbidden dependency"
+    assert "allowed dependencies" in result.stderr
 
 
 @pytest.mark.parametrize(

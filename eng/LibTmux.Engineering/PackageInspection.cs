@@ -43,12 +43,19 @@ internal static class PackageInspection
         Require(git.ExitCode == 0 && revision.Length == 40, "Cannot read repository revision.");
         using var inventory = JsonDocument.Parse(File.ReadAllText(inventoryPath));
         Require(inventory.RootElement.GetProperty("revision").GetString() == revision, "Compiler inventory revision differs from HEAD.");
+        using var policy = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "docs", "public-api.json")));
+        var allowedDependencies = policy.RootElement.GetProperty("packages").EnumerateArray()
+            .ToDictionary(package => package.GetProperty("id").GetString()!,
+                package => package.GetProperty("allowedDependencies").EnumerateArray()
+                    .Select(dependency => dependency.GetString()!).ToHashSet(StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
         using var projects = new ProjectCollection(new Dictionary<string, string> { ["Configuration"] = "Release" });
         var expected = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.csproj", SearchOption.AllDirectories)
             .Select(path => projects.LoadProject(path))
             .Where(project => project.GetPropertyValue("IsPackable") == "true")
             .ToDictionary(project => project.GetPropertyValue("PackageId"), StringComparer.OrdinalIgnoreCase);
         Require(expected.Count > 0, "No packable projects found.");
+        Require(expected.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(allowedDependencies.Keys), "Packable projects differ from dependency policy.");
         var expectedFiles = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (id, project) in expected)
         {
@@ -71,6 +78,7 @@ internal static class PackageInspection
             CheckSourceFile(package, "icon.png", Path.Combine(root, "assets", "icon.png"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
             var groups = package.NuspecReader.GetDependencyGroups().ToArray();
+            Require(groups.SelectMany(group => group.Packages).All(dependency => allowedDependencies[id].Contains(dependency.Id)), $"{id}: package exceeds allowed dependencies.");
             Require(tool ? groups.Length == 0 : groups.Select(group => group.TargetFramework.GetShortFolderName()).Order().SequenceEqual(frameworks.Order()), $"{id}: dependency framework groups differ from project.");
             var assets = package.GetFiles().Where(path => path.EndsWith($"/{id}.dll", StringComparison.Ordinal)).Order();
             var expectedAssets = frameworks.Select(tfm => $"{(tool ? $"tools/{tfm}/any" : $"lib/{tfm}")}/{id}.dll").Order();

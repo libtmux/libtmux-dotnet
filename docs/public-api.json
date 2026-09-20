@@ -5,19 +5,46 @@
   "packages": [
     {
       "id": "LibTmux",
-      "owns": "hierarchy, values, query AST, local evaluator"
+      "owns": "hierarchy, values, query AST, local evaluator",
+      "allowedDependencies": [
+        "Microsoft.Extensions.Logging.Abstractions"
+      ]
     },
     {
       "id": "LibTmux.Query.Json",
-      "owns": "System.Text.Json converters and source-generated context"
+      "owns": "System.Text.Json converters and source-generated context",
+      "allowedDependencies": [
+        "LibTmux"
+      ]
     },
     {
       "id": "LibTmux.Testing",
-      "owns": "scoped tmux servers, sessions and windows for tests"
+      "owns": "scoped tmux servers, sessions and windows for tests",
+      "allowedDependencies": [
+        "LibTmux"
+      ]
     },
     {
       "id": "LibTmux.Extensions.DependencyInjection",
-      "owns": "service registration for a server handle and its options"
+      "owns": "service registration for a server handle and its options",
+      "allowedDependencies": [
+        "LibTmux",
+        "Microsoft.Extensions.DependencyInjection.Abstractions",
+        "Microsoft.Extensions.Options"
+      ]
+    },
+    {
+      "id": "LibTmux.Workspace",
+      "owns": "workspace configuration parsing and orchestration",
+      "allowedDependencies": [
+        "LibTmux",
+        "YamlDotNet"
+      ]
+    },
+    {
+      "id": "LibTmux.Mcp",
+      "owns": "MCP tool host",
+      "allowedDependencies": []
     }
   ],
   "conventions": {
