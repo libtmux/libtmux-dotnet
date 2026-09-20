@@ -475,6 +475,18 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
 
                 if (!line.StartsWith('%'))
                 {
+                    PendingControlModeCommand? pending;
+                    lock (_pending)
+                    {
+                        pending = _pending.Count == 0 ? null : _pending.Peek();
+                    }
+
+                    if (pending?.AcceptsDeferredShellOutput == true)
+                    {
+                        pending.AddDeferredShellOutput(line, _limits);
+                        continue;
+                    }
+
                     throw new TmuxProtocolException(
                         "The tmux control client sent output outside a block.",
                         TmuxDispatchState.Unknown);
