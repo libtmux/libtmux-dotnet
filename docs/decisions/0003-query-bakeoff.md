@@ -62,8 +62,10 @@ not metadata-free execution.
 ## Decision
 
 Use a closed field catalog with one immutable canonical query AST shared by
-expression translation, direct local interpretation, and JSON. The catalog is
-an internal implementation detail; public API does not expose its vocabulary.
+expression translation, direct local interpretation, and JSON. Its accessors
+and predicate nodes remain internal. `QueryFieldCatalog.GetFields` now exposes
+immutable field descriptors for downstream criteria builders, replacing the
+original internal-only vocabulary decision without opening field registration.
 
 Public query entry points do not require a catalog or capability object. Query
 translation and interpretation are independent of the connected tmux version.
