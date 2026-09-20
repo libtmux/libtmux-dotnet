@@ -21,6 +21,12 @@
           "LibTmux": "[0.0.0-alpha.15, )"
         }
       },
+      "libtmux.query.json": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.15, )"
+        }
+      },
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
@@ -60,6 +66,12 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[10.1.302, )",
+          "LibTmux": "[0.0.0-alpha.15, )"
+        }
+      },
+      "libtmux.query.json": {
+        "type": "Project",
+        "dependencies": {
           "LibTmux": "[0.0.0-alpha.15, )"
         }
       },

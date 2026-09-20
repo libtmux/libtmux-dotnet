@@ -12,5 +12,24 @@ token to the façade function explicitly and preserve core exceptions. Use
 `Selection.exactlyOne` when zero and multiple local matches need different
 outcomes.
 
-`LibTmux.Query.Json` remains optional. Serialize `Filter.toDocument` through
-that package when a portable filter must cross a process or language boundary.
+`LibTmux.Query.Json` remains optional. Add it only when a portable filter must
+cross a process or language boundary. It serializes the core `QueryDocument`;
+the F# package does not define a second format.
+
+<!-- fsharp-snippet: PortableFilterJson run -->
+```fsharp run
+open LibTmux
+open LibTmux.FSharp
+open LibTmux.Query.Json
+
+let encodeEditorPaneFilter () =
+    Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
+    |> Filter.toDocument
+    |> QueryJson.Serialize
+
+let decodeFilter json = QueryJson.Deserialize json
+```
+<!-- endfsharp-snippet -->
+
+Validate and apply the decoded document with the core query APIs. A JSON round
+trip does not turn a portable filter into a tmux format expression.

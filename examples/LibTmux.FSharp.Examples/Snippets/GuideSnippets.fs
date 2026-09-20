@@ -118,3 +118,76 @@ module internal GuideSnippets =
         server
         |> Control.withSession cancellationToken (readUntilTerminalAsync cancellationToken)
     // endfsharp-snippet
+
+
+    // fsharp-snippet: ChainCommands
+    open System.Threading
+    open LibTmux
+
+    let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
+        task {
+            let chain =
+                server
+                    .Chain()
+                    .Then("display-message", "-p", "fsharp-chain-first")
+                    .Then("display-message", "-p", "fsharp-chain-second")
+
+            let! result = chain.ExecuteAsync(cancellationToken)
+            return result.StandardOutputLines |> Seq.toList
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: BoundedCapture
+    open System
+    open System.Threading
+    open System.Threading.Tasks
+    open LibTmux
+    open LibTmux.FSharp
+
+    let boundedMapAsync
+        maximumConcurrency
+        (cancellationToken: CancellationToken)
+        (work: CancellationToken -> 'Input -> Task<'Output>)
+        (inputs: 'Input list)
+        =
+        if maximumConcurrency < 1 then
+            invalidArg "maximumConcurrency" "Maximum concurrency must be positive."
+
+        task {
+            use gate = new SemaphoreSlim(maximumConcurrency)
+
+            let run index input =
+                task {
+                    do! gate.WaitAsync(cancellationToken)
+
+                    try
+                        let! output = work cancellationToken input
+                        return index, output
+                    finally
+                        gate.Release() |> ignore
+                }
+
+            let! indexed = inputs |> List.mapi run |> Task.WhenAll
+
+            return indexed |> Array.sortBy fst |> Array.map snd |> Array.toList
+        }
+
+    let capturePanesBoundedAsync maximumConcurrency cancellationToken (panes: seq<Pane>) =
+        panes
+        |> Seq.toList
+        |> boundedMapAsync maximumConcurrency cancellationToken (fun token pane ->
+            pane |> Pane.capture token (CapturePaneRequest()))
+    // endfsharp-snippet
+
+    // fsharp-snippet: PortableFilterJson
+    open LibTmux
+    open LibTmux.FSharp
+    open LibTmux.Query.Json
+
+    let encodeEditorPaneFilter () =
+        Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
+        |> Filter.toDocument
+        |> QueryJson.Serialize
+
+    let decodeFilter json = QueryJson.Deserialize json
+    // endfsharp-snippet

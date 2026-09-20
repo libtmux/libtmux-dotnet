@@ -139,6 +139,14 @@ internal static class ApiInventory
             "Release",
             "net10.0",
             "LibTmux.dll");
+        string queryJsonAssembly = Path.Join(
+            root,
+            "src",
+            "LibTmux.Query.Json",
+            "bin",
+            "Release",
+            "net10.0",
+            "LibTmux.Query.Json.dll");
         var start = new ProcessStartInfo("dotnet")
         {
             WorkingDirectory = root,
@@ -152,6 +160,7 @@ internal static class ApiInventory
                 Path.Join(root, "eng", "LibTmux.Engineering", "FSharpContract.fsx"),
                 coreAssembly,
                 facadeAssembly,
+                queryJsonAssembly,
                 Path.Join(Path.GetDirectoryName(facadeProject)!, "README.md"),
                 Path.Join(root, "docs", "fsharp"),
             },
