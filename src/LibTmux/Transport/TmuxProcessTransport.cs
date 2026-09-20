@@ -129,14 +129,15 @@ internal sealed class TmuxProcessTransport
 
         await using (process.ConfigureAwait(false))
         {
+            using var outputLifetime = new CancellationTokenSource();
             Task? wait = null;
             Task<byte[]>? stdout = null;
             Task<byte[]>? stderr = null;
             try
             {
                 wait = process.WaitForExitAsync(cancellationToken);
-                stdout = ReadBoundedAsync(process.StandardOutput);
-                stderr = ReadBoundedAsync(process.StandardError);
+                stdout = ReadBoundedAsync(process.StandardOutput, outputLifetime.Token);
+                stderr = ReadBoundedAsync(process.StandardError, outputLifetime.Token);
                 await AwaitProcessAndPumpsAsync(
                     cancellationToken,
                     wait,
@@ -165,6 +166,7 @@ internal sealed class TmuxProcessTransport
                 {
                     await CleanupAsync(
                             process,
+                            outputLifetime,
                             primaryFailure: error,
                             primaryOperation: null,
                             stdout,
@@ -199,6 +201,7 @@ internal sealed class TmuxProcessTransport
                 {
                     await CleanupAsync(
                             process,
+                            outputLifetime,
                             primaryFailure,
                             primaryOperation,
                             stdout,
@@ -246,13 +249,25 @@ internal sealed class TmuxProcessTransport
         return startInfo;
     }
 
-    private async Task<byte[]> ReadBoundedAsync(Stream stream)
+    private async Task<byte[]> ReadBoundedAsync(Stream stream, CancellationToken cancellationToken)
     {
         using var captured = new MemoryStream();
         byte[] buffer = new byte[81920];
         while (true)
         {
-            int read = await stream.ReadAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+            int read;
+            try
+            {
+                read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException failure) when (cancellationToken.IsCancellationRequested
+                && failure.CancellationToken == cancellationToken)
+            {
+                // The daemon may retain the client's output descriptor after its
+                // process exits. Cleanup ends this reader without waiting for EOF.
+                return captured.ToArray();
+            }
+
             if (read == 0)
             {
                 return captured.ToArray();
@@ -302,10 +317,12 @@ internal sealed class TmuxProcessTransport
 
     private async Task CleanupAsync(
         ITmuxProcessHandle process,
+        CancellationTokenSource outputLifetime,
         Exception primaryFailure,
         Task? primaryOperation,
         params Task?[] streamPumps)
     {
+        Task stopOutput = outputLifetime.CancelAsync();
         Task kill = Task.Run(() =>
         {
             try
@@ -325,6 +342,7 @@ internal sealed class TmuxProcessTransport
         [
             kill,
             reap,
+            stopOutput,
             .. streamPumps.Where(static task => task is not null).Cast<Task>(),
         ];
         Task all = Task.WhenAll(operations);
