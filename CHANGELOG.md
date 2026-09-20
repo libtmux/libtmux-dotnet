@@ -16,6 +16,13 @@ version.
   `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
   `None` for absent objects and propagate read errors and cancellation.
 
+- `Server.InspectAsync` reads endpoint identity without initialization or
+  daemon startup. `DaemonVersion` reports the inspected server version
+  separately from the client executable version.
+
+- `NewSessionRequest.ExpectedGeneration` binds creation and readback to one
+  daemon. It also binds `ToCommand()` output and rejects `ReplaceExisting`.
+
 - Query schema v2 adds `Pane.CurrentPath`, window placement index and active
   state, to-one navigation, session panes and linked sessions.
 
@@ -36,6 +43,9 @@ version.
 
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
+
+- Generation-bound commands keep an absent tmux daemon stopped, without
+  loading its configuration before the generation guard runs.
 
 - MCP stdin EOF cancels pending requests before session and owned-daemon
   cleanup, so a disconnected client cannot leave a text wait running.

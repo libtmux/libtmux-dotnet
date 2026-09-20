@@ -24,6 +24,9 @@ internal abstract class MultiplexerDialect
     /// <summary>Gets whether this dialect speaks to the psmux preview.</summary>
     internal abstract bool IsPsmux { get; }
 
+    internal string VerifiedRawVersion => Volatile.Read(ref _rawVersion)
+        ?? throw new InvalidOperationException("The multiplexer version has not been verified.");
+
     /// <summary>Gets the transport every command ultimately reaches.</summary>
     private protected Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
         Execute

@@ -492,6 +492,8 @@ LibTmux.NewSessionRequest.DetachOthers.get -> bool
 LibTmux.NewSessionRequest.DetachOthers.init -> void
 LibTmux.NewSessionRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
 LibTmux.NewSessionRequest.Environment.init -> void
+LibTmux.NewSessionRequest.ExpectedGeneration.get -> LibTmux.ServerGeneration?
+LibTmux.NewSessionRequest.ExpectedGeneration.init -> void
 LibTmux.NewSessionRequest.Equals(LibTmux.NewSessionRequest? other) -> bool
 LibTmux.NewSessionRequest.Height.get -> string?
 LibTmux.NewSessionRequest.Height.init -> void
@@ -867,6 +869,8 @@ LibTmux.Server.ConfigureAccessAsync(LibTmux.ServerAccessRequest! request, System
 LibTmux.Server.ConfirmBeforeAsync(LibTmux.ConfirmBeforeRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ConnectAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 LibTmux.Server.ConnectionOptions.get -> LibTmux.ServerConnectionOptions!
+LibTmux.Server.DaemonVersion.get -> LibTmux.TmuxVersion?
+LibTmux.Server.InspectAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server?>!
 LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedSessionScope!>!
 LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
