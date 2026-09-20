@@ -302,6 +302,7 @@ modes differ.
 | `LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)` | Returns a key request that needs only one tmux command. |
 | `LibTmux.SendKeysRequest.ToCommands(LibTmux.Pane)` | Returns every command the key request sends, in order. |
 | `LibTmux.Server.AttachSessionAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to a session on this server. |
+| `LibTmux.Server.BuildGuardedCommandLine(LibTmux.ServerGeneration,System.String,System.Collections.Generic.IReadOnlyList{System.String}[])` | Builds the argument vector for a raw tmux invocation that only takes effect while the named server generation is still current. |
 | `LibTmux.Server.CaptureSnapshotAsync(LibTmux.SnapshotDepth,System.Threading.CancellationToken)` | Reads the server and answers a handle carrying what it found. |
 | `LibTmux.Server.Chain` | Begins a chain that runs its commands in one tmux invocation. |
 | `LibTmux.Server.ClearPromptHistoryAsync(System.Nullable{LibTmux.PromptType},System.Threading.CancellationToken)` | Forgets what has been typed at command prompts. |
@@ -338,6 +339,7 @@ modes differ.
 | `LibTmux.Server.HasSessionAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Reports whether a session exists. |
 | `LibTmux.Server.IfShellAsync(LibTmux.IfShellRequest,System.Threading.CancellationToken)` | Runs one tmux command or another depending on a shell command. |
 | `LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken)` | Reports whether a tmux server is answering. |
+| `LibTmux.Server.IsValidLayoutCandidate(System.String,System.Int32)` | Checks a layout's syntax without contacting a server. |
 | `LibTmux.Server.KillAsync(System.Threading.CancellationToken)` | Stops the tmux server. |
 | `LibTmux.Server.KillSessionAsync(System.String,System.Threading.CancellationToken)` | Stops one session. |
 | `LibTmux.Server.LockAsync(System.Threading.CancellationToken)` | Locks every client attached to this server. |
@@ -356,12 +358,13 @@ modes differ.
 | `LibTmux.Server.SuspendClientAsync(System.String,System.Threading.CancellationToken)` | Suspends one client. |
 | `LibTmux.Server.SwitchClientAsync(System.String,System.Threading.CancellationToken)` | Switches the caller's client to another session. |
 | `LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
-| `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, locks, or unlocks a tmux channel. |
 | `LibTmux.Server.ValidateLayoutsAsync(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Threading.CancellationToken)` | Checks layouts before a workspace changes the server. |
+| `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, locks, or unlocks a tmux channel. |
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
 | `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
 | `LibTmux.ServerAccessRequest.ToCommand(LibTmux.Server)` | Returns an access request as one tmux command. |
 | `LibTmux.ServerGeneration.#ctor(System.Int32,System.Int64)` | Initializes a server generation. |
+| `LibTmux.ServerGeneration.Parse(System.String)` | Parses a generation reported in . |
 | `LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to this session. |
 | `LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session and takes ownership of it. |
 | `LibTmux.Session.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session. |
@@ -901,6 +904,7 @@ modes differ.
 | `LibTmux.Server.Buffers` | Gets the paste buffers of this server. |
 | `LibTmux.Server.Clients` | Gets the clients this handle captured. |
 | `LibTmux.Server.ConnectionOptions` | Gets the connection options. |
+| `LibTmux.Server.EndpointArguments` | Gets the endpoint selection arguments -- -L, -S, or a configuration file flag -- this handle's connection resolved. |
 | `LibTmux.Server.Environment` | Gets the environment new sessions inherit from. |
 | `LibTmux.Server.Generation` | Gets the materialized server generation. |
 | `LibTmux.Server.Hooks` | Gets the hooks of this server. |
@@ -1147,6 +1151,7 @@ modes differ.
 | `LibTmux.SelectLayoutMode.Next` | Move to the next layout. |
 | `LibTmux.SelectLayoutMode.Previous` | Move to the previous layout. |
 | `LibTmux.SelectLayoutMode.Spread` | Spread the panes out evenly. |
+| `LibTmux.ServerGeneration.DisplayFormat` | The tmux format string that reports a generation as ProcessId:StartTime, the shape reads. |
 | `LibTmux.ShowMessagesMode.Jobs` | The jobs the server is running. |
 | `LibTmux.ShowMessagesMode.Messages` | The server's own message log. |
 | `LibTmux.ShowMessagesMode.Terminals` | What the server knows about attached terminals. |

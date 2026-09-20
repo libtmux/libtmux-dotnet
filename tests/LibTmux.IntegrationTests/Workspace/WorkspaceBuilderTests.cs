@@ -154,9 +154,11 @@ public sealed class WorkspaceBuilderTests
     [InlineData("b25d,80x24,0,0,0")]
     public async Task Invalid_later_layout_is_refused_before_workspace_creation(string layout)
     {
-        Server server = Server.Open(new ServerConnectionOptions { 
+        Server server = Server.Open(new ServerConnectionOptions
+        {
             TmuxBinaryPath = "/tmp/libtmux-dotnet-test/missing-layout-backend",
-            SocketPath = "/tmp/libtmux-dotnet-test/unused-layout-socket" });
+            SocketPath = "/tmp/libtmux-dotnet-test/unused-layout-socket"
+        });
         WorkspaceFile workspace = WorkspaceFile.Parse($$"""
             session_name: invalid-layout
             windows:

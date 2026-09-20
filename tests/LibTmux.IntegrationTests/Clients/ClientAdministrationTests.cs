@@ -129,19 +129,19 @@ public sealed class ClientAdministrationTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session doomsday = await server.CreateSessionAsync(
-            new NewSessionRequest(name: "doomsday"), token);
+            new NewSessionRequest { Name = "doomsday" }, token);
 
         // The test process has no terminal, so every attach fails; which error
         // tmux gives says which session it resolved. A bare "doom" would match
         // "doomsday" and fail opening the terminal; anchored, it finds nothing.
         TmuxCommandException byPrefix = await Assert.ThrowsAsync<TmuxCommandException>(
-            () => server.AttachSessionAsync(new AttachSessionRequest(target: "doom"), token));
+            () => server.AttachSessionAsync(new AttachSessionRequest { Target = "doom" }, token));
         Assert.Contains("can't find session", byPrefix.Message, StringComparison.Ordinal);
 
         // An id still resolves to its session, so it reaches the terminal check.
         TmuxCommandException byId = await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.AttachSessionAsync(
-                new AttachSessionRequest(target: doomsday.Id.ToString()), token));
+                new AttachSessionRequest { Target = doomsday.Id.ToString() }, token));
         Assert.DoesNotContain("can't find session", byId.Message, StringComparison.Ordinal);
     }
 

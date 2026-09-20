@@ -98,12 +98,13 @@ public sealed partial class Server
         foreach (string layout in sensitive)
         {
             if (layout.StartsWith('{')
-                ? version < TmuxVersion.Parse("3.8")
+                ? !TmuxLayoutSyntax.SupportsJsonLayout(version)
                 : mirrors == TmuxCapabilityState.Unknown
                     || !TmuxLayoutSyntax.IsNamedLayout(layout, mirrors == TmuxCapabilityState.Supported))
             {
                 throw Invalid(
-                    $"Layout '{layout}' is unknown or ambiguous on tmux {version.Raw}.",
+                    TmuxLayoutSyntax.InvalidLayoutMessage(
+                        layout, mirrors == TmuxCapabilityState.Supported, $"tmux {version.Raw}"),
                     layouts.First(item => item.Layout == layout).Window);
             }
         }

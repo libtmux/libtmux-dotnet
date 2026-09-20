@@ -222,6 +222,19 @@ public sealed class CompositeMutationDispatchTests
     }
 
     [Fact]
+    public void Captured_json_layouts_render_on_tmux_3_8()
+    {
+        const string layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}";
+        Window window = CreateWindow(
+            (_, _) => throw new InvalidOperationException("Rendering dispatched a command."),
+            rawVersion: "tmux 3.8");
+
+        TmuxCommand command = new SelectLayoutRequest { Layout = layout }.ToCommand(window);
+
+        Assert.Equal(layout, command.Arguments[^1]);
+    }
+
+    [Fact]
     public async Task Pane_display_message_client_flag_is_refused_before_3_3()
     {
         int dispatches = 0;

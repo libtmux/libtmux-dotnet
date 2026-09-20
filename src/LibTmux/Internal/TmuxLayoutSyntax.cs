@@ -15,6 +15,9 @@ internal static class TmuxLayoutSyntax
             ? TryCountCells(layout, out int cells) && cells >= paneCount
             : IsNamedLayout(layout, mirrored: false) || IsNamedLayout(layout, mirrored: true));
 
+    internal static bool SupportsJsonLayout(TmuxVersion? version) =>
+        version is TmuxVersion jsonVersion && jsonVersion >= TmuxVersion.Parse("3.8");
+
     internal static bool NeedsVersion(string layout) =>
         layout.StartsWith('{') || (!layout.Contains(',', StringComparison.Ordinal)
         && IsNamedLayout(layout, mirrored: false) != IsNamedLayout(layout, mirrored: true));
@@ -42,6 +45,15 @@ internal static class TmuxLayoutSyntax
         }
 
         return matches == 1;
+    }
+
+    internal static string InvalidLayoutMessage(string layout, bool mirrored, string version)
+    {
+        string[] matches = [.. LayoutNames.Take(mirrored ? 7 : 5)
+            .Where(name => name.StartsWith(layout, StringComparison.Ordinal))];
+        return matches.Length > 1
+            ? $"'{layout}' matches more than one layout preset: {string.Join(", ", matches)}."
+            : $"{version} does not know the layout '{layout}', or its syntax is malformed.";
     }
 
     internal static bool TryCountCells(string layout, out int cells)

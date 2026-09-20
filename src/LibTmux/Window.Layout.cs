@@ -156,10 +156,10 @@ public sealed partial class Window
     {
         if (!TmuxLayoutSyntax.IsValidCandidate(layout, 1)
             || (layout.StartsWith('{')
-                && RequireOwner("layout").Version < TmuxVersion.Parse("3.8")))
+                && !TmuxLayoutSyntax.SupportsJsonLayout(RequireOwner("layout").Version)))
         {
             throw new TmuxWindowException(
-                $"Layout '{layout}' is unknown, ambiguous, or malformed.",
+                TmuxLayoutSyntax.InvalidLayoutMessage(layout, mirrored: false, RequireOwner("layout").RawVersion!),
                 _id,
                 TmuxDispatchState.NotDispatched);
         }

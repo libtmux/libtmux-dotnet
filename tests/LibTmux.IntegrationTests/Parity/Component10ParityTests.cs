@@ -189,7 +189,7 @@ public sealed class Component10ParityTests
 
         // tmux reads an unanchored -t as a prefix, so "doom" would otherwise
         // resolve to this session and kill it instead of refusing.
-        await server.CreateSessionAsync(new NewSessionRequest(name: "doomsday"), token);
+        await server.CreateSessionAsync(new NewSessionRequest { Name = "doomsday" }, token);
         await Assert.ThrowsAsync<TmuxCommandException>(() => server.KillSessionAsync("doom", token));
         bool prefixMatchWasRefused = await server.HasSessionAsync("doomsday", true, token);
         await server.KillSessionAsync("doomsday", token);

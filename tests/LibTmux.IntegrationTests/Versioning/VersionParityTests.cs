@@ -118,10 +118,12 @@ public sealed class VersionParityTests
         CancellationToken token = TestContext.Current.CancellationToken;
         string directory = Path.Combine(Path.GetTempPath(), "libtmux-dotnet-test");
         Directory.CreateDirectory(directory);
-        Server server = Server.Open(new ServerConnectionOptions {
+        Server server = Server.Open(new ServerConnectionOptions
+        {
             TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
             SocketPath = Path.Combine(directory, "layout-proof-" + Guid.NewGuid().ToString("N")),
-            ConfigurationFile = "/dev/null" });
+            ConfigurationFile = "/dev/null"
+        });
         try
         {
             Session session = await server.CreateSessionAsync(new NewSessionRequest { Name = "layout-proof" }, token);
