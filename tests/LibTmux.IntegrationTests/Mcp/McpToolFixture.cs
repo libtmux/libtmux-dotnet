@@ -71,12 +71,12 @@ internal sealed class McpToolFixture : IAsyncDisposable
         TmuxConnectionAccessor connection = new(
             options.ConnectionOptions,
             options.ConnectionOptions.SocketName);
-        PaneActivityHub activity = new();
         ServerPolicy effective = policy ?? new ServerPolicy
         {
             WaitCeiling = TimeSpan.FromSeconds(20),
         };
 
+        PaneActivityHub activity = new(allowPollingFallback: effective.AllowPollingFallback);
         var read = new ReadTools(connection, effective, activity);
         var write = new WriteTools(connection, effective, activity);
         return new McpToolFixture(

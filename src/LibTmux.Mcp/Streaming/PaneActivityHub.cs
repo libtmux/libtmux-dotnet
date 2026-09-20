@@ -9,22 +9,20 @@ namespace LibTmux.Mcp;
 /// <remarks>
 /// <para>
 /// tmux will report pane output as it happens to a client in control mode, so
-/// a wait can sleep until there is something to look at instead of asking
-/// every few milliseconds whether anything changed. On a wait that ends up
-/// timing out, that is the difference between hundreds of tmux processes and
-/// none.
+/// a wait can sleep until there is something to look at. This avoids repeated
+/// pane polling while preserving the initial and final reads.
 /// </para>
 /// <para>
-/// What arrives on that stream is the pane's raw terminal bytes — escape
+/// What arrives on that stream is the pane's decoded terminal output — escape
 /// sequences, redraws and all — which is why it is used as a signal and never
 /// as content. The text a caller gets always comes from a capture, which is
 /// what tmux has already rendered.
 /// </para>
 /// <para>
 /// A control client sees only the session it attached to, so watches are per
-/// session and reference counted. Control mode is an optimisation, not a
-/// requirement: when a client cannot start, waiting falls back to polling and
-/// the caller cannot tell the difference except in cost.
+/// session and reference counted. Control mode is required unless polling fallback
+/// is explicitly enabled. A lost control stream wakes waiters so they can
+/// apply that policy before reading again.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -36,20 +34,31 @@ public sealed class PaneActivityHub : IAsyncDisposable
     private readonly ConcurrentDictionary<SessionWatchKey, SessionWatch> _watches = [];
     private readonly ConcurrentDictionary<string, byte> _ownedControlClientNames = new(StringComparer.Ordinal);
     private readonly ILogger? _logger;
+    private readonly bool _allowPollingFallback;
+    private readonly TimeProvider _timeProvider = TimeProvider.System;
     private readonly Func<Pane, CancellationToken, Task<IControlModeSession>>? _startPaneSession;
     private bool _disposed;
 
     /// <summary>Initializes the hub.</summary>
-    /// <param name="logger">Records why a control client could not start.</param>
-    public PaneActivityHub(ILogger? logger = null) => _logger = logger;
+    /// <param name="logger">Records control-client failures and polling activation.</param>
+    /// <param name="allowPollingFallback">Allows timed reads when control observation is unavailable.</param>
+    public PaneActivityHub(ILogger? logger = null, bool allowPollingFallback = false)
+    {
+        _logger = logger;
+        _allowPollingFallback = allowPollingFallback;
+    }
 
     internal PaneActivityHub(
         Func<Pane, CancellationToken, Task<IControlModeSession>> startPaneSession,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        bool allowPollingFallback = false,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(startPaneSession);
         _startPaneSession = startPaneSession;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _logger = logger;
+        _allowPollingFallback = allowPollingFallback;
     }
 
     /// <summary>Gets whether any session is currently watched through control mode.</summary>
@@ -92,8 +101,8 @@ public sealed class PaneActivityHub : IAsyncDisposable
     /// <param name="cancellationToken">Cancels starting the control client.</param>
     /// <returns>A lease that stops watching when disposed.</returns>
     /// <remarks>
-    /// Take one of these around a wait. Without it the wait still works, by
-    /// polling; with it, tmux does the waiting.
+    /// Hold the lease throughout a wait. Startup failures propagate unless polling
+    /// fallback was explicitly enabled; cancellation always propagates.
     /// </remarks>
     public async Task<IAsyncDisposable> WatchAsync(Pane pane, CancellationToken cancellationToken)
     {
@@ -126,7 +135,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
             or NotSupportedException)
         {
             throw new TmuxTransportException(
-                "The tmux control client could not attach; polling will be used instead.",
+                "The tmux control client could not attach.",
                 [],
                 TmuxDispatchState.NotDispatched,
                 error);
@@ -207,6 +216,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
     /// <param name="timeout">How long to wait at most.</param>
     /// <param name="cancellationToken">Stops waiting.</param>
     /// <returns><see langword="true" /> when the pane printed something.</returns>
+    /// <exception cref="TmuxTransportException">No control signal exists and polling fallback is disabled.</exception>
     public async Task<bool> WaitForActivityAsync(
         string paneId,
         object? signalBefore,
@@ -219,10 +229,10 @@ public sealed class PaneActivityHub : IAsyncDisposable
             return false;
         }
 
-        // Without a live control client there is nothing to be woken by, so the
-        // caller sleeps a short fixed step and reads again.
+        cancellationToken.ThrowIfCancellationRequested();
         if (signalBefore is not Task wake)
         {
+            _ = RequireObservation(signalBefore);
             TimeSpan step = timeout < PollInterval ? timeout : PollInterval;
             await Task.Delay(step, cancellationToken).ConfigureAwait(false);
             return false;
@@ -230,13 +240,40 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
         try
         {
-            await wake.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+            await wake.WaitAsync(timeout, _timeProvider, cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (TimeoutException)
         {
             return false;
         }
+    }
+
+    internal bool RequireObservation(object? signal)
+    {
+        if (signal is Task)
+        {
+            return false;
+        }
+
+        if (!_allowPollingFallback)
+        {
+            throw new TmuxTransportException(
+                "Pane observation requires a live control client. "
+                + $"Enable {ServerPolicy.AllowPollingFallbackVariable}=true to permit polling fallback.",
+                [],
+                TmuxDispatchState.NotDispatched);
+        }
+
+        return true;
+    }
+
+    internal static long EventsDropped(IAsyncDisposable lease) =>
+        ((IObservationLease)lease).EventsDropped;
+
+    private interface IObservationLease : IAsyncDisposable
+    {
+        public long EventsDropped { get; }
     }
 
     /// <summary>Takes the token that a later wait on this pane will wake from.</summary>
@@ -302,6 +339,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
         private WatchRun? _run;
         private bool _retired;
         private int _leases;
+        private long _eventsDropped;
 
         internal bool IsStreaming
         {
@@ -395,14 +433,16 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     }
                 }
 
-                if (startupFailure is not LibTmuxException error)
+                if (startupFailure is not LibTmuxException error
+                    || !hub._allowPollingFallback)
                 {
                     throw;
                 }
 
                 if (hub._logger is not null)
                 {
-                    Log.ControlClientUnavailable(hub._logger, error, key.SessionId);
+                    Log.ControlClientUnavailable(
+                        hub._logger, error, key.SessionId, PollInterval.TotalMilliseconds);
                 }
 
                 _retired = true;
@@ -449,6 +489,9 @@ public sealed class PaneActivityHub : IAsyncDisposable
                         case TmuxOutputEvent output:
                             OnPaneOutput(output.PaneId);
                             break;
+                        case TmuxEventsDroppedEvent dropped:
+                            OnEventsDropped(dropped.Count);
+                            break;
                         case TmuxExitEvent exit when hub._logger is not null:
                             Log.ControlClientEnded(hub._logger, key.SessionId, exit.Reason);
                             break;
@@ -459,9 +502,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
             }
             catch (Exception error) when (error is LibTmuxException or OperationCanceledException)
             {
-                // The client going away is how this ends. Waiters fall back to
-                // their own timeout, which is why losing the stream degrades
-                // cost rather than correctness.
+                // MarkEndedAsync wakes every waiter to apply the observation policy.
             }
             finally
             {
@@ -475,6 +516,12 @@ public sealed class PaneActivityHub : IAsyncDisposable
             await _gate.WaitAsync().ConfigureAwait(false);
             try
             {
+                if (!_retired && hub._allowPollingFallback && hub._logger is not null)
+                {
+                    Log.PollingFallbackActivated(
+                        hub._logger, key.SessionId, PollInterval.TotalMilliseconds);
+                }
+
                 Volatile.Write(ref run.Ended, 1);
                 StopSignaling();
             }
@@ -601,6 +648,18 @@ public sealed class PaneActivityHub : IAsyncDisposable
             }
         }
 
+        private void OnEventsDropped(long count)
+        {
+            lock (_signalGate)
+            {
+                Interlocked.Add(ref _eventsDropped, count);
+                foreach (PaneSignal signal in _signals.Values)
+                {
+                    signal.Fire();
+                }
+            }
+        }
+
         private void StopSignaling()
         {
             lock (_signalGate)
@@ -614,9 +673,12 @@ public sealed class PaneActivityHub : IAsyncDisposable
             }
         }
 
-        private sealed class Release(SessionWatch watch) : IAsyncDisposable
+        private sealed class Release(SessionWatch watch) : IObservationLease
         {
+            private readonly long _initialDropped = Interlocked.Read(ref watch._eventsDropped);
             private int _done;
+
+            public long EventsDropped => Interlocked.Read(ref watch._eventsDropped) - _initialDropped;
 
             public ValueTask DisposeAsync() =>
                 Interlocked.Exchange(ref _done, 1) == 0
@@ -642,8 +704,10 @@ public sealed class PaneActivityHub : IAsyncDisposable
         }
     }
 
-    private sealed class NullLease : IAsyncDisposable
+    private sealed class NullLease : IObservationLease
     {
+        public long EventsDropped => 0;
+
         internal static NullLease Instance { get; } = new();
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -23,6 +23,19 @@ public sealed class ServerPolicyTests
         Assert.Equal(ServerPolicy.DefaultWaitCeilingSeconds, policy.WaitCeiling.TotalSeconds);
         Assert.Equal(ServerPolicy.DefaultMaxLines, policy.MaxLines);
         Assert.Equal(ServerPolicy.DefaultMaxBytes, policy.MaxBytes);
+        Assert.False(policy.AllowPollingFallback);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("yes", false)]
+    [InlineData("", false)]
+    public void Only_an_explicit_true_enables_pane_polling(string value, bool allowed)
+    {
+        ServerPolicy policy = ServerPolicy.FromEnvironment(
+            name => name == ServerPolicy.AllowPollingFallbackVariable ? value : null);
+        Assert.Equal(allowed, policy.AllowPollingFallback);
     }
 
     [Fact]
@@ -706,7 +719,7 @@ public sealed class PaneTextTests
         // registered handlers, so none of them ever reached a client.
         Assert.Contains("run_shell_command", tools["send_keys"].Description, StringComparison.Ordinal);
         Assert.Contains("run_shell_command", tools["wait_for_text"].Description, StringComparison.Ordinal);
-        Assert.Contains("never matches", tools["wait_for_text"].Description, StringComparison.Ordinal);
+        Assert.Contains("PresentAtEntry", tools["wait_for_text"].Description, StringComparison.Ordinal);
         Assert.Contains("search_panes", tools["list_panes"].Description, StringComparison.Ordinal);
         Assert.Contains("capture_since", tools["capture_pane"].Description, StringComparison.Ordinal);
     }
