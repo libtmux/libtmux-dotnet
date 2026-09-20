@@ -962,19 +962,26 @@ public sealed class TmuxToolsTests
         await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
             mcp.Options,
             token);
-        string pane = scope.Pane.Id.ToString();
+        string channel = $"qa-ready-{Guid.NewGuid():N}";
+        Window output = await scope.Session.CreateWindowAsync(
+            new NewWindowRequest
+            {
+                Command = $"tmux wait-for {channel}; echo READY_MARKER; exec cat",
+            },
+            token);
+        string pane = (await output.GetPanesAsync(token))[0].Id.ToString();
 
-        await mcp.Write.SendKeysAsync(
-            "(sleep 1; echo READY_MARKER)",
-            pane,
-            enter: true,
-            cancellationToken: token);
-
-        WaitResult matched = await mcp.Read.WaitForTextAsync(
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
             pane,
             ["READY_MARKER"],
             timeoutSeconds: 20,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
             cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+        await scope.Server.ExecuteCommandAsync(["wait-for", "-S", channel], token);
+        WaitResult matched = await waiting;
         Assert.Equal(WaitOutcome.Matched, matched.Outcome);
         Assert.Equal("READY_MARKER", matched.MatchedPattern);
     }

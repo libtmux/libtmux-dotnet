@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Mcp;
 using LibTmux.Testing;
+using ModelContextProtocol;
 
 namespace LibTmux.IntegrationTests;
 
@@ -148,9 +149,6 @@ public sealed class PaneEchoContractTests
         Pane pane = await BashPaneAsync(scope, token);
         string paneId = pane.Id.ToString();
 
-        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
-            paneId, ["MARKER"], timeoutSeconds: 4, cancellationToken: token);
-
         await mcp.Write.SendKeysAsync(
             "xMARKER", paneId, enter: false, literal: true, cancellationToken: token);
         for (int index = 0; index < 7; index++)
@@ -159,21 +157,24 @@ public sealed class PaneEchoContractTests
                 "BSpace", paneId, enter: false, literal: false, cancellationToken: token);
         }
 
-        var stopwatch = Stopwatch.StartNew();
-        // `sleep 1` beyond the contract's own "echo MARKER" is a test-side
-        // discriminator only: without it, a false match on the submitted
-        // line's own echo and a correct match on the real output row would
-        // arrive at the same instant and nothing here could tell them apart.
+        string channel = $"qa-edits-{Guid.NewGuid():N}";
         await mcp.Write.SendKeysAsync(
-            "sleep 1; echo MARKER", paneId, enter: true, literal: true, cancellationToken: token);
+            $"tmux wait-for {channel}; echo MARKER", paneId,
+            enter: true, literal: true, cancellationToken: token);
+
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            paneId, ["MARKER"], timeoutSeconds: 4,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+        await scope.Server.ExecuteCommandAsync(["wait-for", "-S", channel], token);
 
         WaitResult waited = await waiting;
 
         Assert.Equal(WaitOutcome.Matched, waited.Outcome);
         Assert.Equal("MARKER", waited.MatchedPattern);
-        Assert.True(
-            stopwatch.Elapsed.TotalSeconds >= 0.7,
-            $"expected the wait to take at least 700ms, took {stopwatch.Elapsed.TotalSeconds}s");
     }
 
     [UnixFact]
