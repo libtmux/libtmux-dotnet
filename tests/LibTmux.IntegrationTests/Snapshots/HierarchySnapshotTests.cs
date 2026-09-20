@@ -212,4 +212,107 @@ public sealed class HierarchySnapshotTests
                 ConfigurationFile = "/dev/null",
             },
             token);
+    [UnixFact]
+    public async Task Repeated_window_links_preserve_each_placement_and_unique_linked_sessions()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null"
+            },
+            token);
+        Assert.Equal(0, (await raw.ExecuteAsync(
+            ["link-window", "-d", "-s", "$0:0", "-t", "$0:5"], token)).ExitCode);
+        RawTmuxResult native = await raw.ExecuteAsync(
+            ["list-windows", "-t", "$0", "-F", "#{window_index}"], token);
+        Assert.Equal(["0", "5"], native.StandardOutputLines);
+        Assert.Equal(0, (await raw.ExecuteAsync(["split-window", "-d", "-t", "%0"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["select-window", "-t", "$0:5"], token)).ExitCode);
+
+        Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Window[] placements = [.. snapshot.Windows];
+        Assert.Equal(2, placements.Length);
+        Assert.Multiple(
+            () => Assert.Equal([0, 5], placements.Select(window => window.Edge.WindowIndex)),
+            () => Assert.Equal<int?>([0, 1], placements.Select(window => window.Edge.Ordinal)),
+            () => Assert.All(placements, window => Assert.Single(window.LinkedSessions)),
+            () => Assert.NotEqual(placements[0].EntityKey, placements[1].EntityKey));
+        Assert.Equal([0, 5], Assert.Single(snapshot.Sessions).Windows.Select(window => window.Index));
+        Assert.All(placements, window => Assert.Equal(window.EntityKey, window.Edge.Key));
+        Assert.Equal(placements[0], placements[1]);
+        Assert.True(placements[0] == placements[1]);
+        Assert.Equal(placements[0].GetHashCode(), placements[1].GetHashCode());
+        Assert.All(placements, window => Assert.Equal(2, window.Panes.Count));
+        Assert.All(placements, window => Assert.All(window.Panes, pane => Assert.Equal(
+            window.RawFormatFields["window_index"], pane.RawFormatFields["window_index"])));
+        Assert.Single(await placements[1].GetLinkedSessionsAsync(token));
+
+        await raw.DisposeAsync();
+        Session capturedSession = Assert.Single(snapshot.Sessions);
+        Assert.Multiple(
+            () => Assert.Same(snapshot, capturedSession.Server),
+            () => Assert.All(placements, window => Assert.Same(snapshot, window.Server)),
+            () => Assert.All(placements, window => Assert.Same(capturedSession, window.Session)),
+            () => Assert.All(placements, window => Assert.All(window.Panes, pane =>
+                Assert.Same(window, pane.Window))),
+            () => Assert.All(snapshot.Panes, pane => Assert.Same(capturedSession, pane.Session)),
+            () => Assert.All(snapshot.Panes, pane => Assert.Same(snapshot, pane.Server)),
+            () => Assert.Same(placements[1], capturedSession.ActiveWindow.Value),
+            () => Assert.All(placements, window => Assert.Same(
+                window.Panes.Single(pane => pane.Id == window.ActivePane.Value.Id), window.ActivePane.Value)),
+            () => Assert.Same(placements[1].ActivePane.Value, capturedSession.ActivePane.Value));
+        Pane selected = snapshot.Panes.First(pane => pane.Window.Index == 5);
+        Assert.Equal(2, selected.Window.Panes.Count);
+        Assert.Equal(2, selected.Session.Windows.Count);
+        Assert.Equal(4, selected.Server.Panes.Count);
+    }
+
+    [UnixFact]
+    public async Task Recapture_and_refresh_preserve_separate_graph_observations()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await Server.ConnectAsync(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null"
+        }, token);
+        Server first = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Session session = Assert.Single(first.Sessions);
+        Window window = Assert.Single(first.Windows);
+        Pane pane = Assert.Single(first.Panes);
+        string oldName = window.Name;
+        Assert.Equal(0, (await raw.ExecuteAsync(["rename-window", "-t", "@0", "graph-renamed"], token)).ExitCode);
+
+        Window refreshedWindow = await window.RefreshAsync(token);
+        Pane refreshedPane = await pane.RefreshAsync(token);
+        Session refreshedSession = await session.RefreshAsync(token);
+        Assert.NotSame(window, refreshedWindow);
+        Assert.Equal("graph-renamed", refreshedWindow.Name);
+        Assert.False(refreshedWindow.Panes.IsCaptured);
+        Assert.False(refreshedWindow.Session.Windows.IsCaptured);
+        Assert.False(refreshedPane.Window.Panes.IsCaptured);
+        Assert.False(refreshedPane.Session.Windows.IsCaptured);
+        Assert.False(refreshedSession.Windows.IsCaptured);
+        Assert.Equal("graph-renamed", refreshedPane.Window.Name);
+
+        Server second = await first.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        await raw.DisposeAsync();
+        Assert.Multiple(
+            () => Assert.Same(first, window.Server),
+            () => Assert.Same(first, refreshedWindow.Server),
+            () => Assert.Same(first, refreshedPane.Server),
+            () => Assert.Same(first, refreshedSession.Server),
+            () => Assert.Same(second, Assert.Single(second.Windows).Server),
+            () => Assert.Same(Assert.Single(second.Windows), Assert.Single(second.Panes).Window),
+            () => Assert.Same(window, pane.Window),
+            () => Assert.Equal(oldName, window.Name),
+            () => Assert.Equal("graph-renamed", Assert.Single(second.Windows).Name));
+    }
+
 }

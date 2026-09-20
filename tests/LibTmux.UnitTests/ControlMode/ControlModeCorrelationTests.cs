@@ -176,6 +176,29 @@ public sealed class ControlModeCorrelationTests
     }
 
     [Fact]
+    public async Task Placement_guards_count_against_the_request_budget_before_any_write()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(
+            process,
+            sentinelFactory: () => "f",
+            limits: new ControlModeLimits(maxRequestBytes: 100));
+        await session.WaitForReadyAsync(token);
+        TmuxCommand command = TmuxCommand.Create("move-window", "-s", "$1:5", "-t", "$1:3") with
+        {
+            RequiredWindowPlacement = new WindowEntityKey(new SessionId(1), new WindowId(2), 5),
+        };
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token);
+        budget.CancelAfter(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => session.SendAsync(command, budget.Token));
+
+        Assert.Empty(process.Writes);
+        Assert.True(session.IsRunning);
+    }
+
+    [Fact]
     public async Task An_oversized_newline_request_is_counted_before_it_is_rendered()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

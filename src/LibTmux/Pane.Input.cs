@@ -7,6 +7,20 @@ public sealed partial class Pane
 {
     internal List<string> BuildSendKeysArguments(SendKeysRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Text is null
+            && request.CopyModeCommand is null
+            && !request.Reset
+            && request.Repeat is null)
+        {
+            throw new ArgumentException("The request sends no keys.", nameof(request));
+        }
+
+        if (request.CopyModeCommand is null && request.Text?.Contains('\0', StringComparison.Ordinal) == true)
+        {
+            throw new ArgumentException("Text cannot contain NUL.", nameof(request));
+        }
+
         List<string> arguments = ["send-keys", "-t", Target];
         if (request.Reset)
         {
@@ -52,10 +66,22 @@ public sealed partial class Pane
         return arguments;
     }
 
+    internal IReadOnlyList<List<string>> BuildSendKeysCommands(SendKeysRequest request)
+    {
+        List<List<string>> commands = [BuildSendKeysArguments(request)];
+        if (request.CopyModeCommand is null && request.Text is not null && request.Enter)
+        {
+            // A literal send would type the key name if Enter shared its flags.
+            commands.Add(["send-keys", "-t", Target, "Enter"]);
+        }
+
+        return commands;
+    }
+
     /// <summary>Sends keys to the pane.</summary>
     /// <param name="request">What to send.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
-    /// <exception cref="ArgumentException">The request sends nothing.</exception>
+    /// <exception cref="ArgumentException">The request sends nothing or its text contains NUL.</exception>
     /// <exception cref="LibTmuxException">
     /// Text was sent, but a requested Enter failed. Its dispatch state is
     /// unknown, so the whole request must not be retried.
@@ -65,28 +91,13 @@ public sealed partial class Pane
         SendKeysRequest request,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        if (request.Text is null
-            && request.CopyModeCommand is null
-            && !request.Reset
-            && request.Repeat is null)
-        {
-            throw new ArgumentException("The request sends no keys.", nameof(request));
-        }
-
-        List<string> arguments = BuildSendKeysArguments(request);
+        IReadOnlyList<List<string>> commands = BuildSendKeysCommands(request);
         var sequence = new TmuxMutationSequence(
             "The text was sent, but Enter failed. The pane may already have "
             + "acted on the text; do not retry the whole request.");
-        await sequence.MutateAsync(() => RunAsync(arguments, cancellationToken))
-            .ConfigureAwait(false);
-
-        // Enter rides in its own command: appended to a literal send it would
-        // type the five characters of its name instead of pressing the key.
-        if (request.CopyModeCommand is null && request.Text is not null && request.Enter)
+        foreach (List<string> arguments in commands)
         {
-            await sequence.MutateAsync(
-                    () => RunAsync(["send-keys", "-t", Target, "Enter"], cancellationToken))
+            await sequence.MutateAsync(() => RunAsync(arguments, cancellationToken))
                 .ConfigureAwait(false);
         }
     }
@@ -95,6 +106,7 @@ public sealed partial class Pane
     /// <param name="text">The text to type.</param>
     /// <param name="enter">Whether Enter follows the text.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
+    /// <exception cref="ArgumentException">The text contains NUL.</exception>
     /// <exception cref="LibTmuxException">
     /// Text was sent, but Enter failed. Its dispatch state is unknown, so the
     /// whole request must not be retried.

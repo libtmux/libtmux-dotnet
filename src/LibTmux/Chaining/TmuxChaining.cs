@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -123,6 +124,63 @@ public static partial class TmuxChaining
         ArgumentNullException.ThrowIfNull(hooks);
         ArgumentNullException.ThrowIfNull(server);
         return server.Chain().Then(request.ToCommand(hooks)).ExecuteAsync(cancellationToken);
+    }
+
+    /// <summary>Runs the text and optional Enter commands of a key request.</summary>
+    /// <param name="request">The keys to send.</param>
+    /// <param name="pane">The pane that receives the keys.</param>
+    /// <param name="cancellationToken">Cancels the tmux commands.</param>
+    /// <returns>The combined command result.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The request sends nothing or its text contains NUL.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public static Task<TmuxCommandResult> ExecuteAsync(
+        this SendKeysRequest request,
+        Pane pane,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(pane);
+        return pane.Server.Chain().Then(request.ToCommands(pane)).ExecuteAsync(cancellationToken);
+    }
+
+    /// <summary>Runs a key request through a control client.</summary>
+    /// <param name="request">The keys to send, including a requested Enter.</param>
+    /// <param name="pane">The pane that receives them.</param>
+    /// <param name="control">The control client connected to the pane's server.</param>
+    /// <param name="cancellationToken">Stops waiting for command replies.</param>
+    /// <returns>The reply lines concatenated in command order.</returns>
+    /// <remarks>
+    /// Text and Enter run as separate requests. Other callers can send commands
+    /// between them. Cancelling a wait does not undo input already sent.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The request sends nothing.</exception>
+    /// <exception cref="ControlModeCommandException">The first command failed.</exception>
+    /// <exception cref="LibTmuxException">
+    /// Text succeeded but Enter failed or its wait was cancelled. Dispatch is
+    /// unknown; do not retry the whole request.
+    /// </exception>
+    public static async Task<IReadOnlyList<string>> ExecuteAsync(
+        this SendKeysRequest request,
+        Pane pane,
+        IControlModeSession control,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(control);
+        IReadOnlyList<TmuxCommand> commands = request.ToCommands(pane);
+        var sequence = new TmuxMutationSequence();
+        List<string> output = [];
+        foreach (TmuxCommand command in commands)
+        {
+            IReadOnlyList<string> lines = await sequence.MutateAsync(
+                    () => control.SendAsync(command, cancellationToken))
+                .ConfigureAwait(false);
+            output.AddRange(lines);
+        }
+
+        return output.AsReadOnly();
     }
 
     internal static TmuxCommand Command(string[] arguments) =>

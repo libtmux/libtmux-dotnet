@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Text;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
@@ -8,6 +9,96 @@ namespace LibTmux.IntegrationTests.Chaining;
 [UnsupportedOSPlatform("windows")]
 public sealed class TmuxChainTests
 {
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("direct")]
+    [InlineData("request")]
+    [InlineData("chain")]
+    [InlineData("control")]
+    public async Task Send_keys_preserve_payload_boundaries_and_enter_sequence(string mode)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = Assert.Single(await server.GetPanesAsync(token));
+        const string Payload = "quotes ' \" $HOME #{pane_id} \\ π\n";
+        byte[] expected = Encoding.UTF8.GetBytes($"-literal-R---;tail;\\;{Payload}\u0001Enter\r");
+        string receivedPath = raw.SocketPath + ".input";
+        const string Reader = "stty raw -echo; "
+            + "\"$1\" -S \"$2\" wait-for -S keys-ready; "
+            + "dd bs=1 count=\"$4\" of=\"$3\" 2>/dev/null; "
+            + "\"$1\" -S \"$2\" wait-for -S keys-done; exec cat";
+        try
+        {
+            RawTmuxResult started = await raw.ExecuteAsync(
+                ["respawn-pane", "-k", "-t", pane.Id.ToString(), "/bin/sh", "-c", Reader,
+                    "keys-reader", raw.TmuxBinaryPath, raw.SocketPath, receivedPath,
+                    expected.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)], token);
+            Assert.Equal(0, started.ExitCode);
+            using (CancellationTokenSource ready = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                ready.CancelAfter(TimeSpan.FromMilliseconds(500));
+                Assert.Equal(0, (await raw.ExecuteAsync(["wait-for", "keys-ready"], ready.Token)).ExitCode);
+            }
+
+            await using IControlModeSession? control = mode == "control"
+                ? await server.EnterControlModeAsync(cancellationToken: token)
+                : null;
+            SendKeysRequest[] requests =
+            [
+                new SendKeysRequest { Text = "-literal", Enter = false, Literal = true },
+                new SendKeysRequest { Text = "-R", Enter = false, Literal = true },
+                new SendKeysRequest { Text = "-", Enter = false },
+                new SendKeysRequest { Text = "--", Enter = false, Literal = true },
+                new SendKeysRequest { Text = ";", Enter = false, Literal = true },
+                new SendKeysRequest { Text = "tail;", Enter = false, Literal = true },
+                new SendKeysRequest { Text = "\\;", Enter = false, Literal = true },
+                new SendKeysRequest { Text = Payload, Enter = false, Literal = true },
+                new SendKeysRequest { Text = "C-a", Enter = false },
+                new SendKeysRequest { Text = "Enter", Enter = true, Literal = true },
+            ];
+            foreach (SendKeysRequest request in requests)
+            {
+                switch (mode)
+                {
+                    case "direct":
+                        if (request.Literal)
+                        {
+                            await pane.SendTextAsync(request.Text!, request.Enter, token);
+                        }
+                        else
+                        {
+                            await pane.SendKeysAsync(request, token);
+                        }
+                        break;
+                    case "request":
+                        Assert.Equal(0, (await request.ExecuteAsync(pane, token)).ExitCode);
+                        break;
+                    case "chain":
+                        Assert.Equal(0, (await server.Chain().Then(request.ToCommands(pane)).ExecuteAsync(token)).ExitCode);
+                        break;
+                    case "control":
+                        Assert.Empty(await request.ExecuteAsync(pane, control!, token));
+                        break;
+                    default:
+                        throw new ArgumentException("Unknown execution mode.", nameof(mode));
+                }
+            }
+
+            using CancellationTokenSource received = CancellationTokenSource.CreateLinkedTokenSource(token);
+            received.CancelAfter(TimeSpan.FromMilliseconds(500));
+            Assert.Equal(0, (await raw.ExecuteAsync(["wait-for", "keys-done"], received.Token)).ExitCode);
+            Assert.Equal(expected, await File.ReadAllBytesAsync(receivedPath, token));
+        }
+        finally
+        {
+            await raw.DisposeAsync();
+            File.Delete(receivedPath);
+        }
+    }
+
     [UnixFact]
     public async Task A_chain_runs_every_command_in_one_invocation()
     {
@@ -131,6 +222,8 @@ public sealed class TmuxChainTests
         // command aborts the chain having changed nothing. Here the first
         // command really did run, and the reported arguments have to say the
         // dispatch was a chain or nothing reading them can tell that.
+        Assert.NotEqual(0, failure.Result.ExitCode);
+        Assert.Equal(TmuxDispatchState.Dispatched, failure.Dispatch);
         Assert.Contains(";", failure.Result.Arguments);
         IReadOnlyList<Window> windows = await server.GetWindowsAsync(token);
         Assert.Contains(windows, window => window.Name == "before");

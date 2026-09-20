@@ -46,7 +46,7 @@ public sealed class CapturedRelation<T> : IReadOnlyList<T>
 
     /// <summary>Returns the captured children, or an empty list when unread.</summary>
     /// <returns>The children, empty when the relation was never captured.</returns>
-    public IReadOnlyList<T> OrEmpty() => _items ?? None;
+    public IReadOnlyList<T> OrEmpty() => _items is null ? None : this;
 }
 
 internal static class CapturedRelation

@@ -107,7 +107,12 @@ a batch* by paying one round trip for the whole sequence.
 ## Reading what is there
 
 Accessors return `IReadOnlyList<T>` over an explicit read and never shell out
-while you enumerate them:
+while you enumerate them.
+
+`GetSessionsAsync` and `GetAttachedSessionsAsync` throw `TmuxCommandException`
+when tmux rejects the listing. Its `Result` retains the exit code and stderr,
+so a missing daemon and a permission error remain distinct from a live server
+with no sessions, which returns an empty list.
 
 ```csharp run
 foreach (Window each in await session.GetWindowsAsync(ct))
@@ -133,12 +138,56 @@ object is hand back a replacement:
 Window renamed = await window.RenameAsync("integration", ct);
 ```
 
-Asking tmux again is `RefreshAsync`. A whole hierarchy in one read is
+`Window.MoveAsync`, `LinkAsync` and `UnlinkAsync` verify that the captured
+session/index still names the expected window immediately before mutation in
+tmux's command queue. Reassigning that index cannot redirect the operation to
+another window. Typed move and link commands retain this check in chains and
+control mode; extracting raw argv with `ToArguments` does not retain guards.
+
+`Window.MoveAsync` returns the moved placement, including detached moves and
+repeated links to the same window. A renumber request returns the original
+placement at its new index while preserving link order. Renumbering another
+session leaves the source placement unchanged. Move readback checks the
+destination's index and window-ID map. If topology changes prevent a consistent
+result after the mutation, the operation throws with unknown dispatch state; do
+not retry it. These observations are not an atomic snapshot.
+
+Asking tmux again is `RefreshAsync`. A whole hierarchy in one acquisition is
 `CaptureSnapshotAsync`:
 
 ```csharp run
 Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, ct);
+SnapshotMetadata acquired = snapshot.SnapshotMetadata!;
+Console.WriteLine($"{acquired.Depth}: {acquired.Elapsed} on {acquired.Generation}");
+foreach (Pane member in snapshot.Panes)
+{
+    Console.WriteLine($"{member.Session.Name}/{member.Window.Index}: {member.CurrentCommand}");
+}
 ```
+
+Every depth performs a guarded read, including `SnapshotDepth.Server` on an
+already connected handle. `SnapshotMetadata` records depth, daemon generation,
+UTC start/end readings and monotonic elapsed time. A clock adjustment can move
+the UTC end before the start; use `Elapsed` for duration. Ordinary connected
+handles have no snapshot metadata.
+
+Capture reads the hierarchy over an interval. Contradictory parent placements or
+child counts throw `InconsistentSnapshotException` without returning a partial
+graph or retrying. Equal-count changes can escape detection; this is not an
+atomic snapshot. Unacquired relations remain unavailable, while captured
+relations and metadata can be read without tmux I/O.
+
+Captured children retain the same root through `Server`. Parent and active-child
+properties return the captured instances when their depth was acquired. A pane
+reached through a repeated window link returns that exact window placement;
+filtering panes does not prune its parent's siblings or linked sessions.
+Active children follow the IDs recorded in the corresponding parent row, so
+selection changes during acquisition need not agree across separate reads.
+An active ID missing from the acquired placement fails the capture explicitly.
+
+Recapturing creates a separate graph. `RefreshAsync` replaces just one entity's
+fields; its child relations and materialized parents are not attached to an
+older graph, even when its `Server` is an earlier captured root.
 
 ### Lookups and captured relations
 
@@ -195,6 +244,10 @@ parent and child graph. Reading any of these properties performs no I/O.
   A stopped daemon is an error; an empty successful read remains an empty list.
 
 ## Running something, and reading it back
+
+`SendTextAsync` types leading dashes, semicolons and newlines as input. NUL
+is rejected before dispatch. Setting `enter: false` omits the extra Enter
+key; it does not remove newlines already present in the text.
 
 ```csharp run
 await pane.SendTextAsync("echo hello-from-libtmux", cancellationToken: ct);

@@ -9,6 +9,236 @@ namespace LibTmux.IntegrationTests.Hierarchy;
 [UnsupportedOSPlatform("windows")]
 public sealed class WindowTopologyTests
 {
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Repeated_links_refresh_and_move_the_requested_placement(bool noSelect)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window original = await TestHierarchy.RequireFirstWindowAsync(home, token);
+        await original.LinkAsync(new LinkWindowRequest(home.Id.ToString())
+        {
+            TargetIndex = "5",
+            Detach = true
+        }, token);
+        Window repeated = (await home.GetWindowsAsync(token)).Single(window => window.Index == 5);
+
+        Assert.Equal(5, (await repeated.RefreshAsync(token)).Index);
+        Window moved = await repeated.MoveAsync(new MoveWindowRequest
+        {
+            Destination = "3",
+            NoSelect = noSelect
+        }, token);
+        Assert.Equal(3, moved.Index);
+        Assert.Equal(original, moved);
+        Assert.Equal([0, 3], (await home.GetWindowsAsync(token)).Select(window => window.Index));
+        await Assert.ThrowsAsync<TmuxCommandException>(
+            () => repeated.UnlinkAsync(cancellationToken: token));
+
+        await moved.UnlinkAsync(cancellationToken: token);
+        Assert.Equal(0, Assert.Single(await home.GetWindowsAsync(token)).Index);
+        Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Window remaining = Assert.Single(snapshot.Windows);
+        Assert.Equal(original.Id, remaining.Id);
+        Assert.Equal(0, remaining.Edge.WindowIndex);
+        Assert.Single(remaining.LinkedSessions);
+    }
+
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("", null, false, false, 1)]
+    [InlineData("", null, false, true, 1)]
+    [InlineData("+3", null, false, false, 3)]
+    [InlineData("+3", null, false, true, 3)]
+    [InlineData("0", WindowDirection.Before, false, false, 0)]
+    [InlineData("0", WindowDirection.Before, false, true, 0)]
+    [InlineData("0", WindowDirection.After, false, false, 1)]
+    [InlineData("0", WindowDirection.After, false, true, 1)]
+    [InlineData("", null, true, false, 1)]
+    [InlineData("", null, true, true, 1)]
+    public async Task Repeated_links_move_and_renumber_return_the_affected_placement(
+        string destination,
+        WindowDirection? direction,
+        bool renumber,
+        bool noSelect,
+        int expectedIndex)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window original = await TestHierarchy.RequireFirstWindowAsync(home, token);
+        await original.LinkAsync(new LinkWindowRequest(home.Id.ToString())
+        {
+            TargetIndex = "5",
+            Detach = true
+        }, token);
+        Window repeated = (await home.GetWindowsAsync(token)).Single(window => window.Index == 5);
+
+        Window moved = await repeated.MoveAsync(
+            new MoveWindowRequest
+            {
+                Destination = destination,
+                Direction = direction,
+                NoSelect = noSelect,
+                Renumber = renumber
+            },
+            token);
+
+        Assert.Equal(expectedIndex, moved.Index);
+        Assert.Equal(home.Id, moved.Session.Id);
+        Assert.Equal(original, moved);
+        Assert.Equal(2, (await home.GetWindowsAsync(token)).Count);
+        await moved.UnlinkAsync(cancellationToken: token);
+        Window remaining = Assert.Single(await home.GetWindowsAsync(token));
+        Assert.Equal(direction == WindowDirection.Before ? 1 : 0, remaining.Index);
+    }
+
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("", null, 1)]
+    [InlineData("+3", null, 3)]
+    [InlineData("9", WindowDirection.Before, 9)]
+    [InlineData("9", WindowDirection.After, 10)]
+    [InlineData("^", WindowDirection.Before, 0)]
+    [InlineData("$", WindowDirection.After, 10)]
+    [InlineData("100", WindowDirection.After, 1)]
+    [InlineData("+3", WindowDirection.After, 1)]
+    public async Task Moving_to_another_session_preserves_its_existing_same_id_link(
+        string destination,
+        WindowDirection? direction,
+        int expectedIndex)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Session guest = await server.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "guest"
+        }, token);
+        Window original = await TestHierarchy.RequireFirstWindowAsync(home, token);
+        await original.LinkAsync(new LinkWindowRequest(home.Id.ToString())
+        {
+            TargetIndex = "5",
+            Detach = true
+        }, token);
+        await original.LinkAsync(new LinkWindowRequest(guest.Id.ToString())
+        {
+            TargetIndex = "9",
+            Detach = true
+        }, token);
+        Window repeated = (await home.GetWindowsAsync(token)).Single(window => window.Index == 5);
+
+        Window moved = await repeated.MoveAsync(
+            new MoveWindowRequest
+            {
+                Destination = destination,
+                Session = guest.Id.ToString(),
+                Direction = direction,
+                NoSelect = true
+            },
+            token);
+
+        Assert.Equal(expectedIndex, moved.Index);
+        Assert.Equal(guest.Id, moved.Session.Id);
+        Assert.Equal(0, Assert.Single(await home.GetWindowsAsync(token)).Index);
+        Assert.Equal(3, (await guest.GetWindowsAsync(token)).Count);
+        await moved.UnlinkAsync(cancellationToken: token);
+        Window sibling = (await guest.GetWindowsAsync(token)).Single(window => window.Id == original.Id);
+        Assert.Equal(direction == WindowDirection.Before && destination == "9" ? 10 : 9, sibling.Index);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Renumbering_another_session_keeps_the_source_placement()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Session guest = await server.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "guest"
+        }, token);
+        Window original = await TestHierarchy.RequireFirstWindowAsync(home, token);
+        await original.LinkAsync(new LinkWindowRequest(home.Id.ToString())
+        {
+            TargetIndex = "5",
+            Detach = true
+        }, token);
+        await original.LinkAsync(new LinkWindowRequest(guest.Id.ToString())
+        {
+            TargetIndex = "9",
+            Detach = true
+        }, token);
+        Window repeated = (await home.GetWindowsAsync(token)).Single(window => window.Index == 5);
+
+        Window unmoved = await repeated.MoveAsync(
+            new MoveWindowRequest
+            {
+                Session = guest.Id.ToString(),
+                Renumber = true
+            },
+            token);
+
+        Assert.Equal(5, unmoved.Index);
+        Assert.Equal(home.Id, unmoved.Session.Id);
+        Assert.Equal([0, 5], (await home.GetWindowsAsync(token)).Select(window => window.Index));
+        Assert.Equal([0, 1], (await guest.GetWindowsAsync(token)).Select(window => window.Index));
+    }
+
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("", false, 3)]
+    [InlineData("-1", false, 1)]
+    [InlineData("", true, 3)]
+    public async Task Move_and_renumber_respect_nonzero_native_base_indexes(
+        string destination,
+        bool renumber,
+        int expectedIndex)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Assert.Equal(0, (await raw.ExecuteAsync(["set-option", "-t", home.Id.ToString(), "base-index", "2"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["move-window", "-r", "-t", home.Id.ToString()], token)).ExitCode);
+        Window original = await TestHierarchy.RequireFirstWindowAsync(home, token);
+        Assert.Equal(2, original.Index);
+        await original.LinkAsync(new LinkWindowRequest(home.Id.ToString())
+        {
+            TargetIndex = "5",
+            Detach = true
+        }, token);
+        Window repeated = (await home.GetWindowsAsync(token)).Single(window => window.Index == 5);
+
+        Window moved = await repeated.MoveAsync(new MoveWindowRequest
+        {
+            Destination = destination,
+            NoSelect = true,
+            Renumber = renumber
+        }, token);
+
+        Assert.Equal(expectedIndex, moved.Index);
+        await moved.UnlinkAsync(cancellationToken: token);
+        Assert.Equal(2, Assert.Single(await home.GetWindowsAsync(token)).Index);
+    }
+
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),

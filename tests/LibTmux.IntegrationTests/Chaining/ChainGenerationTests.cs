@@ -48,7 +48,7 @@ public sealed class ChainGenerationTests
         // has to be refused rather than only the one this started with.
         TmuxCommand[] stale =
         [
-            new SendKeysRequest { Text = "echo stale" }.ToCommand(pane),
+            .. new SendKeysRequest { Text = "echo stale" }.ToCommands(pane),
             new SelectPaneRequest().ToCommand(pane),
             new SelectLayoutRequest { Layout = "tiled" }.ToCommand(window),
             new NewWindowRequest { Name = "stale" }.ToCommand(session),
@@ -83,8 +83,8 @@ public sealed class ChainGenerationTests
         // At most one server can be the one the chain runs against, so mixing
         // them is refused before anything executes rather than partially run.
         TmuxChain chain = one.Chain()
-            .Then(new SendKeysRequest { Text = "echo one" }.ToCommand(fromOne))
-            .Then(new SendKeysRequest { Text = "echo two" }.ToCommand(fromTwo));
+            .Then(new SendKeysRequest { Text = "echo one" }.ToCommands(fromOne))
+            .Then(new SendKeysRequest { Text = "echo two" }.ToCommands(fromTwo));
 
         InvalidOperationException failure =
             await Assert.ThrowsAsync<InvalidOperationException>(
@@ -107,7 +107,7 @@ public sealed class ChainGenerationTests
         // The guard has to be invisible when nothing is stale, or it would just
         // be a way to break chaining.
         await server.Chain()
-            .Then(new SendKeysRequest { Text = "echo fresh" }.ToCommand(pane))
+            .Then(new SendKeysRequest { Text = "echo fresh" }.ToCommands(pane))
             .ExecuteAsync(token);
     }
 

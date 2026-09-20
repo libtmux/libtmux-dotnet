@@ -28,21 +28,42 @@ internal sealed class ServerSnapshot
 
     internal CapturedRelation<Pane> Panes { get; }
 
+    internal sealed record Rows(
+        SnapshotDepth Depth,
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> Sessions,
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> Windows,
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes);
+
     [UnsupportedOSPlatform("windows")]
-    internal static async Task<ServerSnapshot> CaptureAsync(
+    internal static async Task<Rows> ReadAsync(
         Server server,
         SnapshotDepth depth = SnapshotDepth.Panes,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(server);
-        _ = server.Generation
+        cancellationToken.ThrowIfCancellationRequested();
+        ServerGeneration generation = server.Generation
             ?? throw new InvalidOperationException(
                 "The server has no live generation; connect before capturing.");
         var context = new MaterializationContext(server, ParseVersion(server));
         var query = new MaterializationQuery(context);
         if (depth == SnapshotDepth.Server)
         {
-            return Empty(depth);
+            TmuxCommandResult result = await server.Connection!
+                .CreateEntityDispatcher(generation)
+                .ExecuteAsync(["display-message", "-p", TmuxConnection.GenerationFormat], cancellationToken)
+                .ConfigureAwait(false);
+            if (result.ExitCode != 0)
+            {
+                throw new TmuxCommandException("Snapshot generation read failed.", result);
+            }
+            if (result.StandardOutputLines.Count != 1)
+            {
+                throw new TmuxProtocolException("tmux did not report exactly one snapshot generation.", TmuxDispatchState.Dispatched);
+            }
+            context.EnsureOwns(TmuxConnection.ParseGeneration(result.StandardOutputLines[0]));
+            cancellationToken.ThrowIfCancellationRequested();
+            return new Rows(depth, [], [], []);
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows =
@@ -50,14 +71,8 @@ internal sealed class ServerSnapshot
                 .ConfigureAwait(false);
         if (depth == SnapshotDepth.Sessions)
         {
-            return new ServerSnapshot(
-                depth,
-                CapturedRelation.Capture(
-                    [.. sessionRows.Select(row => RelationReader.ToSession(server, row))],
-                    "sessions",
-                    depth),
-                CapturedRelation.Uncaptured<Window>("windows", depth),
-                CapturedRelation.Uncaptured<Pane>("panes", depth));
+            SnapshotTopologyValidator.Validate(depth, generation, sessionRows, [], [], cancellationToken);
+            return new Rows(depth, sessionRows, [], []);
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows =
@@ -68,7 +83,8 @@ internal sealed class ServerSnapshot
                 ? []
                 : await query.FetchAsync("list-panes", ["-a"], cancellationToken)
                     .ConfigureAwait(false);
-        return Build(server, depth, sessionRows, windowRows, paneRows);
+        SnapshotTopologyValidator.Validate(depth, generation, sessionRows, windowRows, paneRows, cancellationToken);
+        return new Rows(depth, sessionRows, windowRows, paneRows);
     }
 
     private static ServerSnapshot Empty(SnapshotDepth depth) =>
@@ -79,97 +95,103 @@ internal sealed class ServerSnapshot
             CapturedRelation.Uncaptured<Pane>("panes", depth));
 
     [UnsupportedOSPlatform("windows")]
-    private static ServerSnapshot Build(
-        Server server,
-        SnapshotDepth depth,
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows,
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows,
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> paneRows)
+    internal static ServerSnapshot Build(Server server, Rows rows, CancellationToken cancellationToken)
     {
-        SessionWindowEdge[] edges = BuildEdges(windowRows);
-        Pane[] panes = [.. paneRows.Select(row => RelationReader.ToPane(server, row))];
-
-        // Sessions and windows reference each other, so sessions are built first
-        // with a mutable window list that is filled in once windows exist.
-        var windowsBySession = new Dictionary<SessionId, List<Window>>();
-        Session[] sessions =
-        [
-            .. sessionRows.Select(row =>
-            {
-                Session session = RelationReader.ToSession(server, row);
-                windowsBySession[session.Id] = [];
-                return session.WithCaptured(
-                    () => Relation(windowsBySession[session.Id], "windows", depth),
-                    Relation(
-                        [.. panes.Where(pane => Field(pane.RawFormatFields, "session_id") == session.Id.ToString())],
-                        "panes",
-                        depth,
-                        depth >= SnapshotDepth.Panes));
-            }),
-        ];
-        var sessionsById = sessions.ToDictionary(session => session.Id);
-
-        Window[] windows =
-        [
-            .. windowRows.Select(row =>
-            {
-                Window window = RelationReader.ToWindow(server, row);
-                SessionWindowEdge? edge = edges.FirstOrDefault(candidate =>
-                    candidate.WindowId == window.Id
-                    && candidate.SessionId.ToString() == Field(row, "session_id")
-                    && candidate.WindowIndex == window.Index);
-                Session[] linked =
-                [
-                    .. edges
-                        .Where(candidate => candidate.WindowId == window.Id)
-                        .Select(candidate => sessionsById.GetValueOrDefault(candidate.SessionId))
-                        .OfType<Session>()
-                        .DistinctBy(session => session.Id),
-                ];
-                return window.WithCaptured(
-                    Relation(
-                        [.. panes.Where(pane => Field(pane.RawFormatFields, "window_id") == window.Id.ToString()
-                            && Field(pane.RawFormatFields, "session_id") == Field(row, "session_id")
-                            && Field(pane.RawFormatFields, "window_index") == Field(row, "window_index"))],
-                        "panes",
-                        depth,
-                        depth >= SnapshotDepth.Panes),
-                    Relation(linked, "linked sessions", depth),
-                    edge,
-                    sessionsById.GetValueOrDefault(window.EntityKey.SessionId));
-            }),
-        ];
-        foreach (Window window in windows.Where(candidate => candidate.Edge is SessionWindowEdge))
+        SnapshotDepth depth = rows.Depth;
+        if (depth == SnapshotDepth.Server)
         {
-            if (windowsBySession.TryGetValue(window.Edge.SessionId, out List<Window>? owned))
-            {
-                owned.Add(window);
-            }
+            return Empty(depth);
         }
 
-        // Each window's Panes relation was already filtered to its exact
-        // placement (session_id, window_id and window_index all matched), so
-        // walking it back assigns every pane's parent without re-deriving the
-        // placement from the pane's row.
-
-        // Below Panes depth a window's relation is uncaptured, not empty.
-        if (depth >= SnapshotDepth.Panes)
+        Session[] sessions = [.. rows.Sessions.Select(row =>
         {
-            foreach (Window window in windows)
+            cancellationToken.ThrowIfCancellationRequested();
+            return RelationReader.ToSession(server, row);
+        })];
+        var sessionsById = sessions.ToDictionary(session => session.Id);
+        Pane[] panes = [.. rows.Panes.Select(row =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return RelationReader.ToPane(server, row);
+        })];
+        var panesByWindow = panes.ToLookup(pane => Placement(pane.RawFormatFields));
+        var panesBySession = panes.ToLookup(pane => Placement(pane.RawFormatFields).SessionId);
+        var paneByPlacement = panes.ToDictionary(pane => (Placement(pane.RawFormatFields), pane.Id));
+        SessionWindowEdge[] edges = BuildEdges(rows.Windows, cancellationToken);
+        var linkedSessions = edges.GroupBy(edge => edge.WindowId).ToDictionary(
+            group => group.Key,
+            group => Relation(
+                group.Select(edge => edge.SessionId).Distinct().Select(id => sessionsById[id]).ToArray(),
+                "linked sessions",
+                depth));
+        Window[] windows = [.. rows.Windows.Select((row, index) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Window window = RelationReader.ToWindow(server, row);
+            SessionWindowEdge edge = edges[index];
+            Pane? activePane = depth >= SnapshotDepth.Panes
+                ? ActivePane(row, edge.Key)
+                : null;
+            window.WithCaptured(
+                Relation(panesByWindow[edge.Key].ToArray(), "panes", depth, depth >= SnapshotDepth.Panes),
+                linkedSessions[window.Id],
+                edge,
+                sessionsById[edge.SessionId],
+                activePane);
+            foreach (Pane pane in panesByWindow[edge.Key])
             {
-                foreach (Pane pane in window.Panes)
+                cancellationToken.ThrowIfCancellationRequested();
+                pane.WithCaptured(window);
+            }
+            return window;
+        })];
+        var windowsBySession = windows.ToLookup(window => window.Edge.SessionId);
+        var windowByPlacement = windows.ToDictionary(window => window.EntityKey);
+        foreach (Session session in sessions)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Window? activeWindow = null;
+            Pane? activePane = null;
+            if (depth >= SnapshotDepth.Windows)
+            {
+                WindowEntityKey key = Placement(session.RawFormatFields);
+                if (!windowByPlacement.TryGetValue(key, out activeWindow))
                 {
-                    pane.WithCaptured(window);
+                    throw Inconsistent($"The active window placement '{key}' was not acquired.");
+                }
+                if (depth >= SnapshotDepth.Panes)
+                {
+                    activePane = ActivePane(session.RawFormatFields, key);
                 }
             }
+            session.WithCaptured(
+                Relation(windowsBySession[session.Id].ToArray(), "windows", depth, depth >= SnapshotDepth.Windows),
+                Relation(panesBySession[session.Id].ToArray(), "panes", depth, depth >= SnapshotDepth.Panes),
+                activeWindow,
+                activePane);
         }
 
         return new ServerSnapshot(
             depth,
             Relation(sessions, "sessions", depth),
-            Relation(windows, "windows", depth),
+            Relation(windows, "windows", depth, depth >= SnapshotDepth.Windows),
             Relation(panes, "panes", depth, depth >= SnapshotDepth.Panes));
+
+        Pane ActivePane(IReadOnlyDictionary<string, string?> row, WindowEntityKey key) =>
+            PaneId.TryParse(Field(row, "pane_id"), out PaneId id)
+                && paneByPlacement.TryGetValue((key, id), out Pane? pane)
+                    ? pane
+                    : throw Inconsistent($"The active pane in window placement '{key}' was not acquired.");
+
+        InconsistentSnapshotException Inconsistent(string message) =>
+            new(message, depth, server.Generation!.Value);
     }
+
+    private static WindowEntityKey Placement(IReadOnlyDictionary<string, string?> row) =>
+        new(
+            SessionId.Parse(Read(row, "session_id")),
+            WindowId.Parse(Read(row, "window_id")),
+            int.Parse(Read(row, "window_index"), NumberStyles.None, CultureInfo.InvariantCulture));
 
     private static CapturedRelation<T> Relation<T>(
         IReadOnlyList<T> items,
@@ -181,12 +203,14 @@ internal sealed class ServerSnapshot
             : CapturedRelation.Uncaptured<T>(relation, depth);
 
     private static SessionWindowEdge[] BuildEdges(
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows)
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows,
+        CancellationToken cancellationToken)
     {
         var ordinals = new Dictionary<SessionId, int>();
         var edges = new List<SessionWindowEdge>(windowRows.Count);
         foreach (IReadOnlyDictionary<string, string?> row in windowRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!SessionId.TryParse(Read(row, "session_id"), out SessionId sessionId)
                 || !WindowId.TryParse(Read(row, "window_id"), out WindowId windowId)
                 || !int.TryParse(
@@ -195,9 +219,7 @@ internal sealed class ServerSnapshot
                     CultureInfo.InvariantCulture,
                     out int windowIndex))
             {
-                throw new TmuxProtocolException(
-                    "tmux reported a malformed window edge.",
-                    TmuxDispatchState.Dispatched);
+                throw new TmuxProtocolException("tmux reported a malformed window edge.", TmuxDispatchState.Dispatched);
             }
 
             // "list-windows -a" walks sessions in order, so the running count
@@ -222,9 +244,7 @@ internal sealed class ServerSnapshot
 
     private static string Read(IReadOnlyDictionary<string, string?> row, string wireName) =>
         Field(row, wireName)
-        ?? throw new TmuxProtocolException(
-            $"tmux window row is missing '{wireName}'.",
-            TmuxDispatchState.Dispatched);
+        ?? throw new TmuxProtocolException($"tmux row is missing '{wireName}'.", TmuxDispatchState.Dispatched);
 
     private static TmuxVersion ParseVersion(Server server)
     {

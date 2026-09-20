@@ -199,7 +199,7 @@ public sealed partial class Server
     /// The scope holds an endpoint rather than a materialized server, because
     /// a tmux server with no sessions exits at once. <see cref="OwnedServerScope.Value" />
     /// stays that endpoint after a session is created through it; its session,
-    /// window, and pane listings and <see cref="CaptureSnapshotAsync" />
+    /// window, and pane listings and <see cref="CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />
     /// discover the live server on each call, and the objects they return
     /// carry the discovered handle.
     /// </remarks>

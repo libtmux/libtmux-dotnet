@@ -1,6 +1,6 @@
 namespace LibTmux;
 
-/// <summary>Describes one <c>send-keys</c> invocation.</summary>
+/// <summary>Describes keys and an optional following Enter for a pane.</summary>
 public sealed record SendKeysRequest : ITmuxRequest<Pane>
 {
     /// <summary>Gets the text or key names to send.</summary>
@@ -46,19 +46,38 @@ public sealed record SendKeysRequest : ITmuxRequest<Pane>
     /// <remarks>tmux gained this in 3.4.</remarks>
     public bool KeyName { get; init; }
 
-    /// <summary>Returns a key request as one tmux command for a pane.</summary>
+    /// <summary>Returns a key request that needs only one tmux command.</summary>
     /// <param name="pane">The pane that receives them.</param>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    /// <exception cref="ArgumentException">The request sends nothing or needs separate text and Enter commands.</exception>
     public TmuxCommand ToCommand(Pane pane)
     {
-        ArgumentNullException.ThrowIfNull(pane);
-
-        // The pane ID travels into the chain as plain text, so RequiredGeneration
-        // pins it: after a restart, that ID could name a different pane.
-        return TmuxChaining.Command([.. pane.BuildSendKeysArguments(this)]) with
+        IReadOnlyList<TmuxCommand> commands = ToCommands(pane);
+        if (commands.Count != 1)
         {
-            RequiredGeneration = pane.Generation,
-        };
+            throw new ArgumentException(
+                "The request sends text and Enter as separate commands. Use ToCommands instead.");
+        }
+
+        return commands[0];
+    }
+
+    /// <summary>Returns every command the key request sends, in order.</summary>
+    /// <param name="pane">The pane that receives the keys.</param>
+    /// <returns>The text command followed by Enter when requested.</returns>
+    /// <remarks>Enter uses a separate command so literal mode types the text and then presses the key.</remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    /// <exception cref="ArgumentException">The request sends nothing or its text contains NUL.</exception>
+    public IReadOnlyList<TmuxCommand> ToCommands(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return
+        [
+            .. pane.BuildSendKeysCommands(this).Select(arguments => TmuxChaining.Command([.. arguments]) with
+            {
+                RequiredGeneration = pane.Generation,
+            }),
+        ];
     }
 }

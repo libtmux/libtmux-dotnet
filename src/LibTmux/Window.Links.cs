@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -38,6 +37,10 @@ public sealed partial class Window
     }
 
     /// <summary>Links this window into another session.</summary>
+    /// <remarks>
+    /// A guard in the native queue rejects the command when the captured
+    /// source index belongs to a different window or no longer exists.
+    /// </remarks>
     /// <param name="request">Where the link goes.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     [UnsupportedOSPlatform("windows")]
@@ -47,7 +50,7 @@ public sealed partial class Window
     {
         ArgumentNullException.ThrowIfNull(request);
         List<string> arguments = BuildLinkWindowArguments(request);
-        return RunAsync(arguments, cancellationToken);
+        return RunPlacementAsync(arguments, cancellationToken);
     }
 
     /// <summary>Removes this window's link to the session it was read through.</summary>
@@ -55,7 +58,8 @@ public sealed partial class Window
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <remarks>
     /// tmux refuses to unlink a window that belongs to only one session unless
-    /// it is allowed to destroy it.
+    /// it is allowed to destroy it. A guard in the native queue checks the
+    /// captured session/index still names this window before unlinking it.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public Task UnlinkAsync(
@@ -70,7 +74,7 @@ public sealed partial class Window
 
         arguments.Add("-t");
         arguments.Add(SourceLink("unlink source"));
-        return RunAsync(arguments, cancellationToken);
+        return RunPlacementAsync(arguments, cancellationToken);
     }
 
     /// <summary>Builds the arguments a move request sends.</summary>
@@ -106,24 +110,6 @@ public sealed partial class Window
         return arguments;
     }
 
-    /// <summary>Moves this window to another index or session.</summary>
-    /// <param name="request">Where the window goes.</param>
-    /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <returns>A replacement handle carrying the state after the move.</returns>
-    [UnsupportedOSPlatform("windows")]
-    public async Task<Window> MoveAsync(
-        MoveWindowRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        List<string> arguments = BuildMoveWindowArguments(request);
-
-        return await TmuxMutationSequence.RunAsync(
-                () => RunAsync(arguments, cancellationToken),
-                () => RefreshAsync(cancellationToken))
-            .ConfigureAwait(false);
-    }
-
     /// <summary>Swaps this window with another.</summary>
     /// <param name="target">The window to swap with.</param>
     /// <param name="detach">Whether the swapped window is left unselected.</param>
@@ -148,7 +134,17 @@ public sealed partial class Window
         arguments.Add(target.ToString());
         return RunAsync(arguments, cancellationToken);
     }
+    internal TmuxCommand BuildPlacementCommand(IReadOnlyList<string> arguments) =>
+        new(arguments[0], [.. arguments.Skip(1)])
+        {
+            RequiredGeneration = _generation,
+            RequiredWindowPlacement = new WindowEntityKey(SessionId.Parse(CapturedSession("source placement")), _id, Index),
+        };
 
+    [UnsupportedOSPlatform("windows")]
+    private Task<TmuxCommandResult> RunPlacementAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken) =>
+        RequireOwner("window placement mutation").Chain().Then(BuildPlacementCommand(arguments))
+            .ExecuteAsync(cancellationToken);
 
     // A bare window id lets tmux choose which link it means, so any operation
     // that moves a link names the session it belongs to as well.

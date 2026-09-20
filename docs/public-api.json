@@ -1185,6 +1185,15 @@
       "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest{LibTmux.TmuxHooks},LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,LibTmux.IControlModeSession,System.Threading.CancellationToken)",
+      "performsIO": true
+    },
+    {
+      "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
     }
   ],
   "packageAssignments": {

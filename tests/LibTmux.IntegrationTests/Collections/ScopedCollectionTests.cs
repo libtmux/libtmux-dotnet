@@ -161,4 +161,21 @@ public sealed class ScopedCollectionTests
                 ConfigurationFile = "/dev/null",
             },
             token);
+    [UnixFact]
+    public async Task A_live_server_without_sessions_returns_an_empty_successful_listing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Assert.Equal(0, (await raw.ExecuteAsync(["set-option", "-g", "exit-empty", "off"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["kill-session", "-t", raw.SessionName], token)).ExitCode);
+
+        RawTmuxResult native = await raw.ExecuteAsync(["list-sessions"], token);
+        Assert.Equal(0, native.ExitCode);
+        Assert.Empty(native.StandardOutputLines);
+        Assert.True(await server.IsAliveAsync(token));
+        Assert.Empty(await server.GetSessionsAsync(token));
+        Assert.Empty(await server.GetAttachedSessionsAsync(token));
+    }
+
 }

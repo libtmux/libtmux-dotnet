@@ -9,13 +9,30 @@ public sealed partial class Server
 {
     private readonly ServerSnapshot? _snapshot;
 
+    /// <summary>Gets acquisition metadata, or null when this handle was not captured.</summary>
+    public SnapshotMetadata? SnapshotMetadata { get; }
+
+    [UnsupportedOSPlatform("windows")]
     private Server(
         TmuxConnection connection,
         ServerGeneration? generation,
         string? rawVersion,
-        ServerSnapshot snapshot)
-        : this(connection, generation, rawVersion) =>
-        _snapshot = snapshot;
+        ServerSnapshot.Rows rows,
+        TimeProvider timeProvider,
+        long started,
+        DateTimeOffset startedAtUtc,
+        CancellationToken cancellationToken)
+        : this(connection, generation, rawVersion)
+    {
+        _snapshot = ServerSnapshot.Build(this, rows, cancellationToken);
+        SnapshotMetadata = new SnapshotMetadata(
+            rows.Depth,
+            generation!.Value,
+            startedAtUtc,
+            timeProvider.GetUtcNow(),
+            timeProvider.GetElapsedTime(started));
+        cancellationToken.ThrowIfCancellationRequested();
+    }
 
     /// <summary>Gets the sessions this handle captured.</summary>
     public CapturedRelation<Session> Sessions =>
@@ -23,9 +40,8 @@ public sealed partial class Server
 
     /// <summary>Gets the windows this handle captured, across every session.</summary>
     /// <remarks>
-    /// A window linked into several sessions was read once per session, so it
-    /// appears here once per session it is linked into. Which session each one
-    /// belongs to is read from the window rather than from this list.
+    /// Each session/index placement appears separately, including repeated links
+    /// in one session. Each handle preserves its captured parent and children.
     /// </remarks>
     public CapturedRelation<Window> Windows =>
         _snapshot?.Windows ?? CapturedRelation.Uncaptured<Window>("windows", Depth);
@@ -53,25 +69,51 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>A handle whose relations are the ones this reading found.</returns>
     /// <exception cref="InvalidOperationException">The handle has no connection.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The depth is undefined.</exception>
+    /// <exception cref="InconsistentSnapshotException">The acquired parent, placement, or child-count rows contradict each other.</exception>
+    /// <exception cref="StaleServerGenerationException">The endpoint now names a different daemon generation.</exception>
+    /// <exception cref="OperationCanceledException">Acquisition was cancelled before publication.</exception>
     /// <remarks>
     /// A handle that has not yet found a live server discovers one first,
     /// because a scope hands back the unmaterialized endpoint it started.
+    /// <para>
+    /// Every depth performs a fresh guarded read. Separate reads are not an
+    /// atomic observation; detected topology contradictions fail the attempt
+    /// without retrying or publishing partial relations.
+    /// </para>
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
-    public async Task<Server> CaptureSnapshotAsync(
+    public Task<Server> CaptureSnapshotAsync(
         SnapshotDepth depth = SnapshotDepth.Panes,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        CaptureSnapshotAsync(depth, TimeProvider.System, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<Server> CaptureSnapshotAsync(
+        SnapshotDepth depth,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        if (depth is < SnapshotDepth.Server or > SnapshotDepth.Panes)
+        {
+            throw new ArgumentOutOfRangeException(nameof(depth), depth, "The snapshot depth is undefined.");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
         TmuxConnection connection = _connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
+        long started = timeProvider.GetTimestamp();
+        DateTimeOffset startedAtUtc = timeProvider.GetUtcNow();
         Server live = await ConnectAsync(cancellationToken).ConfigureAwait(false);
-        ServerSnapshot snapshot = await ServerSnapshot
-            .CaptureAsync(live, depth, cancellationToken)
+        ServerSnapshot.Rows rows = await ServerSnapshot
+            .ReadAsync(live, depth, cancellationToken)
             .ConfigureAwait(false);
 
-        // Returns a new handle rather than mutating this one, so a caller
-        // already holding it keeps seeing what it originally read.
-        return new Server(connection, live.Generation, live.RawVersion, snapshot);
+        // Only the newly constructed root owns these children; earlier captures
+        // and refreshed handles keep their original graph membership.
+        return new Server(
+            connection, live.Generation, live.RawVersion, rows,
+            timeProvider, started, startedAtUtc, cancellationToken);
     }
 
     private SnapshotDepth Depth => _snapshot?.Depth ?? SnapshotDepth.Server;

@@ -32,13 +32,12 @@ TmuxCommandResult result = await server.Chain()
 ## Chaining the typed requests
 
 The request records the one-shot methods take are the same ones a chain takes.
-Every one of them answers a command, so a sequence keeps the typed arguments
-rather than dropping to strings:
+They return the commands they need, retaining their typed arguments:
 
 ```csharp
 await server.Chain()
     .Then(new NewWindowRequest { Name = "build" }.ToCommand(session))
-    .Then(new SendKeysRequest { Text = "make" }.ToCommand(pane))
+    .Then(new SendKeysRequest { Text = "make" }.ToCommands(pane))
     .ExecuteAsync(ct);
 ```
 
@@ -64,7 +63,7 @@ the interface rather than naming each record:
 ITmuxRequest<Pane>[] steps =
 [
     new SelectPaneRequest(),
-    new SendKeysRequest { Text = "make" },
+    new SendKeysRequest { Text = "make", Enter = false },
 ];
 TmuxChain chain = server.Chain();
 foreach (ITmuxRequest<Pane> step in steps)
@@ -75,8 +74,13 @@ foreach (ITmuxRequest<Pane> step in steps)
 await chain.ExecuteAsync(ct);
 ```
 
-One request answers several commands rather than one. Setting a hook's entries
-is a clear then one command per entry, so it answers a list:
+`SendKeysRequest.ToCommands(pane)` includes a separate Enter command when
+requested. `ToCommand(pane)` rejects that composite request; use it only for a
+request that needs one command, such as `Enter = false`. Enter can execute input
+in the pane's application.
+
+Setting a hook's entries also needs several commands: a clear then one command
+per entry, returned as a list:
 
 ```csharp
 IReadOnlyList<TmuxCommand> commands = new SetHooksRequest(
@@ -86,6 +90,13 @@ IReadOnlyList<TmuxCommand> commands = new SetHooksRequest(
     ClearExisting = true,
 }.ToCommands(server.Hooks);
 ```
+
+Typed window move and link commands verify the captured session/index still
+names the expected window immediately before their mutation in tmux's queue.
+A stale placement stops the group before that mutation and later chain steps.
+The checks travel with the typed command; converting it to raw argv with
+`ToArguments()` discards them. This target check does not make a chain or the
+observations surrounding it a transaction.
 
 ## Building reaches nothing
 

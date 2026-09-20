@@ -20,6 +20,6 @@ public sealed record SessionWindowEdge
     /// <summary>Gets the edge's position in the session's window order.</summary>
     public int? Ordinal { get; init; }
 
-    /// <summary>Gets the session and window this edge joins.</summary>
-    public WindowEntityKey Key => new(SessionId, WindowId);
+    /// <summary>Gets the session, window and index this edge joins.</summary>
+    public WindowEntityKey Key => new(SessionId, WindowId, WindowIndex);
 }

@@ -22,7 +22,13 @@ internal static class QueryFieldCatalog
             typeof(Client),
             nameof(Client.Name),
             new(static element => ((Client)element).Name, typeof(string))),
-        new("pane_command", QueryTarget.Pane, QueryValueKind.String),
+        new(
+            "pane_command",
+            QueryTarget.Pane,
+            QueryValueKind.String,
+            typeof(Pane),
+            nameof(Pane.CurrentCommand),
+            new(static element => ((Pane)element).CurrentCommand, typeof(string))),
         new(
             "pane_id",
             QueryTarget.Pane,

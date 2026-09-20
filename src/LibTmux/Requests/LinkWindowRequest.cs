@@ -41,9 +41,6 @@ public sealed record LinkWindowRequest : ITmuxRequest<Window>
     public TmuxCommand ToCommand(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
-        return TmuxChaining.Command([.. window.BuildLinkWindowArguments(this)]) with
-        {
-            RequiredGeneration = window.Generation,
-        };
+        return window.BuildPlacementCommand(window.BuildLinkWindowArguments(this));
     }
 }

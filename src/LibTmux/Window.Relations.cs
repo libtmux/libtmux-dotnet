@@ -64,14 +64,17 @@ public sealed partial class Window
         }
     }
 
-    /// <summary>Gets the session and window this handle names together.</summary>
+    /// <summary>Gets the session, window and index this handle names together.</summary>
+    /// <exception cref="IncompleteSnapshotException">
+    /// The window was resolved by identifier rather than materialized.
+    /// </exception>
     /// <remarks>
-    /// tmux links one window into several sessions at different indexes, so a
-    /// window identifier alone does not name a place in the hierarchy.
+    /// tmux can link a window at several indexes in one session, so the session
+    /// and window identifiers alone do not name a place in the hierarchy.
     /// </remarks>
     public WindowEntityKey EntityKey =>
         SessionId.TryParse(ReadSnapshot("session_id"), out SessionId session)
-            ? new WindowEntityKey(session, _id)
+            ? new WindowEntityKey(session, _id, ReadIndex())
             : throw new IncompleteSnapshotException("entity key", SnapshotDepth.Windows);
 
     private int ReadIndex() =>
@@ -163,13 +166,16 @@ public sealed partial class Window
     internal Window WithCaptured(
         CapturedRelation<Pane> panes,
         CapturedRelation<Session> linkedSessions,
-        SessionWindowEdge? edge,
-        Session? session)
+        SessionWindowEdge edge,
+        Session session,
+        Pane? activePane)
     {
         _panes = panes;
         _linkedSessions = linkedSessions;
         _edge = edge;
         _capturedSession = session;
+        _activePane = activePane is null ? null
+            : CapturedValue.Capture(activePane, "active pane", panes.CapturedDepth);
         return this;
     }
 

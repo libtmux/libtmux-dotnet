@@ -36,6 +36,21 @@ public sealed partial class Pane
     /// <summary>Gets the pane title captured with this handle.</summary>
     public string? Title => ReadSnapshot("pane_title");
 
+    /// <summary>Gets the foreground command captured with this pane.</summary>
+    /// <remarks>Returns null for a captured unavailable value. Reading this never reaches tmux.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The command field was not captured.</exception>
+    public string? CurrentCommand => ReadCapturedText("pane_current_command", "current command");
+
+    /// <summary>Gets the current working directory captured with this pane.</summary>
+    /// <remarks>Returns null for a captured unavailable value. Reading this never reaches tmux.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The path field was not captured.</exception>
+    public string? CurrentPath => ReadCapturedText("pane_current_path", "current path");
+
+    private string? ReadCapturedText(string wireName, string relation) =>
+        _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)
+            ? value
+            : throw new IncompleteSnapshotException(relation, SnapshotDepth.Panes);
+
     /// <summary>Re-reads this pane from tmux.</summary>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>A replacement handle carrying current state.</returns>

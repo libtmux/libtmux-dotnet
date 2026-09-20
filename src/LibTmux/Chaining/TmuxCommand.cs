@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -84,8 +85,24 @@ public sealed record TmuxCommand
     /// </remarks>
     public ServerGeneration? RequiredGeneration { get; init; }
 
+    internal WindowEntityKey? RequiredWindowPlacement { get; init; }
+
+    internal IEnumerable<IReadOnlyList<string>> ToDispatchCommands()
+    {
+        if (RequiredWindowPlacement is WindowEntityKey placement)
+        {
+            yield return TmuxWindowPlacementGuard.CreateArguments(placement);
+        }
+
+        yield return ToArguments();
+    }
+
     /// <summary>Returns this command the way tmux receives it.</summary>
     /// <returns>The command name followed by its arguments.</returns>
+    /// <remarks>
+    /// This is raw argv. Execute the command through a chain or control session
+    /// to retain its checks for server generation and captured window placement.
+    /// </remarks>
     public IReadOnlyList<string> ToArguments() => [Name, .. Arguments];
 
     /// <inheritdoc />
@@ -93,6 +110,7 @@ public sealed record TmuxCommand
         other is not null
         && string.Equals(Name, other.Name, StringComparison.Ordinal)
         && RequiredGeneration == other.RequiredGeneration
+        && RequiredWindowPlacement == other.RequiredWindowPlacement
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -101,6 +119,7 @@ public sealed record TmuxCommand
         var hash = new HashCode();
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(RequiredGeneration);
+        hash.Add(RequiredWindowPlacement);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

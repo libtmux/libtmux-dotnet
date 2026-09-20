@@ -112,16 +112,33 @@ public sealed class TmuxChain
         }
 
         IReadOnlyList<IReadOnlyList<string>> arguments =
-            [.. _commands.Select(static command => command.ToArguments())];
+            [.. _commands.SelectMany(static command => command.ToDispatchCommands())];
+        IReadOnlyList<string>? logicalArguments = _commands.Any(static command => command.RequiredWindowPlacement is not null)
+            ? TmuxCommandRequest.Group([.. _commands.Select(static command => command.ToArguments())]).LogicalArguments
+            : null;
 
-        TmuxCommandResult result = required.Length == 1 && _guarded is { } guarded
-            ? await _dispatcher.ExecuteGroupAsync(
-                    arguments,
-                    (commands, token) => guarded(required[0], commands, token),
-                    cancellationToken)
-                .ConfigureAwait(false)
-            : await _dispatcher.ExecuteGroupAsync(arguments, cancellationToken)
-                .ConfigureAwait(false);
+        TmuxCommandResult result;
+        try
+        {
+            result = required.Length == 1 && _guarded is { } guarded
+                ? await _dispatcher.ExecuteGroupAsync(
+                        arguments,
+                        (commands, token) => guarded(required[0], commands, token),
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await _dispatcher.ExecuteGroupAsync(arguments, cancellationToken)
+                    .ConfigureAwait(false);
+        }
+        catch (TmuxTransportException error) when (logicalArguments is not null)
+        {
+            throw new TmuxTransportException(error.Message, logicalArguments, error.Dispatch, error.InnerException);
+        }
+
+        if (logicalArguments is not null)
+        {
+            result = TmuxCommandResultProjection.Remap(result, logicalArguments, result.StandardOutput);
+        }
+
         TmuxCommandFailure.ThrowIfFailed(result, "chain");
         return result;
     }

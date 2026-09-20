@@ -10,6 +10,10 @@ public sealed record MoveWindowRequest : ITmuxRequest<Window>
     public string? Session { get; init; }
 
     /// <summary>Gets whether to insert before or after the destination.</summary>
+    /// <remarks>
+    /// A relative target or a numeric index with no window inserts beside the
+    /// destination session's active window, following tmux target resolution.
+    /// </remarks>
     public WindowDirection? Direction { get; init; }
 
     /// <summary>Gets whether the moved window is left unselected.</summary>
@@ -33,9 +37,6 @@ public sealed record MoveWindowRequest : ITmuxRequest<Window>
     public TmuxCommand ToCommand(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
-        return TmuxChaining.Command([.. window.BuildMoveWindowArguments(this)]) with
-        {
-            RequiredGeneration = window.Generation,
-        };
+        return window.BuildPlacementCommand(window.BuildMoveWindowArguments(this));
     }
 }

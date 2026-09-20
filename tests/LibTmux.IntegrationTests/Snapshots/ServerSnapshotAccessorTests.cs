@@ -67,8 +67,7 @@ public sealed class ServerSnapshotAccessorTests
         Assert.False(deep.Clients.IsCaptured);
         Assert.True(deep.Windows.IsCaptured);
 
-        // A capture that stopped at sessions has looked for windows and found
-        // none to record, which is not the same as never having looked.
+        // A session-only capture has not read windows, even when they exist.
         Server sessionsOnly = await live.CaptureSnapshotAsync(SnapshotDepth.Sessions, token);
         Assert.True(sessionsOnly.Sessions.IsCaptured);
         Assert.False(sessionsOnly.Windows.IsCaptured);
