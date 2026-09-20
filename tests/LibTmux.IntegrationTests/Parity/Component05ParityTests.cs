@@ -57,7 +57,7 @@ public sealed class Component05ParityTests
         {
             "libtmux.pane:Pane.server" => ReferenceEquals(
                 (await session.GetPanesAsync(TestContext.Current.CancellationToken))[0].Server,
-                server),
+                snapshot),
             "libtmux.pane:Pane.session" =>
                 (await session.GetPanesAsync(TestContext.Current.CancellationToken))[0]
                     .Session.Id == session.Id,

@@ -83,12 +83,25 @@ def error_policy_validator() -> t.Callable[
     )
 
 
-def test_neo_capabilities_are_internalized() -> None:
-    """Record neo capabilities as internalized rather than omitting them."""
+def test_neo_fields_keep_explicit_captured_property_destinations() -> None:
+    """Expose command and path while retaining the remaining materialization fields."""
     ledger = load_document("parity-ledger.json")
     neo_rows = [row for row in ledger["rows"] if row["module"] == "libtmux.neo"]
     assert neo_rows
-    assert {row["destinationStatus"] for row in neo_rows} == {"internalized"}
+    captured = {
+        row["pythonSymbolId"]: row["csharpDestination"]
+        for row in neo_rows
+        if row["destinationStatus"] == "approved"
+    }
+    assert captured == {
+        "libtmux.neo:Obj.pane_current_command": "P:LibTmux.Pane.CurrentCommand",
+        "libtmux.neo:Obj.pane_current_path": "P:LibTmux.Pane.CurrentPath",
+    }
+    assert {
+        row["destinationStatus"]
+        for row in neo_rows
+        if row["pythonSymbolId"] not in captured
+    } == {"internalized"}
 
 
 def test_version_deltas_cover_the_required_capabilities() -> None:
@@ -672,11 +685,18 @@ def test_ledger_validator_rejects_incorrect_destinations() -> None:
         row for row in ledger["rows"] if row["destinationStatus"] == "excluded"
     )
     excluded["csharpDestination"] = "T:LibTmux.Server"
+    captured = next(
+        row
+        for row in ledger["rows"]
+        if row["pythonSymbolId"] == "libtmux.neo:Obj.pane_current_command"
+    )
+    captured["csharpDestination"] = "P:LibTmux.Pane.Title"
 
     violations = ledger_validator()(inventory, ledger)
 
     assert f"missing approved destination: {approved['pythonSymbolId']}" in violations
     assert f"invalid excluded destination: {excluded['pythonSymbolId']}" in violations
+    assert "neo field destinations differ from the approved catalog" in violations
 
 
 def test_ledger_validator_rejects_unknown_status_and_component() -> None:

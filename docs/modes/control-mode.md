@@ -87,6 +87,22 @@ Outstanding calls are bounded. If the session has reached its pending limit,
 command. Cancellation stops that caller's wait, not the command; the session
 discards that answer until tmux finishes the command, preserving later replies.
 
+## Sending text and Enter
+
+The typed control overload keeps a requested Enter as a separate command:
+
+```csharp
+await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+IReadOnlyList<string> replies = await new SendKeysRequest { Text = "make", Literal = true }
+    .ExecuteAsync(pane, control, ct);
+```
+
+The result concatenates reply lines in command order; it contains no separate
+result envelope for each command. Other control callers can send between the
+text and Enter requests. If text succeeds but Enter fails or its wait is
+cancelled, `LibTmuxException.Dispatch` is `Unknown`: do not retry the whole
+request. Enter can execute input in the pane's application.
+
 ## When this is not the right mode
 
 For a single command it is more machinery than the job needs — use

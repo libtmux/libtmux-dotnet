@@ -112,8 +112,18 @@ Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLim
 `window_name`, `window_id`, `window_panes`, `pane_id`, `pane_command`,
 `client_id`, `client_name`, `client_control_mode`.
 
-You write these as the properties they are — `Session.Name`,
-`Client.IsControlClient` — and the wire carries the tmux spelling.
+You write these as the properties they are: `Session.Name`,
+`Client.IsControlClient` and `Pane.CurrentCommand`. The v1 name `pane_command`
+binds to the captured tmux `pane_current_command` value.
+
+`Pane.CurrentPath` reads the captured working directory and works with native
+LINQ `Where` predicates. It has no field in the closed v1 schema, so
+`Translate` and `Matching` reject a predicate over that property. A versioned
+schema extension is required before it can appear in a query document.
+
+Both pane properties read captured state without I/O. They throw
+`IncompleteSnapshotException` when the field was never captured; captured
+null and empty-string values remain distinct during local matching.
 
 A field outside it throws `UnsupportedQueryExpressionException` at translation
 rather than falling back. The document is interpreted locally or by an

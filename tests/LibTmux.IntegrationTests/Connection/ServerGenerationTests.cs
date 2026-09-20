@@ -68,6 +68,10 @@ public sealed class ServerGenerationTests
         Session staleSession = await firstServer.GetSessionAsync(
             new SessionId(0),
             TestContext.Current.CancellationToken);
+        Window staleWindow = await firstServer.GetWindowAsync(
+            new WindowId(0),
+            TestContext.Current.CancellationToken);
+        Window stalePlacement = await staleWindow.RefreshAsync(TestContext.Current.CancellationToken);
         ServerGeneration expected = staleSession.Generation;
 
         RawTmuxResult stopped = await context.ExecuteAsync(
@@ -102,6 +106,19 @@ public sealed class ServerGenerationTests
         ServerGeneration actual = successorSession.Generation;
         Assert.NotEqual(expected, actual);
         Assert.Equal(firstServer, successorServer);
+        Window successorWindow = await successorServer.GetWindowAsync(
+            new WindowId(0),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(staleWindow.Id, successorWindow.Id);
+        Assert.NotEqual(staleWindow, successorWindow);
+        await Assert.ThrowsAsync<StaleServerGenerationException>(
+            () => staleWindow.RefreshAsync(TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<StaleServerGenerationException>(
+            () => stalePlacement.MoveAsync(new MoveWindowRequest
+            {
+                Destination = "5"
+            }, TestContext.Current.CancellationToken));
+        Assert.Equal(0, Assert.Single(await successorSession.GetWindowsAsync(TestContext.Current.CancellationToken)).Index);
 
         // The stale handle can still resolve the identifier, because the
         // replacement reuses it. It must not answer with a handle that names

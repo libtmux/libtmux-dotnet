@@ -7,8 +7,7 @@ namespace LibTmux;
 public sealed partial class Session
 {
     private readonly Server? _owner;
-    private Func<CapturedRelation<Window>>? _windows;
-    private CapturedRelation<Window>? _windowsCache;
+    private CapturedRelation<Window>? _windows;
     private CapturedRelation<Pane>? _panes;
     private CapturedValue<Window>? _activeWindow;
     private CapturedValue<Pane>? _activePane;
@@ -42,39 +41,9 @@ public sealed partial class Session
             : CapturedValue.Uncaptured<Pane>("active pane", SnapshotDepth.Sessions);
 
     /// <summary>Gets the windows the capture found in this session.</summary>
-    /// <remarks>
-    /// Reading this never reaches tmux. A handle that was not read from a
-    /// capture answers uncaptured rather than empty, because "nobody looked"
-    /// and "there are none" are different answers. The first read caches the
-    /// copy and releases the factory, which is the only thing holding this
-    /// session's slice of the snapshot's shared window map alive. Releasing it
-    /// is published only after the cache is, so a concurrent reader that finds
-    /// the factory gone also finds the answer it produced.
-    /// </remarks>
-    public CapturedRelation<Window> Windows
-    {
-        get
-        {
-            if (_windowsCache is not null)
-            {
-                return _windowsCache;
-            }
-
-            CapturedRelation<Window> windows = Volatile.Read(ref _windows)?.Invoke()
-                ?? CapturedRelation.Uncaptured<Window>("windows", SnapshotDepth.Server);
-            CapturedRelation<Window>? cached = Interlocked.CompareExchange(
-                ref _windowsCache,
-                windows,
-                null);
-            if (cached is not null)
-            {
-                return cached;
-            }
-
-            Volatile.Write(ref _windows, null);
-            return windows;
-        }
-    }
+    /// <remarks>Reading this never reaches tmux; unacquired relations remain uncaptured.</remarks>
+    public CapturedRelation<Window> Windows =>
+        _windows ?? CapturedRelation.Uncaptured<Window>("windows", SnapshotDepth.Server);
 
     /// <summary>Gets the panes the capture found in this session.</summary>
     /// <remarks>Reading this never reaches tmux.</remarks>
@@ -201,11 +170,17 @@ public sealed partial class Session
     }
 
     internal Session WithCaptured(
-        Func<CapturedRelation<Window>> windows,
-        CapturedRelation<Pane> panes)
+        CapturedRelation<Window> windows,
+        CapturedRelation<Pane> panes,
+        Window? activeWindow = null,
+        Pane? activePane = null)
     {
         _windows = windows;
         _panes = panes;
+        _activeWindow = activeWindow is null ? null
+            : CapturedValue.Capture(activeWindow, "active window", windows.CapturedDepth);
+        _activePane = activePane is null ? null
+            : CapturedValue.Capture(activePane, "active pane", panes.CapturedDepth);
         return this;
     }
 

@@ -1,4 +1,5 @@
 using System.Text;
+using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -9,6 +10,21 @@ internal static class ControlModeCommandRenderer
     {
         ArgumentNullException.ThrowIfNull(command);
         var rendered = new StringBuilder();
+        if (command.RequiredWindowPlacement is { } placement)
+        {
+            foreach (string token in TmuxWindowPlacementGuard.CreateArguments(placement))
+            {
+                if (rendered.Length != 0)
+                {
+                    rendered.Append(' ');
+                }
+
+                AppendToken(rendered, token);
+            }
+
+            rendered.Append(" ; ");
+        }
+
         AppendToken(rendered, command.Name);
         foreach (string token in command.Arguments)
         {
@@ -26,6 +42,16 @@ internal static class ControlModeCommandRenderer
         foreach (string token in command.Arguments)
         {
             bytes += 1 + GetTokenByteCount(token);
+        }
+
+        if (command.RequiredWindowPlacement is { } placement)
+        {
+            IReadOnlyList<string> guard = TmuxWindowPlacementGuard.CreateArguments(placement);
+            bytes += 3 + guard.Count - 1;
+            foreach (string token in guard)
+            {
+                bytes += GetTokenByteCount(token);
+            }
         }
 
         return bytes;

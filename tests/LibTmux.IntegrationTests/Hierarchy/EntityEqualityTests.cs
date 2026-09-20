@@ -121,6 +121,10 @@ public sealed class EntityEqualityTests
         Assert.Equal(before.Id, after.Id);
         Assert.False(before == after);
         Assert.True(before != after);
+        Window beforeWindow = before.Window;
+        Window afterWindow = after.Window;
+        Assert.Equal(beforeWindow.Id, afterWindow.Id);
+        Assert.NotEqual(beforeWindow, afterWindow);
     }
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>

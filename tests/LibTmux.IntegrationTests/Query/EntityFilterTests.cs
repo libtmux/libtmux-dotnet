@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Query;
 using LibTmux.Testing;
@@ -16,6 +17,43 @@ namespace LibTmux.IntegrationTests.Query;
 [UnsupportedOSPlatform("windows")]
 public sealed class EntityFilterTests
 {
+    [UnixFact]
+    public async Task Pane_command_queries_bind_captured_entities_without_io()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null"
+            }, token);
+        Pane pane = Assert.Single(await server.GetPanesAsync(token));
+        string command = Assert.IsType<string>(pane.RawFormatFields["pane_current_command"]);
+        string path = Assert.IsType<string>(pane.RawFormatFields["pane_current_path"]);
+        Assert.NotEmpty(command);
+        Assert.NotEmpty(path);
+        QueryDocument document = new(
+            QueryDocument.CurrentSchema,
+            QueryDocument.CurrentVersion,
+            QueryTarget.Pane,
+            new ComparisonNode(
+                QueryComparison.Equal,
+                new FieldNode(QueryTarget.Pane, "pane_command"),
+                new ConstantNode(new StringConstant(command))));
+        Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
+
+        Assert.Multiple(
+            () => Assert.Equal(command, pane.CurrentCommand),
+            () => Assert.Equal(path, pane.CurrentPath),
+            () => Assert.Equal(pane, Assert.Single(new[] { pane }.Matching(document))));
+        Assert.Equal([pane], new[] { pane }.Matching<Pane>(candidate => candidate.CurrentCommand == command));
+        Assert.Equal([pane], new[] { pane }.Where(candidate => candidate.CurrentPath == path));
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryExtensions.Translate<Pane>(candidate => candidate.CurrentPath == path));
+    }
+
     [UnixFact]
     public async Task A_predicate_over_sessions_matches_what_tmux_reports()
     {

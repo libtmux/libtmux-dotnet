@@ -22,6 +22,10 @@ CSHARP_INVENTORY_PATH = DOCUMENT_ROOT.parent.parent / "artifacts/api-inventory.j
 GENERATOR_PATH = pathlib.Path(__file__).with_name("generate_inventory.py")
 SOURCE_URL_PREFIX = python_source.BLOB_URL_PREFIX
 DESTINATION_STATUSES = {"approved", "internalized", "excluded"}
+NEO_CAPTURED_PROPERTIES = {
+    "libtmux.neo:Obj.pane_current_command": "P:LibTmux.Pane.CurrentCommand",
+    "libtmux.neo:Obj.pane_current_path": "P:LibTmux.Pane.CurrentPath",
+}
 COMPONENT_IDS = set(range(1, 19))
 LENIENT_ACCESSOR_IDS = {
     "libtmux.server:Server.attached_sessions",
@@ -138,7 +142,7 @@ def validate(inventory: dict[str, t.Any], ledger: dict[str, t.Any]) -> list[str]
 
     >>> for violation in validate({"symbols": []}, {"rows": []}):
     ...     print(violation)
-    neo capabilities are not internalized
+    neo field destinations differ from the approved catalog
     raising tombstones are not inventoried
     warning aliases are not inventoried
     public test helpers are not inventoried
@@ -213,9 +217,16 @@ def validate(inventory: dict[str, t.Any], ledger: dict[str, t.Any]) -> list[str]
             violations.append(f"unexpected evidence status: {row['pythonSymbolId']}")
     neo_rows = [row for row in rows if row.get("module") == "libtmux.neo"]
     if not neo_rows or any(
-        row.get("destinationStatus") != "internalized" for row in neo_rows
+        (
+            row.get("destinationStatus") != "approved"
+            or row.get("csharpDestination")
+            != NEO_CAPTURED_PROPERTIES[row["pythonSymbolId"]]
+        )
+        if row["pythonSymbolId"] in NEO_CAPTURED_PROPERTIES
+        else row.get("destinationStatus") != "internalized"
+        for row in neo_rows
     ):
-        violations.append("neo capabilities are not internalized")
+        violations.append("neo field destinations differ from the approved catalog")
     symbol_kinds = {symbol["id"]: symbol["kind"] for symbol in symbols}
     if "raising_tombstone" not in set(symbol_kinds.values()):
         violations.append("raising tombstones are not inventoried")

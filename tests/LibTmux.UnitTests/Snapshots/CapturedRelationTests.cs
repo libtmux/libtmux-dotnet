@@ -1,40 +1,75 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Query;
 using LibTmux.UnitTests.Transport;
 
 namespace LibTmux.UnitTests.Snapshots;
 
 public sealed class CapturedRelationTests
 {
-    [UnixFact]
+    [Fact(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     [UnsupportedOSPlatform("windows")]
     public async Task Concurrent_first_reads_of_Windows_all_see_the_capture()
     {
-        // The first read caches the copy and releases the factory. A second
-        // reader that arrives between those two stores must not conclude the
-        // windows were never captured and cache that over the real answer.
-        for (int attempt = 0; attempt < 200; attempt++)
-        {
-            var dispatcher = new TmuxCommandDispatcher(
-                static (_, _) => throw new UnreachableException());
-            Window[] windows = [new(dispatcher, "@1")];
-            Session session = new Session(dispatcher, "$1").WithCaptured(
-                () => CapturedRelation.Capture(windows, "windows", SnapshotDepth.Windows),
-                CapturedRelation.Capture<Pane>([], "panes", SnapshotDepth.Panes));
+        var dispatcher = new TmuxCommandDispatcher(
+            static (_, _) => throw new UnreachableException());
+        Window[] windows = [new(dispatcher, "@1")];
+        CapturedRelation<Window> captured = CapturedRelation.Capture(windows, "windows", SnapshotDepth.Windows);
+        Session session = new Session(dispatcher, "$1").WithCaptured(
+            captured,
+            CapturedRelation.Capture<Pane>([], "panes", SnapshotDepth.Panes));
 
-            using var gate = new Barrier(2);
-            Task<CapturedRelation<Window>> Read() => Task.Run(() =>
+        CapturedRelation<Window>[] both = await Task.WhenAll(
+            Task.Run(() => session.Windows),
+            Task.Run(() => session.Windows));
+
+        Assert.All(both, relation => Assert.Same(captured, relation));
+        Assert.Same(windows[0], Assert.Single(session.Windows));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Pane_text_fields_distinguish_uncaptured_null_and_empty_values()
+    {
+        var generation = new ServerGeneration(92, 902);
+        var connection = new TmuxConnection(
+            new ServerConnectionOptions
             {
-                gate.SignalAndWait();
-                return session.Windows;
+                SocketName = "snapshot-unit"
+            },
+            (_, _) => throw new InvalidOperationException("A captured field reached tmux."));
+        var server = new Server(connection, generation, "tmux 3.7");
+        var uncaptured = new Pane(new TmuxCommandDispatcher(static (_, _) => throw new UnreachableException()), "%0");
+        var missing = new Pane(server, connection, generation, new PaneId(0),
+            new Dictionary<string, string?>());
+        var unavailable = new Pane(server, connection, generation, new PaneId(0),
+            new Dictionary<string, string?>
+            {
+                ["pane_current_command"] = null,
+                ["pane_current_path"] = null,
             });
+        var empty = new Pane(server, connection, generation, new PaneId(0),
+            new Dictionary<string, string?>
+            {
+                ["pane_current_command"] = string.Empty,
+                ["pane_current_path"] = string.Empty,
+            });
+        Func<Pane, bool> isNull = QueryExtensions.Translate<Pane>(pane => pane.CurrentCommand == null).Compile<Pane>();
 
-            CapturedRelation<Window>[] both = await Task.WhenAll(Read(), Read());
-
-            Assert.All(both, relation => Assert.True(relation.IsCaptured));
-            Assert.True(session.Windows.IsCaptured);
+        foreach (Pane pane in new[] { uncaptured, missing })
+        {
+            Assert.Throws<IncompleteSnapshotException>(() => pane.CurrentCommand);
+            Assert.Throws<IncompleteSnapshotException>(() => pane.CurrentPath);
+            Assert.Throws<IncompleteSnapshotException>(() => isNull(pane));
         }
+
+        Assert.Null(unavailable.CurrentCommand);
+        Assert.Null(unavailable.CurrentPath);
+        Assert.True(isNull(unavailable));
+        Assert.Equal(string.Empty, empty.CurrentCommand);
+        Assert.Equal(string.Empty, empty.CurrentPath);
+        Assert.False(isNull(empty));
     }
 
     [Fact]
@@ -102,6 +137,22 @@ public sealed class CapturedRelationTests
     }
 
     [Fact]
+    public void OrEmpty_does_not_expose_writable_captured_children()
+    {
+        CapturedRelation<int> captured =
+            CapturedRelation.Capture([7], "panes", SnapshotDepth.Panes);
+        IReadOnlyList<int> children = captured.OrEmpty();
+
+        if (children is IList<int> writable)
+        {
+            Assert.Throws<NotSupportedException>(() => writable[0] = 99);
+        }
+
+        Assert.Equal(7, captured[0]);
+        Assert.Equal(7, children[0]);
+    }
+
+    [Fact]
     public void An_empty_capture_is_distinct_from_no_capture()
     {
         CapturedRelation<int> empty =
@@ -109,6 +160,7 @@ public sealed class CapturedRelationTests
 
         Assert.True(empty.IsCaptured);
         Assert.Empty(empty);
+        Assert.Empty(empty.OrEmpty());
     }
 
     [Fact]
@@ -123,7 +175,7 @@ public sealed class CapturedRelationTests
     }
 
     [Fact]
-    public void Window_edges_key_a_window_by_the_session_that_links_it()
+    public void Window_edges_key_each_placement_in_the_session()
     {
         var edge = new SessionWindowEdge
         {
@@ -133,8 +185,10 @@ public sealed class CapturedRelationTests
         };
 
         Assert.Null(edge.Ordinal);
-        Assert.Equal(new WindowEntityKey(SessionId.Parse("$1"), WindowId.Parse("@2")), edge.Key);
+        Assert.Equal(new WindowEntityKey(SessionId.Parse("$1"), WindowId.Parse("@2"), 3), edge.Key);
+        Assert.NotEqual(edge.Key, (edge with { WindowIndex = 5 }).Key);
+        Assert.Equal(edge.Key, (edge with { Ordinal = 5 }).Key);
         Assert.Equal(5, (edge with { Ordinal = 5 }).Ordinal);
-        Assert.Equal("$1:@2", edge.Key.ToString());
+        Assert.Equal("$1:3:@2", edge.Key.ToString());
     }
 }

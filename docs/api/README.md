@@ -37,6 +37,7 @@ modes differ.
 | ``LibTmux.ITmuxRequest`1`` | A request that becomes one tmux command against a target. |
 | `LibTmux.IfShellRequest` | Describes one if-shell invocation. |
 | `LibTmux.IncompleteSnapshotException` | Thrown when a snapshot never captured the requested relation. |
+| `LibTmux.InconsistentSnapshotException` | Reports contradictory topology in completed snapshot reads. |
 | `LibTmux.LibTmuxException` | Provides the base exception for remote tmux failures. |
 | `LibTmux.LibTmuxInfo` | Reports package identity and supported tmux range. |
 | `LibTmux.LinkWindowRequest` | Describes one link-window invocation. |
@@ -80,7 +81,7 @@ modes differ.
 | `LibTmux.SelectLayoutMode` | Names a layout change that needs no layout string. |
 | `LibTmux.SelectLayoutRequest` | Describes one select-layout invocation. |
 | `LibTmux.SelectPaneRequest` | Describes one select-pane invocation. |
-| `LibTmux.SendKeysRequest` | Describes one send-keys invocation. |
+| `LibTmux.SendKeysRequest` | Describes keys and an optional following Enter for a pane. |
 | `LibTmux.Server` | Represents an immutable server handle and snapshot. |
 | `LibTmux.ServerAccessRequest` | Describes one server-access invocation. |
 | `LibTmux.ServerConnectionOptions` | Configures a tmux server connection without mutating process-wide state. |
@@ -93,6 +94,7 @@ modes differ.
 | `LibTmux.SetOptionRequest` | Describes one set-option invocation. |
 | `LibTmux.ShowMessagesMode` | What show-messages should list. |
 | `LibTmux.SnapshotDepth` | Names how far down the tmux hierarchy a snapshot captured. |
+| `LibTmux.SnapshotMetadata` | Describes the interval and scope of one successful hierarchy acquisition. |
 | `LibTmux.SplitPaneRequest` | Describes one split-window invocation. |
 | `LibTmux.StaleServerGenerationException` | Reports a stale server generation. |
 | `LibTmux.SwapPaneRequest` | Describes one swap-pane invocation. |
@@ -201,6 +203,7 @@ modes differ.
 | `LibTmux.IfShellRequest.#ctor(System.String,System.Collections.Generic.IReadOnlyList{System.String})` | Initializes a conditional command. |
 | `LibTmux.IfShellRequest.ToCommand` | Returns a conditional request as one tmux command. |
 | `LibTmux.IncompleteSnapshotException.#ctor(System.String,LibTmux.SnapshotDepth)` | Initializes the exception for one uncaptured relation. |
+| `LibTmux.InconsistentSnapshotException.#ctor(System.String,LibTmux.SnapshotDepth,LibTmux.ServerGeneration)` | Initializes a failure for one unsuccessful hierarchy acquisition. |
 | `LibTmux.LibTmuxException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes a LibTmux exception that knows whether tmux ran the command. |
 | `LibTmux.LibTmuxException.#ctor(System.String,System.Exception)` | Initializes a LibTmux exception whose dispatch state is unknown. |
 | `LibTmux.LinkWindowRequest.#ctor(System.String)` | Initializes a window-link request. |
@@ -296,7 +299,8 @@ modes differ.
 | `LibTmux.RunShellRequest.ToCommand(LibTmux.Server)` | Returns a shell request as one tmux command. |
 | `LibTmux.SelectLayoutRequest.ToCommand(LibTmux.Window)` | Returns a layout request as one tmux command for a window. |
 | `LibTmux.SelectPaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-selection request as one tmux command. |
-| `LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)` | Returns a key request as one tmux command for a pane. |
+| `LibTmux.SendKeysRequest.ToCommand(LibTmux.Pane)` | Returns a key request that needs only one tmux command. |
+| `LibTmux.SendKeysRequest.ToCommands(LibTmux.Pane)` | Returns every command the key request sends, in order. |
 | `LibTmux.Server.AttachSessionAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to a session on this server. |
 | `LibTmux.Server.CaptureSnapshotAsync(LibTmux.SnapshotDepth,System.Threading.CancellationToken)` | Reads the server and answers a handle carrying what it found. |
 | `LibTmux.Server.Chain` | Begins a chain that runs its commands in one tmux invocation. |
@@ -425,6 +429,8 @@ modes differ.
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest{LibTmux.TmuxHooks},LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | Runs a hook request on its own. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest{LibTmux.TmuxOptions},LibTmux.TmuxOptions,LibTmux.Server,System.Threading.CancellationToken)` | Runs an option request on its own. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.ITmuxRequest{LibTmux.Window},LibTmux.Window,System.Threading.CancellationToken)` | Runs a window request on its own. |
+| `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,LibTmux.IControlModeSession,System.Threading.CancellationToken)` | Runs a key request through a control client. |
+| `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,System.Threading.CancellationToken)` | Runs the text and optional Enter commands of a key request. |
 | `LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SetHooksRequest,LibTmux.TmuxHooks,LibTmux.Server,System.Threading.CancellationToken)` | Runs a multi-entry hook request in one invocation. |
 | `LibTmux.TmuxChaining.ToCommands(LibTmux.SetHooksRequest,LibTmux.TmuxHooks)` | Returns every command a multi-entry hook request sends. |
 | `LibTmux.TmuxChaining.ToRunCommand(LibTmux.HookRequest,LibTmux.TmuxHooks)` | Returns running a hook as one tmux command. |
@@ -549,7 +555,7 @@ modes differ.
 | `LibTmux.Window.UnlinkAsync(System.Boolean,System.Threading.CancellationToken)` | Removes this window's link to the session it was read through. |
 | `LibTmux.Window.op_Equality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name the same window. |
 | `LibTmux.Window.op_Inequality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name different windows. |
-| `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId)` | Identifies one window linked into one session. |
+| `LibTmux.WindowEntityKey.#ctor(LibTmux.SessionId,LibTmux.WindowId,System.Int32)` | Identifies one window linked into one session. |
 | `LibTmux.WindowEntityKey.ToString` | Inherits the base member contract. |
 | `LibTmux.WindowId.#ctor(System.Int32)` | Initializes a window identifier. |
 | `LibTmux.WindowId.CompareTo(LibTmux.WindowId)` | Orders this identifier against another numerically. |
@@ -716,6 +722,8 @@ modes differ.
 | `LibTmux.IfShellRequest.ThenCommand` | Gets the tmux command run when it succeeds. |
 | `LibTmux.IncompleteSnapshotException.CapturedDepth` | Gets the depth the snapshot actually reached. |
 | `LibTmux.IncompleteSnapshotException.Relation` | Gets the relation the caller asked for. |
+| `LibTmux.InconsistentSnapshotException.Generation` | Gets the daemon generation that answered the completed reads. |
+| `LibTmux.InconsistentSnapshotException.RequestedDepth` | Gets the depth requested by the unsuccessful acquisition. |
 | `LibTmux.LibTmuxException.Dispatch` | Gets whether the command reached tmux, and so whether a retry is safe. |
 | `LibTmux.LibTmuxInfo.MaximumTestedTmuxVersion` | Gets the highest required tested tmux version. |
 | `LibTmux.LibTmuxInfo.MinimumTmuxVersion` | Gets the minimum supported tmux version. |
@@ -786,6 +794,8 @@ modes differ.
 | `LibTmux.Pane.AtLeft` | Gets whether the pane touches the left of its window. |
 | `LibTmux.Pane.AtRight` | Gets whether the pane touches the right of its window. |
 | `LibTmux.Pane.AtTop` | Gets whether the pane touches the top of its window. |
+| `LibTmux.Pane.CurrentCommand` | Gets the foreground command captured with this pane. |
+| `LibTmux.Pane.CurrentPath` | Gets the current working directory captured with this pane. |
 | `LibTmux.Pane.Generation` | Gets the server generation captured with this pane. |
 | `LibTmux.Pane.Height` | Gets the pane height captured with this handle. |
 | `LibTmux.Pane.Hooks` | Gets the hooks of this pane. |
@@ -898,6 +908,7 @@ modes differ.
 | `LibTmux.Server.Options` | Gets the options of this server. |
 | `LibTmux.Server.Panes` | Gets the panes this handle captured, across every window. |
 | `LibTmux.Server.Sessions` | Gets the sessions this handle captured. |
+| `LibTmux.Server.SnapshotMetadata` | Gets acquisition metadata, or null when this handle was not captured. |
 | `LibTmux.Server.Version` | Gets the captured tmux version. |
 | `LibTmux.Server.Windows` | Gets the windows this handle captured, across every session. |
 | `LibTmux.ServerAccessRequest.AllowUser` | Gets the user to grant access to. |
@@ -935,7 +946,7 @@ modes differ.
 | `LibTmux.Session.Server` | Gets the server that owns this session. |
 | `LibTmux.Session.Windows` | Gets the windows the capture found in this session. |
 | `LibTmux.SessionId.Value` | Gets the nonnegative numeric value. |
-| `LibTmux.SessionWindowEdge.Key` | Gets the session and window this edge joins. |
+| `LibTmux.SessionWindowEdge.Key` | Gets the session, window and index this edge joins. |
 | `LibTmux.SessionWindowEdge.Ordinal` | Gets the edge's position in the session's window order. |
 | `LibTmux.SessionWindowEdge.SessionId` | Gets the session the window is linked into. |
 | `LibTmux.SessionWindowEdge.WindowId` | Gets the linked window. |
@@ -960,6 +971,11 @@ modes differ.
 | `LibTmux.SetOptionRequest.Quiet` | Gets whether a rejected option is answered with nothing instead of an error. |
 | `LibTmux.SetOptionRequest.Scope` | Gets the scope to set in, or null for the owner's own. |
 | `LibTmux.SetOptionRequest.Value` | Gets the value to store. |
+| `LibTmux.SnapshotMetadata.CompletedAtUtc` | Gets the UTC clock reading after graph assembly completed. |
+| `LibTmux.SnapshotMetadata.Depth` | Gets the requested depth that was successfully acquired. |
+| `LibTmux.SnapshotMetadata.Elapsed` | Gets the acquisition duration measured with a monotonic clock. |
+| `LibTmux.SnapshotMetadata.Generation` | Gets the daemon generation that answered the acquisition. |
+| `LibTmux.SnapshotMetadata.StartedAtUtc` | Gets the UTC clock reading before acquisition began. |
 | `LibTmux.SplitPaneRequest.ActiveBorderStyle` | Gets the border style while the pane is active. |
 | `LibTmux.SplitPaneRequest.Attach` | Gets whether the new pane becomes active. |
 | `LibTmux.SplitPaneRequest.Command` | Gets the command the new pane runs. |
@@ -1063,7 +1079,7 @@ modes differ.
 | `LibTmux.WaitForRequest.Mode` | Gets what to do with it. |
 | `LibTmux.Window.ActivePane` | Gets the captured active pane, or an uncaptured relation. |
 | `LibTmux.Window.Edge` | Gets where this window sits in the session it was read from. |
-| `LibTmux.Window.EntityKey` | Gets the session and window this handle names together. |
+| `LibTmux.Window.EntityKey` | Gets the session, window and index this handle names together. |
 | `LibTmux.Window.Generation` | Gets the server generation captured with this window. |
 | `LibTmux.Window.Height` | Gets the window height captured with this handle. |
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |
@@ -1080,6 +1096,7 @@ modes differ.
 | `LibTmux.Window.Width` | Gets the window width captured with this handle. |
 | `LibTmux.WindowEntityKey.SessionId` | The session the window is linked into. |
 | `LibTmux.WindowEntityKey.WindowId` | The linked window. |
+| `LibTmux.WindowEntityKey.WindowIndex` | The index of this placement in the session. |
 | `LibTmux.WindowId.Value` | Gets the nonnegative numeric value. |
 
 ## Fields

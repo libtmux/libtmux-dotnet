@@ -74,7 +74,7 @@ public sealed class QueryCompilationTests
             new Window(dispatcher, "@2"),
         ];
         var session = new Session(dispatcher, "$1").WithCaptured(
-            () => CapturedRelation.Capture(windows, "windows", SnapshotDepth.Windows),
+            CapturedRelation.Capture(windows, "windows", SnapshotDepth.Windows),
             CapturedRelation.Capture<Pane>([], "panes", SnapshotDepth.Panes));
         QueryDocument sessions = QueryExtensions.Translate<SessionCountRow>(
             row => row.SessionWindows > 1);

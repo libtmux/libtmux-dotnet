@@ -11,6 +11,86 @@ public sealed class CompositeMutationDispatchTests
     private static readonly ServerGeneration Generation = new(92, 902);
 
     [Fact]
+    public async Task Move_inconsistent_readback_is_unknown_after_the_move_succeeded()
+    {
+        bool moved = false;
+        Window window = CreateWindow((request, _) =>
+        {
+            string[] arguments = [.. request.LogicalArguments];
+            if (arguments.Contains("move-window", StringComparer.Ordinal))
+            {
+                moved = true;
+            }
+
+            return Task.FromResult(Success(request, ActualCommand(arguments) == "list-windows"
+                ? MoveListing(moved ? [(3, "@1"), (5, "@1"), (8, "@2")] : [(0, "@1"), (5, "@1")])
+                : string.Empty));
+        });
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            window.MoveAsync(new MoveWindowRequest
+            {
+                Destination = "3"
+            }, TestContext.Current.CancellationToken));
+
+        Assert.True(moved);
+        AssertPartialFailure(failure, typeof(InvalidDataException));
+    }
+
+    [Fact]
+    public async Task Move_missing_source_placement_does_not_move_a_surviving_sibling()
+    {
+        int moves = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            string[] arguments = [.. request.LogicalArguments];
+            if (arguments.Contains("move-window", StringComparer.Ordinal))
+            {
+                moves++;
+            }
+
+            return Task.FromResult(Success(request, ActualCommand(arguments) == "list-windows"
+                ? MoveListing([(0, "@2"), (5, "@1")])
+                : string.Empty));
+        });
+
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() =>
+            window.MoveAsync(new MoveWindowRequest
+            {
+                Destination = "3"
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, moves);
+    }
+
+    [Fact]
+    public async Task Move_cancellation_after_dispatch_is_unknown()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        Window window = CreateWindow((request, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string[] arguments = [.. request.LogicalArguments];
+            if (arguments.Contains("move-window", StringComparer.Ordinal))
+            {
+                cancellation.Cancel();
+            }
+
+            return Task.FromResult(Success(request, ActualCommand(arguments) == "list-windows"
+                ? MoveListing([(0, "@1"), (5, "@1")])
+                : string.Empty));
+        });
+
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            window.MoveAsync(new MoveWindowRequest
+            {
+                Destination = "3"
+            }, cancellation.Token));
+
+        AssertPartialFailure(failure, typeof(OperationCanceledException));
+    }
+
+    [Fact]
     public async Task Layout_refresh_failure_is_unknown_after_the_layout_changed()
     {
         Window window = CreateWindow((request, _) =>
@@ -581,6 +661,7 @@ public sealed class CompositeMutationDispatchTests
             {
                 ["session_id"] = "$1",
                 ["window_id"] = "@1",
+                ["window_index"] = "0",
             });
     }
 
@@ -722,6 +803,20 @@ public sealed class CompositeMutationDispatchTests
                 ["session_id"] = id,
                 ["session_name"] = name,
             });
+
+    private static string MoveListing((int Index, string Id)[] windows) =>
+        FramedListing(
+            "list-windows",
+            TmuxVersion.Parse("3.7"),
+            Generation,
+            [.. windows.Select((window, ordinal) =>
+                (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["session_id"] = "$1",
+                    ["window_id"] = window.Id,
+                    ["window_index"] = window.Index.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["window_active"] = ordinal == 0 ? "1" : "0",
+                })]);
 
     private static string WindowListing(
         TmuxVersion version,
