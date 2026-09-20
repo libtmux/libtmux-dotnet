@@ -65,6 +65,10 @@ public sealed class WorkspaceApplyTests
         Assert.Equal(original.Id, (await existing.GetWindowsAsync(token)).Single().Id);
         Assert.Equal(plan.Actions, failure.Journal.Select(outcome => outcome.Action));
         Assert.Contains(failure.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.CreateWindow && outcome.State == WorkspaceActionState.Completed);
+        WorkspaceActionOutcome rejected = Assert.Single(failure.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.SetOption);
+        Assert.Equal(WorkspaceActionState.Failed, rejected.State);
+        Assert.Equal(TmuxDispatchState.Dispatched, rejected.Dispatch);
+        Assert.Same(failure.InnerException, rejected.Failure);
         Assert.NotEqual(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.Equal(WorkspaceActionState.Completed, Assert.Single(failure.CompensationJournal).State);
     }
