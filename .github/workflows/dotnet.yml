@@ -155,19 +155,16 @@ jobs:
             "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
           done
 
-      - name: Examples
-        # An ordinary-tmux example that stopped working should fail here,
-        # before a reader copies it.
+      - name: Example console smoke
         run: >
           dotnet run
           --project examples/LibTmux.Examples/LibTmux.Examples.csproj
           --configuration Release
           --framework net10.0
           --no-build
+          -- --smoke
 
       - name: Example tests
-        # The ordinary-tmux examples run again, one test each, through the
-        # same compiled surface a caller reads.
         run: >
           dotnet test
           --project tests/LibTmux.ExampleTests/LibTmux.ExampleTests.csproj
@@ -176,11 +173,21 @@ jobs:
           --no-build
           --minimum-expected-tests 1
 
+      - name: README examples on both frameworks
+        env:
+          LIBTMUX_INTEGRATION_REQUIRED: '1'
+        run: |
+          for framework in net8.0 net10.0; do
+            dotnet test \
+              --project tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-build \
+              --filter-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
+              --minimum-expected-tests 1
+          done
+
       - name: Integration tests
-        # These run last because the packaging tests among them read what the
-        # steps above produced: the package, the consumer, and the native
-        # binary. The runner's tmux is whatever Ubuntu ships; which versions
-        # are supported is proven by dotnet-tmux.yml, which builds each one.
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
         run: >
@@ -189,6 +196,7 @@ jobs:
           --configuration Release
           --framework net10.0
           --no-build
+          --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests
           --minimum-expected-tests 1
 
       - name: Documents
@@ -282,13 +290,10 @@ jobs:
         # not Linux's.
         env:
           LIBTMUX_INTEGRATION_REQUIRED: '1'
-        # The packaging tests read what a pack produced and this lane does not
-        # pack: packaging is a property of the artifacts, which are built and
-        # proven once on Linux, not of the platform driving tmux.
         run: >
           dotnet test tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
           --configuration Release --no-build --framework net10.0
-          -- --filter-not-class '*PackageClosureTests*' --minimum-expected-tests 400
+          -- --minimum-expected-tests 400
 
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.

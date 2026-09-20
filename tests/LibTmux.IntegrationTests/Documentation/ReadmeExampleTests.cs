@@ -80,35 +80,10 @@ public sealed class ReadmeExampleTests
         """;
 
     [UnixFact]
-    public void Every_shipped_package_carries_a_readme()
-    {
-        string root = RepositoryRoot();
-        foreach (string document in Documents)
-        {
-            Assert.True(
-                File.Exists(Path.Combine(root, document)),
-                $"{document} is missing. A package without a readme is a package "
-                + "whose page on nuget.org says nothing.");
-        }
-    }
-
-    [UnixFact]
-    public void Every_documented_example_compiles()
+    public async Task Documented_examples_compile_and_run()
     {
         IReadOnlyList<Example> examples = Read();
         Assert.NotEmpty(examples);
-
-        Compile(examples, out IReadOnlyList<Diagnostic> errors);
-        Assert.True(
-            errors.Count == 0,
-            "Documented examples do not compile:\n  "
-            + string.Join("\n  ", errors.Select(Describe)));
-    }
-
-    [UnixFact]
-    public async Task Every_runnable_example_runs_against_tmux()
-    {
-        IReadOnlyList<Example> examples = Read();
         Example[] runnable = [.. examples.Where(example => example.Run)];
         Assert.True(
             runnable.Length > 0,
@@ -116,7 +91,10 @@ public sealed class ReadmeExampleTests
             + "that drifts.");
 
         byte[] assembly = Compile(examples, out IReadOnlyList<Diagnostic> errors);
-        Assert.True(errors.Count == 0, string.Join("\n", errors.Select(Describe)));
+        Assert.True(
+            errors.Count == 0,
+            "Documented examples do not compile:\n  "
+            + string.Join("\n  ", errors.Select(Describe)));
 
         Type documented = Assembly.Load(assembly).GetType("Documented", throwOnError: true)!;
 

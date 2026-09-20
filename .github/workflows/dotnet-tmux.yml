@@ -139,14 +139,13 @@ jobs:
         # has no other, and reaching a different version would prove nothing
         # about this lane.
         #
-        # Package closure and documentation compile in the main build gate.
+        # Package checks and documentation run in the main build gate.
         # Each lane executes the same assemblies against a different tmux.
         run: |
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
           export PATH
           dotnet test \
             --test-modules "tests/LibTmux.IntegrationTests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.IntegrationTests.dll" \
-            --filter-not-class LibTmux.IntegrationTests.Packaging.PackageClosureTests \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
             --minimum-expected-tests 800
 
@@ -209,7 +208,6 @@ jobs:
           export PATH
           dotnet test \
             --test-modules tests/LibTmux.IntegrationTests/bin/Release/net10.0/LibTmux.IntegrationTests.dll \
-            --filter-not-class LibTmux.IntegrationTests.Packaging.PackageClosureTests \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
             --minimum-expected-tests 800
 
