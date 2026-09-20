@@ -99,6 +99,22 @@ let runScenario mode =
                 let! snapshot = server |> Server.capture token SnapshotDepth.Panes
                 serverProcessHandle <- Some(Process.GetProcessById(snapshot.Generation.Value.ProcessId))
 
+                let! control = server |> Control.enter token
+
+                let! controlState =
+                    control
+                    |> Control.useSession (fun session ->
+                        task {
+                            let! lines =
+                                session.SendAsync(TmuxCommand.Create("display-message", "-p", "scoped"), token)
+
+                            return StreamStep.Stop lines.Count
+                        })
+
+                match controlState with
+                | StreamStep.Stop 1 -> check "owned control scope returns a typed state" true
+                | _ -> failwith "The owned control scope did not return its command result."
+
                 let! ordinalNear =
                     server.CreateSessionAsync(NewSessionRequest(Name = "FSharp-ordinal", Command = "/bin/sh"), token)
 
