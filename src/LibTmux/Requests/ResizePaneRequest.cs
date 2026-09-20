@@ -2,10 +2,8 @@ namespace LibTmux;
 
 /// <summary>Describes one <c>resize-pane</c> invocation.</summary>
 /// <remarks>
-/// tmux accepts several sizing instructions at once and silently applies only
-/// some of them, so the request refuses the ambiguity instead. That makes
-/// trimming below the cursor unrepresentable on its own; it rides alongside a
-/// real resize.
+/// Trimming is an exclusive operation: tmux handles it before sizing, zoom or
+/// mouse adjustment. Combining those modes would silently ignore the resize.
 /// </remarks>
 public sealed record ResizePaneRequest : ITmuxRequest<Pane>
 {
@@ -87,8 +85,8 @@ public sealed record ResizePaneRequest : ITmuxRequest<Pane>
     /// <summary>Resolves the adjustment, refusing an instruction tmux would half-apply.</summary>
     /// <returns>The trailing adjustment, or null when no edge moves.</returns>
     /// <exception cref="ArgumentException">
-    /// No sizing instruction is set, more than one is, or a direction and an
-    /// adjustment are not set together.
+    /// No operation is set, more than one is, or a direction and an adjustment
+    /// are not set together.
     /// </exception>
     /// <remarks>
     /// Initializers cannot check one property against another, so the rules
@@ -100,12 +98,13 @@ public sealed record ResizePaneRequest : ITmuxRequest<Pane>
         int modes = (Direction is null ? 0 : 1)
             + (Width is not null || Height is not null ? 1 : 0)
             + (Zoom ? 1 : 0)
-            + (Mouse ? 1 : 0);
+            + (Mouse ? 1 : 0)
+            + (TrimBelow ? 1 : 0);
         if (modes != 1)
         {
             throw new ArgumentException(
-                "A resize moves an edge, sets a size, toggles zoom, or follows the mouse; "
-                + "exactly one.",
+                "Choose exactly one operation: move an edge, set a size, toggle zoom, "
+                + "follow the mouse, or trim below the cursor.",
                 nameof(Direction));
         }
 

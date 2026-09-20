@@ -11,6 +11,46 @@ public sealed class CompositeMutationDispatchTests
     private static readonly ServerGeneration Generation = new(92, 902);
 
     [Fact]
+    public void Standalone_trim_is_a_generation_bound_command()
+    {
+        Pane pane = CreatePane((_, _) => throw new InvalidOperationException("Building reached tmux."));
+
+        TmuxCommand command = new ResizePaneRequest { TrimBelow = true }.ToCommand(pane);
+
+        Assert.Equal(["resize-pane", "-t", "%1", "-T"], command.ToArguments());
+        Assert.Equal(Generation, command.RequiredGeneration);
+    }
+
+    [Fact]
+    public async Task Trim_rejects_combined_modes_before_dispatch()
+    {
+        int dispatches = 0;
+        Pane pane = CreatePane((request, _) =>
+        {
+            dispatches++;
+            return Task.FromResult(Success(request));
+        });
+        ResizePaneRequest[] requests =
+        [
+            new() { TrimBelow = true, Width = "20" },
+            new() { TrimBelow = true, Height = "10" },
+            new() { TrimBelow = true, Zoom = true },
+            new() { TrimBelow = true, Mouse = true },
+            new() { TrimBelow = true, Direction = ResizeDirection.Up, Adjustment = 2 },
+            new() { TrimBelow = true, Adjustment = 2 },
+        ];
+
+        foreach (ResizePaneRequest request in requests)
+        {
+            Assert.Throws<ArgumentException>(() => request.ToCommand(pane));
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                pane.ResizeAsync(request, TestContext.Current.CancellationToken));
+        }
+
+        Assert.Equal(0, dispatches);
+    }
+
+    [Fact]
     public async Task Move_inconsistent_readback_is_unknown_after_the_move_succeeded()
     {
         bool moved = false;

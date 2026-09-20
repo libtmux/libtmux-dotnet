@@ -30,6 +30,10 @@ version.
 
 ### Fixed
 
+- `ResizePaneRequest.TrimBelow` works alone and rejects combined sizing,
+  zoom and mouse modes before dispatch. tmux handles trimming first and would
+  otherwise ignore those other operations.
+
 - `PaneObservation.WatchAsync` forwards notification loss and rechecks whether
   the pane exists. MCP waits wake and capture current state after loss, with
   `eventsDropped` reporting the session stream's loss during that wait.
