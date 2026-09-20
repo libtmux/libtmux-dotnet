@@ -37,6 +37,9 @@ version.
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
 
+- The registered MCP `wait_for_text` tool forwards progress notifications
+  while a wait is pending, allowing clients to coordinate concurrent work.
+
 - `ResizePaneRequest.TrimBelow` works alone and rejects combined sizing,
   zoom and mouse modes before dispatch. tmux handles trimming first and would
   otherwise ignore those other operations.

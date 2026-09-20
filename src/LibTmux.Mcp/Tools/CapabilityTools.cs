@@ -319,10 +319,11 @@ internal sealed class CapabilityTools
         IReadOnlyList<string>? stopPatterns = null,
         [Description("Requested timeout in seconds.")] double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
+        IProgress<ProgressNotificationValue>? progress = null,
         CancellationToken cancellationToken = default) =>
         _read.WaitForTextAsync(
             paneId, patterns, stopPatterns, timeoutSeconds, ignoreCase,
-            progress: null, cancellationToken: cancellationToken);
+            progress: progress, cancellationToken: cancellationToken);
 
     public async Task<IReadOnlyDictionary<string, string?>> GetTmuxVariablesAsync(
         [Description(
