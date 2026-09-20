@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 namespace LibTmux.Internal;
 
 /// <summary>Speaks to a real tmux server.</summary>
@@ -68,6 +70,18 @@ internal sealed class TmuxDialect : MultiplexerDialect
     {
         await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
         return await _generationGuard.ExecuteAsync(expected, commands, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<TmuxCommandResult> ExecuteAttachmentAsync(
+        ServerGeneration expected,
+        IReadOnlyList<string> arguments,
+        TimeSpan acknowledgementBudget,
+        CancellationToken cancellationToken)
+    {
+        await EnsureVerifiedAsync(cancellationToken).ConfigureAwait(false);
+        return await _generationGuard.ExecuteAttachmentAsync(expected, arguments, acknowledgementBudget, cancellationToken)
             .ConfigureAwait(false);
     }
 
