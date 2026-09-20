@@ -103,9 +103,9 @@ public static class PaneObservation
                 {
                     await watermarked.DisposeAsync().ConfigureAwait(false);
                 }
-                else if (events is not null)
+                else
                 {
-                    await events.DisposeAsync().ConfigureAwait(false);
+                    await events!.DisposeAsync().ConfigureAwait(false);
                 }
             }
             catch (Exception cleanupFailure) when (failure is not null)

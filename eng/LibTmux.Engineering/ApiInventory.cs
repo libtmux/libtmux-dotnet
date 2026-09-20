@@ -18,7 +18,7 @@ internal static class ApiInventory
         });
         var entries = new List<object>();
         var fsharpArtifacts = new List<object>();
-        foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.csproj", SearchOption.AllDirectories).Order())
+        foreach (var path in Directory.EnumerateFiles(Path.Join(root, "src"), "*.csproj", SearchOption.AllDirectories).Order())
         {
             var project = workspace.CurrentSolution.Projects.FirstOrDefault(p => p.FilePath == Path.GetFullPath(path))
                 ?? await workspace.OpenProjectAsync(path);
@@ -38,7 +38,7 @@ internal static class ApiInventory
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures.Select(d => d.Message)));
         }
 
-        var fsharpProjects = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.fsproj", SearchOption.AllDirectories).ToArray();
+        var fsharpProjects = Directory.EnumerateFiles(Path.Join(root, "src"), "*.fsproj", SearchOption.AllDirectories).ToArray();
         if (fsharpProjects.Length > 0)
         {
             var start = new ProcessStartInfo("dotnet")
@@ -46,7 +46,7 @@ internal static class ApiInventory
                 WorkingDirectory = root,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                ArgumentList = { "fsi", "--warnaserror+", "--exec", Path.Combine(root, "eng", "LibTmux.Engineering", "FSharpInventory.fsx") },
+                ArgumentList = { "fsi", "--warnaserror+", "--exec", Path.Join(root, "eng", "LibTmux.Engineering", "FSharpInventory.fsx") },
             };
             foreach (var path in fsharpProjects)
             {
@@ -125,13 +125,13 @@ internal static class ApiInventory
             return;
         }
 
-        string facadeAssembly = Path.Combine(
+        string facadeAssembly = Path.Join(
             Path.GetDirectoryName(facadeProject)!,
             "bin",
             "Release",
             "net10.0",
             "LibTmux.FSharp.dll");
-        string coreAssembly = Path.Combine(
+        string coreAssembly = Path.Join(
             root,
             "src",
             "LibTmux",
@@ -149,11 +149,11 @@ internal static class ApiInventory
                 "fsi",
                 "--warnaserror+",
                 "--exec",
-                Path.Combine(root, "eng", "LibTmux.Engineering", "FSharpContract.fsx"),
+                Path.Join(root, "eng", "LibTmux.Engineering", "FSharpContract.fsx"),
                 coreAssembly,
                 facadeAssembly,
-                Path.Combine(Path.GetDirectoryName(facadeProject)!, "README.md"),
-                Path.Combine(root, "docs", "fsharp"),
+                Path.Join(Path.GetDirectoryName(facadeProject)!, "README.md"),
+                Path.Join(root, "docs", "fsharp"),
             },
         };
         using var process = Process.Start(start)

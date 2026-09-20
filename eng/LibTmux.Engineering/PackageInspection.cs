@@ -51,7 +51,7 @@ internal static class PackageInspection
                     .Select(dependency => dependency.GetString()!).ToHashSet(StringComparer.OrdinalIgnoreCase),
                 StringComparer.OrdinalIgnoreCase);
         using var projects = new ProjectCollection(new Dictionary<string, string> { ["Configuration"] = "Release" });
-        var expected = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.*proj", SearchOption.AllDirectories)
+        var expected = Directory.EnumerateFiles(Path.Join(root, "src"), "*.*proj", SearchOption.AllDirectories)
             .Where(path => Path.GetExtension(path) is ".csproj" or ".fsproj")
             .Select(path => projects.LoadProject(path))
             .Where(project => project.GetPropertyValue("IsPackable") == "true")
