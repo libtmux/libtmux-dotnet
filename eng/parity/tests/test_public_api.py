@@ -11,6 +11,34 @@ ROOT = pathlib.Path(__file__).parents[3]
 VALIDATE = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))["validate"]
 
 
+def test_compiled_fsharp_surface_matches_reviewed_baseline(documents):
+    validator = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))
+    baseline = json.loads((ROOT / "src/LibTmux.FSharp/PublicAPI.json").read_text())
+    assert validator["validate_fsharp"](documents[2], baseline) == []
+
+
+@pytest.mark.parametrize("mutation", ["missing", "added", "groups", "constraint", "case"])
+def test_fsharp_baseline_rejects_changed_contract(documents, mutation):
+    validator = runpy.run_path(str(ROOT / "eng/parity/verify_public_api.py"))
+    baseline = json.loads((ROOT / "src/LibTmux.FSharp/PublicAPI.json").read_text())
+    inventory = copy.deepcopy(documents[2])
+    members = [m for m in inventory["members"] if m["package"] == "LibTmux.FSharp"]
+    capture = next(m for m in members if m["id"].startswith("M:LibTmux.FSharp.Server.capture("))
+    if mutation == "missing":
+        inventory["members"].remove(capture)
+    elif mutation == "added":
+        inventory["members"].append({**capture, "id": capture["id"].replace(".capture(", ".leaked(")})
+    elif mutation == "groups":
+        capture["argumentGroups"] = [3]
+    elif mutation == "constraint":
+        value = next(m for m in members if m["id"].startswith("M:LibTmux.FSharp.Snapshot.value"))
+        value["genericParameters"][0]["constraints"] = []
+    else:
+        case = next(m for m in members if m["kind"] == "unionCase")
+        case["signature"] += " * int"
+    assert validator["validate_fsharp"](inventory, baseline)
+
+
 @pytest.fixture(scope="module")
 def documents():
     return tuple(json.loads((ROOT / path).read_text()) for path in (

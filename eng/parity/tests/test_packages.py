@@ -55,6 +55,89 @@ def test_real_packages_pass(artifacts: pathlib.Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing-core",
+        "missing-fsharp-core",
+        "minimum-core",
+        "wrong-core",
+        "duplicate-core",
+        "duplicate-group",
+        "missing-version",
+        "empty-version",
+        "missing-framework",
+        "missing-readme",
+        "missing-xml",
+        "changed-xml",
+        "changed-assembly",
+        "extra-runtime-dependency",
+    ],
+)
+def test_corrupt_fsharp_packages_fail(
+    artifacts: pathlib.Path, tmp_path: pathlib.Path, mutation: str
+) -> None:
+    """Keep the facade's dependency contract when inspecting real archives."""
+    baseline = inspect(artifacts)
+    assert baseline.returncode == 0, baseline.stdout + baseline.stderr
+    shutil.copytree(artifacts, tmp_path, dirs_exist_ok=True)
+    package = next(tmp_path.glob("LibTmux.FSharp.[0-9]*.nupkg"))
+    with zipfile.ZipFile(package) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    name = next(name for name in entries if name.endswith(".nuspec"))
+    spec = ElementTree.fromstring(entries[name])
+    namespace = spec.tag.removesuffix("package")
+    metadata = spec.find(f"{namespace}metadata")
+    assert metadata is not None
+    version = metadata.find(f"{namespace}version")
+    assert version is not None and version.text
+    dependencies = metadata.find(f"{namespace}dependencies")
+    assert dependencies is not None
+    groups = dependencies.findall(f"{namespace}group")
+    assert len(groups) == 2
+    for group in groups:
+        core = group.find(f"{namespace}dependency[@id='LibTmux']")
+        assert core is not None
+        if mutation in {"missing-core", "missing-fsharp-core"}:
+            identifier = "LibTmux" if mutation == "missing-core" else "FSharp.Core"
+            dependency = group.find(f"{namespace}dependency[@id='{identifier}']")
+            assert dependency is not None
+            group.remove(dependency)
+        elif mutation == "minimum-core":
+            core.set("version", version.text)
+        elif mutation == "wrong-core":
+            core.set("version", "[0.0.1]")
+        elif mutation == "duplicate-core":
+            group.append(ElementTree.fromstring(ElementTree.tostring(core)))
+        elif mutation == "extra-runtime-dependency":
+            ElementTree.SubElement(group, f"{namespace}dependency", {
+                "id": "FSharp.Compiler.Service", "version": "43.11.302",
+            })
+    if mutation == "duplicate-group":
+        dependencies.append(ElementTree.fromstring(ElementTree.tostring(groups[0])))
+    elif mutation == "missing-version":
+        metadata.remove(version)
+    elif mutation == "empty-version":
+        version.text = ""
+    elif mutation == "missing-framework":
+        del entries["lib/net8.0/LibTmux.FSharp.dll"]
+    elif mutation == "missing-readme":
+        del entries["README.md"]
+    elif mutation == "missing-xml":
+        del entries["lib/net8.0/LibTmux.FSharp.xml"]
+    elif mutation == "changed-xml":
+        entries["lib/net8.0/LibTmux.FSharp.xml"] += b"\n"
+    elif mutation == "changed-assembly":
+        entries["lib/net8.0/LibTmux.FSharp.dll"] += b"changed"
+    entries[name] = ElementTree.tostring(spec)
+    with zipfile.ZipFile(package, "w") as archive:
+        for name, contents in entries.items():
+            archive.writestr(name, contents)
+    result = inspect(tmp_path)
+    assert result.returncode != 0, f"validator accepted F# {mutation} mutation"
+    assert result.stderr
+
+
 def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
     artifacts: pathlib.Path, tmp_path: pathlib.Path
 ) -> None:

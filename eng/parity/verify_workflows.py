@@ -158,6 +158,18 @@ def verify(root: pathlib.Path) -> list[str]:
     for name in ("build", "windows"):
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
+    for identifier in (
+        "fsharp-format", "fsharp-unit-net8", "fsharp-unit-net10",
+        "fsharp-package-consumer", "fsharp-aot-smoke", "fsharp-examples",
+        "fsharp-packed-examples",
+    ):
+        required_step("dotnet", "build", identifier)
+
+    fsharp_format = required_step("dotnet", "build", "fsharp-format")
+    require(
+        "examples" in fsharp_format.get("run", "").split(),
+        "dotnet.build.fsharp-format must check F# examples",
+    )
 
     matrix = needs("dotnet-tmux", "matrix", {"build"})
     strategy = matrix.get("strategy", {})

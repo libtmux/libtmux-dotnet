@@ -121,6 +121,13 @@ def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
 @pytest.mark.parametrize("workflow,job_name,step_name", [
     ("dotnet-tmux", "matrix", "Integration tests"),
     ("release", "validate", "Check the tag matches the version"),
+    ("dotnet", "build", "F# formatting"),
+    ("dotnet", "build", "F# unit tests (net8.0)"),
+    ("dotnet", "build", "F# unit tests (net10.0)"),
+    ("dotnet", "build", "F# package consumer"),
+    ("dotnet", "build", "F# packed example console"),
+    ("dotnet", "build", "F# ahead-of-time smoke test"),
+    ("dotnet", "build", "F# example console"),
 ])
 @pytest.mark.parametrize("key,value", [("if", "false"), ("continue-on-error", "true")])
 def test_required_steps_cannot_skip_or_forgive_failures(

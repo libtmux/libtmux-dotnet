@@ -17,6 +17,7 @@ internal static class ApiInventory
             ["Configuration"] = "Release",
         });
         var entries = new List<object>();
+        var fsharpArtifacts = new List<object>();
         foreach (var path in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.csproj", SearchOption.AllDirectories).Order())
         {
             var project = workspace.CurrentSolution.Projects.FirstOrDefault(p => p.FilePath == Path.GetFullPath(path))
@@ -37,6 +38,65 @@ internal static class ApiInventory
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures.Select(d => d.Message)));
         }
 
+        var fsharpProjects = Directory.EnumerateFiles(Path.Combine(root, "src"), "*.fsproj", SearchOption.AllDirectories).ToArray();
+        if (fsharpProjects.Length > 0)
+        {
+            var start = new ProcessStartInfo("dotnet")
+            {
+                WorkingDirectory = root,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                ArgumentList = { "fsi", "--warnaserror+", "--exec", Path.Combine(root, "eng", "LibTmux.Engineering", "FSharpInventory.fsx") },
+            };
+            foreach (var path in fsharpProjects)
+            {
+                using var projects = new Microsoft.Build.Evaluation.ProjectCollection(new Dictionary<string, string> { ["Configuration"] = "Release" });
+                var project = projects.LoadProject(path);
+                foreach (var framework in project.GetPropertyValue("TargetFrameworks").Split(';'))
+                {
+                    var evaluated = new Microsoft.Build.Evaluation.Project(path, new Dictionary<string, string> { ["Configuration"] = "Release", ["TargetFramework"] = framework }, null, projects);
+                    start.ArgumentList.Add(evaluated.GetPropertyValue("TargetPath"));
+                }
+            }
+
+            using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start F# signature analysis.");
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var declarations = await outputTask;
+            var error = await errorTask;
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"F# signature analysis failed: {error}");
+            }
+
+            using var fsharp = JsonDocument.Parse(declarations);
+            foreach (var package in fsharp.RootElement.GetProperty("assemblies").EnumerateArray().GroupBy(assembly => assembly.GetProperty("package").GetString()))
+            {
+                var expected = package.First().GetProperty("members");
+                foreach (var assembly in package)
+                {
+                    if (assembly.GetProperty("members").GetRawText() != expected.GetRawText())
+                    {
+                        throw new InvalidOperationException($"{package.Key}: compiled F# API or XML differs between frameworks.");
+                    }
+
+                    fsharpArtifacts.Add(new
+                    {
+                        package = package.Key,
+                        framework = assembly.GetProperty("framework").GetString(),
+                        assemblySha256 = assembly.GetProperty("assemblySha256").GetString(),
+                        xmlSha256 = assembly.GetProperty("xmlSha256").GetString(),
+                        compiler = fsharp.RootElement.GetProperty("compiler").GetString(),
+                    });
+                }
+
+                entries.AddRange(expected.EnumerateArray().Select(member => (object)member.Clone()));
+            }
+
+            await VerifyFSharpConstructionAsync(root, fsharpProjects);
+        }
+
         using var git = Process.Start(new ProcessStartInfo("git")
         {
             WorkingDirectory = root,
@@ -51,7 +111,62 @@ internal static class ApiInventory
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-        await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { revision, members = entries }, JsonOptions) + "\n");
+        await File.WriteAllTextAsync(output, JsonSerializer.Serialize(new { revision, members = entries, fsharpArtifacts }, JsonOptions) + "\n");
+    }
+
+    private static async Task VerifyFSharpConstructionAsync(string root, IReadOnlyList<string> projects)
+    {
+        string? facadeProject = projects.SingleOrDefault(path => string.Equals(
+            Path.GetFileName(path),
+            "LibTmux.FSharp.fsproj",
+            StringComparison.Ordinal));
+        if (facadeProject is null)
+        {
+            return;
+        }
+
+        string facadeAssembly = Path.Combine(
+            Path.GetDirectoryName(facadeProject)!,
+            "bin",
+            "Release",
+            "net10.0",
+            "LibTmux.FSharp.dll");
+        string coreAssembly = Path.Combine(
+            root,
+            "src",
+            "LibTmux",
+            "bin",
+            "Release",
+            "net10.0",
+            "LibTmux.dll");
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            ArgumentList =
+            {
+                "fsi",
+                "--warnaserror+",
+                "--exec",
+                Path.Combine(root, "eng", "LibTmux.Engineering", "FSharpContract.fsx"),
+                coreAssembly,
+                facadeAssembly,
+                Path.Combine(Path.GetDirectoryName(facadeProject)!, "README.md"),
+                Path.Combine(root, "docs", "fsharp"),
+            },
+        };
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException("Could not start F# construction validation.");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        string output = await outputTask;
+        string error = await errorTask;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"F# construction validation failed:\n{output}{error}");
+        }
     }
 
     private static void Visit(ISymbol symbol, string package, List<object> entries)

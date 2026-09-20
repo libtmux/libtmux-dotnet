@@ -10,7 +10,7 @@
     <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(PackAsTool)' != 'true'">
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(PackAsTool)' != 'true' and '$(MSBuildProjectExtension)' == '.csproj'">
     <AdditionalFiles Include="$(MSBuildProjectDirectory)/PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="$(MSBuildProjectDirectory)/PublicAPI.Unshipped.txt" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />

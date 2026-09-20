@@ -10,6 +10,7 @@ ROOT = pathlib.Path(__file__).parents[2]
 API_PATH = ROOT / "docs/public-api.json"
 LEDGER_PATH = ROOT / "docs/parity/parity-ledger.json"
 INVENTORY_PATH = ROOT / "artifacts/api-inventory.json"
+FSHARP_BASELINE_PATH = ROOT / "src/LibTmux.FSharp/PublicAPI.json"
 TMUX_MAX_VERSION_ADAPTATION = (
     "Semantic adaptation: map Python TMUX_MAX_VERSION 3.7 to "
     "MaximumTestedTmuxVersion 3.7c, the highest required tested version"
@@ -18,6 +19,37 @@ TMUX_MAX_VERSION_ADAPTATION = (
 
 def load_document(path: pathlib.Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def fsharp_contracts(inventory: dict) -> list[dict]:
+    """Keep compiled F# shape separate from editable documentation prose."""
+    return sorted(
+        (
+            {key: value for key, value in member.items() if key != "documentation"}
+            for member in inventory["members"]
+            if member["package"] == "LibTmux.FSharp"
+        ),
+        key=lambda member: member["id"],
+    )
+
+
+def validate_fsharp(inventory: dict, baseline: dict) -> list[str]:
+    """Reject an absent, duplicated or changed compiled F# declaration."""
+    if baseline.get("schema") != "libtmux-fsharp-api" or baseline.get("version") != 1:
+        return ["invalid F# API baseline schema"]
+    actual = fsharp_contracts(inventory)
+    expected = baseline.get("members", [])
+    if not actual or not expected:
+        return ["F# compiled API or reviewed baseline is empty"]
+    if any(len({member["id"] for member in rows}) != len(rows) for rows in (actual, expected)):
+        return ["duplicate F# public API identity"]
+    before = {member["id"]: member for member in expected}
+    after = {member["id"]: member for member in actual}
+    return [
+        f"F# public API differs from reviewed baseline: {identifier}"
+        for identifier in sorted(before.keys() | after.keys())
+        if before.get(identifier) != after.get(identifier)
+    ]
 
 
 def validate(policy: dict, ledger: dict, inventory: dict) -> list[str]:
@@ -121,7 +153,9 @@ def validate(policy: dict, ledger: dict, inventory: dict) -> list[str]:
 
 
 def main() -> int:
-    violations = validate(load_document(API_PATH), load_document(LEDGER_PATH), load_document(INVENTORY_PATH))
+    inventory = load_document(INVENTORY_PATH)
+    violations = validate(load_document(API_PATH), load_document(LEDGER_PATH), inventory)
+    violations.extend(validate_fsharp(inventory, load_document(FSHARP_BASELINE_PATH)))
     for violation in violations:
         print(violation, file=sys.stderr)
     return bool(violations)
