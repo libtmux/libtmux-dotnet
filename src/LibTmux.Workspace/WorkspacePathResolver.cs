@@ -39,7 +39,7 @@ internal static class WorkspacePathResolver
         }
 
         return new WorkspaceFile(workspace.SessionName, directory, workspace.Options, windows)
-            { DirectoriesAreResolved = true }
+        { DirectoriesAreResolved = true }
             .WithDefaults(workspace.Environment, workspace.ShellCommandsBefore);
 
         string Directory(string? value, string inherited, string key)
