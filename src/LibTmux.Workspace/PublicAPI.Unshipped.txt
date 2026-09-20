@@ -1,28 +1,24 @@
 #nullable enable
-LibTmux.Workspace.PaneReadiness
-LibTmux.Workspace.PaneReadiness.Always = 1 -> LibTmux.Workspace.PaneReadiness
-LibTmux.Workspace.PaneReadiness.Auto = 0 -> LibTmux.Workspace.PaneReadiness
-LibTmux.Workspace.PaneReadiness.Never = 2 -> LibTmux.Workspace.PaneReadiness
 LibTmux.Workspace.WorkspaceBuildException
 LibTmux.Workspace.WorkspaceBuildException.PartialResult.get -> LibTmux.Workspace.WorkspaceResult?
 LibTmux.Workspace.WorkspaceBuildException.WorkspaceBuildException(LibTmux.Workspace.WorkspaceResult? partialResult, System.Exception! failure) -> void
 LibTmux.Workspace.WorkspaceBuilder
 LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! workspace, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
-LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? readinessTimeout = null, LibTmux.Workspace.PaneReadiness paneReadiness = LibTmux.Workspace.PaneReadiness.Auto) -> void
+LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server) -> void
 LibTmux.Workspace.WorkspaceFile
 LibTmux.Workspace.WorkspaceFile.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceFile.Resolve(string! baseDirectory, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? variables = null) -> LibTmux.Workspace.WorkspaceFile!
 LibTmux.Workspace.WorkspaceFile.SessionName.get -> string?
 LibTmux.Workspace.WorkspaceFile.StartDirectory.get -> string?
 LibTmux.Workspace.WorkspaceFile.Windows.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>!
-LibTmux.Workspace.WorkspaceFile.WorkspaceFile(string? sessionName = null, string? startDirectory = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>? windows = null) -> void
+LibTmux.Workspace.WorkspaceFile.WorkspaceFile(string? sessionName = null, string? startDirectory = null, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>? windows = null, string? beforeScript = null) -> void
 LibTmux.Workspace.WorkspaceFormatException
 LibTmux.Workspace.WorkspaceFormatException.WorkspaceFormatException(string! message, System.Exception? innerException = null) -> void
 LibTmux.Workspace.WorkspacePane
 LibTmux.Workspace.WorkspacePane.Focus.get -> bool
 LibTmux.Workspace.WorkspacePane.ShellCommands.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.Workspace.WorkspacePane.StartDirectory.get -> string?
-LibTmux.Workspace.WorkspacePane.WorkspacePane(System.Collections.Generic.IReadOnlyList<string!>? shellCommands = null, string? startDirectory = null, bool focus = false) -> void
+LibTmux.Workspace.WorkspacePane.WorkspacePane(System.Collections.Generic.IReadOnlyList<string!>? shellCommands = null, string? startDirectory = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null) -> void
 LibTmux.Workspace.WorkspaceResult
 LibTmux.Workspace.WorkspaceResult.<Clone>$() -> LibTmux.Workspace.WorkspaceResult!
 LibTmux.Workspace.WorkspaceResult.Deconstruct(out LibTmux.Session! Session, out System.Collections.Generic.IReadOnlyList<LibTmux.Window!>! Windows, out System.Collections.Generic.IReadOnlyList<string!>! Unsupported) -> void
@@ -57,3 +53,113 @@ LibTmux.Workspace.WorkspaceWindow.WithDefaults(System.Collections.Generic.IReadO
 LibTmux.Workspace.WorkspaceFile.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceFile.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.Workspace.WorkspaceFile.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspaceFile!
+LibTmux.Workspace.WorkspaceAction
+LibTmux.Workspace.WorkspaceAction.Kind.get -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceAction.SourceTarget.get -> string?
+LibTmux.Workspace.WorkspaceAction.Target.get -> string!
+LibTmux.Workspace.WorkspaceAction<TRequest>
+LibTmux.Workspace.WorkspaceAction<TRequest>.Request.get -> TRequest
+LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.CaptureBootstrap = 1 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.CaptureFirstPane = 4 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.CloseReadinessChannel = 15 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.CreateSession = 0 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.CreateWindow = 3 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.MoveToBaseIndex = 8 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.OpenReadinessChannel = 13 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.RemoveSession = 2 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.ReuseSession = 16 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SelectLayout = 10 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SelectPane = 11 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SelectWindow = 12 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SendText = 9 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SetOption = 6 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.SplitPane = 5 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.UnlinkWindow = 7 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.WaitForReadiness = 14 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceBuilder.PlanAsync(LibTmux.Workspace.WorkspaceFile! workspace, LibTmux.Workspace.WorkspacePlanOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspacePlan!>!
+LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspaceExistingSession.Append = 2 -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspaceExistingSession.Error = 0 -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspaceExistingSession.Replace = 3 -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspaceExistingSession.Reuse = 1 -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspacePlan
+LibTmux.Workspace.WorkspacePlan.Actions.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceAction!>!
+LibTmux.Workspace.WorkspacePlan.CompensateOnFailure.get -> bool
+LibTmux.Workspace.WorkspacePlan.CompensationActions.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceAction!>!
+LibTmux.Workspace.WorkspacePlan.Endpoint.get -> LibTmux.Server!
+LibTmux.Workspace.WorkspacePlan.ExistingSession.get -> LibTmux.Session?
+LibTmux.Workspace.WorkspacePlan.ExistingSessionPolicy.get -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspacePlan.ObservationCompletedAt.get -> System.DateTimeOffset
+LibTmux.Workspace.WorkspacePlan.ObservationStartedAt.get -> System.DateTimeOffset
+LibTmux.Workspace.WorkspacePlan.ObservedServer.get -> LibTmux.Server?
+LibTmux.Workspace.WorkspacePlan.Readiness.get -> LibTmux.Workspace.WorkspaceReadiness
+LibTmux.Workspace.WorkspacePlan.ReadinessTimeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspacePlanOptions
+LibTmux.Workspace.WorkspacePlanOptions.CompensateOnFailure.get -> bool
+LibTmux.Workspace.WorkspacePlanOptions.CompensateOnFailure.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.ExistingSession.get -> LibTmux.Workspace.WorkspaceExistingSession
+LibTmux.Workspace.WorkspacePlanOptions.ExistingSession.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.Readiness.get -> LibTmux.Workspace.WorkspaceReadiness
+LibTmux.Workspace.WorkspacePlanOptions.Readiness.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.ReadinessTimeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspacePlanOptions.ReadinessTimeout.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.WorkspacePlanOptions() -> void
+LibTmux.Workspace.WorkspaceReadiness
+LibTmux.Workspace.WorkspaceReadiness.Cooperative = 1 -> LibTmux.Workspace.WorkspaceReadiness
+LibTmux.Workspace.WorkspaceReadiness.Immediate = 0 -> LibTmux.Workspace.WorkspaceReadiness
+override LibTmux.Workspace.WorkspaceAction.ToString() -> string!
+LibTmux.Workspace.WorkspacePane.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceFile.BeforeScript.get -> string?
+LibTmux.Workspace.WorkspaceFile.DocumentDirectory.get -> string?
+LibTmux.Workspace.WorkspaceActionKind.RunHostScript = 17 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspacePlanOptions.AllowHostScripts.get -> bool
+LibTmux.Workspace.WorkspacePlanOptions.AllowHostScripts.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.HostScriptTimeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspacePlanOptions.HostScriptTimeout.init -> void
+LibTmux.Workspace.WorkspacePlanOptions.MaxHostOutputBytes.get -> int
+LibTmux.Workspace.WorkspacePlanOptions.MaxHostOutputBytes.init -> void
+LibTmux.Workspace.WorkspaceHostCommand
+LibTmux.Workspace.WorkspaceHostCommand.Script.get -> string!
+LibTmux.Workspace.WorkspaceHostCommand.WorkingDirectory.get -> string!
+LibTmux.Workspace.WorkspaceHostCommand.MaxOutputBytes.get -> int
+LibTmux.Workspace.WorkspaceHostCommand.Timeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspaceHostCommand.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceHostResult
+LibTmux.Workspace.WorkspaceHostResult.Started.get -> bool
+LibTmux.Workspace.WorkspaceHostResult.ExitCode.get -> int?
+LibTmux.Workspace.WorkspaceHostResult.StandardOutput.get -> string!
+LibTmux.Workspace.WorkspaceHostResult.StandardError.get -> string!
+LibTmux.Workspace.WorkspaceHostResult.DroppedOutputBytes.get -> long
+LibTmux.Workspace.WorkspaceActionOutcome
+LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceServerStartup
+LibTmux.Workspace.WorkspaceServerStartup.CreateOrJoin = 0 -> LibTmux.Workspace.WorkspaceServerStartup
+LibTmux.Workspace.WorkspaceServerStartup.RequireExisting = 1 -> LibTmux.Workspace.WorkspaceServerStartup
+LibTmux.Workspace.WorkspacePlanOptions.ServerStartup.get -> LibTmux.Workspace.WorkspaceServerStartup
+LibTmux.Workspace.WorkspacePlanOptions.ServerStartup.init -> void
+LibTmux.Workspace.WorkspacePlan.ServerStartup.get -> LibTmux.Workspace.WorkspaceServerStartup
+LibTmux.Workspace.WorkspaceBuilder.ApplyAsync(LibTmux.Workspace.WorkspacePlan! plan, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Workspace.WorkspaceResult!>!
+LibTmux.Workspace.WorkspaceActionState.NotStarted = 0 -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionState.Completed = 1 -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionState.Rejected = 2 -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionState.Failed = 3 -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionState.Unknown = 4 -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionOutcome.Action.get -> LibTmux.Workspace.WorkspaceAction!
+LibTmux.Workspace.WorkspaceActionOutcome.State.get -> LibTmux.Workspace.WorkspaceActionState
+LibTmux.Workspace.WorkspaceActionOutcome.Dispatch.get -> LibTmux.TmuxDispatchState
+LibTmux.Workspace.WorkspaceActionOutcome.Result.get -> object?
+LibTmux.Workspace.WorkspaceActionOutcome.Failure.get -> System.Exception?
+LibTmux.Workspace.WorkspaceResult.Journal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspaceResult.Journal.init -> void
+LibTmux.Workspace.WorkspaceResult.CompensationJournal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspaceResult.CompensationJournal.init -> void
+LibTmux.Workspace.WorkspaceBuildException.Journal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspaceBuildException.CompensationJournal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspacePlanOptions.CleanupTimeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspacePlanOptions.CleanupTimeout.init -> void
+LibTmux.Workspace.WorkspacePlan.CleanupTimeout.get -> System.TimeSpan
+LibTmux.Workspace.WorkspaceActionKind.CaptureResult = 18 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspacePlan.SessionName.get -> string!
+LibTmux.Workspace.WorkspaceActionKind.ArrangePanes = 19 -> LibTmux.Workspace.WorkspaceActionKind
+static LibTmux.Workspace.WorkspaceBuilder.Validate(LibTmux.Workspace.WorkspaceFile! workspace, LibTmux.Workspace.WorkspacePlanOptions? options = null) -> void

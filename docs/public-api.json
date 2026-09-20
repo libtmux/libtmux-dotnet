@@ -1194,6 +1194,46 @@
       "id": "M:LibTmux.TmuxChaining.ExecuteAsync(LibTmux.SendKeysRequest,LibTmux.Pane,System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Server.CreateSessionWithReceiptAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Session.CreateWindowWithReceiptAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Window.UnlinkAsync(System.Boolean,System.Collections.Generic.IReadOnlyList{LibTmux.PaneId},System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.TmuxWaitChannel.CloseAsync(System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Query.QueryPlan`1.ExecuteAsync(LibTmux.Server,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Workspace.WorkspaceBuilder.PlanAsync(LibTmux.Workspace.WorkspaceFile,LibTmux.Workspace.WorkspacePlanOptions,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Workspace.WorkspaceBuilder.ApplyAsync(LibTmux.Workspace.WorkspacePlan,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
     }
   ],
   "packageAssignments": {

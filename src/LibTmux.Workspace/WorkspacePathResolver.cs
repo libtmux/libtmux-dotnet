@@ -16,7 +16,8 @@ internal static class WorkspacePathResolver
         }
 
         IReadOnlyDictionary<string, string> inputs = WorkspaceCollections.Copy(variables, nameof(variables));
-        string directory = Directory(workspace.StartDirectory, Path.GetFullPath(baseDirectory), "start_directory");
+        string documentDirectory = Path.GetFullPath(baseDirectory);
+        string directory = Directory(workspace.StartDirectory, documentDirectory, "start_directory");
         WorkspaceWindow[] windows = new WorkspaceWindow[workspace.Windows.Count];
         for (int windowIndex = 0; windowIndex < windows.Length; windowIndex++)
         {
@@ -30,7 +31,8 @@ internal static class WorkspacePathResolver
                 panes[paneIndex] = new WorkspacePane(
                     pane.ShellCommands,
                     Directory(pane.StartDirectory, windowDirectory, $"{key}.panes[{paneIndex}].start_directory"),
-                    pane.Focus).WithDefaults(pane.Environment, pane.ShellCommandsBefore);
+                    pane.Focus,
+                    pane.Options).WithDefaults(pane.Environment, pane.ShellCommandsBefore);
             }
 
             windows[windowIndex] = new WorkspaceWindow(
@@ -38,8 +40,8 @@ internal static class WorkspacePathResolver
                 .WithDefaults(window.Environment, window.ShellCommandsBefore);
         }
 
-        return new WorkspaceFile(workspace.SessionName, directory, workspace.Options, windows)
-        { DirectoriesAreResolved = true }
+        return new WorkspaceFile(workspace.SessionName, directory, workspace.Options, windows, workspace.BeforeScript)
+        { DirectoriesAreResolved = true, DocumentDirectory = documentDirectory }
             .WithDefaults(workspace.Environment, workspace.ShellCommandsBefore);
 
         string Directory(string? value, string inherited, string key)

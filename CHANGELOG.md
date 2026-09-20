@@ -12,6 +12,26 @@ version.
 
 ### Added
 
+- `WorkspaceBuilder.PlanAsync` exposes immutable actions and cleanup policies;
+  `ApplyAsync` executes that plan and retains per-action outcomes. Declarations
+  support pane options and opt-in `before_script` execution with bounded output.
+  `Validate` checks declarations and policies without reading tmux.
+
+- `Server.CreateSessionWithReceiptAsync` and
+  `Session.CreateWindowWithReceiptAsync` return the initial window and pane
+  identities acknowledged by the creation command.
+
+- `Window.UnlinkAsync` can require exact pane membership, and
+  `SplitPaneRequest.ExpectedWindowId` can refuse a moved target before splitting.
+
+- `TmuxWaitChannel.CloseAsync` accepts cancellation and joins the shared close
+  operation, including owned client cleanup.
+
+- `QueryDocument.Plan<T>` prepares an inspectable source query, and
+  `QueryPlan<T>.ExecuteAsync` returns read-only matches with their captured
+  `Snapshot`. `Never`, `Auto` and `Require` control exact predicate evaluation
+  in tmux while retaining the complete acquired graph.
+
 - `QueryFieldCatalog.GetFields` exposes immutable field, operator and relation
   descriptors for criteria builders, including capture depth and native bindings.
 
@@ -22,8 +42,8 @@ version.
 - `NewSessionRequest.ExpectedGeneration` binds creation and readback to one
   daemon. It also binds `ToCommand()` output and rejects `ReplaceExisting`.
 
-- Query schema v2 adds `Pane.CurrentPath`, window placement index and active
-  state, to-one navigation, session panes and linked sessions.
+- Query schema v2 adds `Pane.CurrentPath`, `Width`, `Height`, window placement
+  index and active state, to-one navigation, session panes and linked sessions.
 
 - `Window.IsActive` reads whether the captured placement is selected in its
   session, including repeated links to the same window.
@@ -39,6 +59,17 @@ version.
   notification payloads independently of the queued event count.
 
 ### Fixed
+
+- `Session.AttachAsync` accepts successful terminal detach after a guarded
+  acknowledgement and preserves owned-client cancellation metadata.
+
+- Cancellation stops owned output reads even when tmux retains the output
+  descriptor of an exited client.
+
+- Session creation binds readback to the daemon that acknowledged creation,
+  preventing a reused ID on a replacement daemon from being returned.
+
+- Workspace session and window names preserve literal tmux format characters.
 
 - Native tmux clients preserve Unicode and tab-delimited formats under the
   C locale, including MCP processes started with a minimal environment.
@@ -70,6 +101,16 @@ version.
   characters when creating windows and panes.
 
 ### Changed
+
+- **`WorkspaceBuilder.BuildAsync` uses the plan/apply engine and sends input
+  immediately by default.** Use `WorkspacePlanOptions.Readiness =
+  WorkspaceReadiness.Cooperative` with an explicit startup signal when readiness
+  matters. `PaneReadiness` and the builder's readiness constructor parameters
+  are removed; cursor and current-command polling no longer infer readiness.
+
+- **Wait-channel disposal has a one-second withdrawal deadline.** Failed or
+  cancelled withdrawal reports unknown remote registration after ending the
+  owned local client; it does not claim that killing a client deregisters it.
 
 - **Query documents use schema v2.** Recreate previously stored v1 documents
   with the current translator; the old schema is no longer accepted. Use

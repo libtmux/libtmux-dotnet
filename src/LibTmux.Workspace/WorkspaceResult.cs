@@ -8,6 +8,8 @@ public sealed record WorkspaceResult
     private Session _session = null!;
     private ReadOnlyCollection<Window> _windows = null!;
     private ReadOnlyCollection<string> _unsupported = null!;
+    private ReadOnlyCollection<WorkspaceActionOutcome> _journal = Array.AsReadOnly(Array.Empty<WorkspaceActionOutcome>());
+    private ReadOnlyCollection<WorkspaceActionOutcome> _compensationJournal = Array.AsReadOnly(Array.Empty<WorkspaceActionOutcome>());
 
     /// <summary>Initializes a workspace result.</summary>
     /// <param name="Session">The session that was built.</param>
@@ -34,7 +36,7 @@ public sealed record WorkspaceResult
         }
     }
 
-    /// <summary>Gets materialized windows in workspace order.</summary>
+    /// <summary>Gets created windows in workspace order, or an empty list for Reuse.</summary>
     public IReadOnlyList<Window> Windows
     {
         get => _windows;
@@ -56,12 +58,36 @@ public sealed record WorkspaceResult
         }
     }
 
+    /// <summary>Gets every reviewed action's outcome, including actions not started after failure.</summary>
+    public IReadOnlyList<WorkspaceActionOutcome> Journal
+    {
+        get => _journal;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _journal = WorkspaceCollections.Copy(value, nameof(Journal));
+        }
+    }
+
+    /// <summary>Gets conditional cleanup outcomes in the plan's cleanup order.</summary>
+    public IReadOnlyList<WorkspaceActionOutcome> CompensationJournal
+    {
+        get => _compensationJournal;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _compensationJournal = WorkspaceCollections.Copy(value, nameof(CompensationJournal));
+        }
+    }
+
     /// <inheritdoc />
     public bool Equals(WorkspaceResult? other) =>
         other is not null
         && EqualityComparer<Session>.Default.Equals(Session, other.Session)
         && Windows.SequenceEqual(other.Windows)
-        && Unsupported.SequenceEqual(other.Unsupported, StringComparer.Ordinal);
+        && Unsupported.SequenceEqual(other.Unsupported, StringComparer.Ordinal)
+        && Journal.SequenceEqual(other.Journal)
+        && CompensationJournal.SequenceEqual(other.CompensationJournal);
 
     /// <inheritdoc />
     public override int GetHashCode()
@@ -77,6 +103,9 @@ public sealed record WorkspaceResult
         {
             hash.Add(unsupported, StringComparer.Ordinal);
         }
+
+        foreach (WorkspaceActionOutcome outcome in Journal.Concat(CompensationJournal))
+            hash.Add(outcome);
 
         return hash.ToHashCode();
     }

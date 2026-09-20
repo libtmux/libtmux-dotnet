@@ -19,22 +19,11 @@ You already describe your development sessions in tmuxp YAML and want to build
 them from .NET — a launcher, a devcontainer entrypoint, an internal CLI — with
 typed results instead of shelling out to another runtime.
 
-## Use it
+## Review and apply
 
-```yaml
-session_name: api
-start_directory: /tmp
-windows:
-  - window_name: editor
-    layout: even-horizontal
-    focus: true
-    panes:
-      - shell_command: echo editing
-      - shell_command: echo watching
-  - window_name: server
-    panes:
-      - shell_command: echo serving
-```
+Use your configured LibTmux `Server` and cancellation token. The
+[client quickstart](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md)
+covers choosing a socket.
 
 ```csharp run
 WorkspaceFile workspace = WorkspaceFile.Parse("""
@@ -49,9 +38,40 @@ WorkspaceFile workspace = WorkspaceFile.Parse("""
           - shell_command: echo serving
     """);
 
-WorkspaceResult result = await new WorkspaceBuilder(server).BuildAsync(workspace, ct);
+WorkspaceBuilder.Validate(workspace);
+WorkspaceBuilder builder = new(server);
+WorkspacePlan plan = await builder.PlanAsync(workspace, cancellationToken: ct);
+foreach (WorkspaceAction action in plan.Actions)
+    Console.WriteLine(action);
+
+WorkspaceResult result = await builder.ApplyAsync(plan, ct);
 Console.WriteLine($"{result.Session.Name}: {result.Windows.Count} windows");
 ```
+
+`PlanAsync` validates the declaration and observes the selected endpoint without
+creating sessions or running the connection initializer. Its immutable actions
+show creation, input, readiness, host scripts, final capture and conditional
+cleanup. Displaying or enumerating the plan performs no I/O. `ApplyAsync`
+rechecks the observed daemon and session before executing those actions.
+
+`Validate(workspace, options)` checks declaration and policy constraints locally.
+It can run before a tmux endpoint is selected. With `Reuse`, host-script checks
+wait until planning determines whether creation is needed. Planning checks
+endpoint conflicts; tmux and the shell determine command validity during
+application.
+
+Before creating the third and each later pane in a window, the plan includes
+an `ArrangePanes` action that applies tmux's tiled layout to the existing panes.
+This makes room for further splits and can resize programs already running.
+A construction layout failure stops application. The declared final layout and
+focus are applied afterward; without a declared layout, the construction
+arrangement remains. Native window dimensions still limit pane capacity.
+
+For the default policies, `BuildAsync(workspace, ct)` runs the same plan and
+application engine in one call. It sends input immediately; it does not infer
+shell readiness or wait for commands to finish.
+
+## Resolve a workspace file
 
 Resolve directories relative to the file when reading from disk:
 
@@ -73,8 +93,8 @@ Directory expansion accepts `$NAME` and `${NAME}` from the `variables` argument.
 A leading `~` requires an absolute `HOME` value in that map; `$$` means a literal
 dollar sign. Unknown variables fail. The resolver does not read process
 environment variables, and leaves commands, names and option values literal.
-Calling `BuildAsync` on an unresolved declaration retains the previous behavior:
-it passes directory strings to tmux unchanged, including native tmux formats.
+Building an unresolved declaration passes directory strings to tmux unchanged,
+including native tmux formats. Session and window names are literal.
 
 ## Environment and commands
 
@@ -93,47 +113,102 @@ shell interprets them.
 Environment names must be nonempty and cannot contain `=` or NUL; values cannot
 contain NUL. Invalid declarations fail before dispatch.
 
-## Failure behavior
+## Readiness and existing sessions
+
+`WorkspacePlanOptions` makes startup and conflict behavior explicit:
+
+| Policy | Behavior |
+|---|---|
+| `ExistingSession = Error` (default) | Refuse a conflicting session. |
+| `ExistingSession = Reuse` | Return the inspected session without changing it. |
+| `ExistingSession = Append` | Add windows while preserving existing children and session options. |
+| `ExistingSession = Replace` | Replace the inspected session while preserving its daemon. |
+| `Readiness = Immediate` (default) | Send each command as literal input followed by one Enter. |
+| `Readiness = Cooperative` | Wait for startup to signal its per-pane channel before sending commands. |
+
+The default `ServerStartup = CreateOrJoin` permits creation to start a daemon
+or join one that appeared after planning. It grants no ownership of that daemon.
+Use `RequireExisting` when planning must observe one already running.
+
+Cooperative startup receives a fresh `LIBTMUX_WORKSPACE_READY` environment
+value for each pane on every application. Startup must signal that channel
+with `tmux wait-for -S "$LIBTMUX_WORKSPACE_READY"`. A signal sent before the
+wait is preserved. The builder owns and closes its waits; it never polls a
+cursor or treats startup output as a prompt.
+
+This controlled receiver signals before starting `/bin/cat`, which accepts
+queued input. Use the selected tmux executable so the pane and client agree:
+
+```csharp run
+string tmux = "'" + server.ConnectionOptions.TmuxBinaryPath
+    .Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+WorkspaceFile receiver = new("receiver",
+    options: new Dictionary<string, string>
+    {
+        ["default-command"] = $"{tmux} wait-for -S \"$LIBTMUX_WORKSPACE_READY\"; exec /bin/cat",
+    },
+    windows: [new WorkspaceWindow("input", panes: [new WorkspacePane(["first line"])])]);
+WorkspaceBuilder builder = new(server);
+WorkspacePlan plan = await builder.PlanAsync(receiver, new WorkspacePlanOptions
+{
+    Readiness = WorkspaceReadiness.Cooperative,
+    ReadinessTimeout = TimeSpan.FromSeconds(5),
+}, ct);
+WorkspaceResult result = await builder.ApplyAsync(plan, ct);
+Console.WriteLine(result.Session.Name);
+```
+
+An interactive shell must signal from its own startup when it can accept input.
+Readiness acknowledges that startup contract; command completion needs a
+separate application signal. A timeout stops input to that pane.
+
+## Results and failures
 
 `BuildAsync` returns the session and windows it created. Its `Unsupported` list
-contains only layouts that tmux rejected; those windows remain usable.
+contains only requested final layouts that tmux rejected; those windows remain usable.
 
-Other tmux failures throw `WorkspaceBuildException`. Its `PartialResult`
-contains the session and windows materialized before failure, or is null when
-none could be read. The builder is not transactional. Before sending workspace
-commands, `PaneReadiness.Auto`, the default, waits only for panes using a zsh
-session `default-shell`.
-`PaneReadiness.Always` waits before commands sent to every default-shell pane;
-`PaneReadiness.Never` sends them immediately. A nonempty session
-`default-command` skips the wait under every policy because that command is not
-treated as an interactive shell.
+Creation, append and replacement end with the plan's `CaptureResult` action. It captures
+the server's pane graph and returns the matching session and created window
+placements in declaration order, including their final focus. This observes
+an interval, not a transaction; concurrent topology changes can fail capture.
+Reuse returns the inspected session unchanged, with no created windows or
+additional graph capture.
 
-A wait polls the targeted pane's `pane_current_command`, `cursor_x`, and
-`cursor_y` for up to ten seconds. It sends no keys and creates no `wait-for`
-channel. The result is a prompt heuristic, not an input acknowledgement:
-startup output can move the cursor before a prompt exists, while a prompt left
-at `(0, 0)` times out. Pass a different timeout to the `WorkspaceBuilder`
-constructor when startup needs a different budget. An expired wait raises
-`TmuxWaitTimeoutException` before a workspace command reaches that pane.
+`Journal` records every action, including rejected layouts, failures, uncertain
+outcomes and actions never started. `CompensationJournal` records attempted
+cleanup. Application failures throw `WorkspaceBuildException`; its
+`PartialResult` contains materialized state, or is null when no session could
+be read. Planning and declaration errors fail before application begins.
+
+`CompensateOnFailure = true` requests cleanup of resources proven to have been
+created by this application. Cleanup has its own bounded `CleanupTimeout`.
+It does not reverse shell commands or host effects, and uncertain creations
+are never guessed from names. Readiness channels and temporary replacement
+keepalives are cleaned regardless of the compensation policy.
 
 tmux starts a session's first pane before session options can be set. The
 builder therefore creates one transient bootstrap window, applies the options,
 creates the described first window under them, and removes the bootstrap.
-tmux hooks can observe that extra window lifecycle. Readiness polling uses
-targeted `display-message` calls, so an `after-display-message` hook can also
-observe each sample. A missing session name or empty window list raises
-`WorkspaceFormatException` before creating anything.
+tmux hooks can observe that extra window lifecycle. A missing session name or
+empty window list raises `WorkspaceFormatException` before creating anything.
 
 ## What is in scope
 
-This reads a closed tmuxp subset: session name, start directory, scalar
-options, windows, panes, layouts, focus, environment and scalar or ordered
-`shell_command` and `shell_command_before` values. Duplicate or unknown keys, wrong value shapes,
+This reads a closed tmuxp subset: session name, start directory, options at
+session/window/pane scope, windows, panes, layouts, focus, environment and scalar or ordered
+`shell_command` and `shell_command_before` values. `before_script` runs on the
+host only when the plan enables `AllowHostScripts`; resolve the declaration
+against its document directory first. `HostScriptTimeout` and
+`MaxHostOutputBytes` bound host execution and its combined captured output.
+Linux cleanup uses pinned process handles when available; otherwise it uses
+.NET's best-effort tree cleanup, and an observed loss of descendant coverage
+remains a cleanup failure.
+Duplicate or unknown keys, wrong value shapes,
 multiple YAML documents, and inputs over 1 MiB raise
 `WorkspaceFormatException` instead of being ignored. Declaration errors name
 the property path and its line and column in the input.
 
-It is **not** a tmuxp runtime. Plugins, before/after hooks, and tmuxp's own
+It is **not** a tmuxp runtime. Plugins, lifecycle hooks, and tmuxp's own
 configuration search path are rejected — if you need those, run tmuxp.
 
 ## Related packages
