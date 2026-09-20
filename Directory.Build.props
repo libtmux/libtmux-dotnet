@@ -19,6 +19,7 @@
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.fsproj'">
     <LangVersion>10.0</LangVersion>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
   </PropertyGroup>
 
   <!-- Packaging identity every published package shares. A project says what
