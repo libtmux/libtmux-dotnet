@@ -169,7 +169,9 @@ public sealed partial class Server
         }
         catch (Exception)
         {
-            // Observe a detached acquisition failure after its caller cancels.
+            // Every way this dispatch can fail means the lock request never
+            // reached the server or the server rejected it, so this abandoned
+            // caller is holding nothing that needs releasing.
             return;
         }
 

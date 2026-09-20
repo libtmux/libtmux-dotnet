@@ -7,7 +7,9 @@ namespace LibTmux;
 // Resizes a window and controls its pane layout.
 public sealed partial class Window
 {
-    // Validate locally: tmux 3.3a can crash on an invalid layout name.
+    // tmux 3.3a crashes its entire server when layout_parse rejects a name, so
+    // a layout is checked here rather than by the server. These five are known
+    // to every supported version; the mirrored pair arrived in 3.5.
     private static readonly string[] UniversalLayouts =
     [
         "even-horizontal",
@@ -179,6 +181,9 @@ public sealed partial class Window
             && version >= TmuxVersion.Parse("3.5");
         bool jsonLayoutsKnown = owner.Version is TmuxVersion jsonVersion
             && jsonVersion >= TmuxVersion.Parse("3.8");
+        // tmux 3.8 made #{window_layout} JSON for a non-control client, and
+        // select-layout accepts that form back -- measured, a JSON string
+        // round-trips byte-identical -- so it is trusted like a checksum.
         if (jsonLayoutsKnown && HasJsonLayoutPrefix(layout))
         {
             return;

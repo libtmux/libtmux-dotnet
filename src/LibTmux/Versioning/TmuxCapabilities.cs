@@ -81,8 +81,12 @@ internal static class TmuxCapabilities
             throw new KeyNotFoundException($"Unknown tmux capability '{capability}'.");
         }
 
-        // Stable releases and rolling next builds have predictable capabilities.
-        // Use normal version ordering for next; -dev and -rc remain unknown.
+        // A -dev snapshot or an -rc names an upcoming release that may still
+        // be mid-development, so nothing about its feature set is known.
+
+        // A rolling `next` build is the single tip of history, strictly ahead
+        // of every release and ordered below the one it names by TmuxVersion's
+        // comparer, so the interval math for a stable release answers it too.
         if (!version.IsValid
             || (!version.IsStableRelease && !version.IsNextRelease)
             || version < LibTmuxInfo.MinimumTmuxVersion)
