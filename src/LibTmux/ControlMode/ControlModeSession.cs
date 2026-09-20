@@ -16,7 +16,7 @@ namespace LibTmux;
 /// and neither would see a whole block.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-internal sealed class ControlModeSession : IControlModeSession
+internal sealed class ControlModeSession : IControlModeSession, IControlModeEventWatermarkSource
 {
     private readonly IControlModeProcess _process;
     private readonly ServerGeneration? _generation;
@@ -83,6 +83,11 @@ internal sealed class ControlModeSession : IControlModeSession
     }
 
     public IAsyncEnumerable<TmuxEvent> Events => _events.ReadAllAsync();
+
+    long IControlModeEventWatermarkSource.CaptureEventWatermark() => _events.CaptureWatermark();
+
+    ControlModeEventBuffer.Reader IControlModeEventWatermarkSource.CreateEventReader(
+        CancellationToken cancellationToken) => _events.CreateReader(cancellationToken);
 
     public bool IsRunning => Volatile.Read(ref _stopRequested) == 0 && !_process.HasExited;
 

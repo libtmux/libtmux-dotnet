@@ -103,5 +103,26 @@ public sealed class ControlModeEventBufferTests
             async () => await reader.MoveNextAsync());
     }
 
+    [Fact]
+    public async Task A_watermark_reader_leaves_later_events_for_the_next_consumer()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 4);
+        Assert.True(buffer.TryWrite(Notification("before")));
+        long watermark = buffer.CaptureWatermark();
+        Assert.True(buffer.TryWrite(Notification("after")));
+
+        await using (ControlModeEventBuffer.Reader reader = buffer.CreateReader(token))
+        {
+            Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
+            Assert.Equal("before", Assert.IsType<TmuxNotificationEvent>(reader.Current).Name);
+            Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
+        }
+
+        await using ControlModeEventBuffer.Reader following = buffer.CreateReader(token);
+        Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
+        Assert.Equal("after", Assert.IsType<TmuxNotificationEvent>(following.Current).Name);
+    }
+
     private static TmuxNotificationEvent Notification(string name) => new(name, []);
 }
