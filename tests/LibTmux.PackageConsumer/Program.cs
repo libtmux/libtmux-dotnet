@@ -160,6 +160,12 @@ internal static class Program
 
         Server server = scope.Session.Server;
         await server.ThrowIfDeadAsync();
+        Server inspected = await server.InspectAsync()
+            ?? throw new InvalidOperationException("Inspection lost the owned daemon.");
+        if (inspected.Generation != server.Generation || inspected.DaemonVersion is null || inspected.Sessions.IsCaptured)
+        {
+            throw new InvalidOperationException("Packed inspection did not preserve its identity-only contract.");
+        }
         Window read = await server.GetWindowAsync(scope.Window.Id);
         Pane active = read.ActivePane.Value;
         if (read.Name != scope.Window.Name
@@ -195,6 +201,7 @@ internal static class Program
         {
             Name = "package-other",
             Command = "exec /bin/cat",
+            ExpectedGeneration = inspected.Generation,
         });
         await graph.LinkAsync(new LinkWindowRequest(other.Id.ToString())
         {
