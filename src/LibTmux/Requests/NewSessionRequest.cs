@@ -94,7 +94,7 @@ public sealed record NewSessionRequest : ITmuxRequest<Server>
 
     /// <summary>Returns a session request as one tmux command.</summary>
     /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
-    /// <exception cref="ArgumentException">Generation-bound creation requests replacement.</exception>
+    /// <exception cref="ArgumentException">The name is blank or contains ':' or '.', or generation-bound creation requests replacement.</exception>
     public TmuxCommand ToCommand() =>
         TmuxChaining.Command([.. Server.BuildNewSessionArguments(this)]) with
         {
