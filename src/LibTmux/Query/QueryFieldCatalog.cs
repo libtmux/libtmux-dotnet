@@ -4,9 +4,19 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace LibTmux.Query;
 
+/// <summary>Discovers the closed query vocabulary and its built-in entity bindings.</summary>
 [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "Catalog accessors only read captured state; relation getters do not invoke platform APIs.")]
-internal static class QueryFieldCatalog
+public static class QueryFieldCatalog
 {
+    /// <summary>Reads the supported fields for one portable query target.</summary>
+    /// <param name="target">The target whose vocabulary is requested.</param>
+    /// <returns>Immutable descriptors in stable wire-name order.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The target is undefined.</exception>
+    public static IReadOnlyList<QueryFieldDescriptor> GetFields(QueryTarget target) =>
+        Descriptors.TryGetValue(target, out ReadOnlyCollection<QueryFieldDescriptor>? fields)
+            ? fields
+            : throw new ArgumentOutOfRangeException(nameof(target), target, "The query target is undefined.");
+
     private static readonly FieldDefinition[] Fields =
     [
         new(
@@ -72,14 +82,16 @@ internal static class QueryFieldCatalog
             QueryValueKind.String,
             typeof(Pane),
             nameof(Pane.CurrentCommand),
-            new(static element => ((Pane)element).CurrentCommand, typeof(string))),
+            new(static element => ((Pane)element).CurrentCommand, typeof(string)),
+            Nullable: true),
         new(
             "pane_current_path",
             QueryTarget.Pane,
             QueryValueKind.String,
             typeof(Pane),
             nameof(Pane.CurrentPath),
-            new(static element => ((Pane)element).CurrentPath, typeof(string))),
+            new(static element => ((Pane)element).CurrentPath, typeof(string)),
+            Nullable: true),
         new(
             "pane_dead",
             QueryTarget.Pane,
@@ -189,11 +201,13 @@ internal static class QueryFieldCatalog
         new(
             "session_active_pane", QueryTarget.Session, null, typeof(Session), nameof(Session.ActivePane),
             Relation: new(static element => ((Session)element).ActivePane.Value, typeof(Pane)),
-            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes),
+            UnwrapCapturedValue: true),
         new(
             "session_active_window", QueryTarget.Session, null, typeof(Session), nameof(Session.ActiveWindow),
             Relation: new(static element => ((Session)element).ActiveWindow.Value, typeof(Window)),
-            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Window, SnapshotDepth.Windows)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Window, SnapshotDepth.Windows),
+            UnwrapCapturedValue: true),
         new(
             "session_attached",
             QueryTarget.Session,
@@ -237,7 +251,8 @@ internal static class QueryFieldCatalog
         new(
             "window_active_pane", QueryTarget.Window, null, typeof(Window), nameof(Window.ActivePane),
             Relation: new(static element => ((Window)element).ActivePane.Value, typeof(Pane)),
-            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes),
+            UnwrapCapturedValue: true),
         new(
             "window_activity_flag",
             QueryTarget.Window,
@@ -338,8 +353,56 @@ internal static class QueryFieldCatalog
     private static readonly FrozenDictionary<string, FieldDefinition> FieldsByWireName =
         Fields.ToFrozenDictionary(static field => field.WireName, StringComparer.Ordinal);
 
+    private static readonly FrozenDictionary<QueryTarget, ReadOnlyCollection<QueryFieldDescriptor>> Descriptors =
+        Fields.GroupBy(static field => field.Target).ToFrozenDictionary(
+            static group => group.Key,
+            static group => Array.AsReadOnly(group.Select(Describe).ToArray()));
+
     internal static IReadOnlyList<string> WireNames { get; } =
         new ReadOnlyCollection<string>([.. Fields.Select(static field => field.WireName)]);
+
+    private static QueryFieldDescriptor Describe(FieldDefinition field)
+    {
+        List<string> operations = field.Kind is null ? [] : ["equal", "notEqual"];
+        if (field.Kind is QueryValueKind.Int64)
+        {
+            operations.AddRange(["lessThan", "lessThanOrEqual", "greaterThan", "greaterThanOrEqual"]);
+        }
+        else if (field.Kind is QueryValueKind.String)
+        {
+            operations.AddRange(["stringEqualOrdinal", "stringEqualOrdinalIgnoreCase",
+                "startsWithOrdinal", "endsWithOrdinal", "containsOrdinal", "regex"]);
+        }
+        if (field.RelationShape?.Cardinality is QueryRelationCardinality.Many)
+        {
+            operations.AddRange(["any", "all"]);
+        }
+        else if (field.RelationShape?.Cardinality is QueryRelationCardinality.One)
+        {
+            operations.Add("related");
+        }
+
+        SnapshotDepth? depth = field.Owner is null || field.Target == QueryTarget.Client
+            ? null
+            : field.RelationShape?.Depth ?? field.Target switch
+            {
+                QueryTarget.Session => SnapshotDepth.Sessions,
+                QueryTarget.Window => SnapshotDepth.Windows,
+                _ => SnapshotDepth.Panes,
+            };
+        return new QueryFieldDescriptor(
+            field.WireName,
+            field.Target,
+            field.Kind,
+            field.Scalar is null ? null : field.Property
+                + (field.RelationShape?.Cardinality is QueryRelationCardinality.Many ? ".Count" : string.Empty),
+            field.Relation is null ? null : field.Property + (field.UnwrapCapturedValue ? ".Value" : string.Empty),
+            field.RelationShape?.Target,
+            field.RelationShape?.Cardinality,
+            depth,
+            field.Scalar is null ? null : field.Nullable || field.CanBeAbsent,
+            operations);
+    }
 
     internal static bool IsRelation(string wireName) =>
         FieldsByWireName.TryGetValue(wireName, out FieldDefinition field)
@@ -466,11 +529,13 @@ internal static class QueryFieldCatalog
         string? Property = null,
         QueryFieldAccessor? Scalar = null,
         QueryFieldAccessor? Relation = null,
-        QueryRelationDefinition? RelationShape = null)
+        QueryRelationDefinition? RelationShape = null,
+        bool Nullable = false,
+        bool UnwrapCapturedValue = false)
     {
         // Whether the value can be absent, which tmux prints as empty.
         internal bool CanBeAbsent =>
-            Scalar is { ValueType: { } type } && Nullable.GetUnderlyingType(type) is not null;
+            Scalar is { ValueType: { } type } && System.Nullable.GetUnderlyingType(type) is not null;
 
         // The tmux format variable a -f filter reads, when tmux has one.
         internal string? TmuxFormat => WireName switch
@@ -482,9 +547,13 @@ internal static class QueryFieldCatalog
     }
 }
 
-internal enum QueryRelationCardinality
+/// <summary>Names whether a captured query relation has one child or a collection.</summary>
+public enum QueryRelationCardinality
 {
+    /// <summary>A captured to-one relation.</summary>
     One,
+
+    /// <summary>A captured collection relation.</summary>
     Many,
 }
 
