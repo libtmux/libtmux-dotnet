@@ -338,10 +338,11 @@ internal sealed class CapabilityTools
             + "ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another.")]
         double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
+        IProgress<ProgressNotificationValue>? progress = null,
         CancellationToken cancellationToken = default) =>
         _read.WaitForTextAsync(
             paneId, patterns, stopPatterns, timeoutSeconds, ignoreCase,
-            progress: null, cancellationToken: cancellationToken);
+            progress: progress, cancellationToken: cancellationToken);
 
     public async Task<IReadOnlyDictionary<string, string?>> GetTmuxVariablesAsync(
         [Description(
