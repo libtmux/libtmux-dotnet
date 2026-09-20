@@ -112,7 +112,7 @@ def verify(root: pathlib.Path) -> list[str]:
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
 
-    matrix = job("dotnet-tmux", "matrix")
+    matrix = needs("dotnet-tmux", "matrix", {"build"})
     strategy = matrix.get("strategy", {})
     coverage = strategy.get("matrix", {})
     supported = set(
@@ -142,7 +142,7 @@ def verify(root: pathlib.Path) -> list[str]:
         ),
         "supported matrix must require integration execution",
     )
-    needs("dotnet-tmux", "compatibility", {"matrix"})
+    needs("dotnet-tmux", "compatibility", {"build", "matrix"})
 
     release = documents["release"]
     triggers = release.get("on", {})

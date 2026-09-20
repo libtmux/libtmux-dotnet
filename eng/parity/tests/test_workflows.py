@@ -44,6 +44,7 @@ def test_commented_dependencies_do_not_gate_publication(
     ("workflow", "keys", "value", "diagnostic"),
     [
         ("release", ("jobs", "psmux", "needs"), ["validate"], "psmux.needs"),
+        ("dotnet-tmux", ("jobs", "matrix", "needs"), [], "matrix.needs"),
         ("release", ("jobs", "publish", "permissions"), "write-all", "permissions"),
         ("release", ("jobs", "publish", "if"), "always()", "publish.if"),
         (
