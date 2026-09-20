@@ -948,6 +948,8 @@ LibTmux.ServerConnectionOptions.ConfigurationFile.get -> string?
 LibTmux.ServerConnectionOptions.ConfigurationFile.init -> void
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.get -> int?
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.init -> void
+LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes.get -> int?
+LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes.init -> void
 LibTmux.ServerConnectionOptions.Equals(LibTmux.ServerConnectionOptions? other) -> bool
 LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 LibTmux.ServerConnectionOptions.InitializeAsync.init -> void

@@ -921,6 +921,7 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.CommandTimeout` | Gets how long one tmux command may run, or null to wait indefinitely. |
 | `LibTmux.ServerConnectionOptions.ConfigurationFile` | Gets the tmux configuration file. |
 | `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before the oldest are dropped. |
+| `LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes` | Gets the UTF-8 payload byte ceiling for buffered control-mode notifications. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
 | `LibTmux.ServerConnectionOptions.Interceptor` | Gets what every tmux invocation on this connection passes through, or null. |

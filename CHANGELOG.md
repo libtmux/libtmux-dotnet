@@ -25,7 +25,13 @@ version.
   through session, window and pane levels. `WithDefaults` copies these values
   for programmatic declarations.
 
+- `ServerConnectionOptions.ControlModeEventBufferMaxBytes` bounds decoded
+  notification payloads independently of the queued event count.
+
 ### Fixed
+
+- `PaneObservation.WatchAsync` forwards notification loss and rechecks whether
+  the pane exists.
 
 - Workspace declaration errors include the offending source line and column.
   Environment entries reject empty names, `=` in names and NUL before dispatch.
@@ -38,6 +44,12 @@ version.
 - **Query documents use schema v2.** Recreate previously stored v1 documents
   with the current translator; the old schema is no longer accepted. Use
   `QueryJsonLimits.Default` in place of `QueryJsonLimits.V1`.
+
+- **Control notification queues default to a 4 MiB payload ceiling.**
+  Oversized events and evicted older events produce `TmuxEventsDroppedEvent`.
+  Refresh state after loss, or set `ControlModeEventBufferMaxBytes` to a larger
+  positive budget. An oversized exit reason is omitted while retaining the
+  terminal event.
 
 ### Removed
 
