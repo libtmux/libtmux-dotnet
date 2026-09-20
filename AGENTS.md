@@ -11,8 +11,8 @@ These apply to every change, whatever it touches:
   unrelated cleanup out of it.
 - Reuse an existing file, helper, API, or test before adding a new one.
 - Keep a new type or member internal until a caller outside the assembly needs
-  it. A public surface is a promise, and this one is checked by five separate
-  gates.
+  it. PublicApiAnalyzers owns declaration baselines; compiler metadata supplies
+  documentation identities and project policy checks.
 - Add a file only for a durable boundary — a distinct responsibility or
   independent reuse — not for a single-use helper or a one-line re-export.
 - A passing gate is evidence only once it has been shown capable of failing.

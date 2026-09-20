@@ -24,7 +24,8 @@ CI does not use mise. It installs the same SDK with `actions/setup-dotnet`
 from `global-json-file` and calls `dotnet` directly, so a workflow file never
 carries the prefix.
 
-The validators are Python and run through [uv](https://docs.astral.sh/uv/).
+Compiler inventory and package inspection run through `eng/LibTmux.Engineering`.
+The Python validators run through [uv](https://docs.astral.sh/uv/).
 There is no Python project file — each script carries its own PEP 723 header,
 and a script with dependencies carries a `.lock` beside it so the gate resolves
 the same versions every run:
@@ -40,7 +41,7 @@ on the command line, which resolves whatever released that morning:
 $ uv run --locked --script eng/run_tests.py
 ```
 
-Nine of those tests read a pinned revision of the Python library. Point
+Parity tests read a pinned revision of the Python library. Point
 `LIBTMUX_PYTHON_REPOSITORY` at a checkout of
 [tmux-python/libtmux](https://github.com/tmux-python/libtmux) that contains it,
 or they fail saying which revision they wanted.
@@ -119,8 +120,9 @@ $ mise exec -- dotnet build \
 
 The build is the style guide. `TreatWarningsAsErrors`, `Nullable`,
 `EnforceCodeStyleInBuild`, and analyzers at `10-recommended` are set
-repository-wide, and `CS1591` is unsuppressed in every shipped project. If it
-compiles clean, the formatting is right and every public member is documented.
+repository-wide, and `CS1591` is unsuppressed in every shipped project. The
+separate format check owns formatting. A clean build verifies analyzer rules
+and the presence of public XML comments.
 
 ## Running the tests
 
@@ -148,17 +150,47 @@ $ mise exec -- dotnet test \
 
 ## Checks that must pass
 
-[`.github/workflows/dotnet.yml`](workflows/dotnet.yml) is the source of truth,
-and its `gate` job is the single name branch protection requires. `gate` needs
-`build` and nothing else, so adding a required job means adding it to `gate`'s
-`needs` rather than to a protection rule.
+[dotnet.yml](workflows/dotnet.yml) owns the primary Linux checks and the
+Windows build/unit lane. Its `gate` job requires both `build` and `windows`.
+Aggregate jobs reject failed, cancelled, or skipped prerequisites.
 
-### Order matters before the integration suite
+| Guarantee | Owner |
+| --- | --- |
+| Public declarations and nullability | PublicApiAnalyzers and shared `PublicAPI.*.txt` baselines |
+| Public XML comments and documentation identities | C# compiler and Roslyn inventory |
+| Ownership, parity destinations, platform and I/O policies | `verify_public_api.py` over compiler metadata |
+| Current package asset compatibility | SDK Package Validation; no historical baseline |
+| Workflow syntax and repository policy | Pinned actionlint and `verify_workflows.py` |
+| Package contents, dependency versions and source identity | Native `packages` command |
+| Runtime behavior | Unit, integration, example, packed-consumer and AOT owners |
 
-The packaging tests inside the integration suite read what a pack produced, so
-they fail on a tree nobody packed. Run the workflow's order — pack, then the
-package consumer, then the ahead-of-time publish — or expect
-`PackageClosureTests` to fail for a reason that is not a bug:
+### Packages and standalone consumers
+
+Integration tests need a build and tmux. Package checks run separately. Build
+with normalized source paths before packing locally; GitHub sets this through
+`CI=true`:
+
+```console
+$ mise exec -- dotnet build \
+    LibTmux.slnx \
+    --configuration Release \
+    --no-restore \
+    --warnaserror \
+    -p:ContinuousIntegrationBuild=true
+```
+
+Generate compiler inventory at the same revision as the build:
+
+```console
+$ mise exec -- dotnet run \
+    --project eng/LibTmux.Engineering \
+    --configuration Release \
+    --no-build \
+    -- api-inventory . artifacts/api-inventory.json
+```
+
+Use an empty package output directory for a new version. The inspector rejects
+extra versions and unexpected packages:
 
 ```console
 $ mise exec -- dotnet pack \
@@ -169,60 +201,77 @@ $ mise exec -- dotnet pack \
 ```
 
 ```console
-$ uv run python eng/parity/inspect_packages.py
+$ mise exec -- dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll \
+    packages . artifacts/packages artifacts/api-inventory.json
 ```
+
+The inspector evaluates package IDs, frameworks and dependency versions with
+MSBuild. It reads NuGet archives, compares packaged README bytes and public XML
+content, and checks portable PDB identity and SourceLink against `HEAD`. The
+compiler inventory travels with the packages so the publisher repeats this
+inspection without rebuilding the libraries.
+
+The outer-loop regression suite mutates real packages:
 
 ```console
-$ mise exec -- dotnet restore \
-    tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
-    --configfile tests/NuGet.config
+$ LIBTMUX_PACKAGE_ARTIFACTS=artifacts/packages mise exec -- \
+    uv run --locked --script eng/run_tests.py --quiet -m packaging
 ```
+
+Use a fresh package cache for each standalone consumer run. Source mapping in
+`tests/NuGet.config` makes repository packages resolve from the local pack:
 
 ```console
-$ for f in net8.0 net10.0; do mise exec -- dotnet run \
-    --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
-    --configuration Release \
-    --framework "$f" \
-    --no-restore; done
+$ NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
+    dotnet restore \
+        tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+        --configfile tests/NuGet.config
+    for framework in net8.0 net10.0; do
+        dotnet run \
+            --project tests/LibTmux.PackageConsumer/LibTmux.PackageConsumer.csproj \
+            --configuration Release \
+            --framework "$framework" \
+            --no-restore
+    done'
 ```
+
+The AOT owner publishes and executes each native binary once:
 
 ```console
-$ mise exec -- dotnet restore \
-    tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
-    --runtime linux-x64 \
-    --configfile tests/NuGet.config
+$ NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
+    dotnet restore \
+        tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+        --runtime linux-x64 \
+        --configfile tests/NuGet.config
+    for framework in net8.0 net10.0; do
+        dotnet publish \
+            tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
+            --configuration Release \
+            --framework "$framework" \
+            --runtime linux-x64 \
+            --no-restore
+        "tests/LibTmux.AotSmoke/bin/Release/$framework/linux-x64/native/LibTmux.AotSmoke"
+    done'
 ```
 
-```console
-$ for f in net8.0 net10.0; do mise exec -- dotnet publish \
-    tests/LibTmux.AotSmoke/LibTmux.AotSmoke.csproj \
-    --configuration Release \
-    --framework "$f" \
-    --runtime linux-x64 \
-    --no-restore; done
-```
+Both commands fail when their executable fails. Keep diagnostic output and
+socket isolation in the executables; do not add integration wrappers that run
+the same payload again. `LibTmux.PackageConsumer` and `LibTmux.AotSmoke` stay
+outside `LibTmux.slnx` because they restore packed artifacts.
 
-Both loop over the frameworks because `Packed_consumers_execute_on_both_frameworks`
-and `Trimmed_native_aot_executes_on_both_frameworks` read the output of each.
-Building only one leaves those two failing, which reads like the unpacked-tree
-state above but is not it.
+Only `LibTmux.AotSmoke` names a runtime identifier. Its restore is separate
+from the portable library graph. Its package inputs retain the development
+version between builds, so a new cache is required even when the version has
+not changed. Historical package compatibility is not a release gate.
 
-`LibTmux.PackageConsumer` and `LibTmux.AotSmoke` are deliberately absent from
-`LibTmux.slnx`. Both restore the packed artifacts rather than project
-references, so they run only after `dotnet pack`.
+### Compiler inventory, policy and documents
 
-### Validators that read documents, not the build
-
-Eight checks run against documents rather than code, which is what makes them
-easy to forget locally. They are listed here in the order
-[`dotnet.yml`](workflows/dotnet.yml) runs them:
+After building, regenerate `artifacts/api-inventory.json` with the command
+above. It contains exact compiler XML IDs, effective visibility and source
+comments; no handwritten declaration inventory is maintained.
 
 ```console
 $ uv run python eng/parity/verify_public_api.py
-```
-
-```console
-$ uv run python eng/parity/render_public_api.py --check
 ```
 
 ```console
@@ -231,6 +280,10 @@ $ uv run python eng/parity/verify_capabilities.py
 
 ```console
 $ uv run python eng/parity/verify_version_literals.py
+```
+
+```console
+$ mise exec -- actionlint
 ```
 
 ```console
@@ -253,87 +306,53 @@ $ uv run python eng/docs/sync_snippets.py --check
 $ uv run eng/mcp/dump_tools.py --check
 ```
 
-The two renderers hold `docs/api/README.md` and `docs/public-api.md` to the
-documents they are generated from. Adding a public member without recording it
-fails `render_api_reference.py --check` and nothing before it, so run the whole
-list rather than the first few.
+The API renderer matches exact compiler identities, including overloads and
+generic members. Missing documentation and stale Markdown fail independently
+of analyzer baseline checks. `sync_snippets.py` checks published blocks against
+their source regions; regenerate them with the same command without `--check`.
 
-`render_api_reference.py` reads the XML documentation the compiler emitted, so
-build before running it. Against stale output it reports a difference that is
-not there.
+`ExampleSuite` runs the complete ordinary example set once. The console
+`--smoke` selects one example to check the entrypoint. `ReadmeExampleTests`
+compiles its snippet set once, then executes the runnable blocks from that
+assembly. The Linux workflow runs this owner once per framework and excludes
+it from general integration and tmux-version lanes. The macOS integration run
+includes its own README check. [examples/README.md](../examples/README.md)
+describes the snippet markers.
 
-`sync_snippets.py --check` is the one that catches a hand-edited example. It
-compares each published block against the region it was quoted from and fails
-on any difference, so bring a change across rather than typing it into the
-document:
+The locked engineering runner owns Python tests. Package mutations are tagged
+`packaging` and require the explicit artifact environment variable above;
+ordinary engineering tests do not build or pack.
 
-```console
-$ uv run python eng/docs/sync_snippets.py
-```
+### Test loops
 
-The examples themselves are checked by the test suites rather than by a script.
-`ReadmeExampleTests`, inside the integration suite, compiles every C# block in
-the shipped documents and runs the ones tagged `csharp run`;
-`SnippetContractTests`, inside the example suite, holds every published region
-to an example that runs. [`examples/README.md`](../examples/README.md) has the
-whole mechanism.
+Time whole commands, including startup. Keep focused tests below five seconds
+and the unit/engineering loop below thirty seconds. Builds, restores, README
+compilation, real-tmux integration, package mutations and AOT belong to the
+outer loop. Run focused checks after edits and the relevant complete gates
+before committing. Benchmarks are separate. Add permanent tests for critical
+behavior, and prove changed gates reject a deliberate break.
 
-The engineering scripts have tests of their own:
+### Other workflows
 
-```console
-$ uv run --with pytest --with tomlkit python -m pytest eng --quiet
-```
+[dotnet-tmux.yml](workflows/dotnet-tmux.yml) builds the integration dependency
+graph once for both frameworks. An archive named for the source SHA and Release
+configuration supplies every supported tmux lane; consumers check the revision
+stamp and execute test modules without restore or build. Missing artifacts and
+empty test selections fail. The matrix still covers every version in
+`eng/tmux/versions.json` on net8.0 and net10.0.
 
-### AOT restore ownership
+The `compatibility` job requires the producer and all supported lanes. Checks
+independent of tmux versions, including packaging and README compilation, run
+outside that matrix. The scheduled tmux-master lane remains advisory.
 
-Only `LibTmux.AotSmoke` names a runtime identifier. The libraries and their
-lock files stay portable because the smoke project consumes their packages
-instead of adding its runtime to their project graph. The smoke project has no
-checked-in lock: its package inputs keep the development version while their
-bytes change with each commit. CI combines a clean package cache with
-`tests/NuGet.config` source mapping so it cannot substitute a stale or public
-package.
+`dotnet.yml` has an advisory macOS arm64 lane on master and manual dispatch.
+It builds and runs unit/integration tests with Homebrew tmux; it stays outside
+`gate` and restores without locked mode. Text captured from a pane may wrap with
+the host's prompt width; assertions about typed text use `joinWrappedLines`.
 
-A local machine has neither. The version never changes between packs, so a
-restore prefers whatever `0.0.0-alpha.9` the global cache already holds and the
-freshly packed bytes are ignored. Evict them before running either gate:
-
-```console
-$ rm -rf ~/.nuget/packages/libtmux{,.query.json,.workspace}/0.0.0-alpha.9
-```
-
-Skipping that runs last week's library against this week's dependants, which
-surfaces as a `TypeLoadException` naming an internal type rather than as
-anything that looks like a stale package.
-
-Adding a platform means adding its identifier to `LibTmux.AotSmoke` and adding
-the matching standalone restore and publish to the workflow.
-
-### The other workflows
-
-[`dotnet-tmux.yml`](workflows/dotnet-tmux.yml) builds each supported tmux from
-source and runs the integration suite against it, behind a `compatibility` job
-that plays the same role as `gate`. That is what proves the compatibility
-range; the build workflow only ever sees whatever tmux Ubuntu ships.
-
-`dotnet.yml` also carries an advisory `macos arm64` lane, because the
-compatibility claim names macOS and a claim nobody runs is a claim. It runs
-`continue-on-error` and is deliberately outside `gate`'s `needs`, so a platform
-difference cannot block every commit. It restores without `--locked-mode`,
-because the lock files are generated for the Linux runtime identifiers this
-repository publishes.
-
-Every failure that lane has produced was a difference in what the platform put
-on the screen rather than in what tmux did. The last two were a runner hostname
-61 characters long: bash's prompt then fills 78 of the pane's 80 columns, and
-tmux stores the wrap as a real line break, so a capture that does not ask for
-`-J` returns typed text split across two lines. **Assertions about text a user
-typed capture with `joinWrappedLines`.**
-
-`codeql.yml` and `scorecard.yml` run on a schedule rather than on the gate,
-because what they check can change without a commit. Every action reference is
-pinned to a commit SHA with the version in a trailing comment, which is what
-stops a moved tag from changing what CI runs. Dependabot maintains those pins.
+Action references are pinned to commits. CodeQL also runs on pull requests;
+Scorecard runs on its configured schedule. These workflows do not replace the
+package or runtime gates.
 
 ## Testing the MCP server means running a real agent
 
@@ -398,11 +417,13 @@ has, and the two can disagree without either side noticing. A handful of
 exceptions are named by exact text in that script, each with the tag evidence
 that makes it not a capability.
 
-**A public API addition changes both enforced contracts.** Update the Roslyn
-analyzer baseline (`PublicAPI.Unshipped.txt`) and the type and member records in
-`docs/public-api.json`, including explicit enum values. If the addition maps a
-Python symbol, update its row in `docs/parity/parity-ledger.json`. The validators
-report each missing contract independently.
+**A public API addition updates one declaration baseline.** Update the
+packable library's `PublicAPI.Unshipped.txt`; RS0016, RS0017 and RS0036 enforce
+new, stale and incorrectly annotated declarations. Add policy metadata only
+when the API introduces ownership, I/O, platform or package-placement rules.
+If it maps a Python symbol, use its exact compiler ID in the parity ledger.
+Regenerate compiler inventory and API Markdown after changing source comments
+or declarations.
 
 **A documented example is compiled, and a `csharp run` block is executed
 against a live tmux.** `ReadmeExampleTests` compiles every C# block in the
@@ -462,7 +483,7 @@ First, `chore(release[version]): Bump to 0.0.0-alpha.N` edits
 [`Directory.Build.props`](../Directory.Build.props) — `VersionSuffix` and
 `PackageReleaseNotes` — and renames `## [Unreleased]` in `CHANGELOG.md` to the
 dated version heading. Versioning is manual `VersionPrefix`/`VersionSuffix`,
-and one string covers all four shipped packages.
+and one version covers every shipped package.
 
 Second, a `Tag v0.0.0-alpha.N` commit, then the tag itself.
 
@@ -606,7 +627,7 @@ follow it: `Server.RaiseIfDeadAsync` became `Server.ThrowIfDeadAsync` that way.
 
 Until then, carry every call site in the repository with the change. A member
 that no longer exists must not exist in the examples, the tests, the READMEs,
-`docs/public-api.json` or the API baselines either.
+policy metadata or the API baselines either.
 
 ## Reporting a vulnerability
 
