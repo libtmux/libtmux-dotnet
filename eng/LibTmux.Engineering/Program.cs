@@ -8,5 +8,11 @@ if (args.Length == 3 && args[0] == "api-inventory")
     return 0;
 }
 
-Console.Error.WriteLine("Usage: LibTmux.Engineering api-inventory ROOT OUTPUT");
+if (args.Length == 4 && args[0] == "packages")
+{
+    MSBuildLocator.RegisterDefaults();
+    return PackageInspection.Run(args[1..]);
+}
+
+Console.Error.WriteLine("Usage: LibTmux.Engineering api-inventory ROOT OUTPUT | packages ROOT PACKAGES INVENTORY");
 return 1;

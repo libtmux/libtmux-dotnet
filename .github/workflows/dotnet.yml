@@ -109,7 +109,14 @@ jobs:
         run: dotnet pack LibTmux.slnx --configuration Release --no-build --output artifacts/packages
 
       - name: Inspect the packages
-        run: uv run python eng/parity/inspect_packages.py
+        run: >
+          dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engineering.dll
+          packages . artifacts/packages artifacts/api-inventory.json
+
+      - name: Package mutation tests
+        env:
+          LIBTMUX_PACKAGE_ARTIFACTS: artifacts/packages
+        run: uv run --locked --script eng/run_tests.py --quiet -m packaging
 
       - name: Package consumer
         # Reaching the library through the package is the point: a missing
@@ -219,8 +226,10 @@ jobs:
         if: always()
         with:
           name: packages
-          path: artifacts/packages
-          if-no-files-found: warn
+          path: |
+            artifacts/packages
+            artifacts/api-inventory.json
+          if-no-files-found: error
 
   # macOS exercises the advertised platform but stays advisory; failures remain
   # visible without making the primary Linux gate depend on hosted macOS.
