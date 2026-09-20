@@ -2,6 +2,7 @@ open System
 open System.IO
 open System.Reflection
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 open LibTmux.FSharp
 open LibTmux.Testing
@@ -95,6 +96,57 @@ let private runAsync () =
             failwith "The capture-and-filter guide did not match the owned session."
 
         let! _ = GuideSnippets.readEditorSessionNamesAsync cancellationToken scope.Server
+
+        let chainOutput = GuideSnippets.readChainOutputAsync cancellationToken scope.Server
+
+        let! chained = chainOutput
+
+        if chained <> [ "fsharp-chain-first"; "fsharp-chain-second" ] then
+            failwith "The chaining guide did not preserve command order."
+
+        let encodedFilter = GuideSnippets.encodeEditorPaneFilter ()
+        let decodedFilter = GuideSnippets.decodeFilter encodedFilter
+
+        if
+            decodedFilter
+            <> Filter.toDocument (Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand)
+        then
+            failwith "The JSON guide did not round trip the portable filter."
+
+        let firstTwoEntered =
+            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+        let mutable entered = 0
+        let mutable inFlight = 0
+        let mutable maximumInFlight = 0
+        let maximumLock = obj ()
+
+        let recordMaximum value =
+            lock maximumLock (fun () -> maximumInFlight <- max maximumInFlight value)
+
+        let work (token: CancellationToken) (value: int) =
+            task {
+                let active = Interlocked.Increment(&inFlight)
+                recordMaximum active
+
+                if Interlocked.Increment(&entered) = 2 then
+                    firstTwoEntered.TrySetResult() |> ignore
+
+                do! firstTwoEntered.Task.WaitAsync(token)
+                Interlocked.Decrement(&inFlight) |> ignore
+                return value * value
+            }
+
+        let! squared = GuideSnippets.boundedMapAsync 2 cancellationToken work [ 1; 2; 3; 4 ]
+
+        if squared <> [ 1; 4; 9; 16 ] || maximumInFlight <> 2 then
+            failwith "The bounded-concurrency guide did not preserve its bound and input order."
+
+        let! captures =
+            GuideSnippets.capturePanesBoundedAsync 2 cancellationToken captured.Panes
+
+        if captures.Length <> captured.Panes.Count then
+            failwith "The bounded capture guide did not complete every pane read."
 
         let native =
             captured.Panes
