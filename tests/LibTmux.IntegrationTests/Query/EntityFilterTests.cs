@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -317,7 +318,10 @@ public sealed class EntityFilterTests
         await Assert.ThrowsAsync<TmuxProtocolException>(() => plan.ExecuteAsync(inspected, token));
         corrupt = false;
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => plan.ExecuteAsync(inspected, cancel.Token));
+        using Process daemon = Process.GetProcessById(Assert.IsType<ServerGeneration>(inspected.Generation).ProcessId);
+        Task exited = daemon.WaitForExitAsync(token);
         Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
+        await exited;
         Assert.Equal(0, (await raw.ExecuteAsync(["new-session", "-d", "-s", "replacement"], token)).ExitCode);
         await Assert.ThrowsAsync<StaleServerGenerationException>(() => plan.ExecuteAsync(inspected, token));
     }
