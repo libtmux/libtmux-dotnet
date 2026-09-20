@@ -96,9 +96,11 @@ internal sealed partial class ReadTools
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
 
-        CapturePaneRequest request = new(
-            startLine: includeHistory ? CapturePanePosition.BeginningOfHistory : null,
-            joinWrappedLines: joinWrappedLines);
+        CapturePaneRequest request = new()
+        {
+            StartLine = includeHistory ? CapturePanePosition.BeginningOfHistory : null,
+            JoinWrappedLines = joinWrappedLines,
+        };
         IReadOnlyList<string> lines = await pane.CaptureAsync(request, cancellationToken)
             .ConfigureAwait(false);
 
@@ -206,9 +208,11 @@ internal sealed partial class ReadTools
                 .GetPanesAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-        CapturePaneRequest request = new(
-            startLine: includeHistory ? CapturePanePosition.BeginningOfHistory : null,
-            joinWrappedLines: true);
+        CapturePaneRequest request = new()
+        {
+            StartLine = includeHistory ? CapturePanePosition.BeginningOfHistory : null,
+            JoinWrappedLines = true,
+        };
 
         var budget = new SearchResultBudget(
             pattern,

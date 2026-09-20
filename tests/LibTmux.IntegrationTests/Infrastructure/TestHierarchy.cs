@@ -2,14 +2,7 @@ using System.Runtime.Versioning;
 
 namespace LibTmux.IntegrationTests.Infrastructure;
 
-/// <summary>Reaches the hierarchy a test arranged, without believing an empty answer.</summary>
-/// <remarks>
-/// List accessors are lenient by contract: a listing that fails for any reason
-/// answers empty rather than throwing. That is right for callers who want "what
-/// is there", and wrong for a test arranging a server it just started, where an
-/// empty answer under load is a failed command rather than an empty server.
-/// Indexing straight into one turns that into an index error naming nothing.
-/// </remarks>
+/// <summary>Waits for the first entity in a hierarchy a test arranged.</summary>
 [UnsupportedOSPlatform("windows")]
 internal static class TestHierarchy
 {
@@ -56,10 +49,7 @@ internal static class TestHierarchy
             if (DateTimeOffset.UtcNow >= deadline)
             {
                 throw new InvalidOperationException(
-                    $"tmux reported no {relation} for a hierarchy this test arranged. "
-                        + "A lenient listing answers empty when its command fails, so "
-                        + "this is either a failed command or a server that lost what "
-                        + "was built on it.");
+                    $"tmux reported no {relation} for a hierarchy this test arranged.");
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken)

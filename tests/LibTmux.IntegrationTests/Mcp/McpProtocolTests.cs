@@ -33,11 +33,13 @@ public sealed class McpProtocolTests
         string socketName = $"lt-id-{nonce}";
         string root = Path.Combine(WorkspaceSocketRoot.Root, $"request-id-{nonce}");
         Directory.CreateDirectory(root);
-        Server endpoint = Server.Open(new ServerConnectionOptions(
-            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            socketName: socketName,
-            configurationFile: "/dev/null",
-            childEnvironment: new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root }));
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = socketName,
+            ConfigurationFile = "/dev/null",
+            ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },
+        });
 
         var startInfo = new ProcessStartInfo(
             Path.Combine(AppContext.BaseDirectory, "LibTmux.Mcp"))
@@ -711,12 +713,14 @@ public sealed class McpProtocolTests
             // let PATH answer: the version matrix points LIBTMUX_TMUX at the
             // tmux under test while PATH still holds whichever one the machine
             // installed, and a client cannot talk to a server of the other.
-            Server seeded = Server.Open(new ServerConnectionOptions(
-                tmuxBinaryPath: McpStartup.ResolveExecutablePath(
+            Server seeded = Server.Open(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = McpStartup.ResolveExecutablePath(
                     environment["LIBTMUX_TMUX"]!,
                     environment["PATH"]),
-                socketName: name,
-                childEnvironment: environment));
+                SocketName = name,
+                ChildEnvironment = environment
+            });
             await seeded.ExecuteCommandAsync(["new-session", "-d", "-s", "seed"], token);
 
             McpStartup startup = await McpStartup.ResolveAsync(
@@ -794,14 +798,16 @@ public sealed class McpProtocolTests
         {
             try
             {
-                await Server.Open(new ServerConnectionOptions(
-                        tmuxBinaryPath: environment["LIBTMUX_TMUX"]!,
-                        socketName: "libtmux-mcp",
-                        configurationFile: McpStartup.MinimalConfigurationPath,
-                        childEnvironment: new Dictionary<string, string?>
-                        {
-                            ["TMUX_TMPDIR"] = root,
-                        }))
+                await Server.Open(new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
+                    SocketName = "libtmux-mcp",
+                    ConfigurationFile = McpStartup.MinimalConfigurationPath,
+                    ChildEnvironment = new Dictionary<string, string?>
+                    {
+                        ["TMUX_TMPDIR"] = root,
+                    }
+                })
                     .KillAsync(CancellationToken.None);
             }
             catch (LibTmuxException)
@@ -1152,10 +1158,12 @@ public sealed class McpProtocolTests
             McpServerComposition.Add(
                 services,
                 new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(20) },
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-                    socketName: socketName,
-                    configurationFile: "/dev/null"),
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                    SocketName = socketName,
+                    ConfigurationFile = "/dev/null",
+                },
                 callerPaneId: null,
                 CapabilitySelection.All,
                 new McpRuntimeDisclosure(
@@ -1194,10 +1202,12 @@ public sealed class McpProtocolTests
             try
             {
                 Server tmux = await Server.ConnectAsync(
-                        new ServerConnectionOptions(
-                            tmuxBinaryPath: System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-                            socketName: _socketName,
-                            configurationFile: "/dev/null"),
+                        new ServerConnectionOptions
+                        {
+                            TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                            SocketName = _socketName,
+                            ConfigurationFile = "/dev/null",
+                        },
                         CancellationToken.None)
                     .ConfigureAwait(false);
                 await tmux.KillAsync(CancellationToken.None).ConfigureAwait(false);

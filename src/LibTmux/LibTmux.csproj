@@ -50,6 +50,8 @@
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
     <InternalsVisibleTo Include="LibTmux.Mcp" />
     <InternalsVisibleTo Include="LibTmux.Query.Json" />
+    <InternalsVisibleTo Include="LibTmux.Testing" />
+    <InternalsVisibleTo Include="LibTmux.Benchmarks" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 </Project>

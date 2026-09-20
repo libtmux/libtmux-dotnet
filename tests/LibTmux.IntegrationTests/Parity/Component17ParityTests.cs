@@ -129,11 +129,13 @@ public sealed class Component17ParityTests
         CancellationToken token = TestContext.Current.CancellationToken;
         CountingLogger logger = new();
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
         // Every tmux command passes through one dispatcher, so one recorder
@@ -144,7 +146,7 @@ public sealed class Component17ParityTests
         await session.Hooks.SetAsync(
             new SetHookRequest("alert-bell", "display-message rang"),
             token);
-        await server.SetBufferAsync("recorded", "libtmux-recorded", cancellationToken: token);
+        await server.Buffers.SetAsync("recorded", "libtmux-recorded", cancellationToken: token);
 
         Assert.Contains("set-option", logger.Subcommands);
         Assert.Contains("set-hook", logger.Subcommands);

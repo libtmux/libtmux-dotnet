@@ -22,7 +22,7 @@ public sealed class ServerSessionLifecycleTests
 
         SessionId ownedId;
         await using (OwnedSessionScope scope = await server.CreateOwnedSessionAsync(
-            new NewSessionRequest(name: "owned"),
+            new NewSessionRequest { Name = "owned" },
             token))
         {
             ownedId = scope.Value.Id;
@@ -58,6 +58,45 @@ public sealed class ServerSessionLifecycleTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Owned_server_handle_lists_what_it_started()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using OwnedServerScope owned = await Server.CreateOwnedAsync(IsolatedOptions(), token);
+        Session session = await owned.Value.CreateSessionAsync(
+            new NewSessionRequest { Name = "main" },
+            token);
+
+        // owned.Value stays the unmaterialized endpoint; every listing
+        // through it must discover the live server and list what it owns
+        // rather than throwing "no tmux version".
+        Assert.False(owned.Value.IsMaterialized);
+        IReadOnlyList<Session> sessions = await owned.Value.GetSessionsAsync(token);
+        Session listed = Assert.Single(sessions);
+        Assert.Equal(session.Id, listed.Id);
+        Assert.True(listed.Server.IsMaterialized);
+        IReadOnlyList<Window> windows = await owned.Value.GetWindowsAsync(token);
+        Window window = Assert.Single(windows);
+        IReadOnlyList<Pane> panes = await owned.Value.GetPanesAsync(token);
+        Pane pane = Assert.Single(panes);
+        Assert.Empty(await owned.Value.GetAttachedSessionsAsync(token));
+        Assert.Single(await listed.GetWindowsAsync(token));
+
+        // The same still-unmaterialized handle must discover the live server
+        // from Find*Async and GetClientsAsync too, the way the four listings
+        // above already do, rather than throwing InvalidOperationException or
+        // IncompleteSnapshotException.
+        Assert.False(owned.Value.IsMaterialized);
+        Assert.Equal(session.Id, (await owned.Value.FindSessionAsync(session.Id, token))?.Id);
+        Assert.Equal(window.Id, (await owned.Value.FindWindowAsync(window.Id, token))?.Id);
+        Assert.Equal(pane.Id, (await owned.Value.FindPaneAsync(pane.Id, token))?.Id);
+        Assert.Null(await owned.Value.FindSessionAsync(new SessionId(2147483647), token));
+        Assert.Empty(await owned.Value.GetClientsAsync(token));
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task New_session_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
@@ -66,16 +105,18 @@ public sealed class ServerSessionLifecycleTests
         Server server = await ConnectAsync(raw, token);
 
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest(
-                name: "flags",
-                startDirectory: "/tmp",
-                windowName: "first",
-                width: "132",
-                height: "40",
-                environment: new Dictionary<string, string>(StringComparer.Ordinal)
+            new NewSessionRequest
+            {
+                Name = "flags",
+                StartDirectory = "/tmp",
+                WindowName = "first",
+                Width = "132",
+                Height = "40",
+                Environment = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["LIBTMUX_FLAG"] = "set",
-                }),
+                },
+            },
             token);
 
         Assert.Equal("flags", created.Name);
@@ -125,18 +166,18 @@ public sealed class ServerSessionLifecycleTests
         // tmux parses ':' and '.' as target separators, so a name carrying one
         // would silently address a different object.
         await Assert.ThrowsAsync<ArgumentException>(
-            () => server.CreateSessionAsync(new NewSessionRequest(name: "a:b"), token));
+            () => server.CreateSessionAsync(new NewSessionRequest { Name = "a:b" }, token));
 
         // Taking a name twice is reported as such rather than as a bare
         // command failure, so a caller can pick another name.
         TmuxSessionExistsException taken = await Assert.ThrowsAsync<TmuxSessionExistsException>(
-            () => server.CreateSessionAsync(new NewSessionRequest(name: "flags"), token));
+            () => server.CreateSessionAsync(new NewSessionRequest { Name = "flags" }, token));
         Assert.Equal("flags", taken.SessionName);
 
         // Replacing removes the old session rather than attaching to it: tmux
         // offers no replace flag, and its nearest offer needs a terminal.
         Session replaced = await server.CreateSessionAsync(
-            new NewSessionRequest(name: "flags", replaceExisting: true),
+            new NewSessionRequest { Name = "flags", ReplaceExisting = true },
             token);
         Assert.Equal("flags", replaced.Name);
         Assert.NotEqual(created.Id, replaced.Id);
@@ -154,10 +195,8 @@ public sealed class ServerSessionLifecycleTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
 
-        // ActiveWindow is served from the session's own captured fields, which
-        // carry the active window's identity but not that window's fields.
         WindowId second = (await session.GetWindowsAsync(token))
             .Single(window => window.Snapshot?["window_name"] == "second")
             .Id;
@@ -167,7 +206,7 @@ public sealed class ServerSessionLifecycleTests
         Assert.Equal(second, (await session.SelectWindowAsync("second", token)).Id);
         Assert.NotEqual(second, (await session.SelectPreviousWindowAsync(token)).Id);
         Assert.Equal(second, (await session.SelectNextWindowAsync(token)).Id);
-        Assert.Equal(second, (await session.RefreshAsync(token)).ActiveWindow.Id);
+        Assert.Equal(second, (await session.RefreshAsync(token)).ActiveWindow.Value.Id);
 
         // tmux accepts ':' inside a window name, so the target stays anchored
         // to this session; tmux 3.7 alone refuses such a name (3.7a restored it).
@@ -189,7 +228,7 @@ public sealed class ServerSessionLifecycleTests
         // once and keeps the last, so repeating it would discard all but one.
         TmuxCommandException attach = await Assert.ThrowsAsync<TmuxCommandException>(
             () => session.AttachAsync(
-                new AttachSessionRequest(clientFlags: ["no-output", "read-only"]),
+                new AttachSessionRequest { ClientFlags = ["no-output", "read-only"] },
                 token));
         Assert.Contains("-f", attach.Result.Arguments);
         Assert.Contains("no-output,read-only", attach.Result.Arguments);
@@ -209,8 +248,8 @@ public sealed class ServerSessionLifecycleTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         string target = session.Id.ToString();
 
-        WindowId firstWindow = session.ActiveWindow.Id;
-        PaneId firstPane = session.ActivePane.Id;
+        WindowId firstWindow = session.ActiveWindow.Value.Id;
+        PaneId firstPane = session.ActivePane.Value.Id;
 
         // The change is made behind the library's back, so nothing the handle
         // did could have refreshed it as a side effect.
@@ -220,14 +259,14 @@ public sealed class ServerSessionLifecycleTests
         await RequireRawSuccessAsync(raw, ["select-pane", "-t", $"{target}:outside.1"], token);
 
         // The original handle is a record of what was read, not a live view.
-        Assert.Equal(firstWindow, session.ActiveWindow.Id);
-        Assert.Equal(firstPane, session.ActivePane.Id);
+        Assert.Equal(firstWindow, session.ActiveWindow.Value.Id);
+        Assert.Equal(firstPane, session.ActivePane.Value.Id);
 
         Session refreshed = await session.RefreshAsync(token);
 
         Assert.Equal(session.Id, refreshed.Id);
-        Assert.NotEqual(firstWindow, refreshed.ActiveWindow.Id);
-        Assert.NotEqual(firstPane, refreshed.ActivePane.Id);
+        Assert.NotEqual(firstWindow, refreshed.ActiveWindow.Value.Id);
+        Assert.NotEqual(firstPane, refreshed.ActivePane.Value.Id);
 
         // The refreshed relations name the objects tmux actually selected.
         RawTmuxResult active = await RequireRawSuccessAsync(
@@ -235,7 +274,7 @@ public sealed class ServerSessionLifecycleTests
             ["display-message", "-p", "-t", target, "#{window_id} #{pane_id}"],
             token);
         Assert.Equal(
-            $"{refreshed.ActiveWindow.Id} {refreshed.ActivePane.Id}",
+            $"{refreshed.ActiveWindow.Value.Id} {refreshed.ActivePane.Value.Id}",
             active.StandardOutputLines[0]);
     }
 
@@ -250,11 +289,13 @@ public sealed class ServerSessionLifecycleTests
         CancellationToken token = TestContext.Current.CancellationToken;
         RecordingLogger logger = new();
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
         // "member" joins "grouped"'s session group; "solo" stands apart, so a
@@ -319,14 +360,16 @@ public sealed class ServerSessionLifecycleTests
 
         // A window is placed relative to the window it names, not the session's
         // current one, so -a against "first" must land immediately after it.
-        await session.CreateWindowAsync(new NewWindowRequest(name: "first"), token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "last"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "first" }, token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "last" }, token);
         await session.SelectWindowAsync("last", token);
         Window inserted = await session.CreateWindowAsync(
-            new NewWindowRequest(
-                name: "inserted",
-                targetWindow: "first",
-                direction: WindowDirection.After),
+            new NewWindowRequest
+            {
+                Name = "inserted",
+                TargetWindow = "first",
+                Direction = WindowDirection.After,
+            },
             token);
         string[] order =
         [
@@ -343,12 +386,14 @@ public sealed class ServerSessionLifecycleTests
 
         // An index and a target window both name a position, so asking for
         // both is rejected rather than silently resolved one way.
-        Assert.Throws<ArgumentException>(
-            () => new NewWindowRequest(index: "3", targetWindow: "first"));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => session.CreateWindowAsync(
+                new NewWindowRequest { Index = "3", TargetWindow = "first" },
+                token));
 
         // -C clears alerts and leaves the session running; -a kills every other
         // session and leaves this one.
-        Session spare = await server.CreateSessionAsync(new NewSessionRequest(name: "spare"), token);
+        Session spare = await server.CreateSessionAsync(new NewSessionRequest { Name = "spare" }, token);
         await session.KillAsync(clearAlerts: true, cancellationToken: token);
         Assert.True(await server.HasSessionAsync(session.Name, true, token));
         Assert.True(await server.HasSessionAsync("spare", true, token));
@@ -363,11 +408,21 @@ public sealed class ServerSessionLifecycleTests
         RawTmuxTestContext raw,
         CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
+
+    private static ServerConnectionOptions IsolatedOptions() =>
+        new()
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+            SocketName = $"ltcs-owned-{Guid.NewGuid():N}",
+            ConfigurationFile = "/dev/null",
+        };
 
     private static async Task<RawTmuxResult> RequireRawSuccessAsync(
         RawTmuxTestContext raw,

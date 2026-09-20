@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
     <Project Path="src/LibTmux/LibTmux.csproj" />
+    <Project Path="src/LibTmux.Testing/LibTmux.Testing.csproj" />
+    <Project Path="src/LibTmux.Extensions.DependencyInjection/LibTmux.Extensions.DependencyInjection.csproj" />
     <Project Path="src/LibTmux.Workspace/LibTmux.Workspace.csproj" />
     <Project Path="src/LibTmux.Mcp/LibTmux.Mcp.csproj" />
   </Folder>

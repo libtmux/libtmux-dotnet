@@ -81,7 +81,11 @@ internal static class TmuxCapabilities
             throw new KeyNotFoundException($"Unknown tmux capability '{capability}'.");
         }
 
-        if (!version.IsStableRelease || version < LibTmuxInfo.MinimumTmuxVersion)
+        // Stable releases and rolling next builds have predictable capabilities.
+        // Use normal version ordering for next; -dev and -rc remain unknown.
+        if (!version.IsValid
+            || (!version.IsStableRelease && !version.IsNextRelease)
+            || version < LibTmuxInfo.MinimumTmuxVersion)
         {
             return TmuxCapabilityState.Unknown;
         }

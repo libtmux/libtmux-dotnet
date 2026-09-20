@@ -31,9 +31,11 @@ public sealed class WriteToolsExecutionSafetyTests
             // instead made this depend on whether the platform would spawn it,
             // which macOS would not.
             using var accessor = new TmuxConnectionAccessor(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: "/not/the/pinned/tmux",
-                    socketName: SocketRoots.Name("route-pin")));
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = "/not/the/pinned/tmux",
+                    SocketName = SocketRoots.Name("route-pin"),
+                });
 
             McpException failure = await Assert.ThrowsAsync<McpException>(
                 () => accessor.GetAsync(
@@ -2459,6 +2461,99 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Wait_for_a_pattern_already_on_screen_reports_present_at_entry_not_timeout()
+    {
+        string[] staticRows = ["ALREADY_HERE_MARKER"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // The pattern never arrives as new output, so this must answer
+        // PresentAtEntry rather than a Timeout whose own returned tail
+        // visibly contains the match it says it never found.
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["ALREADY_HERE_MARKER"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.Equal("ALREADY_HERE_MARKER", result.MatchedPattern);
+        Assert.Contains("ALREADY_HERE_MARKER", result.Tail.Lines);
+
+        // An entry match is knowable at once, so it must be reported without
+        // polling capture-pane. Exactly two captures -- the entry read and
+        // the final tail -- proves no polling loop ran, without depending on
+        // wall-clock timing.
+        Assert.Equal(2, fixture.CaptureCount);
+    }
+
+    [Fact]
+    public async Task Wait_matches_a_line_that_only_shares_a_character_with_recent_typed_input()
+    {
+        string[] staticRows = ["Successfully copied 1 file"];
+        // A generation of its own: PaneEchoRegistry keeps state across calls
+        // for "%1" under the default generation, which every other test in
+        // this file that does not care about it also shares.
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            generation: new ServerGeneration(121, 1_202))
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // "y" recorded from an unrelated confirmation must not blank out every
+        // later line that happens to contain the letter, such as this one.
+        _ = await fixture.Tools.SendKeysAsync(
+            keys: "y",
+            paneId: "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["Successfully"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+    }
+
+    [Fact]
+    public async Task Wait_still_excludes_a_line_ending_with_recent_typed_input()
+    {
+        string[] staticRows = ["$ y"];
+        // A generation of its own, for the same reason as the sibling test
+        // above: nothing else may have left this pane's echo record dirty.
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            generation: new ServerGeneration(121, 1_203))
+        {
+            CaptureSequence = [staticRows, staticRows, staticRows],
+            StateSequence = [new StateSample(0, 50_000, 40, 0)],
+        };
+
+        // The control for the fix above: a line that IS the echoed "y" -
+        // the pending text sitting at the end of the row - must still be
+        // excluded, or the guard has stopped doing its one job.
+        _ = await fixture.Tools.SendKeysAsync(
+            keys: "y",
+            paneId: "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["y"],
+            timeoutSeconds: 0.2,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+    }
+
+    [Fact]
     public async Task Read_since_busy_retry_falls_back_to_a_new_stable_cursor()
     {
         await using var fixture = new ToolFixture();
@@ -2767,9 +2862,11 @@ public sealed class WriteToolsExecutionSafetyTests
                 Task.FromException<IControlModeSession>(
                     new InvalidOperationException("Fake control attach unavailable.")));
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: tmuxBinaryPath,
-                    socketPath: socketPath),
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = tmuxBinaryPath,
+                    SocketPath = socketPath,
+                },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, _generation, "tmux 3.7");
             _accessor = new TmuxConnectionAccessor(server);

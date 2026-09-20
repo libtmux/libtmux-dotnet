@@ -18,8 +18,10 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/LibTmux/LibTmux.csproj" />
+    <ProjectReference Include="../../src/LibTmux.Testing\LibTmux.Testing.csproj" />
     <ProjectReference Include="..\..\src\LibTmux.Query.Json\LibTmux.Query.Json.csproj" />
     <ProjectReference Include="../../src/LibTmux.Mcp/LibTmux.Mcp.csproj" />
+    <ProjectReference Include="../../src/LibTmux.Extensions.DependencyInjection/LibTmux.Extensions.DependencyInjection.csproj" />
   </ItemGroup>
 
   <ItemGroup>

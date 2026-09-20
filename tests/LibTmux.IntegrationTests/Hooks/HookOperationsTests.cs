@@ -81,21 +81,21 @@ public sealed class HookOperationsTests
         // Appending adds an entry rather than replacing the one there.
         await server.Hooks.SetAsync(new SetHookRequest("alert-bell", "display-message 'a'"), token);
         TmuxHook appended = await server.Hooks.SetAsync(
-            new SetHookRequest("alert-bell", "display-message 'b'", append: true),
+            new SetHookRequest("alert-bell", "display-message 'b'") { Append = true },
             token);
         Assert.Equal([0, 1], appended.Values.Select(entry => entry.Index).ToArray());
 
         // Writing a whole ordering at once lands every index, and clearing
         // first means nothing survives from before.
         TmuxHook rewritten = await server.Hooks.SetAsync(
-            new SetHooksRequest(
-                "alert-bell",
-                new Dictionary<int, string>
-                {
-                    [0] = "display-message 'first'",
-                    [3] = "display-message 'fourth'",
-                },
-                clearExisting: true),
+            new SetHooksRequest("alert-bell", new Dictionary<int, string>
+            {
+                [0] = "display-message 'first'",
+                [3] = "display-message 'fourth'",
+            })
+            {
+                ClearExisting = true,
+            },
             token);
         Assert.Equal([0, 3], rewritten.Values.Select(entry => entry.Index).ToArray());
 
@@ -208,9 +208,11 @@ public sealed class HookOperationsTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

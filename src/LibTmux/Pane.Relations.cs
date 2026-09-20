@@ -7,11 +7,11 @@ namespace LibTmux;
 public sealed partial class Pane
 {
     private readonly Server? _owner;
+    private Window? _capturedWindow;
 
     /// <summary>Gets the server that owns this pane.</summary>
     /// <remarks>
-    /// Every handle reached through a server carries it, whether the handle was
-    /// materialized from a listing or resolved from an identifier.
+    /// Reading this uses the owner captured with the entity.
     /// </remarks>
     public Server Server => RequireOwner("server");
 
@@ -20,43 +20,27 @@ public sealed partial class Pane
     /// The pane carries no captured session identity.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public Session Session
-    {
-        get
-        {
-            if (!SessionId.TryParse(ReadSnapshot("session_id"), out SessionId id))
-            {
-                throw new IncompleteSnapshotException("session", SnapshotDepth.Server);
-            }
+    public Session Session =>
+        _capturedWindow?.Session
+        ?? (SessionId.TryParse(ReadSnapshot("session_id"), out _)
+            ? RelationReader.ToSession(Server, RawFormatFields)
+            : throw new IncompleteSnapshotException("session", SnapshotDepth.Server));
 
-            return new Session(Server, RequireConnection(), _generation, id);
-        }
-    }
-
-    /// <summary>Gets the window containing this pane.</summary>
+    /// <summary>Gets the window containing this pane, with captured scalar state.</summary>
     /// <exception cref="IncompleteSnapshotException">
     /// The pane carries no captured window identity.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public Window Window
-    {
-        get
-        {
-            if (!WindowId.TryParse(ReadSnapshot("window_id"), out WindowId id))
-            {
-                throw new IncompleteSnapshotException("window", SnapshotDepth.Server);
-            }
+    public Window Window =>
+        _capturedWindow
+        ?? (WindowId.TryParse(ReadSnapshot("window_id"), out _)
+            ? RelationReader.ToWindow(Server, RawFormatFields)
+            : throw new IncompleteSnapshotException("window", SnapshotDepth.Server));
 
-            return new Window(Server, RequireConnection(), _generation, id);
-        }
-    }
+    internal void WithCaptured(Window window) => _capturedWindow = window;
 
     private Server RequireOwner(string relation) =>
         _owner ?? throw new IncompleteSnapshotException(relation, SnapshotDepth.Server);
-
-    private TmuxConnection RequireConnection() =>
-        Server.Connection
-        ?? throw new IncompleteSnapshotException("connection", SnapshotDepth.Server);
 
     private string? ReadSnapshot(string wireName) =>
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)

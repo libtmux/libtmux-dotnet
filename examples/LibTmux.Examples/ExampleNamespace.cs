@@ -123,14 +123,16 @@ public sealed class ExampleNamespace : IAsyncDisposable
         try
         {
             OwnedServerScope server = await Server.CreateOwnedAsync(
-                new ServerConnectionOptions(
-                    tmuxBinaryPath: Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
                         ?? "tmux",
-                    socketName: socketName,
-                    childEnvironment: new Dictionary<string, string?>
+                    SocketName = socketName,
+                    ChildEnvironment = new Dictionary<string, string?>
                     {
                         ["TMUX_TMPDIR"] = SocketRoot,
-                    }),
+                    }
+                },
                 cancellationToken: cancellationToken);
 
             if (FindSocket(socketName) is null)
@@ -218,7 +220,7 @@ public sealed class ExampleNamespace : IAsyncDisposable
     {
         // Control mode attaches, so it needs a session to attach to.
         Session = await Server.CreateSessionAsync(
-            new NewSessionRequest(name: "example"),
+            new NewSessionRequest { Name = "example" },
             cancellationToken);
         Window = (await Session.GetWindowsAsync(cancellationToken))[0];
         Pane = (await Window.GetPanesAsync(cancellationToken))[0];

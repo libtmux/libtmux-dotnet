@@ -106,7 +106,7 @@ public static class McpServerComposition
         return builder;
     }
 
-    private static ServerConnectionOptions PinExecutable(ServerConnectionOptions options)
+    internal static ServerConnectionOptions PinExecutable(ServerConnectionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (options.PsmuxPreview is not null)
@@ -134,15 +134,9 @@ public static class McpServerComposition
             return options;
         }
 
-        return new ServerConnectionOptions(
-            tmuxBinaryPath: executable,
-            socketName: options.SocketName,
-            socketPath: options.SocketPath,
-            socketNameFactory: options.SocketNameFactory,
-            configurationFile: options.ConfigurationFile,
-            colorMode: options.ColorMode,
-            initializeAsync: options.InitializeAsync,
-            childEnvironment: options.ChildEnvironment,
-            logger: options.Logger);
+        // Copied rather than rebuilt: listing the options by hand dropped every
+        // one it did not name, so a command timeout set by an embedder never
+        // reached a command once "tmux" resolved to an absolute path.
+        return options with { TmuxBinaryPath = executable };
     }
 }

@@ -8,44 +8,47 @@ namespace LibTmux;
 /// restart a live window or pane has to say so with
 /// <see cref="KillExistingProcess" />.
 /// </remarks>
-public sealed record RespawnRequest
+public sealed record RespawnRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a respawn request.</summary>
-    /// <param name="command">The command to run, or null to reuse the original.</param>
-    /// <param name="startDirectory">The working directory to respawn in.</param>
-    /// <param name="environment">Environment entries set on the respawned target.</param>
-    /// <param name="killExistingProcess">Whether a running process is killed first.</param>
-    public RespawnRequest(
-        string? command = null,
-        string? startDirectory = null,
-        IReadOnlyDictionary<string, string>? environment = null,
-        bool killExistingProcess = false)
-    {
-        Command = command;
-        StartDirectory = startDirectory;
-        // The request is read again at dispatch, so a caller that kept the
-        // dictionary could otherwise change the argv after constructing it.
-        Environment = environment is null
-            ? null
-            : new ReadOnlyDictionary<string, string>(
-                new Dictionary<string, string>(environment, StringComparer.Ordinal));
-        KillExistingProcess = killExistingProcess;
-    }
+    private readonly IReadOnlyDictionary<string, string>? _environment;
 
     /// <summary>Gets the command to run, or null to reuse the original.</summary>
-    public string? Command { get; }
+    public string? Command { get; init; }
 
     /// <summary>Gets the working directory to respawn in.</summary>
     /// <remarks>
     /// tmux expands it as a format before it changes directory, so a <c>#</c>
     /// in it does not survive verbatim.
     /// </remarks>
-    public string? StartDirectory { get; }
+    public string? StartDirectory { get; init; }
 
     /// <summary>Gets the environment entries set on the respawned target.</summary>
-    public IReadOnlyDictionary<string, string>? Environment { get; }
+    public IReadOnlyDictionary<string, string>? Environment
+    {
+        get => _environment;
+
+        // The request is read again at dispatch, so a caller that kept the
+        // dictionary could otherwise change the argv after building it.
+        init => _environment = value is null
+            ? null
+            : new ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string>(value, StringComparer.Ordinal));
+    }
 
     /// <summary>Gets whether a running process is killed first.</summary>
     /// <remarks>Respawning a live target fails without this.</remarks>
-    public bool KillExistingProcess { get; }
+    public bool KillExistingProcess { get; init; }
+
+    /// <summary>Returns a respawn request as one tmux command for a pane.</summary>
+    /// <param name="pane">The pane being respawned.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildRespawnPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

@@ -20,51 +20,54 @@ public enum PaneSelectDirection
 }
 
 /// <summary>Describes one <c>select-pane</c> invocation.</summary>
-public sealed record SelectPaneRequest
+public sealed record SelectPaneRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a pane-selection request.</summary>
-    /// <param name="direction">Which pane to move to.</param>
-    /// <param name="keepZoom">Whether a zoomed pane stays zoomed.</param>
-    /// <param name="mark">Whether the pane is marked, unmarked, or left alone.</param>
-    /// <param name="inputEnabled">Whether input is enabled, disabled, or left alone.</param>
-    /// <param name="last">Whether the last active pane is selected.</param>
-    public SelectPaneRequest(
-        PaneSelectDirection? direction = null,
-        bool keepZoom = false,
-        bool? mark = null,
-        bool? inputEnabled = null,
-        bool last = false)
-    {
-        if (direction is not null && !Enum.IsDefined(direction.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(direction));
-        }
-
-        Direction = direction;
-        KeepZoom = keepZoom;
-        Mark = mark;
-        InputEnabled = inputEnabled;
-        Last = last;
-    }
+    private readonly PaneSelectDirection? _direction;
 
     /// <summary>Gets which pane to move to.</summary>
     /// <remarks>
     /// <see cref="PaneSelectDirection.Last" /> and <see cref="Last" /> are two
     /// spellings of the same tmux flag, which is sent once either way.
     /// </remarks>
-    public PaneSelectDirection? Direction { get; }
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined direction.</exception>
+    public PaneSelectDirection? Direction
+    {
+        get => _direction;
+        init
+        {
+            if (value is not null && !Enum.IsDefined(value.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(Direction));
+            }
+
+            _direction = value;
+        }
+    }
 
     /// <summary>Gets whether a zoomed pane stays zoomed.</summary>
-    public bool KeepZoom { get; }
+    public bool KeepZoom { get; init; }
 
     /// <summary>Gets whether the pane is marked, unmarked, or left alone.</summary>
     /// <remarks>Null omits both flags, so tmux leaves the mark as it is.</remarks>
-    public bool? Mark { get; }
+    public bool? Mark { get; init; }
 
     /// <summary>Gets whether input is enabled, disabled, or left alone.</summary>
     /// <remarks>Null omits both flags, so tmux leaves input as it is.</remarks>
-    public bool? InputEnabled { get; }
+    public bool? InputEnabled { get; init; }
 
     /// <summary>Gets whether the last active pane is selected.</summary>
-    public bool Last { get; }
+    public bool Last { get; init; }
+
+    /// <summary>Returns a pane-selection request as one tmux command.</summary>
+    /// <param name="pane">The pane the selection is relative to.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildSelectPaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
+    }
 }

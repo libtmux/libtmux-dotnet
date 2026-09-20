@@ -24,7 +24,7 @@ public sealed class PaneOperationsTests
         // The transport already escapes it; escaping again would deliver a
         // backslash into the pane.
         await pane.SendKeysAsync(
-            new SendKeysRequest("echo 'A;'", enter: false, literal: true),
+            new SendKeysRequest { Text = "echo 'A;'", Enter = false, Literal = true },
             token);
         await pane.EnterAsync(token);
         Assert.Contains("A;", await ReadPaneAsync(pane, "A;", token), StringComparison.Ordinal);
@@ -38,11 +38,11 @@ public sealed class PaneOperationsTests
 
         await pane.SendTextAsync("Enter", enter: false, token);
         Assert.Contains("Enter", await ReadPaneAsync(pane, "Enter", token), StringComparison.Ordinal);
-        await pane.SendKeysAsync(new SendKeysRequest("C-u"), token);
+        await pane.SendKeysAsync(new SendKeysRequest { Text = "C-u" }, token);
 
         // Keeping a line out of shell history is a leading space, not a flag.
         await pane.SendKeysAsync(
-            new SendKeysRequest("echo hidden", suppressHistory: true, enter: false),
+            new SendKeysRequest { Text = "echo hidden", SuppressHistory = true, Enter = false },
             token);
         Assert.Contains(
             " echo hidden",
@@ -54,9 +54,11 @@ public sealed class PaneOperationsTests
         // for the whole history returns more than the visible pane alone.
         IReadOnlyList<string> visible = await pane.CaptureAsync(cancellationToken: token);
         IReadOnlyList<string> everything = await pane.CaptureAsync(
-            new CapturePaneRequest(
-                startLine: CapturePanePosition.BeginningOfHistory,
-                endLine: CapturePanePosition.EndOfVisiblePane),
+            new CapturePaneRequest
+            {
+                StartLine = CapturePanePosition.BeginningOfHistory,
+                EndLine = CapturePanePosition.EndOfVisiblePane,
+            },
             token);
         Assert.True(
             everything.Count >= visible.Count,
@@ -77,9 +79,9 @@ public sealed class PaneOperationsTests
         // A pane with no alternate screen refuses the request unless the
         // caller says a missing one is acceptable.
         await Assert.ThrowsAsync<TmuxCommandException>(
-            () => pane.CaptureAsync(new CapturePaneRequest(alternateScreen: true), token));
+            () => pane.CaptureAsync(new CapturePaneRequest { AlternateScreen = true }, token));
         IReadOnlyList<string> quiet = await pane.CaptureAsync(
-            new CapturePaneRequest(alternateScreen: true, quiet: true),
+            new CapturePaneRequest { AlternateScreen = true, Quiet = true },
             token);
         Assert.Empty(quiet);
 
@@ -89,7 +91,7 @@ public sealed class PaneOperationsTests
         string marked = await ReadPaneAsync(pane, "CAPTUREMARKER", token);
         Assert.Contains("CAPTUREMARKER", marked, StringComparison.Ordinal);
         IReadOnlyList<string> bounded = await pane.CaptureAsync(
-            new CapturePaneRequest(startLine: new CapturePanePosition(0)),
+            new CapturePaneRequest { StartLine = new CapturePanePosition(0) },
             token);
         Assert.Contains(
             "CAPTUREMARKER",
@@ -116,11 +118,11 @@ public sealed class PaneOperationsTests
         // A pane in no mode makes tmux itself refuse the copy-mode command;
         // this library does not pre-check pane mode before sending it.
         await Assert.ThrowsAsync<TmuxCommandException>(
-            () => pane.SendKeysAsync(new SendKeysRequest(copyModeCommand: "cancel"), token));
+            () => pane.SendKeysAsync(new SendKeysRequest { CopyModeCommand = "cancel" }, token));
 
         await pane.EnterCopyModeAsync(cancellationToken: token);
         Assert.Equal("copy-mode", await FormatAsync(pane, "#{pane_mode}", token));
-        await pane.SendKeysAsync(new SendKeysRequest(copyModeCommand: "cancel"), token);
+        await pane.SendKeysAsync(new SendKeysRequest { CopyModeCommand = "cancel" }, token);
         Assert.NotEqual("copy-mode", await FormatAsync(pane, "#{pane_mode}", token));
     }
 
@@ -139,20 +141,20 @@ public sealed class PaneOperationsTests
         Pane selected = await second.SelectAsync(cancellationToken: token);
         Assert.Equal("1", await FormatAsync(selected, "#{pane_active}", token));
 
-        await second.SelectAsync(new SelectPaneRequest(mark: true), token);
+        await second.SelectAsync(new SelectPaneRequest { Mark = true }, token);
         Assert.Equal("1", await FormatAsync(second, "#{pane_marked}", token));
-        await second.SelectAsync(new SelectPaneRequest(mark: false), token);
+        await second.SelectAsync(new SelectPaneRequest { Mark = false }, token);
         Assert.Equal("0", await FormatAsync(second, "#{pane_marked}", token));
 
-        await second.SelectAsync(new SelectPaneRequest(inputEnabled: false), token);
+        await second.SelectAsync(new SelectPaneRequest { InputEnabled = false }, token);
         Assert.Equal("1", await FormatAsync(second, "#{pane_input_off}", token));
-        await second.SelectAsync(new SelectPaneRequest(inputEnabled: true), token);
+        await second.SelectAsync(new SelectPaneRequest { InputEnabled = true }, token);
         Assert.Equal("0", await FormatAsync(second, "#{pane_input_off}", token));
 
         // Both spellings of "the last pane" collapse to one flag; sending it
         // twice would be a tmux usage error.
         await second.SelectAsync(
-            new SelectPaneRequest(direction: PaneSelectDirection.Last, last: true),
+            new SelectPaneRequest { Direction = PaneSelectDirection.Last, Last = true },
             token);
     }
 
@@ -173,20 +175,20 @@ public sealed class PaneOperationsTests
         // A pane identifier already names a pane; composing it with a
         // sub-target would ask tmux for a window that does not exist.
         Pane explicitTarget = await pane.SplitAsync(
-            new SplitPaneRequest(target: pane.Id.ToString()),
+            new SplitPaneRequest { Target = pane.Id.ToString() },
             token);
         Assert.Equal(2, (await window.GetPanesAsync(token)).Count);
 
         // A percentage rides the size flag on every lane, because the
         // percentage flag itself is broken from 3.4 through 3.6.
-        Window other = await session.CreateWindowAsync(new NewWindowRequest(name: "target"), token);
+        Window other = await session.CreateWindowAsync(new NewWindowRequest { Name = "target" }, token);
         await explicitTarget.MoveAsync(
-            new MovePaneRequest(other.Id.ToString(), size: "30%"),
+            new MovePaneRequest(other.Id.ToString()) { Size = "30%" },
             token);
         Assert.Equal(2, (await other.GetPanesAsync(token)).Count);
 
         await Assert.ThrowsAsync<TmuxCommandException>(
-            () => pane.PasteBufferAsync(new PasteBufferRequest("no-such-buffer"), token));
+            () => pane.PasteBufferAsync(new PasteBufferRequest { Name = "no-such-buffer" }, token));
 
         // Clearing empties the scrollback but does not stop the pane's shell
         // writing to it, so a prompt drawn just after the clear leaves a line
@@ -211,36 +213,40 @@ public sealed class PaneOperationsTests
 
         await pane.EnterCopyModeAsync(cancellationToken: token);
         Assert.Equal("copy-mode", await FormatAsync(pane, "#{pane_mode}", token));
-        await pane.EnterCopyModeAsync(new CopyModeRequest(cancel: true), token);
+        await pane.EnterCopyModeAsync(new CopyModeRequest { Cancel = true }, token);
         Assert.NotEqual("copy-mode", await FormatAsync(pane, "#{pane_mode}", token));
 
         // Without a real mouse event tmux accepts the request and enters no
         // mode, so the absence is the assertion.
-        await pane.EnterCopyModeAsync(new CopyModeRequest(mouseDrag: true), token);
+        await pane.EnterCopyModeAsync(new CopyModeRequest { MouseDrag = true }, token);
         Assert.NotEqual("copy-mode", await FormatAsync(pane, "#{pane_mode}", token));
 
-        await pane.PipeAsync(new PipePaneRequest("cat > /dev/null"), token);
+        await pane.PipeAsync(new PipePaneRequest { Command = "cat > /dev/null" }, token);
         Assert.Equal("1", await FormatAsync(pane, "#{pane_pipe}", token));
         await pane.PipeAsync(cancellationToken: token);
         Assert.Equal("0", await FormatAsync(pane, "#{pane_pipe}", token));
 
         // tmux replaces a named source whenever a direction is given, so the
         // request refuses the pair rather than letting the name vanish.
-        Assert.Throws<ArgumentException>(
-            () => new SwapPaneRequest("%1", PaneSwapDirection.Up));
-        Assert.Throws<ArgumentException>(() => new SwapPaneRequest());
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => pane.SwapAsync(
+                new SwapPaneRequest { Target = "%1", Direction = PaneSwapDirection.Up },
+                token));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => pane.SwapAsync(new SwapPaneRequest(), token));
 
         // tmux applies several sizing instructions and discards the losers.
-        Assert.Throws<ArgumentException>(() => new ResizePaneRequest());
-        Assert.Throws<ArgumentException>(
-            () => new ResizePaneRequest(width: "20", zoom: true));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => pane.ResizeAsync(new ResizePaneRequest(), token));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => pane.ResizeAsync(new ResizePaneRequest { Width = "20", Zoom = true }, token));
 
         Pane resized = await pane.SetWidthAsync(30, token);
         Assert.True(resized.Width > 0);
 
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => pane.RespawnAsync(cancellationToken: token));
-        await pane.RespawnAsync(new RespawnRequest(killExistingProcess: true), token);
+        await pane.RespawnAsync(new RespawnRequest { KillExistingProcess = true }, token);
     }
 
     [Fact(
@@ -254,15 +260,28 @@ public sealed class PaneOperationsTests
         CancellationToken token = TestContext.Current.CancellationToken;
         Pane pane = await FirstPaneAsync(raw, token);
 
-        // Both overlays need an attached client, which this test process lacks,
-        // so only the exception type is asserted, not tmux's refusal text.
+        // Needs an attached client on every supported tmux; this test
+        // process has none, so only the exception type is asserted, not
+        // tmux's refusal text.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => pane.DisplayPopupAsync(cancellationToken: token));
-        await Assert.ThrowsAsync<TmuxCommandException>(
-            () => pane.DisplayPaneNumbersAsync(cancellationToken: token));
+
+        // tmux 3.8 turned display-panes from an overlay into a mode, which
+        // runs without a client, so only earlier versions still refuse it.
+        bool displayPanesStillAnOverlay = pane.Server.Version is not TmuxVersion version
+            || version < TmuxVersion.Parse("3.8");
+        if (displayPanesStillAnOverlay)
+        {
+            await Assert.ThrowsAsync<TmuxCommandException>(
+                () => pane.DisplayPaneNumbersAsync(cancellationToken: token));
+        }
+        else
+        {
+            await pane.DisplayPaneNumbersAsync(cancellationToken: token);
+        }
 
         IReadOnlyList<string>? printed = await pane.DisplayMessageAsync(
-            new DisplayMessageRequest("#{pane_id}", returnText: true),
+            new DisplayMessageRequest { Message = "#{pane_id}", ReturnText = true },
             token);
         Assert.Equal(pane.Id.ToString(), Assert.Single(printed!));
 
@@ -279,7 +298,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "capture_pane_trim_trailing",
             (pane, token) => pane.CaptureAsync(
-                new CapturePaneRequest(trimTrailingSpaces: true),
+                new CapturePaneRequest { TrimTrailingSpaces = true },
                 token));
 
     [Fact(
@@ -290,7 +309,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "choose_tree_sort_time",
             (pane, token) => pane.ChooseTreeAsync(
-                new ChooseTreeRequest(sort: ChooseTreeSort.Time),
+                new ChooseTreeRequest { Sort = ChooseTreeSort.Time },
                 token));
 
     [Fact(
@@ -300,7 +319,7 @@ public sealed class PaneOperationsTests
     public Task CapturePaneModeScreenVersionPolicy() =>
         GatedAsync(
             "capture_pane_mode_screen",
-            (pane, token) => pane.CaptureAsync(new CapturePaneRequest(modeScreen: true), token));
+            (pane, token) => pane.CaptureAsync(new CapturePaneRequest { ModeScreen = true }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -310,7 +329,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "capture_pane_3_7_metadata",
             (pane, token) => pane.CaptureAsync(
-                new CapturePaneRequest(hyperlinks: true, lineNumbers: true, lineFlags: true),
+                new CapturePaneRequest { Hyperlinks = true, LineNumbers = true, LineFlags = true },
                 token));
 
     [Fact(
@@ -329,7 +348,7 @@ public sealed class PaneOperationsTests
     public Task CopyModePageDownVersionPolicy() =>
         GatedAsync(
             "copy_mode_page_down",
-            (pane, token) => pane.EnterCopyModeAsync(new CopyModeRequest(pageDown: true), token));
+            (pane, token) => pane.EnterCopyModeAsync(new CopyModeRequest { PageDown = true }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -339,7 +358,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "display_message_literal",
             (pane, token) => pane.DisplayMessageAsync(
-                new DisplayMessageRequest("#{pane_id}", returnText: true, noExpand: true),
+                new DisplayMessageRequest { Message = "#{pane_id}", ReturnText = true, NoExpand = true },
                 token));
 
     [Fact(
@@ -350,7 +369,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "display_message_update_pane",
             (pane, token) => pane.DisplayMessageAsync(
-                new DisplayMessageRequest("x", returnText: true, updatePane: true),
+                new DisplayMessageRequest { Message = "x", ReturnText = true, UpdatePane = true },
                 token));
 
     [Fact(
@@ -366,7 +385,7 @@ public sealed class PaneOperationsTests
                     ["set-buffer", "-b", "policy", "x"],
                     token);
                 await pane.PasteBufferAsync(
-                    new PasteBufferRequest("policy", rawBytes: true),
+                    new PasteBufferRequest { Name = "policy", RawBytes = true },
                     token);
             });
 
@@ -380,7 +399,7 @@ public sealed class PaneOperationsTests
             // Enter would make this two dispatches on both branches, which the
             // policy's single-dispatch boundary forbids.
             (pane, token) => pane.SendKeysAsync(
-                new SendKeysRequest("x", enter: false, keyName: true),
+                new SendKeysRequest { Text = "x", Enter = false, KeyName = true },
                 token));
 
     [Fact(
@@ -390,7 +409,7 @@ public sealed class PaneOperationsTests
     public Task SplitWindowEmptyVersionPolicy() =>
         GatedAsync(
             "split_window_empty",
-            (pane, token) => pane.SplitAsync(new SplitPaneRequest(empty: true), token));
+            (pane, token) => pane.SplitAsync(new SplitPaneRequest { Empty = true }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -399,7 +418,7 @@ public sealed class PaneOperationsTests
     public Task SplitWindowAppearanceVersionPolicy() =>
         GatedAsync(
             "split_window_appearance",
-            (pane, token) => pane.SplitAsync(new SplitPaneRequest(style: "fg=red"), token));
+            (pane, token) => pane.SplitAsync(new SplitPaneRequest { Style = "fg=red" }, token));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -411,7 +430,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "display_popup_3_3_options",
             (pane, token) => Assert.ThrowsAsync<TmuxCommandException>(
-                () => pane.DisplayPopupAsync(new DisplayPopupRequest(title: "t"), token)));
+                () => pane.DisplayPopupAsync(new DisplayPopupRequest { Title = "t" }, token)));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -421,7 +440,7 @@ public sealed class PaneOperationsTests
         GatedAsync(
             "display_popup_3_6_key_policy",
             (pane, token) => Assert.ThrowsAsync<TmuxCommandException>(
-                () => pane.DisplayPopupAsync(new DisplayPopupRequest(noKeys: true), token)));
+                () => pane.DisplayPopupAsync(new DisplayPopupRequest { NoKeys = true }, token)));
 
     [Fact(
         Skip = "Requires a Unix process environment.",
@@ -517,11 +536,13 @@ public sealed class PaneOperationsTests
         CancellationToken token,
         ILogger? logger = null) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null",
-                logger: logger),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Logger = logger,
+            },
             token);
 
     [UnixFact]
@@ -533,8 +554,6 @@ public sealed class PaneOperationsTests
         Server server = await ConnectAsync(raw, token);
         Pane materialized = await FirstPaneAsync(server, token);
 
-        // A handle resolved by identifier carries no snapshot, so reaching a
-        // scope must not depend on one.
         Pane resolved = await server.GetPaneAsync(materialized.Id, token);
 
         await resolved.Hooks.GetAllAsync(cancellationToken: token);
@@ -561,7 +580,7 @@ public sealed class PaneOperationsTests
         // The start directory goes the same way, in the spawn path every
         // command taking -c shares rather than in any one of them.
         Pane spawned = await pane.SplitAsync(
-            new SplitPaneRequest(startDirectory: "/tmp/#{session_name}-absent"),
+            new SplitPaneRequest { StartDirectory = "/tmp/#{session_name}-absent" },
             token);
         Assert.NotEqual(
             "/tmp/#{session_name}-absent",
@@ -622,7 +641,7 @@ public sealed class PaneOperationsTests
         CancellationToken token)
     {
         IReadOnlyList<string>? lines = await pane.DisplayMessageAsync(
-            new DisplayMessageRequest(format, returnText: true),
+            new DisplayMessageRequest { Message = format, ReturnText = true },
             token);
         return lines is { Count: > 0 } ? lines[0] : string.Empty;
     }
@@ -644,7 +663,7 @@ public sealed class PaneOperationsTests
         await ReadPaneAsync(pane, prompt, token);
 
         await pane.SendKeysAsync(
-            new SendKeysRequest("echo WRAPPED", enter: false),
+            new SendKeysRequest { Text = "echo WRAPPED", Enter = false },
             token);
         await ReadPaneAsync(pane, "WRAPPED", token);
 
@@ -653,7 +672,7 @@ public sealed class PaneOperationsTests
             await pane.CaptureAsync(cancellationToken: token));
         string joined = string.Join(
             '\n',
-            await pane.CaptureAsync(new CapturePaneRequest(joinWrappedLines: true), token));
+            await pane.CaptureAsync(new CapturePaneRequest { JoinWrappedLines = true }, token));
 
         Assert.DoesNotContain($"{prompt}echo WRAPPED", split, StringComparison.Ordinal);
         Assert.Contains($"{prompt}echo WRAPPED", joined, StringComparison.Ordinal);
@@ -676,7 +695,7 @@ public sealed class PaneOperationsTests
         {
             text = string.Join(
                 '\n',
-                await pane.CaptureAsync(new CapturePaneRequest(joinWrappedLines: true), token));
+                await pane.CaptureAsync(new CapturePaneRequest { JoinWrappedLines = true }, token));
             if (text.Contains(expected, StringComparison.Ordinal))
             {
                 return text;

@@ -18,7 +18,7 @@ the shape of what comes back, not a byte-exact string to assert against.
 Create a window named `build`.
 
 ```csharp
-Window window = await session.CreateWindowAsync(new NewWindowRequest(name: "build"), ct);
+Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
 ```
 
 ```csharp

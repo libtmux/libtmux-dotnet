@@ -7,9 +7,7 @@ namespace LibTmux;
 // Resizes a window and controls its pane layout.
 public sealed partial class Window
 {
-    // tmux 3.3a crashes its entire server when layout_parse rejects a name, so
-    // a layout is checked here rather than by the server. These five are known
-    // to every supported version; the mirrored pair arrived in 3.5.
+    // Validate locally: tmux 3.3a can crash on an invalid layout name.
     private static readonly string[] UniversalLayouts =
     [
         "even-horizontal",
@@ -63,7 +61,7 @@ public sealed partial class Window
 
         // tmux takes the adjustment as the trailing positional; as a flag value
         // it would be read as a second argument and refused.
-        if (request.Adjustment is int adjustment)
+        if (request.ResolveAdjustment() is int adjustment)
         {
             arguments.Add(adjustment.ToString(CultureInfo.InvariantCulture));
         }
@@ -107,6 +105,15 @@ public sealed partial class Window
     /// <exception cref="TmuxWindowException">
     /// The layout is one tmux may not recognise.
     /// </exception>
+    /// <remarks>
+    /// Feeding a previously captured <see cref="Layout" /> back restores the
+    /// same pane sizes on every version, but on tmux 3.7 and earlier it can
+    /// rotate which pane lands in which position - measured by hand, not a
+    /// hypothetical. tmux 3.8 and newer accepts the JSON form of the layout
+    /// (from a plain, non-control client) and restores the exact arrangement,
+    /// including which pane id sits where; the classic checksum-prefixed form
+    /// never carries pane ids and so cannot.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Window> SelectLayoutAsync(
         SelectLayoutRequest? request = null,
@@ -158,8 +165,9 @@ public sealed partial class Window
         }
 
         // A layout tmux dumped begins with a four-digit hexadecimal checksum,
-        // and every version parses those. Named layouts are checked against the
-        // set the running tmux knows.
+        // and every version parses those. A full name is unambiguous even
+        // when it also prefixes a longer preset (main-vertical,
+        // main-vertical-mirrored): tmux resolves an exact name first.
         if (HasCustomLayoutPrefix(layout)
             || UniversalLayouts.Contains(layout, StringComparer.Ordinal))
         {
@@ -169,9 +177,34 @@ public sealed partial class Window
         Server owner = RequireOwner("layout");
         bool mirroredKnown = owner.Version is TmuxVersion version
             && version >= TmuxVersion.Parse("3.5");
-        if (mirroredKnown && MirroredLayouts.Contains(layout, StringComparer.Ordinal))
+        bool jsonLayoutsKnown = owner.Version is TmuxVersion jsonVersion
+            && jsonVersion >= TmuxVersion.Parse("3.8");
+        if (jsonLayoutsKnown && HasJsonLayoutPrefix(layout))
         {
             return;
+        }
+
+        // tmux's own layout_set_lookup accepts any prefix that names exactly
+        // one preset (`tile` -> tiled, `even-h` -> even-horizontal), so a
+        // value refused above is checked once more as a prefix before it is
+        // refused for good -- an unrecognised prefix never reaches tmux.
+        string[] presets = mirroredKnown
+            ? [.. UniversalLayouts, .. MirroredLayouts]
+            : UniversalLayouts;
+        string[] prefixMatches = [.. presets.Where(
+            preset => preset.StartsWith(layout, StringComparison.Ordinal))];
+        if (prefixMatches.Length == 1)
+        {
+            return;
+        }
+
+        if (prefixMatches.Length > 1)
+        {
+            throw new TmuxWindowException(
+                $"'{layout}' matches more than one layout preset: "
+                    + $"{string.Join(", ", prefixMatches)}.",
+                _id,
+                TmuxDispatchState.NotDispatched);
         }
 
         throw new TmuxWindowException(
@@ -187,4 +220,9 @@ public sealed partial class Window
         && char.IsAsciiHexDigit(layout[1])
         && char.IsAsciiHexDigit(layout[2])
         && char.IsAsciiHexDigit(layout[3]);
+
+    // The value is an opaque token tmux handed the caller, never parsed here
+    // -- only recognised as tmux's own JSON dump so it is not mistaken for an
+    // unknown layout name.
+    private static bool HasJsonLayoutPrefix(string layout) => layout[0] == '{';
 }

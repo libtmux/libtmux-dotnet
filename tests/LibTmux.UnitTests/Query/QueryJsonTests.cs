@@ -180,9 +180,9 @@ public sealed class QueryJsonTests
             QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
         string json = QueryJson.Serialize(document);
 
-        Assert.Throws<JsonException>(
+        Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumUtf8Bytes = 4 }));
-        Assert.Throws<JsonException>(
+        Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumNodes = 1 }));
     }
 
@@ -198,7 +198,7 @@ public sealed class QueryJsonTests
         QueryDocument document = Document(predicate);
 
         Assert.Equal(document, QueryJson.Deserialize(QueryJson.Serialize(document)));
-        Assert.Throws<JsonException>(
+        Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Serialize(Document(new NotNode(predicate))));
     }
 
@@ -211,7 +211,7 @@ public sealed class QueryJsonTests
             tooDeep = new NotNode(tooDeep);
         }
 
-        JsonException depthFailure = Assert.Throws<JsonException>(
+        UnsupportedQueryExpressionException depthFailure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Serialize(Document(tooDeep)));
         Assert.Contains("maximum nesting depth", depthFailure.Message, StringComparison.Ordinal);
 
@@ -221,7 +221,7 @@ public sealed class QueryJsonTests
                 SessionName,
                 QueryJsonLimits.V1.MaximumNodes),
         ];
-        JsonException nodeFailure = Assert.Throws<JsonException>(
+        UnsupportedQueryExpressionException nodeFailure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Serialize(Document(new OrNode(tooMany))));
         Assert.Contains("maximum node count", nodeFailure.Message, StringComparison.Ordinal);
     }
@@ -232,7 +232,7 @@ public sealed class QueryJsonTests
         const string json =
             """{"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"telepathy"}}""";
 
-        Assert.Throws<JsonException>(() => QueryJson.Deserialize(json));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public sealed class QueryJsonTests
     {
         Assert.NotEmpty(name);
 
-        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Serialize(document));
     }
 
     [Theory]
@@ -302,7 +302,7 @@ public sealed class QueryJsonTests
     {
         QueryDocument document = new(schema, version, QueryTarget.Session, True);
 
-        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Serialize(document));
     }
 
     [Fact]
@@ -319,7 +319,7 @@ public sealed class QueryJsonTests
         ];
         QueryDocument document = Document(new OrNode(operands));
 
-        Assert.Throws<JsonException>(() => QueryJson.Serialize(document));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Serialize(document));
     }
 
     private static QueryDocument Document(

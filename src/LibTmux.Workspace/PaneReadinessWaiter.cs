@@ -44,7 +44,7 @@ internal static class PaneReadinessWaiter
             while (true)
             {
                 IReadOnlyList<string>? sample = await pane.DisplayMessageAsync(
-                        new DisplayMessageRequest(returnText: true, format: Format),
+                        new DisplayMessageRequest { ReturnText = true, Format = Format },
                         timeout.Token)
                     .ConfigureAwait(false);
                 polls++;

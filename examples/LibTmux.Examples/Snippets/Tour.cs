@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using LibTmux.Testing;
 
 namespace LibTmux.Examples.Snippets;
 
@@ -24,6 +23,28 @@ public static class Tour
                 Console.WriteLine($"    pane {pane.Index,-3} {pane.Width}x{pane.Height}");
             }
         }
+    }
+
+    /// <summary>Reads a materialized window and checks optional capture state.</summary>
+    [Example("Read captured state and find a window")]
+    public static async Task ReadCapturedState(Server server, Session session, CancellationToken ct)
+    {
+        #region ReadCapturedState
+        Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
+        Server connected = await server.ConnectAsync(ct);
+        Window read = await connected.GetWindowAsync(created.Id, ct);
+        Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
+
+        Window? missing = await session.FindWindowAsync("not-created", ct);
+        Console.WriteLine($"missing {missing is null}");
+
+        Session current = await session.RefreshAsync(ct);
+        if (current.ActiveWindow.IsCaptured)
+        {
+            Window active = current.ActiveWindow.Value;
+            Console.WriteLine($"active {active.Name}");
+        }
+        #endregion
     }
 
     /// <summary>Types a command into a pane and waits for what it printed.</summary>
@@ -57,7 +78,7 @@ public static class Tour
         // An option the window does not hold is inherited rather than missing,
         // and asking for inherited values is what shows it.
         IReadOnlyList<TmuxOption> inherited = await window.Options.GetAsync(
-            new GetOptionRequest("mode-keys", includeInherited: true));
+            new GetOptionRequest("mode-keys") { IncludeInherited = true });
         Console.WriteLine($"mode-keys        {inherited[0].Value.Raw} (inherited)");
     }
 
@@ -73,7 +94,7 @@ public static class Tour
 
         await server.Hooks.RunAsync(new HookRequest("alert-bell"));
         IReadOnlyList<TmuxOption> rang = await server.Options.GetAsync(
-            new GetOptionRequest("@rang", OptionScope.Session, global: true, quiet: true));
+            new GetOptionRequest("@rang") { Scope = OptionScope.Session, Global = true, Quiet = true });
         Console.WriteLine($"hook ran         {rang.Count == 1}");
     }
 
@@ -81,8 +102,8 @@ public static class Tour
     [Example("Filter what is there")]
     public static async Task FilterWhatIsThere(Session session)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "build-one"));
-        await session.CreateWindowAsync(new NewWindowRequest(name: "build-two"));
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-one" });
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "build-two" });
 
         // Ordinary filtering is LINQ over what was read.
         IReadOnlyList<Window> windows = await session.GetWindowsAsync();

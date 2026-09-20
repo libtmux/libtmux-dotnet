@@ -11,17 +11,11 @@ public sealed partial class Session
     private const string GroupKillCapability = "kill_session_group";
 
     /// <summary>Gets the session name captured with this handle.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
     public string Name =>
         ReadSnapshot("session_name")
         ?? throw new IncompleteSnapshotException("name", SnapshotDepth.Sessions);
 
     /// <summary>Gets whether a client was attached when this session was read.</summary>
-    /// <exception cref="IncompleteSnapshotException">
-    /// The session was resolved by identifier rather than materialized.
-    /// </exception>
     /// <remarks>
     /// This is captured state rather than a live one: it says what tmux
     /// reported when the handle was made, which is what makes a reading of a
@@ -35,8 +29,7 @@ public sealed partial class Session
 
     /// <summary>Gets the server that owns this session.</summary>
     /// <remarks>
-    /// Every handle reached through a server carries it, whether the handle was
-    /// materialized from a listing or resolved from an identifier.
+    /// Reading this uses the owner captured with the entity.
     /// </remarks>
     public Server Server => RequireOwner("server");
 
@@ -77,7 +70,7 @@ public sealed partial class Session
     {
         SessionName.Validate(name);
         return await TmuxMutationSequence.RunAsync(
-                () => RunAsync(["rename-session", "-t", _id.ToString(), name], cancellationToken),
+                () => RunAsync(["rename-session", "-t", _id.ToString(), "--", name], cancellationToken),
                 () => RefreshAsync(cancellationToken))
             .ConfigureAwait(false);
     }
@@ -87,10 +80,6 @@ public sealed partial class Session
     /// <param name="clearAlerts">Whether alerts are cleared in every window instead.</param>
     /// <param name="group">Whether every session in this session's group is stopped.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
-    /// <exception cref="IncompleteSnapshotException">
-    /// <paramref name="group" /> is set on a handle resolved by identifier,
-    /// which carries no server to read a version from.
-    /// </exception>
     /// <remarks>
     /// Group stopping arrived in tmux 3.7. Older servers reject the flag and
     /// stop nothing at all, so against those the request is logged and the flag
@@ -314,8 +303,9 @@ public sealed partial class Session
                     string.Equals(window.Name, selectedName, StringComparison.Ordinal))];
                 return matches.Length == 1
                     ? matches[0]
-                    : throw new InvalidDataException(
-                        $"tmux did not report exactly one selected window named '{selectedName}'.");
+                    : throw new TmuxCommandException(
+                        $"tmux did not report exactly one selected window named '{selectedName}'.",
+                        result);
             });
         }
 
@@ -323,7 +313,9 @@ public sealed partial class Session
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new window identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new window identifier.",
+                        result));
 
         IReadOnlyList<Window> windows = await sequence
             .ObserveAsync(() => owner.GetWindowsAsync(cancellationToken))
@@ -347,8 +339,9 @@ public sealed partial class Session
         TmuxCommandFailure.ThrowIfFailed(result, "display-message");
         return result.StandardOutputLines.Count == 1
             ? result.StandardOutputLines[0]
-            : throw new InvalidDataException(
-                "tmux did not report exactly one expanded window name.");
+            : throw new TmuxCommandException(
+                "tmux did not report exactly one expanded window name.",
+                result);
     }
 
     internal static IEnumerable<string> BuildAttachArguments(
@@ -413,11 +406,7 @@ public sealed partial class Session
         // A bare index or window name would resolve against the caller's
         // current session, so the target is always anchored to this session.
         yield return "-t";
-        yield return options.TargetWindow is not null
-            ? $"{sessionId}:{options.TargetWindow}"
-            : options.Index is null
-                ? $"{sessionId}:"
-                : $"{sessionId}:{options.Index}";
+        yield return $"{sessionId}:{options.ResolvePosition()}";
         foreach ((string flag, string? value) in new[]
         {
             ("-n", options.Name),
@@ -442,6 +431,7 @@ public sealed partial class Session
 
         if (options.Command is not null)
         {
+            yield return "--";
             yield return options.Command;
         }
     }

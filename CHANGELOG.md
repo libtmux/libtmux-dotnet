@@ -12,9 +12,120 @@ version.
 
 ### Added
 
+- `LibTmux.Extensions.DependencyInjection` adds `services.AddLibTmux()` for
+  registering a lazy server handle and configuring its connection through .NET
+  options. (#28)
+
+- `ServerConnectionOptions.Interceptor` lets an application inspect, replace or
+  retry process-based tmux commands. (#28)
+
+- `TmuxDiagnostics` exposes command tracing and duration measurements for
+  OpenTelemetry subscribers. (#28)
+
+- `ServerConnectionOptions.CommandTimeout` bounds each tmux command, including
+  connection. It is unset by default. (#28)
+
+- `MaxCapturedBytesPerStream` and `ControlModeEventBufferCapacity` provide
+  opt-in limits for captured output and queued control events. (#28)
+
+- `Pane.Left`, `Pane.Top` and `Window.Layout` expose captured geometry. (#28)
+
+- `PaneObservation.WatchAsync` streams one pane's events and ends with
+  `TmuxPaneGoneEvent` when the pane disappears. (#28)
+
+- `ControlModeSubscriptions.SubscribeSessionAsync` subscribes to session format
+  changes, including on tmux 3.8 and later. (#28)
+
+- MCP `wait_for_text` reports `PresentAtEntry` when the wanted text was already
+  visible before waiting. (#28)
+
+- `PaneId`, `WindowId` and `SessionId` support .NET parsing interfaces and
+  span-based parsing. (#28)
+
 ### Fixed
 
+- `Server.GetSessionAsync`, `GetWindowAsync` and `GetPaneAsync` return scalar
+  fields ready to read without a refresh. (#28)
+
+- `RawFormatFields` prevents mutation of captured state through a dictionary
+  cast. (#28)
+
+- **Live listings now throw on read failure, including an absent daemon.** Empty
+  results mean a successful read; command failures retain tmux's stderr. (#28)
+
+- **Unreadable tmux replies now throw `LibTmuxException` subclasses with
+  dispatch state.** Catch `TmuxProtocolException` for malformed replies. (#28)
+
+- Snapshots preserve each linked-window placement; live window reads target the
+  captured session and index. (#28)
+
+- `Server.CreateOwnedAsync` returns a handle whose listings and accessors
+  discover the server it started. (#28)
+
+- `Server.Version` and `TmuxCapabilities` recognise rolling `next-X.Y` tmux
+  builds. (#28)
+
+- `Window.SelectLayoutAsync` accepts unambiguous preset prefixes and, on tmux
+  3.8 and later, JSON layouts. (#28)
+
+- `EnterControlModeAsync` requests JSON layout notifications on tmux 3.8 and
+  later. (#28)
+
+- Targeted display messages, command prompts, server access and prompt history
+  operations accept tmux 3.3, where they became available. (#28)
+
+- MCP `wait_for_text` masks known input echoes without hiding unrelated output.
+  (#28)
+
+- MCP session queries exclude their observation client from attachment counts.
+  (#28)
+
+- MCP `get_server_info` returns a null version when its server has exited. (#28)
+
+- `Server.WaitForAsync` preserves progress for later lockers when a lock wait is
+  cancelled. (#28)
+
+- Caller text beginning with `-` is passed literally to tmux, including
+  environment names and their readback. (#28)
+
+- Command logs identify the socket used. (#28)
+
 ### Changed
+
+- **Request and connection options use object initializers for optional
+  values.** Keep required request arguments in constructors. (#28)
+
+- **Requests build commands through `ToCommand`.** Replace static
+  `TmuxChaining.ToCommand` calls with the request method. (#28)
+
+- **Active-child properties return `CapturedValue`.** Use `Value`, `TryGetValue`
+  or `OrNull` to distinguish captured children from unavailable state. (#28)
+
+- **Scoped `GetWindowAsync` and `GetPaneAsync` throw when no match exists.** Use
+  `FindWindowAsync` or `FindPaneAsync` for nullable results. (#28)
+
+- **`Server.ThrowIfDeadAsync` replaces `RaiseIfDeadAsync`.** Update calls to the
+  new name. (#28)
+
+- **Test scopes move to the `LibTmux.Testing` package.** Add that package to
+  projects using the testing helpers. (#28)
+
+- **`TmuxWait` moves to the `LibTmux` namespace.** Update the namespace import.
+  (#28)
+
+- **Query documents are created through `QueryExtensions.Translate`, with
+  read-only metadata.** Use `Compile`, `Matching` or JSON interchange instead of
+  constructing predicate nodes. (#28)
+
+- **Invalid query documents throw `UnsupportedQueryExpressionException`.** Catch
+  that exception for schema and semantic errors; malformed JSON still throws
+  `JsonException`. (#28)
+
+- **Buffer and key operations move to `Server.Buffers` and `Server.Keys`.**
+  Replace direct server-method calls with the corresponding table methods. (#28)
+
+- **MCP `TmuxServerInfo.SocketName` now contains only a socket name.** Read the
+  new `SocketPath` property for a path-selected server. (#28)
 
 ### Removed
 

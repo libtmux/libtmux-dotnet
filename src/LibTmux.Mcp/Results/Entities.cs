@@ -119,7 +119,12 @@ public sealed record WindowInfo(
 /// <summary>What a session is.</summary>
 /// <param name="SessionId">The session's identifier, such as <c>$0</c>.</param>
 /// <param name="Name">The session name.</param>
-/// <param name="Attached">Whether a client is attached to it.</param>
+/// <param name="Attached">
+/// Whether a client is attached to it. Never counts a control client this MCP
+/// server opened for a wait or a capture - tmux counts that the same way it
+/// counts a human client, and a session nobody is watching must not read as
+/// attached just because it is being observed.
+/// </param>
 /// <param name="WindowCount">How many windows it holds.</param>
 /// <remarks>
 /// There is no session size. tmux removed the session_width and
@@ -135,22 +140,34 @@ public sealed record SessionInfo(
 {
     /// <summary>Describes a session the library has already materialized.</summary>
     /// <param name="session">The session to describe.</param>
+    /// <param name="attached">
+    /// Whether a client other than this server's own observers is attached,
+    /// or null to trust the session's own captured field as-is.
+    /// </param>
     /// <returns>The description.</returns>
-    public static SessionInfo From(Session session)
+    public static SessionInfo From(Session session, bool? attached = null)
     {
         ArgumentNullException.ThrowIfNull(session);
         IReadOnlyDictionary<string, string?> fields = session.RawFormatFields;
         return new SessionInfo(
             SessionId: session.Id.ToString(),
             Name: session.Name,
-            Attached: session.Attached,
+            Attached: attached ?? session.Attached,
             WindowCount: FormatFields.Number(fields, "session_windows"));
     }
 }
 
 /// <summary>What a tmux server is and how much it is holding.</summary>
-/// <param name="SocketName">The socket this server answers on.</param>
-/// <param name="Version">The tmux version running it.</param>
+/// <param name="SocketName">
+/// The <c>-L</c> name this server answers on, or null when it was reached by
+/// path instead — a path-selected socket has no name of its own.
+/// </param>
+/// <param name="SocketPath">The <c>-S</c> path this server answers on, or null when reached by name.</param>
+/// <param name="Version">
+/// The tmux version running it, or null when the server is not answering —
+/// including one that was running earlier in this process and has since
+/// exited, so this never reports a stale version for a server that is gone.
+/// </param>
 /// <param name="SessionCount">How many sessions it holds.</param>
 /// <param name="WindowCount">How many windows, across every session.</param>
 /// <param name="PaneCount">How many panes, across every window.</param>
@@ -163,6 +180,7 @@ public sealed record SessionInfo(
 /// </param>
 public sealed record TmuxServerInfo(
     string? SocketName,
+    string? SocketPath,
     string? Version,
     int SessionCount,
     int WindowCount,

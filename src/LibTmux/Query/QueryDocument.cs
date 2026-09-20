@@ -6,16 +6,34 @@ namespace LibTmux.Query;
 /// and never by client evaluation, so an expression that cannot be translated
 /// fails loudly rather than silently degrading to in-memory filtering.
 /// </remarks>
-/// <param name="Schema">The wire schema identifier.</param>
-/// <param name="Version">The wire schema version.</param>
-/// <param name="Target">The object the predicate selects.</param>
-/// <param name="Predicate">The translated predicate.</param>
-public sealed record QueryDocument(
-    string Schema,
-    int Version,
-    QueryTarget Target,
-    QueryNode Predicate)
+public sealed record QueryDocument
 {
+    internal QueryDocument(string schema, int version, QueryTarget target, QueryNode predicate)
+    {
+        Schema = schema;
+        Version = version;
+        Target = target;
+        Predicate = predicate;
+    }
+
+    /// <summary>Gets the wire schema identifier.</summary>
+    public string Schema { get; }
+
+    /// <summary>Gets the wire schema version.</summary>
+    public int Version { get; }
+
+    /// <summary>Gets the object the predicate selects.</summary>
+    public QueryTarget Target { get; }
+
+    /// <summary>Gets the translated predicate.</summary>
+    /// <remarks>
+    /// The shape of a predicate is this library's to change. A caller reads a
+    /// document through <see cref="QueryExtensions" /> or moves it as JSON;
+    /// nothing outside needs its nodes, and exporting them would freeze the
+    /// translator's internals as a promise.
+    /// </remarks>
+    internal QueryNode Predicate { get; }
+
     /// <summary>The current wire schema identifier.</summary>
     public const string CurrentSchema = "libtmux-query";
 

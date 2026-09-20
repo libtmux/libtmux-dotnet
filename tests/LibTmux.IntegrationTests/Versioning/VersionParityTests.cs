@@ -400,7 +400,7 @@ public sealed class VersionParityTests
         await AssertCommandSurfaceAsync(context, version, gate);
         if (TmuxCapabilities.IsSupported(version, capability))
         {
-            await ExerciseSupportedBehaviorAsync(context, capability);
+            await ExerciseSupportedBehaviorAsync(context, version, capability);
         }
     }
 
@@ -481,6 +481,7 @@ public sealed class VersionParityTests
 
     private static async Task ExerciseSupportedBehaviorAsync(
         RawTmuxTestContext context,
+        TmuxVersion version,
         string capability)
     {
         switch (capability)
@@ -678,7 +679,13 @@ public sealed class VersionParityTests
             case "server_access_command":
                 RawTmuxResult access = await RequireSuccessAsync(context, ["server-access", "-l"]);
                 Assert.Single(access.StandardOutputLines);
-                Assert.Matches("^[^ ]+ \\(W\\)$", access.StandardOutputLines[0]);
+                // tmux 3.8 added group-based access control (its args string
+                // gained `g`), so a listed entry carries a `U` or `G` marker
+                // beside the `R`/`W` mode it always had: `d (W)` became
+                // `d (U,W)`. Both spellings are correct for the release that
+                // prints them, and this gate only asks that the owner is listed
+                // with write access, not which release's spelling it used.
+                Assert.Matches("^[^ ]+ \\((?:[UG],)?W\\)$", access.StandardOutputLines[0]);
                 break;
             case "show_prompt_history_command":
                 await ExercisePromptHistoryAsync(context, clear: false);
@@ -708,7 +715,14 @@ public sealed class VersionParityTests
                 RawTmuxResult emptyIdentity = await RequireSuccessAsync(
                     context,
                     ["display-message", "-p", "-t", emptyPane, "#{pane_pid}"]);
-                Assert.Equal(["0"], emptyIdentity.StandardOutputLines);
+
+                // tmux 3.8 stopped reporting 0 for a pane with no process;
+                // #{pane_pid} is an empty string instead, which a trailing
+                // newline alone projects to no lines at all.
+                string[] expectedEmptyPanePid = version < TmuxVersion.Parse("3.8")
+                    ? ["0"]
+                    : [];
+                Assert.Equal(expectedEmptyPanePid, emptyIdentity.StandardOutputLines);
                 await WriteEmptyPaneInputAsync(context, emptyPane, "libtmux-empty-input\n");
                 RawTmuxResult emptyContents = await RequireSuccessAsync(
                     context,

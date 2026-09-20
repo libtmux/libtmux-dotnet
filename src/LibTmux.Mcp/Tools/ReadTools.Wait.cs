@@ -39,12 +39,18 @@ internal sealed partial class ReadTools
         [Description("The pane id, such as %1. Omit for the active pane.")]
         string? paneId = null,
         [Description(
-            "Regular expressions to wait for. Only output arriving AFTER this call "
-            + "counts — text already on screen never matches, so a pattern visible in "
-            + "the returned tail can still time out. Omit or pass an empty list to "
-            + "return as soon as the pane prints anything new. Across both pattern "
-            + "lists: at most 32 entries and 16384 UTF-8 bytes; each entry is at most "
-            + "999 bytes.")]
+            "Regular expressions to wait for. A pattern already on screen when this is "
+            + "called is answered at once as outcome PresentAtEntry, not Timeout, so a "
+            + "tail that contains it is never reported as a plain timeout. Text this "
+            + "server itself typed into the pane is never a match by itself, however new "
+            + "tmux reports it — a not-yet-submitted line, a shell re-printing what was "
+            + "typed, or a line just submitted, stay discounted for a few seconds after "
+            + "the edit or the submit, so they cannot satisfy a wait meant for the pane's "
+            + "own output. This cannot protect a pane whose program has not yet configured "
+            + "its terminal — wait for a first prompt before typing into a freshly created "
+            + "pane. Omit or pass an empty list to return as soon as the pane prints "
+            + "anything new. Across both pattern lists: at most 32 entries and 16384 UTF-8 "
+            + "bytes; each entry is at most 999 bytes.")]
         IReadOnlyList<string>? patterns = null,
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
@@ -74,6 +80,42 @@ internal sealed partial class ReadTools
         TimeSpan budget = _policy.EffectiveTimeout(
             timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
+        // What this server itself typed is discounted before anything is
+        // matched, so a shell echoing or re-printing it cannot satisfy a
+        // wait the command itself never answered.
+        //
+        // `recentSoFar` accumulates every submitted or pre-edit line for this
+        // wait's whole lifetime, so a TTL expiring mid-wait cannot re-expose
+        // an echo already in its stream. `Pending` is re-read fresh each
+        // iteration instead, since an unmodelled key invalidates it at once.
+        var recentSoFar = new HashSet<string>(StringComparer.Ordinal);
+        IReadOnlyList<string> Discounted(IReadOnlyList<string> lines)
+        {
+            PaneEchoRegistry.LiveEcho echo = PaneEchoRegistry.GetLiveEcho(pane);
+            foreach (string line in echo.Recent)
+            {
+                recentSoFar.Add(line);
+            }
+
+            if (echo.Pending.Length == 0 && recentSoFar.Count == 0)
+            {
+                return lines;
+            }
+
+            IEnumerable<string> echoes = echo.Pending.Length == 0
+                ? recentSoFar
+                : recentSoFar.Prepend(echo.Pending);
+            List<string> kept = new(lines.Count);
+            foreach (string masked in lines
+                .Select(line => PaneEchoRegistry.WithoutEchoes(line, echoes))
+                .Where(masked => masked.Length > 0))
+            {
+                kept.Add(masked);
+            }
+
+            return kept;
+        }
+
         Stopwatch elapsed = Stopwatch.StartNew();
 
         // The lease turns this from a poll into a sleep: tmux reports the
@@ -86,6 +128,30 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
         TailCursor cursor = TailCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
+
+        // Checked once, up front, against what was already on screen -
+        // never against anything read since, which is what keeps this from
+        // matching a command's own echo - and reported at once below rather
+        // than deferred to the deadline.
+        string? matchedAtEntry = wanted.Length == 0
+            ? null
+            : Match(
+                wanted,
+                Discounted(PaneText.Scrub(first.Lines, pane.Width)),
+                matchingWork,
+                cancellationToken);
+        if (matchedAtEntry is not null)
+        {
+            return await FinishAsync(
+                    pane,
+                    id,
+                    WaitOutcome.PresentAtEntry,
+                    matchedAtEntry,
+                    elapsed,
+                    budget,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         while (true)
         {
@@ -111,10 +177,11 @@ internal sealed partial class ReadTools
                 .ConfigureAwait(false);
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
-            // Matched against the rows the caller receives. Matching raw rows
-            // let a concurrent run's payload echo satisfy a wait, and then the
-            // scrubbed tail did not contain the line that matched.
-            IReadOnlyList<string> visible = PaneText.Scrub(read.Lines, pane.Width);
+            // Matched against the rows the caller receives, not the raw ones:
+            // a concurrent run's payload echo could otherwise satisfy a wait
+            // whose scrubbed tail never showed the line that matched. This
+            // server's own typed text is discounted the same way.
+            IReadOnlyList<string> visible = Discounted(PaneText.Scrub(read.Lines, pane.Width));
             if (visible.Count > 0)
             {
                 if (Match(stops, visible, matchingWork, cancellationToken) is string stopped)

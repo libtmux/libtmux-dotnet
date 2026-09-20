@@ -83,6 +83,19 @@ internal static class ServerUtilities
         }
     }
 
+    /// <summary>Marks the end of flags, before the first caller-supplied positional value.</summary>
+    /// <param name="arguments">The argv being built.</param>
+    /// <remarks>
+    /// tmux stops reading flags at the first argument that does not start with
+    /// <c>-</c>, so a positional value the caller controls -- a shell command,
+    /// a name, a buffer's contents -- reaches that parser as data only when
+    /// something already unambiguous precedes it. <c>--</c> is that
+    /// something on every supported tmux release. Add it immediately before
+    /// the first such value; everything after it, including further
+    /// caller-supplied values, is data regardless of what it starts with.
+    /// </remarks>
+    internal static void EndOptions(List<string> arguments) => arguments.Add("--");
+
     /// <summary>Names the tmux spelling of a prompt type.</summary>
     /// <param name="type">The type asked for.</param>
     /// <returns>The value tmux takes after its type flag.</returns>

@@ -154,7 +154,7 @@ public sealed class ReadToolsHistoryTests
         internal HistoryFixture()
         {
             var connection = new TmuxConnection(
-                new ServerConnectionOptions(socketName: "history-test"),
+                new ServerConnectionOptions { SocketName = "history-test" },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, Generation, "tmux 3.7");
             Server = server;

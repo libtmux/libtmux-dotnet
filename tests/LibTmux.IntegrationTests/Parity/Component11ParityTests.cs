@@ -65,10 +65,12 @@ public sealed class Component11ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         Window window = await TestHierarchy.RequireFirstWindowAsync(session, token);
@@ -135,7 +137,7 @@ public sealed class Component11ParityTests
         Window window,
         CancellationToken token)
     {
-        await session.CreateWindowAsync(new NewWindowRequest(name: "other"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "other" }, token);
         Window selected = await window.SelectAsync(token);
 
         // The deprecated Python spelling has no C# member; selection is one
@@ -146,7 +148,7 @@ public sealed class Component11ParityTests
 
     private static async Task<bool> ProvesKillAsync(Session session, CancellationToken token)
     {
-        Window doomed = await session.CreateWindowAsync(new NewWindowRequest(name: "doomed"), token);
+        Window doomed = await session.CreateWindowAsync(new NewWindowRequest { Name = "doomed" }, token);
         await doomed.KillAsync(cancellationToken: token);
         return !(await session.GetWindowsAsync(token)).Any(w => w.Id == doomed.Id)
             && typeof(Window).GetMethod("KillWindowAsync") is null;
@@ -155,7 +157,7 @@ public sealed class Component11ParityTests
     private static async Task<bool> ProvesCreateWindowAsync(Window window, CancellationToken token)
     {
         Window created = await window.CreateWindowAsync(
-            new NewWindowRequest(name: "next", direction: WindowDirection.After),
+            new NewWindowRequest { Name = "next", Direction = WindowDirection.After },
             token);
         return created.Name == "next" && created.Index == window.Index + 1;
     }
@@ -172,12 +174,12 @@ public sealed class Component11ParityTests
     private static async Task<bool> ProvesPaneLookupAsync(Window window, CancellationToken token)
     {
         Pane only = await TestHierarchy.RequireFirstPaneAsync(window, token);
-        Pane? found = await window.GetPaneAsync(only.Id.ToString(), token);
+        Pane? found = await window.FindPaneAsync(only.Id.ToString(), token);
 
         // A Python __getitem__ or get() becomes a named lookup that answers
         // null rather than raising on an absent pane.
         return found?.Id == only.Id
-            && await window.GetPaneAsync("%9999", token) is null
+            && await window.FindPaneAsync("%9999", token) is null
             && typeof(Window).GetProperties().All(property => property.Name != "Item");
     }
 
@@ -213,8 +215,11 @@ public sealed class Component11ParityTests
         Window window,
         CancellationToken token)
     {
-        Session guest = await server.CreateSessionAsync(new NewSessionRequest(name: "guest"), token);
-        await window.LinkAsync(new LinkWindowRequest(guest.Id.ToString(), "7"), token);
+        Session guest = await server.CreateSessionAsync(new NewSessionRequest { Name = "guest" }, token);
+        await window.LinkAsync(new LinkWindowRequest(guest.Id.ToString())
+        {
+            TargetIndex = "7",
+        }, token);
         Window linked = (await guest.GetWindowsAsync(token)).Single(w => w.Id == window.Id);
         await linked.UnlinkAsync(cancellationToken: token);
         return linked.Index == 7
@@ -223,7 +228,7 @@ public sealed class Component11ParityTests
 
     private static async Task<bool> ProvesMoveAsync(Window window, CancellationToken token)
     {
-        Window moved = await window.MoveAsync(new MoveWindowRequest("6"), token);
+        Window moved = await window.MoveAsync(new MoveWindowRequest { Destination = "6" }, token);
         return moved.Index == 6 && moved.Id == window.Id;
     }
 
@@ -232,7 +237,7 @@ public sealed class Component11ParityTests
         Window window,
         CancellationToken token)
     {
-        Window partner = await session.CreateWindowAsync(new NewWindowRequest(name: "swap"), token);
+        Window partner = await session.CreateWindowAsync(new NewWindowRequest { Name = "swap" }, token);
         int partnerIndex = partner.Index;
         await window.SwapAsync(partner.Id, cancellationToken: token);
         return (await window.RefreshAsync(token)).Index == partnerIndex;
@@ -241,7 +246,7 @@ public sealed class Component11ParityTests
     private static async Task<bool> ProvesResizeAsync(Window window, CancellationToken token)
     {
         Window resized = await window.ResizeAsync(
-            new ResizeWindowRequest(width: 88, height: 29),
+            new ResizeWindowRequest { Width = 88, Height = 29 },
             token);
         return resized.Width == 88 && resized.Height == 29;
     }
@@ -266,7 +271,7 @@ public sealed class Component11ParityTests
         // tmux refuses to respawn a window that is still running.
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => window.RespawnAsync(cancellationToken: token));
-        await window.RespawnAsync(new RespawnRequest(killExistingProcess: true), token);
+        await window.RespawnAsync(new RespawnRequest { KillExistingProcess = true }, token);
         return (await window.GetPanesAsync(token)).Count == 1;
     }
 
@@ -274,14 +279,14 @@ public sealed class Component11ParityTests
     {
         await window.SplitPaneAsync(cancellationToken: token);
         Window applied = await window.SelectLayoutAsync(
-            new SelectLayoutRequest("even-horizontal"),
+            new SelectLayoutRequest { Layout = "even-horizontal" },
             token);
         Window next = await applied.SelectNextLayoutAsync(token);
         Window previous = await next.SelectPreviousLayoutAsync(token);
 
         // An unknown name never reaches tmux: 3.3a would take the server down.
         await Assert.ThrowsAsync<TmuxWindowException>(
-            () => window.SelectLayoutAsync(new SelectLayoutRequest("no-such-layout"), token));
+            () => window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "no-such-layout" }, token));
         return previous.Id == window.Id;
     }
 
@@ -303,7 +308,7 @@ public sealed class Component11ParityTests
         }
 
         Pane created = await window.CreatePaneAsync(
-            new NewPaneRequest(width: 20, height: 5, x: 2, y: 2),
+            new NewPaneRequest { Width = 20, Height = 5, X = 2, Y = 2 },
             token);
         return (await window.GetPanesAsync(token)).Any(pane => pane.Id == created.Id);
     }
@@ -313,7 +318,7 @@ public sealed class Component11ParityTests
         CancellationToken token)
     {
         IReadOnlyList<string>? printed = await window.DisplayMessageAsync(
-            new DisplayMessageRequest("#{window_id}", returnText: true),
+            new DisplayMessageRequest { Message = "#{window_id}", ReturnText = true },
             token);
         return printed?.Count == 1 && printed[0] == window.Id.ToString();
     }
@@ -322,7 +327,7 @@ public sealed class Component11ParityTests
     {
         Window first = await TestHierarchy.RequireFirstWindowAsync(session, token);
         Window second = await session.CreateWindowAsync(
-            new NewWindowRequest(name: "second", attach: true),
+            new NewWindowRequest { Name = "second", Attach = true },
             token);
         await first.SelectAsync(token);
         Window back = await session.SelectLastWindowAsync(token);

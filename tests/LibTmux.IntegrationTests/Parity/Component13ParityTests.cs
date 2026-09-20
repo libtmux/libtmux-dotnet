@@ -42,10 +42,12 @@ public sealed class Component13ParityTests
             TestContext.Current.CancellationToken);
         CancellationToken token = TestContext.Current.CancellationToken;
         Server server = await Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 
         bool proved = pythonSymbolId switch
@@ -156,7 +158,7 @@ public sealed class Component13ParityTests
             // Refreshing is worth having only because a client moves, so the
             // proof is that the replacement disagrees with the original.
             Session elsewhere = await server.CreateSessionAsync(
-                new NewSessionRequest(name: "refreshed"),
+                new NewSessionRequest { Name = "refreshed" },
                 token);
             await server.SwitchClientAsync(elsewhere.Id.ToString(), token);
             Client current = await client.RefreshAsync(token);
@@ -174,7 +176,7 @@ public sealed class Component13ParityTests
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
         await Assert.ThrowsAsync<TmuxCommandException>(
             () => server.AttachSessionAsync(
-                new AttachSessionRequest(target: session.Id.ToString()),
+                new AttachSessionRequest { Target = session.Id.ToString() },
                 token));
         return true;
     }
@@ -299,7 +301,7 @@ public sealed class Component13ParityTests
         await WithClientAsync(raw, server, async client =>
         {
             Session elsewhere = await server.CreateSessionAsync(
-                new NewSessionRequest(name: "switched"),
+                new NewSessionRequest { Name = "switched" },
                 token);
             await server.SwitchClientAsync(elsewhere.Id.ToString(), token);
             Session? landed = await client.GetAttachedSessionAsync(token);

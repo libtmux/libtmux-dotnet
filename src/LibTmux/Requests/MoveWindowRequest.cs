@@ -1,45 +1,22 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>move-window</c> invocation.</summary>
-public sealed record MoveWindowRequest
+public sealed record MoveWindowRequest : ITmuxRequest<Window>
 {
-    /// <summary>Initializes a window-move request.</summary>
-    /// <param name="destination">The window part of the target, empty for the next free index.</param>
-    /// <param name="session">The destination session, or null for the window's own.</param>
-    /// <param name="direction">Whether to insert before or after the destination.</param>
-    /// <param name="noSelect">Whether the moved window is left unselected.</param>
-    /// <param name="replaceExisting">Whether a window already at the index is replaced.</param>
-    /// <param name="renumber">Whether the destination session's windows are renumbered.</param>
-    public MoveWindowRequest(
-        string destination = "",
-        string? session = null,
-        WindowDirection? direction = null,
-        bool noSelect = false,
-        bool replaceExisting = false,
-        bool renumber = false)
-    {
-        Destination = destination;
-        Session = session;
-        Direction = direction;
-        NoSelect = noSelect;
-        ReplaceExisting = replaceExisting;
-        Renumber = renumber;
-    }
-
     /// <summary>Gets the window part of the target, empty for the next free index.</summary>
-    public string Destination { get; }
+    public string Destination { get; init; } = "";
 
     /// <summary>Gets the destination session, or null for the window's own.</summary>
-    public string? Session { get; }
+    public string? Session { get; init; }
 
     /// <summary>Gets whether to insert before or after the destination.</summary>
-    public WindowDirection? Direction { get; }
+    public WindowDirection? Direction { get; init; }
 
     /// <summary>Gets whether the moved window is left unselected.</summary>
-    public bool NoSelect { get; }
+    public bool NoSelect { get; init; }
 
     /// <summary>Gets whether a window already at the index is replaced.</summary>
-    public bool ReplaceExisting { get; }
+    public bool ReplaceExisting { get; init; }
 
     /// <summary>Gets whether the destination session's windows are renumbered.</summary>
     /// <remarks>
@@ -47,5 +24,18 @@ public sealed record MoveWindowRequest
     /// flag on the request, so this is a renumber request rather than a move
     /// that also renumbers.
     /// </remarks>
-    public bool Renumber { get; }
+    public bool Renumber { get; init; }
+
+    /// <summary>Returns a window-move request as one tmux command.</summary>
+    /// <param name="window">The window being moved.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    public TmuxCommand ToCommand(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return TmuxChaining.Command([.. window.BuildMoveWindowArguments(this)]) with
+        {
+            RequiredGeneration = window.Generation,
+        };
+    }
 }

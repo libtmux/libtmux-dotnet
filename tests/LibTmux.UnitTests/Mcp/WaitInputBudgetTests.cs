@@ -71,7 +71,7 @@ public sealed class WaitInputBudgetTests
     {
         int dispatches = 0;
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "wait-no-dispatch"),
+            new ServerConnectionOptions { SocketName = "wait-no-dispatch" },
             FakeMultiplexer.AnsweringVersion((request, _) =>
             {
                 Interlocked.Increment(ref dispatches);

@@ -23,8 +23,8 @@ public sealed class SessionWindowLookupTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
-        Window decoy = await session.CreateWindowAsync(new NewWindowRequest(name: "decoy"), token);
-        Window wanted = await session.CreateWindowAsync(new NewWindowRequest(name: "wanted"), token);
+        Window decoy = await session.CreateWindowAsync(new NewWindowRequest { Name = "decoy" }, token);
+        Window wanted = await session.CreateWindowAsync(new NewWindowRequest { Name = "wanted" }, token);
         Assert.NotEqual(wanted.Id, decoy.Id);
 
         // The decoy is listed before the wanted window and is now named
@@ -35,15 +35,13 @@ public sealed class SessionWindowLookupTests
         Assert.Equal(wanted.Id.ToString(), renamed.Name);
         Assert.True(renamed.Index < wanted.Index);
 
-        Window? byId = await session.GetWindowAsync(wanted.Id, token);
-        Assert.NotNull(byId);
+        Window byId = await session.GetWindowAsync(wanted.Id, token);
         Assert.Equal(wanted.Id, byId.Id);
         Assert.Equal(wanted, byId);
 
         // The string overload is the ambiguous one, and still reaches the
         // decoy by that same text. Both behaviors are deliberate.
-        Window? byText = await session.GetWindowAsync(wanted.Id.ToString(), token);
-        Assert.NotNull(byText);
+        Window byText = await session.GetWindowAsync(wanted.Id.ToString(), token);
         Assert.Equal(decoy.Id, byText.Id);
     }
 
@@ -57,13 +55,35 @@ public sealed class SessionWindowLookupTests
         Session first = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
         await using OwnedSessionScope other = await server.CreateOwnedSessionAsync(
-            new NewSessionRequest(name: "elsewhere"),
+            new NewSessionRequest { Name = "elsewhere" },
             token);
         Window elsewhere = await TestHierarchy.RequireFirstWindowAsync(other.Value, token);
 
         // tmux would resolve this identifier globally. The question asked is
         // which of THIS session's windows it is, and the answer is none.
-        Assert.Null(await first.GetWindowAsync(elsewhere.Id, token));
+        TmuxObjectNotFoundException missing = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => first.GetWindowAsync(elsewhere.Id, token));
+        Assert.Equal(elsewhere.Id.ToString(), missing.Target);
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => first.GetWindowAsync(elsewhere.Id.ToString(), token));
+        Assert.Null(await first.FindWindowAsync(elsewhere.Id, token));
+        Assert.Null(await first.FindWindowAsync(elsewhere.Id.ToString(), token));
+    }
+
+    [UnixFact]
+    public async Task A_required_pane_lookup_reports_absence()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Window window = await server.GetWindowAsync(new WindowId(0), token);
+
+        TmuxObjectNotFoundException missing = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(
+            () => window.GetPaneAsync("%9999", token));
+        Assert.Equal("%9999", missing.Target);
+        Assert.Null(await window.FindPaneAsync("%9999", token));
+        Assert.Equal(80, (await window.GetPaneAsync("0", token)).Width);
+        Assert.Equal(80, (await window.FindPaneAsync("0", token))?.Width);
     }
 
     [UnixFact]
@@ -75,8 +95,8 @@ public sealed class SessionWindowLookupTests
         Server server = await ConnectAsync(raw, token);
         Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
 
-        await session.CreateWindowAsync(new NewWindowRequest(name: "second"), token);
-        await session.CreateWindowAsync(new NewWindowRequest(name: "third"), token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "second" }, token);
+        await session.CreateWindowAsync(new NewWindowRequest { Name = "third" }, token);
 
         IReadOnlyList<Window> windows = await session.GetWindowsAsync(token);
         Assert.True(windows.Count >= 3);
@@ -91,9 +111,11 @@ public sealed class SessionWindowLookupTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

@@ -61,7 +61,9 @@ internal static class RelationReader
             owner,
             Connection(owner),
             state.Generation,
-            state.WindowId ?? throw new InvalidDataException("tmux row carries no window."),
+            state.WindowId ?? throw new TmuxProtocolException(
+                "tmux row carries no window.",
+                TmuxDispatchState.Dispatched),
             state.RawFields);
     }
 
@@ -73,7 +75,9 @@ internal static class RelationReader
                 state.RawFields.TryGetValue("pane_id", out string? text) ? text : null,
                 out PaneId id))
         {
-            throw new InvalidDataException("tmux row carries no pane.");
+            throw new TmuxProtocolException(
+                "tmux row carries no pane.",
+                TmuxDispatchState.Dispatched);
         }
 
         return new Pane(owner, Connection(owner), state.Generation, id, state.RawFields);
@@ -87,7 +91,9 @@ internal static class RelationReader
             owner,
             Connection(owner),
             state.Generation,
-            state.SessionId ?? throw new InvalidDataException("tmux row carries no session."),
+            state.SessionId ?? throw new TmuxProtocolException(
+                "tmux row carries no session.",
+                TmuxDispatchState.Dispatched),
             state.RawFields);
     }
 
@@ -103,7 +109,11 @@ internal static class RelationReader
     private static TmuxVersion ParseVersion(Server owner)
     {
         string raw = owner.RawVersion
-            ?? throw new InvalidOperationException("The server reported no tmux version.");
+            ?? throw new InvalidOperationException(
+                "This server handle has not discovered a live tmux server yet, so it "
+                + "carries no version to read relations with. Call ConnectAsync() once a "
+                + "session exists, or read through session.Server (the handle "
+                + "CreateSessionAsync returns).");
         return TmuxVersion.Parse(
             raw.StartsWith("tmux ", StringComparison.Ordinal) ? raw[5..] : raw);
     }

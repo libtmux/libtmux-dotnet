@@ -48,10 +48,10 @@ public sealed class ChainGenerationTests
         // has to be refused rather than only the one this started with.
         TmuxCommand[] stale =
         [
-            new SendKeysRequest("echo stale").ToCommand(pane),
+            new SendKeysRequest { Text = "echo stale" }.ToCommand(pane),
             new SelectPaneRequest().ToCommand(pane),
-            new SelectLayoutRequest("tiled").ToCommand(window),
-            new NewWindowRequest(name: "stale").ToCommand(session),
+            new SelectLayoutRequest { Layout = "tiled" }.ToCommand(window),
+            new NewWindowRequest { Name = "stale" }.ToCommand(session),
             new SetOptionRequest("@stale", "1").ToCommand(pane.Options),
             new SetHookRequest("after-new-window", "display-message x")
                 .ToCommand(session.Hooks),
@@ -83,8 +83,8 @@ public sealed class ChainGenerationTests
         // At most one server can be the one the chain runs against, so mixing
         // them is refused before anything executes rather than partially run.
         TmuxChain chain = one.Chain()
-            .Then(new SendKeysRequest("echo one").ToCommand(fromOne))
-            .Then(new SendKeysRequest("echo two").ToCommand(fromTwo));
+            .Then(new SendKeysRequest { Text = "echo one" }.ToCommand(fromOne))
+            .Then(new SendKeysRequest { Text = "echo two" }.ToCommand(fromTwo));
 
         InvalidOperationException failure =
             await Assert.ThrowsAsync<InvalidOperationException>(
@@ -107,7 +107,7 @@ public sealed class ChainGenerationTests
         // The guard has to be invisible when nothing is stale, or it would just
         // be a way to break chaining.
         await server.Chain()
-            .Then(new SendKeysRequest("echo fresh").ToCommand(pane))
+            .Then(new SendKeysRequest { Text = "echo fresh" }.ToCommand(pane))
             .ExecuteAsync(token);
     }
 
@@ -130,9 +130,11 @@ public sealed class ChainGenerationTests
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: raw.TmuxBinaryPath,
-                socketPath: raw.SocketPath,
-                configurationFile: "/dev/null"),
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
             token);
 }

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -40,7 +42,7 @@ internal sealed class TmuxCommandDispatcher
     }
 
     [UnsupportedOSPlatform("windows")]
-    internal async Task<TmuxCommandResult> ExecuteGroupAsync(
+    internal Task<TmuxCommandResult> ExecuteGroupAsync(
         IReadOnlyList<IReadOnlyList<string>> commands,
         CancellationToken cancellationToken = default)
     {
@@ -51,17 +53,62 @@ internal sealed class TmuxCommandDispatcher
                 "This dispatcher cannot run a grouped command.");
         }
 
+        return ExecuteGroupAsync(commands, _executeGroup, cancellationToken);
+    }
+
+    /// <summary>Runs a group through an executor of the caller's choosing.</summary>
+    /// <remarks>
+    /// A chain that carries an entity's generation runs through the guard
+    /// rather than this dispatcher's own executor. It is still one tmux
+    /// command, so it gets the same span, measurement, log and timeout.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<TmuxCommandResult> ExecuteGroupAsync(
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        Func<
+            IReadOnlyList<IReadOnlyList<string>>,
+            CancellationToken,
+            Task<TmuxCommandResult>> executeGroup,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(executeGroup);
         foreach (IReadOnlyList<string> command in commands)
         {
             ValidateArguments(command);
         }
 
-        TmuxCommandResult result = await _executeGroup(commands, cancellationToken)
-            .ConfigureAwait(false);
-
         // A group is one tmux run, so it is recorded once, under the arguments
         // tmux actually received.
-        TmuxLog.CommandCompleted(_context, [.. commands.SelectMany(static c => c)], result);
+        string[] flattened = [.. commands.SelectMany(static c => c)];
+        string? socket = _context?.Socket;
+        using Activity? activity = TmuxInstrumentation.StartCommand(flattened, socket);
+        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken);
+        long started = Stopwatch.GetTimestamp();
+        TmuxCommandResult result;
+        try
+        {
+            result = await executeGroup(commands, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException error)
+            when (deadline.Expired && !cancellationToken.IsCancellationRequested)
+        {
+            TmuxTransportException expired = Timeout(flattened);
+            TmuxInstrumentation.Fail(activity, started, flattened, socket, expired);
+            throw new TmuxTransportException(
+                expired.Message,
+                flattened,
+                TmuxDispatchState.Unknown,
+                error);
+        }
+        catch (Exception error)
+        {
+            TmuxInstrumentation.Fail(activity, started, flattened, socket, error);
+            throw;
+        }
+
+        TmuxInstrumentation.Complete(activity, started, flattened, socket, result.ExitCode);
+        TmuxLog.CommandCompleted(_context, flattened, result);
         return result;
     }
 
@@ -72,8 +119,33 @@ internal sealed class TmuxCommandDispatcher
     {
         ValidateArguments(arguments);
         string[] copy = [.. arguments];
-        TmuxCommandResult result = await _execute(copy, cancellationToken).ConfigureAwait(false);
+        string? socket = _context?.Socket;
+        using Activity? activity = TmuxInstrumentation.StartCommand(copy, socket);
+        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken);
+        long started = Stopwatch.GetTimestamp();
+        TmuxCommandResult result;
+        try
+        {
+            result = await _execute(copy, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException error)
+            when (deadline.Expired && !cancellationToken.IsCancellationRequested)
+        {
+            TmuxTransportException expired = Timeout(copy);
+            TmuxInstrumentation.Fail(activity, started, copy, socket, expired);
+            throw new TmuxTransportException(
+                expired.Message,
+                copy,
+                TmuxDispatchState.Unknown,
+                error);
+        }
+        catch (Exception error)
+        {
+            TmuxInstrumentation.Fail(activity, started, copy, socket, error);
+            throw;
+        }
 
+        TmuxInstrumentation.Complete(activity, started, copy, socket, result.ExitCode);
         TmuxLog.CommandCompleted(_context, copy, result);
 
         if (copy.Contains("has-session", StringComparer.Ordinal)
@@ -91,6 +163,55 @@ internal sealed class TmuxCommandDispatcher
 
         return result;
     }
+
+    /// <summary>Bounds one command by the connection's timeout, if it set one.</summary>
+    /// <remarks>
+    /// The caller's own cancellation keeps its meaning: only an expiry this
+    /// source raised is reported as a timeout, so a caller who cancels still
+    /// sees cancellation.
+    /// </remarks>
+    [SuppressMessage(
+        "Design",
+        "CA1001:Types that own disposable fields should be disposable",
+        Justification = "It is disposable; the rule does not see a struct's own Dispose.")]
+    internal readonly struct Deadline : IDisposable
+    {
+        private readonly CancellationTokenSource? _expiry;
+        private readonly CancellationTokenSource? _linked;
+
+        internal Deadline(TimeSpan? limit, CancellationToken cancellationToken)
+        {
+            if (limit is not TimeSpan span)
+            {
+                _expiry = null;
+                _linked = null;
+                Token = cancellationToken;
+                return;
+            }
+
+            _expiry = new CancellationTokenSource(span);
+            _linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _expiry.Token);
+            Token = _linked.Token;
+        }
+
+        internal CancellationToken Token { get; }
+
+        internal bool Expired => _expiry?.IsCancellationRequested ?? false;
+
+        public void Dispose()
+        {
+            _linked?.Dispose();
+            _expiry?.Dispose();
+        }
+    }
+
+    private TmuxTransportException Timeout(IReadOnlyList<string> arguments) =>
+        new(
+            $"tmux did not answer within {_context?.CommandTimeout}.",
+            arguments,
+            TmuxDispatchState.Unknown);
 
     internal static void ValidateArguments(IReadOnlyList<string> arguments)
     {

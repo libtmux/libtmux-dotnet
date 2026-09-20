@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux.Internal;
 
@@ -9,7 +8,6 @@ internal sealed class TmuxConnection
     internal const string GenerationFormat = "#{pid}:#{start_time}";
     private readonly MultiplexerDialect _dialect;
     private readonly TmuxEndpointIdentity _endpointIdentity;
-    private readonly TmuxEntityLookup _entityLookup;
     private readonly string? _resolvedSocketName;
     private readonly string? _resolvedSocketPath;
 
@@ -43,6 +41,13 @@ internal sealed class TmuxConnection
             execute is null
                 ? CreateProcessTransports(resolved)
                 : (execute, execute);
+        if (Options.Interceptor is TmuxInterceptor interceptor)
+        {
+            // Wrapped below both dialects and the generation guard, so it sees
+            // every client the connection starts, as tmux receives it.
+            send = Intercept(send, interceptor);
+            sendVersion = Intercept(sendVersion, interceptor);
+        }
 
         // The psmux preview is reached only through its own facade, which
         // supplies these options; nothing detects its way into it.
@@ -55,10 +60,12 @@ internal sealed class TmuxConnection
                 Options.TmuxBinaryPath)
             : new PsmuxDialect(send, sendVersion, Options, _resolvedSocketName);
 
-        _entityLookup = new TmuxEntityLookup(ExecuteSingleAsync);
-        CommandContext = Options.Logger is ILogger logger
-            ? new TmuxCommandContext(logger, Options.SocketName ?? Options.SocketPath)
-            : null;
+        // Built whether or not a logger is set: the socket and the timeout it
+        // carries are read by tracing and dispatch, not only by logging.
+        CommandContext = new TmuxCommandContext(
+            Options.Logger,
+            Options.SocketName ?? Options.SocketPath,
+            Options.CommandTimeout);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -71,7 +78,7 @@ internal sealed class TmuxConnection
 
     internal TmuxCommandDispatcher ServerDispatcher { get; }
 
-    internal TmuxCommandContext? CommandContext { get; }
+    internal TmuxCommandContext CommandContext { get; }
 
     internal bool IsPsmux => _dialect.IsPsmux;
 
@@ -93,24 +100,32 @@ internal sealed class TmuxConnection
     internal (string? SocketName, string? SocketPath) ResolvedSocket =>
         (_resolvedSocketName, _resolvedSocketPath);
 
-    internal Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
-        CancellationToken cancellationToken) =>
-        _dialect.DiscoverAsync(cancellationToken);
-
-    internal Task<(ServerGeneration Generation, SessionId Id)?> FindSessionAsync(
-        SessionId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindSessionAsync(id, cancellationToken);
-
-    internal Task<(ServerGeneration Generation, WindowId Id)?> FindWindowAsync(
-        WindowId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindWindowAsync(id, cancellationToken);
-
-    internal Task<(ServerGeneration Generation, PaneId Id)?> FindPaneAsync(
-        PaneId id,
-        CancellationToken cancellationToken) =>
-        _entityLookup.FindPaneAsync(id, cancellationToken);
+    /// <summary>Reads the version and generation of the server behind this connection.</summary>
+    /// <remarks>
+    /// Discovery is two tmux commands rather than one, and it runs before a
+    /// dispatcher exists, so the timeout is applied here: a tmux that stops
+    /// answering must not hang a caller who set one.
+    /// </remarks>
+    internal async Task<(ServerGeneration Generation, string RawVersion)> DiscoverAsync(
+        CancellationToken cancellationToken)
+    {
+        using var deadline = new TmuxCommandDispatcher.Deadline(
+            Options.CommandTimeout,
+            cancellationToken);
+        try
+        {
+            return await _dialect.DiscoverAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException error)
+            when (deadline.Expired && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TmuxTransportException(
+                $"tmux did not answer within {Options.CommandTimeout}.",
+                ["display-message", "-p", GenerationFormat],
+                TmuxDispatchState.Unknown,
+                error);
+        }
+    }
 
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {
@@ -151,7 +166,9 @@ internal sealed class TmuxConnection
             || !int.TryParse(fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
             || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out long startTime))
         {
-            throw new InvalidDataException("tmux reported a malformed server generation.");
+            throw new TmuxProtocolException(
+                "tmux reported a malformed server generation.",
+                TmuxDispatchState.Dispatched);
         }
 
         try
@@ -160,7 +177,10 @@ internal sealed class TmuxConnection
         }
         catch (ArgumentOutOfRangeException error)
         {
-            throw new InvalidDataException("tmux reported a nonpositive server generation.", error);
+            throw new TmuxProtocolException(
+                "tmux reported a nonpositive server generation.",
+                TmuxDispatchState.Dispatched,
+                error);
         }
     }
 
@@ -206,17 +226,38 @@ internal sealed class TmuxConnection
             CancellationToken cancellationToken) =>
             PsmuxBinaryTrust.VerifyIfPreviewAsync(Options, cancellationToken);
 
+        TmuxTransportLimits? limits = Options.MaxCapturedBytesPerStream is int ceiling
+            ? new TmuxTransportLimits(MaxCapturedBytesPerStream: ceiling)
+            : null;
         var transport = new TmuxProcessTransport(
             Options.TmuxBinaryPath,
             PrefixArguments,
+            limits,
             launcher: Launch,
             beforeStart: VerifyBeforeStartAsync);
         var versionTransport = new TmuxProcessTransport(
             Options.TmuxBinaryPath,
+            limits: limits,
             launcher: Launch,
             beforeStart: VerifyBeforeStartAsync);
         return (transport.ExecuteAsync, versionTransport.ExecuteAsync);
     }
+
+    /// <summary>Routes each request through an interceptor before tmux.</summary>
+    internal static Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> Intercept(
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> send,
+        TmuxInterceptor interceptor) =>
+        async (request, cancellationToken) =>
+        {
+            Task<TmuxCommandResult>? pending = interceptor(
+                new TmuxInvocation(request.LogicalArguments),
+                token => send(request, token),
+                cancellationToken);
+            return await (pending
+                    ?? throw new InvalidOperationException("The interceptor returned no task."))
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException("The interceptor returned no result.");
+        };
 
     private Task<TmuxCommandResult> ExecuteSingleAsync(
         IReadOnlyList<string> arguments,

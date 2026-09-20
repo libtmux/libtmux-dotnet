@@ -15,7 +15,7 @@ public sealed class TmuxOptions
 {
     private readonly TmuxCommandDispatcher _dispatcher;
     private readonly string? _target;
-    private readonly bool _doubleEscapedDollar;
+    private readonly Server? _owner;
 
     /// <summary>Reports whether a tmux escapes a dollar sign twice in an option value.</summary>
     /// <param name="owner">The server answering, or null when it is not known.</param>
@@ -27,13 +27,13 @@ public sealed class TmuxOptions
         TmuxCommandDispatcher dispatcher,
         OptionScope scope,
         string? target,
-        bool doubleEscapedDollar = false,
+        Server? owner = null,
         ServerGeneration? generation = null)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         _dispatcher = dispatcher;
         _target = target;
-        _doubleEscapedDollar = doubleEscapedDollar;
+        _owner = owner;
         Scope = scope;
         Generation = generation;
     }
@@ -55,6 +55,7 @@ public sealed class TmuxOptions
         List<string> arguments = ["show-options"];
         AddReadFlags(arguments, request.Scope, request.Global, request.IncludeHooks, request.IncludeInherited, request.Quiet);
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
 
         return arguments;
@@ -68,15 +69,22 @@ public sealed class TmuxOptions
     /// one per set index for an array.
     /// </returns>
     /// <exception cref="TmuxOptionException">tmux rejected the option name.</exception>
+    /// <remarks>
+    /// Unescaping a doubled dollar sign needs the connected tmux's version, so
+    /// a table reached from a handle that has not found a live server yet
+    /// discovers one first.
+    /// </remarks>
     public async Task<IReadOnlyList<TmuxOption>> GetAsync(
         GetOptionRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         List<string> arguments = BuildGetArguments(request);
-        return OptionParser.ParseRows(
-            await ReadAsync(arguments, request.Name, cancellationToken).ConfigureAwait(false),
-            _doubleEscapedDollar);
+        IReadOnlyList<string> lines = await ReadAsync(arguments, request.Name, cancellationToken)
+            .ConfigureAwait(false);
+        bool doubleEscapedDollar = await ResolveDoubleEscapesDollarAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return OptionParser.ParseRows(lines, doubleEscapedDollar);
     }
 
     /// <summary>Builds the arguments a whole-scope read sends.</summary>
@@ -95,15 +103,22 @@ public sealed class TmuxOptions
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>Every option tmux reported, in the order it reported them.</returns>
     /// <exception cref="TmuxOptionException">tmux rejected the request.</exception>
+    /// <remarks>
+    /// Unescaping a doubled dollar sign needs the connected tmux's version, so
+    /// a table reached from a handle that has not found a live server yet
+    /// discovers one first.
+    /// </remarks>
     public async Task<IReadOnlyList<TmuxOption>> GetAllAsync(
         GetOptionsRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         request ??= new GetOptionsRequest();
         List<string> arguments = BuildGetAllArguments(request);
-        return OptionParser.ParseRows(
-            await ReadAsync(arguments, "show-options", cancellationToken).ConfigureAwait(false),
-            _doubleEscapedDollar);
+        IReadOnlyList<string> lines = await ReadAsync(arguments, "show-options", cancellationToken)
+            .ConfigureAwait(false);
+        bool doubleEscapedDollar = await ResolveDoubleEscapesDollarAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return OptionParser.ParseRows(lines, doubleEscapedDollar);
     }
 
     /// <summary>Builds the arguments a set request sends.</summary>
@@ -122,6 +137,7 @@ public sealed class TmuxOptions
         AddFlag(arguments, request.Quiet, "-q");
         AddFlag(arguments, request.Append, "-a");
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
         arguments.Add(request.Value);
 
@@ -153,7 +169,7 @@ public sealed class TmuxOptions
 
         IReadOnlyList<TmuxOption> stored = await sequence
             .ObserveAsync(() => GetAsync(
-                new GetOptionRequest(request.Name, request.Scope, request.Global, quiet: true),
+                new GetOptionRequest(request.Name) { Scope = request.Scope, Global = request.Global, Quiet = true },
                 cancellationToken))
             .ConfigureAwait(false);
         return sequence.Observe(() =>
@@ -178,6 +194,7 @@ public sealed class TmuxOptions
         // thing one level down: drop what every pane overrode as well.
         arguments.Add(request.UnsetPaneOverrides ? "-U" : "-u");
         AddTarget(arguments, request.Scope);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Name);
 
         return arguments;
@@ -258,4 +275,12 @@ public sealed class TmuxOptions
         OptionFailure.ThrowIfFailed(result, optionName);
         return result.StandardOutputLines;
     }
+
+    // The owner may not have discovered a live server yet -- CreateOwnedAsync
+    // hands back an endpoint that never replaces itself -- so this resolves
+    // against whatever the owner discovers now, rather than freezing a
+    // version at construction that handle may never carry.
+    private async Task<bool> ResolveDoubleEscapesDollarAsync(CancellationToken cancellationToken) =>
+        _owner is not null
+        && DoubleEscapesDollar(await _owner.ConnectAsync(cancellationToken).ConfigureAwait(false));
 }

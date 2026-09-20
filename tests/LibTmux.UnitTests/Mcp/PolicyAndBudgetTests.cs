@@ -92,7 +92,7 @@ public sealed class ServerPolicyTests
         _ = McpServerComposition.Add(
             services,
             new ServerPolicy(),
-            new ServerConnectionOptions(socketName: "unknown-provenance"),
+            new ServerConnectionOptions { SocketName = "unknown-provenance" },
             callerPaneId: null);
         using ServiceProvider provider = services.BuildServiceProvider();
 
@@ -119,13 +119,48 @@ public sealed class ServerPolicyTests
             _ = McpServerComposition.Add(
                 services,
                 new ServerPolicy(),
-                new ServerConnectionOptions(relative, socketName: "embedded"),
+                new ServerConnectionOptions { TmuxBinaryPath = relative, SocketName = "embedded" },
                 callerPaneId: null);
             using ServiceProvider provider = services.BuildServiceProvider();
 
             McpRuntimeDisclosure runtime = provider.GetRequiredService<McpRuntimeDisclosure>();
 
             Assert.StartsWith($"'{executable}' -N ", runtime.AttachCommand, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public void Pinning_the_executable_keeps_every_other_option()
+    {
+        // Pinning rewrites the binary path, which is the common case: "tmux"
+        // resolves to an absolute path. Everything else the embedder set has
+        // to survive it, or a command timeout set on the options passed to
+        // McpServerComposition.Add never reaches a single command.
+        string root = Directory.CreateTempSubdirectory("libtmux-pin-options-").FullName;
+        string executable = Path.Join(root, "tmux");
+        File.WriteAllText(executable, "#!/bin/sh\nexit 0\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        string relative = Path.GetRelativePath(Environment.CurrentDirectory, executable);
+
+        try
+        {
+            ServerConnectionOptions pinned = McpServerComposition.PinExecutable(
+                new ServerConnectionOptions
+                {
+                    TmuxBinaryPath = relative,
+                    CommandTimeout = TimeSpan.FromSeconds(7),
+                    MaxCapturedBytesPerStream = 4096,
+                    ControlModeEventBufferCapacity = 16,
+                });
+
+            Assert.Equal(executable, pinned.TmuxBinaryPath);
+            Assert.Equal(TimeSpan.FromSeconds(7), pinned.CommandTimeout);
+            Assert.Equal(4096, pinned.MaxCapturedBytesPerStream);
+            Assert.Equal(16, pinned.ControlModeEventBufferCapacity);
         }
         finally
         {

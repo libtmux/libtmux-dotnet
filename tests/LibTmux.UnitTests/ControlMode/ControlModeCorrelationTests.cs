@@ -268,7 +268,7 @@ public sealed class ControlModeCorrelationTests
         process.EmitBlock(number: 10, flags: 1, failed: false, "123");
         process.EmitBlock(number: 11, flags: 1, failed: false, "456");
 
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => session.DisposeAsync().AsTask());
         Assert.Equal("A control-mode reply exceeded its 5-byte limit.", error.Message);
     }
@@ -314,9 +314,9 @@ public sealed class ControlModeCorrelationTests
         }
 
         process.EmitFence(number: 12, Sentinel);
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
             async () => await send);
-        InvalidDataException disposal = await Assert.ThrowsAsync<InvalidDataException>(
+        LibTmuxException disposal = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => session.DisposeAsync().AsTask());
         string unit = limit switch
         {
@@ -348,7 +348,7 @@ public sealed class ControlModeCorrelationTests
             failed: false,
             limit == BlockLimit.Bytes ? ["123456"] : ["one", "two"]);
 
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => session.DisposeAsync().AsTask());
         string unit = limit == BlockLimit.Bytes ? "5-byte" : "1-line";
         Assert.Equal($"A control-mode block exceeded its {unit} limit.", error.Message);
@@ -388,7 +388,7 @@ public sealed class ControlModeCorrelationTests
 
         process.EmitProtocolLine("unexpected output");
 
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => session.DisposeAsync().AsTask());
         Assert.Equal("The tmux control client sent output outside a block.", error.Message);
     }
@@ -407,7 +407,7 @@ public sealed class ControlModeCorrelationTests
 
         process.EmitProtocolLine(line);
 
-        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
             () => session.DisposeAsync().AsTask());
         Assert.Contains("block guard", error.Message, StringComparison.Ordinal);
     }
@@ -552,8 +552,8 @@ public sealed class ControlModeCorrelationTests
         process.EmitBlock(number: 10, flags: 1, failed: false, "unexpected");
         process.EmitFence(number: 11, Fence);
 
-        InvalidDataException error =
-            await Assert.ThrowsAsync<InvalidDataException>(async () => await probe);
+        LibTmuxException error =
+            await Assert.ThrowsAsync<TmuxProtocolException>(async () => await probe);
         Assert.Equal("The generation probe returned unexpected output.", error.Message);
     }
 

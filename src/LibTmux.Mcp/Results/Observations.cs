@@ -71,6 +71,21 @@ public enum WaitOutcome
 
     /// <summary>The pane's program exited while the wait was running.</summary>
     PaneDied = 4,
+
+    /// <summary>
+    /// A wanted pattern was already on screen when the wait began, and
+    /// nothing new arrived before time ran out.
+    /// </summary>
+    /// <remarks>
+    /// This is what a plain <see cref="Timeout" /> would otherwise report
+    /// here, with the returned tail visibly containing the very text the
+    /// wait says it never found: only output arriving after the call counts
+    /// as new, by design, so calling this right after the command that
+    /// produced the text - the first thing most callers try - would time out
+    /// holding a tail that contradicts it. <see cref="WaitResult.MatchedPattern" />
+    /// names what was already there.
+    /// </remarks>
+    PresentAtEntry = 5,
 }
 
 /// <summary>What happened while waiting for a pane to print something.</summary>

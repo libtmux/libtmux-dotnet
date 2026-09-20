@@ -1,41 +1,49 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>unbind-key</c> invocation.</summary>
-public sealed record UnbindKeyRequest
+public sealed record UnbindKeyRequest : ITmuxRequest<Server>
 {
-    /// <summary>Initializes a request to remove a binding.</summary>
-    /// <param name="key">The key to unbind, or null when removing them all.</param>
-    /// <param name="keyTable">The key table, or null for the prefix table.</param>
-    /// <param name="all">Whether every binding in the table goes.</param>
-    /// <param name="quiet">Whether an absent binding is passed over in silence.</param>
-    public UnbindKeyRequest(
-        string? key = null,
-        string? keyTable = null,
-        bool all = false,
-        bool quiet = false)
+    /// <summary>Gets the key to unbind, or null when removing them all.</summary>
+    public string? Key { get; init; }
+
+    /// <summary>Gets the key table, or null for the prefix table.</summary>
+    public string? KeyTable { get; init; }
+
+    /// <summary>Gets whether every binding in the table goes.</summary>
+    public bool All { get; init; }
+
+    /// <summary>Gets whether an absent binding is passed over in silence.</summary>
+    public bool Quiet { get; init; }
+
+    /// <summary>Refuses a request that names no binding.</summary>
+    /// <exception cref="ArgumentException">
+    /// Neither a key nor every binding in the table is asked for.
+    /// </exception>
+    /// <remarks>
+    /// Initializers cannot check one property against another, so the pairing
+    /// is validated where the request is dispatched. tmux takes no key
+    /// argument at all alongside <see cref="All" /> - naming one anyway is a
+    /// separate error tmux reports itself.
+    /// </remarks>
+    internal void Validate()
     {
-        if (!all && string.IsNullOrWhiteSpace(key))
+        if (!All && string.IsNullOrWhiteSpace(Key))
         {
             throw new ArgumentException(
                 "Removing one binding needs the key it is bound to.",
-                nameof(key));
+                nameof(Key));
         }
-
-        Key = key;
-        KeyTable = keyTable;
-        All = all;
-        Quiet = quiet;
     }
 
-    /// <summary>Gets the key to unbind, or null when removing them all.</summary>
-    public string? Key { get; }
+    /// <summary>Returns a key-unbinding request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildUnbindKeyArguments(this)]);
 
-    /// <summary>Gets the key table, or null for the prefix table.</summary>
-    public string? KeyTable { get; }
-
-    /// <summary>Gets whether every binding in the table goes.</summary>
-    public bool All { get; }
-
-    /// <summary>Gets whether an absent binding is passed over in silence.</summary>
-    public bool Quiet { get; }
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

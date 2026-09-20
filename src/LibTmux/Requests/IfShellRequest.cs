@@ -1,7 +1,7 @@
 namespace LibTmux;
 
 /// <summary>Describes one <c>if-shell</c> invocation.</summary>
-public sealed record IfShellRequest
+public sealed record IfShellRequest : ITmuxRequest<Server>
 {
     private readonly string[] _thenCommand;
     private readonly string[]? _elseCommand;
@@ -9,15 +9,9 @@ public sealed record IfShellRequest
     /// <summary>Initializes a conditional command.</summary>
     /// <param name="shellCommand">The shell command whose success decides.</param>
     /// <param name="thenCommand">The tmux command run when it succeeds.</param>
-    /// <param name="elseCommand">The tmux command run when it fails, when any.</param>
-    /// <param name="background">Whether tmux runs the shell command without waiting.</param>
-    /// <param name="targetPane">The pane the commands run against.</param>
     public IfShellRequest(
         string shellCommand,
-        IReadOnlyList<string> thenCommand,
-        IReadOnlyList<string>? elseCommand = null,
-        bool background = false,
-        string? targetPane = null)
+        IReadOnlyList<string> thenCommand)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(shellCommand);
         ArgumentNullException.ThrowIfNull(thenCommand);
@@ -30,9 +24,6 @@ public sealed record IfShellRequest
 
         ShellCommand = shellCommand;
         _thenCommand = [.. thenCommand];
-        _elseCommand = elseCommand is null ? null : [.. elseCommand];
-        Background = background;
-        TargetPane = targetPane;
     }
 
     /// <summary>Gets the shell command whose success decides.</summary>
@@ -46,11 +37,27 @@ public sealed record IfShellRequest
     public IReadOnlyList<string> ThenCommand => _thenCommand;
 
     /// <summary>Gets the tmux command run when it fails, when any.</summary>
-    public IReadOnlyList<string>? ElseCommand => _elseCommand;
+    public IReadOnlyList<string>? ElseCommand
+    {
+        get => _elseCommand;
+        init => _elseCommand = value is null ? null : [.. value];
+    }
 
     /// <summary>Gets whether tmux runs the shell command without waiting.</summary>
-    public bool Background { get; }
+    public bool Background { get; init; }
 
     /// <summary>Gets the pane the commands run against.</summary>
-    public string? TargetPane { get; }
+    public string? TargetPane { get; init; }
+
+    /// <summary>Returns a conditional request as one tmux command.</summary>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    public TmuxCommand ToCommand() =>
+        TmuxChaining.Command([.. Server.BuildIfShellArguments(this)]);
+
+    /// <inheritdoc />
+    TmuxCommand ITmuxRequest<Server>.ToCommand(Server target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ToCommand();
+    }
 }

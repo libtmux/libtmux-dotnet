@@ -67,12 +67,12 @@ internal static class QueryJsonWireRules
         {
             if (!allowed.Contains(property.Name, StringComparer.Ordinal))
             {
-                throw new JsonException($"Unknown member in {description}.");
+                throw new UnsupportedQueryExpressionException($"Unknown member in {description}.");
             }
 
             if (!seen.Add(property.Name))
             {
-                throw new JsonException($"Duplicate member in {description}.");
+                throw new UnsupportedQueryExpressionException($"Duplicate member in {description}.");
             }
         }
     }
@@ -81,7 +81,7 @@ internal static class QueryJsonWireRules
     {
         if (!QueryTextSemantics.TryCountScalars(value, out int scalars))
         {
-            throw new JsonException($"{description} is null or contains invalid Unicode.");
+            throw new UnsupportedQueryExpressionException($"{description} is null or contains invalid Unicode.");
         }
 
         return scalars;
@@ -94,17 +94,17 @@ internal static class QueryJsonWireRules
                 QueryRegexSemantics.Dialect,
                 StringComparison.Ordinal))
         {
-            throw new JsonException($"Regex dialect '{regex.Dialect}' is not supported.");
+            throw new UnsupportedQueryExpressionException($"Regex dialect '{regex.Dialect}' is not supported.");
         }
 
         if (ScalarLength(regex.Pattern, "Regex pattern") > limits.MaximumPatternLength)
         {
-            throw new JsonException("Regex pattern exceeds the maximum length.");
+            throw new UnsupportedQueryExpressionException("Regex pattern exceeds the maximum length.");
         }
 
         if (!QueryRegexSemantics.IsSupported(regex.SemanticOptions))
         {
-            throw new JsonException("Regex names options this writer does not support.");
+            throw new UnsupportedQueryExpressionException("Regex names options this writer does not support.");
         }
     }
 }

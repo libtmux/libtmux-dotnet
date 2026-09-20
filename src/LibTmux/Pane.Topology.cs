@@ -18,6 +18,7 @@ public sealed partial class Pane
         AddEnvironment(arguments, request.Environment);
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -83,6 +84,7 @@ public sealed partial class Pane
 
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -115,14 +117,7 @@ public sealed partial class Pane
             arguments.Add(flag);
         }
 
-        // tmux 3.4 misreads the percentage flag, so a percentage rides the size
-        // flag instead, which every supported version accepts.
-        AddValue(
-            arguments,
-            "-l",
-            request.Percentage is int share
-                ? string.Create(CultureInfo.InvariantCulture, $"{share}%")
-                : request.Size);
+        AddValue(arguments, "-l", request.ResolveSize());
         if (request.FullWindow)
         {
             arguments.Add("-f");
@@ -143,6 +138,7 @@ public sealed partial class Pane
         AddSplitAppearance(arguments, request);
         if (request.Command is not null)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Command);
         }
 
@@ -195,7 +191,9 @@ public sealed partial class Pane
             result.StandardOutputLines.Count > 0
                 && WindowId.TryParse(result.StandardOutputLines[0], out WindowId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new window identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new window identifier.",
+                        result));
 
         // On that same version tmux keeps the name it was given only some of
         // the time, so a caller who asked for one gets it set explicitly.
@@ -203,7 +201,7 @@ public sealed partial class Pane
         {
             await sequence.MutateAsync(
                     () => RunAsync(
-                        ["rename-window", "-t", created.ToString(), windowName],
+                        ["rename-window", "-t", created.ToString(), "--", windowName],
                         cancellationToken))
                 .ConfigureAwait(false);
         }
@@ -347,7 +345,7 @@ public sealed partial class Pane
     [UnsupportedOSPlatform("windows")]
     public Task<Pane> SetWidthAsync(int width, CancellationToken cancellationToken = default) =>
         ResizeAsync(
-            new ResizePaneRequest(width: width.ToString(CultureInfo.InvariantCulture)),
+            new ResizePaneRequest { Width = width.ToString(CultureInfo.InvariantCulture) },
             cancellationToken);
 
     /// <summary>Sets this pane's height.</summary>
@@ -357,7 +355,7 @@ public sealed partial class Pane
     [UnsupportedOSPlatform("windows")]
     public Task<Pane> SetHeightAsync(int height, CancellationToken cancellationToken = default) =>
         ResizeAsync(
-            new ResizePaneRequest(height: height.ToString(CultureInfo.InvariantCulture)),
+            new ResizePaneRequest { Height = height.ToString(CultureInfo.InvariantCulture) },
             cancellationToken);
 
     /// <summary>Sets this pane's title.</summary>
@@ -400,6 +398,7 @@ public sealed partial class Pane
 
     internal List<string> BuildSwapPaneArguments(SwapPaneRequest request)
     {
+        string? source = request.ResolveSource();
         List<string> arguments = ["swap-pane", "-t", Target];
         if (request.Detach)
         {
@@ -416,7 +415,7 @@ public sealed partial class Pane
             arguments.Add("-Z");
         }
 
-        AddValue(arguments, "-s", request.Target);
+        AddValue(arguments, "-s", source);
 
         return arguments;
     }
@@ -448,7 +447,7 @@ public sealed partial class Pane
 
         // tmux takes the adjustment as the trailing positional; as a flag value
         // it would be read as a second argument and refused.
-        if (request.Adjustment is int adjustment)
+        if (request.ResolveAdjustment() is int adjustment)
         {
             arguments.Add(adjustment.ToString(CultureInfo.InvariantCulture));
         }
@@ -578,7 +577,9 @@ public sealed partial class Pane
             result.StandardOutputLines.Count > 0
                 && PaneId.TryParse(result.StandardOutputLines[0], out PaneId parsed)
                     ? parsed
-                    : throw new InvalidDataException("tmux reported no new pane identifier."));
+                    : throw new TmuxCommandException(
+                        "tmux reported no new pane identifier.",
+                        result));
 
         Server owner = sequence.Observe(() => Server);
         IReadOnlyDictionary<string, string?>? row = await sequence

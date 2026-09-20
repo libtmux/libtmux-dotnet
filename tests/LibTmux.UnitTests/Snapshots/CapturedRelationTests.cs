@@ -1,7 +1,42 @@
+using System.Diagnostics;
+using System.Runtime.Versioning;
+using LibTmux.Internal;
+using LibTmux.UnitTests.Transport;
+
 namespace LibTmux.UnitTests.Snapshots;
 
 public sealed class CapturedRelationTests
 {
+    [UnixFact]
+    [UnsupportedOSPlatform("windows")]
+    public async Task Concurrent_first_reads_of_Windows_all_see_the_capture()
+    {
+        // The first read caches the copy and releases the factory. A second
+        // reader that arrives between those two stores must not conclude the
+        // windows were never captured and cache that over the real answer.
+        for (int attempt = 0; attempt < 200; attempt++)
+        {
+            var dispatcher = new TmuxCommandDispatcher(
+                static (_, _) => throw new UnreachableException());
+            Window[] windows = [new(dispatcher, "@1")];
+            Session session = new Session(dispatcher, "$1").WithCaptured(
+                () => CapturedRelation.Capture(windows, "windows", SnapshotDepth.Windows),
+                CapturedRelation.Capture<Pane>([], "panes", SnapshotDepth.Panes));
+
+            using var gate = new Barrier(2);
+            Task<CapturedRelation<Window>> Read() => Task.Run(() =>
+            {
+                gate.SignalAndWait();
+                return session.Windows;
+            });
+
+            CapturedRelation<Window>[] both = await Task.WhenAll(Read(), Read());
+
+            Assert.All(both, relation => Assert.True(relation.IsCaptured));
+            Assert.True(session.Windows.IsCaptured);
+        }
+    }
+
     [Fact]
     public void Captured_relations_expose_their_children()
     {
@@ -12,6 +47,30 @@ public sealed class CapturedRelationTests
         Assert.Equal(3, captured.Count);
         Assert.Equal(2, captured[1]);
         Assert.Equal([1, 2, 3], captured);
+    }
+
+    [Fact]
+    public void An_uncaptured_single_value_refuses_to_look_absent()
+    {
+        CapturedValue<string> uncaptured =
+            CapturedValue.Uncaptured<string>("active window", SnapshotDepth.Sessions);
+
+        Assert.False(uncaptured.IsCaptured);
+        Assert.Null(uncaptured.OrNull());
+        Assert.False(uncaptured.TryGetValue(out string? absent));
+        Assert.Null(absent);
+
+        // "nobody looked" is a LibTmux failure carrying the relation, not the
+        // InvalidOperationException a Single() over a plural relation threw.
+        IncompleteSnapshotException error =
+            Assert.Throws<IncompleteSnapshotException>(() => uncaptured.Value);
+        Assert.Contains("active window", error.Message, StringComparison.Ordinal);
+
+        CapturedValue<string> captured =
+            CapturedValue.Capture("window", "active window", SnapshotDepth.Windows);
+        Assert.True(captured.TryGetValue(out string? read));
+        Assert.Equal("window", read);
+        Assert.Equal("window", captured.Value);
     }
 
     [Fact]

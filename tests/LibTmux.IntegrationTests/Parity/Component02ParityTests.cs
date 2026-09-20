@@ -31,11 +31,13 @@ public sealed class Component02ParityTests
     {
         await using RawTmuxTestContext context = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
-        var options = new ServerConnectionOptions(
-            tmuxBinaryPath: context.TmuxBinaryPath,
-            socketPath: context.SocketPath,
-            configurationFile: "/dev/null",
-            colorMode: TmuxColorMode.Colors256);
+        var options = new ServerConnectionOptions
+        {
+            TmuxBinaryPath = context.TmuxBinaryPath,
+            SocketPath = context.SocketPath,
+            ConfigurationFile = "/dev/null",
+            ColorMode = TmuxColorMode.Colors256,
+        };
         Server server = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
@@ -59,7 +61,7 @@ public sealed class Component02ParityTests
                 server.ConnectionOptions.ConfigurationFile!,
                 "/dev/null"),
             "libtmux.server:Server.socket_name" => (
-                Server.Open(new ServerConnectionOptions(socketName: "parity-name"))
+                Server.Open(new ServerConnectionOptions { SocketName = "parity-name" })
                     .ConnectionOptions.SocketName!,
                 "parity-name"),
             "libtmux.server:Server.socket_path" => (

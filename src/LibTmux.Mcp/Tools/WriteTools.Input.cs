@@ -106,19 +106,42 @@ internal sealed partial class WriteTools
         CancellationToken cancellationToken)
     {
         RefuseHumanOwnedMode(pane, toolName);
-        var request = new SendKeysRequest(
-            text: keys,
-            enter: false,
-            literal: literal,
-            suppressHistory: suppressHistory);
+        var request = new SendKeysRequest
+        {
+            Text = keys,
+            Enter = false,
+            Literal = literal,
+            SuppressHistory = suppressHistory,
+        };
         TmuxChain dispatch = pane.Server.Chain().Then(request.ToCommand(pane));
         if (enter)
         {
             dispatch = dispatch.Then(
-                new SendKeysRequest(text: "Enter", enter: false).ToCommand(pane));
+                new SendKeysRequest { Text = "Enter", Enter = false }.ToCommand(pane));
         }
 
-        _ = await dispatch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        // Recorded before dispatch, so a wait already subscribed cannot see
+        // this dispatch's `%output` before the record that discounts it
+        // exists. Enter rides a separate tmux command here, so settling is
+        // deferred to Note.Settle() until that whole dispatch succeeds.
+        PaneEchoRegistry.PaneEchoNote note = literal
+            ? PaneEchoRegistry.NoteLiteralWrite(pane, keys, enter)
+            : PaneEchoRegistry.NoteKeyDispatch(pane, keys, enter);
+        try
+        {
+            _ = await dispatch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            if (!CommandMayHaveExecuted(error))
+            {
+                note.Rollback();
+            }
+
+            throw;
+        }
+
+        note.Settle();
 
         // Only literal keys are characters. With literal false the argument is
         // a key name, so counting it counted the name rather than the key —
@@ -171,17 +194,34 @@ internal sealed partial class WriteTools
             pane = await TmuxTargets.PaneAsync(server, pane.Id.ToString(), cancellationToken)
                 .ConfigureAwait(false);
             RefuseHumanOwnedMode(pane, "send_keys_batch");
-            await MutateAsync(
-                    sequence,
-                    () => pane.SendKeysAsync(
-                        new SendKeysRequest(
-                            text: step.Keys,
-                            enter: step.Enter,
-                            literal: step.Literal),
-                        cancellationToken),
-                    $"Key batch step {index + 1} may have reached tmux. The pane may "
-                    + "already have acted on it; do not retry the whole batch.")
-                .ConfigureAwait(false);
+            // Same record-before-dispatch, settle-after-confirmation shape as
+            // send_keys: Pane.SendKeysAsync dispatches Enter as its own
+            // command after the text.
+            PaneEchoRegistry.PaneEchoNote note = step.Literal
+                ? PaneEchoRegistry.NoteLiteralWrite(pane, step.Keys, step.Enter)
+                : PaneEchoRegistry.NoteKeyDispatch(pane, step.Keys, step.Enter);
+            try
+            {
+                await MutateAsync(
+                        sequence,
+                        () => pane.SendKeysAsync(
+                            new SendKeysRequest { Text = step.Keys, Enter = step.Enter, Literal = step.Literal },
+                            cancellationToken),
+                        $"Key batch step {index + 1} may have reached tmux. The pane may "
+                        + "already have acted on it; do not retry the whole batch.")
+                    .ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                if (!CommandMayHaveExecuted(error))
+                {
+                    note.Rollback();
+                }
+
+                throw;
+            }
+
+            note.Settle();
 
             if (step.DelayMilliseconds is int delay and > 0)
             {
@@ -359,7 +399,7 @@ internal sealed partial class WriteTools
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await server.SetBufferAsync(payload, buffer, cancellationToken: cancellationToken)
+                await server.Buffers.SetAsync(payload, buffer, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 bufferMayExist = true;
             }
@@ -382,10 +422,25 @@ internal sealed partial class WriteTools
                 dispatchLease = final.DispatchLease;
             }
 
-            await pane.PasteBufferAsync(
-                    new PasteBufferRequest(name: buffer, bracketed: bracketed),
-                    cancellationToken)
-                .ConfigureAwait(false);
+            // Recorded before dispatch, for the same reason as send_keys.
+            // Enter, when requested, rides inside this same buffer - one
+            // dispatch, not a separate command - so settling right after
+            // this call succeeds is safe.
+            PaneEchoRegistry.PaneEchoNote note = PaneEchoRegistry.NoteLiteralWrite(pane, text, enter);
+            try
+            {
+                await pane.PasteBufferAsync(
+                        new PasteBufferRequest { Name = buffer, Bracketed = bracketed },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception error) when (!CommandMayHaveExecuted(error))
+            {
+                note.Rollback();
+                throw;
+            }
+
+            note.Settle();
         }
         catch (Exception error)
         {
@@ -432,6 +487,23 @@ internal sealed partial class WriteTools
         }
     }
 
+    /// <summary>
+    /// Whether a dispatch that failed with <paramref name="error" /> may
+    /// already have reached tmux.
+    /// </summary>
+    /// <remarks>
+    /// An echo record is rolled back only when the answer is no: keeping a
+    /// stale discount is the safer default whenever the command might
+    /// already be sitting on the pane, the same assumption
+    /// <c>PasteTextAsyncCore</c> makes for its temporary buffer.
+    /// </remarks>
+    private static bool CommandMayHaveExecuted(Exception error) => error switch
+    {
+        TmuxOperationCanceledException canceled => canceled.CommandMayHaveExecuted,
+        LibTmuxException dispatch => dispatch.Dispatch != TmuxDispatchState.NotDispatched,
+        _ => true,
+    };
+
     private static async Task<Exception?> CleanupPasteBufferAsync(
         Server server,
         string buffer,
@@ -440,7 +512,7 @@ internal sealed partial class WriteTools
         using var cleanup = new CancellationTokenSource(PasteBufferCleanupTimeout);
         try
         {
-            await server.DeleteBufferAsync(buffer, cleanup.Token).ConfigureAwait(false);
+            await server.Buffers.DeleteAsync(buffer, cleanup.Token).ConfigureAwait(false);
             return null;
         }
         catch (Exception cleanupFailure)

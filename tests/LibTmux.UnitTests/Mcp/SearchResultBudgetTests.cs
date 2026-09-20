@@ -335,7 +335,7 @@ public sealed class SearchResultBudgetTests
     {
         int dispatches = 0;
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "search-no-dispatch"),
+            new ServerConnectionOptions { SocketName = "search-no-dispatch" },
             FakeMultiplexer.AnsweringVersion((request, _) =>
             {
                 Interlocked.Increment(ref dispatches);

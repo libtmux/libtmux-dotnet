@@ -1,9 +1,10 @@
 namespace LibTmux;
 
-/// <summary>Identifies one window as it appears inside one session.</summary>
+/// <summary>Identifies one window linked into one session.</summary>
 /// <remarks>
-/// tmux can link a single window into several sessions at different indexes,
-/// so a window identifier alone does not name a position in the hierarchy.
+/// tmux can link a window into several sessions, or at multiple indexes within
+/// one session. This key identifies the session and window; use
+/// <see cref="Window.Edge"/> for the particular indexed placement.
 /// </remarks>
 /// <param name="SessionId">The session the window is linked into.</param>
 /// <param name="WindowId">The linked window.</param>

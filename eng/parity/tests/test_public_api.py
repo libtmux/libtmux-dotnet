@@ -333,12 +333,21 @@ def test_contract_fixes_packages_types_and_unique_members() -> None:
     assert [package["id"] for package in public_api["packages"]] == [
         "LibTmux",
         "LibTmux.Query.Json",
+        "LibTmux.Testing",
+        "LibTmux.Extensions.DependencyInjection",
     ]
     members = public_api["members"]
     member_ids = [member["id"] for member in members]
     assert len(member_ids) == len(set(member_ids))
     assert all(
-        member["package"] in {"LibTmux", "LibTmux.Query.Json"} for member in members
+        member["package"]
+        in {
+            "LibTmux",
+            "LibTmux.Query.Json",
+            "LibTmux.Testing",
+            "LibTmux.Extensions.DependencyInjection",
+        }
+        for member in members
     )
 
 
@@ -565,16 +574,16 @@ def test_entity_equality_is_generation_bound_and_relation_aware() -> None:
 
 
 def test_list_failure_policy_is_frozen_per_accessor() -> None:
-    """Distinguish lenient inventories, missing-daemon suppression, and loud search."""
+    """Keep live listings strict, including absent-daemon failures."""
     members = public_api_members()
     expected = {
-        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetClientsAsync(CancellationToken)": "empty-on-any-list-command-failure",
-        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)": "empty-on-missing-daemon-or-socket",
-        "M:LibTmux.Server.GetPanesAsync(CancellationToken)": "empty-on-missing-daemon-or-socket",
+        "M:LibTmux.Server.GetSessionsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetAttachedSessionsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetClientsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetWindowsAsync(CancellationToken)": "loud",
+        "M:LibTmux.Server.GetPanesAsync(CancellationToken)": "loud",
         "M:LibTmux.Session.GetWindowsAsync(CancellationToken)": "loud",
-        "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)": "empty-if-either-required-list-fails",
+        "M:LibTmux.Window.GetLinkedSessionsAsync(CancellationToken)": "loud",
     }
     assert {
         member_id: members[member_id]["listErrorPolicy"] for member_id in expected
@@ -594,7 +603,7 @@ def test_generic_helpers_declare_type_parameters_and_extension_receivers() -> No
     wait = next(
         member
         for member in members.values()
-        if member["id"].startswith("M:LibTmux.Testing.TmuxWait.UntilAsync``1(")
+        if member["id"].startswith("M:LibTmux.TmuxWait.UntilAsync``1(")
     )
 
     assert compile_member["genericParameters"] == ["T"]
@@ -607,43 +616,30 @@ def test_generic_helpers_declare_type_parameters_and_extension_receivers() -> No
 def test_connection_options_freeze_all_connection_seams_and_defaults() -> None:
     """Keep endpoint precedence, initialization, environment, and logging explicit."""
     members = public_api_members()
-    constructor = next(
+    # The options carry no constructor: an optional parameter binds at the
+    # call site, and this is the type most likely to grow one.
+    assert not [
         member
         for member in members.values()
         if member["declaringType"] == "T:LibTmux.ServerConnectionOptions"
         and member["kind"] == "constructor"
-    )
-    assert constructor["parameters"] == [
-        {"name": "tmuxBinaryPath", "type": "string", "default": '"tmux"'},
-        {"name": "socketName", "type": "string?", "default": "null"},
-        {"name": "socketPath", "type": "string?", "default": "null"},
-        {
-            "name": "socketNameFactory",
-            "type": "Func<string>?",
-            "default": "null",
-        },
-        {
-            "name": "configurationFile",
-            "type": "string?",
-            "default": "null",
-        },
-        {
-            "name": "colorMode",
-            "type": "TmuxColorMode",
-            "default": "TmuxColorMode.Default",
-        },
-        {
-            "name": "initializeAsync",
-            "type": "Func<Server,CancellationToken,ValueTask>?",
-            "default": "null",
-        },
-        {
-            "name": "childEnvironment",
-            "type": "IReadOnlyDictionary<string,string?>?",
-            "default": "null",
-        },
-        {"name": "logger", "type": "ILogger?", "default": "null"},
     ]
+    seams = {
+        "TmuxBinaryPath": "string",
+        "SocketName": "string?",
+        "SocketPath": "string?",
+        "SocketNameFactory": "Func<string>?",
+        "ConfigurationFile": "string?",
+        "ColorMode": "TmuxColorMode",
+        "InitializeAsync": "Func<Server,CancellationToken,ValueTask>?",
+        "ChildEnvironment": "IReadOnlyDictionary<string,string?>?",
+        "Logger": "ILogger?",
+        "Interceptor": "TmuxInterceptor?",
+    }
+    for name, returns in seams.items():
+        seam = members[f"P:LibTmux.ServerConnectionOptions.{name}"]
+        assert seam["returnType"] == returns
+        assert seam["signature"].endswith("{ get; init; }")
     public_api = load_json(csharp_docs_root() / "public-api.json")
     connection_type = next(
         entry
@@ -874,18 +870,12 @@ def test_command_targets_and_sizes_preserve_tmux_grammar() -> None:
         if member["declaringType"] == "T:LibTmux.MovePaneRequest"
         and member["kind"] == "constructor"
     )
-    assert move_constructor["parameters"] == [
-        {"name": "target", "type": "string"},
-        {
-            "name": "direction",
-            "type": "PaneDirection",
-            "default": "PaneDirection.Below",
-        },
-        {"name": "size", "type": "string?", "default": "null"},
-        {"name": "detach", "type": "bool", "default": "true"},
-        {"name": "fullWindow", "type": "bool", "default": "false"},
-        {"name": "before", "type": "bool", "default": "false"},
-    ]
+    # The constructor carries what a move cannot do without; every other
+    # value is an init property, so adding a tmux flag breaks nobody.
+    assert move_constructor["parameters"] == [{"name": "target", "type": "string"}]
+    assert members["P:LibTmux.MovePaneRequest.Direction"]["signature"].endswith(
+        "{ get; init; }"
+    )
 
 
 def test_rotation_and_last_pane_use_nonconflicting_flag_domains() -> None:
@@ -928,13 +918,13 @@ def test_testkit_preserves_parent_scope_timeout_and_name_absence() -> None:
     required = {
         "M:LibTmux.Testing.TmuxTestFactory.CreateSessionAsync(Server,TmuxTestOptions?,CancellationToken)",
         "M:LibTmux.Testing.TmuxTestFactory.CreateWindowAsync(Session,TmuxTestOptions?,CancellationToken)",
-        "M:LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)",
+        "M:LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)",
         "M:LibTmux.Testing.TmuxNameGenerator.CreateAvailableSessionNameAsync(Server,string?,CancellationToken)",
         "M:LibTmux.Testing.TmuxNameGenerator.CreateAvailableWindowNameAsync(Session,string?,CancellationToken)",
     }
     assert required <= set(members)
     wait = members[
-        "M:LibTmux.Testing.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)"
+        "M:LibTmux.TmuxWait.UntilAsync(Func<CancellationToken,Task<bool>>,TimeSpan,TimeSpan,bool,CancellationToken)"
     ]
     assert wait["returnType"] == "Task<bool>"
     assert wait["parameters"][-2] == {
@@ -1726,11 +1716,13 @@ def test_format_metadata_and_framing_have_typed_internal_boundaries() -> None:
     assert by_id["P:LibTmux.SplitPaneRequest.Percentage"]["returnType"] == "int?"
     public_api = load_json(csharp_docs_root() / "public-api.json")
     request_types = {entry["name"]: entry for entry in public_api["types"]}
+    # A rule comparing two properties is settled where the value is derived,
+    # so the refusal comes when the request is dispatched.
     assert request_types["SwapPaneRequest"]["validation"] == (
-        "exactly one of Target or Direction"
+        "exactly one of Target or Direction; refused at dispatch"
     )
     assert request_types["SplitPaneRequest"]["validation"] == (
-        "Size and Percentage are mutually exclusive"
+        "Size and Percentage are mutually exclusive; refused at dispatch"
     )
     assert request_types["SetHooksRequest"]["validation"] == (
         "sparse hook indices are nonnegative and preserved"
@@ -1920,20 +1912,20 @@ def test_all_48_flag_heavy_rows_bind_exact_operations() -> None:
         "libtmux.pane:Pane.send_keys": "M:LibTmux.Pane.SendKeysAsync(SendKeysRequest,CancellationToken)",
         "libtmux.pane:Pane.split": "M:LibTmux.Pane.SplitAsync(SplitPaneRequest?,CancellationToken)",
         "libtmux.pane:Pane.swap": "M:LibTmux.Pane.SwapAsync(SwapPaneRequest,CancellationToken)",
-        "libtmux.server:Server.bind_key": "M:LibTmux.Server.BindKeyAsync(BindKeyRequest,CancellationToken)",
+        "libtmux.server:Server.bind_key": "M:LibTmux.TmuxKeys.BindAsync(BindKeyRequest,CancellationToken)",
         "libtmux.server:Server.command_prompt": "M:LibTmux.Server.ShowCommandPromptAsync(CommandPromptRequest,CancellationToken)",
         "libtmux.server:Server.confirm_before": "M:LibTmux.Server.ConfirmBeforeAsync(ConfirmBeforeRequest,CancellationToken)",
         "libtmux.server:Server.display_menu": "M:LibTmux.Server.ShowMenuAsync(DisplayMenuRequest,CancellationToken)",
         "libtmux.server:Server.display_message": "M:LibTmux.Server.DisplayMessageAsync(DisplayMessageRequest,CancellationToken)",
         "libtmux.server:Server.if_shell": "M:LibTmux.Server.IfShellAsync(IfShellRequest,CancellationToken)",
-        "libtmux.server:Server.list_buffers": "M:LibTmux.Server.GetBufferLinesAsync(ListBuffersRequest?,CancellationToken)",
-        "libtmux.server:Server.list_keys": "M:LibTmux.Server.GetKeysAsync(string?,string?,CancellationToken)",
+        "libtmux.server:Server.list_buffers": "M:LibTmux.TmuxBuffers.GetLinesAsync(ListBuffersRequest?,CancellationToken)",
+        "libtmux.server:Server.list_keys": "M:LibTmux.TmuxKeys.GetAllAsync(string?,string?,CancellationToken)",
         "libtmux.server:Server.new_session": "M:LibTmux.Server.CreateSessionAsync(NewSessionRequest?,CancellationToken)",
         "libtmux.server:Server.run_shell": "M:LibTmux.Server.RunShellAsync(RunShellRequest,CancellationToken)",
         "libtmux.server:Server.server_access": "M:LibTmux.Server.ConfigureAccessAsync(ServerAccessRequest,CancellationToken)",
         "libtmux.server:Server.show_messages": "M:LibTmux.Server.GetMessagesAsync(string?,ShowMessagesMode,CancellationToken)",
         "libtmux.server:Server.source_file": "M:LibTmux.Server.SourceFileAsync(string,bool,bool,bool,CancellationToken)",
-        "libtmux.server:Server.unbind_key": "M:LibTmux.Server.UnbindKeyAsync(UnbindKeyRequest,CancellationToken)",
+        "libtmux.server:Server.unbind_key": "M:LibTmux.TmuxKeys.UnbindAsync(UnbindKeyRequest,CancellationToken)",
         "libtmux.session:Session.attach": "M:LibTmux.Session.AttachAsync(AttachSessionRequest?,CancellationToken)",
         "libtmux.session:Session.kill": "M:LibTmux.Session.KillAsync(bool,bool,bool,CancellationToken)",
         "libtmux.session:Session.new_window": "M:LibTmux.Session.CreateWindowAsync(NewWindowRequest?,CancellationToken)",
@@ -2152,7 +2144,9 @@ def test_examples_are_canonical_coherent_and_executable_sources() -> None:
     assert "QueryJson.Deserialize(json)" in query_source
     assert "if (roundTripped != document)" in query_source
     testkit_source = public_api["examples"]["real-tmux-testkit"]["source"]
-    assert 'SendKeysRequest(text: "echo libtmux-$(printf %s ready)")' in testkit_source
+    assert (
+        'SendKeysRequest { Text = "echo libtmux-$(printf %s ready)" }' in testkit_source
+    )
     assert "string.Equals(" in testkit_source
     assert '"libtmux-ready"' in testkit_source
     assert "StringComparison.Ordinal" in testkit_source
@@ -2326,11 +2320,11 @@ def test_validator_rejects_generic_type_and_parameter_keyword_drift() -> None:
         if type_entry["id"] == "T:LibTmux.CapturedRelation`1"
     )
     relation["genericParameters"] = []
+    # Any member carrying a parameter will do; the rule is about the name.
     comparison = next(
         member
-        for member in public_api["members"]
-        if member["declaringType"] == "T:LibTmux.Query.ComparisonNode"
-        and member["kind"] == "constructor"
+        for member in sorted(public_api["members"], key=lambda entry: entry["id"])
+        if member["kind"] == "constructor" and member.get("parameters")
     )
     comparison["parameters"][0]["name"] = "operator"
 

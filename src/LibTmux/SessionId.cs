@@ -3,7 +3,8 @@ using System.Globalization;
 namespace LibTmux;
 
 /// <summary>Represents a generation-independent tmux session identifier.</summary>
-public readonly record struct SessionId : IComparable<SessionId>
+public readonly record struct SessionId
+    : IComparable<SessionId>, IParsable<SessionId>, ISpanParsable<SessionId>
 {
     /// <summary>Initializes a session identifier.</summary>
     public SessionId(int value)
@@ -73,6 +74,51 @@ public readonly record struct SessionId : IComparable<SessionId>
     /// rather than sorting.
     /// </remarks>
     public int CompareTo(SessionId other) => Value.CompareTo(other.Value);
+
+    /// <summary>Parses a prefixed session identifier from a span.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <returns>The parsed identifier.</returns>
+    /// <exception cref="FormatException">The text is not a canonical session identifier.</exception>
+    public static SessionId Parse(ReadOnlySpan<char> text) =>
+        TryParse(text, out SessionId result)
+            ? result
+            : throw new FormatException("The value is not a canonical session identifier.");
+
+    /// <summary>Tries to parse a prefixed session identifier from a span.</summary>
+    /// <param name="text">The text to parse.</param>
+    /// <param name="result">The parsed identifier when this succeeds.</param>
+    /// <returns><see langword="true" /> when the text was a canonical identifier.</returns>
+    public static bool TryParse(ReadOnlySpan<char> text, out SessionId result)
+    {
+        if (text.Length > 1
+            && text[0] == '$'
+            && int.TryParse(text[1..], NumberStyles.None, CultureInfo.InvariantCulture, out int value))
+        {
+            result = new SessionId(value);
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
+
+    // The parse interfaces are implemented explicitly. A public overload taking
+    // a format provider would make every existing Parse call read as though it
+    // depended on the current culture, and none of them does: the wire form is
+    // a sigil and invariant digits.
+    static SessionId IParsable<SessionId>.Parse(string s, IFormatProvider? provider) => Parse(s);
+
+    static bool IParsable<SessionId>.TryParse(string? s, IFormatProvider? provider, out SessionId result) =>
+        TryParse(s, out result);
+
+    static SessionId ISpanParsable<SessionId>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider) =>
+        Parse(s);
+
+    static bool ISpanParsable<SessionId>.TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        out SessionId result) =>
+        TryParse(s, out result);
 
     /// <summary>Returns the canonical prefixed identifier.</summary>
     public override string ToString() => $"${Value.ToString(CultureInfo.InvariantCulture)}";

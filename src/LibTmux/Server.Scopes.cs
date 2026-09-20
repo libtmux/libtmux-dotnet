@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 
 namespace LibTmux;
 
-// Reaches the option, hook and environment tables this server scopes.
+// Reaches the option, hook, buffer, key and environment tables this server scopes.
 public sealed partial class Server
 {
     private TmuxOptions? _options;
@@ -17,7 +17,7 @@ public sealed partial class Server
         _commandDispatcher,
         OptionScope.Server,
         null,
-        TmuxOptions.DoubleEscapesDollar(this),
+        this,
         Generation);
 
     private TmuxHooks? _hooks;
@@ -33,6 +33,18 @@ public sealed partial class Server
         OptionScope.Server,
         null,
         Generation);
+
+    private TmuxBuffers? _buffers;
+
+    /// <summary>Gets the paste buffers of this server.</summary>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxBuffers Buffers => _buffers ??= new TmuxBuffers(this);
+
+    private TmuxKeys? _keys;
+
+    /// <summary>Gets the key bindings of this server.</summary>
+    [UnsupportedOSPlatform("windows")]
+    public TmuxKeys Keys => _keys ??= new TmuxKeys(this);
 
     private TmuxEnvironment? _environment;
 

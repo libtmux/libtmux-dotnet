@@ -38,7 +38,10 @@ public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : Tmu
 /// <summary>The control client ended.</summary>
 /// <param name="Reason">
 /// Why tmux said it ended, when it said anything. It is silent for an ordinary
-/// exit and names a reason when the server went away underneath the client.
+/// exit. For an abnormal one tmux sometimes names a reason and sometimes does
+/// not: a server another client killed, for one, sends a bare <c>%exit</c>
+/// with none. A null <see cref="Reason" /> there is tmux's own silence, not
+/// something this library failed to capture.
 /// </param>
 /// <remarks>
 /// This is always the last event, and the event stream completes after it.

@@ -39,10 +39,12 @@ public sealed class Component05ParityTests
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
             TestContext.Current.CancellationToken);
-        var options = new ServerConnectionOptions(
-            tmuxBinaryPath: raw.TmuxBinaryPath,
-            socketPath: raw.SocketPath,
-            configurationFile: "/dev/null");
+        var options = new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        };
         Server server = await Server.ConnectAsync(
             options,
             TestContext.Current.CancellationToken);
@@ -61,7 +63,7 @@ public sealed class Component05ParityTests
                     .Session.Id == session.Id,
             "libtmux.pane:Pane.window" =>
                 (await session.GetPanesAsync(TestContext.Current.CancellationToken))[0]
-                    .Window.Id == session.ActiveWindow.Id,
+                    .Window.Id == session.ActiveWindow.Value.Id,
             "libtmux.session:Session.windows"
                 or "libtmux.session:Session._windows"
                 or "libtmux.session:Session._list_windows"
@@ -71,11 +73,11 @@ public sealed class Component05ParityTests
                 (await session.GetPanesAsync(TestContext.Current.CancellationToken)).Count == 1,
             "libtmux.session:Session.active_window"
                 or "libtmux.session:Session.attached_window" =>
-                session.ActiveWindow.Id
+                session.ActiveWindow.Value.Id
                     == (await session.GetWindowsAsync(TestContext.Current.CancellationToken))[0].Id,
             "libtmux.session:Session.active_pane"
                 or "libtmux.session:Session.attached_pane" =>
-                session.ActivePane.Id
+                session.ActivePane.Value.Id
                     == (await session.GetPanesAsync(TestContext.Current.CancellationToken))[0].Id,
             "libtmux.window:Window.panes"
                 or "libtmux.window:Window._panes"
@@ -86,7 +88,7 @@ public sealed class Component05ParityTests
             "libtmux.window:Window.active_pane"
                 or "libtmux.window:Window.attached_pane" =>
                 (await session.GetWindowsAsync(TestContext.Current.CancellationToken))[0]
-                    .ActivePane.Id == session.ActivePane.Id,
+                    .ActivePane.Value.Id == session.ActivePane.Value.Id,
             "libtmux.window:Window.linked_sessions" =>
                 await ProvesLinkedSessionsAsync(raw, session),
             _ => false,

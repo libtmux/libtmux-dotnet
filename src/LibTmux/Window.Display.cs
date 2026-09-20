@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
@@ -8,6 +9,7 @@ namespace LibTmux;
 public sealed partial class Window
 {
     private const string DisplayMessageLiteralCapability = "display_message_literal";
+    private const string DisplayMessageClientCapability = "display_message_client";
 
     /// <summary>Shows a message on the client viewing this window.</summary>
     /// <param name="request">The message to show.</param>
@@ -35,14 +37,13 @@ public sealed partial class Window
 
         Server owner = RequireOwner("display");
         if (request.TargetClient is not null
-            && owner.Version is TmuxVersion version
-            && version < TmuxVersion.Parse("3.3a"))
+            && !Supports(owner, DisplayMessageClientCapability))
         {
             // tmux 3.2a declares the flag without a value, so naming a client
             // there would silently address a different one.
             throw new TmuxVersionTooLowException(
-                "Naming a display-message client requires tmux 3.3a.",
-                TmuxVersion.Parse("3.3a"),
+                "Naming a display-message client requires tmux 3.3.",
+                TmuxVersion.Parse("3.3"),
                 owner.Version ?? default);
         }
 
@@ -82,6 +83,7 @@ public sealed partial class Window
         AddValue(arguments, "-F", request.Format);
         if (request.Message.Length > 0)
         {
+            ServerUtilities.EndOptions(arguments);
             arguments.Add(request.Message);
         }
 

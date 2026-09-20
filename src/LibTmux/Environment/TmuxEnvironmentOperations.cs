@@ -89,6 +89,7 @@ public sealed class TmuxEnvironment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("show-environment");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
@@ -134,6 +135,7 @@ public sealed class TmuxEnvironment
             arguments.Add("-h");
         }
 
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         arguments.Add(value);
         var sequence = new TmuxMutationSequence();
@@ -150,8 +152,9 @@ public sealed class TmuxEnvironment
         return sequence.Observe(() =>
             stored ?? (hidden
                 ? new TmuxEnvironmentEntry(name, null, false)
-                : throw new InvalidDataException(
-                    $"tmux did not report the stored environment variable '{name}'.")));
+                : throw new TmuxProtocolException(
+                    $"tmux did not report the stored environment variable '{name}'.",
+                    TmuxDispatchState.Dispatched)));
     }
 
     /// <summary>Marks a variable removed for the panes tmux spawns.</summary>
@@ -166,6 +169,7 @@ public sealed class TmuxEnvironment
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("set-environment");
         arguments.Add("-r");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
@@ -180,6 +184,7 @@ public sealed class TmuxEnvironment
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         List<string> arguments = Build("set-environment");
         arguments.Add("-u");
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(name);
         TmuxCommandResult result = await RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
@@ -193,14 +198,14 @@ public sealed class TmuxEnvironment
             return null;
         }
 
+        int separator = line.IndexOf('=', StringComparison.Ordinal);
+
         // tmux writes a removed variable as its name behind a minus sign, with
         // no value to write.
-        if (line[0] == '-')
+        if (line[0] == '-' && separator < 0)
         {
             return line.Length > 1 ? new TmuxEnvironmentEntry(line[1..], null, true) : null;
         }
-
-        int separator = line.IndexOf('=', StringComparison.Ordinal);
 
         // Values are printed as they are held, so everything past the first
         // equals sign belongs to the value, spaces and all.

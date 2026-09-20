@@ -306,12 +306,14 @@ internal sealed record McpStartup(
         string? socketName,
         string? socketPath,
         string? configurationFile,
-        IReadOnlyDictionary<string, string?> childEnvironment) => new(
-            tmuxBinaryPath: binary,
-            socketName: socketName,
-            socketPath: socketPath,
-            configurationFile: configurationFile,
-            childEnvironment: childEnvironment);
+        IReadOnlyDictionary<string, string?> childEnvironment) => new()
+        {
+            TmuxBinaryPath = binary,
+            SocketName = socketName,
+            SocketPath = socketPath,
+            ConfigurationFile = configurationFile,
+            ChildEnvironment = childEnvironment,
+        };
 
     private static Dictionary<string, string?> ChildEnvironment(string? tmuxTemporaryDirectory)
     {

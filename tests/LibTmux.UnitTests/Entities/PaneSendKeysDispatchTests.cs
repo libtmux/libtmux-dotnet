@@ -30,7 +30,7 @@ public sealed class PaneSendKeysDispatchTests
         string[] sent = Assert.Single(dispatched);
         int commandStart = Array.IndexOf(sent, "send-keys");
         Assert.NotEqual(-1, commandStart);
-        Assert.Equal(["send-keys", "-t", "%1", "-l", "Enter"], sent[commandStart..]);
+        Assert.Equal(["send-keys", "-t", "%1", "-l", "--", "Enter"], sent[commandStart..]);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class PaneSendKeysDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
@@ -107,7 +107,7 @@ public sealed class PaneSendKeysDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 cancellation.Token));
 
         Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
@@ -136,7 +136,7 @@ public sealed class PaneSendKeysDispatchTests
 
         TmuxTransportException failure = await Assert.ThrowsAsync<TmuxTransportException>(() =>
             pane.SendKeysAsync(
-                new SendKeysRequest(text: "payload", enter: true, literal: true),
+                new SendKeysRequest { Text = "payload", Enter = true, Literal = true },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
@@ -147,13 +147,14 @@ public sealed class PaneSendKeysDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
     {
         var connection = new TmuxConnection(
-            new ServerConnectionOptions(socketName: "send-keys-dispatch-test"),
+            new ServerConnectionOptions { SocketName = "send-keys-dispatch-test" },
             FakeMultiplexer.AnsweringVersion(execute));
         return new Pane(
             new Server(connection, Generation, "tmux 3.7"),
             connection,
             Generation,
-            new PaneId(1));
+            new PaneId(1),
+            new Dictionary<string, string?>());
     }
 
     private static TmuxCommandResult Success(IReadOnlyList<string> arguments)

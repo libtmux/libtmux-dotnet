@@ -32,11 +32,8 @@ public sealed class TemporaryHierarchyScope : IAsyncDisposable
 
     /// <summary>Gets the server the rest live in.</summary>
     /// <remarks>
-    /// The session's server rather than the scope's endpoint. A scope holds an
-    /// endpoint because a tmux server with no sessions exits at once, so it has
-    /// read nothing and has no version — and a listing that needs the version
-    /// then fails, which for the lenient accessors reads as an empty server.
-    /// Creating the session materialized one; this is that.
+    /// Creating the session materializes its server. The returned handle carries
+    /// that generation and version, so it is ready for listings and lookups.
     /// </remarks>
     public Server Server => Session.Server;
 

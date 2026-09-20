@@ -24,8 +24,8 @@ public sealed partial class Server
             && !Supports(ServerUtilities.CommandPromptBackgroundCapability))
         {
             throw new TmuxVersionTooLowException(
-                "Expanding a command prompt as a format, or naming what it asks for, requires tmux 3.3a.",
-                TmuxVersion.Parse("3.3a"),
+                "Expanding a command prompt as a format, or naming what it asks for, requires tmux 3.3.",
+                TmuxVersion.Parse("3.3"),
                 Version ?? default);
         }
 
@@ -60,6 +60,7 @@ public sealed partial class Server
             arguments,
             "-T",
             request.Type is PromptType type ? ServerUtilities.GetPromptTypeName(type) : null);
+        ServerUtilities.EndOptions(arguments);
         arguments.Add(request.Template);
 
         return arguments;
@@ -147,6 +148,7 @@ public sealed partial class Server
 
         ServerUtilities.AddValue(arguments, "-p", request.Prompt);
         ServerUtilities.AddValue(arguments, "-t", request.TargetClient);
+        ServerUtilities.EndOptions(arguments);
         arguments.AddRange(request.Command);
 
         return arguments;
@@ -195,6 +197,11 @@ public sealed partial class Server
         ServerUtilities.AddValue(arguments, "-T", request.Title);
         ServerUtilities.AddValue(arguments, "-x", request.X);
         ServerUtilities.AddValue(arguments, "-y", request.Y);
+        if (request.Items.Count > 0)
+        {
+            ServerUtilities.EndOptions(arguments);
+        }
+
         foreach (TmuxMenuItem item in request.Items)
         {
             arguments.Add(item.Name);

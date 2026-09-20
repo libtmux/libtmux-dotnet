@@ -96,7 +96,7 @@ public sealed class ConnectionValueTests
             ["KEEP"] = "original",
             ["REMOVE"] = null,
         };
-        var options = new ServerConnectionOptions(childEnvironment: source);
+        var options = new ServerConnectionOptions { ChildEnvironment = source };
 
         source["KEEP"] = "mutated";
         source["ADDED"] = "later";
@@ -112,10 +112,12 @@ public sealed class ConnectionValueTests
     public void Invalid_child_environment_keys_fail_before_command_execution()
     {
         Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?> { [" "] = "value" }));
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { [" "] = "value" },
+            });
         Assert.Throws<ArgumentNullException>(
-            () => new ServerConnectionOptions(childEnvironment: new NullKeyEnvironment()));
+            () => new ServerConnectionOptions { ChildEnvironment = new NullKeyEnvironment() });
     }
 
     [Theory]
@@ -125,8 +127,10 @@ public sealed class ConnectionValueTests
         string key)
     {
         ArgumentException error = Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?> { [key] = "value" }));
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { [key] = "value" },
+            });
 
         Assert.Equal("childEnvironment", error.ParamName);
     }
@@ -138,8 +142,10 @@ public sealed class ConnectionValueTests
         string value)
     {
         ArgumentException error = Assert.Throws<ArgumentException>(
-            () => new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?> { ["KEY"] = value }));
+            () => new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?> { ["KEY"] = value },
+            });
 
         Assert.Equal("childEnvironment", error.ParamName);
     }
@@ -149,7 +155,7 @@ public sealed class ConnectionValueTests
     {
         var source = new SingleEnumerationEnvironment();
 
-        var options = new ServerConnectionOptions(childEnvironment: source);
+        var options = new ServerConnectionOptions { ChildEnvironment = source };
 
         Assert.Equal(1, source.EnumerationCount);
         Assert.NotNull(options.ChildEnvironment);
@@ -272,17 +278,19 @@ public sealed class ConnectionValueTests
 
         ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(
             () => new TmuxConnection(
-                new ServerConnectionOptions(
-                    colorMode: (TmuxColorMode)1,
-                    socketNameFactory: () =>
+                new ServerConnectionOptions
+                {
+                    ColorMode = (TmuxColorMode)1,
+                    SocketNameFactory = () =>
                     {
                         factoryCalls++;
                         return "unused";
-                    }),
+                    }
+                },
                 FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
                     Result(request.LogicalArguments, 0, [], [])))));
 
-        Assert.Equal("colorMode", error.ParamName);
+        Assert.Equal("ColorMode", error.ParamName);
         Assert.Equal(0, factoryCalls);
     }
 
@@ -292,10 +300,12 @@ public sealed class ConnectionValueTests
         TmuxColorMode colorMode,
         string[] expected)
     {
-        var options = new ServerConnectionOptions(
-            socketName: "named",
-            configurationFile: "config",
-            colorMode: colorMode);
+        var options = new ServerConnectionOptions
+        {
+            SocketName = "named",
+            ConfigurationFile = "config",
+            ColorMode = colorMode,
+        };
         var connection = CreateFakeConnection(options);
 
         Assert.Equal(expected, connection.PrefixArguments);
@@ -313,8 +323,11 @@ public sealed class ConnectionValueTests
     public void The_environment_names_the_socket_a_connection_left_unqualified()
     {
         var connection = CreateFakeConnection(
-            new ServerConnectionOptions(childEnvironment: ChildEnvironment(
-                ("LIBTMUX_SOCKET_NAME", "libtmux-example-connect"))));
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = ChildEnvironment(
+                ("LIBTMUX_SOCKET_NAME", "libtmux-example-connect"))
+            });
 
         Assert.Equal(["-L", "libtmux-example-connect"], connection.PrefixArguments);
     }
@@ -324,9 +337,12 @@ public sealed class ConnectionValueTests
     {
         string path = Path.Combine(Path.GetTempPath(), "libtmux-env.sock");
         var connection = CreateFakeConnection(
-            new ServerConnectionOptions(childEnvironment: ChildEnvironment(
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = ChildEnvironment(
                 ("LIBTMUX_SOCKET_PATH", path),
-                ("LIBTMUX_SOCKET_NAME", "ignored"))));
+                ("LIBTMUX_SOCKET_NAME", "ignored"))
+            });
 
         Assert.Equal(["-S", Path.GetFullPath(path)], connection.PrefixArguments);
     }
@@ -334,9 +350,11 @@ public sealed class ConnectionValueTests
     [Fact]
     public void An_explicit_socket_name_ignores_the_environment()
     {
-        var connection = CreateFakeConnection(new ServerConnectionOptions(
-            socketName: "named",
-            childEnvironment: ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored"))));
+        var connection = CreateFakeConnection(new ServerConnectionOptions
+        {
+            SocketName = "named",
+            ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
+        });
 
         Assert.Equal(["-L", "named"], connection.PrefixArguments);
     }
@@ -344,9 +362,11 @@ public sealed class ConnectionValueTests
     [Fact]
     public void A_socket_name_factory_ignores_the_environment()
     {
-        var connection = CreateFakeConnection(new ServerConnectionOptions(
-            socketNameFactory: static () => "made",
-            childEnvironment: ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored"))));
+        var connection = CreateFakeConnection(new ServerConnectionOptions
+        {
+            SocketNameFactory = static () => "made",
+            ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
+        });
 
         Assert.Equal(["-L", "made"], connection.PrefixArguments);
     }
@@ -354,10 +374,12 @@ public sealed class ConnectionValueTests
     [Fact]
     public void An_explicit_socket_name_ignores_an_environment_socket_path()
     {
-        var connection = CreateFakeConnection(new ServerConnectionOptions(
-            socketName: "named",
-            childEnvironment: ChildEnvironment(
-                ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))));
+        var connection = CreateFakeConnection(new ServerConnectionOptions
+        {
+            SocketName = "named",
+            ChildEnvironment = ChildEnvironment(
+                ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))
+        });
 
         Assert.Equal(["-L", "named"], connection.PrefixArguments);
     }
@@ -399,24 +421,30 @@ public sealed class ConnectionValueTests
         string equivalentRoot = Path.Combine(firstRoot, "nested", "..");
         string secondRoot = Path.Combine(Path.GetTempPath(), "libtmux-root-two");
         Server first = Server.Open(
-            new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = firstRoot,
-                }));
+                }
+            });
         Server equivalent = Server.Open(
-            new ServerConnectionOptions(
-                socketName: "default",
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                SocketName = "default",
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = equivalentRoot,
-                }));
+                }
+            });
         Server distinct = Server.Open(
-            new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = secondRoot,
-                }));
+                }
+            });
 
         Assert.Equal(first, equivalent);
         Assert.Equal(first.GetHashCode(), equivalent.GetHashCode());
@@ -427,24 +455,30 @@ public sealed class ConnectionValueTests
     public void Empty_or_removed_tmux_tmpdir_uses_the_default_socket_root()
     {
         Server empty = Server.Open(
-            new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = string.Empty,
-                }));
+                }
+            });
         Server removed = Server.Open(
-            new ServerConnectionOptions(
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = null,
-                }));
+                }
+            });
         Server explicitDefault = Server.Open(
-            new ServerConnectionOptions(
-                socketName: "default",
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                SocketName = "default",
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX_TMPDIR"] = "/tmp",
-                }));
+                }
+            });
 
         Assert.Equal(empty, removed);
         Assert.Equal(removed, explicitDefault);
@@ -457,16 +491,18 @@ public sealed class ConnectionValueTests
         int calls = 0;
         string originalPath = Path.Combine("relative", "..", "socket.sock");
         string absolutePath = Path.Combine(Directory.GetCurrentDirectory(), "socket.sock");
-        var options = new ServerConnectionOptions(
-            socketName: "named",
-            socketPath: originalPath,
-            socketNameFactory: () =>
+        var options = new ServerConnectionOptions
+        {
+            SocketName = "named",
+            SocketPath = originalPath,
+            SocketNameFactory = () =>
             {
                 calls++;
                 return "factory";
-            });
+            }
+        };
         var connection = CreateFakeConnection(options);
-        Server normalized = Server.Open(new ServerConnectionOptions(socketPath: absolutePath));
+        Server normalized = Server.Open(new ServerConnectionOptions { SocketPath = absolutePath });
         Server original = Server.Open(options);
 
         Assert.Equal(["-S", absolutePath], connection.PrefixArguments);
@@ -480,13 +516,15 @@ public sealed class ConnectionValueTests
     {
         int calls = 0;
         var connection = CreateFakeConnection(
-            new ServerConnectionOptions(
-                socketName: "named",
-                socketNameFactory: () =>
+            new ServerConnectionOptions
+            {
+                SocketName = "named",
+                SocketNameFactory = () =>
                 {
                     calls++;
                     return "factory";
-                }));
+                }
+            });
 
         Assert.Equal(["-L", "named"], connection.PrefixArguments);
         Assert.Equal(0, calls);
@@ -496,16 +534,19 @@ public sealed class ConnectionValueTests
     public void Socket_name_factory_resolves_once_per_opened_connection()
     {
         int calls = 0;
-        var options = new ServerConnectionOptions(socketNameFactory: () =>
+        var options = new ServerConnectionOptions
+        {
+            SocketNameFactory = () =>
         {
             calls++;
             return "factory";
-        });
+        }
+        };
 
         Server server = Server.Open(options);
         _ = server.GetHashCode();
         _ = server.ConnectionOptions;
-        _ = server.Equals(Server.Open(new ServerConnectionOptions(socketName: "factory")));
+        _ = server.Equals(Server.Open(new ServerConnectionOptions { SocketName = "factory" }));
 
         Assert.Equal(1, calls);
     }
@@ -519,11 +560,14 @@ public sealed class ConnectionValueTests
     {
         int factoryCalls = 0;
         int executions = 0;
-        var options = new ServerConnectionOptions(socketNameFactory: () =>
+        var options = new ServerConnectionOptions
+        {
+            SocketNameFactory = () =>
         {
             factoryCalls++;
             return factoryResult!;
-        });
+        }
+        };
 
         Assert.Throws<InvalidOperationException>(
             () => new TmuxConnection(
@@ -542,25 +586,31 @@ public sealed class ConnectionValueTests
     {
         Server implicitDefault = Server.Open();
         Server explicitDefault = Server.Open(
-            new ServerConnectionOptions(socketName: "default", childEnvironment: new Dictionary<string, string?> { ["A"] = "1" }));
+            new ServerConnectionOptions
+            {
+                SocketName = "default",
+                ChildEnvironment = new Dictionary<string, string?> { ["A"] = "1" },
+            });
         string directPath = Path.Combine(Path.GetTempPath(), "libtmux-equality.sock");
         string normalizedPath = Path.Combine(
             Path.GetTempPath(),
             "unused",
             "..",
             "libtmux-equality.sock");
-        Server firstPath = Server.Open(new ServerConnectionOptions(socketPath: directPath));
+        Server firstPath = Server.Open(new ServerConnectionOptions { SocketPath = directPath });
         Server secondPath = Server.Open(
-            new ServerConnectionOptions(
-                tmuxBinaryPath: "different-tmux",
-                socketPath: normalizedPath,
-                colorMode: TmuxColorMode.TrueColor,
-                initializeAsync: static (_, _) => ValueTask.CompletedTask,
-                childEnvironment: new Dictionary<string, string?>
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = "different-tmux",
+                SocketPath = normalizedPath,
+                ColorMode = TmuxColorMode.TrueColor,
+                InitializeAsync = static (_, _) => ValueTask.CompletedTask,
+                ChildEnvironment = new Dictionary<string, string?>
                 {
                     ["TMUX"] = "/ignored,1,0",
                     ["TMUX_TMPDIR"] = "/ignored",
-                }));
+                },
+            });
 
         Assert.Equal(implicitDefault, explicitDefault);
         Assert.Equal(implicitDefault.GetHashCode(), explicitDefault.GetHashCode());
@@ -671,6 +721,30 @@ public sealed class ConnectionValueTests
 [UnsupportedOSPlatform("windows")]
 public sealed class GenerationGuardTests
 {
+    [Fact]
+    public void Capture_and_event_ceilings_are_set_as_initializers_and_must_count_upward()
+    {
+        // Set through an object initializer, not a constructor argument: the
+        // ten-parameter constructor is a promise to every compiled caller.
+        ServerConnectionOptions bounded = new()
+        {
+            MaxCapturedBytesPerStream = 4096,
+            ControlModeEventBufferCapacity = 8,
+        };
+
+        Assert.Equal(4096, bounded.MaxCapturedBytesPerStream);
+        Assert.Equal(8, bounded.ControlModeEventBufferCapacity);
+
+        // Unset means the library's own ceiling, not "no ceiling".
+        Assert.Null(ServerConnectionOptions.Default.MaxCapturedBytesPerStream);
+        Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferCapacity);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { MaxCapturedBytesPerStream = 0 });
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { ControlModeEventBufferCapacity = -1 });
+    }
+
     [ConnectionUnixFact]
     public async Task Guard_uses_one_structural_group_and_hides_guard_output_and_arguments()
     {
@@ -817,12 +891,16 @@ public sealed class GenerationGuardTests
                     Encoding.UTF8.GetBytes($"unknown command: {Marker}\n")))),
             () => Marker);
 
-        await Assert.ThrowsAsync<InvalidDataException>(
+        TmuxCommandException error = await Assert.ThrowsAsync<TmuxCommandException>(
             () => connection
                 .CreateEntityDispatcher(new ServerGeneration(46, 203))
                 .ExecuteAsync(
                     ["kill-session", "-t", "$0"],
                     TestContext.Current.CancellationToken));
+
+        // tmux answered, so the failure says so and carries what it said.
+        Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
+        Assert.Contains(Marker, string.Join('\n', error.Result.StandardErrorLines), StringComparison.Ordinal);
     }
 
     [ConnectionUnixFact]
@@ -892,8 +970,9 @@ public sealed class GenerationGuardTests
                             []));
                 }));
 
-            await Assert.ThrowsAsync<InvalidDataException>(
+            TmuxProtocolException error = await Assert.ThrowsAsync<TmuxProtocolException>(
                 () => connection.DiscoverAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(TmuxDispatchState.Dispatched, error.Dispatch);
             Assert.Equal(1, calls);
         }
     }
@@ -909,17 +988,19 @@ public sealed class GenerationGuardTests
         var server = new Server(connection, generation, "tmux 3.7");
         var successor = new Server(connection, new ServerGeneration(61, 401), "tmux 3.7");
 
-        var session = new Session(server, connection, generation, new SessionId(1));
-        var equalSession = new Session(server, connection, generation, new SessionId(1));
+        IReadOnlyDictionary<string, string?> fields = new Dictionary<string, string?>();
+        var session = new Session(server, connection, generation, new SessionId(1), fields);
+        var equalSession = new Session(server, connection, generation, new SessionId(1), fields);
         var successorSession = new Session(
             successor,
             connection,
             new ServerGeneration(61, 401),
-            new SessionId(1));
-        var window = new Window(server, connection, generation, new WindowId(2));
-        var equalWindow = new Window(server, connection, generation, new WindowId(2));
-        var pane = new Pane(server, connection, generation, new PaneId(3));
-        var equalPane = new Pane(server, connection, generation, new PaneId(3));
+            new SessionId(1),
+            fields);
+        var window = new Window(server, connection, generation, new WindowId(2), fields);
+        var equalWindow = new Window(server, connection, generation, new WindowId(2), fields);
+        var pane = new Pane(server, connection, generation, new PaneId(3), fields);
+        var equalPane = new Pane(server, connection, generation, new PaneId(3), fields);
 
         Assert.Equal(session, equalSession);
         Assert.Equal(session.GetHashCode(), equalSession.GetHashCode());
@@ -974,7 +1055,7 @@ public sealed class ConnectionPlatformContractTests
     public async Task Process_backed_server_requires_preview_opt_in_on_windows()
     {
         string missing = Path.Combine(Path.GetTempPath(), $"missing-tmux-{Guid.NewGuid():N}.exe");
-        Server server = Server.Open(new ServerConnectionOptions(tmuxBinaryPath: missing));
+        Server server = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = missing });
 
         await Assert.ThrowsAsync<PlatformNotSupportedException>(
             () => server.ConnectAsync(TestContext.Current.CancellationToken));

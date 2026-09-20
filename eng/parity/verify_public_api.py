@@ -14,7 +14,12 @@ API_PATH = DOCUMENT_ROOT / "public-api.json"
 LEDGER_PATH = DOCUMENT_ROOT / "parity" / "parity-ledger.json"
 PACKAGES_PATH = pathlib.Path(__file__).parents[2] / "Directory.Packages.props"
 SOURCE_ROOT = pathlib.Path(__file__).parents[2] / "src"
-PACKAGE_IDS = ["LibTmux", "LibTmux.Query.Json"]
+PACKAGE_IDS = [
+    "LibTmux",
+    "LibTmux.Query.Json",
+    "LibTmux.Testing",
+    "LibTmux.Extensions.DependencyInjection",
+]
 COMPONENT_IDS = set(range(1, 19))
 DISPOSAL_INTERFACES = {
     "IDisposable",

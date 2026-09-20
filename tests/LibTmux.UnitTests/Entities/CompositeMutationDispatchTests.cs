@@ -26,7 +26,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest("tiled"),
+                new SelectLayoutRequest { Layout = "tiled" },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
@@ -50,7 +50,7 @@ public sealed class CompositeMutationDispatchTests
         });
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
-            window.SelectLayoutAsync(new SelectLayoutRequest("tiled"), cancellation.Token));
+            window.SelectLayoutAsync(new SelectLayoutRequest { Layout = "tiled" }, cancellation.Token));
 
         AssertPartialFailure(failure, typeof(OperationCanceledException));
     }
@@ -66,7 +66,7 @@ public sealed class CompositeMutationDispatchTests
 
         TmuxTransportException failure = await Assert.ThrowsAsync<TmuxTransportException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest("tiled"),
+                new SelectLayoutRequest { Layout = "tiled" },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
@@ -89,10 +89,119 @@ public sealed class CompositeMutationDispatchTests
 
         await Assert.ThrowsAsync<TmuxWindowException>(() =>
             window.SelectLayoutAsync(
-                new SelectLayoutRequest(layout),
+                new SelectLayoutRequest { Layout = layout },
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
+    public async Task Json_layouts_are_refused_before_dispatch_below_3_8()
+    {
+        int dispatches = 0;
+        Window window = CreateWindow(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.7c");
+
+        // tmux's window_layout format became JSON at 3.8, so a JSON-shaped
+        // layout is only trusted from a server that could have produced one.
+        // Below that it is refused the same way an unknown name is: before
+        // it ever reaches tmux.
+        await Assert.ThrowsAsync<TmuxWindowException>(() =>
+            window.SelectLayoutAsync(
+                new SelectLayoutRequest { Layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}" },
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
+    public async Task Pane_display_message_client_flag_is_refused_before_3_3()
+    {
+        int dispatches = 0;
+        Pane pane = CreatePane(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.2a");
+
+        TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => pane.DisplayMessageAsync(
+                new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
+                TestContext.Current.CancellationToken));
+
+        // tmux 3.2a declares -c as a bare flag with no value, so naming a
+        // client is refused here rather than silently addressing a
+        // different one. The flag takes a value starting at 3.3 itself
+        // (tmux's own history: commit 4cc6db72 is tagged 3.3, 3.3a and
+        // 3.4), not 3.3a.
+        Assert.Equal(TmuxVersion.Parse("3.3"), failure.RequiredVersion);
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
+    public async Task Pane_display_message_client_flag_dispatches_from_3_3()
+    {
+        int dispatches = 0;
+        Pane pane = CreatePane(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.3");
+
+        await pane.DisplayMessageAsync(
+            new DisplayMessageRequest { Message = "#{pane_id}", TargetClient = "/dev/tty0" },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(Volatile.Read(ref dispatches) > 0);
+    }
+
+    [Fact]
+    public async Task Window_display_message_client_flag_is_refused_before_3_3()
+    {
+        int dispatches = 0;
+        Window window = CreateWindow(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.2a");
+
+        TmuxVersionTooLowException failure = await Assert.ThrowsAsync<TmuxVersionTooLowException>(
+            () => window.DisplayMessageAsync(
+                new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(TmuxVersion.Parse("3.3"), failure.RequiredVersion);
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
+    public async Task Window_display_message_client_flag_dispatches_from_3_3()
+    {
+        int dispatches = 0;
+        Window window = CreateWindow(
+            (request, _) =>
+            {
+                Interlocked.Increment(ref dispatches);
+                return Task.FromResult(Success(request));
+            },
+            rawVersion: "tmux 3.3");
+
+        await window.DisplayMessageAsync(
+            new DisplayMessageRequest { Message = "#{window_id}", TargetClient = "/dev/tty0" },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(Volatile.Read(ref dispatches) > 0);
     }
 
     [Fact]
@@ -137,7 +246,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.Options.SetAsync(
-                new SetOptionRequest("status-left", "next", append: true),
+                new SetOptionRequest("status-left", "next") { Append = true },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
@@ -201,7 +310,7 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.CreateSessionAsync(
-                new NewSessionRequest("replace-me", replaceExisting: true),
+                new NewSessionRequest { Name = "replace-me", ReplaceExisting = true },
                 TestContext.Current.CancellationToken));
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
@@ -226,10 +335,10 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             server.CreateSessionAsync(
-                new NewSessionRequest("created"),
+                new NewSessionRequest { Name = "created" },
                 TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
     }
 
     [Fact]
@@ -260,7 +369,7 @@ public sealed class CompositeMutationDispatchTests
         }, "tmux 3.2a");
 
         Window selected = await session.CreateWindowAsync(
-            new NewWindowRequest("-#{session_name}-x", selectExisting: true),
+            new NewWindowRequest { Name = "-#{session_name}-x", SelectExisting = true },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(WindowId.Parse("@2"), selected.Id);
@@ -284,10 +393,10 @@ public sealed class CompositeMutationDispatchTests
 
         LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             window.CreateWindowAsync(
-                new NewWindowRequest("wanted", selectExisting: true),
+                new NewWindowRequest { Name = "wanted", SelectExisting = true },
                 TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(TmuxCommandException));
     }
 
     [Fact]
@@ -348,7 +457,25 @@ public sealed class CompositeMutationDispatchTests
                 "value",
                 cancellationToken: TestContext.Current.CancellationToken));
 
-        AssertPartialFailure(failure, typeof(InvalidDataException));
+        AssertPartialFailure(failure, typeof(TmuxProtocolException));
+    }
+
+    [Fact]
+    public async Task Environment_readback_distinguishes_dash_names_from_removed_variables()
+    {
+        Server server = CreateServer((request, _) => Task.FromResult(
+            Success(request, "\n-\n-DASH=a=b\n-PLAIN\n--DASH\n")));
+
+        IReadOnlyList<TmuxEnvironmentEntry> entries = await server.Environment.GetAllAsync(
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [
+                new TmuxEnvironmentEntry("-DASH", "a=b", false),
+                new TmuxEnvironmentEntry("PLAIN", null, true),
+                new TmuxEnvironmentEntry("-DASH", null, true),
+            ],
+            entries);
     }
 
     [Fact]
@@ -379,7 +506,7 @@ public sealed class CompositeMutationDispatchTests
             });
 
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest("created"),
+            new NewSessionRequest { Name = "created" },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(Generation, created.Generation);
@@ -400,7 +527,7 @@ public sealed class CompositeMutationDispatchTests
             });
 
         Session created = await server.CreateSessionAsync(
-            new NewSessionRequest("created"),
+            new NewSessionRequest { Name = "created" },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(changed, created.Generation);
@@ -416,24 +543,35 @@ public sealed class CompositeMutationDispatchTests
         {
             Assert.Equal(TmuxDispatchState.NotDispatched, inner.Dispatch);
         }
+
+        // An unreadable answer still came from tmux, so it carries what tmux
+        // was asked and what it said.
+        if (failure.InnerException is TmuxCommandException answered)
+        {
+            Assert.Equal(TmuxDispatchState.Dispatched, answered.Dispatch);
+            Assert.NotEmpty(answered.Result.Arguments);
+        }
     }
 
     private static Pane CreatePane(
-        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
+        string rawVersion = "tmux 3.7")
     {
         var connection = CreateConnection(execute);
         return new Pane(
-            new Server(connection, Generation, "tmux 3.7"),
+            new Server(connection, Generation, rawVersion),
             connection,
             Generation,
-            new PaneId(1));
+            new PaneId(1),
+            new Dictionary<string, string?>());
     }
 
     private static Window CreateWindow(
-        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute)
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
+        string rawVersion = "tmux 3.7")
     {
         TmuxConnection connection = CreateConnection(execute);
-        var server = new Server(connection, Generation, "tmux 3.7");
+        var server = new Server(connection, Generation, rawVersion);
         return new Window(
             server,
             connection,
@@ -476,9 +614,11 @@ public sealed class CompositeMutationDispatchTests
         Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
         Func<Server, CancellationToken, ValueTask>? initializeAsync = null) =>
         new(
-            new ServerConnectionOptions(
-                socketName: "composite-mutation-test",
-                initializeAsync: initializeAsync),
+            new ServerConnectionOptions
+            {
+                SocketName = "composite-mutation-test",
+                InitializeAsync = initializeAsync,
+            },
             execute);
 
     private static TmuxTransportException NotDispatched(

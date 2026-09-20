@@ -7,104 +7,124 @@ namespace LibTmux;
 /// trimming below the cursor unrepresentable on its own; it rides alongside a
 /// real resize.
 /// </remarks>
-public sealed record ResizePaneRequest
+public sealed record ResizePaneRequest : ITmuxRequest<Pane>
 {
-    /// <summary>Initializes a pane-resize request.</summary>
-    /// <param name="direction">The edge to move.</param>
-    /// <param name="adjustment">How many cells to move it by.</param>
-    /// <param name="width">An explicit width in cells or a percentage.</param>
-    /// <param name="height">An explicit height in cells or a percentage.</param>
-    /// <param name="zoom">Whether the pane's zoom is toggled.</param>
-    /// <param name="mouse">Whether the resize follows the mouse.</param>
-    /// <param name="trimBelow">Whether lines below the cursor are trimmed.</param>
-    /// <exception cref="ArgumentException">
-    /// No sizing instruction is given, more than one is, or a direction has no
-    /// adjustment.
-    /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// A supplied adjustment is not positive.
-    /// </exception>
-    public ResizePaneRequest(
-        ResizeDirection? direction = null,
-        int? adjustment = null,
-        string? width = null,
-        string? height = null,
-        bool zoom = false,
-        bool mouse = false,
-        bool trimBelow = false)
+    private readonly ResizeDirection? _direction;
+    private readonly int? _adjustment;
+    private readonly string? _width;
+    private readonly string? _height;
+
+    /// <summary>Gets the edge to move.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined direction.</exception>
+    public ResizeDirection? Direction
     {
-        bool hasSize = width is not null || height is not null;
-        int modes = (direction is null ? 0 : 1)
-            + (hasSize ? 1 : 0)
-            + (zoom ? 1 : 0)
-            + (mouse ? 1 : 0);
+        get => _direction;
+        init
+        {
+            if (value is not null && !Enum.IsDefined(value.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(Direction));
+            }
+
+            _direction = value;
+        }
+    }
+
+    /// <summary>Gets how many cells to move the edge by.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public int? Adjustment
+    {
+        get => _adjustment;
+        init
+        {
+            if (value is int cells && cells <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(Adjustment),
+                    cells,
+                    "Cells must be positive.");
+            }
+
+            _adjustment = value;
+        }
+    }
+
+    /// <summary>Gets the explicit width in cells or as a percentage.</summary>
+    /// <exception cref="ArgumentException">The value is not a positive number of cells or a percentage.</exception>
+    public string? Width
+    {
+        get => _width;
+        init
+        {
+            ValidateExtent(value, nameof(Width));
+
+            _width = value;
+        }
+    }
+
+    /// <summary>Gets the explicit height in cells or as a percentage.</summary>
+    /// <exception cref="ArgumentException">The value is not a positive number of cells or a percentage.</exception>
+    public string? Height
+    {
+        get => _height;
+        init
+        {
+            ValidateExtent(value, nameof(Height));
+
+            _height = value;
+        }
+    }
+
+    /// <summary>Gets whether the pane's zoom is toggled.</summary>
+    public bool Zoom { get; init; }
+
+    /// <summary>Gets whether the resize follows the mouse.</summary>
+    public bool Mouse { get; init; }
+
+    /// <summary>Gets whether lines below the cursor are trimmed.</summary>
+    public bool TrimBelow { get; init; }
+
+    /// <summary>Resolves the adjustment, refusing an instruction tmux would half-apply.</summary>
+    /// <returns>The trailing adjustment, or null when no edge moves.</returns>
+    /// <exception cref="ArgumentException">
+    /// No sizing instruction is set, more than one is, or a direction and an
+    /// adjustment are not set together.
+    /// </exception>
+    /// <remarks>
+    /// Initializers cannot check one property against another, so the rules
+    /// are settled where the adjustment is derived. Every caller that sends a
+    /// resize needs this value, so none can reach tmux having skipped them.
+    /// </remarks>
+    internal int? ResolveAdjustment()
+    {
+        int modes = (Direction is null ? 0 : 1)
+            + (Width is not null || Height is not null ? 1 : 0)
+            + (Zoom ? 1 : 0)
+            + (Mouse ? 1 : 0);
         if (modes != 1)
         {
             throw new ArgumentException(
                 "A resize moves an edge, sets a size, toggles zoom, or follows the mouse; "
                 + "exactly one.",
-                nameof(direction));
+                nameof(Direction));
         }
 
-        if (direction is not null && adjustment is null)
+        if (Direction is not null && Adjustment is null)
         {
             throw new ArgumentException(
                 "A direction needs an adjustment to move by.",
-                nameof(adjustment));
+                nameof(Adjustment));
         }
 
-        if (direction is null && adjustment is not null)
+        if (Direction is null && Adjustment is not null)
         {
             throw new ArgumentException(
                 "An adjustment has no meaning without a direction to apply it to.",
-                nameof(adjustment));
+                nameof(Adjustment));
         }
 
-        if (direction is not null && !Enum.IsDefined(direction.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(direction));
-        }
-
-        if (adjustment is int cells && cells <= 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(adjustment),
-                cells,
-                "Cells must be positive.");
-        }
-
-        ValidateExtent(width, nameof(width));
-        ValidateExtent(height, nameof(height));
-
-        Direction = direction;
-        Adjustment = adjustment;
-        Width = width;
-        Height = height;
-        Zoom = zoom;
-        Mouse = mouse;
-        TrimBelow = trimBelow;
+        return Adjustment;
     }
-
-    /// <summary>Gets the edge to move.</summary>
-    public ResizeDirection? Direction { get; }
-
-    /// <summary>Gets how many cells to move the edge by.</summary>
-    public int? Adjustment { get; }
-
-    /// <summary>Gets the explicit width in cells or as a percentage.</summary>
-    public string? Width { get; }
-
-    /// <summary>Gets the explicit height in cells or as a percentage.</summary>
-    public string? Height { get; }
-
-    /// <summary>Gets whether the pane's zoom is toggled.</summary>
-    public bool Zoom { get; }
-
-    /// <summary>Gets whether the resize follows the mouse.</summary>
-    public bool Mouse { get; }
-
-    /// <summary>Gets whether lines below the cursor are trimmed.</summary>
-    public bool TrimBelow { get; }
 
     private static void ValidateExtent(string? value, string parameterName)
     {
@@ -125,5 +145,18 @@ public sealed record ResizePaneRequest
                 "An extent is a positive number of cells or a percentage.",
                 parameterName);
         }
+    }
+
+    /// <summary>Returns a pane-resize request as one tmux command.</summary>
+    /// <param name="pane">The pane being resized.</param>
+    /// <returns>The command, ready to add to a <see cref="TmuxChain" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="pane" /> is null.</exception>
+    public TmuxCommand ToCommand(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return TmuxChaining.Command([.. pane.BuildResizePaneArguments(this)]) with
+        {
+            RequiredGeneration = pane.Generation,
+        };
     }
 }
