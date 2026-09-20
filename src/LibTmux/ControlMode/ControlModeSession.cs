@@ -61,10 +61,13 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         Func<string>? sentinelFactory = null,
         ControlModeLimits? limits = null,
         TimeProvider? timeProvider = null,
-        int? eventBufferCapacity = null)
+        int? eventBufferCapacity = null,
+        int? eventBufferMaxBytes = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
-        _events = new ControlModeEventBuffer(eventBufferCapacity ?? EventBufferCapacity);
+        _events = new ControlModeEventBuffer(
+            eventBufferCapacity ?? EventBufferCapacity,
+            maxBytes: eventBufferMaxBytes ?? ControlModeEventBuffer.DefaultMaxBytes);
         _generation = generation;
         _limits = limits ?? new ControlModeLimits();
         _pendingSlots = new SemaphoreSlim(
@@ -98,7 +101,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         string? target,
         ServerGeneration generation,
         Action<ProcessStartInfo> configureEnvironment,
-        int? eventBufferCapacity = null)
+        int? eventBufferCapacity = null,
+        int? eventBufferMaxBytes = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -135,7 +139,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             new SystemControlModeProcess(process, limits),
             generation: generation,
             limits: limits,
-            eventBufferCapacity: eventBufferCapacity);
+            eventBufferCapacity: eventBufferCapacity,
+            eventBufferMaxBytes: eventBufferMaxBytes);
     }
 
     /// <summary>Waits until tmux has answered its own attach.</summary>

@@ -383,6 +383,31 @@ public sealed class ControlModeSessionFailureTests
         Assert.True(process.DisposeCalled);
     }
 
+    [Fact]
+    public async Task A_byte_limited_event_burst_does_not_block_a_reply_or_exit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const int NotificationCount = 568;
+        var process = new BurstOutputProcess(NotificationCount);
+        var session = new ControlModeSession(process, eventBufferMaxBytes: 7);
+        await session.WaitForReadyAsync(token);
+
+        IReadOnlyList<string> reply = await session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "reply"), token);
+        await session.DisposeAsync();
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent item in session.Events.WithCancellation(token))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal(["reply-ok"], reply);
+        Assert.Equal(new TmuxEventsDroppedEvent(NotificationCount, NotificationCount), observed[0]);
+        Assert.Equal(new TmuxExitEvent("done"), observed[1]);
+        Assert.Equal(2, observed.Count);
+        Assert.True(process.DisposeCalled);
+    }
+
     [Theory]
     [InlineData(DispatchFailurePoint.PartialWrite)]
     [InlineData(DispatchFailurePoint.Flush)]

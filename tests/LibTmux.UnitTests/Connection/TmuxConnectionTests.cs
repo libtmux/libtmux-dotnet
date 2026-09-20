@@ -730,19 +730,24 @@ public sealed class GenerationGuardTests
         {
             MaxCapturedBytesPerStream = 4096,
             ControlModeEventBufferCapacity = 8,
+            ControlModeEventBufferMaxBytes = 1024,
         };
 
         Assert.Equal(4096, bounded.MaxCapturedBytesPerStream);
         Assert.Equal(8, bounded.ControlModeEventBufferCapacity);
+        Assert.Equal(1024, bounded.ControlModeEventBufferMaxBytes);
 
         // Unset means the library's own ceiling, not "no ceiling".
         Assert.Null(ServerConnectionOptions.Default.MaxCapturedBytesPerStream);
         Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferCapacity);
+        Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferMaxBytes);
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new ServerConnectionOptions { MaxCapturedBytesPerStream = 0 });
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new ServerConnectionOptions { ControlModeEventBufferCapacity = -1 });
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { ControlModeEventBufferMaxBytes = 0 });
     }
 
     [ConnectionUnixFact]

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Text;
 
 namespace LibTmux.Internal;
 
@@ -13,10 +14,14 @@ internal enum ControlModeEventRead
 /// <summary>Buffers notifications without allowing a slow consumer to stall commands.</summary>
 internal sealed class ControlModeEventBuffer
 {
+    internal const int DefaultMaxBytes = 4 * 1024 * 1024;
+
     private readonly int _capacity;
+    private readonly int _maxBytes;
+    private long _bufferedBytes;
     private readonly Action? _afterDequeue;
     private readonly object _gate = new();
-    private readonly Queue<(long Sequence, TmuxEvent Item)> _items = new();
+    private readonly Queue<(long Sequence, TmuxEvent Item, long Bytes)> _items = new();
     private TaskCompletionSource _changed = NewSignal();
     private long _dropped;
     private long _reported;
@@ -24,16 +29,20 @@ internal sealed class ControlModeEventBuffer
     private ExceptionDispatchInfo? _completionError;
     private bool _completed;
 
-    internal ControlModeEventBuffer(int capacity, Action? afterDequeue = null)
+    internal ControlModeEventBuffer(
+        int capacity, Action? afterDequeue = null, int maxBytes = DefaultMaxBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
         _capacity = capacity;
+        _maxBytes = maxBytes;
         _afterDequeue = afterDequeue;
     }
 
     internal bool TryWrite(TmuxEvent item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        long bytes = PayloadBytes(item);
         TaskCompletionSource? changed = null;
         lock (_gate)
         {
@@ -43,13 +52,35 @@ internal sealed class ControlModeEventBuffer
             }
 
             bool wasEmpty = _items.Count == 0;
-            if (_items.Count == _capacity)
+            long sequence = ++_lastWritten;
+            bool retain = true;
+            if (bytes > _maxBytes)
             {
-                _items.Dequeue();
                 _dropped++;
+                if (item is TmuxExitEvent)
+                {
+                    item = new TmuxExitEvent(null);
+                    bytes = 0;
+                }
+                else
+                {
+                    retain = false;
+                }
             }
 
-            _items.Enqueue((++_lastWritten, item));
+            if (retain)
+            {
+                while (_items.Count > 0
+                    && (_items.Count == _capacity || bytes > _maxBytes - _bufferedBytes))
+                {
+                    _bufferedBytes -= _items.Dequeue().Bytes;
+                    _dropped++;
+                }
+
+                _items.Enqueue((sequence, item, bytes));
+                _bufferedBytes += bytes;
+            }
+
             if (wasEmpty)
             {
                 changed = _changed;
@@ -135,7 +166,7 @@ internal sealed class ControlModeEventBuffer
                 {
                     if (_owner._items.Count > 0)
                     {
-                        (long sequence, TmuxEvent item) = _owner._items.Peek();
+                        (long sequence, TmuxEvent item, _) = _owner._items.Peek();
                         long dropped = _owner._dropped - _owner._reported;
                         if (sequence > watermark)
                         {
@@ -154,11 +185,19 @@ internal sealed class ControlModeEventBuffer
                             return ControlModeEventRead.Item;
                         }
 
-                        _owner._items.Dequeue();
+                        _owner._bufferedBytes -= _owner._items.Dequeue().Bytes;
                         _owner._afterDequeue?.Invoke();
                         Current = item;
                         _lastConsumed = sequence;
 
+                        return ControlModeEventRead.Item;
+                    }
+
+                    long pendingLoss = _owner._dropped - _owner._reported;
+                    if (pendingLoss > 0)
+                    {
+                        _owner._reported = _owner._dropped;
+                        Current = new TmuxEventsDroppedEvent(pendingLoss, _owner._dropped);
                         return ControlModeEventRead.Item;
                     }
 
@@ -195,6 +234,16 @@ internal sealed class ControlModeEventBuffer
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
+
+    private static long PayloadBytes(TmuxEvent item) => item switch
+    {
+        TmuxOutputEvent output => Encoding.UTF8.GetByteCount(output.Data),
+        TmuxNotificationEvent notification => Encoding.UTF8.GetByteCount(notification.Name)
+            + notification.Arguments.Sum(static value => (long)Encoding.UTF8.GetByteCount(value)),
+        TmuxExitEvent { Reason: string reason } => Encoding.UTF8.GetByteCount(reason),
+        TmuxExitEvent => 0,
+        _ => throw new ArgumentException("The control event has no payload budget definition.", nameof(item)),
+    };
 
     private static TaskCompletionSource NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
