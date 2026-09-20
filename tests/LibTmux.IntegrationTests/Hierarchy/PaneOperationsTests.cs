@@ -249,6 +249,55 @@ public sealed class PaneOperationsTests
         await pane.RespawnAsync(new RespawnRequest { KillExistingProcess = true }, token);
     }
 
+    [UnixFact]
+    public async Task Standalone_trim_moves_history_without_resizing_or_zooming()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane pane = await FirstPaneAsync(raw, token);
+        await using IControlModeSession control = await pane.Server.EnterControlModeAsync(raw.SessionName, token);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token);
+        budget.CancelAfter(TimeSpan.FromSeconds(5));
+        await using IAsyncEnumerator<TmuxEvent> events = control.Events.GetAsyncEnumerator(budget.Token);
+        Task<bool> next = events.MoveNextAsync().AsTask();
+
+        await pane.RespawnAsync(new RespawnRequest
+        {
+            KillExistingProcess = true,
+            Command = "/bin/sh -c 'i=0; while [ $i -lt 50 ]; do printf \"line\\n\"; i=$((i+1)); done; printf \"\\033[Htrim-ready\"; exec /bin/cat'",
+        }, token);
+        var output = new System.Text.StringBuilder();
+        while (await next)
+        {
+            if (events.Current is TmuxOutputEvent written && written.PaneId == pane.Id)
+            {
+                output.Append(written.Data);
+                if (output.ToString().Contains("trim-ready", StringComparison.Ordinal))
+                {
+                    break;
+                }
+            }
+
+            next = events.MoveNextAsync().AsTask();
+        }
+
+        Assert.Contains("trim-ready", output.ToString(), StringComparison.Ordinal);
+        string[] before = (await FormatAsync(pane, "#{history_size}:#{cursor_y}:#{window_zoomed_flag}", token)).Split(':');
+        int history = int.Parse(before[0], System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(history >= pane.Height - 1);
+        Assert.Equal("0", before[1]);
+        Assert.Equal("0", before[2]);
+
+        Pane trimmed = await pane.ResizeAsync(new ResizePaneRequest { TrimBelow = true }, token);
+
+        Assert.Equal(pane.Width, trimmed.Width);
+        Assert.Equal(pane.Height, trimmed.Height);
+        string[] after = (await FormatAsync(trimmed, "#{history_size}:#{cursor_y}:#{window_zoomed_flag}", token)).Split(':');
+        Assert.Equal(history - (pane.Height - 1), int.Parse(after[0], System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal((pane.Height - 1).ToString(System.Globalization.CultureInfo.InvariantCulture), after[1]);
+        Assert.Equal("0", after[2]);
+    }
+
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
