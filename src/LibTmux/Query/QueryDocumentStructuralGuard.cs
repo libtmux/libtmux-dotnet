@@ -41,6 +41,10 @@ internal static class QueryDocumentStructuralGuard
                     Push(quantifier.Predicate, childDepth);
                     Push(quantifier.Relation, childDepth);
                     break;
+                case RelatedNode related:
+                    Push(related.Predicate, childDepth);
+                    Push(related.Relation, childDepth);
+                    break;
                 case ConstantNode constant:
                     ValidateConstant(constant.Value);
                     break;

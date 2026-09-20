@@ -37,8 +37,8 @@ public sealed record QueryDocument
     /// <summary>The current wire schema identifier.</summary>
     public const string CurrentSchema = "libtmux-query";
 
-    /// <summary>The current wire schema version.</summary>
-    public const int CurrentVersion = 1;
+    /// <summary>The supported wire schema version.</summary>
+    public const int CurrentVersion = 2;
 
     /// <summary>Gets the snapshot depth this predicate needs to evaluate.</summary>
     /// <remarks>
@@ -46,7 +46,7 @@ public sealed record QueryDocument
     /// so the depth is derived from the predicate rather than assumed.
     /// </remarks>
     /// <exception cref="UnsupportedQueryExpressionException">
-    /// The predicate is malformed or exceeds the version-one structural limits.
+    /// The predicate is malformed or exceeds the structural limits.
     /// </exception>
     public SnapshotDepth RequiredSnapshotDepth
     {
@@ -62,6 +62,9 @@ public sealed record QueryDocument
         QuantifierNode quantifier => Deepest(
             RelationDepth(quantifier.Relation.WireName),
             Depth(quantifier.Predicate, target)),
+        RelatedNode related => Deepest(
+            RelationDepth(related.Relation.WireName),
+            Depth(related.Predicate, target)),
         AndNode and => and.Operands.Aggregate(
             Base(target),
             (depth, operand) => Deepest(depth, Depth(operand, target))),
@@ -80,12 +83,10 @@ public sealed record QueryDocument
         _ => Base(target),
     };
 
-    private static SnapshotDepth RelationDepth(string wireName) => wireName switch
-    {
-        "session_windows" => SnapshotDepth.Windows,
-        "window_panes" => SnapshotDepth.Panes,
-        _ => SnapshotDepth.Sessions,
-    };
+    private static SnapshotDepth RelationDepth(string wireName) =>
+        QueryFieldCatalog.TryGetRelation(wireName, out QueryRelationDefinition relation)
+            ? relation.Depth
+            : throw new UnsupportedQueryExpressionException($"Field '{wireName}' is not a relation.");
 
     private static SnapshotDepth Base(QueryTarget target) => target switch
     {

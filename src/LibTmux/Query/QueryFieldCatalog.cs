@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace LibTmux.Query;
 
+[SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "Catalog accessors only read captured state; relation getters do not invoke platform APIs.")]
 internal static class QueryFieldCatalog
 {
     private static readonly FieldDefinition[] Fields =
@@ -178,6 +179,22 @@ internal static class QueryFieldCatalog
             nameof(Pane.Width),
             new(static element => (long)((Pane)element).Width, typeof(long))),
         new(
+            "pane_session", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Session),
+            Relation: new(static element => ((Pane)element).Session, typeof(Session)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Session, SnapshotDepth.Panes)),
+        new(
+            "pane_window", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Window),
+            Relation: new(static element => ((Pane)element).Window, typeof(Window)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Window, SnapshotDepth.Panes)),
+        new(
+            "session_active_pane", QueryTarget.Session, null, typeof(Session), nameof(Session.ActivePane),
+            Relation: new(static element => ((Session)element).ActivePane.Value, typeof(Pane)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes)),
+        new(
+            "session_active_window", QueryTarget.Session, null, typeof(Session), nameof(Session.ActiveWindow),
+            Relation: new(static element => ((Session)element).ActiveWindow.Value, typeof(Window)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Window, SnapshotDepth.Windows)),
+        new(
             "session_attached",
             QueryTarget.Session,
             QueryValueKind.Boolean,
@@ -199,6 +216,11 @@ internal static class QueryFieldCatalog
             nameof(Session.Name),
             new(static element => ((Session)element).Name, typeof(string))),
         new(
+            "session_panes", QueryTarget.Session, QueryValueKind.Int64, typeof(Session), nameof(Session.Panes),
+            new(static element => checked((long)((Session)element).Panes.Count), typeof(long)),
+            new(static element => ((Session)element).Panes, typeof(CapturedRelation<Pane>)),
+            RelationShape: new(QueryRelationCardinality.Many, QueryTarget.Pane, SnapshotDepth.Panes)),
+        new(
             "session_windows",
             QueryTarget.Session,
             QueryValueKind.Int64,
@@ -207,14 +229,15 @@ internal static class QueryFieldCatalog
             new(static element => checked((long)((Session)element).Windows.Count), typeof(long)),
             new(
                 static element => ((Session)element).Windows,
-                typeof(CapturedRelation<Window>))),
+                typeof(CapturedRelation<Window>)),
+            RelationShape: new(QueryRelationCardinality.Many, QueryTarget.Window, SnapshotDepth.Windows)),
         new(
-            "window_active",
-            QueryTarget.Window,
-            QueryValueKind.Boolean,
-            typeof(Window),
-            nameof(Window.Active),
-            new(static element => ((Window)element).Active, typeof(bool))),
+            "window_active", QueryTarget.Window, QueryValueKind.Boolean, typeof(Window), nameof(Window.IsActive),
+            new(static element => ((Window)element).IsActive, typeof(bool))),
+        new(
+            "window_active_pane", QueryTarget.Window, null, typeof(Window), nameof(Window.ActivePane),
+            Relation: new(static element => ((Window)element).ActivePane.Value, typeof(Pane)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Pane, SnapshotDepth.Panes)),
         new(
             "window_activity_flag",
             QueryTarget.Window,
@@ -265,6 +288,11 @@ internal static class QueryFieldCatalog
             nameof(Window.Layout),
             new(static element => ((Window)element).Layout, typeof(string))),
         new(
+            "window_linked_sessions", QueryTarget.Window, QueryValueKind.Int64, typeof(Window), nameof(Window.LinkedSessions),
+            new(static element => checked((long)((Window)element).LinkedSessions.Count), typeof(long)),
+            new(static element => ((Window)element).LinkedSessions, typeof(CapturedRelation<Session>)),
+            RelationShape: new(QueryRelationCardinality.Many, QueryTarget.Session, SnapshotDepth.Windows)),
+        new(
             "window_name",
             QueryTarget.Window,
             QueryValueKind.String,
@@ -278,7 +306,12 @@ internal static class QueryFieldCatalog
             typeof(Window),
             nameof(Window.Panes),
             new(static element => checked((long)((Window)element).Panes.Count), typeof(long)),
-            new(static element => ((Window)element).Panes, typeof(CapturedRelation<Pane>))),
+            new(static element => ((Window)element).Panes, typeof(CapturedRelation<Pane>)),
+            RelationShape: new(QueryRelationCardinality.Many, QueryTarget.Pane, SnapshotDepth.Panes)),
+        new(
+            "window_session", QueryTarget.Window, null, typeof(Window), nameof(Window.Session),
+            Relation: new(static element => ((Window)element).Session, typeof(Session)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Session, SnapshotDepth.Windows)),
         new(
             "window_silence_flag",
             QueryTarget.Window,
@@ -312,6 +345,19 @@ internal static class QueryFieldCatalog
         FieldsByWireName.TryGetValue(wireName, out FieldDefinition field)
         && field.Relation is not null;
 
+    internal static bool TryGetRelation(string wireName, out QueryRelationDefinition relation)
+    {
+        if (FieldsByWireName.TryGetValue(wireName, out FieldDefinition field)
+            && field.RelationShape is { } shape)
+        {
+            relation = shape;
+            return true;
+        }
+
+        relation = default;
+        return false;
+    }
+
     internal static bool TryGetTarget(string wireName, out QueryTarget target)
     {
         if (FieldsByWireName.TryGetValue(wireName, out FieldDefinition field))
@@ -326,9 +372,10 @@ internal static class QueryFieldCatalog
 
     internal static bool TryGetKind(string wireName, out QueryValueKind kind)
     {
-        if (FieldsByWireName.TryGetValue(wireName, out FieldDefinition field))
+        if (FieldsByWireName.TryGetValue(wireName, out FieldDefinition field)
+            && field.Kind is { } scalarKind)
         {
-            kind = field.Kind;
+            kind = scalarKind;
             return true;
         }
 
@@ -347,6 +394,12 @@ internal static class QueryFieldCatalog
 
     internal static bool TryGetWireName(Type owner, string property, out string wireName)
     {
+        if (owner == typeof(Window) && property == nameof(Window.Active))
+        {
+            wireName = "window_active";
+            return true;
+        }
+
         foreach (FieldDefinition field in Fields)
         {
             if (field.Owner == owner
@@ -408,11 +461,12 @@ internal static class QueryFieldCatalog
     private readonly record struct FieldDefinition(
         string WireName,
         QueryTarget Target,
-        QueryValueKind Kind,
+        QueryValueKind? Kind,
         Type? Owner = null,
         string? Property = null,
         QueryFieldAccessor? Scalar = null,
-        QueryFieldAccessor? Relation = null)
+        QueryFieldAccessor? Relation = null,
+        QueryRelationDefinition? RelationShape = null)
     {
         // Whether the value can be absent, which tmux prints as empty.
         internal bool CanBeAbsent =>
@@ -427,3 +481,14 @@ internal static class QueryFieldCatalog
         };
     }
 }
+
+internal enum QueryRelationCardinality
+{
+    One,
+    Many,
+}
+
+internal readonly record struct QueryRelationDefinition(
+    QueryRelationCardinality Cardinality,
+    QueryTarget Target,
+    SnapshotDepth Depth);
