@@ -111,11 +111,12 @@ public sealed class WorkspaceHostScriptTests
     [UnixFact]
     public async Task Timeout_bounds_inherited_pipes_after_the_shell_has_exited()
     {
-        await using HostFixture fixture = new();
+        // The persistent marker must suffice when its watcher continuation arrives late.
+        await using HostFixture fixture = new(publishReadyNotification: false);
         Task<WorkspaceHostResult> execution = WorkspaceHostScript.RunAsync(fixture.Command(
             "mkfifo block; cat block & printf '%s' \"$!\" > child; printf before-exit; : > ready; exit 0",
             timeout: TimeSpan.FromMilliseconds(250)), TestContext.Current.CancellationToken);
-        await fixture.ReadyAsync(execution);
+        await fixture.ReadyAsync(execution.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
 
         WorkspaceHostFailureException failure = await Assert.ThrowsAsync<WorkspaceHostFailureException>(() =>
             execution.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
@@ -124,6 +125,19 @@ public sealed class WorkspaceHostScriptTests
         Assert.True(failure.Result.Started);
         Assert.Equal(0, failure.Result.ExitCode);
         Assert.Equal("before-exit", failure.Result.StandardOutput);
+    }
+
+    [UnixFact]
+    public async Task Readiness_does_not_accept_execution_failure_without_its_persistent_marker()
+    {
+        await using HostFixture fixture = new(publishReadyNotification: false);
+        WorkspaceHostFailureException expected = new(new WorkspaceHostResult(true, 0, "before-exit", string.Empty, 0),
+            new TimeoutException("The host deadline expired before readiness."));
+        Task<WorkspaceHostResult> execution = Task.FromException<WorkspaceHostResult>(expected);
+
+        WorkspaceHostFailureException actual = await Assert.ThrowsAsync<WorkspaceHostFailureException>(() => fixture.ReadyAsync(execution));
+
+        Assert.Same(expected, actual);
     }
 
     [Theory]
@@ -149,11 +163,14 @@ public sealed class WorkspaceHostScriptTests
         private readonly FileSystemWatcher _watcher;
         private readonly List<Process> _processes = [];
 
-        internal HostFixture()
+        internal HostFixture(bool publishReadyNotification = true)
         {
             Directory = System.IO.Directory.CreateTempSubdirectory("libtmux-host-").FullName;
             _watcher = new FileSystemWatcher(Directory, "ready");
-            _watcher.Created += (_, _) => _ready.TrySetResult();
+            _watcher.Created += (_, _) =>
+            {
+                if (publishReadyNotification) _ready.TrySetResult();
+            };
             _watcher.EnableRaisingEvents = true;
         }
 
@@ -165,21 +182,27 @@ public sealed class WorkspaceHostScriptTests
 
         internal async Task ReadyAsync(Task<WorkspaceHostResult> execution)
         {
-            Task observed = await Task.WhenAny(_ready.Task, execution).WaitAsync(TestContext.Current.CancellationToken);
-            if (observed == execution)
+            try
             {
-                await execution;
-                Assert.Fail("The script exited before its readiness event.");
-            }
-
-            foreach (string name in new[] { "child", "shell" })
-            {
-                string file = Path.Combine(Directory, name);
-                if (File.Exists(file))
+                Task observed = await Task.WhenAny(_ready.Task, execution).WaitAsync(TestContext.Current.CancellationToken);
+                if (observed == execution && !File.Exists(Path.Combine(Directory, "ready")))
                 {
-                    int pid = int.Parse(await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken), CultureInfo.InvariantCulture);
-                    try { _processes.Add(Process.GetProcessById(pid)); }
-                    catch (ArgumentException) { }
+                    await execution;
+                    Assert.Fail("The script exited before its readiness event.");
+                }
+            }
+            finally
+            {
+                // Keep fixture ownership even when execution wins or the test is cancelled.
+                foreach (string name in new[] { "child", "shell" })
+                {
+                    string file = Path.Combine(Directory, name);
+                    if (File.Exists(file))
+                    {
+                        int pid = int.Parse(await File.ReadAllTextAsync(file, CancellationToken.None), CultureInfo.InvariantCulture);
+                        try { _processes.Add(Process.GetProcessById(pid)); }
+                        catch (ArgumentException) { }
+                    }
                 }
             }
         }
