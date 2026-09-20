@@ -1,0 +1,849 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://libtmux.git-pull.com/schema/libtmux-query-v2.schema.json",
+  "title": "libtmux query document v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "target", "predicate"],
+  "properties": {
+    "schema": {"const": "libtmux-query"},
+    "version": {"const": 2},
+    "target": {"$ref": "#/$defs/target"},
+    "predicate": {"$ref": "#/$defs/node"}
+  },
+  "oneOf": [
+    {
+      "properties": {"target": {"const": "session"}, "predicate": {"$ref": "#/$defs/sessionNode"}}
+    },
+    {"properties": {"target": {"const": "window"}, "predicate": {"$ref": "#/$defs/windowNode"}}},
+    {"properties": {"target": {"const": "pane"}, "predicate": {"$ref": "#/$defs/paneNode"}}},
+    {"properties": {"target": {"const": "client"}, "predicate": {"$ref": "#/$defs/clientNode"}}}
+  ],
+  "$defs": {
+    "target": {"enum": ["session", "window", "pane", "client"]},
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target", "wireName"],
+      "properties": {
+        "kind": {"const": "field"},
+        "target": {"$ref": "#/$defs/target"},
+        "wireName": {
+          "enum": [
+            "client_control_mode",
+            "client_id",
+            "client_name",
+            "pane_command",
+            "pane_current_path",
+            "pane_height",
+            "pane_id",
+            "pane_session",
+            "pane_width",
+            "pane_window",
+            "session_active_pane",
+            "session_active_window",
+            "session_attached",
+            "session_id",
+            "session_name",
+            "session_panes",
+            "session_windows",
+            "window_active",
+            "window_active_pane",
+            "window_id",
+            "window_index",
+            "window_linked_sessions",
+            "window_name",
+            "window_panes",
+            "window_session"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "target": {"const": "session"},
+                "wireName": {
+                  "enum": [
+                    "session_active_pane",
+                    "session_active_window",
+                    "session_attached",
+                    "session_id",
+                    "session_name",
+                    "session_panes",
+                    "session_windows"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "target": {"const": "window"},
+                "wireName": {
+                  "enum": [
+                    "window_active",
+                    "window_active_pane",
+                    "window_id",
+                    "window_index",
+                    "window_linked_sessions",
+                    "window_name",
+                    "window_panes",
+                    "window_session"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "target": {"const": "pane"},
+                "wireName": {
+                  "enum": [
+                    "pane_command",
+                    "pane_current_path",
+                    "pane_height",
+                    "pane_id",
+                    "pane_session",
+                    "pane_width",
+                    "pane_window"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "target": {"const": "client"},
+                "wireName": {"enum": ["client_control_mode", "client_id", "client_name"]}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "booleanField": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {"wireName": {"enum": ["client_control_mode", "session_attached", "window_active"]}}
+        }
+      ]
+    },
+    "stringField": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {
+            "wireName": {
+              "enum": [
+                "client_name",
+                "pane_command",
+                "pane_current_path",
+                "session_name",
+                "window_name"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "int64Field": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {
+            "wireName": {
+              "enum": [
+                "pane_height",
+                "pane_width",
+                "session_panes",
+                "session_windows",
+                "window_index",
+                "window_linked_sessions",
+                "window_panes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "relationField": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {
+            "wireName": {
+              "enum": [
+                "pane_session",
+                "pane_window",
+                "session_active_pane",
+                "session_active_window",
+                "session_panes",
+                "session_windows",
+                "window_active_pane",
+                "window_linked_sessions",
+                "window_panes",
+                "window_session"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "sessionIdField": {
+      "allOf": [{"$ref": "#/$defs/field"}, {"properties": {"wireName": {"const": "session_id"}}}]
+    },
+    "windowIdField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"wireName": {"const": "window_id"}}}]},
+    "paneIdField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"wireName": {"const": "pane_id"}}}]},
+    "clientIdField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"wireName": {"const": "client_id"}}}]},
+    "sessionField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"target": {"const": "session"}}}]},
+    "windowField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"target": {"const": "window"}}}]},
+    "paneField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"target": {"const": "pane"}}}]},
+    "clientField": {"allOf": [{"$ref": "#/$defs/field"}, {"properties": {"target": {"const": "client"}}}]},
+    "sessionBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/sessionField"}]},
+    "clientBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/clientField"}]},
+    "sessionRelationField": {"allOf": [{"$ref": "#/$defs/collectionRelationField"}, {"$ref": "#/$defs/sessionField"}]},
+    "windowRelationField": {"allOf": [{"$ref": "#/$defs/collectionRelationField"}, {"$ref": "#/$defs/windowField"}]},
+    "nullConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {"kind": {"const": "null"}}
+    },
+    "booleanConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "boolean"}, "value": {"type": "boolean"}}
+    },
+    "int64Constant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"const": "int64"},
+        "value": {"type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807}
+      }
+    },
+    "stringConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"const": "string"},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "typedIdConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "value"],
+      "properties": {
+        "kind": {"const": "typedId"},
+        "type": {"enum": ["session", "window", "pane", "client"]},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "constant": {
+      "oneOf": [
+        {"$ref": "#/$defs/nullConstant"},
+        {"$ref": "#/$defs/booleanConstant"},
+        {"$ref": "#/$defs/int64Constant"},
+        {"$ref": "#/$defs/stringConstant"},
+        {"$ref": "#/$defs/typedIdConstant"}
+      ]
+    },
+    "constantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/constant"}}
+    },
+    "nullConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/nullConstant"}}
+    },
+    "booleanConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/booleanConstant"}}
+    },
+    "int64ConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/int64Constant"}}
+    },
+    "stringConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/stringConstant"}}
+    },
+    "booleanOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/booleanConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "int64OrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/int64ConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "stringOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/stringConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "sessionTypedIdConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "value"],
+      "properties": {
+        "kind": {"const": "typedId"},
+        "type": {"const": "session"},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "windowTypedIdConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "value"],
+      "properties": {
+        "kind": {"const": "typedId"},
+        "type": {"const": "window"},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "paneTypedIdConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "value"],
+      "properties": {
+        "kind": {"const": "typedId"},
+        "type": {"const": "pane"},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "clientTypedIdConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "type", "value"],
+      "properties": {
+        "kind": {"const": "typedId"},
+        "type": {"const": "client"},
+        "value": {"type": "string", "maxLength": 4096, "pattern": "^[^\\uD800-\\uDFFF]*$"}
+      }
+    },
+    "sessionIdConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/sessionTypedIdConstant"}}
+    },
+    "windowIdConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/windowTypedIdConstant"}}
+    },
+    "paneIdConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/paneTypedIdConstant"}}
+    },
+    "clientIdConstantNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {"kind": {"const": "constant"}, "value": {"$ref": "#/$defs/clientTypedIdConstant"}}
+    },
+    "sessionIdOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/sessionIdConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "windowIdOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/windowIdConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "paneIdOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/paneIdConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "clientIdOrNullConstantNode": {"oneOf": [{"$ref": "#/$defs/clientIdConstantNode"}, {"$ref": "#/$defs/nullConstantNode"}]},
+    "and": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operands"],
+      "properties": {
+        "kind": {"const": "and"},
+        "operands": {"type": "array", "items": {"$ref": "#/$defs/node"}}
+      }
+    },
+    "or": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operands"],
+      "properties": {
+        "kind": {"const": "or"},
+        "operands": {"type": "array", "items": {"$ref": "#/$defs/node"}}
+      }
+    },
+    "not": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operand"],
+      "properties": {"kind": {"const": "not"}, "operand": {"$ref": "#/$defs/node"}}
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operator", "left", "right"],
+      "properties": {"kind": {"const": "comparison"}, "operator": {}, "left": {}, "right": {}},
+      "oneOf": [
+        {
+          "title": "boolean equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/booleanField"},
+            "right": {"$ref": "#/$defs/booleanOrNullConstantNode"}
+          }
+        },
+        {
+          "title": "string equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/stringField"},
+            "right": {"$ref": "#/$defs/stringOrNullConstantNode"}
+          }
+        },
+        {
+          "title": "int64 equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/int64Field"},
+            "right": {"$ref": "#/$defs/int64OrNullConstantNode"}
+          }
+        },
+        {
+          "title": "int64 ordering",
+          "properties": {
+            "operator": {"enum": ["lessThan", "lessThanOrEqual", "greaterThan", "greaterThanOrEqual"]},
+            "left": {"$ref": "#/$defs/int64Field"},
+            "right": {"$ref": "#/$defs/int64ConstantNode"}
+          }
+        },
+        {
+          "title": "ordinal string operation",
+          "properties": {
+            "operator": {
+              "enum": [
+                "stringEqualOrdinal",
+                "stringEqualOrdinalIgnoreCase",
+                "startsWithOrdinal",
+                "endsWithOrdinal",
+                "containsOrdinal"
+              ]
+            },
+            "left": {"$ref": "#/$defs/stringField"},
+            "right": {"$ref": "#/$defs/stringConstantNode"}
+          }
+        },
+        {
+          "title": "session typed ID equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/sessionIdField"},
+            "right": {"$ref": "#/$defs/sessionIdOrNullConstantNode"}
+          }
+        },
+        {
+          "title": "window typed ID equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/windowIdField"},
+            "right": {"$ref": "#/$defs/windowIdOrNullConstantNode"}
+          }
+        },
+        {
+          "title": "pane typed ID equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/paneIdField"},
+            "right": {"$ref": "#/$defs/paneIdOrNullConstantNode"}
+          }
+        },
+        {
+          "title": "client typed ID equality",
+          "properties": {
+            "operator": {"enum": ["equal", "notEqual"]},
+            "left": {"$ref": "#/$defs/clientIdField"},
+            "right": {"$ref": "#/$defs/clientIdOrNullConstantNode"}
+          }
+        }
+      ]
+    },
+    "quantifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "quantifier", "relation", "predicate"],
+      "properties": {
+        "kind": {"const": "quantifier"},
+        "quantifier": {"enum": ["any", "all"]},
+        "relation": {"$ref": "#/$defs/collectionRelationField"},
+        "predicate": {"$ref": "#/$defs/node"}
+      }
+    },
+    "regex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "input", "dialect", "pattern", "semanticOptions"],
+      "properties": {
+        "kind": {"const": "regex"},
+        "input": {"$ref": "#/$defs/stringField"},
+        "dialect": {"const": "dotnet"},
+        "pattern": {"type": "string", "maxLength": 1024, "pattern": "^[^\\uD800-\\uDFFF]*$"},
+        "semanticOptions": {
+          "enum": [
+            512,
+            513,
+            514,
+            515,
+            516,
+            517,
+            518,
+            519,
+            528,
+            529,
+            530,
+            531,
+            532,
+            533,
+            534,
+            535,
+            544,
+            545,
+            546,
+            547,
+            548,
+            549,
+            550,
+            551,
+            560,
+            561,
+            562,
+            563,
+            564,
+            565,
+            566,
+            567
+          ]
+        }
+      }
+    },
+    "sessionComparison": {
+      "allOf": [
+        {"$ref": "#/$defs/comparison"},
+        {"properties": {"left": {"$ref": "#/$defs/sessionField"}}}
+      ]
+    },
+    "windowComparison": {
+      "allOf": [
+        {"$ref": "#/$defs/comparison"},
+        {"properties": {"left": {"$ref": "#/$defs/windowField"}}}
+      ]
+    },
+    "paneComparison": {
+      "allOf": [{"$ref": "#/$defs/comparison"}, {"properties": {"left": {"$ref": "#/$defs/paneField"}}}]
+    },
+    "clientComparison": {
+      "allOf": [
+        {"$ref": "#/$defs/comparison"},
+        {"properties": {"left": {"$ref": "#/$defs/clientField"}}}
+      ]
+    },
+    "sessionRegex": {
+      "allOf": [{"$ref": "#/$defs/regex"}, {"properties": {"input": {"$ref": "#/$defs/sessionField"}}}]
+    },
+    "windowRegex": {
+      "allOf": [{"$ref": "#/$defs/regex"}, {"properties": {"input": {"$ref": "#/$defs/windowField"}}}]
+    },
+    "paneRegex": {
+      "allOf": [{"$ref": "#/$defs/regex"}, {"properties": {"input": {"$ref": "#/$defs/paneField"}}}]
+    },
+    "clientRegex": {
+      "allOf": [{"$ref": "#/$defs/regex"}, {"properties": {"input": {"$ref": "#/$defs/clientField"}}}]
+    },
+    "sessionQuantifier": {
+      "allOf": [{"$ref": "#/$defs/quantifier"}],
+      "oneOf": [
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "session_windows"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/windowNode"}
+          }
+        },
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "session_panes"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/paneNode"}
+          }
+        }
+      ]
+    },
+    "windowQuantifier": {
+      "allOf": [{"$ref": "#/$defs/quantifier"}],
+      "oneOf": [
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "window_panes"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/paneNode"}
+          }
+        },
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "window_linked_sessions"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/sessionNode"}
+          }
+        }
+      ]
+    },
+    "sessionNode": {
+      "oneOf": [
+        {"$ref": "#/$defs/sessionBooleanField"},
+        {"$ref": "#/$defs/booleanConstantNode"},
+        {
+          "allOf": [
+            {"$ref": "#/$defs/and"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/sessionNode"}}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/or"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/sessionNode"}}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/not"},
+            {"properties": {"operand": {"$ref": "#/$defs/sessionNode"}}}
+          ]
+        },
+        {"$ref": "#/$defs/sessionComparison"},
+        {"$ref": "#/$defs/sessionQuantifier"},
+        {"$ref": "#/$defs/sessionRegex"},
+        {"$ref": "#/$defs/sessionRelated"}
+      ]
+    },
+    "windowNode": {
+      "oneOf": [
+        {"$ref": "#/$defs/windowBooleanField"},
+        {"$ref": "#/$defs/booleanConstantNode"},
+        {
+          "allOf": [
+            {"$ref": "#/$defs/and"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/windowNode"}}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/or"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/windowNode"}}}}
+          ]
+        },
+        {
+          "allOf": [{"$ref": "#/$defs/not"}, {"properties": {"operand": {"$ref": "#/$defs/windowNode"}}}]
+        },
+        {"$ref": "#/$defs/windowComparison"},
+        {"$ref": "#/$defs/windowQuantifier"},
+        {"$ref": "#/$defs/windowRegex"},
+        {"$ref": "#/$defs/windowRelated"}
+      ]
+    },
+    "paneNode": {
+      "oneOf": [
+        {"$ref": "#/$defs/booleanConstantNode"},
+        {
+          "allOf": [
+            {"$ref": "#/$defs/and"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/paneNode"}}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/or"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/paneNode"}}}}
+          ]
+        },
+        {
+          "allOf": [{"$ref": "#/$defs/not"}, {"properties": {"operand": {"$ref": "#/$defs/paneNode"}}}]
+        },
+        {"$ref": "#/$defs/paneComparison"},
+        {"$ref": "#/$defs/paneRegex"},
+        {"$ref": "#/$defs/paneRelated"}
+      ]
+    },
+    "clientNode": {
+      "oneOf": [
+        {"$ref": "#/$defs/clientBooleanField"},
+        {"$ref": "#/$defs/booleanConstantNode"},
+        {
+          "allOf": [
+            {"$ref": "#/$defs/and"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/clientNode"}}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/or"},
+            {"properties": {"operands": {"items": {"$ref": "#/$defs/clientNode"}}}}
+          ]
+        },
+        {
+          "allOf": [{"$ref": "#/$defs/not"}, {"properties": {"operand": {"$ref": "#/$defs/clientNode"}}}]
+        },
+        {"$ref": "#/$defs/clientComparison"},
+        {"$ref": "#/$defs/clientRegex"}
+      ]
+    },
+    "node": {
+      "oneOf": [
+        {"$ref": "#/$defs/booleanField"},
+        {"$ref": "#/$defs/booleanConstantNode"},
+        {"$ref": "#/$defs/and"},
+        {"$ref": "#/$defs/or"},
+        {"$ref": "#/$defs/not"},
+        {"$ref": "#/$defs/comparison"},
+        {"$ref": "#/$defs/quantifier"},
+        {"$ref": "#/$defs/regex"},
+        {"$ref": "#/$defs/related"}
+      ]
+    },
+    "collectionRelationField": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {
+            "wireName": {
+              "enum": ["session_panes", "session_windows", "window_linked_sessions", "window_panes"]
+            }
+          }
+        }
+      ]
+    },
+    "singleRelationField": {
+      "allOf": [
+        {"$ref": "#/$defs/field"},
+        {
+          "properties": {
+            "wireName": {
+              "enum": [
+                "pane_session",
+                "pane_window",
+                "session_active_pane",
+                "session_active_window",
+                "window_active_pane",
+                "window_session"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "related": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "relation", "predicate"],
+      "properties": {
+        "kind": {"const": "related"},
+        "relation": {"$ref": "#/$defs/singleRelationField"},
+        "predicate": {"$ref": "#/$defs/node"}
+      }
+    },
+    "sessionRelated": {
+      "allOf": [{"$ref": "#/$defs/related"}],
+      "oneOf": [
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "session_active_pane"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/paneNode"}
+          }
+        },
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "session_active_window"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/windowNode"}
+          }
+        }
+      ]
+    },
+    "windowRelated": {
+      "allOf": [{"$ref": "#/$defs/related"}],
+      "oneOf": [
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "window_active_pane"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/paneNode"}
+          }
+        },
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "window_session"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/sessionNode"}
+          }
+        }
+      ]
+    },
+    "paneRelated": {
+      "allOf": [{"$ref": "#/$defs/related"}],
+      "oneOf": [
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "pane_session"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/sessionNode"}
+          }
+        },
+        {
+          "properties": {
+            "relation": {
+              "allOf": [
+                {"$ref": "#/$defs/field"},
+                {"properties": {"wireName": {"const": "pane_window"}}}
+              ]
+            },
+            "predicate": {"$ref": "#/$defs/windowNode"}
+          }
+        }
+      ]
+    },
+    "windowBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/windowField"}]}
+  }
+}

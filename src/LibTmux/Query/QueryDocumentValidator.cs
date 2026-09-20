@@ -54,6 +54,12 @@ internal static class QueryDocumentValidator
             case QuantifierNode quantifier:
                 ValidateQuantifier(quantifier, expectedTarget, result);
                 return;
+            case RelatedNode related:
+                ValidatePredicate(
+                    related.Predicate,
+                    ResolveRelation(related.Relation, expectedTarget, QueryRelationCardinality.One).Target,
+                    result);
+                return;
             case null:
                 throw Unsupported("Query predicate is null.");
             default:
@@ -150,20 +156,31 @@ internal static class QueryDocumentValidator
         QueryTarget expectedTarget,
         QueryValidationResult result)
     {
-        _ = ResolveField(quantifier.Relation, expectedTarget);
-        if (quantifier.Quantifier is not QueryQuantifier.Any and not QueryQuantifier.All
-            || !QueryFieldCatalog.IsRelation(quantifier.Relation.WireName))
+        if (quantifier.Quantifier is not QueryQuantifier.Any and not QueryQuantifier.All)
         {
             throw Unsupported("Quantifier does not name a supported relation.");
         }
 
-        QueryTarget childTarget = quantifier.Relation.WireName switch
+        QueryRelationDefinition relation = ResolveRelation(
+            quantifier.Relation, expectedTarget, QueryRelationCardinality.Many);
+        ValidatePredicate(quantifier.Predicate, relation.Target, result);
+    }
+
+    private static QueryRelationDefinition ResolveRelation(
+        FieldNode field,
+        QueryTarget expectedTarget,
+        QueryRelationCardinality cardinality)
+    {
+        if (field.Target != expectedTarget
+            || !QueryFieldCatalog.TryGetTarget(field.WireName, out QueryTarget target)
+            || target != expectedTarget
+            || !QueryFieldCatalog.TryGetRelation(field.WireName, out QueryRelationDefinition relation)
+            || relation.Cardinality != cardinality)
         {
-            "session_windows" => QueryTarget.Window,
-            "window_panes" => QueryTarget.Pane,
-            _ => throw Unsupported("Quantifier does not name a supported relation."),
-        };
-        ValidatePredicate(quantifier.Predicate, childTarget, result);
+            throw Unsupported($"Field '{field.WireName}' is not a supported {cardinality} relation.");
+        }
+
+        return relation;
     }
 
     private static QueryValueKind ResolveField(FieldNode field, QueryTarget expectedTarget)
@@ -173,7 +190,8 @@ internal static class QueryDocumentValidator
             || target != field.Target
             || !QueryFieldCatalog.TryGetKind(field.WireName, out QueryValueKind kind))
         {
-            throw Unsupported($"Field '{field.WireName}' is outside the query catalog.");
+            throw Unsupported(
+                $"Field '{field.WireName}' is outside the query catalog.");
         }
 
         return kind;

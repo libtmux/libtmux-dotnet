@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 
 namespace LibTmux;
 
-/// <summary>Describes setting several entries of one hook at once.</summary>
+/// <summary>Describes setting several entries of one hook.</summary>
 /// <remarks>
 /// A tmux hook is an array, and the indices decide the order its commands run
-/// in. Writing them together is the only way to land a whole ordering without
-/// the hook firing part-written in between.
+/// in. Entries are written sequentially in index order, without a transaction.
+/// The hook may fire between writes, and failure leaves earlier writes applied.
 /// </remarks>
 public sealed record SetHooksRequest
 {

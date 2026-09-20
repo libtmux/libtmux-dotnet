@@ -16,6 +16,7 @@ public sealed class WindowPlacementGuardTests
     [InlineData("move-window", false)]
     [InlineData("link-window", false)]
     [InlineData("unlink-window", false)]
+    [InlineData("guarded-unlink", false)]
     [InlineData("move-window", true)]
     [InlineData("link-window", true)]
     public async Task Source_swapped_after_observation_cannot_mutate_another_window(string operation, bool chain)
@@ -34,7 +35,7 @@ public sealed class WindowPlacementGuardTests
             },
             beforeStart: async (startInfo, cancellationToken) =>
             {
-                if (!swapped && startInfo.ArgumentList.Contains(operation))
+                if (!swapped && startInfo.ArgumentList.Contains(operation == "guarded-unlink" ? "unlink-window" : operation))
                 {
                     swapped = true;
                     Assert.Equal(0, (await raw.ExecuteAsync(
@@ -83,6 +84,10 @@ public sealed class WindowPlacementGuardTests
                     TargetIndex = "3",
                     Detach = true
                 }, token);
+            }
+            else if (operation == "guarded-unlink")
+            {
+                await requested.UnlinkAsync(true, [new PaneId(0)], token);
             }
             else
             {
@@ -175,6 +180,193 @@ public sealed class WindowPlacementGuardTests
             .ExecuteAsync(token));
 
         Assert.Equal(["0:@0", "2:@1", "5:@0"], (await raw.ExecuteAsync(["list-windows", "-t", "$0", "-F", "#{window_index}:#{window_id}"], token)).StandardOutputLines);
+    }
+
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("foreign")]
+    [InlineData("replacement")]
+    [InlineData("missing")]
+    [InlineData("order")]
+    [InlineData("matching")]
+    [InlineData("linked")]
+    public async Task Guarded_unlink_checks_the_exact_pane_membership_at_dispatch(string change)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Assert.Equal(0, (await raw.ExecuteAsync(["split-window", "-d", "-t", "$0:0"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["new-window", "-d", "-t", "$0:1"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["new-window", "-d", "-t", "$0:2"], token)).ExitCode);
+        if (change == "linked")
+        {
+            Assert.Equal(0, (await raw.ExecuteAsync(["link-window", "-d", "-s", "$0:0", "-t", "$0:9"], token)).ExitCode);
+        }
+        bool dispatched = false;
+        var transport = new TmuxProcessTransport(raw.TmuxBinaryPath,
+            ["-u", "-f", "/dev/null", "-S", raw.SocketPath],
+            launcher: startInfo =>
+            {
+                RawTmuxTestContext.ConfigureEnvironment(startInfo);
+                return Process.Start(startInfo) ?? throw new InvalidOperationException("tmux did not start.");
+            },
+            beforeStart: async (startInfo, cancellationToken) =>
+            {
+                if (dispatched || !startInfo.ArgumentList.Contains("unlink-window"))
+                {
+                    return;
+                }
+                dispatched = true;
+                string[]? mutation = change switch
+                {
+                    "foreign" or "replacement" => ["join-pane", "-d", "-s", "%2", "-t", "%0"],
+                    "missing" => ["kill-pane", "-t", "%1"],
+                    "order" => ["swap-pane", "-d", "-s", "%0", "-t", "%1"],
+                    _ => null,
+                };
+                if (mutation is not null)
+                {
+                    Assert.Equal(0, (await raw.ExecuteAsync(mutation, cancellationToken)).ExitCode);
+                }
+                if (change == "replacement")
+                {
+                    Assert.Equal(0, (await raw.ExecuteAsync(["kill-pane", "-t", "%1"], cancellationToken)).ExitCode);
+                }
+            });
+        var connection = new TmuxConnection(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        }, transport.ExecuteAsync);
+        Server server = await new Server(connection, null, null).ConnectAsync(token);
+        Window window = Assert.Single(await server.GetWindowsAsync(token), item => item.Index == 0);
+        PaneId[] expected = [.. (await window.GetPanesAsync(token)).Select(pane => pane.Id)];
+
+        Exception? error = await Record.ExceptionAsync(() => window.UnlinkAsync(true, expected, token));
+
+        Assert.True(dispatched);
+        RawTmuxResult panes = await raw.ExecuteAsync(["list-panes", "-a", "-F", "#{pane_id}"], token);
+        Assert.Equal(0, panes.ExitCode);
+        if (change is "matching" or "linked" or "order")
+        {
+            Assert.Null(error);
+            Assert.DoesNotContain("0:@0", (await raw.ExecuteAsync(
+                ["list-windows", "-t", "$0", "-F", "#{window_index}:#{window_id}"], token)).StandardOutputLines);
+            Assert.Equal(change == "linked", panes.StandardOutputLines.Contains("%0", StringComparer.Ordinal));
+        }
+        else
+        {
+            Assert.Contains("%0", panes.StandardOutputLines);
+            if (change is "foreign" or "replacement")
+            {
+                Assert.Contains("%2", panes.StandardOutputLines);
+            }
+            Assert.IsType<TmuxCommandException>(error);
+        }
+    }
+
+    [UnixFact]
+    public async Task Guarded_unlink_cannot_destroy_a_replacement_daemons_reused_ids()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await Server.ConnectAsync(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        }, token);
+        Window window = Assert.Single(await server.GetWindowsAsync(token));
+        PaneId[] expected = [.. (await window.GetPanesAsync(token)).Select(pane => pane.Id)];
+        Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
+        await raw.WaitForSettledAsync(token);
+        Assert.Equal(0, (await raw.ExecuteAsync(["new-session", "-d", "-s", "replacement"], token)).ExitCode);
+
+        await Assert.ThrowsAsync<StaleServerGenerationException>(() => window.UnlinkAsync(true, expected, token));
+
+        Assert.Equal(["%0"], (await raw.ExecuteAsync(["list-panes", "-a", "-F", "#{pane_id}"], token)).StandardOutputLines);
+    }
+
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task Guarded_split_requires_the_resolved_target_to_remain_in_its_expected_window(
+        bool chain, bool moved, bool overrideTarget)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Assert.Equal(0, (await raw.ExecuteAsync(["split-window", "-d", "-t", "%0"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(["new-window", "-d", "-t", "$0:1"], token)).ExitCode);
+        bool dispatched = false;
+        var transport = new TmuxProcessTransport(raw.TmuxBinaryPath,
+            ["-u", "-f", "/dev/null", "-S", raw.SocketPath],
+            launcher: startInfo =>
+            {
+                RawTmuxTestContext.ConfigureEnvironment(startInfo);
+                return Process.Start(startInfo) ?? throw new InvalidOperationException("tmux did not start.");
+            },
+            beforeStart: async (startInfo, cancellationToken) =>
+            {
+                if (!dispatched && startInfo.ArgumentList.Contains("split-window"))
+                {
+                    dispatched = true;
+                    if (moved)
+                    {
+                        Assert.Equal(0, (await raw.ExecuteAsync(
+                            ["join-pane", "-d", "-s", overrideTarget ? "%1" : "%0", "-t", "%2"], cancellationToken)).ExitCode);
+                    }
+                }
+            });
+        var connection = new TmuxConnection(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = raw.TmuxBinaryPath,
+            SocketPath = raw.SocketPath,
+            ConfigurationFile = "/dev/null",
+        }, transport.ExecuteAsync);
+        Server server = await new Server(connection, null, null).ConnectAsync(token);
+        Pane source = await server.GetPaneAsync(new PaneId(0), token);
+        var request = new SplitPaneRequest
+        {
+            ExpectedWindowId = source.Window.Id,
+            Target = overrideTarget ? "%1" : null,
+        };
+        Pane? created = null;
+
+        Exception? error = await Record.ExceptionAsync(async () =>
+        {
+            if (chain)
+            {
+                TmuxCommandResult result = await server.Chain().Then(request.ToCommand(source)).ExecuteAsync(token);
+                created = await server.GetPaneAsync(PaneId.Parse(Assert.Single(result.StandardOutputLines)), token);
+            }
+            else
+            {
+                created = await source.SplitAsync(request, token);
+            }
+        });
+
+        Assert.True(dispatched);
+        RawTmuxResult panes = await raw.ExecuteAsync(["list-panes", "-a", "-F", "#{pane_id}"], token);
+        Assert.Equal(0, panes.ExitCode);
+        Assert.Equal(moved ? 3 : 4, panes.StandardOutputLines.Count);
+        if (moved)
+        {
+            Assert.IsType<TmuxCommandException>(error);
+        }
+        else
+        {
+            Assert.Null(error);
+            Assert.NotNull(created);
+            Assert.Equal(source.Window.Id, created.Window.Id);
+        }
     }
 
     private static async Task PrepareAsync(RawTmuxTestContext raw, CancellationToken token)

@@ -51,11 +51,14 @@ internal sealed class CapabilityResource
 {
     private readonly CapabilityRegistry _registry;
     private readonly McpRuntimeDisclosure _runtime;
+    private readonly ServerPolicy _policy;
 
-    public CapabilityResource(CapabilityRegistry registry, McpRuntimeDisclosure runtime)
+    public CapabilityResource(
+        CapabilityRegistry registry, McpRuntimeDisclosure runtime, ServerPolicy? policy = null)
     {
         _registry = registry;
         _runtime = runtime;
+        _policy = policy ?? new ServerPolicy();
     }
 
     [McpServerResource(
@@ -83,6 +86,14 @@ internal sealed class CapabilityResource
                 ["serverState"] = _runtime.ServerState,
                 ["configurationProvenance"] = _runtime.ConfigurationProvenance,
                 ["namespaceBoundary"] = "tmux-objects-only",
+            },
+            ["paneObservation"] = new JsonObject
+            {
+                ["controlRequired"] = !_policy.AllowPollingFallback,
+                ["pollingFallbackAllowed"] = _policy.AllowPollingFallback,
+                ["pollIntervalMilliseconds"] = _policy.AllowPollingFallback
+                    ? PaneActivityHub.PollInterval.TotalMilliseconds : null,
+                ["activationResultField"] = "pollingFallback",
             },
             ["boundary"] = new JsonObject
             {

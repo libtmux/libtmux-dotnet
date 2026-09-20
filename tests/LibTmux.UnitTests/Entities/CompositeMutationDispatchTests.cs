@@ -10,6 +10,97 @@ public sealed class CompositeMutationDispatchTests
 {
     private static readonly ServerGeneration Generation = new(92, 902);
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("empty")]
+    [InlineData("duplicate")]
+    [InlineData("oversized")]
+    public async Task Guarded_unlink_rejects_invalid_or_oversized_membership_before_dispatch(string input)
+    {
+        int dispatched = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            dispatched++;
+            return Task.FromResult(Success(request));
+        });
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        PaneId[]? expected = input switch
+        {
+            "null" => null,
+            "empty" => [],
+            "duplicate" => [new PaneId(1), new PaneId(1)],
+            _ => [.. Enumerable.Range(0, 4000).Select(value => new PaneId(value))],
+        };
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => window.UnlinkAsync(true, expected!, token));
+        Assert.Equal(0, dispatched);
+    }
+
+    [Fact]
+    public async Task Guarded_unlink_freezes_membership_in_the_generation_and_placement_queue()
+    {
+        List<PaneId> expected = [new(1), new(9)];
+        TmuxCommandRequest? dispatched = null;
+        Window window = CreateWindow((request, _) =>
+        {
+            expected.Clear();
+            if (request.LogicalArguments.Contains("unlink-window", StringComparer.Ordinal))
+            {
+                dispatched = request;
+            }
+            return Task.FromResult(Success(request));
+        });
+
+        await window.UnlinkAsync(true, expected, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(dispatched);
+        Assert.True(dispatched.PreventServerStart);
+        Assert.Contains(dispatched.LogicalArguments, argument => argument.Contains("#{==:#{window_panes},2}", StringComparison.Ordinal)
+            && argument.Contains("#{==:#{pane_id},%1}", StringComparison.Ordinal)
+            && argument.Contains("#{==:#{pane_id},%9}", StringComparison.Ordinal));
+        Assert.Equal(2, dispatched.LogicalArguments.Count(argument => argument == "if-shell"));
+    }
+
+    [Fact]
+    public void Standalone_trim_is_a_generation_bound_command()
+    {
+        Pane pane = CreatePane((_, _) => throw new InvalidOperationException("Building reached tmux."));
+
+        TmuxCommand command = new ResizePaneRequest { TrimBelow = true }.ToCommand(pane);
+
+        Assert.Equal(["resize-pane", "-t", "%1", "-T"], command.ToArguments());
+        Assert.Equal(Generation, command.RequiredGeneration);
+    }
+
+    [Fact]
+    public async Task Trim_rejects_combined_modes_before_dispatch()
+    {
+        int dispatches = 0;
+        Pane pane = CreatePane((request, _) =>
+        {
+            dispatches++;
+            return Task.FromResult(Success(request));
+        });
+        ResizePaneRequest[] requests =
+        [
+            new() { TrimBelow = true, Width = "20" },
+            new() { TrimBelow = true, Height = "10" },
+            new() { TrimBelow = true, Zoom = true },
+            new() { TrimBelow = true, Mouse = true },
+            new() { TrimBelow = true, Direction = ResizeDirection.Up, Adjustment = 2 },
+            new() { TrimBelow = true, Adjustment = 2 },
+        ];
+
+        foreach (ResizePaneRequest request in requests)
+        {
+            Assert.Throws<ArgumentException>(() => request.ToCommand(pane));
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                pane.ResizeAsync(request, TestContext.Current.CancellationToken));
+        }
+
+        Assert.Equal(0, dispatches);
+    }
+
     [Fact]
     public async Task Move_inconsistent_readback_is_unknown_after_the_move_succeeded()
     {
@@ -376,7 +467,8 @@ public sealed class CompositeMutationDispatchTests
             {
                 "has-session" => Task.FromResult(Success(request)),
                 "kill-session" => Task.FromResult(Success(request)),
-                "new-session" => Task.FromResult(Success(request, "$2\n")),
+                "new-session" => Task.FromResult(Success(request,
+                    $"{Generation.ProcessId}:{Generation.StartTime}\t$2\t@3\t%4\t0\n")),
                 "display-message" => Task.FromResult(Success(
                     request,
                     $"{Generation.ProcessId}:{Generation.StartTime}\n")),
@@ -777,7 +869,8 @@ public sealed class CompositeMutationDispatchTests
             string command = ActualCommand(arguments);
             return command switch
             {
-                "new-session" => Task.FromResult(Success(request, "$2\n")),
+                "new-session" => Task.FromResult(Success(request,
+                    $"{discovered.ProcessId}:{discovered.StartTime}\t$2\t@3\t%4\t0\n")),
                 "display-message" => Task.FromResult(Success(
                     request,
                     $"{discovered.ProcessId}:{discovered.StartTime}\n")),

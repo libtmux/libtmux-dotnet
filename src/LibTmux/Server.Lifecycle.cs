@@ -116,12 +116,37 @@ public sealed partial class Server
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The created session.</returns>
     /// <exception cref="TmuxSessionExistsException">The name is already taken.</exception>
+    /// <exception cref="ArgumentException">The name is invalid, or generation-bound creation requests replacement.</exception>
+    /// <remarks>
+    /// Set <see cref="NewSessionRequest.ExpectedGeneration" /> to require one daemon before
+    /// creation. Readback always uses the generation reported by creation itself. A daemon
+    /// change after creation reports a partial failure rather than returning its replacement.
+    /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<Session> CreateSessionAsync(
+        NewSessionRequest? request = null,
+        CancellationToken cancellationToken = default) =>
+        (await CreateSessionWithReceiptAsync(request, cancellationToken).ConfigureAwait(false)).Session;
+
+    /// <summary>Creates a session and returns its initial window and pane identities.</summary>
+    /// <param name="request">The session to create.</param>
+    /// <param name="cancellationToken">Cancels creation and readback.</param>
+    /// <returns>The created session and child identifiers from the same creation reply.</returns>
+    /// <exception cref="ArgumentException">The name is invalid, or generation-bound creation requests replacement.</exception>
+    /// <exception cref="TmuxSessionExistsException">The name is already taken.</exception>
+    /// <exception cref="LibTmuxException">Creation or readback failed; a failure after creation has unknown dispatch outcome.</exception>
+    /// <remarks>
+    /// The returned session is bound to the creating daemon. Its child identifiers are
+    /// creation-time facts, not a snapshot or a promise that the children still belong
+    /// to the session. A failed readback publishes no receipt or cleanup ownership.
+    /// </remarks>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<SessionCreationResult> CreateSessionWithReceiptAsync(
         NewSessionRequest? request = null,
         CancellationToken cancellationToken = default)
     {
         NewSessionRequest options = request ?? new NewSessionRequest();
+        options.ValidateGenerationBinding();
         var sequence = new TmuxMutationSequence();
         if (options.Name is not null)
         {
@@ -139,7 +164,7 @@ public sealed partial class Server
         }
 
         TmuxCommandResult result = await sequence.MutateAsync(
-                () => Dispatch([.. BuildNewSessionArguments(options)], cancellationToken),
+                () => Dispatch([.. BuildNewSessionArguments(options, TmuxCreationReceipt.Format)], cancellationToken, options.ExpectedGeneration),
                 value =>
                 {
                     if (value.ExitCode != 0
@@ -155,40 +180,38 @@ public sealed partial class Server
                     TmuxCommandFailure.ThrowIfFailed(value, "new-session");
                 })
             .ConfigureAwait(false);
-        SessionId sessionId = sequence.Observe(() =>
+        TmuxCreationReceipt receipt = sequence.Observe(() =>
         {
-            string id = result.StandardOutputLines.Count > 0
-                ? result.StandardOutputLines[0]
-                : throw new TmuxCommandException(
-                    "tmux reported no new session identifier.",
-                    result);
-            return SessionId.TryParse(id, out SessionId parsed)
-                ? parsed
-                : throw new TmuxCommandException(
-                    "tmux reported a malformed session identifier.",
-                    result);
+            TmuxCreationReceipt parsed = TmuxCreationReceipt.Parse(result);
+            if (options.ExpectedGeneration is ServerGeneration expected && parsed.Generation != expected)
+            {
+                throw new StaleServerGenerationException("The creating daemon generation changed.", expected, parsed.Generation);
+            }
+
+            return parsed;
         });
 
         // Re-list directly so Name is materialized and listing errors remain failures.
         // Replacing the last session may restart the daemon, so rediscover first.
         Server materialized = await sequence
-            .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken))
+            .ObserveAsync(() => RediscoverCurrentGenerationAsync(cancellationToken, receipt.Generation))
             .ConfigureAwait(false);
         IReadOnlyDictionary<string, string?>? row = await sequence
             .ObserveAsync(() => RelationReader.FindAsync(
                 materialized,
                 "list-sessions",
                 "session_id",
-                sessionId.ToString(),
+                receipt.SessionId.ToString(),
                 inSession: null,
                 cancellationToken))
             .ConfigureAwait(false);
-        return sequence.Observe(() =>
+        Session session = sequence.Observe(() =>
             row is null
                 ? throw new TmuxObjectNotFoundException(
-                    $"tmux did not report the created session '{sessionId}'.",
-                    sessionId.ToString())
+                    $"tmux did not report the created session '{receipt.SessionId}'.",
+                    receipt.SessionId.ToString())
                 : RelationReader.ToSession(materialized, row));
+        return new SessionCreationResult(session, receipt.WindowId, receipt.WindowIndex, receipt.PaneId);
     }
 
     /// <summary>Starts a server and takes ownership of it.</summary>
@@ -259,12 +282,20 @@ public sealed partial class Server
         TmuxCommandFailure.ThrowIfFailed(result, "attach-session");
     }
 
-    internal static IEnumerable<string> BuildNewSessionArguments(NewSessionRequest options)
+    internal static IEnumerable<string> BuildNewSessionArguments(
+        NewSessionRequest options,
+        string format = "#{session_id}")
     {
+        options.ValidateGenerationBinding();
+        if (options.Name is not null)
+        {
+            SessionName.Validate(options.Name);
+        }
+
         yield return "new-session";
         yield return "-P";
         yield return "-F";
-        yield return "#{session_id}";
+        yield return format;
         if (!options.Attach)
         {
             yield return "-d";
@@ -354,10 +385,13 @@ public sealed partial class Server
     [UnsupportedOSPlatform("windows")]
     private Task<TmuxCommandResult> Dispatch(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        ServerGeneration? expectedGeneration = null) =>
         Connection is null
             ? throw new InvalidOperationException("The server handle has no connection.")
-            : Connection.ServerDispatcher.ExecuteAsync(arguments, cancellationToken);
+            : (expectedGeneration is ServerGeneration expected
+                ? Connection.CreateEntityDispatcher(expected)
+                : Connection.ServerDispatcher).ExecuteAsync(arguments, cancellationToken);
 }
 
 /// <summary>Owns a server and stops it when disposed.</summary>

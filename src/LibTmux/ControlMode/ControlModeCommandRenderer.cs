@@ -1,5 +1,4 @@
 using System.Text;
-using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -10,26 +9,22 @@ internal static class ControlModeCommandRenderer
     {
         ArgumentNullException.ThrowIfNull(command);
         var rendered = new StringBuilder();
-        if (command.RequiredWindowPlacement is { } placement)
+        bool following = false;
+        foreach (IReadOnlyList<string> arguments in command.ToDispatchCommands())
         {
-            foreach (string token in TmuxWindowPlacementGuard.CreateArguments(placement))
+            if (following)
             {
-                if (rendered.Length != 0)
+                rendered.Append(" ; ");
+            }
+            following = true;
+            for (int index = 0; index < arguments.Count; index++)
+            {
+                if (index != 0)
                 {
                     rendered.Append(' ');
                 }
-
-                AppendToken(rendered, token);
+                AppendToken(rendered, arguments[index]);
             }
-
-            rendered.Append(" ; ");
-        }
-
-        AppendToken(rendered, command.Name);
-        foreach (string token in command.Arguments)
-        {
-            rendered.Append(' ');
-            AppendToken(rendered, token);
         }
 
         return rendered.ToString();
@@ -38,17 +33,15 @@ internal static class ControlModeCommandRenderer
     internal static long GetRenderedByteCount(TmuxCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        long bytes = GetTokenByteCount(command.Name);
-        foreach (string token in command.Arguments)
+        long bytes = 0;
+        foreach (IReadOnlyList<string> arguments in command.ToDispatchCommands())
         {
-            bytes += 1 + GetTokenByteCount(token);
-        }
-
-        if (command.RequiredWindowPlacement is { } placement)
-        {
-            IReadOnlyList<string> guard = TmuxWindowPlacementGuard.CreateArguments(placement);
-            bytes += 3 + guard.Count - 1;
-            foreach (string token in guard)
+            if (bytes != 0)
+            {
+                bytes += 3;
+            }
+            bytes += arguments.Count - 1;
+            foreach (string token in arguments)
             {
                 bytes += GetTokenByteCount(token);
             }

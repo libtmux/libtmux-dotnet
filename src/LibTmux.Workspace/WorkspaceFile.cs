@@ -1,25 +1,59 @@
 using System.Collections.ObjectModel;
+using System.Runtime.Versioning;
 
 namespace LibTmux.Workspace;
 
 /// <summary>Describes one pane in a supported tmuxp workspace.</summary>
 public sealed class WorkspacePane
 {
+    private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+
     private readonly ReadOnlyCollection<string> _shellCommands;
+    private readonly ReadOnlyDictionary<string, string> _options;
 
     /// <summary>Initializes a pane description.</summary>
     /// <param name="shellCommands">The commands to run, in order.</param>
     /// <param name="startDirectory">The directory the pane starts in.</param>
     /// <param name="focus">Whether the pane is left selected.</param>
+    /// <param name="options">The pane options to set.</param>
     public WorkspacePane(
         IReadOnlyList<string>? shellCommands = null,
         string? startDirectory = null,
-        bool focus = false)
+        bool focus = false,
+        IReadOnlyDictionary<string, string>? options = null)
     {
         _shellCommands = WorkspaceCollections.Copy(shellCommands, nameof(shellCommands));
+        _options = WorkspaceCollections.Copy(options, nameof(options));
         StartDirectory = startDirectory;
         Focus = focus;
     }
+
+    private WorkspacePane(
+        WorkspacePane source,
+        IReadOnlyDictionary<string, string> environment,
+        IReadOnlyList<string> shellCommandsBefore)
+        : this(source.ShellCommands, source.StartDirectory, source.Focus, source.Options)
+    {
+        _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
+        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+    }
+
+    /// <summary>Gets the environment entries contributed by this declaration.</summary>
+    public IReadOnlyDictionary<string, string> Environment => _environment;
+
+    /// <summary>Gets the commands prepended at this declaration level.</summary>
+    public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
+
+    /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
+    /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
+    /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
+    /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
+    public WorkspacePane WithDefaults(
+        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyList<string>? shellCommandsBefore = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
 
     /// <summary>Gets the commands to run, in order.</summary>
     public IReadOnlyList<string> ShellCommands => _shellCommands;
@@ -29,11 +63,17 @@ public sealed class WorkspacePane
 
     /// <summary>Gets whether the pane is left selected.</summary>
     public bool Focus { get; }
+
+    /// <summary>Gets the pane options to set.</summary>
+    public IReadOnlyDictionary<string, string> Options => _options;
 }
 
 /// <summary>Describes one window in a supported tmuxp workspace.</summary>
 public sealed class WorkspaceWindow
 {
+    private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+
     private readonly ReadOnlyDictionary<string, string> _options;
     private readonly ReadOnlyCollection<WorkspacePane> _panes;
 
@@ -59,6 +99,32 @@ public sealed class WorkspaceWindow
         _options = WorkspaceCollections.Copy(options, nameof(options));
         _panes = WorkspaceCollections.Copy(panes, nameof(panes));
     }
+
+    private WorkspaceWindow(
+        WorkspaceWindow source,
+        IReadOnlyDictionary<string, string> environment,
+        IReadOnlyList<string> shellCommandsBefore)
+        : this(source.WindowName, source.StartDirectory, source.Layout, source.Focus, source.Options, source.Panes)
+    {
+        _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
+        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+    }
+
+    /// <summary>Gets the environment entries contributed by this declaration.</summary>
+    public IReadOnlyDictionary<string, string> Environment => _environment;
+
+    /// <summary>Gets the commands prepended at this declaration level.</summary>
+    public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
+
+    /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
+    /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
+    /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
+    /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
+    public WorkspaceWindow WithDefaults(
+        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyList<string>? shellCommandsBefore = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
 
     /// <summary>Gets the window name.</summary>
     public string? WindowName { get; }
@@ -86,6 +152,9 @@ public sealed class WorkspaceWindow
 /// </remarks>
 public sealed class WorkspaceFile
 {
+    private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+
     private readonly ReadOnlyDictionary<string, string> _options;
     private readonly ReadOnlyCollection<WorkspaceWindow> _windows;
 
@@ -94,17 +163,54 @@ public sealed class WorkspaceFile
     /// <param name="startDirectory">The directory its windows start in.</param>
     /// <param name="options">The session options to set.</param>
     /// <param name="windows">The windows to create, in order.</param>
+    /// <param name="beforeScript">The host command retained for explicitly enabled execution.</param>
+    /// <exception cref="ArgumentException">The host command is blank or contains NUL.</exception>
     public WorkspaceFile(
         string? sessionName = null,
         string? startDirectory = null,
         IReadOnlyDictionary<string, string>? options = null,
-        IReadOnlyList<WorkspaceWindow>? windows = null)
+        IReadOnlyList<WorkspaceWindow>? windows = null,
+        string? beforeScript = null)
     {
+        if (beforeScript is not null && (string.IsNullOrWhiteSpace(beforeScript) || beforeScript.Contains('\0')))
+        {
+            throw new ArgumentException("The before-script command must not be blank or contain NUL.", nameof(beforeScript));
+        }
+
         SessionName = sessionName;
         StartDirectory = startDirectory;
+        BeforeScript = beforeScript;
         _options = WorkspaceCollections.Copy(options, nameof(options));
         _windows = WorkspaceCollections.Copy(windows, nameof(windows));
     }
+
+    private WorkspaceFile(
+        WorkspaceFile source,
+        IReadOnlyDictionary<string, string> environment,
+        IReadOnlyList<string> shellCommandsBefore)
+        : this(source.SessionName, source.StartDirectory, source.Options, source.Windows, source.BeforeScript)
+    {
+        _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
+        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+        DirectoriesAreResolved = source.DirectoriesAreResolved;
+        DocumentDirectory = source.DocumentDirectory;
+    }
+
+    /// <summary>Gets the environment entries contributed by this declaration.</summary>
+    public IReadOnlyDictionary<string, string> Environment => _environment;
+
+    /// <summary>Gets the commands prepended at this declaration level.</summary>
+    public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
+
+    /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
+    /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
+    /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
+    /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
+    public WorkspaceFile WithDefaults(
+        IReadOnlyDictionary<string, string>? environment = null,
+        IReadOnlyList<string>? shellCommandsBefore = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
 
     /// <summary>Gets the session name.</summary>
     public string? SessionName { get; }
@@ -118,7 +224,75 @@ public sealed class WorkspaceFile
     /// <summary>Gets the windows to create, in order.</summary>
     public IReadOnlyList<WorkspaceWindow> Windows => _windows;
 
-    /// <summary>Reads a workspace from tmuxp YAML.</summary>
+    /// <summary>Gets the host command retained without expansion or execution by parsing or resolution.</summary>
+    public string? BeforeScript { get; }
+
+    /// <summary>Gets the absolute document directory supplied to resolution, or null before resolution.</summary>
+    public string? DocumentDirectory { get; internal init; }
+
+    internal bool DirectoriesAreResolved { get; init; }
+
+    /// <summary>Resolves inherited pane directories against an explicit document base.</summary>
+    /// <param name="baseDirectory">The absolute directory containing the declaration.</param>
+    /// <param name="variables">The only variables available to directory expansion.</param>
+    /// <returns>A new declaration with absolute inherited directories and its document directory.</returns>
+    /// <remarks>
+    /// Resolves relative paths against the parent declaration's directory. Expansion
+    /// accepts $NAME, ${NAME}, and a leading ~ using the supplied HOME variable;
+    /// $$ produces a literal dollar sign. It reads neither the process environment
+    /// nor the filesystem. The builder treats resolved directories as literal paths,
+    /// including tmux format characters. Commands, the host script, names and option values remain literal.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The document base is not absolute.</exception>
+    /// <exception cref="WorkspaceFormatException">A directory or expansion is invalid.</exception>
+    public WorkspaceFile Resolve(
+        string baseDirectory,
+        IReadOnlyDictionary<string, string>? variables = null) =>
+        WorkspacePathResolver.Resolve(this, baseDirectory, variables);
+
+    /// <summary>Creates a workspace declaration from a captured session without reaching tmux.</summary>
+    /// <param name="session">The session with captured windows, panes, and active pane relations.</param>
+    /// <returns>An unresolved declaration without a document directory.</returns>
+    /// <remarks>
+    /// Preserves captured window placements and pane order, names, layouts, and focus.
+    /// Repeated links become separate declared windows. Captured pane directories
+    /// escape literal dollars for a later explicit <see cref="Resolve" />; captured
+    /// null paths remain unspecified. Commands, environment, options, terminal text,
+    /// entity identifiers, indices, and shared-link identity are not reconstructed.
+    /// Foreground command names do not establish shell intent. Restoring a native
+    /// custom layout can change which pane occupies a position; see
+    /// <see cref="Window.SelectLayoutAsync" />.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The session is null.</exception>
+    /// <exception cref="IncompleteSnapshotException">A required field or relation was not captured.</exception>
+    /// <exception cref="TmuxProtocolException">A captured window active flag is malformed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public static WorkspaceFile FromSnapshot(Session session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        CapturedRelation<Window> captured = session.Windows;
+        WorkspaceWindow[] windows = new WorkspaceWindow[captured.Count];
+        for (int windowIndex = 0; windowIndex < windows.Length; windowIndex++)
+        {
+            Window window = captured[windowIndex];
+            Pane activePane = window.ActivePane.Value;
+            WorkspacePane[] panes = new WorkspacePane[window.Panes.Count];
+            for (int paneIndex = 0; paneIndex < panes.Length; paneIndex++)
+            {
+                Pane pane = window.Panes[paneIndex];
+                panes[paneIndex] = new WorkspacePane(
+                    startDirectory: pane.CurrentPath?.Replace("$", "$$", StringComparison.Ordinal),
+                    focus: pane == activePane);
+            }
+
+            windows[windowIndex] = new WorkspaceWindow(
+                windowName: window.Name, layout: window.Layout, focus: window.IsActive, panes: panes);
+        }
+
+        return new WorkspaceFile(sessionName: session.Name, windows: windows);
+    }
+
+    /// <summary>Reads a workspace from tmuxp YAML or JSON.</summary>
     /// <param name="yaml">The file contents.</param>
     /// <returns>The parsed workspace.</returns>
     /// <exception cref="WorkspaceFormatException">
@@ -146,6 +320,32 @@ public sealed class WorkspaceFormatException : LibTmuxException
 
 internal static class WorkspaceCollections
 {
+    internal static bool IsValidEnvironmentName(string name) =>
+        name.Length > 0 && !name.Contains('=') && !name.Contains('\0');
+
+    internal static ReadOnlyDictionary<string, string> CopyEnvironment(
+        IReadOnlyDictionary<string, string>? values,
+        string parameterName)
+    {
+        ReadOnlyDictionary<string, string> copy = Copy(values, parameterName);
+        foreach ((string name, string value) in copy)
+        {
+            if (!IsValidEnvironmentName(name))
+            {
+                throw new ArgumentException(
+                    "Environment names must be nonempty and cannot contain '=' or NUL.",
+                    parameterName);
+            }
+
+            if (value.Contains('\0'))
+            {
+                throw new ArgumentException("Environment values cannot contain NUL.", parameterName);
+            }
+        }
+
+        return copy;
+    }
+
     public static ReadOnlyCollection<T> Copy<T>(
         IReadOnlyList<T>? values,
         string parameterName)

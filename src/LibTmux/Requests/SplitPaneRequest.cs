@@ -18,6 +18,14 @@ public sealed record SplitPaneRequest : ITmuxRequest<Pane>
     /// <summary>Gets the pane to split, or null for the active one.</summary>
     public string? Target { get; init; }
 
+    /// <summary>Gets the window that must contain the target pane at dispatch.</summary>
+    /// <remarks>
+    /// When supplied, a nonwaiting native guard checks the resolved target's
+    /// window immediately before splitting. Null keeps ordinary tmux target
+    /// semantics. This check does not prevent a later move during readback.
+    /// </remarks>
+    public WindowId? ExpectedWindowId { get; init; }
+
     /// <summary>Gets the working directory for the new pane.</summary>
     /// <remarks>
     /// tmux expands it as a format before it changes directory, so a <c>#</c>
@@ -128,6 +136,7 @@ public sealed record SplitPaneRequest : ITmuxRequest<Pane>
         return TmuxChaining.Command([.. pane.BuildSplitArguments(this)]) with
         {
             RequiredGeneration = pane.Generation,
+            RequiredTargetWindow = ExpectedWindowId is { } expected ? (Target ?? pane.Id.ToString(), expected) : null,
         };
     }
 }

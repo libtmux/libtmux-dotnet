@@ -12,9 +12,127 @@ version.
 
 ### Added
 
+- `WorkspaceFile.FromSnapshot` converts a captured session into a declaration
+  without contacting tmux. It preserves ordered placements, layouts, focus and
+  directories; commands, environment, options and shared links remain unspecified.
+
+- `WorkspaceBuilder.PlanAsync` exposes immutable actions and cleanup policies;
+  `ApplyAsync` executes that plan and retains per-action outcomes. Declarations
+  support pane options and opt-in `before_script` execution with bounded output.
+  `Validate` checks declarations and policies without reading tmux.
+
+- `Server.CreateSessionWithReceiptAsync` and
+  `Session.CreateWindowWithReceiptAsync` return the initial window and pane
+  identities acknowledged by the creation command.
+
+- `Window.UnlinkAsync` can require exact pane membership, and
+  `SplitPaneRequest.ExpectedWindowId` can refuse a moved target before splitting.
+
+- `TmuxWaitChannel.CloseAsync` accepts cancellation and joins the shared close
+  operation, including owned client cleanup.
+
+- `QueryDocument.Plan<T>` prepares an inspectable source query, and
+  `QueryPlan<T>.ExecuteAsync` returns read-only matches with their captured
+  `Snapshot`. `Never`, `Auto` and `Require` control exact predicate evaluation
+  in tmux while retaining the complete acquired graph.
+
+- `QueryFieldCatalog.GetFields` exposes immutable field, operator and relation
+  descriptors for criteria builders, including capture depth and native bindings.
+
+- `Server.InspectAsync` reads endpoint identity without initialization or
+  daemon startup. `DaemonVersion` reports the inspected server version
+  separately from the client executable version.
+
+- `NewSessionRequest.ExpectedGeneration` binds creation and readback to one
+  daemon. It also binds `ToCommand()` output and rejects `ReplaceExisting`.
+
+- Query schema v2 adds `Pane.CurrentPath`, `Width`, `Height`, window placement
+  index and active state, to-one navigation, session panes and linked sessions.
+
+- `Window.IsActive` reads whether the captured placement is selected in its
+  session, including repeated links to the same window.
+
+- `WorkspaceFile.Resolve` resolves inherited directories against an explicit
+  document base and supplied variables without reading process context.
+
+- Workspace `environment` and `shell_command_before` declarations inherit
+  through session, window and pane levels. `WithDefaults` copies these values
+  for programmatic declarations.
+
+- `ServerConnectionOptions.ControlModeEventBufferMaxBytes` bounds decoded
+  notification payloads independently of the queued event count.
+
 ### Fixed
 
+- Option command rejections retain `TmuxDispatchState.Dispatched`, including
+  failed option actions in workspace journals.
+
+- `Session.AttachAsync` accepts successful terminal detach after a guarded
+  acknowledgement and preserves owned-client cancellation metadata.
+
+- Cancellation stops owned output reads even when tmux retains the output
+  descriptor of an exited client.
+
+- Session creation binds readback to the daemon that acknowledged creation,
+  preventing a reused ID on a replacement daemon from being returned.
+
+- Workspace session and window names preserve literal tmux format characters.
+
+- Native tmux clients preserve Unicode and tab-delimited formats under the
+  C locale, including MCP processes started with a minimal environment.
+
+- Generation-bound commands keep an absent tmux daemon stopped, without
+  loading its configuration before the generation guard runs.
+
+- MCP stdin EOF cancels pending requests before session and owned-daemon
+  cleanup, so a disconnected client cannot leave a text wait running.
+
+- The registered MCP `wait_for_text` tool forwards progress notifications
+  while a wait is pending, allowing clients to coordinate concurrent work.
+
+- `ResizePaneRequest.TrimBelow` works alone and rejects combined sizing,
+  zoom and mouse modes before dispatch. tmux handles trimming first and would
+  otherwise ignore those other operations.
+
+- `PaneObservation.WatchAsync` forwards notification loss and rechecks whether
+  the pane exists. MCP waits wake and capture current state after loss, with
+  `eventsDropped` reporting the session stream's loss during that wait.
+
+- MCP text waits honor control timeouts without rereading pane contents when
+  deadline timers expire before the elapsed-time clock reaches the budget.
+
+- Workspace declaration errors include the offending source line and column.
+  Environment entries reject empty names, `=` in names and NUL before dispatch.
+
+- Resolved workspace directories preserve literal tmux format and style
+  characters when creating windows and panes.
+
 ### Changed
+
+- **`WorkspaceBuilder.BuildAsync` uses the plan/apply engine and sends input
+  immediately by default.** Use `WorkspacePlanOptions.Readiness =
+  WorkspaceReadiness.Cooperative` with an explicit startup signal when readiness
+  matters. `PaneReadiness` and the builder's readiness constructor parameters
+  are removed; cursor and current-command polling no longer infer readiness.
+
+- **Wait-channel disposal has a one-second withdrawal deadline.** Failed or
+  cancelled withdrawal reports unknown remote registration after ending the
+  owned local client; it does not claim that killing a client deregisters it.
+
+- **Query documents use schema v2.** Recreate previously stored v1 documents
+  with the current translator; the old schema is no longer accepted. Use
+  `QueryJsonLimits.Default` in place of `QueryJsonLimits.V1`.
+
+- **MCP pane waits require control mode by default.** Set
+  `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit timed reads after control
+  observation fails. Results report `pollingFallback`; capabilities describe
+  the policy and stderr records activation.
+
+- **Control notification queues default to a 4 MiB payload ceiling.**
+  Oversized events and evicted older events produce `TmuxEventsDroppedEvent`.
+  Refresh state after loss, or set `ControlModeEventBufferMaxBytes` to a larger
+  positive budget. An oversized exit reason is omitted while retaining the
+  terminal event.
 
 ### Removed
 

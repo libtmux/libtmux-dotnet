@@ -1,7 +1,6 @@
 using System.Runtime.Versioning;
 // A namespace segment named Workspace would shadow LibTmux.Workspace for
 // every file in the assembly, so this sits at the assembly root instead.
-using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Testing;
 using LibTmux.Workspace;
@@ -12,10 +11,6 @@ namespace LibTmux.IntegrationTests;
 public sealed class WorkspaceBuilderTests
 {
 
-    // The library's ten-second default is ample for one shell on an idle
-    // machine. These run beside other suites and a build, where a shell can
-    // take longer to draw its first prompt than the subject under test needs.
-    private static readonly TimeSpan Readiness = TimeSpan.FromSeconds(60);
     private const string Yaml = """
         session_name: libtmux-workspace
         start_directory: /tmp
@@ -38,36 +33,190 @@ public sealed class WorkspaceBuilderTests
                   - echo command-two
         """;
 
-    [Fact]
-    public void Readiness_timeout_must_be_positive()
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(6, "tiled")]
+    [InlineData(12, "tiled")]
+    [InlineData(6, "even-horizontal")]
+    public async Task Construction_arranges_panes_without_changing_final_layout_order_or_focus(int count, string layout)
     {
-        Server server = Server.Open();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        WorkspaceFile workspace = new("construction-layout", options: new Dictionary<string, string>
+        {
+            ["default-command"] = "exec /bin/cat",
+            ["default-size"] = "80x24",
+        }, windows:
+        [
+            new WorkspaceWindow("many", layout: layout, focus: true,
+                panes: [.. Enumerable.Range(0, count).Select(index => new WorkspacePane(focus: index == 2))]),
+            new WorkspaceWindow("other"),
+        ]);
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(workspace, cancellationToken: token);
+        WorkspaceResult result = await builder.ApplyAsync(plan, token);
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorkspaceBuilder(server, TimeSpan.Zero));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorkspaceBuilder(server, TimeSpan.FromTicks(-1)));
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new WorkspaceBuilder(
-                server,
-                paneReadiness: (PaneReadiness)int.MaxValue));
+        Window window = result.Windows[0];
+        Assert.Equal(80, window.Width);
+        Assert.InRange(window.Height, 23, 24);
+        Assert.Equal(count, window.Panes.Count);
+        Assert.Equal(Enumerable.Range(0, count), window.Panes.Select(pane => pane.Index));
+        Assert.Equal(result.Journal.Where(outcome => outcome.Action.Target.StartsWith("window:0/", StringComparison.Ordinal)
+            && outcome.Action.Kind is WorkspaceActionKind.CaptureFirstPane or WorkspaceActionKind.SplitPane)
+            .Select(outcome => Assert.IsType<Pane>(outcome.Result).Id), window.Panes.Select(pane => pane.Id));
+        Assert.Equal(window.Panes[2].Id, window.ActivePane.Value.Id);
+        Assert.Equal(window.Id, result.Session.ActiveWindow.Value.Id);
+        WorkspaceActionOutcome finalLayout = Assert.Single(result.Journal, outcome => outcome.Action.Kind == WorkspaceActionKind.SelectLayout);
+        Assert.Equal(layout, Assert.IsType<WorkspaceAction<SelectLayoutRequest>>(finalLayout.Action).Request.Layout);
+        Assert.Equal(window.Layout, Assert.IsType<Window>(finalLayout.Result).Layout);
+        Assert.All(window.Panes, pane => Assert.True(pane.Width < window.Width));
+        if (layout == "even-horizontal")
+            Assert.All(window.Panes, pane => Assert.Equal(window.Height, pane.Height));
+        else
+            Assert.All(window.Panes, pane => Assert.True(pane.Height < window.Height));
+        Assert.Equal(count - 2, plan.Actions.Count(action => action.Kind == WorkspaceActionKind.ArrangePanes));
+        foreach (WorkspaceAction action in plan.Actions.Where(action => action.Kind == WorkspaceActionKind.ArrangePanes))
+            Assert.Equal("tiled", Assert.IsType<WorkspaceAction<SelectLayoutRequest>>(action).Request.Layout);
+        Assert.All(result.Journal, outcome => Assert.Equal(WorkspaceActionState.Completed, outcome.State));
     }
 
-    [Theory]
-    [InlineData(PaneReadiness.Auto, "", "/bin/zsh", "zsh")]
-    [InlineData(PaneReadiness.Auto, "", "/bin/bash", null)]
-    [InlineData(PaneReadiness.Always, "", "/bin/bash", "bash")]
-    [InlineData(PaneReadiness.Never, "", "/bin/zsh", null)]
-    [InlineData(PaneReadiness.Always, "top", "/bin/zsh", null)]
-    public void Readiness_policy_selects_default_shell_panes(
-        PaneReadiness policy,
-        string defaultCommand,
-        string defaultShell,
-        string? expected)
+    [UnixFact]
+    public async Task Rejected_construction_layout_stops_before_the_next_split()
     {
-        Assert.Equal(
-            expected,
-            PaneReadinessWaiter.SelectShell(policy, defaultCommand, defaultShell));
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxCommandException? rejected = null;
+        TmuxInterceptor interceptor = async (invocation, next, cancellation) =>
+        {
+            if (invocation.Arguments.Contains("select-layout", StringComparer.Ordinal)
+                && invocation.Arguments.Contains("tiled", StringComparer.Ordinal))
+            {
+                rejected = new("Construction layout was rejected.", new TmuxCommandResult(invocation.Arguments, 1,
+                    ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, [], ["layout rejected"]));
+                throw rejected;
+            }
+            return await next(cancellation);
+        };
+        TmuxTestOptions options = new(HarnessOptions().ConnectionOptions with { Interceptor = interceptor });
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(options, token);
+        WorkspaceFile workspace = new("rejected-construction", options: new Dictionary<string, string>
+        {
+            ["default-command"] = "exec /bin/cat",
+        }, windows: [new WorkspaceWindow(layout: "even-horizontal", panes: [new(), new(), new()])]);
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(workspace, cancellationToken: token);
+        WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(() => builder.ApplyAsync(plan, token));
+
+        Assert.NotNull(rejected);
+        Assert.Same(rejected, failure.InnerException);
+        Assert.Equal(WorkspaceActionState.Failed, Assert.Single(failure.Journal,
+            outcome => outcome.Action.Kind == WorkspaceActionKind.ArrangePanes).State);
+        Assert.Equal(WorkspaceActionState.NotStarted, Assert.Single(failure.Journal,
+            outcome => outcome.Action.Kind == WorkspaceActionKind.SplitPane && outcome.Action.Target == "window:0/pane:2").State);
+        Assert.NotNull(failure.PartialResult);
+        Assert.Empty(failure.PartialResult.Unsupported);
+    }
+
+    [UnixFact]
+    public async Task Resolved_directories_reach_the_panes_from_the_document_origin()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string origin = Directory.CreateTempSubdirectory("libtmux-workspace-origin-").FullName;
+        try
+        {
+            string source = Directory.CreateDirectory(Path.Combine(origin, "#{session_name}-#[bold]")).FullName;
+            string tests = Directory.CreateDirectory(Path.Combine(source, "#{pane_id}-##[literal]")).FullName;
+            TmuxTestFactory factory = new();
+            await using TemporaryServerScope scope = await factory.CreateServerAsync(HarnessOptions(), token);
+            WorkspaceFile workspace = WorkspaceFile.Parse("""
+                session_name: resolved-directories
+                start_directory: '#{session_name}-#[bold]'
+                options:
+                  default-command: exec /bin/cat
+                windows:
+                  - window_name: project
+                    panes:
+                      - shell_command: []
+                      - shell_command: []
+                        start_directory: '#{pane_id}-##[literal]'
+                """).Resolve(origin).WithDefaults();
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+                .BuildAsync(workspace, token);
+            IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
+
+            Assert.Equal(2, panes.Count);
+            Assert.Equal(source, panes[0].CurrentPath);
+            Assert.Equal(tests, panes[1].CurrentPath);
+
+            WorkspaceFile native = new(
+                sessionName: "native-directories",
+                startDirectory: origin,
+                options: workspace.Options,
+                windows: [new WorkspaceWindow(), new WorkspaceWindow(startDirectory: "#{session_path}")]);
+            WorkspaceResult nativeResult = await new WorkspaceBuilder(scope.Server)
+                .BuildAsync(native, token);
+            Pane nativePane = Assert.Single(await nativeResult.Windows[1].GetPanesAsync(token));
+            Assert.Equal(origin, nativePane.CurrentPath);
+        }
+        finally
+        {
+            Directory.Delete(origin, recursive: true);
+        }
+    }
+
+    [UnixFact]
+    public async Task Environment_and_before_commands_inherit_in_declaration_order()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string origin = Directory.CreateTempSubdirectory("libtmux-workspace-inheritance-").FullName;
+        try
+        {
+            TmuxTestFactory factory = new();
+            await using TemporaryServerScope scope = await factory.CreateServerAsync(HarnessOptions(), token);
+            string output = Path.Combine(origin, "result");
+            string destination = ShellQuote(output);
+            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string ready = $"workspace-ready-{Guid.NewGuid():N}";
+            await scope.Server.CreateSessionAsync(new NewSessionRequest
+            {
+                Name = "wait-anchor",
+                Command = "exec /bin/cat",
+            }, token);
+            await using TmuxWaitChannel wait = scope.Server.OpenWaitChannel(ready);
+            WorkspaceFile workspace = WorkspaceFile.Parse($$"""
+                session_name: inherited-declarations
+                environment:
+                  SESSION_VALUE: present
+                  LAYER: session
+                options:
+                  default-command: exec /bin/sh
+                shell_command_before: >-
+                  printf 'session:' >> {{destination}}
+                windows:
+                  - window_name: project
+                    environment:
+                      LAYER: window
+                    shell_command_before: >-
+                      printf 'window:' >> {{destination}}
+                    panes:
+                      - environment:
+                          LAYER: pane
+                        shell_command_before: >-
+                          printf 'pane:' >> {{destination}}
+                        shell_command: >-
+                          printf '%s:%s:done' "$SESSION_VALUE" "$LAYER" >> {{destination}}; {{tmux}} wait-for -S {{ready}}
+                """).Resolve(origin);
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
+                .BuildAsync(workspace, token);
+
+            Assert.True(await wait.WaitAsync(TimeSpan.FromSeconds(1), token));
+            Assert.Equal("session:window:pane:present:pane:done", await File.ReadAllTextAsync(output, token));
+            Assert.Equal("inherited-declarations", result.Session.Name);
+        }
+        finally
+        {
+            Directory.Delete(origin, recursive: true);
+        }
     }
 
     [UnixFact]
@@ -79,10 +228,14 @@ public sealed class WorkspaceBuilderTests
             HarnessOptions(),
             token);
 
-        WorkspaceFile workspace = WorkspaceFile.Parse(Yaml);
+        string completed = $"workspace-built-{Guid.NewGuid():N}";
+        string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+        WorkspaceFile workspace = WorkspaceFile.Parse(Yaml.Replace("echo command-two",
+            $"echo command-two; {tmux} wait-for -S {completed}", StringComparison.Ordinal));
         WorkspaceBuilder builder = new(scope.Server);
         WorkspaceResult result = await builder.BuildAsync(workspace, token);
 
+        Assert.NotEmpty(result.Journal);
         Assert.Equal("libtmux-workspace", result.Session.Name);
         Assert.Equal(2, result.Windows.Count);
         Assert.Equal(["editor", "shell"], result.Windows.Select(window => window.Name).ToArray());
@@ -103,14 +256,9 @@ public sealed class WorkspaceBuilderTests
         Assert.Equal(2, editor.Count);
         Assert.Single(shell);
 
-        string text = await TmuxWait.UntilAsync(
-            async cancellation => string.Join(
-                '\n',
-                await shell[0].CaptureAsync(cancellationToken: cancellation)),
-            captured => captured.Contains("command-two", StringComparison.Ordinal),
-            TestBudget.Settle,
-            TimeSpan.FromMilliseconds(20),
-            token);
+        await using TmuxWaitChannel completion = result.Session.Server.OpenWaitChannel(completed);
+        Assert.True(await completion.WaitAsync(TimeSpan.FromSeconds(1), token));
+        string text = string.Join('\n', await shell[0].CaptureAsync(cancellationToken: token));
         Assert.Contains("command-one", text, StringComparison.Ordinal);
         Assert.Contains("command-two", text, StringComparison.Ordinal);
         Assert.True(
@@ -140,7 +288,7 @@ public sealed class WorkspaceBuilderTests
                   - echo hello
             """);
 
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
             .BuildAsync(workspace, token);
 
         // The session is still built, and the caller is told what was asked
@@ -155,127 +303,24 @@ public sealed class WorkspaceBuilderTests
     public async Task Each_workspace_command_receives_one_enter()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        TmuxTestFactory factory = new();
-        await using TemporaryServerScope scope = await factory.CreateServerAsync(
-            HarnessOptions(),
-            token);
-
-        WorkspaceFile workspace = WorkspaceFile.Parse("""
-            session_name: libtmux-single-enter
-            windows:
-              - panes:
-                  - shell_command: 'printf "ready\n"; read value; printf "got=<%s>\n" "$value"'
-            """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
-            .BuildAsync(workspace, token);
-        Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
-
-        bool receivedBlankLine = await TmuxWait.UntilAsync(
-            async cancellation => string.Join(
-                    '\n',
-                    await pane.CaptureAsync(cancellationToken: cancellation))
-                .Contains("got=<>", StringComparison.Ordinal),
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(20),
-            throwOnTimeout: false,
-            token);
-
-        Assert.False(receivedBlankLine);
-    }
-
-    [UnixFact]
-    public async Task Readiness_timeout_writes_nothing_to_the_pane()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-timeout").FullName;
-
+        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-enter-").FullName;
         try
         {
-            (string shell, string received) = await WriteReceiverAsync(
-                directory,
-                "sh",
-                writeStartup: false,
-                token);
-            TmuxTestFactory factory = new();
-            await using TemporaryServerScope scope = await factory.CreateServerAsync(
-                HarnessOptions(shell),
-                token);
-            WorkspaceFile workspace = WorkspaceFile.Parse("""
-                session_name: libtmux-shell-timeout
-                windows:
-                  - panes:
-                      - shell_command: echo WORKSPACE_USER_COMMAND
-                """);
+            await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+            string received = Path.Combine(directory, "received");
+            string completed = $"workspace-enter-{Guid.NewGuid():N}";
+            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string command = $"IFS= read -r value; printf '%s' \"$value\" > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
+            WorkspaceFile workspace = new("libtmux-single-enter", windows:
+                [new WorkspaceWindow(panes: [new WorkspacePane([command])])]);
 
-            WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(
-                () => new WorkspaceBuilder(
-                        scope.Server,
-                        TimeSpan.FromMilliseconds(250),
-                        PaneReadiness.Always)
-                    .BuildAsync(workspace, token));
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
+            Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
+            await using TmuxWaitChannel completion = result.Session.Server.OpenWaitChannel(completed);
+            await pane.SendTextAsync("expected-input", cancellationToken: token);
 
-            TmuxWaitTimeoutException timeout = Assert.IsType<TmuxWaitTimeoutException>(
-                failure.InnerException);
-            Assert.Equal(TimeSpan.FromMilliseconds(250), timeout.Timeout);
-            Assert.False(File.Exists(received));
-            Server server = await scope.Server.ConnectAsync(token);
-            Session session = Assert.Single(await server.GetSessionsAsync(token));
-            Window window = Assert.Single(await session.GetWindowsAsync(token));
-            Pane pane = Assert.Single(await window.GetPanesAsync(token));
-            WorkspaceResult partial = Assert.IsType<WorkspaceResult>(failure.PartialResult);
-            Assert.Equal(session.Id, partial.Session.Id);
-            Assert.Equal(window.Id, Assert.Single(partial.Windows).Id);
-            string captured = string.Join(
-                '\n',
-                await pane.CaptureAsync(cancellationToken: token));
-            Assert.DoesNotContain("WORKSPACE_USER_COMMAND", captured, StringComparison.Ordinal);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [UnixFact]
-    public async Task Startup_output_can_look_ready_before_a_prompt_exists()
-    {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-heuristic").FullName;
-
-        try
-        {
-            // Script-backed shell process names differ by platform. A startup
-            // profile keeps pane_current_command bound to a real /bin/bash.
-            (string configuration, string profile, string received) =
-                await WriteStartupProfileAsync(
-                directory,
-                token);
-            TmuxTestFactory factory = new();
-            await using TemporaryServerScope scope = await factory.CreateServerAsync(
-                StartupProfileHarnessOptions(configuration, profile, directory),
-                token);
-            WorkspaceFile workspace = WorkspaceFile.Parse("""
-                session_name: libtmux-shell-false-positive
-                windows:
-                  - panes:
-                      - shell_command: WORKSPACE_USER_COMMAND
-                """);
-
-            _ = await new WorkspaceBuilder(
-                    scope.Server,
-                    Readiness,
-                    PaneReadiness.Always)
-                .BuildAsync(workspace, token);
-
-            string firstInput = await TmuxWait.UntilAsync(
-                async cancellation => File.Exists(received)
-                    ? await File.ReadAllTextAsync(received, cancellation)
-                    : "",
-                input => input.Length > 0,
-                TestBudget.Settle,
-                TimeSpan.FromMilliseconds(20),
-                token);
-            Assert.Equal("WORKSPACE_USER_COMMAND\n", firstInput);
+            Assert.True(await completion.WaitAsync(TimeSpan.FromSeconds(1), token));
+            Assert.Equal("expected-input", await File.ReadAllTextAsync(received, token));
         }
         finally
         {
@@ -287,51 +332,35 @@ public sealed class WorkspaceBuilderTests
     public async Task Session_options_launch_the_real_first_pane()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-first-pane").FullName;
-
+        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-first-pane-").FullName;
         try
         {
-            (string command, string received) = await WriteReceiverAsync(
-                directory,
-                "receiver",
-                writeStartup: false,
-                token);
-            TmuxTestFactory factory = new();
-            await using TemporaryServerScope scope = await factory.CreateServerAsync(
-                HarnessOptions(),
-                token);
-            WorkspaceFile workspace = new(
-                sessionName: "libtmux-first-pane-options",
+            string command = Path.Combine(directory, "receiver");
+            string received = Path.Combine(directory, "received");
+            string completed = $"workspace-options-{Guid.NewGuid():N}";
+            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            await File.WriteAllTextAsync(command,
+                "#!/bin/sh\nset -eu\nIFS= read -r first\n"
+                + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\n"
+                + $"{tmux} wait-for -S {completed}\nexec /bin/sh\n", token);
+            File.SetUnixFileMode(command, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+            WorkspaceFile workspace = new("libtmux-first-pane-options",
                 options: new Dictionary<string, string>
                 {
                     ["base-index"] = "3",
                     ["default-command"] = ShellQuote(command),
                 },
-                windows:
-                [
-                    new WorkspaceWindow(
-                        windowName: "configured",
-                        panes: [new WorkspacePane(["WORKSPACE_USER_COMMAND"])])
-                ]);
+                windows: [new WorkspaceWindow("configured", panes: [new WorkspacePane(["WORKSPACE_USER_COMMAND"])])]);
 
-            WorkspaceResult result = await new WorkspaceBuilder(
-                    scope.Server,
-                    Readiness,
-                    PaneReadiness.Always)
-                .BuildAsync(workspace, token);
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
 
-            string firstInput = await TmuxWait.UntilAsync(
-                async cancellation => File.Exists(received)
-                    ? await File.ReadAllTextAsync(received, cancellation)
-                    : "",
-                input => input.Length > 0,
-                TimeSpan.FromSeconds(2),
-                TimeSpan.FromMilliseconds(20),
-                token);
+            await using TmuxWaitChannel completion = result.Session.Server.OpenWaitChannel(completed);
+            Assert.True(await completion.WaitAsync(TimeSpan.FromSeconds(1), token));
             Window window = Assert.Single(result.Windows);
             Assert.Equal(3, window.Index);
             Assert.Equal("configured", window.Name);
-            Assert.Equal("WORKSPACE_USER_COMMAND\n", firstInput);
+            Assert.Equal("WORKSPACE_USER_COMMAND\n", await File.ReadAllTextAsync(received, token));
         }
         finally
         {
@@ -358,25 +387,13 @@ public sealed class WorkspaceBuilderTests
                   - start_directory: /etc
                     shell_command: pwd
             """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
             .BuildAsync(workspace, token);
         IReadOnlyList<Pane> panes = await Assert.Single(result.Windows).GetPanesAsync(token);
 
-        IReadOnlyList<string> first = await TmuxWait.UntilAsync(
-            cancellation => panes[0].CaptureAsync(cancellationToken: cancellation),
-            lines => lines.Contains("/usr", StringComparer.Ordinal),
-            TestBudget.Settle,
-            TimeSpan.FromMilliseconds(20),
-            token);
-        IReadOnlyList<string> second = await TmuxWait.UntilAsync(
-            cancellation => panes[1].CaptureAsync(cancellationToken: cancellation),
-            lines => lines.Contains("/etc", StringComparer.Ordinal),
-            TestBudget.Settle,
-            TimeSpan.FromMilliseconds(20),
-            token);
-
-        Assert.Contains("/usr", first);
-        Assert.Contains("/etc", second);
+        Assert.Equal(2, panes.Count);
+        Assert.Equal("/usr", panes[0].CurrentPath);
+        Assert.Equal("/etc", panes[1].CurrentPath);
     }
 
     [UnixFact]
@@ -401,12 +418,14 @@ public sealed class WorkspaceBuilderTests
                   - focus: true
                   - focus: true
             """);
-        WorkspaceResult result = await new WorkspaceBuilder(scope.Server, Readiness)
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server)
             .BuildAsync(workspace, token);
-        Session session = await result.Session.RefreshAsync(token);
-        Window window = await result.Windows[1].RefreshAsync(token);
-        IReadOnlyList<Pane> panes = await window.GetPanesAsync(token);
+        Session session = result.Session;
+        Window window = result.Windows[1];
+        CapturedRelation<Pane> panes = window.Panes;
 
+        Assert.Contains(result.Journal, action => action.Action.Kind == WorkspaceActionKind.CaptureResult
+            && action.State == WorkspaceActionState.Completed);
         Assert.Equal(result.Windows[1].Id, session.ActiveWindow.Value.Id);
         Assert.Equal(panes[1].Id, window.ActivePane.Value.Id);
     }
@@ -422,79 +441,19 @@ public sealed class WorkspaceBuilderTests
         Assert.Single(nameless.Windows);
     }
 
-    private static TmuxTestOptions HarnessOptions(string? shell = null) =>
+    private static TmuxTestOptions HarnessOptions() =>
         new(new ServerConnectionOptions
         {
             TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
             SocketName = $"ltw-{Guid.NewGuid():N}"[..20],
-            ConfigurationFile = shell is null
-                ? "/dev/null"
-                : Path.ChangeExtension(shell, ".tmux.conf"),
-            ChildEnvironment = shell is null
-                ? null
-                : new Dictionary<string, string?> { ["SHELL"] = shell }
-        });
-
-    private static TmuxTestOptions StartupProfileHarnessOptions(
-        string configuration,
-        string profile,
-        string home) =>
-        new(new ServerConnectionOptions
-        {
-            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-            SocketName = $"ltw-{Guid.NewGuid():N}"[..20],
-            ConfigurationFile = configuration,
+            ConfigurationFile = "/dev/null",
             ChildEnvironment = new Dictionary<string, string?>
             {
-                ["BASH_ENV"] = profile,
-                ["HOME"] = home,
-                ["SHELL"] = "/bin/bash",
-            }
+                ["SHELL"] = "/bin/sh",
+                ["ENV"] = null,
+                ["BASH_ENV"] = null,
+            },
         });
-
-    private static async Task<(string Configuration, string Profile, string Received)>
-        WriteStartupProfileAsync(
-            string directory,
-            CancellationToken cancellationToken)
-    {
-        string configuration = Path.Combine(directory, "tmux.conf");
-        string profile = Path.Combine(directory, ".bash_profile");
-        string received = Path.Combine(directory, "received");
-        await File.WriteAllTextAsync(
-            profile,
-            "unset BASH_ENV\nprintf 'startup output\\n'\nIFS= read -r first\n"
-            + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\n",
-            cancellationToken);
-        await File.WriteAllTextAsync(
-            configuration,
-            "set-option -g default-shell /bin/bash\n",
-            cancellationToken);
-        return (configuration, profile, received);
-    }
-
-    private static async Task<(string Program, string Received)> WriteReceiverAsync(
-        string directory,
-        string name,
-        bool writeStartup,
-        CancellationToken cancellationToken)
-    {
-        string program = Path.Combine(directory, name);
-        string received = Path.Combine(directory, "received");
-        string startup = writeStartup ? "printf 'startup output\\n'\n" : "";
-        await File.WriteAllTextAsync(
-            program,
-            $"#!/bin/sh\nset -eu\n{startup}IFS= read -r first\n"
-            + $"printf '%s\\n' \"$first\" > {ShellQuote(received)}\nexec /bin/sh\n",
-            cancellationToken);
-        File.SetUnixFileMode(
-            program,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        await File.WriteAllTextAsync(
-            Path.ChangeExtension(program, ".tmux.conf"),
-            $"set-option -g default-shell {ShellQuote(program)}\n",
-            cancellationToken);
-        return (program, received);
-    }
 
     private static string ShellQuote(string value) =>
         $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";

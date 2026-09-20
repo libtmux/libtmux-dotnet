@@ -141,6 +141,113 @@ public sealed class McpProtocolTests
     }
 
     [UnixFact]
+    public async Task Stdin_eof_cancels_a_pending_wait_and_removes_the_owned_daemon()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = Path.Combine(WorkspaceSocketRoot.Root, $"mcp-eof-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        string binary = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux";
+        Server endpoint = Server.Open(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = binary,
+            SocketName = "libtmux-mcp",
+            ConfigurationFile = "/dev/null",
+            ChildEnvironment = new Dictionary<string, string?> { ["TMUX_TMPDIR"] = root },
+        });
+        var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "LibTmux.Mcp"))
+        {
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        foreach (string variable in startInfo.Environment.Keys
+            .Where(name => name.StartsWith("LIBTMUX_", StringComparison.Ordinal)).ToArray())
+        {
+            startInfo.Environment.Remove(variable);
+        }
+        startInfo.Environment.Remove("TMUX");
+        startInfo.Environment.Remove("TMUX_PANE");
+        startInfo.Environment.Remove("ENV");
+        startInfo.Environment.Remove("BASH_ENV");
+        startInfo.Environment["SHELL"] = "/bin/sh";
+        startInfo.Environment["LIBTMUX_TMUX"] = binary;
+        startInfo.Environment["TMUX_TMPDIR"] = root;
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("The MCP test process did not start.");
+        process.StandardInput.AutoFlush = true;
+        Task<string> standardError = process.StandardError.ReadToEndAsync(token);
+        try
+        {
+            await WriteAsync(process, new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = 1,
+                ["method"] = "initialize",
+                ["params"] = new JsonObject
+                {
+                    ["protocolVersion"] = "2025-06-18",
+                    ["capabilities"] = new JsonObject(),
+                    ["clientInfo"] = new JsonObject { ["name"] = "eof-test", ["version"] = "1" },
+                },
+            }, token);
+            Assert.NotNull((await ReadAsync(process, token))["result"]);
+            await WriteAsync(process, new JsonObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["method"] = "notifications/initialized",
+            }, token);
+            await WriteAsync(process, ToolCall("create", "create_session",
+                new JsonObject { ["name"] = "eof-wait" }), token);
+            JsonNode created = await ReadAsync(process, token);
+            Assert.NotEqual(true, created["result"]?["isError"]?.GetValue<bool>());
+            string pane = created["result"]?["structuredContent"]?["paneId"]?.GetValue<string>()
+                ?? throw new InvalidOperationException("The session did not return a pane.");
+            JsonObject wait = ToolCall("wait", "wait_for_text", new JsonObject
+            {
+                ["paneId"] = pane,
+                ["patterns"] = new JsonArray("never-arriving-eof-marker"),
+                ["timeoutSeconds"] = 30,
+            });
+            wait["params"]!["_meta"] = new JsonObject { ["progressToken"] = "eof-progress" };
+            await WriteAsync(process, wait, token);
+            JsonNode progress = await ReadAsync(process, token);
+            Assert.Equal("notifications/progress", progress["method"]?.GetValue<string>());
+            Assert.Equal("eof-progress", progress["params"]?["progressToken"]?.GetValue<string>());
+
+            process.StandardInput.Close();
+            Task<string> remaining = process.StandardOutput.ReadToEndAsync(token);
+            await process.WaitForExitAsync(token).WaitAsync(TimeSpan.FromSeconds(1), token);
+            Assert.Equal(0, process.ExitCode);
+            foreach (string line in (await remaining).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                Assert.Equal("2.0", JsonNode.Parse(line)?["jsonrpc"]?.GetValue<string>());
+            }
+            TmuxCommandResult probe = await endpoint.ExecuteCommandAsync(
+                ["display-message", "-p", "#{pid}"], token);
+            Assert.NotEqual(0, probe.ExitCode);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync(CancellationToken.None);
+            }
+            _ = await standardError;
+            try
+            {
+                await endpoint.KillAsync(CancellationToken.None);
+            }
+            catch (LibTmuxException)
+            {
+            }
+            Directory.Delete(root, recursive: true);
+        }
+        Assert.False(Directory.Exists(root));
+    }
+
+    [UnixFact]
     public async Task The_wire_surface_is_the_pinned_cross_port_inventory()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -1050,20 +1157,29 @@ public sealed class McpProtocolTests
     public async Task A_call_that_waits_does_not_hold_up_another()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
         _ = await harness.Client.CallToolAsync(
             "create_session",
             new Dictionary<string, object?> { ["name"] = "concurrency-probe" },
             cancellationToken: token);
 
+        TaskCompletionSource<ProgressNotificationValue> progress = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         Task<CallToolResult> waiting = harness.Client.CallToolAsync(
             "wait_for_text",
             new Dictionary<string, object?>
             {
                 ["patterns"] = NeverArrives,
-                ["timeoutSeconds"] = 5,
+                ["timeoutSeconds"] = 1,
             },
-            cancellationToken: token).AsTask();
+            progress: new Progress<ProgressNotificationValue>(value => progress.TrySetResult(value)),
+            cancellationToken: waitCancellation.Token).AsTask();
+
+        await Task.WhenAny(progress.Task, waiting).WaitAsync(token);
+        Assert.True(progress.Task.IsCompletedSuccessfully, "The registered wait must report progress over MCP.");
+        Assert.Equal(1, progress.Task.Result.Total);
+        Assert.False(waiting.IsCompleted);
 
         CallToolResult listed = await harness.Client.CallToolAsync(
             "list_sessions",
@@ -1074,7 +1190,8 @@ public sealed class McpProtocolTests
         // call for up to the ceiling.
         Assert.False(listed.IsError ?? false);
         Assert.False(waiting.IsCompleted);
-        _ = await waiting;
+        await waitCancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
     }
 
     private static JsonElement Structured(CallToolResult result) =>

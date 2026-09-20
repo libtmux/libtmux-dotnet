@@ -105,7 +105,19 @@ public sealed record WaitResult(
     string? MatchedPattern,
     BoundedText Tail,
     double ElapsedSeconds,
-    double EffectiveTimeoutSeconds);
+    double EffectiveTimeoutSeconds)
+{
+    /// <summary>Gets whether this wait enabled polling after control observation was unavailable.</summary>
+    /// <remarks>False identifies control observation. True includes an entry match obtained before the first timed poll.</remarks>
+    public bool PollingFallback { get; init; }
+
+    /// <summary>Gets control notifications dropped by the watched session during this wait.</summary>
+    /// <remarks>
+    /// Loss wakes a fresh pane read but cannot recover intermediate output.
+    /// The session-wide count can include notifications about other panes.
+    /// </remarks>
+    public long EventsDropped { get; init; }
+}
 
 /// <summary>What happened while waiting on a tmux wait-for channel.</summary>
 /// <param name="Changed">What happened, in plain words.</param>

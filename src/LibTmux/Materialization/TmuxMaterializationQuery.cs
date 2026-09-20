@@ -46,6 +46,18 @@ internal sealed class MaterializationQuery
             .ConfigureAwait(false);
     }
 
+    [UnsupportedOSPlatform("windows")]
+    internal Task<MaterializedQueryRows> FetchMarkedAsync(
+        string listCommand,
+        IEnumerable<string>? extraArguments,
+        string predicateFormat,
+        CancellationToken cancellationToken)
+    {
+        FormatProjection projection = FormatProjection.Create(listCommand, _context.TmuxVersion, predicateFormat);
+        string[] arguments = [listCommand, .. extraArguments ?? [], "-F", projection.Template];
+        return ExecuteAsync(projection, arguments, cancellationToken);
+    }
+
     /// <summary>Fetches the row for exactly one tmux entity.</summary>
     /// <param name="listCommand">The <c>list-*</c> subcommand naming the projection.</param>
     /// <param name="idWireName">The format token identifying the entity.</param>
@@ -204,8 +216,16 @@ internal sealed class MaterializationQuery
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> ExecuteAsync(
         string listCommand,
         string[] arguments,
+        CancellationToken cancellationToken) =>
+        (await ExecuteAsync(CreateProjection(listCommand), arguments, cancellationToken).ConfigureAwait(false)).Fields;
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<MaterializedQueryRows> ExecuteAsync(
+        FormatProjection projection,
+        string[] arguments,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // Reading Generation first rejects an unmaterialized server before a
         // command is ever dispatched.
         ServerGeneration generation = _context.Generation;
@@ -220,17 +240,22 @@ internal sealed class MaterializationQuery
 
         try
         {
-            return Materializer.MaterializeFormatFields(
-                _context,
-                result.StandardOutput.Span,
-                listCommand);
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<IReadOnlyDictionary<string, string?>> fields = Materializer.MaterializeFormatFields(
+                _context, result.StandardOutput.Span, projection, out IReadOnlyList<bool>? matches);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new MaterializedQueryRows(fields, matches);
         }
         catch (InvalidDataException error)
         {
             throw new TmuxTransportException(
-                $"tmux returned an undecodable {listCommand} projection.",
+                $"tmux returned an undecodable {projection.ListCommand} projection.",
                 arguments,
                 error);
         }
     }
 }
+
+internal sealed record MaterializedQueryRows(
+    IReadOnlyList<IReadOnlyDictionary<string, string?>> Fields,
+    IReadOnlyList<bool>? Matches);

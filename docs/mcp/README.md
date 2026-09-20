@@ -46,7 +46,7 @@ cover the cases, and the server's instructions steer between them:
 | You want | Use | Why |
 |---|---|---|
 | Run a command, know if it worked | `run_shell_command` | Waits, returns the shell's **real exit status** |
-| Output you did **not** start | `wait_for_text` | Normally wakes from pane output; bounded polling is the fallback |
+| Output you did **not** start | `wait_for_text` | Wakes from pane output; polling fallback requires operator opt-in |
 | Watch a pane across turns | `capture_since` | Answers only what is **new** since its cursor |
 | Read several facts together | `call_read_tools_batch` | Runs up to 16 declared inspect calls serially |
 
@@ -84,7 +84,7 @@ The in-memory task store admits at most 8 active executions and retains at most
 256 results for 15 minutes. Cancellation keeps its active slot until the
 background execution actually stops.
 
-Normally a wait does not sleep in a loop. It subscribes to tmux's own
+A pane text wait subscribes to tmux's own
 [control mode](https://github.com/tmux/tmux/wiki/Control-Mode), so tmux reports
 pane output as it happens and the wait is released the moment there is
 something to look at.
@@ -96,8 +96,28 @@ arrives on that stream is the pane's raw terminal bytes, so it is used as a
 signal and never as content — the text you get always comes from a capture,
 which is what tmux has already rendered.
 
-If control mode cannot start, waits fall back to polling. Cost changes;
-answers do not.
+Control startup failure or later stream loss ends a text wait by default.
+Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit fallback. It waits 60 ms
+between captures, bounded by the same deadline and cancellation token. The
+extra reads cost tmux processes and can miss intermediate screen states; they
+do not provide event-driven observation.
+
+`tmux://capabilities` discloses the startup policy and polling interval. A wait
+that activates fallback returns `pollingFallback: true`, including an immediate
+entry match, and activation is logged to stderr. The field stays true if that
+wait later regains a control stream. An unset or invalid setting requires
+control observation; prior releases enabled fallback implicitly.
+
+Notification loss is separate from polling fallback. A dropped-event notice
+wakes every text wait in that session to read pane state and captured text
+again. `eventsDropped` reports notifications lost while that wait held its
+lease; the count can include other panes in the session. A fresh read does not
+recover intermediate output, so a successful match is evidence about captured
+text, not a complete terminal transcript.
+
+This setting affects `wait_for_text`. `run_shell_command` and
+`wait_for_channel` use tmux rendezvous signals. MCP task-status polling is a
+separate protocol operation, not a request to poll pane contents.
 
 A protocol client calls `run_shell_command` with the pane id and command it
 wants to run:

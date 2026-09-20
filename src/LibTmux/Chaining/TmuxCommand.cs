@@ -78,20 +78,28 @@ public sealed record TmuxCommand
     /// it; a restarted server reuses those IDs for different objects. A command
     /// built from an entity therefore records which server the entity was read
     /// from, and <see cref="TmuxChain.ExecuteAsync" /> refuses to run it against
-    /// a different one.
+    /// a different one. Generation-bound dispatch never starts an absent daemon.
     ///
-    /// Null means the command names no entity -- a raw command, or one whose
-    /// target is a name rather than an ID -- and carries no such requirement.
+    /// Null leaves dispatch endpoint-scoped, without a generation requirement.
     /// </remarks>
     public ServerGeneration? RequiredGeneration { get; init; }
 
     internal WindowEntityKey? RequiredWindowPlacement { get; init; }
 
+    internal string? RequiredWindowPaneMembership { get; init; }
+
+    internal (string Target, WindowId WindowId)? RequiredTargetWindow { get; init; }
+
     internal IEnumerable<IReadOnlyList<string>> ToDispatchCommands()
     {
         if (RequiredWindowPlacement is WindowEntityKey placement)
         {
-            yield return TmuxWindowPlacementGuard.CreateArguments(placement);
+            yield return TmuxWindowPlacementGuard.CreateArguments(placement, RequiredWindowPaneMembership);
+        }
+
+        if (RequiredTargetWindow is { } targetWindow)
+        {
+            yield return TmuxWindowPlacementGuard.CreateTargetWindowArguments(targetWindow.Target, targetWindow.WindowId);
         }
 
         yield return ToArguments();
@@ -101,7 +109,7 @@ public sealed record TmuxCommand
     /// <returns>The command name followed by its arguments.</returns>
     /// <remarks>
     /// This is raw argv. Execute the command through a chain or control session
-    /// to retain its checks for server generation and captured window placement.
+    /// to retain its checks for server generation, window placement, and pane containment.
     /// </remarks>
     public IReadOnlyList<string> ToArguments() => [Name, .. Arguments];
 
@@ -111,6 +119,8 @@ public sealed record TmuxCommand
         && string.Equals(Name, other.Name, StringComparison.Ordinal)
         && RequiredGeneration == other.RequiredGeneration
         && RequiredWindowPlacement == other.RequiredWindowPlacement
+        && string.Equals(RequiredWindowPaneMembership, other.RequiredWindowPaneMembership, StringComparison.Ordinal)
+        && RequiredTargetWindow == other.RequiredTargetWindow
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -120,6 +130,8 @@ public sealed record TmuxCommand
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(RequiredGeneration);
         hash.Add(RequiredWindowPlacement);
+        hash.Add(RequiredWindowPaneMembership, StringComparer.Ordinal);
+        hash.Add(RequiredTargetWindow);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

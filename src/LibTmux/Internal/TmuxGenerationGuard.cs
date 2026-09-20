@@ -4,7 +4,7 @@ using System.Text;
 namespace LibTmux.Internal;
 
 /// <summary>Executes tmux commands only while a materialized server generation is live.</summary>
-internal sealed class TmuxGenerationGuard(
+internal sealed partial class TmuxGenerationGuard(
     Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> execute,
     Func<string> markerFactory)
 {
@@ -16,27 +16,20 @@ internal sealed class TmuxGenerationGuard(
         IReadOnlyList<string> logicalArguments = [.. commands.SelectMany(static command => command)];
         string marker = markerFactory();
         ArgumentException.ThrowIfNullOrWhiteSpace(marker);
-        string generationText =
-            $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
-            + expected.StartTime.ToString(CultureInfo.InvariantCulture);
-        IReadOnlyList<string>[] guarded =
-        [
-            ["display-message", "-p", TmuxConnection.GenerationFormat],
-            [
-                "if-shell",
-                "-F",
-                $"#{{==:{TmuxConnection.GenerationFormat},{generationText}}}",
-                string.Empty,
-                marker,
-            ],
-            .. commands,
-        ];
+        TmuxCommandRequest request = CreateRequest(expected, commands, marker);
+        TmuxCommandResult grouped = await ExecuteRequestAsync(request, logicalArguments, cancellationToken)
+            .ConfigureAwait(false);
+        return InterpretResult(expected, logicalArguments, marker, grouped);
+    }
 
-        TmuxCommandResult grouped;
+    private async Task<TmuxCommandResult> ExecuteRequestAsync(
+        TmuxCommandRequest request,
+        IReadOnlyList<string> logicalArguments,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            grouped = await execute(TmuxCommandRequest.Group(guarded), cancellationToken)
-                .ConfigureAwait(false);
+            return await execute(request, cancellationToken).ConfigureAwait(false);
         }
         catch (TmuxTransportException error)
         {
@@ -46,7 +39,14 @@ internal sealed class TmuxGenerationGuard(
                 error.Dispatch,
                 error.InnerException);
         }
+    }
 
+    private static TmuxCommandResult InterpretResult(
+        ServerGeneration expected,
+        IReadOnlyList<string> logicalArguments,
+        string marker,
+        TmuxCommandResult grouped)
+    {
         if (!TryStripGenerationPrefix(
                 grouped.StandardOutput.Span,
                 out ServerGeneration actual,
@@ -70,7 +70,7 @@ internal sealed class TmuxGenerationGuard(
         if (grouped.ExitCode == 1 && IsExactMarkerFailure(grouped.StandardError.Span, marker))
         {
             throw new StaleServerGenerationException(
-                $"The tmux server generation changed from {generationText} to "
+                $"The tmux server generation changed from {GenerationText(expected)} to "
                 + $"{actual.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
                 + $"{actual.StartTime.ToString(CultureInfo.InvariantCulture)}.",
                 expected,
@@ -79,6 +79,26 @@ internal sealed class TmuxGenerationGuard(
 
         return TmuxCommandResultProjection.Remap(grouped, logicalArguments, remainingOutput);
     }
+
+    // The planner budgets the same encoded request used by dispatch. The
+    // native connection owns its fixed-length marker; custom markers are an
+    // internal test seam.
+    internal const int MarkerLength = 46;
+
+    // tmux scans the entire list for server-starting commands before the
+    // guard runs. Bound requests must disable client-side server startup.
+    internal static TmuxCommandRequest CreateRequest(
+        ServerGeneration expected,
+        IReadOnlyList<IReadOnlyList<string>> commands,
+        string marker) =>
+        TmuxCommandRequest.Group(preventServerStart: true, [
+            ["display-message", "-p", TmuxConnection.GenerationFormat],
+            ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}", string.Empty, marker],
+            .. commands]);
+
+    private static string GenerationText(ServerGeneration expected) =>
+        $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
+        + expected.StartTime.ToString(CultureInfo.InvariantCulture);
 
     private static bool TryStripGenerationPrefix(
         ReadOnlySpan<byte> standardOutput,

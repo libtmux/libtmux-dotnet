@@ -17,6 +17,7 @@ internal static class Program
 
         return arguments[0] switch
         {
+            "attach-session" when !OperatingSystem.IsWindows() => await AttachSessionAsync(arguments),
             "concurrent-raw" => await WriteConcurrentRawAsync(arguments),
             "cleanup-fault" => await HoldAsync(arguments, "cleanup-fault-ready"),
             "descendant-survival" => await StartDescendantAsync(arguments),
@@ -26,6 +27,55 @@ internal static class Program
             "partial-final" => await WritePartialFinalAsync(arguments),
             _ => UsageExitCode,
         };
+    }
+
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    private static async Task<int> AttachSessionAsync(string[] arguments)
+    {
+        if (arguments.Length != 7)
+        {
+            return UsageExitCode;
+        }
+        using var lifetime = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var watching = new CancellationTokenSource();
+        Server server = await Server.ConnectAsync(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = arguments[1],
+            SocketPath = arguments[2],
+            ConfigurationFile = "/dev/null",
+        }, lifetime.Token);
+        Session session = await server.GetSessionAsync(new SessionId(int.Parse(arguments[3].AsSpan(1), CultureInfo.InvariantCulture)), lifetime.Token);
+        await using TmuxWaitChannel cancel = server.OpenWaitChannel(arguments[4]);
+        Task cancellation = ObserveCancellationAsync();
+        try
+        {
+            Session refreshed = await session.AttachAsync(cancellationToken: lifetime.Token);
+            await File.WriteAllTextAsync(arguments[5], $"returned:{refreshed.Id}:{refreshed.ActiveWindow.Value.Id}", CancellationToken.None);
+        }
+        catch (TmuxOperationCanceledException error) when (arguments[6] == "cancel" && lifetime.IsCancellationRequested)
+        {
+            await File.WriteAllTextAsync(arguments[5], $"cancelled:{error.CommandMayHaveExecuted}", CancellationToken.None);
+        }
+        finally
+        {
+            await watching.CancelAsync();
+            try
+            {
+                await cancellation;
+            }
+            catch (OperationCanceledException) when (watching.IsCancellationRequested)
+            {
+            }
+        }
+        return 0;
+
+        async Task ObserveCancellationAsync()
+        {
+            if (await cancel.WaitAsync(TimeSpan.FromSeconds(10), watching.Token))
+            {
+                await lifetime.CancelAsync();
+            }
+        }
     }
 
     private static async Task<int> WriteConcurrentRawAsync(string[] arguments)

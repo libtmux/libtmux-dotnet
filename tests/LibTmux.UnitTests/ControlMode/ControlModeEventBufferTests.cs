@@ -8,6 +8,69 @@ namespace LibTmux.UnitTests.ControlMode;
 public sealed class ControlModeEventBufferTests
 {
     [Fact]
+    public async Task The_byte_ceiling_counts_decoded_utf8_across_notification_fields()
+    {
+        var buffer = new ControlModeEventBuffer(capacity: 8, maxBytes: 6);
+        Assert.True(buffer.TryWrite(new TmuxNotificationEvent("n", ["é"])));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "\U00010437")));
+        Assert.True(buffer.TryWrite(new TmuxExitEvent("x")));
+        buffer.Complete();
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), observed[0]);
+        Assert.Equal(new TmuxOutputEvent(new PaneId(1), "\U00010437"), observed[1]);
+        Assert.Equal(new TmuxExitEvent("x"), observed[2]);
+    }
+
+    [Fact]
+    public async Task An_oversized_event_wakes_an_empty_reader_with_loss_and_preserves_exit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 8, maxBytes: 1);
+        await using IAsyncEnumerator<TmuxEvent> reader = buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+        Task<bool> pending = reader.MoveNextAsync().AsTask();
+        Assert.False(pending.IsCompleted);
+
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "é")));
+        Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+        Assert.True(buffer.TryWrite(new TmuxExitEvent("too large")));
+        buffer.Complete();
+
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 2), reader.Current);
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal(new TmuxExitEvent(null), reader.Current);
+        Assert.False(await reader.MoveNextAsync());
+    }
+
+    [Fact]
+    public async Task Payload_bytes_bound_the_queue_before_its_event_count_limit()
+    {
+        var buffer = new ControlModeEventBuffer(capacity: 128);
+        string payload = new('x', 64 * 1024);
+        for (int index = 0; index < 65; index++)
+        {
+            Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), payload)));
+        }
+        buffer.Complete();
+
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item);
+        }
+
+        TmuxEventsDroppedEvent loss = Assert.IsType<TmuxEventsDroppedEvent>(observed[0]);
+        Assert.Equal(1, loss.Count);
+        Assert.Equal(64, observed.OfType<TmuxOutputEvent>().Count());
+    }
+
+    [Fact]
     public async Task Overflow_is_reported_without_blocking_the_writer()
     {
         const int ExtraEvents = 11;

@@ -492,6 +492,8 @@ LibTmux.NewSessionRequest.DetachOthers.get -> bool
 LibTmux.NewSessionRequest.DetachOthers.init -> void
 LibTmux.NewSessionRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>?
 LibTmux.NewSessionRequest.Environment.init -> void
+LibTmux.NewSessionRequest.ExpectedGeneration.get -> LibTmux.ServerGeneration?
+LibTmux.NewSessionRequest.ExpectedGeneration.init -> void
 LibTmux.NewSessionRequest.Equals(LibTmux.NewSessionRequest? other) -> bool
 LibTmux.NewSessionRequest.Height.get -> string?
 LibTmux.NewSessionRequest.Height.init -> void
@@ -723,11 +725,31 @@ LibTmux.Query.QueryDocument.Target.get -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryDocument.Version.get -> int
 LibTmux.Query.QueryEdgeParser
 LibTmux.Query.QueryExtensions
+LibTmux.Query.QueryFieldCatalog
+LibTmux.Query.QueryFieldDescriptor
+LibTmux.Query.QueryFieldDescriptor.Cardinality.get -> LibTmux.Query.QueryRelationCardinality?
+LibTmux.Query.QueryFieldDescriptor.IsNullable.get -> bool?
+LibTmux.Query.QueryFieldDescriptor.MinimumSnapshotDepth.get -> LibTmux.SnapshotDepth?
+LibTmux.Query.QueryFieldDescriptor.Operators.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Query.QueryFieldDescriptor.RelatedTarget.get -> LibTmux.Query.QueryTarget?
+LibTmux.Query.QueryFieldDescriptor.RelationPropertyPath.get -> string?
+LibTmux.Query.QueryFieldDescriptor.ScalarPropertyPath.get -> string?
+LibTmux.Query.QueryFieldDescriptor.Target.get -> LibTmux.Query.QueryTarget
+LibTmux.Query.QueryFieldDescriptor.ValueKind.get -> LibTmux.Query.QueryValueKind?
+LibTmux.Query.QueryFieldDescriptor.WireName.get -> string!
+LibTmux.Query.QueryRelationCardinality
+LibTmux.Query.QueryRelationCardinality.Many = 1 -> LibTmux.Query.QueryRelationCardinality
+LibTmux.Query.QueryRelationCardinality.One = 0 -> LibTmux.Query.QueryRelationCardinality
 LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Client = 3 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Pane = 2 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Session = 0 -> LibTmux.Query.QueryTarget
 LibTmux.Query.QueryTarget.Window = 1 -> LibTmux.Query.QueryTarget
+LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.Boolean = 0 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.Int64 = 1 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.String = 2 -> LibTmux.Query.QueryValueKind
+LibTmux.Query.QueryValueKind.TypedId = 3 -> LibTmux.Query.QueryValueKind
 LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Down = 1 -> LibTmux.ResizeDirection
 LibTmux.ResizeDirection.Left = 2 -> LibTmux.ResizeDirection
@@ -867,6 +889,8 @@ LibTmux.Server.ConfigureAccessAsync(LibTmux.ServerAccessRequest! request, System
 LibTmux.Server.ConfirmBeforeAsync(LibTmux.ConfirmBeforeRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.ConnectAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server!>!
 LibTmux.Server.ConnectionOptions.get -> LibTmux.ServerConnectionOptions!
+LibTmux.Server.DaemonVersion.get -> LibTmux.TmuxVersion?
+LibTmux.Server.InspectAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Server?>!
 LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.OwnedSessionScope!>!
 LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Session!>!
 LibTmux.Server.DetachAllClientsAsync(string? keepClient = null, string? shellCommand = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -948,6 +972,8 @@ LibTmux.ServerConnectionOptions.ConfigurationFile.get -> string?
 LibTmux.ServerConnectionOptions.ConfigurationFile.init -> void
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.get -> int?
 LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity.init -> void
+LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes.get -> int?
+LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes.init -> void
 LibTmux.ServerConnectionOptions.Equals(LibTmux.ServerConnectionOptions? other) -> bool
 LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Server!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 LibTmux.ServerConnectionOptions.InitializeAsync.init -> void
@@ -1446,6 +1472,7 @@ LibTmux.Window.Height.get -> int
 LibTmux.Window.Hooks.get -> LibTmux.TmuxHooks!
 LibTmux.Window.Id.get -> LibTmux.WindowId
 LibTmux.Window.Index.get -> int
+LibTmux.Window.IsActive.get -> bool
 LibTmux.Window.KillAsync(bool allExcept = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Window.Layout.get -> string!
 LibTmux.Window.LinkAsync(LibTmux.LinkWindowRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -1504,7 +1531,7 @@ const LibTmux.PsmuxServer.SupportedBinarySha256 = "54e5c54db259218348f966b5d0d0b
 const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d61ffdb" -> string!
 const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
 const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
-const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
+const LibTmux.Query.QueryDocument.CurrentVersion = 2 -> int
 const LibTmux.TmuxDiagnostics.ActivitySourceName = "LibTmux" -> string!
 const LibTmux.TmuxDiagnostics.CommandDurationInstrumentName = "libtmux.command.duration" -> string!
 const LibTmux.TmuxDiagnostics.MeterName = "LibTmux" -> string!
@@ -1818,6 +1845,7 @@ static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, LibTmux.Query.QueryDocument! document, System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Matching<T>(this System.Collections.Generic.IEnumerable<T>! source, System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> System.Collections.Generic.IReadOnlyList<T>!
 static LibTmux.Query.QueryExtensions.Translate<T>(System.Linq.Expressions.Expression<System.Func<T, bool>!>! predicate) -> LibTmux.Query.QueryDocument!
+static LibTmux.Query.QueryFieldCatalog.GetFields(LibTmux.Query.QueryTarget target) -> System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryFieldDescriptor!>!
 static LibTmux.ResizePaneRequest.operator !=(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizePaneRequest.operator ==(LibTmux.ResizePaneRequest? left, LibTmux.ResizePaneRequest? right) -> bool
 static LibTmux.ResizeWindowRequest.operator !=(LibTmux.ResizeWindowRequest? left, LibTmux.ResizeWindowRequest? right) -> bool
@@ -1961,3 +1989,37 @@ virtual LibTmux.TmuxEvent.EqualityContract.get -> System.Type!
 virtual LibTmux.TmuxEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 virtual LibTmux.TmuxEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
 virtual LibTmux.TmuxInterceptor.Invoke(LibTmux.TmuxInvocation! invocation, System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!>! next, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<LibTmux.TmuxCommandResult!>!
+LibTmux.Query.QueryPushdown
+LibTmux.Query.QueryPushdown.Never = 0 -> LibTmux.Query.QueryPushdown
+LibTmux.Query.QueryPushdown.Auto = 1 -> LibTmux.Query.QueryPushdown
+LibTmux.Query.QueryPushdown.Require = 2 -> LibTmux.Query.QueryPushdown
+LibTmux.Query.QueryPlan<T>
+LibTmux.Query.QueryPlan<T>.Document.get -> LibTmux.Query.QueryDocument!
+LibTmux.Query.QueryPlan<T>.DaemonVersion.get -> LibTmux.TmuxVersion
+LibTmux.Query.QueryPlan<T>.Pushdown.get -> LibTmux.Query.QueryPushdown
+LibTmux.Query.QueryPlan<T>.PushedPredicate.get -> LibTmux.Query.QueryDocument?
+LibTmux.Query.QueryPlan<T>.ResidualPredicate.get -> LibTmux.Query.QueryDocument?
+LibTmux.Query.QueryPlan<T>.RequiredFields.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Query.QueryFieldDescriptor!>!
+LibTmux.Query.QueryPlan<T>.RequiredSnapshotDepth.get -> LibTmux.SnapshotDepth
+LibTmux.Query.QueryPlan<T>.FallbackReasons.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Query.QueryPlan<T>.ExecuteAsync(LibTmux.Server! server, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Query.QueryResult<T>!>!
+LibTmux.Query.QueryResult<T>
+LibTmux.Query.QueryResult<T>.Snapshot.get -> LibTmux.Server!
+LibTmux.Query.QueryResult<T>.Count.get -> int
+LibTmux.Query.QueryResult<T>.this[int index].get -> T
+LibTmux.Query.QueryResult<T>.GetEnumerator() -> System.Collections.Generic.IEnumerator<T>!
+static LibTmux.Query.QueryExtensions.Plan<T>(this LibTmux.Query.QueryDocument! document, LibTmux.TmuxVersion daemonVersion, LibTmux.Query.QueryPushdown pushdown = LibTmux.Query.QueryPushdown.Auto) -> LibTmux.Query.QueryPlan<T>!
+LibTmux.SessionCreationResult
+LibTmux.SessionCreationResult.Session.get -> LibTmux.Session!
+LibTmux.SessionCreationResult.InitialWindowId.get -> LibTmux.WindowId
+LibTmux.SessionCreationResult.InitialWindowIndex.get -> int
+LibTmux.SessionCreationResult.InitialPaneId.get -> LibTmux.PaneId
+LibTmux.WindowCreationResult
+LibTmux.WindowCreationResult.Window.get -> LibTmux.Window!
+LibTmux.WindowCreationResult.InitialPaneId.get -> LibTmux.PaneId
+LibTmux.Server.CreateSessionWithReceiptAsync(LibTmux.NewSessionRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.SessionCreationResult!>!
+LibTmux.Session.CreateWindowWithReceiptAsync(LibTmux.NewWindowRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.WindowCreationResult!>!
+LibTmux.TmuxWaitChannel.CloseAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+LibTmux.Window.UnlinkAsync(bool killIfLast, System.Collections.Generic.IReadOnlyList<LibTmux.PaneId>! expectedPaneIds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.SplitPaneRequest.ExpectedWindowId.get -> LibTmux.WindowId?
+LibTmux.SplitPaneRequest.ExpectedWindowId.init -> void

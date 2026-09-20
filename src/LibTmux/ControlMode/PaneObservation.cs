@@ -37,7 +37,10 @@ public static class PaneObservation
     /// The pane's own output, ending with <see cref="TmuxExitEvent" /> when the
     /// control client itself ended, or with <see cref="TmuxPaneGoneEvent" />
     /// once the pane is confirmed gone. It never hangs: every arrangement
-    /// change that might mean the pane left is checked as it arrives.
+    /// change that might mean the pane left is checked as it arrives. Notification
+    /// loss is forwarded and also rechecks the pane; callers must refresh state
+    /// derived from the incomplete stream. Stopping this iterator leaves the
+    /// borrowed control client open.
     /// </returns>
     [UnsupportedOSPlatform("windows")]
     public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
@@ -56,6 +59,16 @@ public static class PaneObservation
             {
                 case TmuxOutputEvent output when output.PaneId == paneId:
                     yield return output;
+                    break;
+
+                case TmuxEventsDroppedEvent dropped:
+                    yield return dropped;
+                    if (!await StillResolvesAsync(session, paneId, cancellationToken).ConfigureAwait(false))
+                    {
+                        yield return new TmuxPaneGoneEvent(paneId);
+                        yield break;
+                    }
+
                     break;
 
                 case TmuxExitEvent exit:

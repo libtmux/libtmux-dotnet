@@ -113,7 +113,7 @@ public sealed class TmuxChain
 
         IReadOnlyList<IReadOnlyList<string>> arguments =
             [.. _commands.SelectMany(static command => command.ToDispatchCommands())];
-        IReadOnlyList<string>? logicalArguments = _commands.Any(static command => command.RequiredWindowPlacement is not null)
+        IReadOnlyList<string>? logicalArguments = _commands.Any(static command => command.RequiredWindowPlacement is not null || command.RequiredTargetWindow is not null)
             ? TmuxCommandRequest.Group([.. _commands.Select(static command => command.ToArguments())]).LogicalArguments
             : null;
 

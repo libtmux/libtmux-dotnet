@@ -263,9 +263,9 @@ public sealed class ConnectionValueTests
     public static TheoryData<TmuxColorMode, string[]> PrefixCases =>
         new()
         {
-            { TmuxColorMode.Default, ["-f", "config", "-L", "named"] },
-            { TmuxColorMode.Colors256, ["-2", "-f", "config", "-L", "named"] },
-            { TmuxColorMode.TrueColor, ["-T", "RGB", "-f", "config", "-L", "named"] },
+            { TmuxColorMode.Default, ["-u", "-f", "config", "-L", "named"] },
+            { TmuxColorMode.Colors256, ["-u", "-2", "-f", "config", "-L", "named"] },
+            { TmuxColorMode.TrueColor, ["-u", "-T", "RGB", "-f", "config", "-L", "named"] },
         };
 
     [Fact]
@@ -316,7 +316,7 @@ public sealed class ConnectionValueTests
     {
         var connection = CreateFakeConnection(new ServerConnectionOptions());
 
-        Assert.Equal(["-L", "default"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "default"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -329,7 +329,7 @@ public sealed class ConnectionValueTests
                 ("LIBTMUX_SOCKET_NAME", "libtmux-example-connect"))
             });
 
-        Assert.Equal(["-L", "libtmux-example-connect"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "libtmux-example-connect"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public sealed class ConnectionValueTests
                 ("LIBTMUX_SOCKET_NAME", "ignored"))
             });
 
-        Assert.Equal(["-S", Path.GetFullPath(path)], connection.PrefixArguments);
+        Assert.Equal(["-u", "-S", Path.GetFullPath(path)], connection.PrefixArguments);
     }
 
     [Fact]
@@ -356,7 +356,7 @@ public sealed class ConnectionValueTests
             ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
         });
 
-        Assert.Equal(["-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -368,7 +368,7 @@ public sealed class ConnectionValueTests
             ChildEnvironment = ChildEnvironment(("LIBTMUX_SOCKET_NAME", "ignored")),
         });
 
-        Assert.Equal(["-L", "made"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "made"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -381,7 +381,7 @@ public sealed class ConnectionValueTests
                 ("LIBTMUX_SOCKET_PATH", "/tmp/libtmux-ignored.sock"))
         });
 
-        Assert.Equal(["-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
     }
 
     [Fact]
@@ -394,7 +394,7 @@ public sealed class ConnectionValueTests
         {
             var connection = CreateFakeConnection(new ServerConnectionOptions());
 
-            Assert.Equal(["-L", Name], connection.PrefixArguments);
+            Assert.Equal(["-u", "-L", Name], connection.PrefixArguments);
         }
         finally
         {
@@ -505,7 +505,7 @@ public sealed class ConnectionValueTests
         Server normalized = Server.Open(new ServerConnectionOptions { SocketPath = absolutePath });
         Server original = Server.Open(options);
 
-        Assert.Equal(["-S", absolutePath], connection.PrefixArguments);
+        Assert.Equal(["-u", "-S", absolutePath], connection.PrefixArguments);
         Assert.Equal(normalized, original);
         Assert.Equal(originalPath, connection.Options.SocketPath);
         Assert.Equal(0, calls);
@@ -526,7 +526,7 @@ public sealed class ConnectionValueTests
                 }
             });
 
-        Assert.Equal(["-L", "named"], connection.PrefixArguments);
+        Assert.Equal(["-u", "-L", "named"], connection.PrefixArguments);
         Assert.Equal(0, calls);
     }
 
@@ -730,19 +730,24 @@ public sealed class GenerationGuardTests
         {
             MaxCapturedBytesPerStream = 4096,
             ControlModeEventBufferCapacity = 8,
+            ControlModeEventBufferMaxBytes = 1024,
         };
 
         Assert.Equal(4096, bounded.MaxCapturedBytesPerStream);
         Assert.Equal(8, bounded.ControlModeEventBufferCapacity);
+        Assert.Equal(1024, bounded.ControlModeEventBufferMaxBytes);
 
         // Unset means the library's own ceiling, not "no ceiling".
         Assert.Null(ServerConnectionOptions.Default.MaxCapturedBytesPerStream);
         Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferCapacity);
+        Assert.Null(ServerConnectionOptions.Default.ControlModeEventBufferMaxBytes);
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new ServerConnectionOptions { MaxCapturedBytesPerStream = 0 });
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new ServerConnectionOptions { ControlModeEventBufferCapacity = -1 });
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServerConnectionOptions { ControlModeEventBufferMaxBytes = 0 });
     }
 
     [ConnectionUnixFact]

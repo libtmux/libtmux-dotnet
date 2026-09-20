@@ -30,8 +30,10 @@ public sealed record TmuxNotificationEvent(
 /// <param name="Count">The events discarded since the previous loss report.</param>
 /// <param name="TotalDropped">The events discarded over this control client's lifetime.</param>
 /// <remarks>
-/// LibTmux synthesizes this event before the next retained event. Command
-/// replies use a separate queue and are never discarded by this buffer.
+/// LibTmux reports loss before the next retained event, or by itself when an
+/// oversized event was dropped from an empty buffer. It does not identify
+/// the panes or stream positions lost. Command replies use a separate queue
+/// and are never discarded by this buffer.
 /// </remarks>
 public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent;
 

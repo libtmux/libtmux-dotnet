@@ -211,6 +211,34 @@ content, and checks portable PDB identity and SourceLink against `HEAD`. The
 compiler inventory travels with the packages so the publisher repeats this
 inspection without rebuilding the libraries.
 
+For a downstream review, `eng/package_review.py` runs the same restore, build,
+inventory, pack and inspection commands with a distinct prerelease identity.
+Use a clean, committed checkout with no concurrent builds or edits. Set
+`CORE_REVISION` to its full reviewed commit SHA and choose a version that has
+never been used for other bytes:
+
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+The output directory must not exist. The recipe leaves the checkout's declared
+version unchanged, records command timings and archive hashes, and writes
+`provenance.json` only after inspection and a final clean-source check. Failed
+outputs are diagnostic artifacts; choose a new identity for changed source.
+Use an ignored artifact directory or a location outside the checkout.
+
+The output also contains a portable `NuGet.config`, which maps `LibTmux*`
+exclusively to the directory containing that file. Pin the reviewed version
+in a standalone consumer's package references, restore with this configuration
+and use a fresh `NUGET_PACKAGES` directory. The repository's PackageConsumer
+and AotSmoke projects accept `-p:LibTmuxPackageVersion="$REVIEW_VERSION"` on
+restore and run or publish. `inputs/Directory.Build.props` belongs only to the
+producer build. A PowerShell consumer can use the directory as its local
+package feed. These local packages are not published to NuGet.org.
+
 The outer-loop regression suite mutates real packages:
 
 ```console

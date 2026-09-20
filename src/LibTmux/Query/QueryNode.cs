@@ -146,6 +146,8 @@ internal sealed record QuantifierNode(
     FieldNode Relation,
     QueryNode Predicate) : QueryNode;
 
+internal sealed record RelatedNode(FieldNode Relation, QueryNode Predicate) : QueryNode;
+
 /// <summary>The negation of one predicate.</summary>
 /// <param name="Operand">The negated predicate.</param>
 internal sealed record NotNode(QueryNode Operand) : QueryNode;

@@ -293,6 +293,32 @@ public sealed class TmuxProcessTransportTests
     }
 
     [UnixFact]
+    public async Task Cancellation_stops_owned_output_reads_after_the_client_has_exited()
+    {
+        var heldOutput = new BlockingReadStream();
+        var process = FakeProcessHandle.CompletedWithStreams(
+            7068, heldOutput, new MemoryStream([], writable: false), exitCode: 0);
+        var transport = CreateTransport(process);
+        using var cancellation = new CancellationTokenSource();
+        Task<TmuxCommandResult> execution = transport.ExecuteAsync(["wait-for", "held-output"], cancellation.Token);
+        await process.Started.Task.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            await cancellation.CancelAsync();
+            TmuxOperationCanceledException failure = await Assert.ThrowsAsync<TmuxOperationCanceledException>(() =>
+                execution.WaitAsync(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken));
+
+            Assert.Equal(cancellation.Token, failure.CancellationToken);
+            Assert.True(process.HasExited);
+        }
+        finally
+        {
+            heldOutput.Complete();
+            await IgnoreFailureAsync(execution);
+        }
+    }
+
+    [UnixFact]
     public async Task Cleanup_failure_throws_TmuxCleanupException_with_original_context()
     {
         var cleanupFailure = new IOException("cleanup fault");
@@ -343,7 +369,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Injects_launcher_clock_and_limits_without_wall_clock_sleeps()
     {
-        var heldOutput = new BlockingReadStream();
+        var heldOutput = new BlockingReadStream(ignoreCancellation: true);
         var process = FakeProcessHandle.CompletedWithStreams(
             7051,
             heldOutput,
@@ -382,7 +408,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Cleanup_preserves_an_injected_clock_failure_while_work_is_pending()
     {
-        var heldOutput = new BlockingReadStream();
+        var heldOutput = new BlockingReadStream(ignoreCancellation: true);
         var process = FakeProcessHandle.CompletedWithStreams(
             7062,
             heldOutput,
@@ -1037,7 +1063,7 @@ public sealed class TmuxProcessTransportTests
         }
     }
 
-    private sealed class BlockingReadStream : Stream
+    private sealed class BlockingReadStream(bool ignoreCancellation = false) : Stream
     {
         private readonly TaskCompletionSource<int> _read = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1064,7 +1090,7 @@ public sealed class TmuxProcessTransportTests
         public override ValueTask<int> ReadAsync(
             Memory<byte> buffer,
             CancellationToken cancellationToken = default) =>
-            new(_read.Task.WaitAsync(cancellationToken));
+            new(_read.Task.WaitAsync(ignoreCancellation ? CancellationToken.None : cancellationToken));
 
         public override void Flush()
         {

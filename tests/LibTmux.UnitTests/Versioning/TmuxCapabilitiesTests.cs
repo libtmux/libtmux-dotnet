@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text;
 using LibTmux.Internal;
@@ -628,14 +627,6 @@ public sealed class TmuxCapabilitiesTests
 
     private static Server CreateServerWithRawVersion(string rawVersion)
     {
-        ConstructorInfo constructor = Assert.Single(
-            typeof(Server).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic),
-            static candidate =>
-            {
-                ParameterInfo[] parameters = candidate.GetParameters();
-                return parameters.Length == 3
-                    && parameters[0].ParameterType == typeof(TmuxConnection);
-            });
         var connection = new TmuxConnection(
             new ServerConnectionOptions(),
             FakeMultiplexer.AnsweringVersion(static (request, _) => Task.FromResult(
@@ -646,8 +637,7 @@ public sealed class TmuxCapabilitiesTests
                     ReadOnlyMemory<byte>.Empty,
                     [],
                     []))));
-        return (Server)constructor.Invoke(
-            [connection, new ServerGeneration(1, 1), rawVersion]);
+        return new Server(connection, new ServerGeneration(1, 1), rawVersion);
     }
 
     [UnsupportedOSPlatform("windows")]

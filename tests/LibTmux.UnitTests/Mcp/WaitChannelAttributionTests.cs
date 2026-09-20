@@ -99,6 +99,85 @@ public sealed class WaitChannelAttributionTests
         await Task.WhenAll(first, second).WaitAsync(token);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelling_close_ends_the_shared_clients_and_reports_unknown_registration(bool disposeFirst)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var endpoint = new WaitChannelEndpoint();
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("cancel-close");
+        using var cancellation = new CancellationTokenSource();
+        Task first = disposeFirst ? wait.DisposeAsync().AsTask() : wait.CloseAsync(cancellation.Token).AsTask();
+        await endpoint.WithdrawalStarted.WaitAsync(token);
+        Task second = disposeFirst ? wait.CloseAsync(cancellation.Token).AsTask() : first;
+        try
+        {
+            await cancellation.CancelAsync();
+            OperationCanceledException failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => second.WaitAsync(TimeSpan.FromMilliseconds(500), token));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+
+            Assert.Contains("remote wait registration is unknown", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(0, endpoint.ActiveWaits);
+            Assert.Equal(1, endpoint.SignalCount);
+            Assert.True(endpoint.HasWaiter);
+            Assert.False(wait.Signalled);
+        }
+        finally
+        {
+            endpoint.ReleaseWithdrawal();
+            try { await Task.WhenAll(first, second); }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    [Fact]
+    [Trait("Tier", "Outer")]
+    // Exercises the published one-second withdrawal deadline.
+    public async Task Dispose_has_a_default_deadline_and_reports_unknown_registration()
+    {
+        var endpoint = new WaitChannelEndpoint();
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("default-close-deadline");
+        Task closing = wait.DisposeAsync().AsTask();
+        await endpoint.WithdrawalStarted.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            TimeoutException failure = await Assert.ThrowsAsync<TimeoutException>(() => closing.WaitAsync(
+                TimeSpan.FromMilliseconds(1500), TestContext.Current.CancellationToken));
+            Assert.Contains("remote wait registration is unknown", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(0, endpoint.ActiveWaits);
+            Assert.Equal(1, endpoint.SignalCount);
+            Assert.True(endpoint.HasWaiter);
+        }
+        finally
+        {
+            endpoint.ReleaseWithdrawal();
+            try { await closing; }
+            catch (TimeoutException) { }
+        }
+    }
+
+    [Fact]
+    public async Task Close_preserves_cancellation_unrelated_to_its_owned_lifetime()
+    {
+        var endpoint = new WaitChannelEndpoint();
+        TmuxWaitChannel wait = endpoint.Server.OpenWaitChannel("unrelated-cancellation");
+        var failure = new OperationCanceledException("An independent operation was cancelled.");
+        endpoint.FailWait(failure, registrationRemains: true);
+        OperationCanceledException waitFailure = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => wait.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
+        Assert.Same(failure, waitFailure);
+        endpoint.ReleaseWithdrawal();
+
+        OperationCanceledException observed = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => wait.CloseAsync(TestContext.Current.CancellationToken).AsTask());
+
+        Assert.Same(failure, observed);
+        Assert.Equal(1, endpoint.SignalCount);
+        Assert.False(endpoint.HasWaiter);
+    }
+
     [Fact]
     public async Task A_signal_racing_withdrawal_is_not_attributed_and_stays_pending()
     {
@@ -164,6 +243,7 @@ public sealed class WaitChannelAttributionTests
         private TaskCompletionSource<TmuxCommandResult>? _waiter;
         private bool _pending;
         private int _signals;
+        private int _activeWaits;
 
         internal WaitChannelEndpoint()
         {
@@ -178,6 +258,8 @@ public sealed class WaitChannelAttributionTests
         internal Task WithdrawalStarted => _withdrawalStarted.Task;
 
         internal int SignalCount => Volatile.Read(ref _signals);
+
+        internal int ActiveWaits => Volatile.Read(ref _activeWaits);
 
         internal bool HasWaiter
         {
@@ -234,21 +316,32 @@ public sealed class WaitChannelAttributionTests
             return Success(arguments);
         }
 
-        private Task<TmuxCommandResult> WaitAsync(
+        private async Task<TmuxCommandResult> WaitAsync(
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken)
         {
+            Task<TmuxCommandResult> waiting;
             lock (_gate)
             {
                 if (_pending)
                 {
                     _pending = false;
-                    return Task.FromResult(Success(arguments));
+                    return Success(arguments);
                 }
 
                 _waiter = new TaskCompletionSource<TmuxCommandResult>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
-                return _waiter.Task.WaitAsync(cancellationToken);
+                waiting = _waiter.Task;
+                Interlocked.Increment(ref _activeWaits);
+            }
+
+            try
+            {
+                return await waiting.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeWaits);
             }
         }
 

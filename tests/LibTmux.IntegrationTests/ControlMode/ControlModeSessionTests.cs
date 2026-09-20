@@ -453,6 +453,44 @@ public sealed class ControlModeSessionTests
             item => Assert.Equal(victim.Id, Assert.IsType<TmuxOutputEvent>(item).PaneId));
     }
 
+    [Theory(Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Stopping_a_borrowed_pane_watch_leaves_control_commands_usable(bool cancel)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window window = await session.CreateWindowAsync(
+            new NewWindowRequest { Name = "borrowed-watch", Command = "exec cat" }, token);
+        Pane pane = await TestHierarchy.RequireFirstPaneAsync(window, token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(
+            session.Id.ToString(), token);
+        using CancellationTokenSource watching = CancellationTokenSource.CreateLinkedTokenSource(token);
+        await using (IAsyncEnumerator<TmuxEvent> events = control.WatchAsync(pane, watching.Token)
+            .GetAsyncEnumerator(watching.Token))
+        {
+            Task<bool> pending = events.MoveNextAsync().AsTask();
+            if (cancel)
+            {
+                await watching.CancelAsync();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            }
+            else
+            {
+                await pane.SendTextAsync("borrowed-watch-output", enter: false, cancellationToken: token);
+                Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(1), token));
+                Assert.IsType<TmuxOutputEvent>(events.Current);
+            }
+        }
+
+        Assert.True(control.IsRunning);
+        Assert.Equal(["still-usable"], await control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "still-usable"), token));
+    }
+
     [UnixFact]
     public async Task A_killed_control_client_faults_without_an_exit_event()
     {

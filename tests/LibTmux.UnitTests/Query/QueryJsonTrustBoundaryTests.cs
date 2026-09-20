@@ -14,7 +14,7 @@ public sealed class QueryJsonTrustBoundaryTests
     private static string Document(
         string predicate,
         string schema = QueryDocument.CurrentSchema,
-        int version = 1) =>
+        int version = QueryDocument.CurrentVersion) =>
         $$"""
         {"schema":"{{schema}}","version":{{version}},"target":"session","predicate":{{predicate}}}
         """;
@@ -25,7 +25,7 @@ public sealed class QueryJsonTrustBoundaryTests
     [Fact]
     public void A_document_naming_another_schema_is_refused()
     {
-        // Reading a foreign schema with v1 rules is a silent misinterpretation,
+        // Reading a foreign schema with this schema is a silent misinterpretation,
         // which is worse than a failure.
         UnsupportedQueryExpressionException failure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Deserialize(Document(TrivialPredicate, schema: "someone.else")));
@@ -37,15 +37,15 @@ public sealed class QueryJsonTrustBoundaryTests
     public void A_document_naming_a_future_version_is_refused()
     {
         UnsupportedQueryExpressionException failure = Assert.Throws<UnsupportedQueryExpressionException>(
-            () => QueryJson.Deserialize(Document(TrivialPredicate, version: 2)));
+            () => QueryJson.Deserialize(Document(TrivialPredicate, version: QueryDocument.CurrentVersion + 1)));
 
-        Assert.Contains("version 2", failure.Message, StringComparison.Ordinal);
+        Assert.Contains($"version {QueryDocument.CurrentVersion + 1}", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_string_longer_than_the_limit_is_refused_on_the_way_in()
     {
-        string oversized = new('a', QueryJsonLimits.V1.MaximumStringLength + 1);
+        string oversized = new('a', QueryJsonLimits.Default.MaximumStringLength + 1);
         string json = Document(
             $$"""{"kind":"constant","value":{"kind":"string","value":"{{oversized}}" } }""");
 
@@ -55,7 +55,7 @@ public sealed class QueryJsonTrustBoundaryTests
     [Fact]
     public void A_pattern_longer_than_the_limit_is_refused_on_the_way_in()
     {
-        string oversized = new('a', QueryJsonLimits.V1.MaximumPatternLength + 1);
+        string oversized = new('a', QueryJsonLimits.Default.MaximumPatternLength + 1);
         string json = Document(
             $$"""
             {"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},
@@ -181,7 +181,7 @@ public sealed class QueryJsonTrustBoundaryTests
     public void Text_that_is_not_json_still_reports_a_json_error()
     {
         // The boundary the contract promises: JsonException means the text is
-        // not JSON. Everything a v1 document may get wrong is a LibTmux
+        // not JSON. Everything a query document may get wrong is a LibTmux
         // failure, so one catch covers a bad document from either package.
         // ThrowsAny: the parser answers JsonReaderException, which is one.
         Assert.ThrowsAny<JsonException>(() => QueryJson.Deserialize("{\"schema\":"));
@@ -203,7 +203,7 @@ public sealed class QueryJsonTrustBoundaryTests
     {
         const string json =
             """
-            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"constant","value":{"kind":"boolean","value":true}},"extra":false}
+            {"schema":"libtmux-query","version":2,"target":"session","predicate":{"kind":"constant","value":{"kind":"boolean","value":true}},"extra":false}
             """;
 
         Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
