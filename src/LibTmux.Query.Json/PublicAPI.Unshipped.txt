@@ -20,6 +20,6 @@ override LibTmux.Query.Json.QueryJsonLimits.GetHashCode() -> int
 override LibTmux.Query.Json.QueryJsonLimits.ToString() -> string!
 static LibTmux.Query.Json.QueryJson.Deserialize(string! json, LibTmux.Query.Json.QueryJsonLimits? limits = null) -> LibTmux.Query.QueryDocument!
 static LibTmux.Query.Json.QueryJson.Serialize(LibTmux.Query.QueryDocument! document) -> string!
-static LibTmux.Query.Json.QueryJsonLimits.V1.get -> LibTmux.Query.Json.QueryJsonLimits!
+static LibTmux.Query.Json.QueryJsonLimits.Default.get -> LibTmux.Query.Json.QueryJsonLimits!
 static LibTmux.Query.Json.QueryJsonLimits.operator !=(LibTmux.Query.Json.QueryJsonLimits? left, LibTmux.Query.Json.QueryJsonLimits? right) -> bool
 static LibTmux.Query.Json.QueryJsonLimits.operator ==(LibTmux.Query.Json.QueryJsonLimits? left, LibTmux.Query.Json.QueryJsonLimits? right) -> bool

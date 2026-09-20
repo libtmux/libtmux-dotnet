@@ -1446,6 +1446,7 @@ LibTmux.Window.Height.get -> int
 LibTmux.Window.Hooks.get -> LibTmux.TmuxHooks!
 LibTmux.Window.Id.get -> LibTmux.WindowId
 LibTmux.Window.Index.get -> int
+LibTmux.Window.IsActive.get -> bool
 LibTmux.Window.KillAsync(bool allExcept = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Window.Layout.get -> string!
 LibTmux.Window.LinkAsync(LibTmux.LinkWindowRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -1504,7 +1505,7 @@ const LibTmux.PsmuxServer.SupportedBinarySha256 = "54e5c54db259218348f966b5d0d0b
 const LibTmux.PsmuxServer.SupportedCommit = "66cf61354c473b35d4f0c06c57384fc46d61ffdb" -> string!
 const LibTmux.PsmuxServer.SupportedImplementationBanner = "psmux 3.3.8 (66cf613 2026-08-18)" -> string!
 const LibTmux.Query.QueryDocument.CurrentSchema = "libtmux-query" -> string!
-const LibTmux.Query.QueryDocument.CurrentVersion = 1 -> int
+const LibTmux.Query.QueryDocument.CurrentVersion = 2 -> int
 const LibTmux.TmuxDiagnostics.ActivitySourceName = "LibTmux" -> string!
 const LibTmux.TmuxDiagnostics.CommandDurationInstrumentName = "libtmux.command.duration" -> string!
 const LibTmux.TmuxDiagnostics.MeterName = "LibTmux" -> string!

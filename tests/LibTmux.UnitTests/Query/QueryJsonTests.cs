@@ -11,11 +11,93 @@ public sealed class QueryJsonTests
 
     private sealed record SessionCountRow(string SessionName, long SessionWindows);
 
+    private sealed record PanePathRow(string PaneCurrentPath);
+
+    private sealed record PaneParentRow(WindowParentRow PaneWindow);
+
+    private sealed record WindowParentRow(string WindowName);
+
     private static readonly FieldNode SessionName =
         new(QueryTarget.Session, "session_name");
 
     private static readonly ConstantNode True =
         new(new BooleanConstant(true));
+
+    [Fact]
+    public void Obsolete_versions_are_rejected_before_reading_or_evaluating_a_predicate()
+    {
+        const string obsolete =
+            """
+            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"constant","value":{"kind":"boolean","value":true}}}
+            """;
+        QueryDocument document = new(QueryDocument.CurrentSchema, 1, QueryTarget.Session, True);
+
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(obsolete));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Serialize(document));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => document.RequiredSnapshotDepth);
+    }
+
+    [Fact]
+    public void Current_path_round_trips_and_evaluates_locally()
+    {
+        const string json =
+            """
+            {"schema":"libtmux-query","version":2,"target":"pane","predicate":{"kind":"comparison","operator":"startsWithOrdinal","left":{"kind":"field","target":"pane","wireName":"pane_current_path"},"right":{"kind":"constant","value":{"kind":"string","value":"/srv/"}}}}
+            """;
+        QueryDocument document = QueryJson.Deserialize(json);
+
+        Assert.Equal(2, document.Version);
+        Assert.Equal(SnapshotDepth.Panes, document.RequiredSnapshotDepth);
+        Assert.Equal(json, QueryJson.Serialize(document));
+        Assert.Equal(
+            [new PanePathRow("/srv/api")],
+            new[] { new PanePathRow("/srv/api"), new PanePathRow("/tmp/api") }
+                .Matching<PanePathRow>(document));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(
+            json.Replace("\"version\":2", "\"version\":1", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Related_nodes_round_trip_and_evaluate_locally()
+    {
+        const string json =
+            """
+            {"schema":"libtmux-query","version":2,"target":"pane","predicate":{"kind":"related","relation":{"kind":"field","target":"pane","wireName":"pane_window"},"predicate":{"kind":"comparison","operator":"stringEqualOrdinal","left":{"kind":"field","target":"window","wireName":"window_name"},"right":{"kind":"constant","value":{"kind":"string","value":"editor"}}}}}
+            """;
+        QueryDocument document = QueryJson.Deserialize(json);
+        Func<PaneParentRow, bool> predicate = document.Compile<PaneParentRow>();
+
+        Assert.Equal(json, QueryJson.Serialize(document));
+        Assert.Equal(SnapshotDepth.Panes, document.RequiredSnapshotDepth);
+        Assert.True(predicate(new PaneParentRow(new WindowParentRow("editor"))));
+        Assert.False(predicate(new PaneParentRow(new WindowParentRow("build"))));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => predicate(new PaneParentRow(null!)));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(
+            json.Replace("\"version\":2", "\"version\":1", StringComparison.Ordinal)));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(
+            json.Replace("\"kind\":\"related\"", "\"kind\":\"related\",\"extra\":true", StringComparison.Ordinal)));
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(
+            json.Replace("\"target\":\"window\",\"wireName\":\"window_name\"", "\"target\":\"session\",\"wireName\":\"session_name\"", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Relation_nodes_validate_cardinality_before_binding_a_projection()
+    {
+        QueryNode truth = new ConstantNode(new BooleanConstant(true));
+        QueryDocument[] invalid =
+        [
+            new(QueryDocument.CurrentSchema, 2, QueryTarget.Session,
+                new RelatedNode(new FieldNode(QueryTarget.Session, "session_windows"), truth)),
+            new(QueryDocument.CurrentSchema, 2, QueryTarget.Pane,
+                new QuantifierNode(QueryQuantifier.Any, new FieldNode(QueryTarget.Pane, "pane_window"), truth)),
+        ];
+
+        Assert.All(invalid, document =>
+        {
+            Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Serialize(document));
+            Assert.Throws<UnsupportedQueryExpressionException>(() => document.RequiredSnapshotDepth);
+        });
+    }
 
     public static TheoryData<string, QueryDocument> TranslatedDocuments =>
         new()
@@ -60,31 +142,12 @@ public sealed class QueryJsonTests
         Assert.DoesNotContain("\n", json, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("attached-nvim.json")]
-    [InlineData("regex-invariant.json")]
-    [InlineData("turkish-ignore-case.json")]
-    [InlineData("typed-id.json")]
-    public void Round_trips_every_version_one_golden_byte_for_byte(string fileName)
-    {
-        string resourceName = $"LibTmux.UnitTests.QueryGoldens.{fileName}";
-        using Stream stream = typeof(QueryJsonTests).Assembly
-            .GetManifestResourceStream(resourceName)
-            ?? throw new InvalidOperationException($"Missing embedded resource '{resourceName}'.");
-        using StreamReader reader = new(stream);
-        string json = reader.ReadToEnd().TrimEnd('\r', '\n');
-
-        QueryDocument document = QueryJson.Deserialize(json);
-
-        Assert.Equal(json, QueryJson.Serialize(document));
-    }
-
     [Fact]
-    public void The_wire_matches_the_accepted_version_one_golden()
+    public void The_wire_matches_the_current_golden()
     {
         const string expected =
             """
-            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"comparison","operator":"containsOrdinal","left":{"kind":"field","target":"session","wireName":"session_name"},"right":{"kind":"constant","value":{"kind":"string","value":"dev"}}}}
+            {"schema":"libtmux-query","version":2,"target":"session","predicate":{"kind":"comparison","operator":"containsOrdinal","left":{"kind":"field","target":"session","wireName":"session_name"},"right":{"kind":"constant","value":{"kind":"string","value":"dev"}}}}
             """;
         QueryDocument document =
             QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
@@ -98,7 +161,7 @@ public sealed class QueryJsonTests
     {
         const string expected =
             """
-            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},"dialect":"dotnet","pattern":"^prod-[0-9]+$","semanticOptions":512}}
+            {"schema":"libtmux-query","version":2,"target":"session","predicate":{"kind":"regex","input":{"kind":"field","target":"session","wireName":"session_name"},"dialect":"dotnet","pattern":"^prod-[0-9]+$","semanticOptions":512}}
             """;
         QueryDocument document = Document(new RegexNode(
             SessionName,
@@ -113,20 +176,22 @@ public sealed class QueryJsonTests
     [Fact]
     public void The_schema_field_manifest_matches_the_runtime_catalog()
     {
+        const string resourceName = "LibTmux.UnitTests.QuerySchema.json";
         using Stream stream = typeof(QueryJsonTests).Assembly
-            .GetManifestResourceStream("LibTmux.UnitTests.QuerySchema.json")
+            .GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException("Missing embedded query schema.");
         using JsonDocument schema = JsonDocument.Parse(stream);
         JsonElement definitions = schema.RootElement.GetProperty("$defs");
+        string[] fields = [.. QueryFieldCatalog.WireNames];
 
         Assert.Equal(
-            QueryFieldCatalog.WireNames.Order(StringComparer.Ordinal),
+            fields.Order(StringComparer.Ordinal),
             DirectEnumValues(definitions.GetProperty("field"), "wireName"));
-        AssertKind(definitions, "booleanField", QueryValueKind.Boolean);
-        AssertKind(definitions, "stringField", QueryValueKind.String);
-        AssertKind(definitions, "int64Field", QueryValueKind.Int64);
+        AssertKind(definitions, "booleanField", QueryValueKind.Boolean, fields);
+        AssertKind(definitions, "stringField", QueryValueKind.String, fields);
+        AssertKind(definitions, "int64Field", QueryValueKind.Int64, fields);
         Assert.Equal(
-            QueryFieldCatalog.WireNames.Where(
+            fields.Where(
                     name => QueryFieldCatalog.TryGetKind(name, out QueryValueKind actual)
                         && actual == QueryValueKind.TypedId)
                 .Order(StringComparer.Ordinal),
@@ -137,7 +202,7 @@ public sealed class QueryJsonTests
                 "paneIdField",
                 "clientIdField"));
         Assert.Equal(
-            QueryFieldCatalog.WireNames.Where(QueryFieldCatalog.IsRelation)
+            fields.Where(QueryFieldCatalog.IsRelation)
                 .Order(StringComparer.Ordinal),
             ConstrainedEnumValues(definitions.GetProperty("relationField"), "wireName"));
 
@@ -151,7 +216,7 @@ public sealed class QueryJsonTests
                 properties.GetProperty("target").GetProperty("const").GetString()!,
                 ignoreCase: true);
             Assert.Equal(
-                QueryFieldCatalog.WireNames.Where(
+                fields.Where(
                         name => QueryFieldCatalog.TryGetTarget(name, out QueryTarget actual)
                             && actual == target)
                     .Order(StringComparer.Ordinal),
@@ -166,11 +231,11 @@ public sealed class QueryJsonTests
             QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
         string json = QueryJson.Serialize(document);
 
-        Assert.NotNull(QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumNodes = 8 }));
-        // Widening would let this reader accept a document another v1 reader
+        Assert.NotNull(QueryJson.Deserialize(json, QueryJsonLimits.Default with { MaximumNodes = 8 }));
+        // Widening would let this reader accept a document another reader
         // must reject, which is exactly what a frozen schema forbids.
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumNodes = 4096 }));
+            () => QueryJson.Deserialize(json, QueryJsonLimits.Default with { MaximumNodes = 4096 }));
     }
 
     [Fact]
@@ -181,16 +246,16 @@ public sealed class QueryJsonTests
         string json = QueryJson.Serialize(document);
 
         Assert.Throws<UnsupportedQueryExpressionException>(
-            () => QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumUtf8Bytes = 4 }));
+            () => QueryJson.Deserialize(json, QueryJsonLimits.Default with { MaximumUtf8Bytes = 4 }));
         Assert.Throws<UnsupportedQueryExpressionException>(
-            () => QueryJson.Deserialize(json, QueryJsonLimits.V1 with { MaximumNodes = 1 }));
+            () => QueryJson.Deserialize(json, QueryJsonLimits.Default with { MaximumNodes = 1 }));
     }
 
     [Fact]
     public void A_document_at_the_maximum_logical_depth_round_trips()
     {
         QueryNode predicate = True;
-        for (int depth = 1; depth < QueryJsonLimits.V1.MaximumDepth; depth++)
+        for (int depth = 1; depth < QueryJsonLimits.Default.MaximumDepth; depth++)
         {
             predicate = new NotNode(predicate);
         }
@@ -206,7 +271,7 @@ public sealed class QueryJsonTests
     public void Serialization_applies_structural_budgets_before_semantic_validation()
     {
         QueryNode tooDeep = SessionName;
-        for (int depth = 0; depth < QueryJsonLimits.V1.MaximumDepth; depth++)
+        for (int depth = 0; depth < QueryJsonLimits.Default.MaximumDepth; depth++)
         {
             tooDeep = new NotNode(tooDeep);
         }
@@ -219,7 +284,7 @@ public sealed class QueryJsonTests
         [
             .. Enumerable.Repeat<QueryNode>(
                 SessionName,
-                QueryJsonLimits.V1.MaximumNodes),
+                QueryJsonLimits.Default.MaximumNodes),
         ];
         UnsupportedQueryExpressionException nodeFailure = Assert.Throws<UnsupportedQueryExpressionException>(
             () => QueryJson.Serialize(Document(new OrNode(tooMany))));
@@ -230,7 +295,7 @@ public sealed class QueryJsonTests
     public void An_unknown_node_kind_is_refused_rather_than_guessed()
     {
         const string json =
-            """{"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"telepathy"}}""";
+            """{"schema":"libtmux-query","version":2,"target":"session","predicate":{"kind":"telepathy"}}""";
 
         Assert.Throws<UnsupportedQueryExpressionException>(() => QueryJson.Deserialize(json));
     }
@@ -284,7 +349,7 @@ public sealed class QueryJsonTests
 
     [Theory]
     [MemberData(nameof(InvalidWriterDocuments))]
-    public void Serialization_refuses_values_with_no_version_one_wire_form(
+    public void Serialization_refuses_values_with_no_wire_form(
         string name,
         QueryDocument document)
     {
@@ -306,9 +371,9 @@ public sealed class QueryJsonTests
     }
 
     [Fact]
-    public void Serialization_enforces_the_version_one_encoded_size_limit()
+    public void Serialization_enforces_the_encoded_size_limit()
     {
-        string value = new('a', QueryJsonLimits.V1.MaximumStringLength);
+        string value = new('a', QueryJsonLimits.Default.MaximumStringLength);
         QueryNode[] operands =
         [
             .. Enumerable.Range(0, 64).Select(
@@ -334,9 +399,10 @@ public sealed class QueryJsonTests
     private static void AssertKind(
         JsonElement definitions,
         string definition,
-        QueryValueKind kind) =>
+        QueryValueKind kind,
+        IReadOnlyList<string> fields) =>
         Assert.Equal(
-            QueryFieldCatalog.WireNames.Where(
+            fields.Where(
                     name => QueryFieldCatalog.TryGetKind(name, out QueryValueKind actual)
                         && actual == kind)
                 .Order(StringComparer.Ordinal),

@@ -13,7 +13,8 @@ namespace LibTmux.Query;
 /// </remarks>
 internal static class QueryTranslator
 {
-    internal static QueryDocument Translate<T>(Expression<Func<T, bool>> predicate)
+    internal static QueryDocument Translate<T>(
+        Expression<Func<T, bool>> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
         ParameterExpression parameter = predicate.Parameters[0];
@@ -36,6 +37,28 @@ internal static class QueryTranslator
                 new OrNode([.. Flatten(or, ExpressionType.OrElse, parameter)]),
             UnaryExpression { NodeType: ExpressionType.Not } not =>
                 new NotNode(TranslateNode(not.Operand, parameter)),
+            _ => TranslateAtomicNode(body, parameter),
+        };
+
+    private static QueryNode TranslateAtomicNode(Expression body, ParameterExpression parameter)
+    {
+        Expression? operand = body switch
+        {
+            BinaryExpression binary => binary.Left,
+            MethodCallExpression call => call.Object ?? call.Arguments.FirstOrDefault(),
+            MemberExpression member => member,
+            _ => null,
+        };
+        if (operand is not null
+            && TryFindNavigation(operand, parameter, out Expression navigation, out FieldNode relation))
+        {
+            ParameterExpression child = Expression.Parameter(navigation.Type, "related");
+            Expression rewritten = new NavigationRewriter(navigation, child).Visit(body)!;
+            return new RelatedNode(relation, TranslateNode(rewritten, child));
+        }
+
+        return body switch
+        {
             BinaryExpression binary => TranslateBinary(binary, parameter),
             MethodCallExpression call => TranslateCall(call, parameter),
             MemberExpression member when member.Type == typeof(bool) =>
@@ -45,6 +68,70 @@ internal static class QueryTranslator
                     new ConstantNode(new BooleanConstant(true))),
             _ => throw Unsupported(body),
         };
+    }
+
+    private static bool TryFindNavigation(
+        Expression expression,
+        ParameterExpression parameter,
+        out Expression navigation,
+        out FieldNode relation)
+    {
+        if (StripConvert(expression) is MemberExpression member)
+        {
+            if (member.Member.Name == nameof(CapturedValue<object>.Value)
+                && member.Expression is MemberExpression captured
+                && captured.Expression == parameter
+                && IsCapturedValue(captured.Type)
+                && TrySingleRelation(captured.Member, out relation))
+            {
+                navigation = member;
+                return true;
+            }
+
+            if (member.Expression == parameter
+                && !IsCapturedValue(member.Type)
+                && TrySingleRelation(member.Member, out relation))
+            {
+                navigation = member;
+                return true;
+            }
+
+            if (member.Expression is not null
+                && TryFindNavigation(member.Expression, parameter, out navigation, out relation))
+            {
+                return true;
+            }
+        }
+
+        navigation = null!;
+        relation = null!;
+        return false;
+    }
+
+    private static bool IsCapturedValue(Type type) =>
+        type.IsGenericType && type.GetGenericTypeDefinition() == typeof(CapturedValue<>);
+
+    private static bool TrySingleRelation(MemberInfo member, out FieldNode relation)
+    {
+        string wireName = WireName(member);
+        if (QueryFieldCatalog.TryGetRelation(wireName, out QueryRelationDefinition shape)
+            && shape.Cardinality == QueryRelationCardinality.One
+            && QueryFieldCatalog.TryGetTarget(wireName, out QueryTarget target))
+        {
+            relation = new FieldNode(target, wireName);
+            return true;
+        }
+
+        relation = null!;
+        return false;
+    }
+
+    private sealed class NavigationRewriter(Expression navigation, ParameterExpression child)
+        : ExpressionVisitor
+    {
+        public override Expression? Visit(Expression? node) =>
+            node == navigation ? child : base.Visit(node);
+    }
 
     private static IEnumerable<QueryNode> Flatten(
         BinaryExpression binary,
@@ -116,7 +203,7 @@ internal static class QueryTranslator
 
         if (call.Method.DeclaringType == typeof(Enumerable)
             && call.Method.Name is "Any" or "All"
-            && call.Arguments.Count == 2)
+            && (call.Arguments.Count == 2 || call.Method.Name == "Any" && call.Arguments.Count == 1))
         {
             return TranslateQuantifier(call, parameter);
         }
@@ -136,7 +223,7 @@ internal static class QueryTranslator
         if (call.Arguments.Count == 1)
         {
             // Contains(string) is ordinal. The one-argument StartsWith and
-            // EndsWith overloads use the current culture and have no v1 wire form.
+            // EndsWith overloads use the current culture and have no portable wire form.
             if (operation != QueryStringOperation.ContainsOrdinal)
             {
                 throw Unsupported(call);
@@ -195,9 +282,15 @@ internal static class QueryTranslator
         ParameterExpression parameter)
     {
         if (TranslateOperand(call.Arguments[0], parameter) is not FieldNode relation
-            || !QueryFieldCatalog.IsRelation(relation.WireName))
+            || !QueryFieldCatalog.TryGetRelation(relation.WireName, out QueryRelationDefinition shape)
+            || shape.Cardinality != QueryRelationCardinality.Many)
         {
             throw Unsupported(call);
+        }
+
+        if (call.Arguments.Count == 1)
+        {
+            return new QuantifierNode(QueryQuantifier.Any, relation, new ConstantNode(new BooleanConstant(true)));
         }
 
         if (StripQuotes(call.Arguments[1]) is not LambdaExpression lambda)
@@ -222,6 +315,14 @@ internal static class QueryTranslator
             return FieldFor(member.Member);
         }
 
+        if (stripped is MemberExpression { Member.Name: "Count", Expression: MemberExpression collection }
+            && collection.Expression == parameter
+            && QueryFieldCatalog.TryGetRelation(WireName(collection.Member), out QueryRelationDefinition shape)
+            && shape.Cardinality == QueryRelationCardinality.Many)
+        {
+            return FieldFor(collection.Member);
+        }
+
         return TryConstant(stripped, out object? value)
             ? new ConstantNode(ConstantFor(value, stripped.Type))
             : throw Unsupported(operand);
@@ -231,11 +332,7 @@ internal static class QueryTranslator
     {
         // Entity properties use cataloged tmux names. Caller-defined
         // projections already name their wire fields.
-        string wireName =
-            member.DeclaringType is { } owner
-            && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)
-                ? mapped
-                : ToWireName(member.Name);
+        string wireName = WireName(member);
         // The catalog is closed: a field it does not carry has no wire form.
         if (!QueryFieldCatalog.TryGetTarget(wireName, out QueryTarget target))
         {
@@ -245,6 +342,12 @@ internal static class QueryTranslator
 
         return new FieldNode(target, wireName);
     }
+
+    private static string WireName(MemberInfo member) =>
+        member.DeclaringType is { } owner
+        && QueryFieldCatalog.TryGetWireName(owner, member.Name, out string mapped)
+            ? mapped
+            : ToWireName(member.Name);
 
     private static QueryConstant ConstantFor(object? value, Type declared) => value switch
     {
@@ -311,6 +414,7 @@ internal static class QueryTranslator
         StringNode text => Narrower(text.Left, text.Right),
         RegexNode regex => TargetOf(regex.Input),
         QuantifierNode quantifier => quantifier.Relation.Target,
+        RelatedNode related => related.Relation.Target,
         _ => QueryTarget.Session,
     };
 

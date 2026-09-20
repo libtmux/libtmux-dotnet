@@ -55,8 +55,15 @@ public sealed class QuerySemanticsTests
         var catalogKinds = new HashSet<QueryValueKind>();
         foreach (string wireName in QueryFieldCatalog.WireNames)
         {
-            Assert.True(QueryFieldCatalog.TryGetKind(wireName, out QueryValueKind kind));
-            catalogKinds.Add(kind);
+            if (QueryFieldCatalog.TryGetKind(wireName, out QueryValueKind kind))
+            {
+                catalogKinds.Add(kind);
+            }
+            else
+            {
+                Assert.True(QueryFieldCatalog.TryGetRelation(wireName, out QueryRelationDefinition relation));
+                Assert.Equal(QueryRelationCardinality.One, relation.Cardinality);
+            }
         }
 
         Assert.Equal(
@@ -84,6 +91,18 @@ public sealed class QuerySemanticsTests
         Assert.Equal(
             "client_control_mode",
             Field(QueryExtensions.Translate<Client>(client => client.IsControlClient)));
+    }
+
+    [Fact]
+    public void Translation_uses_the_current_field_catalog()
+    {
+        QueryDocument path = QueryExtensions.Translate<Pane>(
+            pane => pane.CurrentPath == "/srv/api");
+
+        Assert.Equal(QueryDocument.CurrentVersion, path.Version);
+        Assert.Equal("pane_current_path", Field(path));
+        Assert.Equal(QueryDocument.CurrentVersion,
+            QueryExtensions.Translate<Pane>(pane => pane.CurrentCommand == "vim").Version);
     }
 
     [Fact]

@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="libtmux-query-v1.schema.json" Pack="true" PackagePath="\" />
+    <None Include="libtmux-query-v2.schema.json" Pack="true" PackagePath="\" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <PropertyGroup>

@@ -1085,6 +1085,7 @@ modes differ.
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |
 | `LibTmux.Window.Id` | Gets the window identifier. |
 | `LibTmux.Window.Index` | Gets the index this window holds in its session. |
+| `LibTmux.Window.IsActive` | Gets whether this captured placement is the selected window in its session. |
 | `LibTmux.Window.Layout` | Gets the layout string captured with this handle. |
 | `LibTmux.Window.LinkedSessions` | Gets the sessions the capture found this window linked into. |
 | `LibTmux.Window.Name` | Gets the window name captured with this handle. |
@@ -1134,7 +1135,7 @@ modes differ.
 | `LibTmux.PsmuxServer.SupportedCommit` | Gets the exact psmux source commit accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedImplementationBanner` | Gets the exact clean implementation banner accepted by this preview. |
 | `LibTmux.Query.QueryDocument.CurrentSchema` | The current wire schema identifier. |
-| `LibTmux.Query.QueryDocument.CurrentVersion` | The current wire schema version. |
+| `LibTmux.Query.QueryDocument.CurrentVersion` | The supported wire schema version. |
 | `LibTmux.Query.QueryTarget.Client` | A tmux client. |
 | `LibTmux.Query.QueryTarget.Pane` | A tmux pane. |
 | `LibTmux.Query.QueryTarget.Session` | A tmux session. |

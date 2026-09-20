@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using LibTmux.Query;
+using LibTmux.Query.Json;
 using LibTmux.UnitTests.Transport;
 
 namespace LibTmux.UnitTests.Snapshots;
@@ -56,20 +57,54 @@ public sealed class CapturedRelationTests
                 ["pane_current_path"] = string.Empty,
             });
         Func<Pane, bool> isNull = QueryExtensions.Translate<Pane>(pane => pane.CurrentCommand == null).Compile<Pane>();
+        Func<Pane, bool> isPathNull = QueryExtensions.Translate<Pane>(
+            pane => pane.CurrentPath == null).Compile<Pane>();
 
         foreach (Pane pane in new[] { uncaptured, missing })
         {
             Assert.Throws<IncompleteSnapshotException>(() => pane.CurrentCommand);
             Assert.Throws<IncompleteSnapshotException>(() => pane.CurrentPath);
             Assert.Throws<IncompleteSnapshotException>(() => isNull(pane));
+            Assert.Throws<IncompleteSnapshotException>(() => isPathNull(pane));
         }
 
         Assert.Null(unavailable.CurrentCommand);
         Assert.Null(unavailable.CurrentPath);
         Assert.True(isNull(unavailable));
+        Assert.True(isPathNull(unavailable));
         Assert.Equal(string.Empty, empty.CurrentCommand);
         Assert.Equal(string.Empty, empty.CurrentPath);
         Assert.False(isNull(empty));
+        Assert.False(isPathNull(empty));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void Window_active_queries_distinguish_absent_and_malformed_captured_values()
+    {
+        var generation = new ServerGeneration(93, 903);
+        var connection = new TmuxConnection(
+            new ServerConnectionOptions { SocketName = "snapshot-unit" },
+            (_, _) => throw new InvalidOperationException("A captured field reached tmux."));
+        var server = new Server(connection, generation, "tmux 3.7");
+        QueryDocument document = QueryJson.Deserialize(
+            """
+            {"schema":"libtmux-query","version":2,"target":"window","predicate":{"kind":"field","target":"window","wireName":"window_active"}}
+            """);
+        Func<Window, bool> predicate = document.Compile<Window>();
+
+        Assert.True(predicate(Capture("1")));
+        Assert.False(predicate(Capture("0")));
+        Assert.Throws<IncompleteSnapshotException>(() => predicate(Capture(null)));
+        Assert.Throws<IncompleteSnapshotException>(() => predicate(
+            new Window(server, connection, generation, new WindowId(0), new Dictionary<string, string?>())));
+        TmuxProtocolException malformed = Assert.Throws<TmuxProtocolException>(
+            () => predicate(Capture("2")));
+        Assert.Equal("2", malformed.Payload);
+
+        Window Capture(string? active) =>
+            new(server, connection, generation, new WindowId(0),
+                new Dictionary<string, string?> { ["window_active"] = active });
     }
 
     [Fact]

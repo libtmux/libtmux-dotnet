@@ -12,9 +12,19 @@ version.
 
 ### Added
 
+- Query schema v2 adds `Pane.CurrentPath`, window placement index and active
+  state, to-one navigation, session panes and linked sessions.
+
+- `Window.IsActive` reads whether the captured placement is selected in its
+  session, including repeated links to the same window.
+
 ### Fixed
 
 ### Changed
+
+- **Query documents use schema v2.** Recreate previously stored v1 documents
+  with the current translator; the old schema is no longer accepted. Use
+  `QueryJsonLimits.Default` in place of `QueryJsonLimits.V1`.
 
 ### Removed
 

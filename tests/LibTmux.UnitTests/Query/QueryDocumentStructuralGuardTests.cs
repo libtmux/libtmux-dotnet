@@ -28,6 +28,7 @@ public sealed class QueryDocumentStructuralGuardTests
         "string right",
         "regex input",
         "quantifier predicate",
+        "related predicate",
     ];
 
     private static QueryNode DeepChild(string edge)
@@ -47,6 +48,7 @@ public sealed class QueryDocumentStructuralGuardTests
                 QueryQuantifier.Any,
                 new FieldNode(QueryTarget.Session, "session_windows"),
                 deep),
+            "related predicate" => new RelatedNode(new FieldNode(QueryTarget.Pane, "pane_window"), deep),
             _ => throw new ArgumentOutOfRangeException(nameof(edge), edge, "Unknown edge."),
         };
     }
@@ -56,6 +58,7 @@ public sealed class QueryDocumentStructuralGuardTests
         {
             { "root", "null" },
             { "quantifier relation", "null" },
+            { "related relation", "null" },
             { "constant value", "null" },
             { "unknown node", "not supported" },
             { "unknown constant", "not supported" },
@@ -65,6 +68,7 @@ public sealed class QueryDocumentStructuralGuardTests
     {
         "root" => null!,
         "quantifier relation" => new QuantifierNode(QueryQuantifier.Any, null!, True),
+        "related relation" => new RelatedNode(null!, True),
         "constant value" => new ConstantNode(null!),
         "unknown node" => new UnknownNode(),
         "unknown constant" => new ConstantNode(new UnknownConstant()),
