@@ -36,6 +36,8 @@ The core library takes one dependency. Everything that would add another
 ships separately and carries this repository's version:
 
 - [LibTmux](../src/LibTmux/README.md) — the client
+- [LibTmux.FSharp](../src/LibTmux.FSharp/README.md) — curried task helpers,
+  native F# sequences, and portable snapshot filters over `LibTmux`
 - [LibTmux.Query.Json](../src/LibTmux.Query.Json/README.md) — `System.Text.Json`
   for query documents
 - [LibTmux.Extensions.DependencyInjection](../src/LibTmux.Extensions.DependencyInjection/README.md)

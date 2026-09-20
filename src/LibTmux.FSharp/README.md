@@ -1,6 +1,20 @@
 # LibTmux.FSharp
 
-F# task functions and pure snapshot queries over LibTmux's existing handles.
+F# task functions and pure snapshot queries over existing `LibTmux` handles.
+`LibTmux.FSharp` is the F# companion built on
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/). Both packages are
+maintained in the `libtmux` organization by the same primary author.
+
+```console
+$ dotnet package add LibTmux.FSharp --prerelease
+```
+
+**Guides** — [getting started](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md)
+· [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md)
+· [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md)
+· [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
+
+## Capture and filter
 
 <!-- fsharp-contract: golden -->
 ```fsharp
@@ -32,6 +46,9 @@ let readEditorSessionNamesAsync
 `Server.capture` performs the only I/O in this example. `Query.matching`
 evaluates the portable filter against captured objects, materializes an
 `IReadOnlyList`, and preserves input order and placement multiplicity.
+The [complete example](https://github.com/libtmux/libtmux-dotnet/tree/master/examples/LibTmux.FSharp.Examples)
+creates an owned tmux server and verifies that a portable filter and a native
+F# query select the same panes.
 
 ## Native F# queries
 

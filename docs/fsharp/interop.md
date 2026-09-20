@@ -1,8 +1,10 @@
 # .NET interoperation
 
-The companion uses the existing `LibTmux` entities, IDs, requests, exceptions,
-snapshots, and query documents. Pass a `Server`, `Session`, `Window`, or `Pane`
-between F# and C# without conversion.
+The companion is built on
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/) in the same `libtmux`
+organization and maintained by the same primary author. It uses the existing
+entities, IDs, requests, exceptions, snapshots, and query documents. Pass a
+`Server`, `Session`, `Window`, or `Pane` between F# and C# without conversion.
 
 `Task<'T>` remains the default asynchronous contract. Pass the cancellation
 token to the façade function explicitly and preserve core exceptions. Use
