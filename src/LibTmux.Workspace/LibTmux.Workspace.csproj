@@ -14,7 +14,8 @@
     <!-- NativeAOT closure has not been proven for this optional dependency. -->
     <IsAotCompatible>false</IsAotCompatible>
 
-    <NoWarn>$(NoWarn);RS0017;RS0026;RS0036</NoWarn>
+    <!-- Optional parameters are part of the intended public API. -->
+    <NoWarn>$(NoWarn);RS0026</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,12 +28,4 @@
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
-    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
-    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
 </Project>
