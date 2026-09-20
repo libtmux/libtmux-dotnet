@@ -1,11 +1,14 @@
 namespace LibTmux.FSharp.Tests
 
 open System
+open System.Collections.Generic
 open System.Linq
 open System.Linq.Expressions
 open System.Threading
+open System.Threading.Tasks
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open LibTmux
+open LibTmux.Internal
 open LibTmux.Query
 open LibTmux.FSharp
 open Xunit
@@ -90,6 +93,44 @@ module QueryTests =
         let filter = Filter.eq (PaneId 17) PaneFields.id
         Assert.Same(Filter.toDocument filter, Filter.toDocument (Filter.allOf [ filter ]))
         Assert.Same(Filter.toDocument filter, Filter.toDocument (Filter.anyOf [ filter ]))
+
+    [<Fact>]
+    let ``native predicate compilation is cached per filter`` () =
+        let filter = Filter.eq (PaneId 17) PaneFields.id
+
+        Assert.Same(Filter.toPredicate filter, Filter.toPredicate filter)
+
+    [<Fact>]
+    let ``null filters preserve captured unavailable values and reject uncaptured fields`` () =
+        let generation = ServerGeneration(93, 903)
+
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-null-filter-unit"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                    raise (InvalidOperationException "A captured field reached tmux."))
+            )
+
+        let server = Server(connection, generation, "tmux 3.7")
+
+        let missing =
+            Pane(server, connection, generation, PaneId 0, Dictionary<string, string>())
+
+        let unavailableFields = Dictionary<string, string>()
+        unavailableFields.Add("pane_current_command", Unchecked.defaultof<string>)
+
+        let unavailable = Pane(server, connection, generation, PaneId 0, unavailableFields)
+        let emptyFields = Dictionary<string, string>()
+        emptyFields.Add("pane_current_command", String.Empty)
+
+        let empty = Pane(server, connection, generation, PaneId 0, emptyFields)
+        let isNull = Filter.isNull PaneFields.currentCommand |> Filter.toPredicate
+
+        Assert.Throws<IncompleteSnapshotException>(fun () -> isNull missing |> ignore)
+        |> ignore
+
+        Assert.True(isNull unavailable)
+        Assert.False(isNull empty)
 
     [<Fact>]
     let ``nullable and typed ID constants use core semantics and cancellation precedes enumeration`` () =

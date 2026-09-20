@@ -10,8 +10,14 @@ open LibTmux.Query
 
 [<Sealed>]
 type Filter<'T> internal (expression: Expression<Func<'T, bool>>, document: QueryDocument) =
+    let predicate =
+        lazy
+            let compiled = QueryExtensions.Compile<'T>(document)
+            fun value -> compiled.Invoke(value)
+
     member internal _.Expression = expression
     member internal _.Document = document
+    member internal _.Predicate = predicate.Value
 
 [<Sealed>]
 type Field<'T, 'Value> internal (property: PropertyInfo) =
@@ -124,9 +130,7 @@ module Filter =
     let none relation predicate = any relation predicate |> negate
     let toDocument (filter: Filter<'T>) = filter.Document
 
-    let toPredicate (filter: Filter<'T>) =
-        let compiled = QueryExtensions.Compile<'T>(filter.Document)
-        fun value -> compiled.Invoke(value)
+    let toPredicate (filter: Filter<'T>) = filter.Predicate
 
 [<RequireQualifiedAccess>]
 module Query =
