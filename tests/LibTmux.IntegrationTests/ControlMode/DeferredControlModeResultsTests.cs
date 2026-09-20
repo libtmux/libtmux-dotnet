@@ -31,7 +31,8 @@ public sealed class DeferredControlModeResultsTests
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
         TmuxVersion version = Assert.NotNull(server.Version);
-        bool reportsDeferredShellResults = version >= TmuxVersion.Parse("3.5");
+        bool reportsDeferredShellResults = version < TmuxVersion.Parse("3.3")
+            || version >= TmuxVersion.Parse("3.5");
         string channel = $"deferred-{Guid.NewGuid():N}";
         string tmux = $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}'";
         string shell = $"{tmux} wait-for -S {channel}-started; "
@@ -61,8 +62,8 @@ public sealed class DeferredControlModeResultsTests
                 }
                 else
                 {
-                    // Before 3.5, tmux keeps run-shell text in the pane and
-                    // completes the control command without its child status.
+                    // tmux 3.3a and 3.4 keep run-shell text in the pane and
+                    // complete the control command without its child status.
                     Assert.Empty(await result);
                 }
             }

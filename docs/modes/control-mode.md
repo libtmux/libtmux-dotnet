@@ -82,9 +82,9 @@ await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 `SendAsync` is safe to call concurrently: tmux answers in the order it was
 asked, and each caller gets its own answer.
 
-tmux 3.5 and later write a foreground `run-shell` command's text after its
-initial control block. `SendAsync` keeps those lines with the command that
-started the shell. tmux 3.2a through 3.4 do not send that text or the child
+tmux 3.2a and tmux 3.5 or later write a foreground `run-shell` command's text
+after its initial control block. `SendAsync` keeps those lines with the command
+that started the shell. tmux 3.3a and 3.4 do not send that text or the child
 exit status to an attached control client, so the same call completes with an
 empty reply. Use `Server.RunShellAsync` when the output or exit status must be
 available across every supported tmux version.
