@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Snippets/GuideSnippets.fs" />
     <Compile Include="Program.fs" />
     <PackageReference Include="FSharp.Core" Condition="'$(UsePackageReferences)' != 'true'" />
     <AssemblyMetadata Include="ExpectedPackageVersion" Value="$(LibTmuxPackageVersion)" />

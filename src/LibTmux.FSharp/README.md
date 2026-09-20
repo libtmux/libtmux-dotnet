@@ -18,44 +18,50 @@ $ dotnet package add LibTmux.FSharp --prerelease
 ## Capture and filter
 
 <!-- fsharp-contract: golden -->
-```fsharp
+<!-- fsharp-snippet: CaptureAndFilter run -->
+```fsharp run
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
 
-let readEditorSessionNamesAsync
-    (cancellationToken: CancellationToken)
-    (server: Server)
-    =
+let readMatchingSessionNamesAsync (commands: string list) (cancellationToken: CancellationToken) (server: Server) =
     task {
-        let hasEditor =
-            Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
+        let hasCommand =
+            Filter.oneOf commands PaneFields.currentCommand
             |> Filter.any WindowFields.panes
             |> Filter.any SessionFields.windows
 
-        let document = Filter.toDocument hasEditor
-        let! captured = server |> Server.capture cancellationToken document.RequiredSnapshotDepth
+        let document = Filter.toDocument hasCommand
+
+        let! captured =
+            server |> Server.capture cancellationToken document.RequiredSnapshotDepth
 
         return
             captured.Sessions
-            |> Query.matching hasEditor
+            |> Query.matching hasCommand
             |> Seq.map (fun session -> session.Name)
             |> Seq.toList
     }
+
+let readEditorSessionNamesAsync cancellationToken server =
+    readMatchingSessionNamesAsync [ "nvim"; "vim" ] cancellationToken server
 ```
+<!-- endfsharp-snippet -->
 
 `Server.capture` performs the only I/O in this example. `Query.matching`
 evaluates the portable filter against captured objects, materializes an
 `IReadOnlyList`, and preserves input order and placement multiplicity.
 The [complete example](https://github.com/libtmux/libtmux-dotnet/tree/master/examples/LibTmux.FSharp.Examples)
 creates an owned tmux server and verifies that a portable filter and a native
-F# query select the same panes.
+F# query select the same panes. A successful run writes
+`PASS F# snapshot and portable query example`.
 
 ## Native F# queries
 
 Use ordinary F# sequences for predicates that do not need portable query
 documents. Captured-field access and sequence processing do not contact tmux.
 
+<!-- fsharp-snippet: NativeQuery -->
 ```fsharp
 open System
 open LibTmux
@@ -63,11 +69,11 @@ open LibTmux.FSharp
 
 let editorPaneIds (captured: Server) =
     captured.Panes
-    |> Seq.filter (fun pane ->
-        String.Equals(pane.CurrentCommand, "nvim", StringComparison.Ordinal))
+    |> Seq.filter (fun pane -> String.Equals(pane.CurrentCommand, "nvim", StringComparison.Ordinal))
     |> Seq.map (fun pane -> pane.Id)
     |> Seq.toList
 ```
+<!-- endfsharp-snippet -->
 
 `Pane.currentPath` and `Pane.currentCommand` provide option-valued adapters
 when an application needs to distinguish a captured null from an empty string.
@@ -88,20 +94,19 @@ returns the core `QueryDocument`, which the optional `LibTmux.Query.Json`
 package can serialize. Native tmux format filters remain a separate core
 facility; portable filters do not push themselves to tmux.
 
+<!-- fsharp-snippet: PortableFilter -->
 ```fsharp
 open LibTmux
 open LibTmux.FSharp
 
-let editor =
-    Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
+let editor = Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
 
 let acceptsEditor = editor |> Filter.toPredicate
 
 let firstEditor (captured: Server) =
-    captured.Panes
-    |> Seq.filter acceptsEditor
-    |> Seq.tryHead
+    captured.Panes |> Seq.filter acceptsEditor |> Seq.tryHead
 ```
+<!-- endfsharp-snippet -->
 
 ## Lookup and cardinality
 
@@ -109,6 +114,7 @@ Use `option` for a completed lookup that found no entity. Operational and
 cancellation failures still propagate from the core task. Use
 `Selection.exactlyOne` when zero and multiple matches need different handling.
 
+<!-- fsharp-snippet: LookupAndCardinality -->
 ```fsharp
 open System.Threading
 open LibTmux
@@ -121,10 +127,9 @@ let tryFindPaneAsync (cancellationToken: CancellationToken) (server: Server) =
         return pane
     }
 
-let selectCapturedPane (captured: Server) =
-    captured.Panes
-    |> Selection.exactlyOne
+let selectCapturedPane (captured: Server) = captured.Panes |> Selection.exactlyOne
 ```
+<!-- endfsharp-snippet -->
 
 `Selection.exactlyOne` reads at most two yielded elements and disposes the
 enumerator. It returns `Error NoMatches` or `Error MultipleMatches`; it does

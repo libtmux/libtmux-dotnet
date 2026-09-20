@@ -3,6 +3,7 @@
 Use `Seq.filter` for application-specific work over a captured snapshot. Use
 `Filter` when the condition must become a portable `QueryDocument`.
 
+<!-- fsharp-snippet: MatchingSessions -->
 ```fsharp
 open LibTmux
 open LibTmux.FSharp
@@ -15,6 +16,7 @@ let editorSessions =
 let matchingSessions (captured: Server) =
     captured.Sessions |> Query.matching editorSessions
 ```
+<!-- endfsharp-snippet -->
 
 `Query.matching` is local and materialized. It preserves input order and
 placement multiplicity. It does not send a tmux format filter. Capture to the

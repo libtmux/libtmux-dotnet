@@ -43,7 +43,11 @@ let documentationContracts =
             |> Seq.toList)
 
     let fences path =
-        Regex.Matches(File.ReadAllText(path), "```fsharp\\r?\\n(?<source>.*?)```", RegexOptions.Singleline)
+        Regex.Matches(
+            File.ReadAllText(path),
+            "```fsharp(?:[ \\t]+run)?\\r?\\n(?<source>.*?)```",
+            RegexOptions.Singleline
+        )
 
     if (fences readme).Count = 0 then
         invalidOp $"The F# README has no F# fences: {readme}."
