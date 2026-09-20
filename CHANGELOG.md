@@ -25,9 +25,58 @@ version.
   ships no assembly to reference, so its documented surface is the MCP tool
   list in `docs/mcp/tools.md`. (#21)
 
+- `Server.SnapshotMetadata` exposes acquisition depth, server generation,
+  timestamps and elapsed time. (#33)
+
+- `SendKeysRequest.ToCommands(pane)` supports chaining text and Enter together.
+  `ExecuteAsync(pane, control)` sends both through a control session. (#33)
+
+- `Pane.CurrentCommand` and `Pane.CurrentPath` expose captured values without
+  tmux I/O. Uncaptured fields throw `IncompleteSnapshotException`. (#33)
+
 ### Fixed
 
+- `Server.CaptureSnapshotAsync` preserves the captured root, parents and active
+  children, including repeated window links in one session. Linked sessions
+  appear once each. (#33)
+
+- `Server.CaptureSnapshotAsync` rejects contradictory placements and child
+  counts with `InconsistentSnapshotException`, without returning a partial
+  snapshot. (#33)
+
+- `CapturedRelation.OrEmpty()` prevents callers from modifying captured
+  children through a collection cast. (#33)
+
+- `Window.MoveAsync`, `LinkAsync` and `UnlinkAsync` reject a source index that
+  now belongs to another window. Typed move and link commands retain this
+  protection in chains and control sessions. (#33)
+
+- `Window.MoveAsync` returns the affected placement after moves and renumbering,
+  including repeated links and detached moves. Failed readback reports unknown
+  dispatch state; do not retry the move. (#33)
+
+- `SendKeysRequest.ExecuteAsync(pane)` sends the requested Enter after the
+  text. (#33)
+
+- Query `pane_command` binds to `Pane.CurrentCommand` on returned
+  entities. (#33)
+
 ### Changed
+
+- `Server.CaptureSnapshotAsync(SnapshotDepth.Server)` verifies the live server
+  generation on every capture. All depths honor cancellation before returning
+  a snapshot. (#33)
+
+- **`SendKeysRequest.ToCommand(pane)` rejects text-plus-Enter requests.** Use
+  `ToCommands(pane)` for both commands, or set `Enter = false` for a single
+  command. (#33)
+
+- **`WindowEntityKey` requires a window index as its third constructor
+  argument.** Include the captured index when constructing or deconstructing
+  a key to distinguish repeated links in one session. (#33)
+
+- `Pane.SendTextAsync` and `SendKeysRequest` reject NUL text before sending any
+  command. (#33)
 
 ### Removed
 
