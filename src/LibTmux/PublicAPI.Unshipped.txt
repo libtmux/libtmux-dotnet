@@ -2002,3 +2002,4 @@ LibTmux.Session.CreateWindowWithReceiptAsync(LibTmux.NewWindowRequest? request =
 LibTmux.Window.UnlinkAsync(bool killIfLast, System.Collections.Generic.IReadOnlyList<LibTmux.PaneId>! expectedPaneIds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.SplitPaneRequest.ExpectedWindowId.get -> LibTmux.WindowId?
 LibTmux.SplitPaneRequest.ExpectedWindowId.init -> void
+LibTmux.TmuxWaitChannel.CloseAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
