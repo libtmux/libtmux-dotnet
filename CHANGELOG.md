@@ -20,7 +20,16 @@ version.
 
 ### Development
 
+## [0.0.0-alpha.14] — 2026-09-20
+
+Ships every change listed under `0.0.0-alpha.13`, which was tagged but never
+published. No other changes.
+
 ## [0.0.0-alpha.13] — 2026-09-19
+
+**Tagged but never published.** The release run for this tag did not reach
+its publish step, so `0.0.0-alpha.13` does not exist on nuget.org. Every change
+below ships in `0.0.0-alpha.14`; pin that instead.
 
 ### Added
 
@@ -880,7 +889,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.13...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.14...HEAD
+[0.0.0-alpha.14]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.14
 [0.0.0-alpha.13]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.13
 [0.0.0-alpha.12]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.12
 [0.0.0-alpha.11]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.11
