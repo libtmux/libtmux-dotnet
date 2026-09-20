@@ -7,6 +7,7 @@
     <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="FSharp.Core" Version="10.1.302" />
     <!-- The two analyzer packages read the compiler's own syntax trees, so
          they have to track the Roslyn the SDK ships. Bumping the SDK without
          bumping these leaves the public API baseline unreadable. -->

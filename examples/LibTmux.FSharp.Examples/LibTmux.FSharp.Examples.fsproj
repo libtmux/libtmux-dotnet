@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>LibTmux.FSharp.Examples</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <UsePackageReferences>false</UsePackageReferences>
+    <ManagePackageVersionsCentrally Condition="'$(UsePackageReferences)' == 'true'">false</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile Condition="'$(UsePackageReferences)' == 'true'">false</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(UsePackageReferences)' == 'true'">false</RestoreLockedMode>
+    <NuGetLockFilePath Condition="'$(UsePackageReferences)' == 'true'">$(MSBuildProjectDirectory)/obj/package-mode.packages.lock.json</NuGetLockFilePath>
+    <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
+    <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+    <PackageReference Include="FSharp.Core" Condition="'$(UsePackageReferences)' != 'true'" />
+    <AssemblyMetadata Include="ExpectedPackageVersion" Value="$(LibTmuxPackageVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsePackageReferences)' != 'true'">
+    <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
+    <ProjectReference Include="../../src/LibTmux.Testing/LibTmux.Testing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">
+    <PackageReference Include="FSharp.Core" Version="10.1.302" />
+    <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference Include="LibTmux.Testing" Version="[$(LibTmuxPackageVersion)]" />
+  </ItemGroup>
+</Project>
