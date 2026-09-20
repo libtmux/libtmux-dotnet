@@ -22,9 +22,13 @@ internal sealed class QueryPlanBindings
 {
     private readonly Dictionary<FieldKey, QueryFieldAccessor> _fields = [];
     private readonly QueryValidationResult _validation;
+    private readonly bool _nativeOnly;
 
-    internal QueryPlanBindings(QueryValidationResult validation) =>
+    internal QueryPlanBindings(QueryValidationResult validation, bool nativeOnly = false)
+    {
         _validation = validation;
+        _nativeOnly = nativeOnly;
+    }
 
     internal QueryBindingMetrics Metrics => new(_fields.Count, _validation.RegexCount);
 
@@ -41,7 +45,7 @@ internal sealed class QueryPlanBindings
             return accessor;
         }
 
-        accessor = ResolveField(field, elementType, role);
+        accessor = ResolveField(field, elementType, role, _nativeOnly);
         _fields.Add(key, accessor);
         return accessor;
     }
@@ -53,7 +57,8 @@ internal sealed class QueryPlanBindings
     private static QueryFieldAccessor ResolveField(
         FieldNode field,
         Type elementType,
-        QueryFieldRole role)
+        QueryFieldRole role,
+        bool nativeOnly)
     {
         if (!QueryFieldCatalog.TryGetTarget(field.WireName, out _))
         {
@@ -74,6 +79,10 @@ internal sealed class QueryPlanBindings
         };
         if (accessor is null)
         {
+            if (nativeOnly)
+            {
+                throw Unsupported($"Field '{field.WireName}' has no native binding for '{elementType.Name}'.");
+            }
             string property =
                 QueryFieldCatalog.TryGetProperty(elementType, field.WireName, out string mapped)
                     ? mapped
@@ -109,9 +118,21 @@ internal sealed class QueryPlanBindings
         return accessor;
     }
 
-    internal static Type RelationElementType(FieldNode field, Type relationType) =>
-        SequenceElementType(relationType)
-        ?? throw Unsupported($"Field '{field.WireName}' is not a typed relation.");
+    internal Type RelationElementType(FieldNode field, Type relationType)
+    {
+        if (_nativeOnly && QueryFieldCatalog.TryGetRelation(field.WireName, out QueryRelationDefinition relation))
+        {
+            return relation.Target switch
+            {
+                QueryTarget.Session => typeof(Session),
+                QueryTarget.Window => typeof(Window),
+                QueryTarget.Pane => typeof(Pane),
+                _ => throw Unsupported("This target has no native hierarchy relation."),
+            };
+        }
+        return SequenceElementType(relationType)
+            ?? throw Unsupported($"Field '{field.WireName}' is not a typed relation.");
+    }
 
     [UnconditionalSuppressMessage(
         "Trimming",

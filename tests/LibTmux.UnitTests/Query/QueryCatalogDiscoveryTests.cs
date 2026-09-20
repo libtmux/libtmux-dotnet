@@ -6,6 +6,20 @@ namespace LibTmux.UnitTests.Query;
 
 public sealed class QueryCatalogDiscoveryTests
 {
+    [Theory]
+    [InlineData("pane_width", "Width")]
+    [InlineData("pane_height", "Height")]
+    public void Pane_dimensions_expose_numeric_captured_bindings(string wireName, string property)
+    {
+        QueryFieldDescriptor field = Field(QueryTarget.Pane, wireName);
+        Assert.Equal(QueryValueKind.Int64, field.ValueKind);
+        Assert.Equal(property, field.ScalarPropertyPath);
+        Assert.Equal(SnapshotDepth.Panes, field.MinimumSnapshotDepth);
+        Assert.False(field.IsNullable);
+        Assert.Contains("greaterThanOrEqual", field.Operators);
+        Assert.DoesNotContain("containsOrdinal", field.Operators);
+    }
+
     [Fact]
     public void Discovery_preserves_scalar_relation_and_capture_distinctions()
     {

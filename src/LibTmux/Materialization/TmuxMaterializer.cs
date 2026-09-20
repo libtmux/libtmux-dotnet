@@ -32,9 +32,18 @@ internal static class Materializer
         string listCommand)
     {
         ArgumentNullException.ThrowIfNull(context);
-        FormatProjection projection = FormatProjection.Create(listCommand, context.TmuxVersion);
+        return MaterializeFormatFields(context, payload, FormatProjection.Create(listCommand, context.TmuxVersion), out _);
+    }
+
+    internal static IReadOnlyList<IReadOnlyDictionary<string, string?>> MaterializeFormatFields(
+        MaterializationContext context,
+        ReadOnlySpan<byte> payload,
+        FormatProjection projection,
+        out IReadOnlyList<bool>? matches)
+    {
+        ArgumentNullException.ThrowIfNull(context);
         IReadOnlyList<IReadOnlyDictionary<string, ReadOnlyMemory<byte>?>> rows =
-            SeparatedRowFramer.Decode(payload, projection, new TmuxTransportLimits());
+            SeparatedRowFramer.Decode(payload, projection, new TmuxTransportLimits(), out matches);
         var decoded = new List<IReadOnlyDictionary<string, string?>>(rows.Count);
         foreach (IReadOnlyDictionary<string, ReadOnlyMemory<byte>?> row in rows)
         {

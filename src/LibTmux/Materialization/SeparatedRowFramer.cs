@@ -26,12 +26,20 @@ internal static class SeparatedRowFramer
     internal static IReadOnlyList<IReadOnlyDictionary<string, ReadOnlyMemory<byte>?>> Decode(
         ReadOnlySpan<byte> payload,
         FormatProjection projection,
-        TmuxTransportLimits limits)
+        TmuxTransportLimits limits) => Decode(payload, projection, limits, out _);
+
+    internal static IReadOnlyList<IReadOnlyDictionary<string, ReadOnlyMemory<byte>?>> Decode(
+        ReadOnlySpan<byte> payload,
+        FormatProjection projection,
+        TmuxTransportLimits limits,
+        out IReadOnlyList<bool>? matches)
     {
         ArgumentNullException.ThrowIfNull(projection);
         ArgumentNullException.ThrowIfNull(limits);
 
         var rows = new List<IReadOnlyDictionary<string, ReadOnlyMemory<byte>?>>();
+        List<bool>? markers = projection.HasPredicateMarker ? [] : null;
+        matches = markers;
         if (payload.IsEmpty)
         {
             return rows;
@@ -42,6 +50,15 @@ internal static class SeparatedRowFramer
         while (offset < payload.Length)
         {
             rows.Add(DecodeRow(payload, separator, projection, limits, ref offset));
+            if (markers is not null)
+            {
+                ReadOnlySpan<byte> marker = ReadValue(payload, separator, limits, ref offset);
+                if (marker.Length != 1 || marker[0] is not ((byte)'0' or (byte)'1'))
+                {
+                    throw new TmuxProtocolException("tmux returned an invalid query marker.", TmuxDispatchState.Dispatched);
+                }
+                markers.Add(marker[0] == (byte)'1');
+            }
 
             // tmux writes a newline after each row; a value may contain one
             // too, but only the byte following the last separator is a

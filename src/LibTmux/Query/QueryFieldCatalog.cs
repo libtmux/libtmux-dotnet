@@ -51,6 +51,9 @@ public static class QueryFieldCatalog
             new(static element => ((Pane)element).CurrentPath, typeof(string)),
             Nullable: true),
         new(
+            "pane_height", QueryTarget.Pane, QueryValueKind.Int64, typeof(Pane), nameof(Pane.Height),
+            new(static element => ((Pane)element).Height, typeof(int))),
+        new(
             "pane_id",
             QueryTarget.Pane,
             QueryValueKind.TypedId,
@@ -61,6 +64,9 @@ public static class QueryFieldCatalog
             "pane_session", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Session),
             Relation: new(static element => ((Pane)element).Session, typeof(Session)),
             RelationShape: new(QueryRelationCardinality.One, QueryTarget.Session, SnapshotDepth.Panes)),
+        new(
+            "pane_width", QueryTarget.Pane, QueryValueKind.Int64, typeof(Pane), nameof(Pane.Width),
+            new(static element => ((Pane)element).Width, typeof(int))),
         new(
             "pane_window", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Window),
             Relation: new(static element => ((Pane)element).Window, typeof(Window)),

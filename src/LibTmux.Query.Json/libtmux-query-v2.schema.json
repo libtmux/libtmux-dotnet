@@ -35,8 +35,10 @@
             "client_name",
             "pane_command",
             "pane_current_path",
+            "pane_height",
             "pane_id",
             "pane_session",
+            "pane_width",
             "pane_window",
             "session_active_pane",
             "session_active_window",
@@ -99,8 +101,10 @@
                   "enum": [
                     "pane_command",
                     "pane_current_path",
+                    "pane_height",
                     "pane_id",
                     "pane_session",
+                    "pane_width",
                     "pane_window"
                   ]
                 }
@@ -149,6 +153,8 @@
           "properties": {
             "wireName": {
               "enum": [
+                "pane_height",
+                "pane_width",
                 "session_panes",
                 "session_windows",
                 "window_index",
