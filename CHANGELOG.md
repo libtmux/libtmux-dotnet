@@ -44,6 +44,9 @@ version.
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
 
+- Native tmux clients preserve Unicode and tab-delimited formats under the
+  C locale, including MCP processes started with a minimal environment.
+
 - Generation-bound commands keep an absent tmux daemon stopped, without
   loading its configuration before the generation guard runs.
 
