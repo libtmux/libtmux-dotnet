@@ -1050,20 +1050,29 @@ public sealed class McpProtocolTests
     public async Task A_call_that_waits_does_not_hold_up_another()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
         await using ProtocolHarness harness = await ProtocolHarness.StartAsync(token);
         _ = await harness.Client.CallToolAsync(
             "create_session",
             new Dictionary<string, object?> { ["name"] = "concurrency-probe" },
             cancellationToken: token);
 
+        TaskCompletionSource<ProgressNotificationValue> progress = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         Task<CallToolResult> waiting = harness.Client.CallToolAsync(
             "wait_for_text",
             new Dictionary<string, object?>
             {
                 ["patterns"] = NeverArrives,
-                ["timeoutSeconds"] = 5,
+                ["timeoutSeconds"] = 1,
             },
-            cancellationToken: token).AsTask();
+            progress: new Progress<ProgressNotificationValue>(value => progress.TrySetResult(value)),
+            cancellationToken: waitCancellation.Token).AsTask();
+
+        await Task.WhenAny(progress.Task, waiting).WaitAsync(token);
+        Assert.True(progress.Task.IsCompletedSuccessfully, "The registered wait must report progress over MCP.");
+        Assert.Equal(1, progress.Task.Result.Total);
+        Assert.False(waiting.IsCompleted);
 
         CallToolResult listed = await harness.Client.CallToolAsync(
             "list_sessions",
@@ -1074,7 +1083,8 @@ public sealed class McpProtocolTests
         // call for up to the ceiling.
         Assert.False(listed.IsError ?? false);
         Assert.False(waiting.IsCompleted);
-        _ = await waiting;
+        await waitCancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
     }
 
     private static JsonElement Structured(CallToolResult result) =>
