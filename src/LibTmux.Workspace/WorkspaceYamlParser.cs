@@ -9,13 +9,13 @@ internal static class WorkspaceYamlParser
     internal const int MaximumCharacters = 1_048_576;
 
     private static readonly string[] RootKeys =
-        ["session_name", "start_directory", "options", "windows", "environment", "shell_command_before"];
+        ["session_name", "start_directory", "options", "windows", "environment", "shell_command_before", "before_script"];
 
     private static readonly string[] WindowKeys =
         ["window_name", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
 
     private static readonly string[] PaneKeys =
-        ["shell_command", "start_directory", "focus", "environment", "shell_command_before"];
+        ["shell_command", "start_directory", "focus", "options", "environment", "shell_command_before"];
 
     public static WorkspaceFile Parse(string yaml)
     {
@@ -53,7 +53,8 @@ internal static class WorkspaceYamlParser
                     "start_directory",
                     "start_directory"),
                 options: ReadOptions(root, "options", "options"),
-                windows: ReadWindows(root))
+                windows: ReadWindows(root),
+                beforeScript: ReadBeforeScript(root))
                 .WithDefaults(
                     environment: ReadOptions(root, "environment", "environment"),
                     shellCommandsBefore: ReadCommands(root, "$", "shell_command_before"));
@@ -136,13 +137,30 @@ internal static class WorkspaceYamlParser
                     values,
                     "start_directory",
                     $"{panePath}.start_directory"),
-                focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"))
+                focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"),
+                options: ReadOptions(values, "options", $"{panePath}.options"))
                 .WithDefaults(
                     environment: ReadOptions(values, "environment", $"{panePath}.environment"),
                     shellCommandsBefore: ReadCommands(values, panePath, "shell_command_before"));
         }
 
         return panes;
+    }
+
+    private static string? ReadBeforeScript(Dictionary<string, YamlNode> root)
+    {
+        if (!root.TryGetValue("before_script", out YamlNode? node))
+        {
+            return null;
+        }
+
+        string command = ReadScalar(node, "before_script");
+        if (string.IsNullOrWhiteSpace(command) || command.Contains('\0'))
+        {
+            throw At(node, "Workspace path 'before_script' must be a nonblank command without NUL.");
+        }
+
+        return command;
     }
 
     private static string[] ReadCommands(

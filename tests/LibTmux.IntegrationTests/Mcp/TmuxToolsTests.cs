@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Testing;
 using Microsoft.Extensions.Logging;
