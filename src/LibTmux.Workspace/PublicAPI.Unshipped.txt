@@ -11,6 +11,7 @@ LibTmux.Workspace.WorkspaceBuilder.BuildAsync(LibTmux.Workspace.WorkspaceFile! w
 LibTmux.Workspace.WorkspaceBuilder.WorkspaceBuilder(LibTmux.Server! server, System.TimeSpan? readinessTimeout = null, LibTmux.Workspace.PaneReadiness paneReadiness = LibTmux.Workspace.PaneReadiness.Auto) -> void
 LibTmux.Workspace.WorkspaceFile
 LibTmux.Workspace.WorkspaceFile.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceFile.Resolve(string! baseDirectory, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? variables = null) -> LibTmux.Workspace.WorkspaceFile!
 LibTmux.Workspace.WorkspaceFile.SessionName.get -> string?
 LibTmux.Workspace.WorkspaceFile.StartDirectory.get -> string?
 LibTmux.Workspace.WorkspaceFile.Windows.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceWindow!>!
@@ -47,3 +48,12 @@ override LibTmux.Workspace.WorkspaceResult.ToString() -> string!
 static LibTmux.Workspace.WorkspaceFile.Parse(string! yaml) -> LibTmux.Workspace.WorkspaceFile!
 static LibTmux.Workspace.WorkspaceResult.operator !=(LibTmux.Workspace.WorkspaceResult? left, LibTmux.Workspace.WorkspaceResult? right) -> bool
 static LibTmux.Workspace.WorkspaceResult.operator ==(LibTmux.Workspace.WorkspaceResult? left, LibTmux.Workspace.WorkspaceResult? right) -> bool
+LibTmux.Workspace.WorkspacePane.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspacePane.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Workspace.WorkspacePane.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspacePane!
+LibTmux.Workspace.WorkspaceWindow.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceWindow.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Workspace.WorkspaceWindow.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspaceWindow!
+LibTmux.Workspace.WorkspaceFile.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+LibTmux.Workspace.WorkspaceFile.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.Workspace.WorkspaceFile.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspaceFile!

@@ -9,13 +9,13 @@ internal static class WorkspaceYamlParser
     internal const int MaximumCharacters = 1_048_576;
 
     private static readonly string[] RootKeys =
-        ["session_name", "start_directory", "options", "windows"];
+        ["session_name", "start_directory", "options", "windows", "environment", "shell_command_before"];
 
     private static readonly string[] WindowKeys =
-        ["window_name", "start_directory", "layout", "focus", "options", "panes"];
+        ["window_name", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
 
     private static readonly string[] PaneKeys =
-        ["shell_command", "start_directory", "focus"];
+        ["shell_command", "start_directory", "focus", "environment", "shell_command_before"];
 
     public static WorkspaceFile Parse(string yaml)
     {
@@ -53,7 +53,10 @@ internal static class WorkspaceYamlParser
                     "start_directory",
                     "start_directory"),
                 options: ReadOptions(root, "options", "options"),
-                windows: ReadWindows(root));
+                windows: ReadWindows(root))
+                .WithDefaults(
+                    environment: ReadOptions(root, "environment", "environment"),
+                    shellCommandsBefore: ReadCommands(root, "$", "shell_command_before"));
         }
         catch (WorkspaceFormatException)
         {
@@ -93,7 +96,10 @@ internal static class WorkspaceYamlParser
                 layout: ReadOptionalScalar(values, "layout", $"{path}.layout"),
                 focus: ReadOptionalBoolean(values, "focus", $"{path}.focus"),
                 options: ReadOptions(values, "options", $"{path}.options"),
-                panes: ReadPanes(values, path));
+                panes: ReadPanes(values, path))
+                .WithDefaults(
+                    environment: ReadOptions(values, "environment", $"{path}.environment"),
+                    shellCommandsBefore: ReadCommands(values, path, "shell_command_before"));
         }
 
         return windows;
@@ -130,7 +136,10 @@ internal static class WorkspaceYamlParser
                     values,
                     "start_directory",
                     $"{panePath}.start_directory"),
-                focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"));
+                focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"))
+                .WithDefaults(
+                    environment: ReadOptions(values, "environment", $"{panePath}.environment"),
+                    shellCommandsBefore: ReadCommands(values, panePath, "shell_command_before"));
         }
 
         return panes;
@@ -138,14 +147,15 @@ internal static class WorkspaceYamlParser
 
     private static string[] ReadCommands(
         Dictionary<string, YamlNode> pane,
-        string panePath)
+        string panePath,
+        string key = "shell_command")
     {
-        if (!pane.TryGetValue("shell_command", out YamlNode? node))
+        if (!pane.TryGetValue(key, out YamlNode? node))
         {
             return [];
         }
 
-        string path = $"{panePath}.shell_command";
+        string path = panePath == "$" ? key : $"{panePath}.{key}";
         if (node is YamlScalarNode scalar)
         {
             string? command = ReadNullableScalar(scalar);
@@ -159,7 +169,7 @@ internal static class WorkspaceYamlParser
             YamlNode command = sequence.Children[index];
             if (command is not YamlScalarNode commandScalar)
             {
-                throw WrongShape($"{path}[{index}]", "a scalar");
+                throw WrongShape(command, $"{path}[{index}]", "a scalar");
             }
 
             string? commandText = ReadNullableScalar(commandScalar);
@@ -184,16 +194,30 @@ internal static class WorkspaceYamlParser
 
         if (node is not YamlMappingNode mapping)
         {
-            throw WrongShape(path, "a mapping");
+            throw WrongShape(node, path, "a mapping");
         }
 
         Dictionary<string, string> options = new(StringComparer.Ordinal);
         foreach ((YamlNode optionKey, YamlNode optionValue) in mapping.Children)
         {
             string name = ReadScalar(optionKey, $"a key in {path}");
-            if (!options.TryAdd(name, ReadScalar(optionValue, $"{path}.{name}")))
+            string value = ReadScalar(optionValue, $"{path}.{name}");
+            if (key == "environment")
             {
-                throw DuplicateKey(path, name);
+                if (!WorkspaceCollections.IsValidEnvironmentName(name))
+                {
+                    throw At(optionKey, $"Environment names in '{path}' must be nonempty and cannot contain '=' or NUL.");
+                }
+
+                if (value.Contains('\0'))
+                {
+                    throw At(optionValue, $"Environment value '{path}.{name}' cannot contain NUL.");
+                }
+            }
+
+            if (!options.TryAdd(name, value))
+            {
+                throw DuplicateKey(optionKey, path, name);
             }
         }
 
@@ -207,7 +231,7 @@ internal static class WorkspaceYamlParser
     {
         if (node is not YamlMappingNode mapping)
         {
-            throw WrongShape(path, "a mapping");
+            throw WrongShape(node, path, "a mapping");
         }
 
         Dictionary<string, YamlNode> values = new(StringComparer.Ordinal);
@@ -216,13 +240,12 @@ internal static class WorkspaceYamlParser
             string key = ReadScalar(keyNode, $"a key in {path}");
             if (!allowedKeys.Contains(key, StringComparer.Ordinal))
             {
-                throw new WorkspaceFormatException(
-                    $"Workspace path '{path}' contains unsupported key '{key}'.");
+                throw At(keyNode, $"Workspace path '{path}' contains unsupported key '{key}'.");
             }
 
             if (!values.TryAdd(key, value))
             {
-                throw DuplicateKey(path, key);
+                throw DuplicateKey(keyNode, path, key);
             }
         }
 
@@ -241,7 +264,7 @@ internal static class WorkspaceYamlParser
 
         if (node is not YamlScalarNode scalar)
         {
-            throw WrongShape(path, "a scalar");
+            throw WrongShape(node, path, "a scalar");
         }
 
         return ReadNullableScalar(scalar);
@@ -272,18 +295,18 @@ internal static class WorkspaceYamlParser
             return false;
         }
 
-        throw WrongShape(path, "a Boolean");
+        throw WrongShape(node, path, "a Boolean");
     }
 
     private static YamlSequenceNode RequireSequence(YamlNode node, string path) =>
-        node as YamlSequenceNode ?? throw WrongShape(path, "a sequence");
+        node as YamlSequenceNode ?? throw WrongShape(node, path, "a sequence");
 
     private static string ReadScalar(YamlNode node, string path)
     {
         if (node is not YamlScalarNode scalar
             || ReadNullableScalar(scalar) is not string value)
         {
-            throw WrongShape(path, "a non-null scalar");
+            throw WrongShape(node, path, "a non-null scalar");
         }
 
         return value;
@@ -307,11 +330,14 @@ internal static class WorkspaceYamlParser
         };
     }
 
-    private static WorkspaceFormatException WrongShape(string path, string expected) =>
-        new($"Workspace path '{path}' must be {expected}.");
+    private static WorkspaceFormatException WrongShape(YamlNode node, string path, string expected) =>
+        At(node, $"Workspace path '{path}' must be {expected}.");
 
-    private static WorkspaceFormatException DuplicateKey(string path, string key) =>
-        new($"Workspace path '{path}' contains duplicate key '{key}'.");
+    private static WorkspaceFormatException DuplicateKey(YamlNode node, string path, string key) =>
+        At(node, $"Workspace path '{path}' contains duplicate key '{key}'.");
+
+    private static WorkspaceFormatException At(YamlNode node, string message) =>
+        new(FormattableString.Invariant($"{message} At line {node.Start.Line}, column {node.Start.Column}."));
 
     private static string AsSentence(string message) =>
         message.EndsWith('.') ? message : $"{message}.";
