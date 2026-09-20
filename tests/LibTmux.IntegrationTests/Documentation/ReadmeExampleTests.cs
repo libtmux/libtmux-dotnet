@@ -113,6 +113,12 @@ public sealed class ReadmeExampleTests
                 TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
                 SocketName = $"ltreadme-{Guid.NewGuid():N}"[..24],
                 ConfigurationFile = "/dev/null",
+                ChildEnvironment = new Dictionary<string, string?>
+                {
+                    ["SHELL"] = "/bin/sh",
+                    ["ENV"] = null,
+                    ["BASH_ENV"] = null,
+                },
             });
             await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
                 options,
