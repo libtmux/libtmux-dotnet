@@ -13,6 +13,7 @@ $ dotnet package add LibTmux.FSharp --prerelease
 · [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md)
 · [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md)
 · [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
+· [API reference](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md)
 
 ## Capture and filter
 

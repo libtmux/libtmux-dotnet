@@ -27,6 +27,19 @@ def test_current_workflows_pass(repository: pathlib.Path) -> None:
     assert verify(repository) == []
 
 
+def test_fsharp_reference_check_is_required(repository: pathlib.Path) -> None:
+    """Generated F# API documentation must fail CI when it drifts."""
+    path = repository / ".github/workflows/dotnet.yml"
+    path.write_text(
+        path.read_text().replace(
+            "          uv run python eng/docs/render_api_reference.py --fsharp --check\n",
+            "",
+        )
+    )
+
+    assert any("F# API reference" in error for error in verify(repository))
+
+
 def test_commented_dependencies_do_not_gate_publication(
     repository: pathlib.Path,
 ) -> None:
