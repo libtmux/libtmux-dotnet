@@ -1,8 +1,11 @@
 # Getting started with LibTmux.FSharp
 
-`LibTmux.FSharp` keeps the core `LibTmux` handles and task-based I/O. Capture
-the state needed by the local query, then use ordinary F# sequences over that
-immutable result.
+`LibTmux.FSharp` is the F# companion built on
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/). Both packages are
+maintained in the `libtmux` organization by the same primary author.
+
+It keeps the core handles and task-based I/O. Capture the state needed by a
+local query, then use ordinary F# sequences over that immutable result.
 
 ```fsharp
 open System.Threading
@@ -24,10 +27,13 @@ let readPaneCommandsAsync (cancellationToken: CancellationToken) (server: Server
 snapshot. A null command becomes `None`; an uncaptured command still raises
 `IncompleteSnapshotException`.
 
+Use [portable filters](queries.md) when the condition must become a
+`QueryDocument`; use `Seq.filter` for application-specific snapshot work.
+
 Use the core request records and entity methods for mutations. Task
 cancellation stops waiting; it does not undo a mutation that tmux received.
 
-`examples/LibTmux.FSharp.Examples` is the compiled real-tmux companion. It
-creates an owned server, captures its panes, and checks that the portable and
-native F# queries select the same panes on both target frameworks. CI repeats
-that example against the freshly packed F# package through an isolated cache.
+The [F# example](../../examples/LibTmux.FSharp.Examples) is compiled and run
+against an owned tmux server. It checks that portable and native F# queries
+select the same panes on both target frameworks. CI repeats it against the
+freshly packed F# package through an isolated cache.

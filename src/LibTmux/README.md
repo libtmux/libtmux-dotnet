@@ -501,6 +501,7 @@ broke, and `Unknown` is the default for exactly that reason. A
 
 | Package | Adds |
 |---|---|
+| [LibTmux.FSharp](https://www.nuget.org/packages/LibTmux.FSharp) | Curried task helpers, native F# sequences, and portable snapshot filters over `LibTmux` |
 | [LibTmux.Query.Json](https://www.nuget.org/packages/LibTmux.Query.Json) | JSON for query documents |
 | [LibTmux.Workspace](https://www.nuget.org/packages/LibTmux.Workspace) | Sessions from tmuxp YAML |
 | [LibTmux.Mcp](https://www.nuget.org/packages/LibTmux.Mcp) | A Model Context Protocol server, as a .NET tool |
