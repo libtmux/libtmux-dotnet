@@ -5,6 +5,7 @@ open System.Threading
 open LibTmux
 open LibTmux.FSharp
 open LibTmux.Testing
+open LibTmux.FSharp.Examples
 
 let private exactlyOne label source =
     source
@@ -80,6 +81,20 @@ let private runAsync () =
             captured.Panes
             |> Seq.choose Pane.currentCommand
             |> exactlyOne "captured pane command"
+
+        let! guideCommands =
+            GuideSnippets.readPaneCommandsAsync cancellationToken scope.Server
+
+        if guideCommands |> List.contains command |> not then
+            failwith "The getting-started guide did not read the captured pane command."
+
+        let! guideMatches =
+            GuideSnippets.readMatchingSessionNamesAsync [ command ] cancellationToken scope.Server
+
+        if guideMatches |> List.isEmpty then
+            failwith "The capture-and-filter guide did not match the owned session."
+
+        let! _ = GuideSnippets.readEditorSessionNamesAsync cancellationToken scope.Server
 
         let native =
             captured.Panes

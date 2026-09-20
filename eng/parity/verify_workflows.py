@@ -181,6 +181,11 @@ def verify(root: pathlib.Path) -> list[str]:
             in document_steps[0].get("run", ""),
             "dotnet.build.Documents must check the F# API reference",
         )
+        require(
+            "uv run python eng/docs/sync_fsharp_snippets.py --check"
+            in document_steps[0].get("run", ""),
+            "dotnet.build.Documents must check F# snippets",
+        )
 
     matrix = needs("dotnet-tmux", "matrix", {"build"})
     strategy = matrix.get("strategy", {})
