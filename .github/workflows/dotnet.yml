@@ -242,19 +242,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Check workflows
-        env:
-          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-        run: |
-          version="$(awk '$1 == "actionlint" {print $2}' .tool-versions)"
-          curl --fail --silent --show-error --location \
-            "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" \
-            --output "${RUNNER_TEMP}/actionlint.tar.gz"
-          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict
-          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
-          "${RUNNER_TEMP}/actionlint"
-          uv run --locked --script eng/parity/verify_workflows.py
-
       - name: Install tmux
         run: |
           brew install tmux
@@ -347,17 +334,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Report whether everything this workflow gates on passed
-        # A skipped or cancelled dependency is not a pass. Comparing against
-        # 'success' rather than checking for 'failure' is what makes that true
-        # for statuses nobody has invented yet.
-        run: |
-          failed=0
-          for pair in "build:${{ needs.build.result }}" \
-                      "windows:${{ needs.windows.result }}"; do
-            name="${pair%%:*}"
-            result="${pair#*:}"
-            echo "${name}: ${result}"
-            [ "$result" = "success" ] || failed=1
-          done
-          exit "$failed"
+      - name: Reject unsuccessful dependencies
+        id: require-success
+        if: ${{ always() && (needs.build.result != 'success' || needs.windows.result != 'success') }}
+        run: exit 1

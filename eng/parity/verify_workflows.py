@@ -87,6 +87,53 @@ def verify(root: pathlib.Path) -> list[str]:
         )
         return value
 
+    def required_step(
+        workflow: str,
+        name: str,
+        identifier: str,
+        condition: str | None = None,
+    ) -> dict[str, t.Any]:
+        steps = [
+            step for step in job(workflow, name).get("steps", [])
+            if step.get("id") == identifier
+        ]
+        label = f"{workflow}.{name}.{identifier}"
+        require(len(steps) == 1, f"{label}: missing required step")
+        if len(steps) != 1:
+            return {}
+        step = steps[0]
+        require(bool(step.get("run")), f"{label}: must execute a command")
+        require(
+            step.get("continue-on-error", "false") == "false",
+            f"{label}.continue-on-error must be false",
+        )
+        if condition is None:
+            require("if" not in step, f"{label}.if may not skip required execution")
+        else:
+            require(
+                "".join(str(step.get("if", "")).split())
+                == "".join(condition.split()),
+                f"{label}.if must reject every unsuccessful dependency",
+            )
+        return step
+
+    def aggregate(workflow: str, name: str, dependencies: set[str]) -> None:
+        value = needs(workflow, name, dependencies)
+        require(
+            value.get("if") in {"always()", "${{ always() }}"},
+            f"{workflow}.{name}.if must be always()",
+        )
+        checks = " || ".join(
+            f"needs.{dependency}.result != 'success'"
+            for dependency in sorted(names(value.get("needs")))
+        )
+        condition = "${{ always() && (" + checks + ") }}"
+        step = required_step(workflow, name, "require-success", condition)
+        require(
+            step.get("run", "").strip() == "exit 1",
+            f"{workflow}.{name}.require-success must fail the job",
+        )
+
     for name, document in documents.items():
         require(
             document.get("permissions") == {"contents": "read"},
@@ -107,7 +154,7 @@ def verify(root: pathlib.Path) -> list[str]:
             f"{name} must expose workflow_call",
         )
 
-    needs("dotnet", "gate", {"build", "windows"})
+    aggregate("dotnet", "gate", {"build", "windows"})
     for name in ("build", "windows"):
         required = job("dotnet", name)
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
@@ -131,18 +178,16 @@ def verify(root: pathlib.Path) -> list[str]:
         strategy.get("fail-fast") == "false", "supported matrix fail-fast must be false"
     )
     require("if" not in matrix, "dotnet-tmux.matrix.if may not skip compatibility")
+    producer = job("dotnet-tmux", "build")
+    require("if" not in producer, "dotnet-tmux.build.if may not skip the producer")
+    integration = required_step("dotnet-tmux", "matrix", "integration-tests")
     require(
-        any(
-            {**matrix.get("env", {}), **step.get("env", {})}.get(
-                "LIBTMUX_INTEGRATION_REQUIRED"
-            )
-            == "1"
-            for step in matrix.get("steps", [])
-            if "run" in step
-        ),
+        {**matrix.get("env", {}), **integration.get("env", {})}.get(
+            "LIBTMUX_INTEGRATION_REQUIRED"
+        ) == "1",
         "supported matrix must require integration execution",
     )
-    needs("dotnet-tmux", "compatibility", {"build", "matrix"})
+    aggregate("dotnet-tmux", "compatibility", {"build", "matrix"})
 
     release = documents["release"]
     triggers = release.get("on", {})
@@ -167,6 +212,7 @@ def verify(root: pathlib.Path) -> list[str]:
             "if" not in required,
             f"release.{name}.if may not bypass prerequisite success",
         )
+    required_step("release", "validate", "validate-tag")
     for name, workflow in (("dotnet", "dotnet"), ("compatibility", "dotnet-tmux")):
         required = needs("release", name, {"validate"})
         require(

@@ -37,6 +37,7 @@ jobs:
           global-json-file: global.json
 
       - name: Check the tag matches the version
+        id: validate-tag
         env:
           REF_TYPE: ${{ github.ref_type }}
           TAG: ${{ github.ref_name }}

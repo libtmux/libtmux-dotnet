@@ -123,6 +123,7 @@ jobs:
           test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
 
       - name: Integration tests
+        id: integration-tests
         env:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_TMUX_SOURCE_COMMIT: ${{ steps.tmux.outputs.commit }}
@@ -222,10 +223,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Report whether every supported tmux passed
-        run: |
-          if [ "${{ needs.build.result }}" != "success" ] || [ "${{ needs.matrix.result }}" != "success" ]; then
-            echo "matrix: ${{ needs.matrix.result }}" >&2
-            exit 1
-          fi
-          echo "matrix: success"
+      - name: Reject unsuccessful dependencies
+        id: require-success
+        if: ${{ always() && (needs.build.result != 'success' || needs.matrix.result != 'success') }}
+        run: exit 1
