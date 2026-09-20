@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Query;
 
 namespace LibTmux;
 
@@ -32,21 +33,33 @@ internal sealed class ServerSnapshot
         SnapshotDepth Depth,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> Sessions,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> Windows,
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes);
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes,
+        IReadOnlyList<bool>? QueryMatches = null);
+
+    [UnsupportedOSPlatform("windows")]
+    internal static Task<Rows> ReadAsync(
+        Server server,
+        SnapshotDepth depth = SnapshotDepth.Panes,
+        CancellationToken cancellationToken = default) =>
+        ReadAsync(server, depth, null, null, null, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]
     internal static async Task<Rows> ReadAsync(
         Server server,
-        SnapshotDepth depth = SnapshotDepth.Panes,
-        CancellationToken cancellationToken = default)
+        SnapshotDepth depth,
+        TmuxVersion? projectionVersion,
+        QueryTarget? queryTarget,
+        string? predicateFormat,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(server);
         cancellationToken.ThrowIfCancellationRequested();
         ServerGeneration generation = server.Generation
             ?? throw new InvalidOperationException(
                 "The server has no live generation; connect before capturing.");
-        var context = new MaterializationContext(server, ParseVersion(server));
+        var context = new MaterializationContext(server, projectionVersion ?? ParseVersion(server));
         var query = new MaterializationQuery(context);
+        IReadOnlyList<bool>? matches = null;
         if (depth == SnapshotDepth.Server)
         {
             TmuxCommandResult result = await server.Connection!
@@ -67,24 +80,37 @@ internal sealed class ServerSnapshot
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows =
-            await query.FetchAsync("list-sessions", null, cancellationToken)
+            await Fetch("list-sessions", null)
                 .ConfigureAwait(false);
         if (depth == SnapshotDepth.Sessions)
         {
             SnapshotTopologyValidator.Validate(depth, generation, sessionRows, [], [], cancellationToken);
-            return new Rows(depth, sessionRows, [], []);
+            return new Rows(depth, sessionRows, [], [], matches);
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows =
-            await query.FetchAsync("list-windows", ["-a"], cancellationToken)
+            await Fetch("list-windows", ["-a"])
                 .ConfigureAwait(false);
         IReadOnlyList<IReadOnlyDictionary<string, string?>> paneRows =
             depth < SnapshotDepth.Panes
                 ? []
-                : await query.FetchAsync("list-panes", ["-a"], cancellationToken)
+                : await Fetch("list-panes", ["-a"])
                     .ConfigureAwait(false);
         SnapshotTopologyValidator.Validate(depth, generation, sessionRows, windowRows, paneRows, cancellationToken);
-        return new Rows(depth, sessionRows, windowRows, paneRows);
+        return new Rows(depth, sessionRows, windowRows, paneRows, matches);
+
+        async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> Fetch(string command, string[]? arguments)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (predicateFormat is not null && queryTarget is { } target && command == QuerySourcePlanner.ListCommand(target))
+            {
+                MaterializedQueryRows marked = await query.FetchMarkedAsync(command, arguments, predicateFormat, cancellationToken)
+                    .ConfigureAwait(false);
+                matches = marked.Matches;
+                return marked.Fields;
+            }
+            return await query.FetchAsync(command, arguments, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static ServerSnapshot Empty(SnapshotDepth depth) =>

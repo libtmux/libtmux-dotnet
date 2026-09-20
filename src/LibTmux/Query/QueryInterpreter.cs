@@ -40,11 +40,12 @@ internal static class QueryInterpreter
     private static Func<T, bool> Compile<T>(
         QueryDocument document,
         out QueryBindingMetrics metrics,
-        Action? check)
+        Action? check,
+        bool nativeOnly = false)
     {
         ArgumentNullException.ThrowIfNull(document);
         QueryValidationResult validation = QueryDocumentValidator.Validate(document, check);
-        QueryPlanBindings bindings = new(validation);
+        QueryPlanBindings bindings = new(validation, nativeOnly);
         Func<object, bool> predicate = BindPredicate(
             document.Predicate,
             typeof(T),
@@ -52,6 +53,14 @@ internal static class QueryInterpreter
             check);
         metrics = bindings.Metrics;
         return element => predicate(element!);
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode",
+        Justification = "Native-only bindings reject reflective fallbacks and resolve relation types from the closed catalog.")]
+    internal static Func<T, bool> CompileNative<T>(QueryDocument document, CancellationToken cancellationToken)
+    {
+        QuerySourcePlanner.RequireNativeTarget<T>(document.Target);
+        return Compile<T>(document, out _, cancellationToken.ThrowIfCancellationRequested, nativeOnly: true);
     }
 
     private static Func<object, bool> BindPredicate(
@@ -282,7 +291,7 @@ internal static class QueryInterpreter
             quantifier.Relation,
             elementType,
             QueryFieldRole.Relation);
-        Type childType = QueryPlanBindings.RelationElementType(
+        Type childType = bindings.RelationElementType(
             quantifier.Relation,
             relation.ValueType);
         Func<object, bool> predicate = BindPredicate(

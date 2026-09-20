@@ -53,12 +53,14 @@ internal sealed class FormatProjection
         string listCommand,
         TmuxVersion tmuxVersion,
         ReadOnlyCollection<FormatFieldDescriptor> fields,
-        string template)
+        string template,
+        bool hasPredicateMarker)
     {
         ListCommand = listCommand;
         TmuxVersion = tmuxVersion;
         Fields = fields;
         Template = template;
+        HasPredicateMarker = hasPredicateMarker;
         _wireNames = fields
             .Select(static field => field.WireName)
             .ToFrozenSet(StringComparer.Ordinal);
@@ -82,13 +84,18 @@ internal sealed class FormatProjection
     /// same list command and tmux version, so a row is read positionally and
     /// the names stay off a wire that tmux caps at <c>MAX_IMSGSIZE</c>.
     /// </remarks>
-    internal int FramedFieldCount => Fields.Count;
+    internal int FramedFieldCount => Fields.Count + (HasPredicateMarker ? 1 : 0);
+
+    internal bool HasPredicateMarker { get; }
 
     /// <summary>Creates a projection for one list command and tmux version.</summary>
     /// <param name="listCommand">A tmux <c>list-*</c> subcommand.</param>
     /// <param name="tmuxVersion">The running tmux version.</param>
     /// <returns>The gated projection.</returns>
-    internal static FormatProjection Create(string listCommand, TmuxVersion tmuxVersion)
+    internal static FormatProjection Create(string listCommand, TmuxVersion tmuxVersion) =>
+        Create(listCommand, tmuxVersion, predicateFormat: null);
+
+    internal static FormatProjection Create(string listCommand, TmuxVersion tmuxVersion, string? predicateFormat)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(listCommand);
         if (!tmuxVersion.IsValid)
@@ -107,7 +114,8 @@ internal sealed class FormatProjection
             listCommand,
             tmuxVersion,
             fields,
-            RenderTemplate(fields));
+            RenderTemplate(fields) + (predicateFormat is null ? string.Empty : $"#{{?{predicateFormat},1,0}}" + RowSeparator),
+            predicateFormat is not null);
     }
 
     /// <summary>Reports whether a wire name belongs to this projection.</summary>

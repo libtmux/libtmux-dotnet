@@ -345,6 +345,43 @@ QueryDocument document = QueryExtensions.Translate<Session>(
         && session.Attached);
 ```
 
+Source queries make acquisition explicit. Prepare a reusable plan from an
+inspected daemon version, then execute it for a fresh observation:
+
+```csharp run
+Server inspected = await server.InspectAsync(ct)
+    ?? throw new InvalidOperationException("The tmux daemon is absent.");
+QueryDocument predicate = QueryExtensions.Translate<Window>(
+    candidate => candidate.IsActive && candidate.Name.StartsWith("build", StringComparison.Ordinal));
+QueryPlan<Window> plan = predicate.Plan<Window>(inspected.DaemonVersion!.Value);
+QueryResult<Window> result = await plan.ExecuteAsync(inspected, ct);
+
+Console.WriteLine($"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
+foreach (string reason in plan.FallbackReasons)
+{
+    Console.WriteLine(reason);
+}
+```
+
+`Auto` evaluates an exact leading predicate in tmux and the remainder locally.
+`Never` evaluates everything locally; `Require` rejects a plan needing local
+predicate evaluation. Inspect `PushedPredicate`, `ResidualPredicate`,
+`RequiredFields` and `RequiredSnapshotDepth` without I/O. Execution checks the
+actual daemon version and generation before acquisition, and never initializes
+or starts an absent daemon.
+
+Source evaluation currently supports canonical ID equality, `Session.Attached`
+and `Window.IsActive` on stable tmux 3.2a through 3.7c. Text, numbers and graph
+predicates use the local interpreter. Ordered conjunctions preserve earlier
+local errors; partial disjunctions and negations stay local.
+
+The source predicate travels in a private projection marker. It moves predicate
+work into tmux, **without reducing rows or payload**. `result.Snapshot` retains
+the complete graph at the required depth, even when the result is empty.
+Repeated window placements remain separate, and acquisition is an interval,
+not a transaction. Plans execute native sessions, windows or panes; clients and
+projection DTOs remain local filtering inputs.
+
 The document carries stable wire names: `Session.Name` is `session_name` and
 `Client.IsControlClient` is `client_control_mode`. Discover the supported
 fields and wire operations without contacting tmux:
