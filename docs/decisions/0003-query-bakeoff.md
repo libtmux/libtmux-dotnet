@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for the local query document surface. Automatic native pushdown is
-rejected for production.
+Accepted for the local query document surface. The version-one wire decision
+is superseded by [ADR 0008](0008-current-query-schema.md). Automatic native
+pushdown is rejected for production.
 
 The retained bakeoff measured pushdown, but production does not assemble typed
 documents into tmux formats. A native `-f` expression is executable tmux

@@ -69,6 +69,7 @@ internal static class QueryInterpreter
             StringNode text => BindText(text, elementType, bindings),
             RegexNode regex => BindRegex(regex, elementType, bindings),
             QuantifierNode quantifier => BindQuantifier(quantifier, elementType, bindings, check),
+            RelatedNode related => BindRelated(related, elementType, bindings, check),
             FieldNode field => BindBoolean(field, elementType, bindings),
             ConstantNode { Value: BooleanConstant boolean } => _ => boolean.Value,
             _ => throw new UnsupportedQueryExpressionException(
@@ -311,6 +312,21 @@ internal static class QueryInterpreter
         }
 
         return false;
+    }
+
+    private static Func<object, bool> BindRelated(
+        RelatedNode related,
+        Type elementType,
+        QueryPlanBindings bindings,
+        Action? check)
+    {
+        QueryFieldAccessor relation = bindings.Field(
+            related.Relation, elementType, QueryFieldRole.Relation);
+        Func<object, bool> predicate = BindPredicate(
+            related.Predicate, relation.ValueType, bindings, check);
+        return element => predicate(relation.Read(element)
+            ?? throw new UnsupportedQueryExpressionException(
+                $"Required relation '{related.Relation.WireName}' returned null."));
     }
 
     private static bool All(object? relation, Func<object, bool> predicate)

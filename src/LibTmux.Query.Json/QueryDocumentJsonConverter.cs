@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace LibTmux.Query.Json;
 
-/// <summary>Writes the stable v1 wire form of a query document.</summary>
+/// <summary>Writes the declared wire version of a query document.</summary>
 /// <remarks>
 /// The wire form is hand-written rather than reflection-derived so the schema
 /// is decoupled from the CLR shape: renaming a record property must not change
-/// the bytes a v1 reader expects.
+/// the bytes a reader expects.
 /// </remarks>
 internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
 {
@@ -52,7 +52,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         writer.WriteEndObject();
 
         // The bounded walk must run first so semantic validation cannot recurse
-        // beyond the v1 depth or node ceilings. What it refuses travels as it
+        // beyond the default depth or node ceilings. What it refuses travels as it
         // is: a document this library will not accept is a LibTmux failure
         // whichever package noticed.
         QueryDocumentValidator.Validate(value);
@@ -149,6 +149,13 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 writer.WritePropertyName("predicate");
                 WriteNode(writer, quantifier.Predicate, depth + 1);
                 break;
+            case RelatedNode related:
+                writer.WriteString("kind", "related");
+                writer.WritePropertyName("relation");
+                WriteNode(writer, related.Relation, depth + 1);
+                writer.WritePropertyName("predicate");
+                WriteNode(writer, related.Predicate, depth + 1);
+                break;
             case FieldNode field:
                 writer.WriteString("kind", "field");
                 writer.WriteString("target", Wire(field.Target));
@@ -160,7 +167,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 WriteConstant(writer, constant.Value);
                 break;
             default:
-                throw new UnsupportedQueryExpressionException($"Node '{node.GetType().Name}' has no v1 wire form.");
+                throw new UnsupportedQueryExpressionException($"Node '{node.GetType().Name}' has no supported wire form.");
         }
 
         writer.WriteEndObject();
@@ -234,7 +241,7 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
                 break;
             default:
                 throw new UnsupportedQueryExpressionException(
-                    $"Constant '{constant.GetType().Name}' has no v1 wire form.");
+                    $"Constant '{constant.GetType().Name}' has no supported wire form.");
         }
 
         writer.WriteEndObject();

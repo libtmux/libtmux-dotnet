@@ -20,6 +20,20 @@ public sealed partial class Window
     /// </remarks>
     public int Index => ReadCapturedInt("window_index", "index");
 
+    /// <summary>Gets whether this captured placement is the selected window in its session.</summary>
+    /// <exception cref="IncompleteSnapshotException">The active flag was not captured.</exception>
+    /// <exception cref="TmuxProtocolException">The captured flag is neither zero nor one.</exception>
+    public bool IsActive => ReadSnapshot("window_active") switch
+    {
+        "1" => true,
+        "0" => false,
+        null => throw new IncompleteSnapshotException("active window placement", SnapshotDepth.Windows),
+        string value => throw new TmuxProtocolException(
+            $"Captured window_active value '{value}' is not zero or one.",
+            value,
+            TmuxDispatchState.NotDispatched),
+    };
+
     /// <summary>Gets the window height captured with this handle.</summary>
     public int Height => ReadCapturedInt("window_height", "height");
 

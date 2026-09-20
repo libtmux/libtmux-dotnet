@@ -16,12 +16,22 @@ version.
   `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
   `None` for absent objects and propagate read errors and cancellation.
 
+- Query schema v2 adds `Pane.CurrentPath`, window placement index and active
+  state, to-one navigation, session panes and linked sessions.
+
+- `Window.IsActive` reads whether the captured placement is selected in its
+  session, including repeated links to the same window.
+
 ### Fixed
 
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
 
 ### Changed
+
+- **Query documents use schema v2.** Recreate previously stored v1 documents
+  with the current translator; the old schema is no longer accepted. Use
+  `QueryJsonLimits.Default` in place of `QueryJsonLimits.V1`.
 
 ### Removed
 

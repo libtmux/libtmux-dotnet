@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace LibTmux.Query.Json;
 
-/// <summary>Reads the stable v1 wire form back into a query document.</summary>
+/// <summary>Reads supported wire nodes back into a query document.</summary>
 internal sealed class QueryDocumentJsonReader
 {
     private readonly QueryJsonLimits _limits;
@@ -48,6 +48,9 @@ internal sealed class QueryDocumentJsonReader
                 ReadRegexOptions(element.GetProperty("semanticOptions"))),
             "quantifier" => new QuantifierNode(
                 ReadQuantifier(element.GetProperty("quantifier")),
+                (FieldNode)ReadNode(element.GetProperty("relation"), depth + 1),
+                ReadNode(element.GetProperty("predicate"), depth + 1)),
+            "related" => new RelatedNode(
                 (FieldNode)ReadNode(element.GetProperty("relation"), depth + 1),
                 ReadNode(element.GetProperty("predicate"), depth + 1)),
             "field" => new FieldNode(
