@@ -178,7 +178,7 @@
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.15, )"
+          "LibTmux": "[0.0.0-alpha.16, )"
         }
       }
     },
@@ -370,7 +370,7 @@
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.15, )"
+          "LibTmux": "[0.0.0-alpha.16, )"
         }
       }
     }

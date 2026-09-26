@@ -419,15 +419,15 @@
       "libtmux.examples": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.15, )",
-          "LibTmux.Mcp": "[0.0.0-alpha.15, )",
-          "LibTmux.Testing": "[0.0.0-alpha.15, )"
+          "LibTmux": "[0.0.0-alpha.16, )",
+          "LibTmux.Mcp": "[0.0.0-alpha.16, )",
+          "LibTmux.Testing": "[0.0.0-alpha.16, )"
         }
       },
       "libtmux.mcp": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.15, )",
+          "LibTmux": "[0.0.0-alpha.16, )",
           "Microsoft.Extensions.Hosting": "[10.0.11, )",
           "ModelContextProtocol": "[2.2.0, )",
           "ModelContextProtocol.Extensions.Tasks": "[2.2.0, )"
@@ -436,7 +436,7 @@
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.15, )"
+          "LibTmux": "[0.0.0-alpha.16, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {

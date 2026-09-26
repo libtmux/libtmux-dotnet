@@ -169,14 +169,14 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.14, )",
+          "LibTmux": "[0.0.0-alpha.16, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
       "libtmux.workspace.cli": {
         "type": "Project",
         "dependencies": {
-          "LibTmux.Workspace": "[0.0.0-alpha.14, )",
+          "LibTmux.Workspace": "[0.0.0-alpha.16, )",
           "Spectre.Console": "[0.57.2, )",
           "System.CommandLine": "[2.0.12, )",
           "YamlDotNet": "[18.1.0, )"
@@ -387,14 +387,14 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.14, )",
+          "LibTmux": "[0.0.0-alpha.16, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
       "libtmux.workspace.cli": {
         "type": "Project",
         "dependencies": {
-          "LibTmux.Workspace": "[0.0.0-alpha.14, )",
+          "LibTmux.Workspace": "[0.0.0-alpha.16, )",
           "Spectre.Console": "[0.57.2, )",
           "System.CommandLine": "[2.0.12, )",
           "YamlDotNet": "[18.1.0, )"

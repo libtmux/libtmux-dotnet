@@ -12,6 +12,24 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.16] — 2026-09-26
+
+Ships `LibTmux.Workspace.Cli`, the `tmux-workspace` .NET tool for tmuxp
+workspaces, and makes `Server` session calls match a name exactly rather than
+as a prefix. `Server.KillSessionAsync` now throws for a name no session
+carries exactly, and `Server.GetClientsAsync` for a real tmux failure, where
+each used to report success.
+
+### Added
+
 - Ship `LibTmux.Workspace.Cli` as a .NET tool (`tmux-workspace`), the same
   framework-dependent tool package as `LibTmux.Mcp`. It discovers, loads,
   captures, converts and imports tmuxp workspaces, with `--json` and
@@ -175,12 +193,6 @@ version.
   session refuse a name holding a control character, as the workspace tool
   already did: such a name cannot round-trip through a document a person
   reads or types. (#26)
-
-### Changed
-
-### Removed
-
-### Development
 
 ## [0.0.0-alpha.15] — 2026-09-20
 
@@ -1125,7 +1137,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.15...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.16...HEAD
+[0.0.0-alpha.16]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.16
 [0.0.0-alpha.15]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.15
 [0.0.0-alpha.14]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.14
 [0.0.0-alpha.13]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.13
