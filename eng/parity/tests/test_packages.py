@@ -103,6 +103,8 @@ def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
     [
         ("readme", "README.md"),
         ("readme-missing", "README.md"),
+        ("readme-relative-link", "is relative"),
+        ("readme-relative-reference", "is relative"),
         ("dependency", "dependencies or versions"),
         ("framework", "framework assembly assets"),
         ("xml", "XML contents"),
@@ -142,6 +144,10 @@ def test_corrupt_packages_fail(
             entries["README.md"] = b""
         elif mutation == "readme-missing":
             del entries["README.md"]
+        elif mutation == "readme-relative-link":
+            entries["README.md"] += b"\nSee [the guide](docs/guide.md).\n"
+        elif mutation == "readme-relative-reference":
+            entries["README.md"] += b"\nSee [the guide].\n\n[the guide]: ../docs/guide.md\n"
         elif mutation == "dependency":
             name = next(name for name in entries if name.endswith(".nuspec"))
             assert b' version="8.0.0"' in entries[name]
