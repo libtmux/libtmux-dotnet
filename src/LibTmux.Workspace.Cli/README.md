@@ -228,7 +228,16 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
 
 `--generate man` writes a manual page.
 
-## Differences from tmuxp
+## Compatibility
+
+| | |
+|---|---|
+| tmux | 3.2a and newer |
+| .NET | .NET 8 or .NET 10 runtime |
+| OS | Linux and macOS |
+| Workspace files | tmuxp's format, in YAML or JSON |
+
+Where it differs from tmuxp:
 
 - A window with no `layout` is tiled, where tmuxp keeps halving the last
   pane.
@@ -241,14 +250,6 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
 
 [Compatibility](https://libtmux.org/en/dotnet/latest/workspace/reference/compatibility/)
 records what is implemented so far and where it differs.
-
-## Compatibility
-
-| | |
-|---|---|
-| tmux | 3.2a and newer |
-| .NET | .NET 8 or .NET 10 runtime |
-| OS | Linux and macOS |
 
 ## Documentation
 
