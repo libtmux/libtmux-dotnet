@@ -271,8 +271,9 @@ public sealed class ControlModeSessionTests
         Assert.DoesNotContain("\\015", seen, StringComparison.Ordinal);
     }
 
-    // tmux escapes only control bytes and backslash in %output, so a program
-    // that writes bytes that are not UTF-8 sends them raw.
+    // tmux escapes only control bytes and backslash in %output, as \ooo, so a
+    // program that writes bytes that are not UTF-8 sends them raw. One line
+    // carries all three: a raw 0xFF, a backslash (\134) and a tab (\011).
     [UnixFact]
     public async Task Pane_output_that_is_not_utf8_arrives_projected_and_the_session_survives()
     {
@@ -288,7 +289,7 @@ public sealed class ControlModeSessionTests
                 "send-keys",
                 "-t",
                 "%0",
-                "printf 'libtmux-raw-\\377-end\\n'",
+                "printf 'libtmux-raw-\\377-a\\\\b\\tc-end\\n'",
                 "Enter"),
             token);
 
@@ -300,14 +301,14 @@ public sealed class ControlModeSessionTests
             if (observed is TmuxOutputEvent output)
             {
                 seen += output.Data;
-                if (seen.Contains("libtmux-raw-\\xff-end", StringComparison.Ordinal))
+                if (seen.Contains("libtmux-raw-\\xff-a\\b\tc-end", StringComparison.Ordinal))
                 {
                     break;
                 }
             }
         }
 
-        Assert.Contains("libtmux-raw-\\xff-end", seen, StringComparison.Ordinal);
+        Assert.Contains("libtmux-raw-\\xff-a\\b\tc-end", seen, StringComparison.Ordinal);
         Assert.Equal(
             ["alive"],
             await control.SendAsync(TmuxCommand.Create("display-message", "-p", "alive"), token));
