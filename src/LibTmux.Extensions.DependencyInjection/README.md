@@ -4,8 +4,11 @@ Registers [LibTmux](https://www.nuget.org/packages/LibTmux) with
 `Microsoft.Extensions.DependencyInjection`, so an application that already
 composes its services can take a tmux server handle as a dependency.
 
+> **Alpha.** The public API is not settled and can change between prereleases
+> without notice, so pin an exact version.
+
 ```console
-$ dotnet add package LibTmux.Extensions.DependencyInjection
+$ dotnet package add LibTmux.Extensions.DependencyInjection --prerelease
 ```
 
 ## Registering

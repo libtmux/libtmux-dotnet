@@ -3,6 +3,9 @@
 Scoped tmux servers, sessions and windows for testing code that drives tmux,
 on top of [LibTmux](https://www.nuget.org/packages/LibTmux).
 
+> **Alpha.** The public API is not settled and can change between prereleases
+> without notice, so pin an exact version.
+
 ```console
 $ dotnet package add LibTmux.Testing --prerelease
 ```

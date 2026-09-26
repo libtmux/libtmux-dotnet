@@ -76,8 +76,8 @@ there, so the AOT claim is still proven on Linux alone.
 
 | Criterion | Evidence |
 |---|---|
-| Examples compile | **51** C# blocks across the READMEs and mode documents are compiled by [a Roslyn harness](../tests/LibTmux.IntegrationTests/Documentation/ReadmeExampleTests.cs) in CI |
-| Examples run | **32** of those are marked `csharp run` and execute against a live tmux, each on a socket of its own |
+| Examples compile | Every C# block in the READMEs and mode documents is compiled by [a Roslyn harness](../tests/LibTmux.IntegrationTests/Documentation/ReadmeExampleTests.cs) in CI |
+| Examples run | Blocks marked `csharp run` execute against a live tmux, each on a socket of its own |
 | A broken example is a failing test | This is why `session.IsAttached` — which did not compile — cannot ship again |
 | A standalone project | [`examples/LibTmux.Examples`](../examples/LibTmux.Examples) builds and runs in CI |
 
