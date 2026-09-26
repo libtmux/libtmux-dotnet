@@ -16,7 +16,9 @@ $ dotnet tool install --global LibTmux.Mcp --prerelease
 ## Point a client at it
 
 It speaks the protocol over standard input and output, which is how an MCP
-client starts it:
+client starts it. [libtmux.org](https://libtmux.org/en/dotnet/latest/mcp/#install)
+has the exact snippet for Claude Code, Claude Desktop, Codex, Cursor, Gemini
+and other clients. For any client:
 
 ```json
 {
@@ -27,6 +29,29 @@ client starts it:
   }
 }
 ```
+
+With the .NET 10 SDK the client can run it straight from NuGet, with no
+install step:
+
+```json
+{
+  "mcpServers": {
+    "tmux": {
+      "command": "dnx",
+      "args": ["LibTmux.Mcp", "--prerelease", "--yes"]
+    }
+  }
+}
+```
+
+To pin a version, write it after an `@`, as in `LibTmux.Mcp@<version>`, using
+a version from [NuGet](https://www.nuget.org/packages/LibTmux.Mcp).
+
+A client started from a desktop launcher does not inherit your shell. If the
+.NET SDK came from a version manager rather than a system-wide install, set
+`DOTNET_ROOT` in the server's `env` so the tool can find its runtime; the
+[native config swapper](https://github.com/libtmux/libtmux-dotnet/blob/master/eng/mcp-swap/README.md)
+does it for you.
 
 To drive a named server rather than the product-dedicated default, pin its
 socket in the environment:
@@ -158,12 +183,6 @@ the pause imitates.
 
 Whatever `tmux` resolves to on the path, or the binary `LIBTMUX_TMUX` names.
 The supported range is 3.2a to 3.7c, proven from source on every commit.
-
-If you install the SDK through a version manager rather than system-wide, an
-agent that spawns this server will not inherit your shell and the launcher will
-not find the runtime. Set `DOTNET_ROOT` in the client's config for that server;
-the repository's [native config swapper](../../eng/mcp-swap/README.md) does it
-for you.
 
 ## Related packages
 
