@@ -1,238 +1,257 @@
 # tmux-workspace
 
-Manage tmux workspaces from YAML or JSON using tmuxp-compatible commands.
+[![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
+[![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
+[![tmux 3.2a – 3.7c](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 
-The tool supports .NET 8 and .NET 10 on Unix, with tmux 3.2a or newer. Python-specific shell and plugin behavior requires the optional tmuxp compatibility runtime. Native commands parse arguments and configuration before opening a tmux endpoint.
+Describe a tmux session once, in YAML, and open it with one command.
+`tmux-workspace` reads [tmuxp](https://github.com/tmux-python/tmuxp)
+workspace files, captures running sessions back into them, and answers in JSON
+when a script asks.
 
-## Install from this checkout
-
-Build the tool package with two build workers:
-
-```console
-$ dotnet pack src/LibTmux.Workspace.Cli/LibTmux.Workspace.Cli.csproj \
-    --configuration Release \
-    --output artifacts/packages \
-    -m:2
-```
-
-Install the local package:
-
-```console
-$ dotnet tool install LibTmux.Workspace.Cli \
-    --tool-path artifacts/tools \
-    --add-source artifacts/packages \
-    --prerelease
-```
-
-Save this as `workspace.yaml`: session `example` with an `editor` window
-split `main-vertical` between `vim` and `npm test`, and a `docs` window
-whose pane starts in `docs` and runs `mkdocs serve`.
+Save this as `~/.tmuxp/myproject.yaml`:
 
 ```yaml
-session_name: example
+session_name: myproject
+start_directory: ~/code/myproject
 windows:
   - window_name: editor
     layout: main-vertical
     panes:
       - vim
-      - npm test
-  - window_name: docs
+      - git status
+  - window_name: server
     panes:
-      - start_directory: docs
-        shell_command: mkdocs serve
+      - npm run dev
 ```
 
-Load it on a named socket without attaching:
+Open it:
 
 ```console
-$ artifacts/tools/tmux-workspace load ./workspace.yaml \
-    -d \
-    -L workspace-example \
-    --json
+$ tmux-workspace load myproject
 ```
 
-Capture that session using the same socket:
+Outside tmux this attaches your terminal to the new session. Inside tmux it
+asks whether to switch to it, leave it detached, or add its windows to the
+session you are in.
+
+> **Alpha.** Every release carries an `-alpha` tag, and options may change
+> between releases. Pin a version where a script depends on it.
+
+## Install
 
 ```console
-$ artifacts/tools/tmux-workspace freeze example \
-    -L workspace-example \
-    --json
+$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
 ```
 
-## Inspect a workspace through MCP
+`--prerelease` is required while every release is an alpha. If your shell
+cannot find `tmux-workspace` afterwards, add `$HOME/.dotnet/tools` to `PATH`.
 
-Loaded workspaces are ordinary tmux sessions. The separate
-[LibTmux.Mcp tool](../LibTmux.Mcp/README.md#point-a-client-at-it) can inspect
-them when both commands select the same socket.
+Try it without installing anything, using the .NET 10 SDK:
 
-After the detached load above, configure your MCP client to launch
-`libtmux-mcp` with `LIBTMUX_SOCKET=workspace-example` and
-`LIBTMUX_TOOLSETS=inspect` in its environment. When loading with `-S`, set
-`LIBTMUX_SOCKET_PATH` to that absolute path instead of `LIBTMUX_SOCKET`.
-For named sockets, give both processes the same `TMUX_TMPDIR`; if selecting a
-tmux executable explicitly, give both the same `LIBTMUX_TMUX`.
+```console
+$ dnx LibTmux.Workspace.Cli --prerelease --yes -- --help
+```
 
-Discover tools with `tools/list`, then call `list_sessions`, `list_windows`
-with its `session` argument, and `list_panes`. Retain the returned stable IDs.
-Use `capture_pane` with `paneId` and a bounded `maxLines` for visible text.
-Captures return projected lines with trailing empty rows removed;
-`snapshot_pane` also reports cursor and pane state. `capture_since` first
-establishes a cursor without returning text; pass that cursor back to read
-new output.
+Pin it for everyone who clones a repository. Run this at the repository root,
+commit the `dotnet-tools.json` it writes, and run the tool as
+`dotnet tmux-workspace`:
 
-Use `wait_for_text` with `paneId`, regular-expression `patterns`, and bounded
-`timeoutSeconds` to wait for new output. Other inspections remain responsive
-while the wait is pending. `tmux://capabilities` reports the selected endpoint
-and effective tools. Closing the MCP connection cancels pending work and
-leaves this separately loaded tmux session running. See the
-[MCP tool reference](../../docs/mcp/tools.md) for exact schemas.
+```console
+$ dotnet tool install LibTmux.Workspace.Cli --prerelease
+```
 
-This tool does not use `LibTmux.Workspace`, the workspace library in the same
-repository. The two are separate implementations: this one reads a wider
-document language and refuses a rejected layout where the library records it
-and carries on. That package's README names every difference.
+Upgrade a global install:
 
-## Commands and output
+```console
+$ dotnet tool update --global LibTmux.Workspace.Cli --prerelease
+```
 
-`load`, `freeze`, `convert`, `import teamocil`, `import tmuxinator`, `ls`, `search`, `edit`, `debug-info` and `shell` accept inherited `--json` and `--ndjson`. NDJSON wins when both flags are present. Explicit `--help` prints human help, and `--` ends option scanning, so a workspace file named `-h` is loaded rather than treated as a help request. Machine diagnostics are JSON lines on stderr.
+## Everyday commands
 
-Machine load requires `-d` or an explicit `--append` inside tmux. A session that already exists is reused when it holds every window the document declares, and refused as `session_mismatch` when it does not; reuse never rebuilds. A load that created the session removes it on a known failure -- tmux refused, a script exited non-zero, a document was wrong -- so `status` is `error`, exit 1, and nothing is retained. Cancellation (SIGINT/SIGTERM, exit 130) is not a known failure and leaves the session standing, so a cleanup path racing the same signal cannot destroy what a user could otherwise see and remove. A load that appended keeps what it added, names those windows, and reports `partial`. With several inputs the envelope answers for what each one retained, so one input building and another failing is `partial`.
+Load a workspace without attaching:
 
-Load creates panes in configuration order, including windows with three or
-more panes. `pane-base-index` changes their starting index; explicit focus
-still selects the configured pane. `load` waits for each pane's shell before
-sending its first command, under any session `default-shell`; set
-`workspace_builder_options: {pane_readiness: never}` to skip the wait. An
-unrecognized key under `workspace_builder_options` warns and the document
-still loads. A `start_directory` that is not a directory warns too, naming
-the path and tmux's `$HOME` fallback.
+```console
+$ tmux-workspace load -d myproject
+```
 
-`$VAR`, `${VAR}` and a leading `~` in a command or path expand against the
-environment `load` runs in, not the target pane's, matching tmuxp. A
-`$TMUX_PANE` written into a workspace file names the pane that ran `load`.
-`<<: *anchor` and `<<: [*a, *b]` YAML merge keys resolve at load, with
-explicit keys winning over merged ones and, among multiple merge sources, the
-earlier one winning; a key starting with `x-`, at any level, is inert.
+Load the `.tmuxp.yaml` in a project directory:
 
-A window with no `layout` key is tiled, not stacked: tmuxp halves the last
-pane repeatedly, giving four panes of 14, 6, 3 and 3 rows at 100x30, where
-this tool gives a 2x2 grid; that is a deliberate difference from tmuxp.
-Without an explicit `focus` key the pane left active is the last one created,
-as tmuxp leaves it, while the window left active is the first, where tmuxp
-leaves the last. An explicit `focus` key agrees everywhere, windows and panes
-alike.
+```console
+$ tmux-workspace load ~/code/myproject
+```
 
-Every input layout is checked before scripts or topology changes. Custom layouts require a valid checksum, a bounded cell tree, and enough cells for the configured panes. tmux still handles geometry and trims extra cells. Named layouts accept native unique prefixes; `main-h` and `main-v` become ambiguous when mirrored layouts are available on tmux 3.5 and newer. Version-sensitive names use the selected daemon version, with client-version fallback only when that endpoint has no running server.
-For layout checks, release candidates use their release boundary and
-`next-X.Y` ranks below `X.Y`.
+Load several workspaces at once; the last one is the one you land in:
 
-Native append authenticates the inherited pane's daemon, resolves its current
-session through tmux, and retains that session across all inputs. Later native
-commands reject a replacement daemon, including global options after a startup
-script. The session suffix in `TMUX` does not select the destination. Append
-with Python plugins or custom builders fails before building any input or
-starting Python; use `-d` to load those extensions into a separate session.
-`--append` honours a window's `window_index`; a collision fails the load
-(`tmux_failed`, exit 1, carrying tmux's own reason), naming the windows it
-kept. A session `load` creates is sized from the terminal it runs in
-(`TMUXP_DEFAULT_COLUMNS`/`ROWS`, else `COLUMNS`/`ROWS`, else 80x24), overridden
-by the real terminal size unless `TMUXP_DETECT_TERMINAL_SIZE` disables
-detection.
+```console
+$ tmux-workspace load api web
+```
 
-Outside tmux, human attachment requires a foreground controlling terminal. Inside tmux it does not: a switch needs no terminal, so a `run-shell` key binding — `TMUX` set, no `TMUX_PANE` — still switches, picking tmux's most recently used client instead of a specific one. Prompting also needs a terminal; without one, or with `--yes`, a load proceeds as if the answer were yes. A workspace whose session already exists asks `Attach?` and leaves it untouched on `n`, inside or outside tmux, exiting 0: declining a prompt is not a failure, so a session that mismatches the document is never compared to it, and `session_mismatch` never fires for an input the prompt was declined on. With several inputs the prompt is only ever about the last one; an earlier input still builds normally. A new session asks `y` to switch, `n` to load detached, or `a` to append, inside tmux only. `-d` always builds detached, even with `--append`. `-y` refuses an ambiguous client choice. A client with independent `active-pane` focus on the invoking physical window prevents handoff; detached and append modes remain available. The invoking pane and selected daemon are authenticated before building; a `TMUX` that does not parse, a daemon other than the one it names, a `TMUX_PANE` that is not a pane of that daemon, and a pane no client is viewing are each refused as `usage`, exit 2, before anything is built, whether or not that daemon is already running.
+Add a workspace's windows to the tmux session you are in:
 
-Before handoff, the CLI flushes output and checks the selected client again. Client changes cause a late refusal; daemon replacement prevents attachment to a reused session ID. SIGINT and SIGTERM report cancellation. Late failures print recorded load results on stderr; those records describe completed work, not a fresh topology query. A client name can still be reused after the final client observation.
+```console
+$ tmux-workspace load --append tools
+```
 
-Attached Python extension handoff remains in development. Use `-d` or choose `n` to run those extensions detached; the effective detached choice is passed to Python.
+List the workspaces it can find:
 
-Load supports `-2` for 256 colors. Legacy `-8` and `--88-colors` requests fail before reading workspace files or running tmux or Python because supported tmux versions do not support 88-color mode.
+```console
+$ tmux-workspace ls
+```
 
-Machine freeze, conversion and import return the document without writing a guessed filename, inside the same `{schema_version, command, status, ...}` envelope under `--json` and `--ndjson` alike: `freeze` answers under `workspace`, conversion and import under `document`. A captured document carries `x-capture-lossy: true`, because it is valid input that replays process names rather than the original command lines. `--save-to` selects a file, `--workspace-format` selects YAML or JSON, and `--force` authorizes replacement. Files are written through a temporary file in the destination directory. Capture retains current topology, directories, window options -- written under `options_after`, which `load` also accepts as a spelling of `options` -- and current command names; original command arguments, history, hooks and plugin state are not recoverable.
+Find the workspaces that mention `server` in their name, windows, or pane
+commands:
 
-Freeze derives no filename of its own. Without `--save-to` it needs `--json`
-or `--ndjson` and returns the document; a human capture with neither is a usage
-refusal. A session name is data from a live server — tmux accepts a slash in
-one — so it never selects where a capture lands.
+```console
+$ tmux-workspace search server
+```
 
-Freeze reads the invoking pane from `TMUX_PANE` only when `TMUX` names the
-selected endpoint, because pane identifiers are numbered per server. Against
-another endpoint it captures that endpoint's only session, or asks for a
-session name.
+Save a running session as a workspace file:
 
-Imports validate the translated workspace before printing or saving it.
-Teamocil command groups, window options and the first requested window/pane
-focus are preserved. Tmuxinator window command arrays stay in one pane;
-explicit pane lists create separate panes. `pre_window` groups run in each
-pane, and window `pre` groups retain their conditional command ordering.
-Synchronization preserves the source's before/after command timing.
+```console
+$ tmux-workspace freeze myproject --save-to ~/.tmuxp/myproject.yaml
+```
 
-Relative project roots use the import invocation directory. Tmuxinator window
-roots then use that project root; Teamocil window roots use the invocation
-directory. A missing session name defaults to the source filename stem.
-Unsupported fields, including launcher hooks, project `pre`, Teamocil filters
-or `clear`, and named tmuxinator pane titles, are refused before any destination
-is written. Tmuxinator ERB templates are refused before output or overwrite,
-because Tmuxinator expands them through Ruby before parsing and no native
-reader does; expand them to YAML or JSON first, since generic conversion still
-preserves the raw template text. Teamocil evaluates no templates, so the same
-`<%` markup in a Teamocil source is ordinary text and is preserved literally.
-Move unsupported behaviors into an explicit supported workspace workflow
-before importing; pane commands cannot reproduce launcher lifecycle hooks.
+Convert a workspace between YAML and JSON:
 
-`--color auto|always|never` controls human color. Nonempty `NO_COLOR` wins over forced color; machine formats disable color styling. Current .NET Console initialization can still prefix stdout on a PTY with keypad control bytes. Discovery uses `TMUXP_CONFIGDIR`, XDG configuration and the legacy tmuxp directory. `TMUXINATOR_CONFIG` selects the importer directory. `LIBTMUX_TMUX` can select an explicit tmux executable.
+```console
+$ tmux-workspace convert myproject.yaml --save-to myproject.json
+```
 
-`--log-level debug|info|warning|error|critical` filters optional warnings and file records; the default is `warning`. Command failures remain visible at every level. On Linux x64 and arm64, `load --log-file PATH` appends UTF-8 JSON lines. Select `info` for lifecycle records or `debug` to include script output. Relative paths use the invocation directory. New files allow only owner read/write; existing content and permissions are preserved. Directories, pipes, devices and symbolic links are rejected. Other platforms currently reject `--log-file` because the offset of `st_mode` in their `struct stat` is not verified here.
+Turn a tmuxinator project into a workspace (`import teamocil` works the same
+way):
 
-A log destination that cannot be opened fails before tmux or Python runs. A later file-write failure disables that log and reports one secondary diagnostic; workspace execution retains its own result, error or cancellation. Log output contains escaped data and receives no terminal colors. Python delegation leaves the log file under native ownership.
+```console
+$ tmux-workspace import tmuxinator ~/.config/tmuxinator/blog.yml \
+    --save-to ~/.tmuxp/blog.yaml
+```
 
-Human `load` shows event-driven progress on a stderr terminal with verified geometry. `--progress-format` selects `default`, `minimal`, `window`, `pane`, `verbose`, or a literal template such as `{session}: {session_pane_progress}`. Bare named tokens and `{{`/`}}` escapes are supported; other fields remain literal. Explicit flags override `TMUXP_PROGRESS_FORMAT` and `TMUXP_PROGRESS_LINES`; defaults are `default` and 3 lines. `--no-progress`, `TMUXP_PROGRESS=0`, `TERM=dumb`, machine output and redirected stderr disable drawing. Progress environment values are validated only when drawing is active.
+Open a workspace in `$EDITOR`:
 
-`--progress-lines 0` forwards decoded script stdout/stderr to their original
-destinations; positive values show a bounded tail of terminal streams, and `-1`
-uses available terminal rows. Redirected stdout receives decoded script output
-directly at every panel size. `NO_COLOR` removes styling while keeping terminal
-updates. Pane counters advance after command delivery and configured delays;
-opaque Python extensions show a generic activity label. Frames clear before
-results, diagnostics and attachment. On terminal resize, the painted frame is
-erased and drawing stops; raw output resumes. Linux and macOS have window-size
-implementations; other platforms omit drawing.
-Progress and logging have been verified on Linux x64; macOS progress and Linux
-arm64 logging still need platform verification.
-The owned Console writers do not provide a hard deadline for terminal or
-filesystem writes.
+```console
+$ tmux-workspace edit myproject
+```
 
-Search uses .NET regular expressions with a one-second match timeout. Basic patterns, field aliases and tmuxp search flags are supported; Python-specific regex syntax and some Unicode character classes differ. Invalid expressions return usage status 2, and so does a pattern that spends the match timeout, which names the pattern and offers `--fixed-strings`. `--word-regexp` bounds the whole pattern, so every branch of an alternation matches as a word.
+Collect versions and search paths for a bug report:
 
-Python shell code and workspace extensions require tmuxp **1.74.0**. Set `TMUX_WORKSPACE_PYTHON` to the compatible Python executable. Child stdout and stderr are drained concurrently; retained output is capped at 64 Ki characters per stream and truncation is explicit. Streaming output decodes UTF-8 with replacement for invalid bytes.
+```console
+$ tmux-workspace debug-info
+```
 
-`--generate reference` exports Markdown, or command metadata with `--json`. `--generate man|bash|zsh|fish` exports a manual or completion definitions. Completion currently offers command and option words; contextual argument completion remains open.
+Open a Python REPL holding a session's tmux objects. It runs through tmuxp
+1.74.0, so point `TMUX_WORKSPACE_PYTHON` at a Python that has it installed:
 
-## Error codes
+```console
+$ tmux-workspace shell myproject
+```
 
-Every machine diagnostic carries a `code`. Ten describe the workspace
-operation and are shared with the other libtmux workspace ports:
+`tmux-workspace <command> --help` lists every option.
 
-`workspace_not_found`, `invalid_workspace`, `unsupported_key`,
-`session_not_found`, `session_mismatch`, `tmux_unavailable`, `tmux_failed`,
-`script_failed`, `destination_exists`, `usage`.
+## Workspace files
 
-`usage` covers every refusal about how the command was invoked or about the
-context it was invoked in, including a `TMUX` or `TMUX_PANE` that cannot be
-honoured; those exit 2.
+A command that takes a workspace accepts a file path, a directory holding a
+`.tmuxp.yaml`, or a bare name. A name is looked up in the first of these that
+exists:
 
-The rest report this tool's own plumbing rather than the workspace, and are
-specific to this port: `output_failed`, `log_file_unsupported`,
-`log_file_unavailable`, `log_file_write_failed`, `terminal_required`,
-`terminal_unsupported`, `terminal_changed`, `input_required`, `input_closed`,
-`input_failed`, `invalid_choice`, `confirmation_required`, `editor_required`,
-`invalid_editor`, `executable_unavailable`, `unsupported_runtime`,
-`unsupported_platform`, `bridge_failed`, `ambiguous_client`,
-`independent_pane`, `client_changed`, `pane_changed`, `attach_failed`,
-`stale_server`, `interrupted` and `internal_error`. Anything unhandled is
-`internal_error`, exit 70; nothing reaches a user as a stack trace.
+1. `$TMUXP_CONFIGDIR`
+2. `$XDG_CONFIG_HOME/tmuxp`, which defaults to `~/.config/tmuxp`
+3. `~/.tmuxp`
 
-## Validation
+`ls` also shows the nearest `.tmuxp.yaml`, `.tmuxp.yml`, or `.tmuxp.json`
+above the current directory.
 
-The CLI tests target both supported .NET runtimes and use private tmux
-sockets. Python shell integration requires the pinned optional runtime. Test
-collections run sequentially.
+The format is tmuxp's, in YAML or JSON. The
+[configuration reference](https://libtmux.org/en/dotnet/latest/workspace/configuration/)
+covers every key, and the
+[example gallery](https://libtmux.org/en/dotnet/latest/workspace/examples/gallery/)
+has files to start from.
+
+## Scripting
+
+`--json` prints one JSON document on stdout. `--ndjson` streams one record per
+line as a load progresses. Errors go to stderr as JSON lines with a stable
+`code`.
+
+List workspace names:
+
+```console
+$ tmux-workspace ls --json | jq -r '.workspaces[].name'
+```
+
+Load detached and read back which sessions were created:
+
+```console
+$ tmux-workspace load -d --json myproject | jq -r '.results[].session_name'
+```
+
+Inside tmux, a scripted `load` needs `-d` or `--append`, because a script
+cannot answer the switch prompt. `ls` and `search` print the same JSON as
+tmuxp.
+
+| Exit status | Meaning |
+|---|---|
+| 0 | Done |
+| 1 | The operation failed; `status` and the error `code` say how |
+| 2 | Usage: a bad option, or a command that cannot run where it was started |
+| 70 | An internal error; please report it |
+| 130 | Interrupted |
+
+The [output reference](https://libtmux.org/en/dotnet/latest/workspace/reference/output/)
+and [error codes](https://libtmux.org/en/dotnet/latest/workspace/reference/exit-codes/)
+document every field.
+
+## Shell completion
+
+Bash, with the bash-completion package:
+
+```console
+$ tmux-workspace --generate bash > ~/.local/share/bash-completion/completions/tmux-workspace
+```
+
+zsh, into any directory on your `fpath`:
+
+```console
+$ tmux-workspace --generate zsh > ~/.zfunc/_tmux-workspace
+```
+
+fish:
+
+```console
+$ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fish
+```
+
+`--generate man` writes a manual page.
+
+## Differences from tmuxp
+
+- A window with no `layout` is tiled, where tmuxp keeps halving the last
+  pane.
+- Without a `focus` key the first window is left active; tmuxp leaves the
+  last.
+- `-8` is refused: no supported tmux implements 88-color mode. Use `-2` for
+  256 colors.
+- `shell`, plugins, and custom workspace builders run through tmuxp itself and
+  need tmuxp 1.74.0.
+
+[Compatibility](https://libtmux.org/en/dotnet/latest/workspace/reference/compatibility/)
+lists every difference.
+
+## Compatibility
+
+| | |
+|---|---|
+| tmux | 3.2a and newer |
+| .NET | .NET 8 or .NET 10 runtime |
+| OS | Linux and macOS |
+
+## Documentation
+
+- [Command reference](https://libtmux.org/en/dotnet/latest/workspace/cli/) — every command and option
+- [Installation walkthrough](https://libtmux.org/en/dotnet/latest/workspace/guides/installation/) — install, load, and capture on a private socket
+- [Inspect a loaded session through MCP](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/README.md) — let an assistant read your panes
+- [LibTmux.Workspace](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Workspace/README.md) — build sessions from C# instead
+- [Changelog](https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md)
+
+## License
+
+[MIT](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)

@@ -336,6 +336,42 @@ public sealed class ContractTests : IDisposable
         Assert.Single(JsonNode.Parse(result.Output)!["workspaces"]!.AsArray());
     }
 
+    // The README is also the nuget.org page. A command it shows that no longer
+    // parses, or a command it never shows, is a broken front door.
+    [Fact]
+    public void Readme_shows_every_command_and_every_example_parses()
+    {
+        string readme = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "LibTmux.Workspace.Cli", "README.md"));
+        string[][] examples = [.. Regex.Matches(readme, @"^\$ tmux-workspace (?<args>(?:.*\\\n)*.*)$", RegexOptions.Multiline)
+            .Select(match => match.Groups["args"].Value.Replace("\\\n", " ", StringComparison.Ordinal)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .TakeWhile(word => word is not "|" and not ">")
+                .ToArray())];
+        CommandLine graph = new();
+
+        foreach (string[] example in examples)
+        {
+            Assert.True(graph.Parse(example).Errors.Count == 0, "tmux-workspace " + string.Join(' ', example));
+        }
+
+        Assert.Equal(
+            graph.Root.Subcommands.Select(command => command.Name).Order(StringComparer.Ordinal),
+            examples.Select(example => example.FirstOrDefault(word => !word.StartsWith('-')))
+                .Where(name => graph.Root.Subcommands.Any(command => command.Name == name))
+                .Distinct()
+                .Order(StringComparer.Ordinal));
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "LibTmux.slnx"))) return directory.FullName;
+        }
+
+        throw new InvalidOperationException("The repository root was not found above the test assembly.");
+    }
+
     private async Task<(int Code, string Output, string Error)> Run(params string[] args)
     {
         using StringWriter output = new();
