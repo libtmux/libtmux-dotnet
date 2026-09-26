@@ -1,3 +1,4 @@
+using System.CommandLine;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
@@ -162,6 +163,31 @@ public sealed class ContractTests : IDisposable
         Assert.Contains("TMUXP_PROGRESS_LINES", lines["description"]!.ToString(), StringComparison.Ordinal);
         Assert.Equal("default", options.Single(option => option!["environment"]?.ToString() == "TMUXP_PROGRESS_FORMAT")!["default"]!.ToString());
         Assert.Contains(options, option => option!["environment"]?.ToString() == "TMUXP_PROGRESS=0");
+    }
+
+    // Help, the generated reference, and the manual share one table of
+    // examples, so a command without one, or one that stopped parsing, is a
+    // gap in all three.
+    [Fact]
+    public async Task Every_command_shows_examples_that_parse()
+    {
+        CommandLine graph = new();
+        foreach (Command command in Commands(graph.Root))
+        {
+            IReadOnlyList<string> examples = graph.ExamplesFor(command);
+            Assert.True(examples.Count > 0, command.Name);
+            foreach (string example in examples)
+            {
+                string[] words = [.. example.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).TakeWhile(word => word is not "|" and not ">")];
+                Assert.True(graph.Parse(words).Errors.Count == 0, example);
+            }
+        }
+
+        var help = await Run("load", "--help");
+        Assert.Equal(0, help.Code);
+        Assert.Contains("Examples:\n  tmux-workspace load myproject\n", help.Output.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+
+        static IEnumerable<Command> Commands(Command command) => new[] { command }.Concat(command.Subcommands.SelectMany(Commands));
     }
 
     // fish offered every subcommand's flags on every subcommand -- `load

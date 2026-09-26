@@ -6,35 +6,97 @@ namespace LibTmux.Workspace.Cli;
 
 internal static class CommandDocumentation
 {
-    internal static string Generate(CommandLine graph, string format)
+    internal static string Generate(CommandLine graph, string format) => format switch
+    {
+        "reference" => Reference(graph),
+        "man" => Manual(graph),
+        "bash" => Bash(graph.Root),
+        "zsh" => Zsh(graph.Root),
+        "fish" => Fish(graph.Root),
+        _ => throw new CliException("usage", "Unknown documentation format.", 2),
+    };
+
+    private static IEnumerable<(Command Command, string Path)> Walk(Command command, string path)
+    {
+        yield return (command, path);
+        foreach (Command child in command.Subcommands)
+        {
+            foreach ((Command Command, string Path) nested in Walk(child, path + " " + child.Name)) yield return nested;
+        }
+    }
+
+    private static string Reference(CommandLine graph)
     {
         StringBuilder result = new();
-        void Visit(Command command, string path)
+        foreach ((Command command, string path) in Walk(graph.Root, "tmux-workspace"))
         {
-            if (format is "reference" or "man")
+            result.Append(command == graph.Root ? "# " : "## ").AppendLine(path).AppendLine();
+            result.AppendLine(command.Description).AppendLine();
+            result.Append("Usage: `").Append(CommandLine.Usage(command, path)).AppendLine("`").AppendLine();
+            if (command.Arguments.Count > 0)
             {
-                result.AppendLine(format == "man" ? ".SH " + path.ToUpperInvariant() : "## " + path);
-                result.AppendLine(command.Description);
-                result.AppendLine();
-                foreach (Argument argument in command.Arguments) result.AppendLine(CultureInfo.InvariantCulture, $"{argument.Name}: {argument.Arity.MinimumNumberOfValues}..{argument.Arity.MaximumNumberOfValues} values.");
-                foreach (Option option in command.Options) result.AppendLine(CultureInfo.InvariantCulture, $"{string.Join(", ", new[] { option.Name }.Concat(option.Aliases))}: {option.Description}");
+                result.AppendLine("Arguments:").AppendLine();
+                foreach (Argument argument in command.Arguments) result.AppendLine(CultureInfo.InvariantCulture, $"- `<{argument.Name}>` — {argument.Description ?? "A name, or omit it to be asked."}");
                 result.AppendLine();
             }
-            foreach (Command child in command.Subcommands) Visit(child, path + " " + child.Name);
+            if (command.Options.Count > 0)
+            {
+                result.AppendLine("Options:").AppendLine();
+                foreach (Option option in command.Options) result.AppendLine(CultureInfo.InvariantCulture, $"- `{CommandLine.Signature(option)}` — {option.Description}");
+                result.AppendLine();
+            }
+            if (command.Subcommands.Count > 0)
+            {
+                result.AppendLine("Commands:").AppendLine();
+                foreach (Command child in command.Subcommands) result.AppendLine(CultureInfo.InvariantCulture, $"- `{child.Name}` — {child.Description}");
+                result.AppendLine();
+            }
+            IReadOnlyList<string> examples = graph.ExamplesFor(command);
+            if (examples.Count > 0)
+            {
+                result.AppendLine("Examples:").AppendLine();
+                foreach (string example in examples) result.Append("- `").Append(example).AppendLine("`");
+                result.AppendLine();
+            }
         }
-        if (format is "reference" or "man")
+        return result.ToString();
+    }
+
+    private static string Manual(CommandLine graph)
+    {
+        StringBuilder result = new();
+        result.AppendLine(".TH TMUX-WORKSPACE 1");
+        result.AppendLine(".SH NAME");
+        result.Append("tmux-workspace \\- ").AppendLine(Roff(graph.Root.Description ?? ""));
+        result.AppendLine(".SH SYNOPSIS");
+        result.AppendLine(Roff(CommandLine.Usage(graph.Root, "tmux-workspace")));
+        foreach ((Command command, string path) in Walk(graph.Root, "tmux-workspace"))
         {
-            if (format == "man") result.AppendLine(".TH TMUX-WORKSPACE 1");
-            Visit(graph.Root, "tmux-workspace");
-            return result.ToString();
+            result.AppendLine(command == graph.Root ? ".SH OPTIONS" : ".SH \"" + Roff(path.ToUpperInvariant()) + "\"");
+            if (command != graph.Root)
+            {
+                result.AppendLine(Roff(command.Description ?? ""));
+                result.AppendLine(".PP").AppendLine(Roff(CommandLine.Usage(command, path)));
+            }
+            foreach (Argument argument in command.Arguments) result.AppendLine(".TP").AppendLine(Roff("<" + argument.Name + ">")).AppendLine(Roff(argument.Description ?? "A name, or omit it to be asked."));
+            foreach (Option option in command.Options) result.AppendLine(".TP").AppendLine(Roff(CommandLine.Signature(option))).AppendLine(Roff(option.Description ?? ""));
+            IReadOnlyList<string> examples = graph.ExamplesFor(command);
+            if (examples.Count > 0)
+            {
+                result.AppendLine(".PP").AppendLine("Examples:").AppendLine(".PP").AppendLine(".nf");
+                foreach (string example in examples) result.AppendLine(Roff(example));
+                result.AppendLine(".fi");
+            }
         }
-        return format switch
-        {
-            "bash" => Bash(graph.Root),
-            "zsh" => Zsh(graph.Root),
-            "fish" => Fish(graph.Root),
-            _ => throw new CliException("usage", "Unknown documentation format.", 2),
-        };
+        return result.ToString();
+    }
+
+    // roff reads a backslash as an escape and a leading dot or quote as a
+    // request, and renders a bare hyphen as a typographic one.
+    private static string Roff(string text)
+    {
+        string escaped = text.Replace("\\", "\\e", StringComparison.Ordinal).Replace("-", "\\-", StringComparison.Ordinal);
+        return escaped.StartsWith('.') || escaped.StartsWith('\'') ? "\\&" + escaped : escaped;
     }
 
     private static IEnumerable<string> FlagNames(Option option) =>

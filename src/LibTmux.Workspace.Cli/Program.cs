@@ -73,6 +73,13 @@ internal static class CliRunner
                 using StringWriter help = new();
                 ParseResult parsed = args.Length == 0 || invocation.Command == "import" ? graph.Root.Parse([.. args, "--help"]) : invocation.Parsed;
                 parsed.Invoke(new InvocationConfiguration { Output = help, Error = error });
+                IReadOnlyList<string> examples = graph.ExamplesFor(parsed.CommandResult.Command);
+                if (examples.Count > 0)
+                {
+                    help.WriteLine("Examples:");
+                    foreach (string example in examples) help.WriteLine("  " + example);
+                    help.WriteLine();
+                }
                 renderer.Human(help.ToString(), "heading", newline: false);
                 return 0;
             }

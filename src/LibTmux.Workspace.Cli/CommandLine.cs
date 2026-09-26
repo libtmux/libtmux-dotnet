@@ -11,6 +11,7 @@ internal sealed class CommandLine
     private readonly List<Argument> _arguments = [];
     private readonly Dictionary<Option, string[]> _choices = [];
     private readonly Dictionary<Option, (string Variable, object Default)> _environmentBindings = [];
+    private readonly Dictionary<Command, string[]> _examples = [];
 
     internal CommandLine()
     {
@@ -25,6 +26,7 @@ internal sealed class CommandLine
         Value(Root, "log_level", "--log-level", "Diagnostic log level.", "warning", ["debug", "info", "warning", "error", "critical"]);
         Flag(Root, "version", "--version", "Show the tool version.", ["-V"]);
         Value(Root, "generate", "--generate", "Generate reference, man, bash, zsh or fish output.", choices: ["reference", "man", "bash", "zsh", "fish"]);
+        Examples(Root, "load myproject", "ls", "freeze myproject --save-to ~/.tmuxp/myproject.yaml");
 
         Command load = Add(Root, "load", "Load one or more workspaces.");
         Arguments(load, "files", "workspace-file", ArgumentArity.OneOrMore, "One or more tmuxp YAML or JSON workspace files.");
@@ -43,6 +45,7 @@ internal sealed class CommandLine
         BindEnvironment(lines, ProgressOptions.LinesEnvironment, ProgressOptions.DefaultLines);
         _readers[load].Add(("progress_lines", result => result.GetValue(lines)));
         Flag(load, "no_progress", "--no-progress", "Disable terminal progress updates.", environment: ProgressOptions.EnabledEnvironment + "=0");
+        Examples(load, "load myproject", "load -d myproject", "load ~/code/myproject", "load --append tools", "load -d --json myproject");
 
         Command freeze = Add(Root, "freeze", "Capture a live session as a workspace.");
         Arguments(freeze, "sessions", "session-name", ArgumentArity.ZeroOrOne);
@@ -50,10 +53,12 @@ internal sealed class CommandLine
         SaveOptions(freeze, true);
         Yes(freeze);
         Flag(freeze, "quiet", "--quiet", "Suppress explanatory status text.", ["-q"]);
+        Examples(freeze, "freeze myproject --save-to ~/.tmuxp/myproject.yaml", "freeze myproject --json");
         Command convert = Add(Root, "convert", "Convert a workspace between YAML and JSON.");
         Arguments(convert, "files", "workspace-file", ArgumentArity.ExactlyOne, "The tmuxp YAML or JSON workspace file to convert.");
         Yes(convert);
         SaveOptions(convert, false);
+        Examples(convert, "convert myproject.yaml --save-to myproject.json");
         Command import = Add(Root, "import", "Import teamocil or tmuxinator configuration.");
         foreach (string name in new[] { "teamocil", "tmuxinator" })
         {
@@ -62,9 +67,13 @@ internal sealed class CommandLine
             SaveOptions(child, false);
             Yes(child);
         }
+        Examples(import.Subcommands[0], "import teamocil ~/.teamocil/blog.yml --save-to ~/.tmuxp/blog.yaml");
+        Examples(import.Subcommands[1], "import tmuxinator ~/.config/tmuxinator/blog.yml --save-to ~/.tmuxp/blog.yaml");
+        _examples[import] = [.. _examples[import.Subcommands[0]], .. _examples[import.Subcommands[1]]];
         Command list = Add(Root, "ls", "List local and global workspace files.");
         Flag(list, "tree", "--tree", "Group workspaces by directory.");
         Flag(list, "full", "--full", "Show windows and each pane's first command; include complete configuration in JSON.");
+        Examples(list, "ls", "ls --tree", "ls --json | jq -r '.workspaces[].name'");
         Command search = Add(Root, "search", "Search workspace names and configuration fields.");
         Arguments(search, "patterns", "query", ArgumentArity.ZeroOrMore);
         Option<string[]> field = new("--field", "-f") { Description = "Restrict matching to name, session/s, path/p, window/w or pane.", AllowMultipleArgumentsPerToken = false };
@@ -76,9 +85,11 @@ internal sealed class CommandLine
         Flag(search, "word", "--word-regexp", "Match whole words.", ["-w"]);
         Flag(search, "invert", "--invert-match", "Select workspaces that do not match.", ["-v"]);
         Flag(search, "any", "--any", "Match any pattern instead of every pattern.");
+        Examples(search, "search server", "search pane:npm", "search --ignore-case api web");
         Command edit = Add(Root, "edit", "Open a workspace in EDITOR.");
         Arguments(edit, "files", "workspace-file", ArgumentArity.ExactlyOne, "The tmuxp YAML or JSON workspace file to open.");
-        Add(Root, "debug-info", "Report runtime, configuration and tmux diagnostics.");
+        Examples(edit, "edit myproject");
+        Examples(Add(Root, "debug-info", "Report runtime, configuration and tmux diagnostics."), "debug-info", "debug-info --json");
         Command shell = Add(Root, "shell", "Open a Python shell with tmux objects.");
         Arguments(shell, "sessions", "session-name", ArgumentArity.ZeroOrOne);
         Arguments(shell, "windows", "window-name", ArgumentArity.ZeroOrOne);
@@ -92,9 +103,31 @@ internal sealed class CommandLine
         {
             Flag(shell, option.Replace('-', '_'), "--" + option, option.Replace('-', ' ') + ".");
         }
+        Examples(shell, "shell myproject", "shell myproject editor -c 'print(window.name)'");
     }
 
     internal Command Root { get; }
+
+    /// <summary>Paste-ready invocations of a command, each starting with the tool name.</summary>
+    internal IReadOnlyList<string> ExamplesFor(Command command) => _examples.GetValueOrDefault(command) ?? [];
+
+    internal static string Usage(Command command, string path)
+    {
+        IEnumerable<string> arguments = command.Arguments.Select(argument =>
+        {
+            string name = "<" + argument.Name + ">" + (argument.Arity.MaximumNumberOfValues > 1 ? "..." : "");
+            return argument.Arity.MinimumNumberOfValues == 0 ? "[" + name + "]" : name;
+        });
+        string tail = command.Subcommands.Count > 0 ? "<command>" : "[options]";
+        return string.Join(' ', new[] { path }.Concat(arguments).Append(tail));
+    }
+
+    internal static string Signature(Option option)
+    {
+        // System.CommandLine also gives help the Windows spellings /h and /?.
+        string names = string.Join(", ", new[] { option.Name }.Concat(option.Aliases).Where(static name => name.StartsWith('-')).Distinct(StringComparer.Ordinal).OrderBy(static name => name.Length));
+        return option.ValueType == typeof(bool) || option.Arity.MaximumNumberOfValues == 0 ? names : names + " <" + (option.HelpName ?? option.Name.TrimStart('-')) + ">";
+    }
 
     internal Invocation Parse(string[] args)
     {
@@ -192,6 +225,9 @@ internal sealed class CommandLine
         Value(command, "socket_path", "-S", "Select an explicit tmux socket path.", metavar: "socket-path");
     }
 
+    private void Examples(Command command, params string[] invocations) =>
+        _examples[command] = [.. invocations.Select(static invocation => "tmux-workspace " + invocation)];
+
     private void Yes(Command command) => Flag(command, "yes", "--yes", "Answer yes to confirmation prompts.", ["-y"]);
 
     private void SaveOptions(Command command, bool freeze)
@@ -208,6 +244,8 @@ internal sealed class CommandLine
         {
             name = command == Root ? "tmux-workspace" : command.Name,
             description = command.Description,
+            usage = Usage(command, command == Root ? "tmux-workspace" : "tmux-workspace " + _names[command]),
+            examples = ExamplesFor(command),
             aliases = command.Aliases,
             arguments = command.Arguments.Select(argument => new { name = argument.Name, type = argument.ValueType.Name, minimum = argument.Arity.MinimumNumberOfValues, maximum = argument.Arity.MaximumNumberOfValues }),
             options = command.Options.Select(option => new { name = option.Name, aliases = option.Aliases, description = option.Description, type = option.ValueType.Name, minimum = option.Arity.MinimumNumberOfValues, maximum = option.Arity.MaximumNumberOfValues, recursive = option.Recursive, required = option.Required, @default = _environmentBindings.TryGetValue(option, out var binding) ? binding.Default : option.HasDefaultValue ? option.GetDefaultValue() : null, environment = _environmentBindings.GetValueOrDefault(option).Variable, choices = _choices.GetValueOrDefault(option) ?? [] }),
