@@ -41,3 +41,22 @@ While this is alpha, only the latest prerelease is supported. Fixes go into the
 next version rather than into patches of earlier ones. A published version is
 never deleted, so an old alpha stays installable and stays unfixed — pin
 deliberately.
+
+## Verifying a package
+
+[`release.yml`](.github/workflows/release.yml) builds, inspects and publishes
+every release from a `v*` tag, through nuget.org trusted publishing rather than
+a stored API key. It attests each package twice: as built, and as nuget.org
+serves it with its repository signature, which is the file a restore
+downloads. NuGet keeps that file under `~/.nuget/packages`, so with `VERSION`
+set to the version you restored, check it against the workflow and commit that
+produced it:
+
+```console
+$ gh attestation verify \
+    --repo libtmux/libtmux-dotnet \
+    ~/.nuget/packages/libtmux/"$VERSION"/libtmux."$VERSION".nupkg
+```
+
+Each release also carries a CycloneDX SBOM of the packed artifacts, attached to
+its workflow run.

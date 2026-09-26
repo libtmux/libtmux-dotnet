@@ -211,7 +211,8 @@ jobs:
     name: publish to nuget.org
     needs: [dotnet, compatibility, psmux]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Most of this is waiting for nuget.org to validate and serve the push.
+    timeout-minutes: 45
 
     # The policy on nuget.org names this environment, so a workflow that ran
     # outside it cannot exchange a token. It is also where a required reviewer
@@ -319,3 +320,40 @@ jobs:
           dotnet nuget push "artifacts/packages/*.nupkg"
           --api-key "${NUGET_API_KEY}"
           --source https://api.nuget.org/v3/index.json
+
+      - name: Fetch the packages nuget.org serves
+        # nuget.org adds a repository signature to every package it accepts,
+        # which changes the bytes, so the attestation above cannot match the
+        # file a consumer downloads. Wait until each is served, then keep it.
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/published
+          deadline=$((SECONDS + 1800))
+          for package in artifacts/packages/*.nupkg; do
+            nuspec="$(unzip -p "${package}" '*.nuspec')"
+            id="$(grep -m 1 -oP '(?<=<id>)[^<]+' <<< "${nuspec}")"
+            version="$(grep -m 1 -oP '(?<=<version>)[^<]+' <<< "${nuspec}")"
+            base="https://api.nuget.org/v3-flatcontainer/${id,,}/${version,,}"
+            published="artifacts/published/${id}.${version}.nupkg"
+            until curl --fail --silent --location --output "${published}" "${base}/${id,,}.${version,,}.nupkg"; do
+              if (( SECONDS > deadline )); then
+                echo "::error::nuget.org did not serve ${id} ${version} within 30 minutes."
+                exit 1
+              fi
+              sleep 30
+            done
+            # Listed whole first: grep -q exiting early can kill unzip, and
+            # pipefail would report that as a missing signature.
+            entries="$(unzip -Z1 "${published}")"
+            if ! grep -qx '.signature.p7s' <<< "${entries}"; then
+              echo "::error::nuget.org served ${id} ${version} without a repository signature."
+              exit 1
+            fi
+          done
+
+      - name: Attest the packages nuget.org serves
+        # This is the attestation `gh attestation verify` finds for a package
+        # downloaded from nuget.org.
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'artifacts/published/*.nupkg'
