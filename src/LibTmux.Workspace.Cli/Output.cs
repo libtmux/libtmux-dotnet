@@ -376,7 +376,17 @@ internal sealed class Output(CliContext context, Invocation invocation, TextWrit
     // Ansi is always Yes: AnsiSupport.No falls back to System.Console's own
     // color API, which writes straight to the real console. ColorSystem
     // carries the on/off decision instead.
-    private IAnsiConsole CreateConsole(TextWriter writer) => AnsiConsole.Create(new AnsiConsoleSettings { Ansi = AnsiSupport.Yes, ColorSystem = UseColor(writer) ? ColorSystemSupport.Standard : ColorSystemSupport.NoColors, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
+    private IAnsiConsole CreateConsole(TextWriter writer)
+    {
+        IAnsiConsole console = AnsiConsole.Create(new AnsiConsoleSettings { Ansi = AnsiSupport.Yes, ColorSystem = UseColor(writer) ? ColorSystemSupport.Standard : ColorSystemSupport.NoColors, Out = new AnsiConsoleOutput(writer), Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false } });
+
+        // Spectre wraps at 80 columns when it cannot measure a terminal, which
+        // splits a path a pipeline is reading. Only a terminal is wrapped.
+        if (!(ReferenceEquals(writer, context.Error) ? context.ErrorTerminal : context.Terminal)) console.Profile.Width = UnwrappedWidth;
+        return console;
+    }
+
+    private const int UnwrappedWidth = 1 << 16;
 
     private static string SafeText(string text)
     {

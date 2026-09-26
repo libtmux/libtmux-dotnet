@@ -165,6 +165,21 @@ public sealed class ContractTests : IDisposable
         Assert.Contains(options, option => option!["environment"]?.ToString() == "TMUXP_PROGRESS=0");
     }
 
+    // Spectre wraps at 80 columns when it cannot measure a terminal, which
+    // split a long path a pipeline was reading in two.
+    [Fact]
+    public async Task Piped_human_output_keeps_a_long_path_whole()
+    {
+        string name = "workspace-" + new string('x', 90) + ".yaml";
+        await File.WriteAllTextAsync(Path.Combine(_root, name), "session_name: long\nwindows: [{panes: [null]}]\n", TestContext.Current.CancellationToken);
+
+        var result = await Run("ls");
+
+        // HOME is this test's root, so the path is shown under ~.
+        Assert.Equal(0, result.Code);
+        Assert.Contains(result.Output.ReplaceLineEndings("\n").Split('\n'), line => line.EndsWith("~/" + name, StringComparison.Ordinal));
+    }
+
     // Help, the generated reference, and the manual share one table of
     // examples, so a command without one, or one that stopped parsing, is a
     // gap in all three.
