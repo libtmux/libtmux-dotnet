@@ -153,7 +153,7 @@ internal sealed class ReadCommands(CliContext context, Invocation invocation, Ou
     {
         if (!context.Terminal) throw new CliException("input_required", message.TrimEnd() + " No terminal can answer. " + hint, 2);
         context.Error.Write(message);
-        return Console.ReadLine() ?? throw new CliException("input_closed", "Input closed before a response was received.", 2);
+        return Console.ReadLine() ?? throw new CliException("input_closed", "Input closed before a response was received. " + hint, 2);
     }
 
     private JsonObject Describe(string path, string source)
