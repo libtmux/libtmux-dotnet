@@ -410,12 +410,18 @@ public sealed class ContractTests : IDisposable
             Assert.True(graph.Parse(example).Errors.Count == 0, "tmux-workspace " + string.Join(' ', example));
         }
 
+        // Every command a user can run, import teamocil and import tmuxinator
+        // separately rather than import once.
         Assert.Equal(
-            graph.Root.Subcommands.Select(command => command.Name).Order(StringComparer.Ordinal),
-            examples.Select(example => example.FirstOrDefault(word => !word.StartsWith('-')))
-                .Where(name => graph.Root.Subcommands.Any(command => command.Name == name))
+            Leaves(graph.Root, "").Order(StringComparer.Ordinal),
+            examples.Select(example => graph.Parse(example).Command)
+                .Where(command => command.Length > 0)
                 .Distinct()
                 .Order(StringComparer.Ordinal));
+
+        static IEnumerable<string> Leaves(Command command, string path) => command.Subcommands.Count == 0
+            ? [path]
+            : command.Subcommands.SelectMany(child => Leaves(child, (path + " " + child.Name).Trim()));
     }
 
     private static string RepositoryRoot()

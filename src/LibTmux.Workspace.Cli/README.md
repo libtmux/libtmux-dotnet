@@ -118,11 +118,17 @@ Convert a workspace between YAML and JSON:
 $ tmux-workspace convert myproject.yaml --save-to myproject.json
 ```
 
-Turn a tmuxinator project into a workspace (`import teamocil` works the same
-way):
+Turn a tmuxinator project into a workspace:
 
 ```console
 $ tmux-workspace import tmuxinator ~/.config/tmuxinator/blog.yml \
+    --save-to ~/.tmuxp/blog.yaml
+```
+
+Or a teamocil one:
+
+```console
+$ tmux-workspace import teamocil ~/.teamocil/blog.yml \
     --save-to ~/.tmuxp/blog.yaml
 ```
 
@@ -234,7 +240,7 @@ $ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fis
   need tmuxp 1.74.0.
 
 [Compatibility](https://libtmux.org/en/dotnet/latest/workspace/reference/compatibility/)
-lists every difference.
+records what is implemented so far and where it differs.
 
 ## Compatibility
 
