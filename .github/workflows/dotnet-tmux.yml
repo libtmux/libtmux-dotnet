@@ -40,12 +40,16 @@ jobs:
           global-json-file: global.json
 
       - name: Restore integration dependencies
-        run: dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
+        run: |
+          dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
+          dotnet restore tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj --locked-mode
 
       - name: Build both frameworks once
-        run: >
-          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
-          --configuration Release --no-restore --warnaserror
+        run: |
+          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
+            --configuration Release --no-restore --warnaserror
+          dotnet build tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
+            --configuration Release --no-restore --warnaserror
 
       - name: Archive runnable assemblies
         run: |
@@ -55,6 +59,10 @@ jobs:
             artifacts/integration-revision \
             tests/LibTmux.IntegrationTests/bin/Release/net8.0 \
             tests/LibTmux.IntegrationTests/bin/Release/net10.0 \
+            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net8.0 \
+            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0 \
+            src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
+            src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \
             tests/LibTmux.TestChild/bin/Release/net10.0
 
@@ -142,10 +150,7 @@ jobs:
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
           export PATH
           dotnet test \
-            --project tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
-            --configuration Release \
-            --framework "${MATRIX_FRAMEWORK}" \
-            --no-build \
+            --test-modules "tests/LibTmux.Workspace.Cli.Tests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.Workspace.Cli.Tests.dll" \
             --fail-skips on \
             --minimum-expected-tests 80
 
