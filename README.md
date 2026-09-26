@@ -55,6 +55,7 @@ documented ordinary-tmux examples that are executed against live tmux in CI.
 | **[LibTmux.Testing](src/LibTmux.Testing/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Testing?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Testing) | You test code that drives tmux and want scopes that clean up after themselves. |
 | **[LibTmux.Extensions.DependencyInjection](src/LibTmux.Extensions.DependencyInjection/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Extensions.DependencyInjection?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Extensions.DependencyInjection) | Your application composes services and wants a tmux handle injected. |
 | **[LibTmux.Workspace](src/LibTmux.Workspace/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Workspace?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Workspace) | You have [tmuxp](https://github.com/tmux-python/tmuxp) YAML to build from. |
+| **[LibTmux.Workspace.Cli](src/LibTmux.Workspace.Cli/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Workspace.Cli) | You want `tmux-workspace`: load, freeze and convert tmuxp files from a shell. Installs as a tool. |
 | **[LibTmux.Mcp](src/LibTmux.Mcp/README.md)** | [![v](https://img.shields.io/nuget/vpre/LibTmux.Mcp?logo=nuget&label=%20)](https://www.nuget.org/packages/LibTmux.Mcp) | You want an assistant driving tmux. Installs as a tool, not a reference. |
 
 ```console
@@ -269,6 +270,20 @@ nothing behind. `TmuxWait.UntilAsync`, in the client package, waits for a state
 rather than sleeping — the same thing production code needs when it reads back
 what a command produced.
 
+## Workspaces from the command line
+
+[LibTmux.Workspace.Cli](src/LibTmux.Workspace.Cli/README.md) installs
+`tmux-workspace`, which loads, captures and converts
+[tmuxp](https://github.com/tmux-python/tmuxp) workspace files:
+
+```console
+$ dotnet tool install --global LibTmux.Workspace.Cli --prerelease
+```
+
+```console
+$ tmux-workspace load myproject
+```
+
 ## An assistant on your terminal
 
 [LibTmux.Mcp](src/LibTmux.Mcp/README.md) is a
@@ -304,6 +319,7 @@ startup and reported through `tmux://capabilities`.
 
 ## Documentation
 
+- [Guides on libtmux.org](https://libtmux.org/en/dotnet/latest/) — tutorials, topics and the workspace command reference
 - [Choosing a mode](docs/modes/matrix.md) — the three dispatch modes, measured
 - [Windows psmux preview](docs/psmux.md) — what it reads, and what it refuses
 - [API reference](docs/api/README.md) — rendered from the doc comments

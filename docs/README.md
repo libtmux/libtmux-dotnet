@@ -42,6 +42,8 @@ ships separately and carries this repository's version:
   — a server handle and its options, registered with a service collection
 - [LibTmux.Workspace](../src/LibTmux.Workspace/README.md) — sessions from tmuxp
   workspace files
+- [LibTmux.Workspace.Cli](../src/LibTmux.Workspace.Cli/README.md) — `tmux-workspace`,
+  a tmuxp-compatible command, installed as a .NET tool
 - [LibTmux.Mcp](../src/LibTmux.Mcp/README.md) — a Model Context Protocol server,
   installed as a .NET tool
 
