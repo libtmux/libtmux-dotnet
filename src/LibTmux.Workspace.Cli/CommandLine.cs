@@ -26,7 +26,6 @@ internal sealed class CommandLine
         Value(Root, "log_level", "--log-level", "Diagnostic log level.", "warning", ["debug", "info", "warning", "error", "critical"]);
         Flag(Root, "version", "--version", "Show the tool version.", ["-V"]);
         Value(Root, "generate", "--generate", "Generate reference, man, bash, zsh or fish output.", choices: ["reference", "man", "bash", "zsh", "fish"]);
-        Examples(Root, "load myproject", "ls", "freeze myproject --save-to ~/.tmuxp/myproject.yaml");
 
         Command load = Add(Root, "load", "Load one or more workspaces.");
         Arguments(load, "files", "workspace-file", ArgumentArity.OneOrMore, "One or more tmuxp YAML or JSON workspace files.");
@@ -104,6 +103,7 @@ internal sealed class CommandLine
             Flag(shell, option.Replace('-', '_'), "--" + option, option.Replace('-', ' ') + ".");
         }
         Examples(shell, "shell myproject", "shell myproject editor -c 'print(window.name)'");
+        _examples[Root] = [ExamplesFor(load)[0], ExamplesFor(list)[0], ExamplesFor(freeze)[0]];
     }
 
     internal Command Root { get; }
