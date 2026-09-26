@@ -17,7 +17,7 @@
     "runStrategy": "Monitoring",
     "operationsPerSample": 1,
     "samplesPerCase": 100,
-    "warmupSamples": 5
+    "warmupSamples": 40
   },
   "cases": [
     {
