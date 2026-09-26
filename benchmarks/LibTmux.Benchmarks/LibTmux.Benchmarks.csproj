@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="5.9.0" />
     <ProjectReference Include="..\..\src\LibTmux\LibTmux.csproj" />
     <ProjectReference Include="..\..\src\LibTmux.Testing\LibTmux.Testing.csproj" />
 
