@@ -67,10 +67,32 @@ def git(*arguments: str) -> str:
         return ""
 
 
+def warmup_samples(benchmark: dict) -> int:
+    """Count the workload warmups BenchmarkDotNet discarded for one case.
+
+    Read from the report rather than restated: a record once said five while
+    the run behind it discarded forty.
+    """
+    if "Measurements" not in benchmark:
+        raise SystemExit(
+            f"{benchmark['Method']}: the report has no Measurements; "
+            "export it with BenchmarkDotNet's full JSON exporter"
+        )
+    return sum(
+        1
+        for measurement in benchmark["Measurements"]
+        if measurement.get("IterationMode") == "Workload"
+        and measurement.get("IterationStage") == "Warmup"
+    )
+
+
 def collect(report: pathlib.Path, tmux_version: str, collected: str) -> dict:
     """Build the record from a BenchmarkDotNet full report."""
     document = json.loads(report.read_text(encoding="utf-8"))
     host = document.get("HostEnvironmentInfo", {})
+    warmups = {warmup_samples(benchmark) for benchmark in document["Benchmarks"]}
+    if len(warmups) != 1:
+        raise SystemExit(f"cases discarded different warmup counts: {sorted(warmups)}")
 
     cases = []
     for benchmark in document["Benchmarks"]:
@@ -108,7 +130,7 @@ def collect(report: pathlib.Path, tmux_version: str, collected: str) -> dict:
             "runStrategy": "Monitoring",
             "operationsPerSample": 1,
             "samplesPerCase": max(case["samples"] for case in cases),
-            "warmupSamples": 5,
+            "warmupSamples": warmups.pop(),
         },
         "cases": cases,
     }
@@ -172,6 +194,11 @@ def main() -> int:
     parser.add_argument("--collected", required=True, help="ISO date of the run")
     parser.add_argument("--out", type=pathlib.Path, required=True)
     arguments = parser.parse_args()
+
+    # The record names HEAD, so it must be the tree that was measured.
+    if git("status", "--porcelain"):
+        print("record from a committed tree: the record names HEAD", file=sys.stderr)
+        return 1
 
     record = collect(arguments.report, arguments.tmux_version, arguments.collected)
 
