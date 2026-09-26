@@ -662,12 +662,45 @@ internal sealed class ControlModeSession : IControlModeSession
         }
 
         // Only the pane id is a word. Everything after the first space is the
-        // payload, which may hold spaces of its own and is escaped the way tmux
-        // escapes an option value.
+        // payload, which may hold spaces of its own.
         string payload = arguments.Count == 1
             ? string.Empty
             : string.Join(' ', arguments.Skip(1));
-        return new TmuxOutputEvent(pane, OptionParser.DecodeEscapes(payload));
+        return new TmuxOutputEvent(pane, DecodeOutput(payload));
+    }
+
+    // control.c writes a byte below 0x20, or a backslash, as \ooo and every
+    // other byte as itself, so octal is the only escape in %output. Any other
+    // backslash came from projecting bytes that were not UTF-8, and stays.
+    private static string DecodeOutput(string payload)
+    {
+        if (!payload.Contains('\\', StringComparison.Ordinal))
+        {
+            return payload;
+        }
+
+        StringBuilder text = new(payload.Length);
+        for (int index = 0; index < payload.Length; index++)
+        {
+            if (payload[index] == '\\'
+                && index + 3 < payload.Length
+                && IsOctal(payload[index + 1])
+                && IsOctal(payload[index + 2])
+                && IsOctal(payload[index + 3]))
+            {
+                text.Append((char)(((payload[index + 1] - '0') * 64)
+                    + ((payload[index + 2] - '0') * 8)
+                    + (payload[index + 3] - '0')));
+                index += 3;
+                continue;
+            }
+
+            text.Append(payload[index]);
+        }
+
+        return text.ToString();
+
+        static bool IsOctal(char digit) => digit is >= '0' and <= '7';
     }
 
     private string WithStandardError(string message)

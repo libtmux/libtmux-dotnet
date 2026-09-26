@@ -17,6 +17,19 @@ public sealed class ControlModeProcessTests
         Assert.Null(await reader.ReadLineAsync(token));
     }
 
+    // tmux escapes only control bytes and backslash in control-mode output, so
+    // a pane that prints invalid UTF-8 sends those bytes raw.
+    [Fact]
+    public async Task Line_reader_projects_invalid_utf8_as_the_one_shot_path_does()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var input = new MemoryStream([0x61, 0xFF, 0x62, 0x0A, 0xCF, 0x80, 0x0A]);
+        var reader = new ControlModeLineReader(input, maxLineBytes: 16, bufferSize: 2);
+
+        Assert.Equal("a\\xffb", await reader.ReadLineAsync(token));
+        Assert.Equal("π", await reader.ReadLineAsync(token));
+    }
+
     [Fact]
     public async Task Line_reader_rejects_a_line_beyond_its_byte_limit()
     {

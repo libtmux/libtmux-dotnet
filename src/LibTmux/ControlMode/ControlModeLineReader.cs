@@ -1,14 +1,10 @@
 using System.Buffers;
-using System.Text;
+using LibTmux.Internal;
 
 namespace LibTmux;
 
 internal sealed class ControlModeLineReader
 {
-    private static readonly Encoding Utf8 = new UTF8Encoding(
-        encoderShouldEmitUTF8Identifier: false,
-        throwOnInvalidBytes: true);
-
     private readonly byte[] _buffer;
     private readonly int _maxLineBytes;
     private readonly Stream _stream;
@@ -86,20 +82,10 @@ internal sealed class ControlModeLineReader
         return Decode(completed.EndsWith("\r"u8) ? completed[..^1] : completed);
     }
 
-    private static string Decode(ReadOnlySpan<byte> bytes)
-    {
-        try
-        {
-            return Utf8.GetString(bytes);
-        }
-        catch (DecoderFallbackException error)
-        {
-            throw new TmuxProtocolException(
-                "The tmux control client sent invalid UTF-8.",
-                TmuxDispatchState.Unknown,
-                error);
-        }
-    }
+    // tmux escapes only control bytes and backslash, so pane output reaches
+    // here raw and may not be UTF-8. Project it the way one-shot output is.
+    private static string Decode(ReadOnlySpan<byte> bytes) =>
+        Utf8BackslashDecoder.ProjectValue(bytes);
 
     private void EnsureWithinLimit(int bytes)
     {
