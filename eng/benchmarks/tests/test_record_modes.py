@@ -45,3 +45,16 @@ def test_a_report_without_measurements_is_refused(tmp_path):
     path.write_text(json.dumps(document))
     with pytest.raises(SystemExit, match="Measurements"):
         recorder["collect"](path, "3.7b", "2026-09-26")
+
+
+RUNS = pathlib.Path(__file__).parents[3] / "docs" / "benchmarks" / "runs"
+
+
+@pytest.mark.parametrize("record", sorted(RUNS.glob("*.json")), ids=lambda path: path.stem)
+def test_a_published_table_is_its_record_rendered(record):
+    # The table is what gets read and quoted; it must say what the record
+    # says, field for field, however either was last edited.
+    recorder = runpy.run_path(str(RECORDER))
+    assert record.with_suffix(".md").read_text(encoding="utf-8") == recorder["render"](
+        json.loads(record.read_text(encoding="utf-8"))
+    )
