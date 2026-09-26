@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using System.Text.Unicode;
 
 namespace LibTmux.Internal;
 
@@ -42,6 +43,12 @@ internal static class Utf8BackslashDecoder
 
     private static string Decode(ReadOnlySpan<byte> bytes)
     {
+        // Nearly every line is valid UTF-8, and one vectorized pass decodes it.
+        if (Utf8.IsValid(bytes))
+        {
+            return Encoding.UTF8.GetString(bytes);
+        }
+
         var decoded = new StringBuilder(bytes.Length);
         while (!bytes.IsEmpty)
         {
