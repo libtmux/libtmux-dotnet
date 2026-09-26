@@ -24,9 +24,17 @@ def report(path, warmups):
 
 
 def test_warmup_count_comes_from_the_report(tmp_path):
+    # Not forty, the count the benchmark configures, so a recorder that
+    # restated the configuration instead of reading the report would fail.
     recorder = runpy.run_path(str(RECORDER))
-    record = recorder["collect"](report(tmp_path / "full.json", [40, 40]), "3.7b", "2026-09-26")
-    assert record["method"]["warmupSamples"] == 40
+    record = recorder["collect"](report(tmp_path / "full.json", [7, 7]), "3.7b", "2026-09-26")
+    assert record["method"]["warmupSamples"] == 7
+
+
+def test_cases_that_discarded_different_counts_are_refused(tmp_path):
+    recorder = runpy.run_path(str(RECORDER))
+    with pytest.raises(SystemExit, match="different warmup counts"):
+        recorder["collect"](report(tmp_path / "full.json", [7, 40]), "3.7b", "2026-09-26")
 
 
 def test_a_report_without_measurements_is_refused(tmp_path):
