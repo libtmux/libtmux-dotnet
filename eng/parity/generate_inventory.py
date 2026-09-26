@@ -790,6 +790,7 @@ def version_deltas() -> dict[str, t.Any]:
         "byte_length_framing",
         "control_notifications",
         "format_fields_and_operators",
+        "layout_mirrors",
         "missing_target_format_safety",
         "option_dollar_double_escape",
         "semicolon_grouping",
@@ -797,6 +798,7 @@ def version_deltas() -> dict[str, t.Any]:
     # Most of what the protocol reads is true of every supported tmux, so
     # a capability names its bounds only when it holds for some of them.
     capability_bounds = {
+        "layout_mirrors": ("3.5", "unknown"),
         "missing_target_format_safety": ("3.3", "unknown"),
         "option_dollar_double_escape": ("3.4", "3.5"),
     }

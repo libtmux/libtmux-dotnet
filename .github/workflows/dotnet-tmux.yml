@@ -40,12 +40,16 @@ jobs:
           global-json-file: global.json
 
       - name: Restore integration dependencies
-        run: dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
+        run: |
+          dotnet restore tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj --locked-mode
+          dotnet restore tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj --locked-mode
 
       - name: Build both frameworks once
-        run: >
-          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
-          --configuration Release --no-restore --warnaserror
+        run: |
+          dotnet build tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj \
+            --configuration Release --no-restore --warnaserror
+          dotnet build tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
+            --configuration Release --no-restore --warnaserror
 
       - name: Archive runnable assemblies
         run: |
@@ -55,6 +59,10 @@ jobs:
             artifacts/integration-revision \
             tests/LibTmux.IntegrationTests/bin/Release/net8.0 \
             tests/LibTmux.IntegrationTests/bin/Release/net10.0 \
+            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net8.0 \
+            tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0 \
+            src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
+            src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \
             tests/LibTmux.TestChild/bin/Release/net10.0
 
@@ -87,6 +95,9 @@ jobs:
           global-json-file: global.json
 
       - name: Install build dependencies
+        # zsh drives the Workspace CLI tests' pane-readiness regression test:
+        # the wait it guards once ran only for that shell, so the test still
+        # exercises a real one to prove the generalized wait did not regress it.
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
@@ -97,7 +108,8 @@ jobs:
             jq \
             libevent-dev \
             libncurses-dev \
-            pkg-config
+            pkg-config \
+            zsh
 
       - name: Restore the tmux build
         id: tmux-cache
@@ -121,6 +133,26 @@ jobs:
         run: |
           tar -xzf artifacts/integration.tar.gz
           test "$(cat artifacts/integration-revision)" = "${GITHUB_SHA}"
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Prepare the Python compatibility runtime
+        run: |
+          uv venv --python 3.13 "${RUNNER_TEMP}/workspace-python"
+          uv pip install --python "${RUNNER_TEMP}/workspace-python/bin/python" tmuxp==1.74.0
+          echo "TMUX_WORKSPACE_PYTHON=${RUNNER_TEMP}/workspace-python/bin/python" >> "${GITHUB_ENV}"
+
+      - name: Workspace CLI tests
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+        run: |
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          dotnet test \
+            --test-modules "tests/LibTmux.Workspace.Cli.Tests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.Workspace.Cli.Tests.dll" \
+            --fail-skips on \
+            --minimum-expected-tests 80
 
       - name: Integration tests
         id: integration-tests

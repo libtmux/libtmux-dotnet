@@ -122,6 +122,33 @@ public sealed class ClientAdministrationTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Attaching_a_name_that_is_only_a_prefix_finds_no_session()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        Server server = await ConnectAsync(raw, token);
+        Session doomsday = await server.CreateSessionAsync(
+            new NewSessionRequest { Name = "doomsday" }, token);
+
+        // The test process has no terminal, so every attach fails; which error
+        // tmux gives says which session it resolved. A bare "doom" would match
+        // "doomsday" and fail opening the terminal; anchored, it finds nothing.
+        TmuxCommandException byPrefix = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.AttachSessionAsync(new AttachSessionRequest { Target = "doom" }, token));
+        Assert.Contains("can't find session", byPrefix.Message, StringComparison.Ordinal);
+
+        // An id still resolves to its session, so it reaches the terminal check.
+        TmuxCommandException byId = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.AttachSessionAsync(
+                new AttachSessionRequest { Target = doomsday.Id.ToString() }, token));
+        Assert.DoesNotContain("can't find session", byId.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Attach_switch_detach_lock_and_suspend_flags_emit_exact_argv()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(

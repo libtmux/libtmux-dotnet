@@ -118,6 +118,24 @@ jobs:
           LIBTMUX_PACKAGE_ARTIFACTS: artifacts/packages
         run: uv run --locked --script eng/run_tests.py --quiet -m packaging
 
+      - name: Install and inspect the workspace CLI
+        run: |
+          version=$(dotnet msbuild src/LibTmux.Workspace.Cli/LibTmux.Workspace.Cli.csproj -getProperty:Version)
+          dotnet tool install LibTmux.Workspace.Cli \
+            --tool-path "${RUNNER_TEMP}/workspace-cli" \
+            --source "${PWD}/artifacts/packages" \
+            --version "${version}"
+          "${RUNNER_TEMP}/workspace-cli/tmux-workspace" --generate reference --json > "${RUNNER_TEMP}/workspace-commands.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          tree = json.loads((Path(os.environ["RUNNER_TEMP"]) / "workspace-commands.json").read_text())
+          assert len(tree["commands"]) == 9
+          imports = next(node for node in tree["commands"] if node["name"] == "import")
+          assert len(imports["commands"]) == 2
+          PY
+
       - name: Package consumer
         # Reaching the library through the package is the point: a missing
         # assembly or a wrong target framework is invisible from inside the

@@ -175,6 +175,28 @@ public sealed class CompositeMutationDispatchTests
         Assert.Equal(0, Volatile.Read(ref dispatches));
     }
 
+    [Theory]
+    [InlineData("c4c8,garbage")]
+    [InlineData("32d2,80x24,0,0{}")]
+    [InlineData("89d5,80x24,0,0{39x24,0,0,0,40x24,40,0,1]")]
+    [InlineData("ffff,80x24,0,0,0")]
+    [InlineData("5bf2,80x24,0,0,0junk")]
+    public void Malformed_custom_layouts_are_refused_by_command_rendering(string layout)
+    {
+        int dispatches = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            Interlocked.Increment(ref dispatches);
+            return Task.FromResult(Success(request));
+        });
+
+        TmuxWindowException failure = Assert.Throws<TmuxWindowException>(() =>
+            new SelectLayoutRequest { Layout = layout }.ToCommand(window));
+
+        Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
+        Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
     [Fact]
     public async Task Json_layouts_are_refused_before_dispatch_below_3_8()
     {
@@ -197,6 +219,19 @@ public sealed class CompositeMutationDispatchTests
                 TestContext.Current.CancellationToken));
 
         Assert.Equal(0, Volatile.Read(ref dispatches));
+    }
+
+    [Fact]
+    public void Captured_json_layouts_render_on_tmux_3_8()
+    {
+        const string layout = "{\"V\":2,\"L\":{\"t\":\"p\"}}";
+        Window window = CreateWindow(
+            (_, _) => throw new InvalidOperationException("Rendering dispatched a command."),
+            rawVersion: "tmux 3.8");
+
+        TmuxCommand command = new SelectLayoutRequest { Layout = layout }.ToCommand(window);
+
+        Assert.Equal(layout, command.Arguments[^1]);
     }
 
     [Fact]
@@ -308,6 +343,25 @@ public sealed class CompositeMutationDispatchTests
 
         AssertPartialFailure(failure, typeof(TmuxTransportException));
         Assert.Equal(2, Volatile.Read(ref mutations));
+    }
+
+    [Theory]
+    [InlineData("t")]
+    [InlineData("even-h")]
+    [InlineData("main-h")]
+    public void Native_layout_prefixes_are_rendered_without_dispatch(string layout)
+    {
+        int dispatches = 0;
+        Window window = CreateWindow((request, _) =>
+        {
+            Interlocked.Increment(ref dispatches);
+            return Task.FromResult(Success(request));
+        });
+
+        TmuxCommand command = new SelectLayoutRequest { Layout = layout }.ToCommand(window);
+
+        Assert.Equal(layout, command.Arguments[^1]);
+        Assert.Equal(0, Volatile.Read(ref dispatches));
     }
 
     [Fact]

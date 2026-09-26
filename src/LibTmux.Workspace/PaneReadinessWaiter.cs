@@ -19,11 +19,10 @@ internal static class PaneReadinessWaiter
             return null;
         }
 
-        string shellCommand = Path.GetFileName(defaultShell);
-        return paneReadiness == PaneReadiness.Always
-            || string.Equals(shellCommand, "zsh", StringComparison.Ordinal)
-                ? shellCommand
-                : null;
+        // Every shell gets the wait. bash echoes text that arrives before
+        // its line editor owns the terminal and then redraws it, so a command
+        // sent early shows twice.
+        return Path.GetFileName(defaultShell);
     }
 
     [UnsupportedOSPlatform("windows")]

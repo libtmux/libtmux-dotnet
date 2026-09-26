@@ -12,7 +12,169 @@ version.
 
 ### Added
 
+- Ship `LibTmux.Workspace.Cli` as a .NET tool (`tmux-workspace`), the same
+  framework-dependent tool package as `LibTmux.Mcp`. It discovers, loads,
+  captures, converts and imports tmuxp workspaces, with `--json` and
+  `--ndjson` machine output, terminal load progress and generated shell
+  completion. `freeze` writes only where `--save-to` names it to, and
+  otherwise returns the document in machine output. (#26)
+- `LibTmux.Server` exposes `EndpointArguments`, `BuildGuardedCommandLine`,
+  `IsValidLayoutCandidate` and `ValidateLayoutsAsync`, and `ServerGeneration`
+  exposes `Parse` and `DisplayFormat` -- the pieces `tmux-workspace` assembles
+  a guarded command line, checks a layout candidate and addresses one server
+  generation with. (#26)
+- `load` resolves and authenticates its tmux context before building
+  anything: an attached load outside the invoking server, one aimed at a
+  `-L`/`-S` naming a different server, or an unparsable `TMUX` is refused
+  `usage`, exit 2, with nothing created. See "Commands and output" in the
+  CLI README for the exact refusal matrix. (#26)
+- With stdin a terminal, `load` asks before creating, switching to or
+  attaching a session, and `freeze`, `convert` and `import` ask before
+  overwriting a file; `--save-to` and `--force` skip the prompt. Where this
+  tool has no way to ask -- machine output, or no terminal at all --
+  `confirmation_required`, `input_required` and `input_closed` report
+  `usage`, exit 2, instead. (#26)
+- **A `load` that fails removes only the session it created.** Cancellation
+  (SIGINT/SIGTERM) is not a known failure and leaves the session standing,
+  so a cleanup path racing the same signal cannot destroy what a user can
+  see and remove. Reusing an existing session compares it against the
+  document and reports `session_mismatch` when a declared window is
+  missing; `results[]` carries one record per attempted input, each with a
+  `reused` boolean. (#26)
+- `load` creates a window's panes in configuration order -- including three
+  or more panes -- and honors `pane-base-index` for their starting index,
+  explicit window and pane focus, and tmuxp window options. It validates
+  every custom and named layout before running a script or changing tmux
+  topology, and resolves YAML merge keys and inert `x-` extension keys. See
+  "Commands and output" in the CLI README for where it deliberately differs
+  from tmuxp. (#26)
+- `load` skips the pane-readiness wait when `workspace_builder_options:
+  {pane_readiness: never}` is set, warns rather than refusing on an
+  unrecognized `workspace_builder_options` key, and warns when a
+  `start_directory` is not a directory, naming the path and tmux's `$HOME`
+  fallback. (#26)
+- `--append` honours a window's `window_index`, failing the load on a
+  collision (`tmux_failed`, exit 1, naming the windows it kept); a session
+  `load` creates is sized from the terminal it runs in
+  (`TMUXP_DEFAULT_COLUMNS`/`ROWS`, else `COLUMNS`/`ROWS`, else 80x24),
+  overridden by the real terminal size unless `TMUXP_DETECT_TERMINAL_SIZE`
+  disables detection. (#26)
+- `load`, `freeze`, `convert` and the importers share one machine-output
+  envelope under `--json`/`--ndjson`, carrying `schema_version` and
+  `status`; `freeze` answers under `workspace`, `convert` and `import`
+  under `document`. Every code is `lower_snake_case`, grouped under "Error
+  codes" in the CLI README; a refusal about how or where the command was
+  invoked is `usage`, exit 2, and an unhandled exception is
+  `internal_error`, exit 70. `--ndjson` additionally streams
+  `window-completed`/`pane-completed` events and brackets a
+  `before_script`'s output between `script-started` and `script-completed`.
+  (#26)
+- `freeze` marks the document it writes with `x-capture-lossy: true`,
+  writes window options under `options_after` (`load` accepts either
+  spelling), refuses a session name `load` would reject, and reports
+  `session_not_found` against a socket whose server has not started. It
+  reads the invoking pane from `TMUX_PANE` only when `TMUX` names the
+  selected endpoint -- pane identifiers are numbered per server -- and
+  otherwise captures that endpoint's only session or asks for one by name.
+  (#26)
+- `search` matches workspace names and configuration fields with .NET
+  regular expressions under a one-second timeout; a pattern that fails to
+  compile or spends the timeout is refused as `usage`, exit 2, naming the
+  pattern and, for a timeout, offering `--fixed-strings`. `--word-regexp`
+  bounds the whole pattern, so every branch of an alternation matches as a
+  word. (#26)
+- `shell` opens a Python REPL over the workspace API, selecting among
+  `best`, `pdb`, `code`, `ptipython`, `ptpython`, `ipython` and `bpython`
+  backends; it requires tmuxp **1.74.0**, selected through
+  `TMUX_WORKSPACE_PYTHON`, and caps retained child output at 64 Ki
+  characters per stream with truncation reported explicitly. (#26)
+- `ls` discovers workspaces by walking up from the working directory for a
+  local `.tmuxp.{yaml,yml,json}` and listing the global directory
+  (`TMUXP_CONFIGDIR`, XDG configuration, or the legacy `~/.tmuxp`),
+  excluding hidden files; a bare workspace name resolves the same way.
+  `--tree` groups results by directory and `--full` includes window, pane
+  and full configuration detail. (#26)
+- `convert` and `import` report `invalid_workspace` for a document that
+  exists but cannot be read, the same class of problem as one that cannot
+  be parsed. `convert` quotes every string scalar a YAML 1.1 (PyYAML/tmuxp)
+  or 1.2 resolver would otherwise read back as a boolean, null, integer or
+  float. `import tmuxinator` refuses ERB templates before printing or
+  saving a workspace, since Tmuxinator expands them through Ruby and no
+  native reader does; `import teamocil` keeps the same markup as ordinary
+  text, since Teamocil evaluates no templates. (#26)
+- `import teamocil` preserves command groups, window options and the first
+  requested window or pane focus. `import tmuxinator` keeps a window's
+  command array in one pane unless the source lists explicit panes. Both
+  preserve `pre_window` and window `pre` conditional command ordering and
+  the source's before/after command synchronization. (#26)
+- `edit` opens a workspace file in `$EDITOR` and reports its exit status,
+  captured output and truncation under the shared machine envelope;
+  `debug-info` reports the .NET runtime, platform, tmux version and the
+  workspace configuration directories searched, masking `$HOME` in every
+  reported path. (#26)
+- Attachment and progress have Linux and macOS implementations. `--log-file`
+  accepts Linux x64 and arm64. Progress and logging have been verified on
+  Linux x64; other implemented platforms still need verification. (#26)
+- `--generate reference` exports command metadata as Markdown, or as
+  structured JSON under `--json`; `--generate man|bash|zsh|fish` exports a
+  manual page or shell completion. Generated bash, zsh and fish completion
+  scope each flag to its own subcommand, including nested ones (`import
+  teamocil`/`import tmuxinator`); global flags (`--json`, `--ndjson`,
+  `--color`) complete everywhere. (#26)
+- Every command restores the application cursor-key and keypad mode
+  (DECCKM, DECKPAM) that `System.Console` initialization enables on Unix,
+  and `--color never` leaves a real terminal free of colour. (#26)
+- `-d` always builds a new detached session, even with `--append`, matching
+  tmuxp's precedence; pass `--append` alone to append. (#26)
+- `load` accepts `-2` for 256 colors; legacy `-8`/`--88-colors` requests are
+  refused (`unsupported-color-mode`, exit 2) before reading a workspace file
+  or running tmux or Python, since every supported tmux version rejects
+  88-color mode. (#26)
+
 ### Fixed
+
+- `WorkspaceBuilder` rebalances between splits, so a window of five or more
+  panes builds at 80x24 instead of failing with "no space for a new pane".
+  (#26)
+- `WorkspaceBuilder` applies a window's layout before sending any command
+  into its panes, rather than after. (#26)
+- `WorkspaceBuilder` waits for a pane's prompt under any session
+  `default-shell`, not only zsh, before sending its first command. (#26)
+- A malformed custom layout could reach tmux unchecked through
+  `Server.Chain()`, `WorkspaceBuilder` or `Window.SelectLayoutAsync`, which
+  only checked that a custom layout's checksum prefix was well-formed, not
+  that it was correct or that the cell tree it introduced was valid. All
+  three now validate a layout's syntax, checksum and minimum pane count
+  through `Server.ValidateLayoutsAsync` -- checked against the running
+  daemon's version, or the client's when none is running -- before anything
+  dispatches. Layout checks infer release-candidate capabilities at their
+  release boundary and keep `next-X.Y` below `X.Y`, without changing public
+  version ordering or stable-only capability projections. (#26)
+- `Server.GetClientsAsync` no longer returns an empty list for a real
+  failure. It caught every `LibTmuxException` and answered `[]`, the same
+  result as the ordinary no-clients case, so a genuine tmux failure or an
+  undiscovered server generation read as an empty client list. It now
+  answers empty only when no clients are attached, and lets
+  `IncompleteSnapshotException`, `InvalidOperationException` and
+  `TmuxCommandException` propagate. (#26)
+- `Server.KillSessionAsync` ends only the session with exactly that name. It
+  sent the name as a bare target, which tmux matches as a prefix, so killing
+  `doom` when only `doomsday` existed ended `doomsday` and reported success --
+  taking the server down with it if that was its last session. A name no
+  session carries now throws. (#26)
+- `Server.AttachSessionAsync` attaches only to the session with exactly that
+  name, for the same reason: a bare name attached to any session that merely
+  started with it. A session id is still addressed as given. An explicit
+  name is now validated the same way `Server.CreateSessionAsync` validates
+  one -- previously passed to tmux unchecked. (#26)
+- `TmuxVersion.Parse` reads a release candidate reported without a number,
+  as tmux 3.8's `3.8-rc` is, where it threw. It ranks below any numbered
+  candidate and below the release. (#26)
+- `Server.CreateSessionAsync`, `Server.HasSessionAsync`,
+  `Server.KillSessionAsync`, `Server.AttachSessionAsync` and renaming a
+  session refuse a name holding a control character, as the workspace tool
+  already did: such a name cannot round-trip through a document a person
+  reads or types. (#26)
 
 ### Changed
 

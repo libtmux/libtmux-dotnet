@@ -53,6 +53,7 @@ public sealed record SelectLayoutRequest : ITmuxRequest<Window>
         return TmuxChaining.Command([.. window.BuildSelectLayoutArguments(this)]) with
         {
             RequiredGeneration = window.Generation,
+            LayoutWindowId = Layout is null ? null : window.Id,
         };
     }
 }

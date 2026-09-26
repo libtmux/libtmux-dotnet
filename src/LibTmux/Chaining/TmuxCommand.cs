@@ -34,6 +34,7 @@ public sealed record TmuxCommand
             ArgumentException.ThrowIfNullOrEmpty(value);
             ValidateToken(value, nameof(Name));
             _name = value;
+            LayoutWindowId = null;
         }
     }
 
@@ -56,6 +57,7 @@ public sealed record TmuxCommand
             }
 
             _arguments = Array.AsReadOnly(copy);
+            LayoutWindowId = null;
         }
     }
 
@@ -87,6 +89,9 @@ public sealed record TmuxCommand
 
     internal WindowEntityKey? RequiredWindowPlacement { get; init; }
 
+    // A raw replacement of Name or Arguments leaves the typed request behind.
+    internal WindowId? LayoutWindowId { get; init; }
+
     internal IEnumerable<IReadOnlyList<string>> ToDispatchCommands()
     {
         if (RequiredWindowPlacement is WindowEntityKey placement)
@@ -111,6 +116,7 @@ public sealed record TmuxCommand
         && string.Equals(Name, other.Name, StringComparison.Ordinal)
         && RequiredGeneration == other.RequiredGeneration
         && RequiredWindowPlacement == other.RequiredWindowPlacement
+        && LayoutWindowId == other.LayoutWindowId
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -120,6 +126,7 @@ public sealed record TmuxCommand
         hash.Add(Name, StringComparer.Ordinal);
         hash.Add(RequiredGeneration);
         hash.Add(RequiredWindowPlacement);
+        hash.Add(LayoutWindowId);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

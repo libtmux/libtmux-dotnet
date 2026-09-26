@@ -25,15 +25,19 @@ public sealed class TmuxChain
     private readonly Func<ServerGeneration, IReadOnlyList<IReadOnlyList<string>>,
         CancellationToken, Task<TmuxCommandResult>>? _guarded;
 
+    private readonly Func<IReadOnlyList<TmuxCommand>, ServerGeneration?, CancellationToken, Task>? _validateLayouts;
+
     internal TmuxChain(
         TmuxCommandDispatcher dispatcher,
         IReadOnlyList<TmuxCommand> commands,
         Func<ServerGeneration, IReadOnlyList<IReadOnlyList<string>>,
-            CancellationToken, Task<TmuxCommandResult>>? guarded = null)
+            CancellationToken, Task<TmuxCommandResult>>? guarded = null,
+        Func<IReadOnlyList<TmuxCommand>, ServerGeneration?, CancellationToken, Task>? validateLayouts = null)
     {
         _dispatcher = dispatcher;
         _commands = commands;
         _guarded = guarded;
+        _validateLayouts = validateLayouts;
     }
 
     /// <summary>Gets the commands this chain will run, in order.</summary>
@@ -45,7 +49,7 @@ public sealed class TmuxChain
     public TmuxChain Then(TmuxCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return new TmuxChain(_dispatcher, [.. _commands, command], _guarded);
+        return new TmuxChain(_dispatcher, [.. _commands, command], _guarded, _validateLayouts);
     }
 
     /// <summary>Adds every command in order and returns the longer chain.</summary>
@@ -66,7 +70,7 @@ public sealed class TmuxChain
             throw new ArgumentException("A chained command cannot be null.", nameof(commands));
         }
 
-        return new TmuxChain(_dispatcher, [.. _commands, .. added], _guarded);
+        return new TmuxChain(_dispatcher, [.. _commands, .. added], _guarded, _validateLayouts);
     }
 
     /// <summary>Adds one command by name and returns the longer chain.</summary>
@@ -109,6 +113,12 @@ public sealed class TmuxChain
             throw new InvalidOperationException(
                 "A chain mixes commands from different server generations, which "
                 + "cannot all be valid: at most one of those servers is running.");
+        }
+
+        if (_validateLayouts is not null)
+        {
+            await _validateLayouts(_commands, required.Length == 1 ? required[0] : null, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         IReadOnlyList<IReadOnlyList<string>> arguments =

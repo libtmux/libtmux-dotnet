@@ -1,11 +1,12 @@
 using System.Diagnostics;
-using System.Globalization;
 
 namespace LibTmux.Internal;
 
 internal sealed class TmuxConnection
 {
-    internal const string GenerationFormat = "#{pid}:#{start_time}";
+    // Aliases so every existing internal call site keeps its own spelling;
+    // ServerGeneration is the one public definition of both.
+    internal const string GenerationFormat = ServerGeneration.DisplayFormat;
     private readonly MultiplexerDialect _dialect;
     private readonly TmuxEndpointIdentity _endpointIdentity;
     private readonly string? _resolvedSocketName;
@@ -127,6 +128,9 @@ internal sealed class TmuxConnection
         }
     }
 
+    internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
+        _dialect.EnsureVerifiedAsync(cancellationToken);
+
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {
         ValidateLiveGeneration(generation);
@@ -159,30 +163,7 @@ internal sealed class TmuxConnection
         return _dialect.ExecuteGuardedAsync(expected, commands, cancellationToken);
     }
 
-    internal static ServerGeneration ParseGeneration(string text)
-    {
-        string[] fields = text.Split(':');
-        if (fields.Length != 2
-            || !int.TryParse(fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
-            || !long.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out long startTime))
-        {
-            throw new TmuxProtocolException(
-                "tmux reported a malformed server generation.",
-                TmuxDispatchState.Dispatched);
-        }
-
-        try
-        {
-            return new ServerGeneration(processId, startTime);
-        }
-        catch (ArgumentOutOfRangeException error)
-        {
-            throw new TmuxProtocolException(
-                "tmux reported a nonpositive server generation.",
-                TmuxDispatchState.Dispatched,
-                error);
-        }
-    }
+    internal static ServerGeneration ParseGeneration(string text) => ServerGeneration.Parse(text);
 
     internal static void ApplyChildEnvironment(
         ProcessStartInfo startInfo,

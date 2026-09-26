@@ -45,6 +45,11 @@
       "id": "LibTmux.Mcp",
       "owns": "MCP tool host",
       "allowedDependencies": []
+    },
+    {
+      "id": "LibTmux.Workspace.Cli",
+      "owns": "workspace CLI tool host",
+      "allowedDependencies": []
     }
   ],
   "conventions": {
