@@ -421,7 +421,7 @@ internal sealed class ExecutionCommands(CliContext context, Invocation invocatio
         {
             string[] sessions = await LiveSessionsAsync().ConfigureAwait(false);
             if (sessions.Length == 0) throw new CliException("session_not_found", "No live sessions to capture.");
-            target = sessions.Length == 1 ? sessions[0] : await NamedSessionTarget(new ReadCommands(context, invocation, output).Prompt("Session name: ")).ConfigureAwait(false);
+            target = sessions.Length == 1 ? sessions[0] : await NamedSessionTarget(new ReadCommands(context, invocation, output).Prompt("Session name: ", "Name the session to capture as an argument.")).ConfigureAwait(false);
         }
         string session = await Field(target, "session_id").ConfigureAwait(false);
         string sessionName = await Field(session, "session_name").ConfigureAwait(false);

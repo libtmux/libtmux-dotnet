@@ -180,6 +180,21 @@ public sealed class ContractTests : IDisposable
         Assert.Contains(result.Output.ReplaceLineEndings("\n").Split('\n'), line => line.EndsWith("~/" + name, StringComparison.Ordinal));
     }
 
+    // A prompt nobody can answer is a usage error, and the message names the
+    // option that answers it instead.
+    [Fact]
+    public async Task A_save_prompt_without_a_terminal_names_its_options()
+    {
+        string source = Path.Combine(_root, "blog.yml");
+        await File.WriteAllTextAsync(source, "name: blog\nwindows:\n  - editor: vim\n", TestContext.Current.CancellationToken);
+
+        var result = await Run("import", "tmuxinator", source);
+
+        Assert.Equal(2, result.Code);
+        Assert.Contains("--yes", result.Error, StringComparison.Ordinal);
+        Assert.Contains("--save-to", result.Error, StringComparison.Ordinal);
+    }
+
     // Help, the generated reference, and the manual share one table of
     // examples, so a command without one, or one that stopped parsing, is a
     // gap in all three.
