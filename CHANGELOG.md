@@ -12,13 +12,42 @@ version.
 
 ### Added
 
+- `tmux-workspace --help` ends with examples for the command it describes,
+  and every command has them. `--generate reference` gives each command a
+  usage line, its arguments and options with their value names, and the same
+  examples; `--generate man` writes NAME, SYNOPSIS, and a section per command.
+- **A package downloaded from nuget.org can be verified.** nuget.org's
+  repository signature changes a package's digest, so `gh attestation verify`
+  found nothing for the file a restore downloads, including every
+  `0.0.0-alpha.16` package. Releases now also attest each package as nuget.org
+  serves it; SECURITY.md shows the command.
+
 ### Fixed
+
+- **Control mode no longer ends the session when a pane prints bytes that are
+  not UTF-8.** tmux sends such bytes raw, and the reader threw
+  `TmuxProtocolException`, which ended the session and every pending command.
+  They now arrive as `\xNN`, as one-shot capture already reports them, and a
+  `TmuxOutputEvent` keeps that text.
+- `tmux-workspace` no longer wraps its human output at 80 columns when stdout
+  is not a terminal, which split a long path a pipeline was reading.
+- A `tmux-workspace` prompt that has no terminal to ask on names the option
+  that answers it — `--yes` or `--save-to` for a save, the session name for
+  `freeze` — in its `input_required` error.
+- `LibTmux.Extensions.DependencyInjection`'s README installed it without
+  `--prerelease`, which finds no version while every release is an alpha.
 
 ### Changed
 
 ### Removed
 
 ### Development
+
+- Package inspection refuses a package README with a relative link, which
+  leads nowhere on nuget.org, and two such links were made absolute.
+- The recorded benchmark run states the forty warmup samples it discarded,
+  not five, and `record_modes.py` reads that count from the BenchmarkDotNet
+  report and refuses to record from a tree with uncommitted changes.
 
 ## [0.0.0-alpha.16] — 2026-09-26
 
