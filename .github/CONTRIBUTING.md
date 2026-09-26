@@ -207,7 +207,8 @@ $ mise exec -- dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engine
 
 The inspector evaluates package IDs, frameworks and dependency versions with
 MSBuild. It reads NuGet archives, compares packaged README bytes and public XML
-content, and checks portable PDB identity and SourceLink against `HEAD`. The
+content, refuses a README link nuget.org cannot resolve, and checks portable
+PDB identity and SourceLink against `HEAD`. The
 compiler inventory travels with the packages so the publisher repeats this
 inspection without rebuilding the libraries.
 

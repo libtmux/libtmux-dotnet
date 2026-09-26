@@ -75,6 +75,7 @@ internal static class PackageInspection
 
             CheckMetadata(package, project, version, revision);
             CheckSourceFile(package, "README.md", Path.Combine(project.DirectoryPath, "README.md"));
+            CheckReadmeLinks(package);
             CheckSourceFile(package, "icon.png", Path.Combine(root, "assets", "icon.png"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
             var groups = package.NuspecReader.GetDependencyGroups().ToArray();
@@ -136,6 +137,16 @@ internal static class PackageInspection
     {
         var packed = ReadContents(package, name);
         Require(packed.Length > 0 && packed.AsSpan().SequenceEqual(File.ReadAllBytes(source)), $"{package.NuspecReader.GetId()}: packaged {name} differs from source.");
+    }
+
+    // nuget.org renders a package README without the repository around it,
+    // so a relative link or image there leads nowhere.
+    private static void CheckReadmeLinks(PackageArchiveReader package)
+    {
+        Match relative = Regex.Match(
+            System.Text.Encoding.UTF8.GetString(ReadContents(package, "README.md")),
+            @"\]\((?<target>(?!https?://|mailto:|#)[^)\s]+)");
+        Require(!relative.Success, $"{package.NuspecReader.GetId()}: README link '{relative.Groups["target"].Value}' is relative, which nuget.org cannot resolve.");
     }
 
     private static void CheckDependencies(string id, PackageDependencyGroup group, Project project, Dictionary<string, Project> projects)
