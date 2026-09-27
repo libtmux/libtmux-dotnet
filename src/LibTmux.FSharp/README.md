@@ -1,3 +1,12 @@
+<!-- libtmux-logo -->
+<p align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-dotnet/master/src/LibTmux.FSharp/assets/logo.png" width="128" height="128" alt="libtmux for F#">
+  </picture>
+</p>
+<!-- /libtmux-logo -->
+
 # LibTmux.FSharp
 
 Compose tmux from F# with task helpers, native sequences, and typed portable

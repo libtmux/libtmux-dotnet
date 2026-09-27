@@ -185,6 +185,8 @@ def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
 @pytest.mark.parametrize(
     ("mutation", "diagnostic"),
     [
+        ("icon", "icon.png"),
+        ("svg-missing", "assets/logo.svg"),
         ("readme", "README.md"),
         ("readme-missing", "README.md"),
         ("readme-relative-link", "is relative"),
@@ -224,7 +226,11 @@ def test_corrupt_packages_fail(
     else:
         with zipfile.ZipFile(target) as archive:
             entries = {name: archive.read(name) for name in archive.namelist()}
-        if mutation == "readme":
+        if mutation == "icon":
+            entries["icon.png"] = b"wrong package artwork"
+        elif mutation == "svg-missing":
+            del entries["assets/logo.svg"]
+        elif mutation == "readme":
             entries["README.md"] = b""
         elif mutation == "readme-missing":
             del entries["README.md"]

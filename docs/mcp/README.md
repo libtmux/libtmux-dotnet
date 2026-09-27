@@ -1,3 +1,12 @@
+<!-- libtmux-logo -->
+<p align="center">
+  <picture>
+    <source srcset="../../assets/mcp.svg" type="image/svg+xml">
+    <img src="../../assets/mcp.png" width="128" height="128" alt="libtmux for C# / .NET MCP">
+  </picture>
+</p>
+<!-- /libtmux-logo -->
+
 # tmux MCP server
 
 How the server behaves: what to wait on, what bounds a result, which tools the

@@ -78,7 +78,8 @@ internal static class PackageInspection
             CheckMetadata(package, project, version, revision);
             CheckReadmeLinks(package);
             CheckSourceFile(package, "README.md", Path.Combine(project.DirectoryPath, "README.md"));
-            CheckSourceFile(package, "icon.png", Path.Combine(root, "assets", "icon.png"));
+            CheckSourceFile(package, "icon.png", Path.Combine(project.DirectoryPath, "assets", "logo.png"));
+            CheckSourceFile(package, "assets/logo.svg", Path.Combine(project.DirectoryPath, "assets", "logo.svg"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
             var groups = package.NuspecReader.GetDependencyGroups().ToArray();
             Require(groups.SelectMany(group => group.Packages).All(dependency => allowedDependencies[id].Contains(dependency.Id)), $"{id}: package exceeds allowed dependencies.");
