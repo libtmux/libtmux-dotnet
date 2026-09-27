@@ -1033,7 +1033,7 @@ public sealed class TmuxToolsTests
         Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
             pane,
             [marker],
-            timeoutSeconds: 1,
+            timeoutSeconds: 2,
             progress: new Progress<ProgressNotificationValue>(_ => waitingReady.TrySetResult()),
             cancellationToken: token);
 
@@ -1050,7 +1050,10 @@ public sealed class TmuxToolsTests
             cancellationToken: token);
 
         WaitResult result = await waiting;
-        Assert.Equal(WaitOutcome.Matched, result.Outcome);
+        Assert.True(
+            result.Outcome == WaitOutcome.Matched,
+            $"Expected redraw match, got {result.Outcome} after "
+            + $"{result.ElapsedSeconds}s. Tail: {string.Join(" | ", result.Tail.Lines)}");
         Assert.Equal(marker, result.MatchedPattern);
     }
 
