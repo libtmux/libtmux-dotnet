@@ -38,7 +38,12 @@ public interface IControlModeSession : IAsyncDisposable
     /// tmux answers commands in the order it received them, so this is safe to
     /// call concurrently: each caller gets its own answer rather than someone
     /// else's. Cancelling stops the wait, not the command; tmux has already
-    /// been told.
+    /// been told. Foreground <c>run-shell</c>, its tmux command-name prefixes,
+    /// and <c>run</c> are rejected before dispatch because their output is not
+    /// framed as a command reply. Only direct background shell invocations are
+    /// accepted. Use <see cref="Server.RunShellAsync" /> to read shell text where
+    /// tmux returns it. A nonzero shell exit raises <see cref="TmuxCommandException" />;
+    /// <see cref="TmuxCommandException.Result" /> carries its exit status.
     /// </remarks>
     /// <exception cref="ControlModeCommandException">
     /// Tmux reported the command failed.
@@ -48,6 +53,10 @@ public interface IControlModeSession : IAsyncDisposable
     /// </exception>
     /// <exception cref="StaleServerGenerationException">
     /// The command targets a different tmux server generation.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// The command is a <c>run-shell</c> or <c>run</c> invocation without an
+    /// unambiguous direct background shell option.
     /// </exception>
     /// <exception cref="InvalidOperationException">
     /// The client is no longer running or has too many unanswered commands.

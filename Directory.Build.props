@@ -16,6 +16,12 @@
     <RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.fsproj'">
+    <LangVersion>10.0</LangVersion>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
+  </PropertyGroup>
+
   <!-- Packaging identity every published package shares. A project says what
        it is; where it came from and who to ask is the same answer for all of
        them, so it is answered once. -->
@@ -35,7 +41,7 @@
          single package's changes here would put them on every other
          package's page too, which is what this used to do. Why one version
          covers the suite, and when that is revisited: ADR 0007. -->
-    <PackageReleaseNotes>Alpha. LibTmux, LibTmux.Testing, LibTmux.Query.Json, LibTmux.Extensions.DependencyInjection, LibTmux.Workspace, LibTmux.Workspace.Cli and LibTmux.Mcp share one version, so this release covers them together. What changed, per package and per release: https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md The public API is not settled and may change without notice between prereleases; pin an exact version.</PackageReleaseNotes>
+    <PackageReleaseNotes>Alpha. LibTmux, LibTmux.FSharp, LibTmux.Testing, LibTmux.Query.Json, LibTmux.Extensions.DependencyInjection, LibTmux.Workspace, LibTmux.Workspace.Cli and LibTmux.Mcp share one version, so this release covers them together. What changed, per package and per release: https://github.com/libtmux/libtmux-dotnet/blob/master/CHANGELOG.md The public API is not settled and may change without notice between prereleases; pin an exact version.</PackageReleaseNotes>
     <Authors>Tony Narlock</Authors>
     <Copyright>Copyright (c) 2026 Tony Narlock &lt;tony@git-pull.com&gt;</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

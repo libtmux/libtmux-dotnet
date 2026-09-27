@@ -64,8 +64,22 @@ jobs:
       - name: Restore
         run: dotnet restore LibTmux.slnx --locked-mode
 
+      - name: Restore F# tools
+        run: dotnet tool restore
+
+      # dotnet format cannot load F# project sources; compile the benchmark's
+      # F# reference in its default Debug configuration before analysis.
+      - name: Build format references
+        run: >
+          dotnet build benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj
+          --configuration Debug --no-restore --warnaserror
+
       - name: Format
         run: dotnet format LibTmux.slnx --verify-no-changes --no-restore
+
+      - name: F# formatting
+        id: fsharp-format
+        run: dotnet fantomas check src examples tests eng
 
       - name: Build
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
@@ -83,6 +97,26 @@ jobs:
         run: >
           dotnet test
           --project tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
+          --configuration Release
+          --framework net10.0
+          --no-build
+          --minimum-expected-tests 1
+
+      - name: F# unit tests (net8.0)
+        id: fsharp-unit-net8
+        run: >
+          dotnet test
+          --project tests/LibTmux.FSharp.Tests/LibTmux.FSharp.Tests.fsproj
+          --configuration Release
+          --framework net8.0
+          --no-build
+          --minimum-expected-tests 1
+
+      - name: F# unit tests (net10.0)
+        id: fsharp-unit-net10
+        run: >
+          dotnet test
+          --project tests/LibTmux.FSharp.Tests/LibTmux.FSharp.Tests.fsproj
           --configuration Release
           --framework net10.0
           --no-build
@@ -153,6 +187,56 @@ jobs:
               --no-restore
           done
 
+      - name: F# package consumer
+        id: fsharp-package-consumer
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-package-consumer
+        run: |
+          dotnet restore tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj \
+            --configfile tests/NuGet.config
+          for framework in net8.0 net10.0; do
+            dotnet run \
+              --project tests/LibTmux.FSharp.PackageConsumer/LibTmux.FSharp.PackageConsumer.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-restore
+          done
+
+      - name: F# README quickstart
+        id: fsharp-readme-quickstart
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-quickstart
+          TMUX_TMPDIR: ${{ runner.temp }}/fsharp-quickstart-tmux
+        run: |
+          mkdir -p "${TMUX_TMPDIR}"
+          dotnet restore examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
+            --configfile tests/NuGet.config
+          for framework in net8.0 net10.0; do
+            env -u TMUX -u TMUX_PANE dotnet run \
+              --project examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-restore
+          done
+
+      - name: F# packed example console
+        id: fsharp-packed-examples
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-packed-examples
+          LIBTMUX_FSHARP_EXPECT_PACKED: '1'
+        run: |
+          dotnet restore examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+            --configfile tests/NuGet.config \
+            -p:UsePackageReferences=true
+          for framework in net8.0 net10.0; do
+            dotnet run \
+              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-restore \
+              -p:UsePackageReferences=true
+          done
+
       - name: Ahead-of-time smoke test
         # Trim and ahead-of-time warnings are only complete once something is
         # published that way and run. The isolated cache and mapped source make
@@ -171,6 +255,56 @@ jobs:
               --runtime linux-x64 \
               --no-restore
             "tests/LibTmux.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.AotSmoke"
+          done
+
+      - name: F# ahead-of-time smoke test
+        id: fsharp-aot-smoke
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-aot-smoke
+        run: |
+          dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+            --runtime linux-x64 \
+            --configfile tests/NuGet.config
+          for framework in net8.0 net10.0; do
+            dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --runtime linux-x64 \
+              --no-restore
+            "tests/LibTmux.FSharp.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.FSharp.AotSmoke"
+          done
+
+      - name: F# trimmed smoke test
+        id: fsharp-trimmed-smoke
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: |
+          dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+            --runtime linux-x64 \
+            --configfile tests/NuGet.config \
+            -p:PublishAot=false \
+            -p:PublishTrimmed=true
+          for framework in net8.0 net10.0; do
+            dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --runtime linux-x64 \
+              --no-restore \
+              --output "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}" \
+              -p:PublishAot=false \
+              -p:PublishTrimmed=true
+            "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}/LibTmux.FSharp.AotSmoke"
+          done
+
+      - name: F# example console
+        id: fsharp-examples
+        run: |
+          for framework in net8.0 net10.0; do
+            dotnet run \
+              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-build
           done
 
       - name: Example console smoke
@@ -228,8 +362,14 @@ jobs:
           uv run python eng/parity/verify_version_literals.py
           uv run python eng/parity/verify_tmux_versions.py
           uv run python eng/docs/render_api_reference.py --check
+          uv run python eng/docs/render_api_reference.py --fsharp --check
           uv run python eng/docs/sync_snippets.py --check
+          uv run python eng/docs/sync_fsharp_snippets.py --check
           uv run eng/mcp/dump_tools.py --check
+
+      - name: F# member reference
+        id: fsharp-fsdocs
+        run: python3 eng/docs/sync_fsdocs_reference.py --check
 
       - name: Check out the pinned Python libtmux
         # The parity records quote one revision of the Python library. It is
@@ -289,6 +429,16 @@ jobs:
 
       - name: Build
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
+
+      - name: F# example console
+        run: |
+          for framework in net8.0 net10.0; do
+            dotnet run \
+              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-build
+          done
 
       - name: Unit tests
         run: >

@@ -45,30 +45,7 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
     {
         lock (_gate)
         {
-            _replyBlocks++;
-            if (_replyBlocks > limits.MaxReplyBlocks)
-            {
-                throw new TmuxProtocolException(
-                    $"A control-mode reply exceeded its {limits.MaxReplyBlocks}-block limit.",
-                    TmuxDispatchState.Unknown);
-            }
-
-            if (lines.Count > limits.MaxReplyLines - _replyLines)
-            {
-                throw new TmuxProtocolException(
-                    $"A control-mode reply exceeded its {limits.MaxReplyLines}-line limit.",
-                    TmuxDispatchState.Unknown);
-            }
-
-            if (blockBytes > limits.MaxReplyBytes - _replyBytes)
-            {
-                throw new TmuxProtocolException(
-                    $"A control-mode reply exceeded its {limits.MaxReplyBytes}-byte limit.",
-                    TmuxDispatchState.Unknown);
-            }
-
-            _replyLines += lines.Count;
-            _replyBytes += blockBytes;
+            ReserveReply(lines.Count, blockBytes, limits);
             if (_abandoned)
             {
                 return;
@@ -96,5 +73,35 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
                 OutputLines,
                 ErrorLines));
         }
+    }
+
+    private void ReserveReply(
+        int lineCount,
+        int bytes,
+        ControlModeLimits limits)
+    {
+        if (++_replyBlocks > limits.MaxReplyBlocks)
+        {
+            throw new TmuxProtocolException(
+                $"A control-mode reply exceeded its {limits.MaxReplyBlocks}-block limit.",
+                TmuxDispatchState.Unknown);
+        }
+
+        if (lineCount > limits.MaxReplyLines - _replyLines)
+        {
+            throw new TmuxProtocolException(
+                $"A control-mode reply exceeded its {limits.MaxReplyLines}-line limit.",
+                TmuxDispatchState.Unknown);
+        }
+
+        if (bytes > limits.MaxReplyBytes - _replyBytes)
+        {
+            throw new TmuxProtocolException(
+                $"A control-mode reply exceeded its {limits.MaxReplyBytes}-byte limit.",
+                TmuxDispatchState.Unknown);
+        }
+
+        _replyLines += lineCount;
+        _replyBytes += bytes;
     }
 }

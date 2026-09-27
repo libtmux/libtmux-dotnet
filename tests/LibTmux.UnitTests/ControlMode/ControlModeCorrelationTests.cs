@@ -111,6 +111,83 @@ public sealed class ControlModeCorrelationTests
         Assert.Equal(["unknown command"], error.ErrorLines);
     }
 
+    [Theory]
+    [InlineData("run-shell")]
+    [InlineData("run")]
+    [InlineData("run-s")]
+    [InlineData("run-shel")]
+    public async Task A_foreground_shell_is_rejected_before_dispatch(string name)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const string Sentinel = "libtmux-control-following";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            sentinelFactory: () => Sentinel);
+        await session.WaitForReadyAsync(token);
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() =>
+        {
+            _ = session.SendAsync(TmuxCommand.Create(name, "printf '%s\\n' '%exit'"), token);
+        });
+        Assert.Contains("Server.RunShellAsync", error.Message, StringComparison.Ordinal);
+        Assert.Empty(process.Writes);
+        Assert.True(session.IsRunning);
+
+        Task<IReadOnlyList<string>> following = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "following"), token);
+        await process.WritesObserved.Task.WaitAsync(token);
+        process.EmitBlock(number: 10, flags: 1, failed: false, "following");
+        process.EmitFence(number: 11, Sentinel);
+        Assert.Equal(["following"], await following);
+    }
+
+    [Theory]
+    [InlineData("--", "-b")]
+    [InlineData("-c", "-b")]
+    [InlineData("-b", "-C")]
+    public async Task An_unsupported_shell_shape_is_rejected_before_dispatch(
+        string first,
+        string second)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+
+        _ = Assert.Throws<NotSupportedException>(() =>
+        {
+            _ = session.SendAsync(TmuxCommand.Create(
+                "run-shell", first, second, "printf markers"), token);
+        });
+        Assert.Empty(process.Writes);
+        Assert.True(session.IsRunning);
+    }
+
+    [Theory]
+    [InlineData("run-shell")]
+    [InlineData("run")]
+    [InlineData("run-s")]
+    public async Task An_explicit_background_shell_is_dispatched(string name)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const string Sentinel = "libtmux-control-background";
+        var process = new ScriptedProcess(expectedWrites: 1);
+        await using var session = new ControlModeSession(
+            process,
+            sentinelFactory: () => Sentinel);
+        await session.WaitForReadyAsync(token);
+
+        Task<IReadOnlyList<string>> result = session.SendAsync(
+            TmuxCommand.Create(name, "-b", "--", "printf markers"), token);
+        await process.WritesObserved.Task.WaitAsync(token);
+        Assert.Single(process.Writes);
+        process.EmitBlock(number: 10, flags: 1, failed: false);
+        process.EmitFence(number: 11, Sentinel);
+        Assert.Empty(await result);
+        Assert.True(session.IsRunning);
+    }
+
     [Fact]
     public async Task Pending_admission_rejects_without_dispatching_past_its_limit()
     {

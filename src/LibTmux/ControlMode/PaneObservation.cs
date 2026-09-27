@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 
 namespace LibTmux;
 
@@ -10,7 +11,8 @@ namespace LibTmux;
 /// specifically, only a general <c>%layout-change</c> or window-close for the
 /// window it was in. This is synthesized by <see cref="PaneObservation" />
 /// once it confirms, by asking tmux directly, that the watched pane no longer
-/// resolves - after any output already buffered for it has been delivered.
+/// resolves - after output buffered by a watermark-backed control session has
+/// been delivered.
 /// </remarks>
 public sealed record TmuxPaneGoneEvent(PaneId PaneId) : TmuxEvent;
 
@@ -36,9 +38,15 @@ public static class PaneObservation
     /// <returns>
     /// The pane's own output, ending with <see cref="TmuxExitEvent" /> when the
     /// control client itself ended, or with <see cref="TmuxPaneGoneEvent" />
-    /// once the pane is confirmed gone. It never hangs: every arrangement
-    /// change that might mean the pane left is checked as it arrives.
+    /// once the pane is confirmed gone. Loss reports require resynchronization;
+    /// buffered output precedes pane termination for watermark-backed control
+    /// sessions. The client remains borrowed.
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    /// A control session without an event watermark cannot establish which
+    /// output was buffered before pane termination. Its watch fails when the
+    /// pane is confirmed gone, without consuming another event.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
         this IControlModeSession session,
@@ -49,31 +57,133 @@ public static class PaneObservation
         ArgumentNullException.ThrowIfNull(pane);
         PaneId paneId = pane.Id;
 
-        await foreach (TmuxEvent candidate in session.Events.WithCancellation(cancellationToken)
-            .ConfigureAwait(false))
+        using CancellationTokenSource reading =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        IControlModeEventWatermarkSource? source = session as IControlModeEventWatermarkSource;
+        ControlModeEventBuffer.Reader? watermarked = source?.CreateEventReader(reading.Token);
+        IAsyncEnumerator<TmuxEvent>? events = null;
+        long? watermark = null;
+        bool gone = false;
+        Exception? failure = null;
+        try
         {
-            switch (candidate)
+            await CheckForGoneAsync().ConfigureAwait(false);
+            if (watermarked is null)
             {
-                case TmuxOutputEvent output when output.PaneId == paneId:
-                    yield return output;
-                    break;
+                events = session.Events.GetAsyncEnumerator(reading.Token);
+            }
 
-                case TmuxExitEvent exit:
-                    yield return exit;
-                    yield break;
+            while (await ReadAsync().ConfigureAwait(false))
+            {
+                TmuxEvent current = watermarked?.Current ?? events!.Current;
+                switch (current)
+                {
+                    case TmuxOutputEvent output when output.PaneId == paneId:
+                        yield return output;
+                        break;
 
-                case TmuxNotificationEvent notification
-                    when Array.IndexOf(ArrangementChangeNames, notification.Name) >= 0:
-                    if (!await StillResolvesAsync(session, paneId, cancellationToken).ConfigureAwait(false))
-                    {
-                        yield return new TmuxPaneGoneEvent(paneId);
+                    case TmuxEventsDroppedEvent loss:
+                        yield return loss;
+                        await CheckForGoneAsync().ConfigureAwait(false);
+
+                        break;
+
+                    case TmuxExitEvent exit:
+                        yield return exit;
                         yield break;
-                    }
 
-                    break;
+                    case TmuxNotificationEvent notification
+                        when Array.IndexOf(ArrangementChangeNames, notification.Name) >= 0:
+                        await CheckForGoneAsync().ConfigureAwait(false);
 
-                default:
-                    break;
+                        break;
+                }
+            }
+
+            if (gone)
+            {
+                yield return new TmuxPaneGoneEvent(paneId);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (watermarked is not null)
+                {
+                    await watermarked.DisposeAsync().ConfigureAwait(false);
+                }
+                else if (events is not null)
+                {
+                    await events.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception cleanupFailure) when (failure is not null)
+            {
+                failure.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
+            }
+        }
+
+        async Task CheckForGoneAsync()
+        {
+            if (!gone && !await CheckAsync().ConfigureAwait(false))
+            {
+                gone = true;
+                if (source is null)
+                {
+                    var error = new NotSupportedException(
+                        "The control session cannot prove which events were buffered before the pane disappeared.");
+                    failure = error;
+                    throw error;
+                }
+
+                watermark = source.CaptureEventWatermark();
+            }
+        }
+
+        async Task<bool> CheckAsync()
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return await StillResolvesAsync(session, pane, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException error) when (
+                error is not StaleServerGenerationException && !session.IsRunning)
+            {
+                return true;
+            }
+            catch (Exception error)
+            {
+                failure = error;
+                throw;
+            }
+        }
+
+        async ValueTask<bool> ReadAsync()
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (reading.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                if (watermarked is not null)
+                {
+                    ControlModeEventRead result = watermark is long boundary
+                        ? await watermarked.MoveNextThroughAsync(boundary).ConfigureAwait(false)
+                        : await watermarked.MoveNextAsync().ConfigureAwait(false);
+                    return result == ControlModeEventRead.Item;
+                }
+
+                return await events!.MoveNextAsync().ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                failure = error;
+                throw;
             }
         }
     }
@@ -84,14 +194,17 @@ public static class PaneObservation
     [UnsupportedOSPlatform("windows")]
     private static async Task<bool> StillResolvesAsync(
         IControlModeSession session,
-        PaneId paneId,
+        Pane pane,
         CancellationToken cancellationToken)
     {
-        string target = paneId.ToString();
+        string target = pane.Id.ToString();
         try
         {
             IReadOnlyList<string> reply = await session.SendAsync(
-                    TmuxCommand.Create("display-message", "-p", "-t", target, "#{pane_id}"),
+                    TmuxCommand.Create("display-message", "-p", "-t", target, "#{pane_id}") with
+                    {
+                        RequiredGeneration = pane.Generation,
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
             return reply.Count > 0 && reply[0] == target;

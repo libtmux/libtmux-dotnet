@@ -16,7 +16,7 @@ namespace LibTmux;
 /// and neither would see a whole block.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-internal sealed class ControlModeSession : IControlModeSession
+internal sealed class ControlModeSession : IControlModeSession, IControlModeEventWatermarkSource
 {
     private readonly IControlModeProcess _process;
     private readonly ServerGeneration? _generation;
@@ -83,6 +83,11 @@ internal sealed class ControlModeSession : IControlModeSession
     }
 
     public IAsyncEnumerable<TmuxEvent> Events => _events.ReadAllAsync();
+
+    long IControlModeEventWatermarkSource.CaptureEventWatermark() => _events.CaptureWatermark();
+
+    ControlModeEventBuffer.Reader IControlModeEventWatermarkSource.CreateEventReader(
+        CancellationToken cancellationToken) => _events.CreateReader(cancellationToken);
 
     public bool IsRunning => Volatile.Read(ref _stopRequested) == 0 && !_process.HasExited;
 
@@ -183,12 +188,67 @@ internal sealed class ControlModeSession : IControlModeSession
     {
         ArgumentNullException.ThrowIfNull(command);
         ValidateGeneration(command);
+        if (IsUnsupportedRunShell(command))
+        {
+            throw new NotSupportedException(
+                "The control session supports only direct background run-shell commands; use Server.RunShellAsync.");
+        }
+
         // Newlines expand fourfold, so enforce the byte budget before rendering.
         return SendCoreAsync(
             command,
             renderedCommand: null,
             ControlModeCommandRenderer.GetRenderedByteCount(command),
             cancellationToken);
+    }
+
+    private static bool IsUnsupportedRunShell(TmuxCommand command)
+    {
+        // tmux accepts unique prefixes such as run-s as run-shell.
+        if (!"run-shell".StartsWith(command.Name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        IReadOnlyList<string> arguments = command.Arguments;
+        bool background = false;
+        for (int index = 0; index < arguments.Count; index++)
+        {
+            string argument = arguments[index];
+            if (string.Equals(argument, "--", StringComparison.Ordinal)
+                || argument.Length < 2
+                || argument[0] != '-')
+            {
+                break;
+            }
+
+            for (int flagIndex = 1; flagIndex < argument.Length; flagIndex++)
+            {
+                switch (argument[flagIndex])
+                {
+                    case 'b':
+                        background = true;
+                        break;
+                    case 'C':
+                        return true;
+                    case 'E':
+                        break;
+                    case 'c':
+                    case 'd':
+                    case 't':
+                        if (flagIndex != argument.Length - 1 || ++index >= arguments.Count)
+                        {
+                            return true;
+                        }
+
+                        break;
+                    default:
+                        return true;
+                }
+            }
+        }
+
+        return !background;
     }
 
     private Task<IReadOnlyList<string>> SendCoreAsync(

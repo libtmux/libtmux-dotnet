@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LibTmux.UnitTests" />
+    <InternalsVisibleTo Include="LibTmux.FSharp.Tests" />
     <InternalsVisibleTo Include="LibTmux.IntegrationTests" />
     <InternalsVisibleTo Include="LibTmux.Mcp" />
     <InternalsVisibleTo Include="LibTmux.Query.Json" />

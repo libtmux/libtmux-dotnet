@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ContractTests.fs" />
+    <Compile Include="ControlTests.fs" />
+    <Compile Include="QueryTests.fs" />
+    <Compile Include="DescriptorMatrixTests.fs" />
+    <PackageReference Include="FSharp.Core" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
+    <ProjectReference Include="../../src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
+    <None Include="../../docs/fsharp/supported-query-fields.md"
+          Link="supported-query-fields.md"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

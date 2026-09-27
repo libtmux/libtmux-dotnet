@@ -16,6 +16,7 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.fsdocs/
 
 .DS_Store
 

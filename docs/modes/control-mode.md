@@ -82,6 +82,23 @@ await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
 `SendAsync` is safe to call concurrently: tmux answers in the order it was
 asked, and each caller gets its own answer.
 
+`SendAsync` rejects direct foreground `run-shell`, its command-name prefixes,
+and `run` with `NotSupportedException` before dispatch. tmux can write their
+output outside the command's control block. A shell line such as `%exit`,
+`%begin`, or `%window-add` can look like control protocol. Use
+`Server.RunShellAsync` for foreground shell text where tmux returns it. A
+nonzero shell exit raises `TmuxCommandException`; its `Result.ExitCode` gives
+the shell's status. On tmux 3.3a and 3.4, `run-shell` writes text to pane view
+mode, so the one-shot process can return an empty output list even when the shell
+printed lines.
+
+An explicit `run-shell -b` or `run -b` remains available for a direct background
+shell command; it has no synchronous result. `run-shell -b -C` is rejected
+because `-C` can run nested tmux commands. The check reads only the
+`TmuxCommand` name and arguments. It cannot inspect `command-alias` definitions,
+sourced configuration files, or nested tmux commands. Do not use those paths to
+run foreground shell work through a control session.
+
 Outstanding calls are bounded. If the session has reached its pending limit,
 `SendAsync` throws `InvalidOperationException` before dispatching another
 command. Cancellation stops that caller's wait, not the command; the session

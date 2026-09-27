@@ -67,6 +67,8 @@ public sealed partial class Server
     /// <remarks>
     /// The directory flag arrived in tmux 3.4, the error-output flag in 3.6,
     /// and passing arguments without a shell in 3.7.
+    /// On tmux 3.3a and 3.4, shell text goes to pane view mode, so the process
+    /// request can return an empty collection even when the shell printed lines.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public async Task<IReadOnlyList<string>?> RunShellAsync(
