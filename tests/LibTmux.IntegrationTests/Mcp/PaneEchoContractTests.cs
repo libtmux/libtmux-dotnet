@@ -45,9 +45,14 @@ public sealed class PaneEchoContractTests
         await mcp.Write.SendKeysAsync(
             "y", paneId, enter: false, literal: true, cancellationToken: token);
 
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
-            paneId, ["ready"], timeoutSeconds: 3, cancellationToken: token);
-        await InjectForeignOutputAsync(scope.Server, tty, "ready", 0.3, token);
+            paneId, ["ready"], timeoutSeconds: 1,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+        await InjectForeignOutputAsync(scope.Server, tty, "ready", 0, token);
         WaitResult waited = await waiting;
 
         Assert.Equal(WaitOutcome.Matched, waited.Outcome);
