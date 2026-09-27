@@ -66,7 +66,7 @@ public sealed class ControlModeSessionFailureTests
         var session = new ControlModeSession(
             process,
             writeLock,
-            TimeSpan.FromMilliseconds(250));
+            TimeSpan.FromMilliseconds(800));
 
         await session.WaitForReadyAsync(token);
         Task<IReadOnlyList<string>> send = session.SendAsync(
@@ -74,7 +74,7 @@ public sealed class ControlModeSessionFailureTests
             token);
         await process.WriteStarted.Task.WaitAsync(token);
 
-        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2), token);
+        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1), token);
         IOException writeFailure = await Assert.ThrowsAsync<IOException>(async () => await send);
 
         Assert.Equal("The client was killed during its write.", writeFailure.Message);
