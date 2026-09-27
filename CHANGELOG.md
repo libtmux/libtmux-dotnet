@@ -21,6 +21,10 @@ version.
   found nothing for the file a restore downloads, including every
   `0.0.0-alpha.16` package. Releases now also attest each package as nuget.org
   serves it; SECURITY.md shows the command.
+- `LibTmux.FSharp` adds curried task helpers, typed portable filters,
+  option-valued lookups and cardinality results over existing `LibTmux`
+  handles and snapshots. It pins the matching `LibTmux` version;
+  `Selection.exactlyOne` is unsupported under NativeAOT. (#35)
 
 ### Fixed
 
@@ -36,8 +40,22 @@ version.
   `freeze` — in its `input_required` error.
 - `LibTmux.Extensions.DependencyInjection`'s README installed it without
   `--prerelease`, which finds no version while every release is an alpha.
+- `PaneObservation.WatchAsync` now ends for an already-gone pane or after a
+  dropped departure notice, delivering buffered output before the pane-gone
+  event. (#35)
+- `IControlModeSession.Events` leaves the next retained event for another
+  reader when a consumer stops after a dropped-events notification. (#35)
 
 ### Changed
+
+- **`IControlModeSession.SendAsync` rejects direct foreground `run-shell`,
+  `run` and their command-name prefixes before dispatch.** Unframed shell
+  output can corrupt the control stream. Use `Server.RunShellAsync` for output
+  and exit status where tmux returns them; tmux 3.3a and 3.4 may write output
+  to pane view mode. Direct `run-shell -b` remains available. (#35)
+- `PaneObservation.WatchAsync` now throws `NotSupportedException` after
+  confirming pane departure on a custom control session without an event
+  watermark. Use a core control session to preserve output order. (#35)
 
 ### Removed
 
