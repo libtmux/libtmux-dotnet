@@ -160,7 +160,8 @@ def verify(root: pathlib.Path) -> list[str]:
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
     for identifier in (
         "fsharp-format", "fsharp-unit-net8", "fsharp-unit-net10",
-        "fsharp-package-consumer", "fsharp-aot-smoke", "fsharp-examples",
+        "fsharp-package-consumer", "fsharp-readme-quickstart",
+        "fsharp-aot-smoke", "fsharp-examples",
         "fsharp-packed-examples", "fsharp-trimmed-smoke",
         "fsharp-fsdocs",
     ):

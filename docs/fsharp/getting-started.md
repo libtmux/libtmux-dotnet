@@ -1,8 +1,12 @@
 # Getting started with LibTmux.FSharp
 
-`LibTmux.FSharp` is the F# companion built on
-[LibTmux](https://github.com/libtmux/libtmux-dotnet/). Both packages are
-maintained in the `libtmux` organization by the same primary author.
+Start with the package [quickstart](../../src/LibTmux.FSharp/README.md#quick-start)
+for installation and a complete `Program.fs` that runs against an owned tmux
+server. This guide continues from that path.
+
+`LibTmux.FSharp` is built on [LibTmux](https://github.com/libtmux/libtmux-dotnet/).
+Both packages are maintained in the `libtmux` organization by the same primary
+author.
 
 It keeps the core handles and task-based I/O. This example creates a server on
 a unique socket, creates one session, discovers it through the core API,
@@ -111,3 +115,11 @@ against an owned tmux server. It checks that portable and native F# queries
 select the same panes on both target frameworks. CI repeats it against the
 freshly packed F# package through an isolated cache. A successful run writes
 `PASS F# snapshot and portable query example`.
+
+From the repository root, run that example against real tmux:
+
+```console
+$ dotnet run \
+    --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+    --framework net8.0
+```

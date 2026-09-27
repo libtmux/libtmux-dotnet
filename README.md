@@ -73,7 +73,7 @@ same version, without a table to consult.
 maintained in the `libtmux` organization by the same primary author. It keeps
 the core handles and task I/O, then adds F#-native composition for snapshots and
 portable filters. Start with its
-[compiler-checked F# example](src/LibTmux.FSharp/README.md).
+[runnable F# quickstart](src/LibTmux.FSharp/README.md#quick-start).
 
 ## Three ways to reach tmux
 

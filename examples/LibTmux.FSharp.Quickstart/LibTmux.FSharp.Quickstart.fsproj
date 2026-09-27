@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
+    <LibTmuxPackageVersion>$(VersionPrefix)</LibTmuxPackageVersion>
+    <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+    <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
+  </ItemGroup>
+</Project>

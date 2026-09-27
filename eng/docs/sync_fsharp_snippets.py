@@ -11,7 +11,7 @@ import typing as t
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
-SNIPPETS = REPOSITORY / "examples" / "LibTmux.FSharp.Examples" / "Snippets"
+SNIPPETS = REPOSITORY / "examples"
 DOCUMENTS = (
     REPOSITORY / "src" / "LibTmux.FSharp" / "README.md",
     *sorted((REPOSITORY / "docs" / "fsharp").glob("*.md")),
