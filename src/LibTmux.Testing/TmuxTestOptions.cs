@@ -43,8 +43,8 @@ public sealed record TmuxTestOptions
         SessionNamePrefix = sessionNamePrefix;
     }
 
-    /// <summary>Gets options a test can use without choosing anything.</summary>
-    public static TmuxTestOptions Default { get; } = new();
+    /// <summary>Gets options with a new private socket for each test scope.</summary>
+    public static TmuxTestOptions Default => new();
 
     /// <summary>Gets how to reach tmux.</summary>
     public ServerConnectionOptions ConnectionOptions { get; }

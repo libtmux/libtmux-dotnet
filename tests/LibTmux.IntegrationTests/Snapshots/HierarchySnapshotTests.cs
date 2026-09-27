@@ -145,6 +145,7 @@ public sealed class HierarchySnapshotTests
         string capturedActiveWindowName = session.ActiveWindow.Value.Name;
         Window window = Assert.Single(await server.GetWindowsAsync(token));
         Pane pane = Assert.Single(await server.GetPanesAsync(token));
+        string capturedPaneWindowName = pane.Window.Name;
         Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
 
         Assert.Equal(capturedActiveWindowName, session.ActiveWindow.Value.Name);
@@ -152,7 +153,7 @@ public sealed class HierarchySnapshotTests
         Assert.Equal(pane.Height, window.ActivePane.Value.Height);
         Assert.Equal(raw.SessionName, window.Session.Name);
         Assert.Equal(raw.SessionName, pane.Session.Name);
-        Assert.Equal(window.Name, pane.Window.Name);
+        Assert.Equal(capturedPaneWindowName, pane.Window.Name);
     }
 
     [Fact(

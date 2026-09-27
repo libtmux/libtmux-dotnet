@@ -9,6 +9,11 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: Open a restricted SSH session after the macOS job
+        default: false
 
 permissions:
   contents: read
@@ -412,6 +417,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -462,6 +468,31 @@ jobs:
           dotnet test tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
           --configuration Release --no-build --framework net10.0
           -- --minimum-expected-tests 400
+
+      - name: Inspect the macOS runner
+        id: debug
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+        uses: owenthereal/action-upterm@eec00cabd6cdaa61f61ca9f4939852fcfd2b285f # v2.2.0
+        with:
+          detached: true
+          limit-access-to-actor: true
+          upterm-version: v0.32.1
+          wait-timeout-minutes: 5
+
+      - name: Save the restricted debug SSH address
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
+        env:
+          DEBUG_SSH_COMMAND: ${{ steps.debug.outputs.ssh-command }}
+        run: printf '%s\n' "$DEBUG_SSH_COMMAND" > "$RUNNER_TEMP/debug-ssh-command.txt"
+
+      - name: Retain the restricted debug connection
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: debug-connection
+          path: ${{ runner.temp }}/debug-ssh-command.txt
+          retention-days: 1
+          if-no-files-found: error
 
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
