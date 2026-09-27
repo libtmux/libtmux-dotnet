@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace LibTmux.Mcp;
 
-/// <summary>Tells a waiter the moment a pane prints something.</summary>
+/// <summary>Tells a waiter when pane output or its session's arrangement changes.</summary>
 /// <remarks>
 /// <para>
 /// tmux will report pane output as it happens to a client in control mode, so
@@ -16,7 +16,9 @@ namespace LibTmux.Mcp;
 /// What arrives on that stream is the pane's decoded terminal output — escape
 /// sequences, redraws and all — which is why it is used as a signal and never
 /// as content. The text a caller gets always comes from a capture, which is
-/// what tmux has already rendered.
+/// what tmux has already rendered. Layout and window-close notifications also
+/// wake the session's waiters, since a resize can invalidate a capture without
+/// producing pane output.
 /// </para>
 /// <para>
 /// A control client sees only the session it attached to, so watches are per
@@ -206,7 +208,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
         ((ICollection<KeyValuePair<SessionWatchKey, SessionWatch>>)_watches)
             .Remove(new KeyValuePair<SessionWatchKey, SessionWatch>(key, watch));
 
-    /// <summary>Waits until a pane prints something, or the time runs out.</summary>
+    /// <summary>Waits for pane output or a session arrangement change, or until time runs out.</summary>
     /// <param name="paneId">The pane to wait on.</param>
     /// <param name="signalBefore">
     /// The signal captured before the caller last read the pane. Passing the
@@ -215,7 +217,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
     /// </param>
     /// <param name="timeout">How long to wait at most.</param>
     /// <param name="cancellationToken">Stops waiting.</param>
-    /// <returns><see langword="true" /> when the pane printed something.</returns>
+    /// <returns><see langword="true" /> when output or an arrangement change wakes the wait.</returns>
     /// <exception cref="TmuxTransportException">No control signal exists and polling fallback is disabled.</exception>
     public async Task<bool> WaitForActivityAsync(
         string paneId,
@@ -489,6 +491,12 @@ public sealed class PaneActivityHub : IAsyncDisposable
                         case TmuxOutputEvent output:
                             OnPaneOutput(output.PaneId);
                             break;
+                        case TmuxNotificationEvent
+                        {
+                            Name: "layout-change" or "window-close" or "unlinked-window-close",
+                        }:
+                            OnArrangementChanged();
+                            break;
                         case TmuxEventsDroppedEvent dropped:
                             OnEventsDropped(dropped.Count);
                             break;
@@ -642,6 +650,17 @@ public sealed class PaneActivityHub : IAsyncDisposable
             lock (_signalGate)
             {
                 if (_signals.TryGetValue(paneId, out PaneSignal? signal))
+                {
+                    signal.Fire();
+                }
+            }
+        }
+
+        private void OnArrangementChanged()
+        {
+            lock (_signalGate)
+            {
+                foreach (PaneSignal signal in _signals.Values)
                 {
                     signal.Fire();
                 }

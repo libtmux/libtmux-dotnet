@@ -180,8 +180,31 @@ internal sealed partial class ReadTools
             object? signal = _activity.CaptureSignal(pane);
             pollingFallback |= _activity.RequireObservation(signal);
 
-            PaneRead read = await PaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
-                .ConfigureAwait(false);
+            PaneRead read;
+            try
+            {
+                read = await PaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (PaneReader.UnstableSnapshotException)
+            {
+                // Retain the last consistent cursor. The signal predates the
+                // failed read, so output or layout changes during it still wake us.
+                Report(progress, elapsed.Elapsed, budget, $"waiting on {id}");
+                bool changed = await _activity.WaitForActivityAsync(
+                        id, signal, budget - elapsed.Elapsed, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!changed && signal is Task)
+                {
+                    return await FinishAsync(
+                            pane, id, WaitOutcome.Timeout, null, elapsed, budget,
+                            pollingFallback, lease, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                continue;
+            }
+
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
             // Matched against the rows the caller receives, not the raw ones:

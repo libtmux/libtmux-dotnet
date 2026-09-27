@@ -72,9 +72,7 @@ internal static class PaneReader
             }
         }
 
-        throw new McpException(
-            $"Pane {pane.Id} changed during every snapshot attempt. Try again when "
-            + "its output is less busy.");
+        throw new UnstableSnapshotException(pane.Id);
     }
 
     /// <summary>Reads what a pane has printed since a cursor was issued.</summary>
@@ -152,6 +150,15 @@ internal static class PaneReader
         PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, cancellationToken)
             .ConfigureAwait(false);
         return busy with { LinesMissed = true, AnchorLost = true };
+    }
+
+    internal sealed class UnstableSnapshotException : McpException
+    {
+        internal UnstableSnapshotException(PaneId paneId)
+            : base($"Pane {paneId} changed during every snapshot attempt. Try again when "
+                + "its output is less busy.")
+        {
+        }
     }
 
     /// <summary>Captures rows from a pane.</summary>

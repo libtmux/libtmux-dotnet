@@ -2297,7 +2297,7 @@ public sealed class WriteToolsExecutionSafetyTests
         await using var fixture = new ToolFixture();
         fixture.DestabilizeNextStateSamples(6);
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+        McpException failure = await Assert.ThrowsAsync<PaneReader.UnstableSnapshotException>(() =>
             fixture.Reads.TailPaneAsync(
                 paneId: "%1",
                 cancellationToken: TestContext.Current.CancellationToken));
@@ -2580,7 +2580,7 @@ public sealed class WriteToolsExecutionSafetyTests
         await using var fixture = new ToolFixture();
         fixture.DestabilizeNextStateSamples(6);
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+        McpException failure = await Assert.ThrowsAsync<PaneReader.UnstableSnapshotException>(() =>
             fixture.Tools.RunAsync(
                 "echo never",
                 paneId: "%1",
