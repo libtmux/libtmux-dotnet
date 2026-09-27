@@ -17,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Update="assets/logo.png" Pack="true" PackagePath="icon.png" />
-    <None Update="assets/logo.svg" Pack="true" PackagePath="assets/logo.svg" />
+    <None Remove="assets/logo.png;assets/logo.svg" />
+    <None Include="assets/logo.png" Pack="true" PackagePath="icon.png" />
+    <None Include="assets/logo.svg" Pack="true" PackagePath="assets/logo.svg" />
   </ItemGroup>
 </Project>
