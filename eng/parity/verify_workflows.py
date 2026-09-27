@@ -208,12 +208,45 @@ def verify(root: pathlib.Path) -> list[str]:
     require("if" not in matrix, "dotnet-tmux.matrix.if may not skip compatibility")
     producer = job("dotnet-tmux", "build")
     require("if" not in producer, "dotnet-tmux.build.if may not skip the producer")
+    fsharp_build = required_step("dotnet-tmux", "build", "fsharp-examples-build")
+    fsharp_project = "examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj"
+    require(
+        fsharp_build.get("run", "").count(fsharp_project) >= 2,
+        "dotnet-tmux.build must restore and build the F# example",
+    )
+    archives = [
+        step for step in producer.get("steps", [])
+        if step.get("name") == "Archive runnable assemblies"
+    ]
+    require(len(archives) == 1, "dotnet-tmux.build must archive runnable assemblies")
+    if len(archives) == 1:
+        archive_command = archives[0].get("run", "")
+        for framework in sorted(TARGET_FRAMEWORKS):
+            require(
+                f"examples/LibTmux.FSharp.Examples/bin/Release/{framework}"
+                in archive_command,
+                f"dotnet-tmux.build must archive the F# example for {framework}",
+            )
     integration = required_step("dotnet-tmux", "matrix", "integration-tests")
     require(
         {**matrix.get("env", {}), **integration.get("env", {})}.get(
             "LIBTMUX_INTEGRATION_REQUIRED"
         ) == "1",
         "supported matrix must require integration execution",
+    )
+    fsharp_example = required_step("dotnet-tmux", "matrix", "fsharp-examples")
+    example_env = {**matrix.get("env", {}), **fsharp_example.get("env", {})}
+    require(
+        example_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
+        and example_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.tmux }}"
+        and example_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
+        "dotnet-tmux.matrix.fsharp-examples must use the selected tmux and framework",
+    )
+    require(
+        "LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+        in fsharp_example.get("run", "")
+        and "LIBTMUX_EXPECTED_TMUX_VERSION" in fsharp_example.get("run", ""),
+        "dotnet-tmux.matrix.fsharp-examples must verify and run the selected cell",
     )
     aggregate("dotnet-tmux", "compatibility", {"build", "matrix"})
 

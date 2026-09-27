@@ -51,6 +51,13 @@ jobs:
           dotnet build tests/LibTmux.Workspace.Cli.Tests/LibTmux.Workspace.Cli.Tests.csproj \
             --configuration Release --no-restore --warnaserror
 
+      - name: Build F# examples for the tmux matrix
+        id: fsharp-examples-build
+        run: |
+          dotnet restore examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj --locked-mode
+          dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+            --configuration Release --no-restore --warnaserror
+
       - name: Archive runnable assemblies
         run: |
           mkdir -p artifacts
@@ -61,6 +68,8 @@ jobs:
             tests/LibTmux.IntegrationTests/bin/Release/net10.0 \
             tests/LibTmux.Workspace.Cli.Tests/bin/Release/net8.0 \
             tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0 \
+            examples/LibTmux.FSharp.Examples/bin/Release/net8.0 \
+            examples/LibTmux.FSharp.Examples/bin/Release/net10.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \
@@ -180,6 +189,18 @@ jobs:
             --test-modules "tests/LibTmux.IntegrationTests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.IntegrationTests.dll" \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
             --minimum-expected-tests 800
+
+      - name: F# example
+        id: fsharp-examples
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+        run: |
+          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
 
   advisory:
     needs: build

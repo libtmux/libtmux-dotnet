@@ -53,6 +53,20 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
     assert any("F# snippets" in error for error in verify(repository))
 
 
+def test_fsharp_example_is_required_in_every_tmux_matrix_cell(
+    repository: pathlib.Path,
+) -> None:
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    steps = document["jobs"]["matrix"]["steps"]
+    document["jobs"]["matrix"]["steps"] = [
+        step for step in steps if step.get("id") != "fsharp-examples"
+    ]
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("fsharp-examples" in error for error in verify(repository))
+
+
 def test_commented_dependencies_do_not_gate_publication(
     repository: pathlib.Path,
 ) -> None:
@@ -146,6 +160,8 @@ def test_duplicate_keys_fail(repository: pathlib.Path) -> None:
 
 @pytest.mark.parametrize("workflow,job_name,step_name", [
     ("dotnet-tmux", "matrix", "Integration tests"),
+    ("dotnet-tmux", "matrix", "F# example"),
+    ("dotnet-tmux", "build", "Build F# examples for the tmux matrix"),
     ("release", "validate", "Check the tag matches the version"),
     ("dotnet", "build", "F# formatting"),
     ("dotnet", "build", "F# unit tests (net8.0)"),
