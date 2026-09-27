@@ -146,11 +146,14 @@ mutation, so it does not roll that mutation back or make retry safe.
 
 ## Compatibility
 
-The package targets .NET 8 and .NET 10 and shares the matching core package
-version. Its installed-package consumer currently has local real-tmux evidence
-on tmux 3.7d. A Linux NativeAOT consumer publishes and runs the static snapshot
-and native `Seq` projection route on both target frameworks. It does not call
-`Selection.exactlyOne`: FSharp.Core 10.1.302 emits trim and AOT diagnostics
-when a NativeAOT consumer reaches its `Result` return type. Treat cardinality
-as unsupported in NativeAOT until that dependency can be proved clean. The
-required cross-version tmux matrix remains unfinished for this alpha package.
+| Area | Contract and verification |
+| --- | --- |
+| .NET | Targets .NET 8 and .NET 10 and shares the matching `LibTmux` package version. |
+| tmux | Required Linux CI runs the compiled F# example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b and 3.7c on both target frameworks. |
+| Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows tmux is unsupported. |
+| Trimming and NativeAOT | A Linux consumer publishes and runs the static snapshot and native `Seq` projection route on both frameworks. |
+
+The installed-package consumer also runs against local tmux 3.7d. It is not
+part of the cross-version matrix. `Selection.exactlyOne` is unsupported under
+NativeAOT: FSharp.Core 10.1.302 emits trim and AOT diagnostics when a consumer
+reaches its `Result` return type.

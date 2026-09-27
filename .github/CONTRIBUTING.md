@@ -377,18 +377,19 @@ behavior, and prove changed gates reject a deliberate break.
 [dotnet-tmux.yml](workflows/dotnet-tmux.yml) builds the integration dependency
 graph once for both frameworks. An archive named for the source SHA and Release
 configuration supplies every supported tmux lane; consumers check the revision
-stamp and execute test modules without restore or build. Missing artifacts and
-empty test selections fail. The matrix still covers every version in
-`eng/tmux/versions.json` on net8.0 and net10.0.
+stamp and execute test modules and the F# example without restore or build.
+Missing artifacts and empty test selections fail. The matrix covers every
+version in `eng/tmux/versions.json` on net8.0 and net10.0.
 
 The `compatibility` job requires the producer and all supported lanes. Checks
 independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
 `dotnet.yml` has an advisory macOS arm64 lane on master and manual dispatch.
-It builds and runs unit/integration tests with Homebrew tmux; it stays outside
-`gate` and restores without locked mode. Text captured from a pane may wrap with
-the host's prompt width; assertions about typed text use `joinWrappedLines`.
+It builds and runs unit/integration tests and the F# example with Homebrew
+tmux; it stays outside `gate` and restores without locked mode. Text captured
+from a pane may wrap with the host's prompt width; assertions about typed text
+use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
 Scorecard runs on its configured schedule. These workflows do not replace the
