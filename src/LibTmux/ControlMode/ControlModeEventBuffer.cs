@@ -104,8 +104,8 @@ internal sealed class ControlModeEventBuffer
     {
         private readonly ControlModeEventBuffer _owner;
         private readonly CancellationToken _cancellationToken;
-        private (long Sequence, TmuxEvent Item)? _pending;
         private long _lastConsumed;
+        private long? _boundaryLossWatermark;
 
         internal Reader(ControlModeEventBuffer owner, CancellationToken cancellationToken)
         {
@@ -121,15 +121,7 @@ internal sealed class ControlModeEventBuffer
         internal async ValueTask<ControlModeEventRead> MoveNextThroughAsync(long watermark)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            if (_pending is { } pending)
-            {
-                Current = pending.Item;
-                _pending = null;
-                _lastConsumed = pending.Sequence;
-                return ControlModeEventRead.Item;
-            }
-
-            if (_lastConsumed >= watermark)
+            if (_lastConsumed >= watermark || _boundaryLossWatermark == watermark)
             {
                 return ControlModeEventRead.Boundary;
             }
@@ -147,31 +139,32 @@ internal sealed class ControlModeEventBuffer
                         long dropped = _owner._dropped - _owner._reported;
                         if (sequence > watermark)
                         {
-                            if (dropped > 0)
+                            if (dropped == 0)
                             {
-                                _owner._reported = _owner._dropped;
-                                Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped);
-                                return ControlModeEventRead.Item;
+                                return ControlModeEventRead.Boundary;
                             }
 
-                            return ControlModeEventRead.Boundary;
+                            _boundaryLossWatermark = watermark;
+                        }
+
+                        if (dropped > 0)
+                        {
+                            _owner._reported = _owner._dropped;
+                            Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped);
+                            return ControlModeEventRead.Item;
                         }
 
                         _owner._items.Dequeue();
                         _owner._afterDequeue?.Invoke();
-                        _owner._reported = _owner._dropped;
-                        if (dropped > 0)
-                        {
-                            _pending = (sequence, item);
-                            Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped);
-                        }
-                        else
-                        {
-                            Current = item;
-                            _lastConsumed = sequence;
-                        }
+                        Current = item;
+                        _lastConsumed = sequence;
 
                         return ControlModeEventRead.Item;
+                    }
+
+                    if (_owner._lastWritten >= watermark)
+                    {
+                        return ControlModeEventRead.Boundary;
                     }
 
                     if (_owner._completed)

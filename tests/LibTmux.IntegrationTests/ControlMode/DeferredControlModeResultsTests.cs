@@ -8,14 +8,7 @@ namespace LibTmux.IntegrationTests.ControlMode;
 public sealed class DeferredControlModeResultsTests
 {
     [UnixFact]
-    public Task Deferred_shell_output_keeps_concurrent_callers_aligned() =>
-        VerifyDeferredResultsAsync(fail: false);
-
-    [UnixFact]
-    public Task Deferred_shell_failure_keeps_concurrent_callers_aligned() =>
-        VerifyDeferredResultsAsync(fail: true);
-
-    private static async Task VerifyDeferredResultsAsync(bool fail)
+    public async Task Foreground_shell_failure_exposes_the_shell_exit_status()
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
             TestContext.Current.CancellationToken);
@@ -28,67 +21,14 @@ public sealed class DeferredControlModeResultsTests
             SocketPath = raw.SocketPath,
             ConfigurationFile = "/dev/null",
         }, token);
-        await using IControlModeSession control = await server.EnterControlModeAsync(
-            cancellationToken: token);
-        TmuxVersion version = Assert.NotNull(server.Version);
-        bool reportsDeferredShellResults = version < TmuxVersion.Parse("3.3")
-            || version >= TmuxVersion.Parse("3.5");
-        string channel = $"deferred-{Guid.NewGuid():N}";
-        string tmux = $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}'";
-        string shell = $"{tmux} wait-for -S {channel}-started; "
-            + $"{tmux} wait-for {channel}-release; "
-            + "{ printf 'stdout-marker\\n'; printf 'stderr-marker\\n' >&2; } 2>&1; "
-            + (fail ? "exit 7" : "exit 0");
-        TmuxCommand command = TmuxCommand.Create("run-shell", shell);
-        Task<IReadOnlyList<string>> result = control.SendAsync(command, token);
-        try
-        {
-            Assert.Equal(0, (await raw.ExecuteAsync(
-                ["wait-for", $"{channel}-started"], token)).ExitCode);
-            Assert.False(result.IsCompleted);
-            Task<IReadOnlyList<string>> following = control.SendAsync(
-                TmuxCommand.Create("display-message", "-p", "following-marker"), token);
-            Assert.Equal(0, (await raw.ExecuteAsync(
-                ["wait-for", "-S", $"{channel}-release"], token)).ExitCode);
-            if (fail)
-            {
-                if (reportsDeferredShellResults)
-                {
-                    ControlModeCommandException error = await Assert.ThrowsAsync<ControlModeCommandException>(
-                        async () => await result);
-                    Assert.Equal(command, error.Command);
-                    Assert.Equal(["stdout-marker", "stderr-marker"], error.OutputLines);
-                    Assert.Contains(error.ErrorLines, line => line.EndsWith("returned 7", StringComparison.Ordinal));
-                }
-                else
-                {
-                    // tmux 3.3a and 3.4 keep run-shell text in the pane and
-                    // complete the control command without its child status.
-                    Assert.Empty(await result);
-                }
-            }
-            else if (reportsDeferredShellResults)
-            {
-                Assert.Equal(["stdout-marker", "stderr-marker"], await result);
-            }
-            else
-            {
-                Assert.Empty(await result);
-            }
 
-            Assert.Equal(["following-marker"], await following);
-            Assert.True(control.IsRunning);
-            Assert.Equal(["usable-marker"], await control.SendAsync(
-                TmuxCommand.Create("display-message", "-p", "usable-marker"), token));
-        }
-        finally
-        {
-            await raw.ExecuteAsync(["wait-for", "-S", $"{channel}-release"], token);
-        }
+        TmuxCommandException failure = await Assert.ThrowsAsync<TmuxCommandException>(
+            () => server.RunShellAsync(new RunShellRequest("exit 7"), token));
+        Assert.Equal(7, failure.Result.ExitCode);
     }
 
     [UnixFact]
-    public async Task Silent_shell_completion_waits_for_the_foreground_job()
+    public async Task Foreground_shell_text_uses_the_process_route_and_leaves_control_usable()
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
             TestContext.Current.CancellationToken);
@@ -103,27 +43,25 @@ public sealed class DeferredControlModeResultsTests
         }, token);
         await using IControlModeSession control = await server.EnterControlModeAsync(
             cancellationToken: token);
-        string channel = $"silent-{Guid.NewGuid():N}";
-        string tmux = $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}'";
-        Task<IReadOnlyList<string>> result = control.SendAsync(TmuxCommand.Create(
-            "run-shell", $"{tmux} wait-for -S {channel}-started; "
-                + $"{tmux} wait-for {channel}-release; "
-                + $"{tmux} set-option -g @silent-done yes"), token);
-        try
-        {
-            Assert.Equal(0, (await raw.ExecuteAsync(
-                ["wait-for", $"{channel}-started"], token)).ExitCode);
-            Assert.False(result.IsCompleted);
-        }
-        finally
-        {
-            await raw.ExecuteAsync(["wait-for", "-S", $"{channel}-release"], token);
-        }
 
-        Assert.Empty(await result);
-        Assert.Equal(["yes"], (await raw.ExecuteAsync(
-            ["show-options", "-gv", "@silent-done"], token)).StandardOutputLines);
-        await control.DisposeAsync();
-        Assert.Empty((await raw.ExecuteAsync(["list-clients"], token)).StandardOutputLines);
+        foreach (string name in new[] { "run-shell", "run-s" })
+        {
+            _ = Assert.Throws<NotSupportedException>(() =>
+            {
+                _ = control.SendAsync(TmuxCommand.Create(
+                    name, "printf '%s\\n' '%exit' '%begin 1 2 1' '%window-add @999'"), token);
+            });
+        }
+        Assert.Empty(await control.SendAsync(TmuxCommand.Create("run-shell", "-b", "true"), token));
+
+        const string shell = "printf '%s\\n' '%exit' '%begin 1 2 1' '%window-add @999'";
+        RawTmuxResult native = await raw.ExecuteAsync(["run-shell", shell], token);
+        Assert.Equal(0, native.ExitCode);
+
+        IReadOnlyList<string>? output = await server.RunShellAsync(new RunShellRequest(shell), token);
+        Assert.Equal(native.StandardOutputLines, output);
+        Assert.Equal(["following"], await control.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "following"), token));
+        Assert.True(control.IsRunning);
     }
 }

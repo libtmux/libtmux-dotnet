@@ -39,6 +39,29 @@ public sealed class ControlModeEventBufferTests
     }
 
     [Fact]
+    public async Task Stopping_after_loss_leaves_the_first_retained_event_for_the_next_reader()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 1);
+        Assert.True(buffer.TryWrite(Notification("dropped")));
+        Assert.True(buffer.TryWrite(Notification("retained")));
+        buffer.Complete();
+
+        await using (IAsyncEnumerator<TmuxEvent> first =
+            buffer.ReadAllAsync(token).GetAsyncEnumerator(token))
+        {
+            Assert.True(await first.MoveNextAsync());
+            Assert.Equal(1, Assert.IsType<TmuxEventsDroppedEvent>(first.Current).Count);
+        }
+
+        await using IAsyncEnumerator<TmuxEvent> second =
+            buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+        Assert.True(await second.MoveNextAsync());
+        Assert.Equal("retained", Assert.IsType<TmuxNotificationEvent>(second.Current).Name);
+        Assert.False(await second.MoveNextAsync());
+    }
+
+    [Fact]
     public async Task A_drop_after_dequeue_is_reported_after_the_held_event()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -122,6 +145,57 @@ public sealed class ControlModeEventBufferTests
         await using ControlModeEventBuffer.Reader following = buffer.CreateReader(token);
         Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
         Assert.Equal("after", Assert.IsType<TmuxNotificationEvent>(following.Current).Name);
+    }
+
+    [Fact]
+    public async Task A_watermark_reader_finishes_when_an_earlier_reader_drained_the_boundary()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 2);
+        Assert.True(buffer.TryWrite(Notification("already-read")));
+
+        await using (ControlModeEventBuffer.Reader earlier = buffer.CreateReader(token))
+        {
+            Assert.Equal(ControlModeEventRead.Item, await earlier.MoveNextAsync());
+        }
+
+        long watermark = buffer.CaptureWatermark();
+        await using ControlModeEventBuffer.Reader reader = buffer.CreateReader(token);
+        ValueTask<ControlModeEventRead> next = reader.MoveNextThroughAsync(watermark);
+
+        Assert.True(next.IsCompletedSuccessfully);
+        Assert.Equal(ControlModeEventRead.Boundary, await next);
+    }
+
+    [Fact]
+    public async Task A_watermark_reader_reports_later_loss_once_and_then_reaches_its_boundary()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 1);
+        Assert.True(buffer.TryWrite(Notification("before")));
+        long watermark = buffer.CaptureWatermark();
+        Assert.True(buffer.TryWrite(Notification("after-first")));
+
+        await using (ControlModeEventBuffer.Reader reader = buffer.CreateReader(token))
+        {
+            Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
+            TmuxEventsDroppedEvent firstLoss = Assert.IsType<TmuxEventsDroppedEvent>(reader.Current);
+            Assert.Equal(1, firstLoss.Count);
+            Assert.Equal(1, firstLoss.TotalDropped);
+
+            Assert.True(buffer.TryWrite(Notification("after-second")));
+            Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
+        }
+
+        buffer.Complete();
+        await using ControlModeEventBuffer.Reader following = buffer.CreateReader(token);
+        Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
+        TmuxEventsDroppedEvent laterLoss = Assert.IsType<TmuxEventsDroppedEvent>(following.Current);
+        Assert.Equal(1, laterLoss.Count);
+        Assert.Equal(2, laterLoss.TotalDropped);
+        Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
+        Assert.Equal("after-second", Assert.IsType<TmuxNotificationEvent>(following.Current).Name);
+        Assert.Equal(ControlModeEventRead.Completed, await following.MoveNextAsync());
     }
 
     private static TmuxNotificationEvent Notification(string name) => new(name, []);

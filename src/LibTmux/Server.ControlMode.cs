@@ -37,6 +37,7 @@ public sealed partial class Server
         // the ordinary connection error rather than a client that dies at once.
         Server live = await RediscoverCurrentGenerationAsync(cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (connection.IsPsmux)
         {
             throw new NotSupportedException(

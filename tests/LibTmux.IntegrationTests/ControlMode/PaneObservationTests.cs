@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -25,6 +26,126 @@ public sealed class PaneObservationTests
         Assert.True(await reader.MoveNextAsync());
         Assert.Equal(pane.Id, Assert.IsType<TmuxPaneGoneEvent>(reader.Current).PaneId);
         Assert.False(await reader.MoveNextAsync());
+        Assert.True(control.IsRunning);
+    }
+
+    [UnixFact]
+    public async Task A_generic_async_event_source_cannot_silently_discard_buffered_output()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await server.GetPaneAsync(new PaneId(0), token);
+        await pane.SplitAsync(cancellationToken: token);
+        await pane.KillAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        var delivery = new AsynchronouslyBufferedSession(control);
+        Assert.True(delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last")));
+
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        await using IAsyncEnumerator<TmuxEvent> watched = delivery.WatchAsync(pane, watchdog.Token).GetAsyncEnumerator();
+        await Assert.ThrowsAsync<NotSupportedException>(async () => await watched.MoveNextAsync());
+
+        delivery.Release();
+        await using IAsyncEnumerator<TmuxEvent> retained = delivery.Events.GetAsyncEnumerator(token);
+        Assert.True(await retained.MoveNextAsync());
+        Assert.Equal("last", Assert.IsType<TmuxOutputEvent>(retained.Current).Data);
+        Assert.True(control.IsRunning);
+    }
+
+    [UnixFact]
+    public async Task A_generic_reader_ignoring_cancellation_cannot_hold_a_gone_pane_watch_open()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await server.GetPaneAsync(new PaneId(0), token);
+        await pane.SplitAsync(cancellationToken: token);
+        await pane.KillAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        var delivery = new AsynchronouslyBufferedSession(control, ignoreCancellation: true);
+        Assert.True(delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last")));
+
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        await using IAsyncEnumerator<TmuxEvent> watched = delivery.WatchAsync(pane, token).GetAsyncEnumerator();
+        Task<bool> pending = watched.MoveNextAsync().AsTask();
+        try
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(async () => await pending.WaitAsync(watchdog.Token));
+        }
+        finally
+        {
+            delivery.Release();
+            if (!pending.IsCompleted)
+            {
+                await Assert.ThrowsAsync<NotSupportedException>(async () =>
+                    await pending.WaitAsync(TimeSpan.FromMilliseconds(750)));
+            }
+        }
+
+        Assert.False(delivery.ReaderStarted);
+        await using IAsyncEnumerator<TmuxEvent> retained = delivery.Events.GetAsyncEnumerator(token);
+        Assert.True(await retained.MoveNextAsync());
+        Assert.Equal("last", Assert.IsType<TmuxOutputEvent>(retained.Current).Data);
+        Assert.True(control.IsRunning);
+    }
+
+    [UnixFact]
+    public async Task A_generic_continuous_source_fails_after_losing_the_arrangement_event()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await server.GetPaneAsync(new PaneId(0), token);
+        await pane.SplitAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        await using var delivery = new BufferedSession(control, capacity: 2);
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "ready"));
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        await using IAsyncEnumerator<TmuxEvent> reader = delivery.WatchAsync(pane, watchdog.Token).GetAsyncEnumerator();
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal("ready", Assert.IsType<TmuxOutputEvent>(reader.Current).Data);
+
+        await pane.KillAsync(cancellationToken: token);
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last"));
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("unrelated", []));
+        using var stopProducer = new CancellationTokenSource();
+        var producerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task ProduceAsync()
+        {
+            while (!stopProducer.IsCancellationRequested)
+            {
+                if (!delivery.Buffer.TryWrite(new TmuxNotificationEvent("unrelated", [])))
+                {
+                    throw new InvalidOperationException("The event producer stopped accepting notifications.");
+                }
+
+                producerStarted.TrySetResult();
+                await Task.Yield();
+            }
+        }
+
+        Task producer = ProduceAsync();
+        try
+        {
+            await producerStarted.Task.WaitAsync(watchdog.Token);
+            Assert.True(await reader.MoveNextAsync());
+            Assert.True(Assert.IsType<TmuxEventsDroppedEvent>(reader.Current).Count > 0);
+            await Assert.ThrowsAsync<NotSupportedException>(async () => await reader.MoveNextAsync());
+            Assert.True(delivery.ReaderDisposed);
+            Assert.False(producer.IsCompleted);
+        }
+        finally
+        {
+            stopProducer.Cancel();
+            await producer;
+        }
+
         Assert.True(control.IsRunning);
     }
 
@@ -102,7 +223,7 @@ public sealed class PaneObservationTests
         Pane pane = await server.GetPaneAsync(new PaneId(0), token);
         await pane.SplitAsync(cancellationToken: token);
         await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
-        await using var delivery = new BufferedSession(control);
+        await using var delivery = new WatermarkedSession(control, capacity: 2);
         delivery.Buffer.TryWrite(new TmuxNotificationEvent("discarded", []));
         delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "first"));
         delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last"));
@@ -119,7 +240,6 @@ public sealed class PaneObservationTests
             item => Assert.Equal("first", Assert.IsType<TmuxOutputEvent>(item).Data),
             item => Assert.Equal("last", Assert.IsType<TmuxOutputEvent>(item).Data),
             item => Assert.Equal(pane.Id, Assert.IsType<TmuxPaneGoneEvent>(item).PaneId));
-        Assert.True(delivery.ReaderDisposed);
         Assert.True(control.IsRunning);
     }
 
@@ -132,7 +252,7 @@ public sealed class PaneObservationTests
         Pane pane = await server.GetPaneAsync(new PaneId(0), token);
         await pane.SplitAsync(cancellationToken: token);
         await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
-        await using var delivery = new BufferedSession(control);
+        await using var delivery = new WatermarkedSession(control, capacity: 2);
         delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "ready"));
         using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
         watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
@@ -152,7 +272,6 @@ public sealed class PaneObservationTests
         Assert.True(await reader.MoveNextAsync());
         Assert.IsType<TmuxPaneGoneEvent>(reader.Current);
         Assert.False(await reader.MoveNextAsync());
-        Assert.True(delivery.ReaderDisposed);
     }
 
     [UnixFact]
@@ -194,6 +313,191 @@ public sealed class PaneObservationTests
         await using IAsyncEnumerator<TmuxEvent> following = delivery.Events.GetAsyncEnumerator(token);
         Assert.True(await following.MoveNextAsync());
         Assert.Equal("after-0", Assert.IsType<TmuxNotificationEvent>(following.Current).Name);
+    }
+
+    [UnixFact]
+    public async Task Continuous_unrelated_events_do_not_delay_pane_termination()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await server.GetPaneAsync(new PaneId(0), token);
+        await pane.SplitAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        using var watermarkCaptured = new ManualResetEventSlim();
+        using var producedAfterWatermark = new ManualResetEventSlim();
+        await using var delivery = new WatermarkedSession(
+            control,
+            capacity: 16,
+            afterWatermark: () =>
+            {
+                watermarkCaptured.Set();
+                producedAfterWatermark.Wait(watchdog.Token);
+            });
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "ready"));
+        await using IAsyncEnumerator<TmuxEvent> reader = delivery.WatchAsync(pane, watchdog.Token).GetAsyncEnumerator();
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal("ready", Assert.IsType<TmuxOutputEvent>(reader.Current).Data);
+
+        await pane.KillAsync(cancellationToken: token);
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
+        using var stopProducer = new CancellationTokenSource();
+        var producerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var producedAfterTerminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int terminalObserved = 0;
+        int produced = 0;
+        int writesAfterWatermark = 0;
+
+        async Task ProduceAsync()
+        {
+            while (!stopProducer.IsCancellationRequested)
+            {
+                if (!delivery.Buffer.TryWrite(new TmuxNotificationEvent("unrelated", [])))
+                {
+                    throw new InvalidOperationException("The event producer stopped accepting notifications.");
+                }
+
+                Interlocked.Increment(ref produced);
+                producerStarted.TrySetResult();
+                if (watermarkCaptured.IsSet)
+                {
+                    Interlocked.Increment(ref writesAfterWatermark);
+                    producedAfterWatermark.Set();
+                }
+
+                if (Volatile.Read(ref terminalObserved) != 0)
+                {
+                    producedAfterTerminal.TrySetResult();
+                }
+
+                await Task.Yield();
+            }
+        }
+
+        Task producer = ProduceAsync();
+        try
+        {
+            await producerStarted.Task.WaitAsync(watchdog.Token);
+            int beforeRead = Volatile.Read(ref produced);
+            bool sawGone = false;
+            while (await reader.MoveNextAsync())
+            {
+                if (reader.Current is TmuxPaneGoneEvent)
+                {
+                    sawGone = true;
+                    break;
+                }
+            }
+
+            Assert.True(sawGone);
+            Assert.False(await reader.MoveNextAsync());
+            Assert.True(Volatile.Read(ref produced) > beforeRead);
+            Assert.True(Volatile.Read(ref writesAfterWatermark) > 0);
+            Volatile.Write(ref terminalObserved, 1);
+            await producedAfterTerminal.Task.WaitAsync(watchdog.Token);
+            Assert.False(producer.IsCompleted);
+        }
+        finally
+        {
+            stopProducer.Cancel();
+            await producer;
+        }
+
+        Assert.True(control.IsRunning);
+    }
+
+    [UnixFact]
+    public async Task Real_continuous_unrelated_notifications_do_not_delay_pane_termination()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane pane = await server.GetPaneAsync(new PaneId(0), token);
+        await pane.SplitAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        var source = Assert.IsAssignableFrom<IControlModeEventWatermarkSource>(control);
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        using var releaseWatermark = new ManualResetEventSlim();
+        var delivery = new ObservedWatermarkSession(control, source, releaseWatermark, watchdog.Token);
+        using var stopProducer = new CancellationTokenSource();
+        var firstRename = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var producedAfterTerminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int terminalObserved = 0;
+
+        async Task ProduceAsync()
+        {
+            try
+            {
+                for (int index = 0; !stopProducer.IsCancellationRequested; index++)
+                {
+                    RawTmuxResult renamed = await raw.ExecuteAsync(
+                        ["rename-session", "-t", "$0", index % 2 == 0 ? "watch-even" : "watch-odd"],
+                        stopProducer.Token);
+                    Assert.True(renamed.ExitCode == 0, renamed.StandardErrorText);
+                    firstRename.TrySetResult();
+                    if (Volatile.Read(ref terminalObserved) != 0)
+                    {
+                        producedAfterTerminal.TrySetResult();
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (stopProducer.IsCancellationRequested)
+            {
+            }
+        }
+
+        Task<TmuxEvent[]> watch = Task.Run(async () =>
+        {
+            var observed = new List<TmuxEvent>();
+            await foreach (TmuxEvent item in delivery.WatchAsync(pane, watchdog.Token))
+            {
+                observed.Add(item);
+            }
+
+            return observed.ToArray();
+        }, watchdog.Token);
+        Task? producer = null;
+        try
+        {
+            await delivery.InitialCheck.WaitAsync(watchdog.Token);
+            long beforeRenames = source.CaptureEventWatermark();
+            producer = ProduceAsync();
+            await firstRename.Task.WaitAsync(watchdog.Token);
+            await control.SendAsync(TmuxCommand.Create("display-message", "-p", "before-kill"), watchdog.Token);
+            Assert.True(source.CaptureEventWatermark() > beforeRenames);
+
+            await pane.KillAsync(cancellationToken: watchdog.Token);
+            long boundary = await delivery.CapturedWatermark.WaitAsync(watchdog.Token);
+            RawTmuxResult afterBoundary = await raw.ExecuteAsync(
+                ["rename-session", "-t", "$0", $"watch-after-{Guid.NewGuid():N}"],
+                watchdog.Token);
+            Assert.True(afterBoundary.ExitCode == 0, afterBoundary.StandardErrorText);
+            await control.SendAsync(TmuxCommand.Create("display-message", "-p", "after-watermark"), watchdog.Token);
+            Assert.True(source.CaptureEventWatermark() > boundary);
+            releaseWatermark.Set();
+
+            TmuxEvent[] observed = await watch.WaitAsync(watchdog.Token);
+            Assert.NotEmpty(observed);
+            Assert.Equal(pane.Id, Assert.IsType<TmuxPaneGoneEvent>(observed[^1]).PaneId);
+            Assert.DoesNotContain(observed, static item => item is TmuxNotificationEvent);
+            Assert.False(producer.IsCompleted);
+            Volatile.Write(ref terminalObserved, 1);
+            await producedAfterTerminal.Task.WaitAsync(watchdog.Token);
+        }
+        finally
+        {
+            releaseWatermark.Set();
+            stopProducer.Cancel();
+            if (producer is not null)
+            {
+                await producer;
+            }
+        }
+
+        Assert.Equal(["alive"], await control.SendAsync(TmuxCommand.Create("display-message", "-p", "alive"), token));
     }
 
     [UnixFact]
@@ -295,6 +599,42 @@ public sealed class PaneObservationTests
             ConfigurationFile = "/dev/null",
         }, token);
 
+    private sealed class AsynchronouslyBufferedSession(
+        IControlModeSession inner,
+        bool ignoreCancellation = false) : IControlModeSession
+    {
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal ControlModeEventBuffer Buffer { get; } = new(capacity: 2);
+        internal bool ReaderStarted { get; private set; }
+        public bool IsRunning => inner.IsRunning;
+        public IAsyncEnumerable<TmuxEvent> Events => ReadAsync();
+        public Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default) =>
+            inner.SendAsync(command, cancellationToken);
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        internal void Release() => _released.TrySetResult();
+
+        private async IAsyncEnumerable<TmuxEvent> ReadAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            ReaderStarted = true;
+            if (ignoreCancellation)
+            {
+                await _released.Task;
+            }
+            else
+            {
+                await _released.Task.WaitAsync(cancellationToken);
+            }
+
+            await foreach (TmuxEvent item in Buffer.ReadAllAsync(cancellationToken))
+            {
+                yield return item;
+            }
+        }
+    }
+
     private class BufferedSession(
         IControlModeSession inner,
         int capacity = 2) : IControlModeSession, IAsyncEnumerable<TmuxEvent>
@@ -329,12 +669,56 @@ public sealed class PaneObservationTests
         }
     }
 
-    private sealed class WatermarkedSession(IControlModeSession inner, int capacity) :
+    private sealed class WatermarkedSession(IControlModeSession inner, int capacity, Action? afterWatermark = null) :
         BufferedSession(inner, capacity), IControlModeEventWatermarkSource
     {
-        long IControlModeEventWatermarkSource.CaptureEventWatermark() => Buffer.CaptureWatermark();
+        long IControlModeEventWatermarkSource.CaptureEventWatermark()
+        {
+            long watermark = Buffer.CaptureWatermark();
+            afterWatermark?.Invoke();
+            return watermark;
+        }
 
         ControlModeEventBuffer.Reader IControlModeEventWatermarkSource.CreateEventReader(
             CancellationToken cancellationToken) => Buffer.CreateReader(cancellationToken);
+    }
+
+    private sealed class ObservedWatermarkSession(
+        IControlModeSession inner,
+        IControlModeEventWatermarkSource source,
+        ManualResetEventSlim releaseWatermark,
+        CancellationToken cancellationToken) : IControlModeSession, IControlModeEventWatermarkSource
+    {
+        private readonly TaskCompletionSource initialCheck =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<long> capturedWatermark =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IAsyncEnumerable<TmuxEvent> Events => inner.Events;
+        public bool IsRunning => inner.IsRunning;
+        internal Task InitialCheck => initialCheck.Task;
+        internal Task<long> CapturedWatermark => capturedWatermark.Task;
+
+        public async Task<IReadOnlyList<string>> SendAsync(
+            TmuxCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            IReadOnlyList<string> result = await inner.SendAsync(command, cancellationToken);
+            initialCheck.TrySetResult();
+            return result;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        long IControlModeEventWatermarkSource.CaptureEventWatermark()
+        {
+            long watermark = source.CaptureEventWatermark();
+            capturedWatermark.TrySetResult(watermark);
+            releaseWatermark.Wait(cancellationToken);
+            return watermark;
+        }
+
+        ControlModeEventBuffer.Reader IControlModeEventWatermarkSource.CreateEventReader(
+            CancellationToken readerCancellationToken) => source.CreateEventReader(readerCancellationToken);
     }
 }

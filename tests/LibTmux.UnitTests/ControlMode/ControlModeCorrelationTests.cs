@@ -111,78 +111,81 @@ public sealed class ControlModeCorrelationTests
         Assert.Equal(["unknown command"], error.ErrorLines);
     }
 
-    [Fact]
-    public async Task A_foreground_run_shell_owns_unframed_output_through_its_fence()
+    [Theory]
+    [InlineData("run-shell")]
+    [InlineData("run")]
+    [InlineData("run-s")]
+    [InlineData("run-shel")]
+    public async Task A_foreground_shell_is_rejected_before_dispatch(string name)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        const string Sentinel = "libtmux-control-run-shell-output";
+        const string Sentinel = "libtmux-control-following";
         var process = new ScriptedProcess(expectedWrites: 1);
         await using var session = new ControlModeSession(
             process,
             sentinelFactory: () => Sentinel);
         await session.WaitForReadyAsync(token);
 
-        Task<IReadOnlyList<string>> send = session.SendAsync(
-            TmuxCommand.Create("run-shell", "printf markers"),
-            token);
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() =>
+        {
+            _ = session.SendAsync(TmuxCommand.Create(name, "printf '%s\\n' '%exit'"), token);
+        });
+        Assert.Contains("Server.RunShellAsync", error.Message, StringComparison.Ordinal);
+        Assert.Empty(process.Writes);
+        Assert.True(session.IsRunning);
+
+        Task<IReadOnlyList<string>> following = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "following"), token);
         await process.WritesObserved.Task.WaitAsync(token);
-
-        process.EmitBlock(number: 10, flags: 1, failed: false);
-        process.EmitProtocolLine("stdout-marker");
-        process.EmitProtocolLine("stderr-marker");
+        process.EmitBlock(number: 10, flags: 1, failed: false, "following");
         process.EmitFence(number: 11, Sentinel);
-
-        Assert.Equal(["stdout-marker", "stderr-marker"], await send);
+        Assert.Equal(["following"], await following);
     }
 
-    [Fact]
-    public async Task A_foreground_run_shell_with_show_stderr_owns_unframed_output_through_its_fence()
+    [Theory]
+    [InlineData("--", "-b")]
+    [InlineData("-c", "-b")]
+    [InlineData("-b", "-C")]
+    public async Task An_unsupported_shell_shape_is_rejected_before_dispatch(
+        string first,
+        string second)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        const string Sentinel = "libtmux-control-run-shell-show-stderr";
-        var process = new ScriptedProcess(expectedWrites: 1);
-        await using var session = new ControlModeSession(
-            process,
-            sentinelFactory: () => Sentinel);
+        var process = new ScriptedProcess(expectedWrites: 0);
+        await using var session = new ControlModeSession(process);
         await session.WaitForReadyAsync(token);
 
-        Task<IReadOnlyList<string>> send = session.SendAsync(
-            TmuxCommand.Create("run-shell", "-E", "printf markers"),
-            token);
-        await process.WritesObserved.Task.WaitAsync(token);
-
-        process.EmitBlock(number: 10, flags: 1, failed: false);
-        process.EmitProtocolLine("stderr-marker");
-        process.EmitFence(number: 11, Sentinel);
-
-        Assert.Equal(["stderr-marker"], await send);
+        _ = Assert.Throws<NotSupportedException>(() =>
+        {
+            _ = session.SendAsync(TmuxCommand.Create(
+                "run-shell", first, second, "printf markers"), token);
+        });
+        Assert.Empty(process.Writes);
+        Assert.True(session.IsRunning);
     }
 
-    [Fact]
-    public async Task A_foreground_run_shell_failure_line_is_a_typed_diagnostic()
+    [Theory]
+    [InlineData("run-shell")]
+    [InlineData("run")]
+    [InlineData("run-s")]
+    public async Task An_explicit_background_shell_is_dispatched(string name)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        const string Sentinel = "libtmux-control-run-shell-failure";
+        const string Sentinel = "libtmux-control-background";
         var process = new ScriptedProcess(expectedWrites: 1);
         await using var session = new ControlModeSession(
             process,
             sentinelFactory: () => Sentinel);
         await session.WaitForReadyAsync(token);
-        TmuxCommand command = TmuxCommand.Create("run-shell", "printf markers; exit 7");
 
-        Task<IReadOnlyList<string>> send = session.SendAsync(command, token);
+        Task<IReadOnlyList<string>> result = session.SendAsync(
+            TmuxCommand.Create(name, "-b", "--", "printf markers"), token);
         await process.WritesObserved.Task.WaitAsync(token);
-
+        Assert.Single(process.Writes);
         process.EmitBlock(number: 10, flags: 1, failed: false);
-        process.EmitProtocolLine("stdout-marker");
-        process.EmitProtocolLine("'printf markers; exit 7' returned 7");
         process.EmitFence(number: 11, Sentinel);
-
-        ControlModeCommandException error =
-            await Assert.ThrowsAsync<ControlModeCommandException>(async () => await send);
-        Assert.Same(command, error.Command);
-        Assert.Equal(["stdout-marker"], error.OutputLines);
-        Assert.Equal(["'printf markers; exit 7' returned 7"], error.ErrorLines);
+        Assert.Empty(await result);
+        Assert.True(session.IsRunning);
     }
 
     [Fact]

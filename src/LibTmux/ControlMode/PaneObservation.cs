@@ -11,7 +11,8 @@ namespace LibTmux;
 /// specifically, only a general <c>%layout-change</c> or window-close for the
 /// window it was in. This is synthesized by <see cref="PaneObservation" />
 /// once it confirms, by asking tmux directly, that the watched pane no longer
-/// resolves - after any output already buffered for it has been delivered.
+/// resolves - after output buffered by a watermark-backed control session has
+/// been delivered.
 /// </remarks>
 public sealed record TmuxPaneGoneEvent(PaneId PaneId) : TmuxEvent;
 
@@ -38,8 +39,14 @@ public static class PaneObservation
     /// The pane's own output, ending with <see cref="TmuxExitEvent" /> when the
     /// control client itself ended, or with <see cref="TmuxPaneGoneEvent" />
     /// once the pane is confirmed gone. Loss reports require resynchronization;
-    /// buffered output precedes pane termination. The client remains borrowed.
+    /// buffered output precedes pane termination for watermark-backed control
+    /// sessions. The client remains borrowed.
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    /// A control session without an event watermark cannot establish which
+    /// output was buffered before pane termination. Its watch fails when the
+    /// pane is confirmed gone, without consuming another event.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
         this IControlModeSession session,
@@ -54,16 +61,19 @@ public static class PaneObservation
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         IControlModeEventWatermarkSource? source = session as IControlModeEventWatermarkSource;
         ControlModeEventBuffer.Reader? watermarked = source?.CreateEventReader(reading.Token);
-        IAsyncEnumerator<TmuxEvent>? events = watermarked is null
-            ? session.Events.GetAsyncEnumerator(reading.Token)
-            : null;
+        IAsyncEnumerator<TmuxEvent>? events = null;
         long? watermark = null;
         bool gone = false;
         Exception? failure = null;
         try
         {
             await CheckForGoneAsync().ConfigureAwait(false);
-            while (await ReadAsync(gone).ConfigureAwait(false))
+            if (watermarked is null)
+            {
+                events = session.Events.GetAsyncEnumerator(reading.Token);
+            }
+
+            while (await ReadAsync().ConfigureAwait(false))
             {
                 TmuxEvent current = watermarked?.Current ?? events!.Current;
                 switch (current)
@@ -103,9 +113,9 @@ public static class PaneObservation
                 {
                     await watermarked.DisposeAsync().ConfigureAwait(false);
                 }
-                else
+                else if (events is not null)
                 {
-                    await events!.DisposeAsync().ConfigureAwait(false);
+                    await events.DisposeAsync().ConfigureAwait(false);
                 }
             }
             catch (Exception cleanupFailure) when (failure is not null)
@@ -119,7 +129,15 @@ public static class PaneObservation
             if (!gone && !await CheckAsync().ConfigureAwait(false))
             {
                 gone = true;
-                watermark = source?.CaptureEventWatermark();
+                if (source is null)
+                {
+                    var error = new NotSupportedException(
+                        "The control session cannot prove which events were buffered before the pane disappeared.");
+                    failure = error;
+                    throw error;
+                }
+
+                watermark = source.CaptureEventWatermark();
             }
         }
 
@@ -142,7 +160,7 @@ public static class PaneObservation
             }
         }
 
-        async ValueTask<bool> ReadAsync(bool gone)
+        async ValueTask<bool> ReadAsync()
         {
             try
             {
@@ -160,22 +178,7 @@ public static class PaneObservation
                     return result == ControlModeEventRead.Item;
                 }
 
-                ValueTask<bool> next = events!.MoveNextAsync();
-                if (gone && !next.IsCompleted)
-                {
-                    // Finish the pending read before disposing its enumerator.
-                    reading.Cancel();
-                }
-
-                try
-                {
-                    return await next.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (
-                    reading.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    return false;
-                }
+                return await events!.MoveNextAsync().ConfigureAwait(false);
             }
             catch (Exception error)
             {

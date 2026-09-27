@@ -623,6 +623,56 @@ public sealed class ControlModeSessionTests
     }
 
     [UnixFact]
+    public async Task Cancellation_after_discovery_skips_control_client_start()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            $"libtmux-control-prestart-{Guid.NewGuid():N}");
+        string wrapper = Path.Combine(directory, "tmux-wrapper");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            await WriteExecutableAsync(
+                wrapper,
+                $"#!/bin/sh\nexec {ShellQuote(raw.TmuxBinaryPath)} \"$@\"\n",
+                token);
+
+            using var startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+            bool initialized = false;
+            Server server = Server.Open(new ServerConnectionOptions
+            {
+                TmuxBinaryPath = wrapper,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                InitializeAsync = (_, _) =>
+                {
+                    initialized = true;
+                    File.Delete(wrapper);
+                    startupCancellation.Cancel();
+                    return ValueTask.CompletedTask;
+                },
+            });
+
+            OperationCanceledException error =
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    () => server.EnterControlModeAsync(
+                        cancellationToken: startupCancellation.Token));
+
+            Assert.True(initialized);
+            Assert.Equal(startupCancellation.Token, error.CancellationToken);
+            RawTmuxResult clients = await raw.ExecuteAsync(["list-clients"], token);
+            Assert.Empty(clients.StandardOutputLines);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task A_canceled_attach_is_disposed_before_the_call_returns()
     {
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
