@@ -101,6 +101,13 @@ A pane text wait subscribes to tmux's own
 pane output as it happens and the wait is released the moment there is
 something to look at.
 
+After its initial consistent capture, a wait retains its cursor when the pane
+changes throughout a read and retries on activity within the original deadline.
+Layout and window-close notifications also wake waits in the affected session;
+a resize does not need to produce text for the wait to retry.
+Cancellation still ends the wait. Direct captures and the initial baseline
+keep their bounded refusal when the pane never settles during their attempts.
+
 Two details make that safe. The control client attaches with `ignore-size`
 (tmux 3.2+), so it never drags the window down to its own size; and it is
 reference counted per session, so it exists only while a wait is running. What
