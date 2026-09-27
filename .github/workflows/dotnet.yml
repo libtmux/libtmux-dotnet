@@ -470,11 +470,28 @@ jobs:
           -- --minimum-expected-tests 400
 
       - name: Inspect the macOS runner
+        id: debug
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
         uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3
         timeout-minutes: 10
         with:
+          detached: true
           limit-access-to-actor: true
+
+      - name: Save the restricted debug SSH address
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-address != '' }}
+        env:
+          TMATE_SSH_ADDRESS: ${{ steps.debug.outputs.ssh-address }}
+        run: printf '%s\n' "$TMATE_SSH_ADDRESS" > "$RUNNER_TEMP/tmate-ssh-address.txt"
+
+      - name: Retain the restricted debug connection
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-address != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tmate-connection
+          path: ${{ runner.temp }}/tmate-ssh-address.txt
+          retention-days: 1
+          if-no-files-found: error
 
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
