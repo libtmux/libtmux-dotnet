@@ -52,7 +52,7 @@ public sealed class WorkspaceSnapshotTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string directory = Path.Combine(Path.GetTempPath(), $"libtmux-freeze-{Guid.NewGuid():N}");
-        string firstPath = Path.Combine(directory, "$cash ${literal} #{session_name} first");
+        string firstPath = Path.Combine(directory, @"$cash ${literal} $_var $9 \$cash \$9 \$é #{session_name} end$");
         string secondPath = Path.Combine(directory, "second space");
         Directory.CreateDirectory(firstPath);
         Directory.CreateDirectory(secondPath);
