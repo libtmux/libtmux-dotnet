@@ -106,6 +106,17 @@ errors:
 $ mise exec -- dotnet restore LibTmux.slnx --locked-mode
 ```
 
+Build the benchmark's Debug references before formatting. `dotnet format`
+needs the compiled F# reference used by its C# benchmarks:
+
+```console
+$ mise exec -- dotnet build \
+    benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj \
+    --configuration Debug \
+    --no-restore \
+    --warnaserror
+```
+
 ```console
 $ mise exec -- dotnet format LibTmux.slnx --verify-no-changes --no-restore
 ```

@@ -67,6 +67,13 @@ jobs:
       - name: Restore F# tools
         run: dotnet tool restore
 
+      # dotnet format cannot load F# project sources; compile the benchmark's
+      # F# reference in its default Debug configuration before analysis.
+      - name: Build format references
+        run: >
+          dotnet build benchmarks/LibTmux.Benchmarks/LibTmux.Benchmarks.csproj
+          --configuration Debug --no-restore --warnaserror
+
       - name: Format
         run: dotnet format LibTmux.slnx --verify-no-changes --no-restore
 
