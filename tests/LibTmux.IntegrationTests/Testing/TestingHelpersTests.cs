@@ -9,6 +9,23 @@ namespace LibTmux.IntegrationTests.Testing;
 public sealed class TestingHelpersTests
 {
     [UnixFact]
+    public async Task Default_options_give_each_scope_its_own_socket()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        TmuxTestFactory factory = new();
+        await using TemporarySessionScope first = await factory.CreateSessionAsync(
+            cancellationToken: token);
+        await using TemporarySessionScope second = await factory.CreateSessionAsync(
+            cancellationToken: token);
+
+        Assert.NotEqual(
+            first.Session.Server.ConnectionOptions.SocketName,
+            second.Session.Server.ConnectionOptions.SocketName);
+        await first.DisposeAsync();
+        Assert.True(await second.Session.Server.IsAliveAsync(token));
+    }
+
+    [UnixFact]
     public async Task Scopes_clean_up_whatever_they_own()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
