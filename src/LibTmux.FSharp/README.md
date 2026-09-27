@@ -90,16 +90,16 @@ let readEditorSessionNamesAsync cancellationToken server =
 `Server.capture` performs the only I/O in this example. `Query.matching`
 evaluates the portable filter against captured objects, materializes an
 `IReadOnlyList`, and preserves input order and placement multiplicity.
-The [complete example](https://github.com/libtmux/libtmux-dotnet/tree/master/examples/LibTmux.FSharp.Examples)
+The [complete example](https://github.com/libtmux/libtmux-dotnet/tree/fsharp/examples/LibTmux.FSharp.Examples)
 creates an owned tmux server and verifies that a portable filter and a native
 F# query select the same panes. A successful run writes
 `PASS F# snapshot and portable query example`.
 
-**Guides** — [getting started](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md)
-· [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md)
-· [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md)
-· [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
-· [API reference](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md)
+**Guides** — [getting started](https://github.com/libtmux/libtmux-dotnet/blob/fsharp/docs/fsharp/getting-started.md)
+· [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/fsharp/docs/fsharp/queries.md)
+· [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/fsharp/docs/fsharp/modes.md)
+· [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/fsharp/docs/fsharp/interop.md)
+· [API reference](https://github.com/libtmux/libtmux-dotnet/blob/fsharp/docs/fsharp/api.md)
 
 ## Native F# queries
 
