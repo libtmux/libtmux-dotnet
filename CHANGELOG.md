@@ -12,6 +12,24 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.17] — 2026-09-27
+
+Adds `LibTmux.FSharp` over the existing .NET handles, snapshots and query
+documents. Control mode now rejects foreground shell commands whose output
+cannot be framed, and pane observation retains output through departure and
+dropped-event boundaries. The workspace CLI gains per-command help examples
+and clearer errors when it cannot prompt.
+
+### Added
+
 - `tmux-workspace --help` ends with examples for the command it describes,
   and every command has them. `--generate reference` gives each command a
   usage line, its arguments and options with their value names, and the same
@@ -1184,7 +1202,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.16...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.17...HEAD
+[0.0.0-alpha.17]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.17
 [0.0.0-alpha.16]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.16
 [0.0.0-alpha.15]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.15
 [0.0.0-alpha.14]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.14

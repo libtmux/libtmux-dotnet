@@ -171,13 +171,13 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[10.1.302, )",
-          "LibTmux": "[0.0.0-alpha.16, )"
+          "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.16, )"
+          "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
@@ -366,13 +366,13 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[10.1.302, )",
-          "LibTmux": "[0.0.0-alpha.16, )"
+          "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.16, )"
+          "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
