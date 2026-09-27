@@ -52,7 +52,8 @@ let readOwnedPaneCommandsAsync (cancellationToken: CancellationToken) =
 The socket name is unique to this call. The owned session and server are
 stopped when the task finishes, including when it fails. `Server.capture`
 performs I/O; the sequence projection reads the captured result locally.
-With `/bin/sh`, the function returns `["sh"]`.
+The function returns one captured command name. For `/bin/sh`, tmux can report
+`sh` or `bash`, depending on the platform.
 
 ## Capture and filter
 

@@ -180,8 +180,9 @@ let private runAsync () =
 
         let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken
 
-        if ownedCommands <> [ "sh" ] then
-            failwithf "The package README did not read its owned pane: %A" ownedCommands
+        match ownedCommands with
+        | [ command ] when not (String.IsNullOrWhiteSpace command) -> ()
+        | _ -> failwithf "The package README did not read one owned pane command: %A" ownedCommands
 
         let! ownedPaneIds, foundPaneId =
             GuideSnippets.inspectOwnedSessionAsync cancellationToken
