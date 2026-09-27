@@ -141,11 +141,13 @@ public sealed class HierarchySnapshotTests
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await ConnectAsync(raw, token);
         Session session = Assert.Single(await server.GetSessionsAsync(token));
+        // tmux may auto-rename the window between these independent reads.
+        string capturedActiveWindowName = session.ActiveWindow.Value.Name;
         Window window = Assert.Single(await server.GetWindowsAsync(token));
         Pane pane = Assert.Single(await server.GetPanesAsync(token));
         Assert.Equal(0, (await raw.ExecuteAsync(["kill-server"], token)).ExitCode);
 
-        Assert.Equal(window.Name, session.ActiveWindow.Value.Name);
+        Assert.Equal(capturedActiveWindowName, session.ActiveWindow.Value.Name);
         Assert.Equal(pane.Width, session.ActivePane.Value.Width);
         Assert.Equal(pane.Height, window.ActivePane.Value.Height);
         Assert.Equal(raw.SessionName, window.Session.Name);
