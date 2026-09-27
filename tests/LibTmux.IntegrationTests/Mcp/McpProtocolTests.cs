@@ -128,14 +128,7 @@ public sealed class McpProtocolTests
             }
 
             _ = await standardError;
-            try
-            {
-                await endpoint.KillAsync(CancellationToken.None);
-            }
-            catch (LibTmuxException)
-            {
-            }
-
+            await endpoint.KillAsync(CancellationToken.None);
             Directory.Delete(root, recursive: true);
         }
     }
@@ -235,13 +228,7 @@ public sealed class McpProtocolTests
                 await process.WaitForExitAsync(CancellationToken.None);
             }
             _ = await standardError;
-            try
-            {
-                await endpoint.KillAsync(CancellationToken.None);
-            }
-            catch (LibTmuxException)
-            {
-            }
+            await endpoint.KillAsync(CancellationToken.None);
             Directory.Delete(root, recursive: true);
         }
         Assert.False(Directory.Exists(root));
@@ -903,23 +890,16 @@ public sealed class McpProtocolTests
         }
         finally
         {
-            try
+            await Server.Open(new ServerConnectionOptions
             {
-                await Server.Open(new ServerConnectionOptions
+                TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
+                SocketName = "libtmux-mcp",
+                ConfigurationFile = McpStartup.MinimalConfigurationPath,
+                ChildEnvironment = new Dictionary<string, string?>
                 {
-                    TmuxBinaryPath = environment["LIBTMUX_TMUX"]!,
-                    SocketName = "libtmux-mcp",
-                    ConfigurationFile = McpStartup.MinimalConfigurationPath,
-                    ChildEnvironment = new Dictionary<string, string?>
-                    {
-                        ["TMUX_TMPDIR"] = root,
-                    }
-                })
-                    .KillAsync(CancellationToken.None);
-            }
-            catch (LibTmuxException)
-            {
-            }
+                    ["TMUX_TMPDIR"] = root,
+                }
+            }).KillAsync(CancellationToken.None);
 
             Directory.Delete(root, recursive: true);
         }
@@ -1312,22 +1292,13 @@ public sealed class McpProtocolTests
             await Client.DisposeAsync().ConfigureAwait(false);
             await _server.DisposeAsync().ConfigureAwait(false);
             await _services.DisposeAsync().ConfigureAwait(false);
-            try
+            Server tmux = Server.Open(new ServerConnectionOptions
             {
-                Server tmux = await Server.ConnectAsync(
-                        new ServerConnectionOptions
-                        {
-                            TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
-                            SocketName = _socketName,
-                            ConfigurationFile = "/dev/null",
-                        },
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                await tmux.KillAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (LibTmuxException)
-            {
-            }
+                TmuxBinaryPath = System.Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+                SocketName = _socketName,
+                ConfigurationFile = "/dev/null",
+            });
+            await tmux.KillAsync(CancellationToken.None).ConfigureAwait(false);
         }
     }
 }
