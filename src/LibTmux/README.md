@@ -270,6 +270,33 @@ parent and child graph. Reading any of these properties performs no I/O.
 
 ## Running something, and reading it back
 
+`RunCommandAsync` waits for a POSIX shell command and reports its real exit
+status. A timeout returns `TimedOut = true` and `ExitStatus = null`; the
+command may still be running, so do not retry it automatically. The server
+remains owned by its caller. Runs to the same server generation and pane are
+reserved within one process; separate processes are not coordinated.
+
+```csharp run
+PaneCommandResult run = await pane.RunCommandAsync(
+    "printf 'hello-from-libtmux\\n'",
+    TimeSpan.FromSeconds(10),
+    cancellationToken: ct);
+if (run.ExitStatus != 0)
+{
+    throw new InvalidOperationException($"Command exited {run.ExitStatus}.");
+}
+
+IReadOnlyList<string> screen = await pane.CaptureAsync(cancellationToken: ct);
+if (!screen.Any(line => line.Contains("hello-from-libtmux", StringComparison.Ordinal)))
+{
+    throw new InvalidOperationException("Command output was not visible in the pane.");
+}
+```
+
+`RunCommandAsync` does not capture output. `CaptureAsync` reads rendered pane
+text, which is not a byte-exact stdout or stderr stream. For interactive
+programs, `SendTextAsync` types input without assuming a shell command ended.
+
 `SendTextAsync` types leading dashes, semicolons and newlines as input. NUL
 is rejected before dispatch. Setting `enter: false` omits the extra Enter
 key; it does not remove newlines already present in the text.

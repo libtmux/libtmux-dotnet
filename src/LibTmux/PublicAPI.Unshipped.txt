@@ -2029,3 +2029,24 @@ LibTmux.TmuxWaitChannel.CloseAsync(System.Threading.CancellationToken cancellati
 LibTmux.Window.UnlinkAsync(bool killIfLast, System.Collections.Generic.IReadOnlyList<LibTmux.PaneId>! expectedPaneIds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.SplitPaneRequest.ExpectedWindowId.get -> LibTmux.WindowId?
 LibTmux.SplitPaneRequest.ExpectedWindowId.init -> void
+LibTmux.Pane.RunCommandAsync(string! command, System.TimeSpan? timeout = null, bool suppressHistory = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneCommandResult!>!
+LibTmux.PaneCommandResult
+LibTmux.PaneCommandResult.<Clone>$() -> LibTmux.PaneCommandResult!
+LibTmux.PaneCommandResult.Deconstruct(out LibTmux.PaneId PaneId, out int? ExitStatus, out bool TimedOut, out System.TimeSpan Elapsed, out System.TimeSpan EffectiveTimeout) -> void
+LibTmux.PaneCommandResult.EffectiveTimeout.get -> System.TimeSpan
+LibTmux.PaneCommandResult.EffectiveTimeout.init -> void
+LibTmux.PaneCommandResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneCommandResult.Elapsed.init -> void
+LibTmux.PaneCommandResult.Equals(LibTmux.PaneCommandResult? other) -> bool
+LibTmux.PaneCommandResult.ExitStatus.get -> int?
+LibTmux.PaneCommandResult.ExitStatus.init -> void
+LibTmux.PaneCommandResult.PaneCommandResult(LibTmux.PaneId PaneId, int? ExitStatus, bool TimedOut, System.TimeSpan Elapsed, System.TimeSpan EffectiveTimeout) -> void
+LibTmux.PaneCommandResult.PaneId.get -> LibTmux.PaneId
+LibTmux.PaneCommandResult.PaneId.init -> void
+LibTmux.PaneCommandResult.TimedOut.get -> bool
+LibTmux.PaneCommandResult.TimedOut.init -> void
+override LibTmux.PaneCommandResult.Equals(object? obj) -> bool
+override LibTmux.PaneCommandResult.GetHashCode() -> int
+override LibTmux.PaneCommandResult.ToString() -> string!
+static LibTmux.PaneCommandResult.operator !=(LibTmux.PaneCommandResult? left, LibTmux.PaneCommandResult? right) -> bool
+static LibTmux.PaneCommandResult.operator ==(LibTmux.PaneCommandResult? left, LibTmux.PaneCommandResult? right) -> bool

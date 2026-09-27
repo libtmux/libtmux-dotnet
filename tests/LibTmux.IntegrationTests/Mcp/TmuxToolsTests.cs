@@ -985,6 +985,31 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task Public_pane_run_source_line_is_hidden_from_later_mcp_capture()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        PaneCommandResult run = await scope.Pane.RunCommandAsync(
+            "printf 'public-visible\\n'",
+            TimeSpan.FromSeconds(10),
+            cancellationToken: token);
+        Assert.Equal(0, run.ExitStatus);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            scope.Pane.Id.ToString(),
+            includeHistory: true,
+            cancellationToken: token);
+        Assert.Contains("public-visible", captured.Content.Lines);
+        Assert.DoesNotContain(captured.Content.Lines, line =>
+            line.Contains("libtmux-run-", StringComparison.Ordinal));
+    }
+
+    [UnixFact]
     public async Task A_wide_prompt_does_not_swallow_what_the_command_printed()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

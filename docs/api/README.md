@@ -53,6 +53,7 @@ modes differ.
 | `LibTmux.OwnedSessionScope` | Owns a session and stops it when disposed. |
 | `LibTmux.OwnedWindowScope` | Owns a window and stops it when disposed. |
 | `LibTmux.Pane` | Represents an immutable pane handle and snapshot. |
+| `LibTmux.PaneCommandResult` | Reports the authenticated outcome of a command sent to one pane. |
 | `LibTmux.PaneDirection` | Defines pane placement directions. |
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
@@ -259,6 +260,7 @@ modes differ.
 | `LibTmux.Pane.ResetAsync(System.Threading.CancellationToken)` | Resets the pane's terminal state and drops its history. |
 | `LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest,System.Threading.CancellationToken)` | Resizes this pane. |
 | `LibTmux.Pane.RespawnAsync(LibTmux.RespawnRequest,System.Threading.CancellationToken)` | Restarts the command running in this pane. |
+| `LibTmux.Pane.RunCommandAsync(System.String,System.Nullable{System.TimeSpan},System.Boolean,System.Threading.CancellationToken)` | Runs a shell command in this pane and reports its exit status. |
 | `LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest,System.Threading.CancellationToken)` | Selects this pane. |
 | `LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest,System.Threading.CancellationToken)` | Sends keys to the pane. |
 | `LibTmux.Pane.SendPrefixAsync(System.Boolean,System.Threading.CancellationToken)` | Sends the configured prefix key to the pane. |
@@ -270,6 +272,7 @@ modes differ.
 | `LibTmux.Pane.SwapAsync(LibTmux.SwapPaneRequest,System.Threading.CancellationToken)` | Swaps this pane with another. |
 | `LibTmux.Pane.op_Equality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name the same pane. |
 | `LibTmux.Pane.op_Inequality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name different panes. |
+| `LibTmux.PaneCommandResult.#ctor(LibTmux.PaneId,System.Nullable{System.Int32},System.Boolean,System.TimeSpan,System.TimeSpan)` | Reports the authenticated outcome of a command sent to one pane. |
 | `LibTmux.PaneId.#ctor(System.Int32)` | Initializes a pane identifier. |
 | `LibTmux.PaneId.CompareTo(LibTmux.PaneId)` | Orders this identifier against another numerically. |
 | `LibTmux.PaneId.Parse(System.ReadOnlySpan{System.Char})` | Parses a prefixed pane identifier from a span. |
@@ -833,6 +836,11 @@ modes differ.
 | `LibTmux.Pane.Top` | Gets the pane's top offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
+| `LibTmux.PaneCommandResult.EffectiveTimeout` | The timeout applied to this run. |
+| `LibTmux.PaneCommandResult.Elapsed` | The time spent staging and waiting for the command. |
+| `LibTmux.PaneCommandResult.ExitStatus` | The shell exit status when completion was authenticated; otherwise null. |
+| `LibTmux.PaneCommandResult.PaneId` | The pane that received the command. |
+| `LibTmux.PaneCommandResult.TimedOut` | Whether the completion wait expired while the command may still be running. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
 | `LibTmux.PasteBufferRequest.Bracketed` | Gets whether the paste is bracketed. |
 | `LibTmux.PasteBufferRequest.DeleteAfter` | Gets whether the buffer is deleted once pasted. |
