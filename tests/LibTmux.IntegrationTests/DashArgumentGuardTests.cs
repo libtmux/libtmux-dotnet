@@ -40,8 +40,17 @@ public sealed class DashArgumentGuardTests
         // it was. Guarded, "-R" is delivered as the two literal characters.
         await scope.Pane.SendTextAsync("-R", enter: false, cancellationToken: token);
 
-        IReadOnlyList<string> lines = await scope.Pane.CaptureAsync(cancellationToken: token);
-        Assert.Contains(lines, line => line.Contains("-R", StringComparison.Ordinal));
+        string captured = await TmuxWait.UntilAsync(
+            async cancellation => string.Join(
+                '\n',
+                await scope.Pane.CaptureAsync(
+                    new CapturePaneRequest { JoinWrappedLines = true },
+                    cancellation)),
+            text => text.Contains("-R", StringComparison.Ordinal),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(20),
+            token);
+        Assert.Contains("-R", captured, StringComparison.Ordinal);
     }
 
     [UnixFact]
