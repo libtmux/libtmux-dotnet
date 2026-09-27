@@ -14,11 +14,17 @@ version.
 
 ### Fixed
 
+- `LibTmux.Testing` gives each default test scope its own tmux socket, so
+  parallel scopes cannot stop one another's servers. (#36)
+
 ### Changed
 
 ### Removed
 
 ### Development
+
+- macOS real-tmux CI waits for observable pane state and offers a restricted
+  debug shell for investigating runner failures. (#36)
 
 ## [0.0.0-alpha.17] — 2026-09-27
 
