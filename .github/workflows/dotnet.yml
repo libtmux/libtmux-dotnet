@@ -380,6 +380,16 @@ jobs:
       - name: Build
         run: dotnet build LibTmux.slnx --configuration Release --no-restore --warnaserror
 
+      - name: F# example console
+        run: |
+          for framework in net8.0 net10.0; do
+            dotnet run \
+              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --no-build
+          done
+
       - name: Unit tests
         run: >
           dotnet test tests/LibTmux.UnitTests/LibTmux.UnitTests.csproj
@@ -402,16 +412,6 @@ jobs:
           dotnet test tests/LibTmux.IntegrationTests/LibTmux.IntegrationTests.csproj
           --configuration Release --no-build --framework net10.0
           -- --minimum-expected-tests 400
-
-      - name: F# example console
-        run: |
-          for framework in net8.0 net10.0; do
-            dotnet run \
-              --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
-              --configuration Release \
-              --framework "${framework}" \
-              --no-build
-          done
 
   # Windows builds but does not run tmux, so this lane proves the half that a
   # Linux runner cannot: that the tree still compiles for a Windows consumer.
