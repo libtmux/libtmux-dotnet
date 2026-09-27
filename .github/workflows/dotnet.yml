@@ -12,7 +12,7 @@ on:
     inputs:
       debug_enabled:
         type: boolean
-        description: Open a restricted tmate session after the macOS job
+        description: Open a restricted SSH session after the macOS job
         default: false
 
 permissions:
@@ -472,24 +472,25 @@ jobs:
       - name: Inspect the macOS runner
         id: debug
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
-        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3
-        timeout-minutes: 10
+        uses: owenthereal/action-upterm@eec00cabd6cdaa61f61ca9f4939852fcfd2b285f # v2.2.0
         with:
           detached: true
           limit-access-to-actor: true
+          upterm-version: v0.32.1
+          wait-timeout-minutes: 5
 
       - name: Save the restricted debug SSH address
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-address != '' }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
         env:
-          TMATE_SSH_ADDRESS: ${{ steps.debug.outputs.ssh-address }}
-        run: printf '%s\n' "$TMATE_SSH_ADDRESS" > "$RUNNER_TEMP/tmate-ssh-address.txt"
+          DEBUG_SSH_COMMAND: ${{ steps.debug.outputs.ssh-command }}
+        run: printf '%s\n' "$DEBUG_SSH_COMMAND" > "$RUNNER_TEMP/debug-ssh-command.txt"
 
       - name: Retain the restricted debug connection
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-address != '' }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled && steps.debug.outputs.ssh-command != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tmate-connection
-          path: ${{ runner.temp }}/tmate-ssh-address.txt
+          name: debug-connection
+          path: ${{ runner.temp }}/debug-ssh-command.txt
           retention-days: 1
           if-no-files-found: error
 
