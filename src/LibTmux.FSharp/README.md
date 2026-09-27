@@ -1,9 +1,10 @@
 # LibTmux.FSharp
 
 Compose tmux from F# with task helpers, native sequences, and typed portable
-filters over the existing [LibTmux](https://github.com/libtmux/libtmux-dotnet/)
-objects. This package and the core share a repository, release version, and
-primary author in the `libtmux` organization.
+filters over the existing [LibTmux](https://www.nuget.org/packages/LibTmux)
+objects. The [F# package](https://www.nuget.org/packages/LibTmux.FSharp) and
+core share a repository, release version, and primary author in the `libtmux`
+organization.
 
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![tmux matrix](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
@@ -55,8 +56,9 @@ Enter it:
 $ cd tmux-demo
 ```
 
-Add the F# package; it brings in the matching `LibTmux` core package and
-records the selected prerelease version in the project:
+Add [LibTmux.FSharp](https://www.nuget.org/packages/LibTmux.FSharp) from NuGet;
+it brings in the matching `LibTmux` core package and records the selected
+prerelease version in the project:
 
 ```console
 $ dotnet package add LibTmux.FSharp --prerelease
