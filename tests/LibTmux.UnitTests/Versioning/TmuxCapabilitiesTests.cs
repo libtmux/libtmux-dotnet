@@ -661,8 +661,8 @@ public sealed class TmuxCapabilitiesTests
             Path.GetTempPath(),
             $"libtmux-version-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        string temporary = Path.Combine(directory, "tmux-version.tmp");
-        string executable = Path.Combine(directory, "tmux-version");
+        string temporary = Path.Join(directory, "tmux-version.tmp");
+        string executable = Path.Join(directory, "tmux-version");
         File.WriteAllText(temporary, $"#!/bin/sh\n{body}\n", new UTF8Encoding(false));
         File.SetUnixFileMode(
             temporary,
