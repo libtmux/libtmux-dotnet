@@ -8,6 +8,7 @@ Nothing here is a promise about your machine.
 | Collected | tmux | Library | Record |
 |---|---|---|---|
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
+| 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 
 ## Why a record rather than a number
 
@@ -25,19 +26,18 @@ holds only at the mean is a claim about that afternoon.
 
 ## What is comparable and what is not
 
-**Comparable across machines:** the shape. One-shot cost grows with the number
-of commands because each one starts a process. Chained cost does not, because
-all of them share one. Control-mode cost grows, but by a round trip rather than
-a process. Those orderings held in every run recorded here.
+**Comparable across machines:** the shape. The command-count record shows
+one-shot cost growing with each process, while a chain shares one process.
+The five-mode workload holds the command count fixed and checks the same
+results through each route.
 
 **Not comparable across machines:** the milliseconds, and the crossover between
 chaining and control mode. Which of the two wins at fifty commands depends on
 what a process start costs relative to a round trip, and that ratio is a
 property of the host. Both orders have been measured here.
 
-**Comparable exactly:** allocation. It repeated byte-for-byte across runs while
-the timings moved by a factor of five, so it is what a change should be checked
-against.
+**Compare allocations within one workload and runtime.** The records include
+allocated bytes alongside timing; changing the workload changes that count.
 
 ## Reproducing
 

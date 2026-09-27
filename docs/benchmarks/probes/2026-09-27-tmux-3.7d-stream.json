@@ -1,0 +1,141 @@
+{
+  "schema": "libtmux-stream-record-v1",
+  "collectedUtc": "2026-09-27T10:18:22.9288203+00:00",
+  "sourceCommit": "3f3243068bd122030fe71caa7908f0bdcbff18fd",
+  "sourceClean": true,
+  "evidenceStatus": "clean-source",
+  "sourceTreeFingerprint": null,
+  "sourceTreeFingerprintBefore": null,
+  "sourceTreeFingerprintAfter": null,
+  "tmuxVersion": "3.7d",
+  "runtime": ".NET 10.0.11",
+  "os": "Ubuntu 24.04.5 LTS",
+  "architecture": "X64",
+  "processors": 10,
+  "rawSha256": "1a84c2d9e857bc6da538605a1f9fc582025f0cbfdb2b39173da9cec6a1e35300",
+  "rawSampleCount": 54,
+  "method": {
+    "tool": "StreamingProbe",
+    "samplesPerPayload": 20,
+    "warmupsPerPayload": 2,
+    "overflowSamples": 5,
+    "disposalSamples": 5,
+    "percentiles": "linear interpolation at p*(n-1)"
+  },
+  "cases": [
+    {
+      "scenario": "latency",
+      "samples": 20,
+      "measurements": {
+        "firstOutputMs": {
+          "median": 23.3112,
+          "p95": 24.92151,
+          "p99": 25.025022
+        },
+        "completeOutputMs": {
+          "median": 24.639850000000003,
+          "p95": 26.44376,
+          "p99": 26.540432
+        },
+        "endToEndBytesPerSecond": {
+          "median": 2597.419030821048,
+          "p95": 2716.0193099497765,
+          "p99": 2755.755772692743
+        },
+        "outputEvents": {
+          "median": 20.0,
+          "p95": 26.05,
+          "p99": 26.81
+        },
+        "processAllocatedBytes": {
+          "median": 46480.0,
+          "p95": 51076.8,
+          "p99": 51879.36
+        }
+      }
+    },
+    {
+      "scenario": "throughput",
+      "samples": 20,
+      "measurements": {
+        "firstOutputMs": {
+          "median": 24.03465,
+          "p95": 58.894875000000006,
+          "p99": 68.17409499999998
+        },
+        "completeOutputMs": {
+          "median": 32.646550000000005,
+          "p95": 74.60217000000002,
+          "p99": 84.03483399999999
+        },
+        "endToEndBytesPerSecond": {
+          "median": 8029799.646807635,
+          "p95": 8476785.254074933,
+          "p99": 8571580.87748244
+        },
+        "outputEvents": {
+          "median": 210.0,
+          "p95": 265.0,
+          "p99": 280.2
+        },
+        "processAllocatedBytes": {
+          "median": 3058224.0,
+          "p95": 3076731.2,
+          "p99": 3087723.84
+        }
+      }
+    },
+    {
+      "scenario": "notification-buffer-overflow",
+      "samples": 5,
+      "measurements": {
+        "count": {
+          "median": 25,
+          "p95": 25.0,
+          "p99": 25.0
+        },
+        "totalDropped": {
+          "median": 25,
+          "p95": 25.0,
+          "p99": 25.0
+        },
+        "barrierMs": {
+          "median": 2.9188,
+          "p95": 14.841339999999999,
+          "p99": 17.141548
+        },
+        "processAllocatedBytes": {
+          "median": 344248,
+          "p95": 347230.4,
+          "p99": 347826.88
+        },
+        "processHeapBeforeBytes": {
+          "median": 986656,
+          "p95": 986656.0,
+          "p99": 986656.0
+        },
+        "processHeapAfterBytes": {
+          "median": 988272,
+          "p95": 988272.0,
+          "p99": 988272.0
+        }
+      }
+    },
+    {
+      "scenario": "pending-reader-disposal",
+      "samples": 5,
+      "measurements": {
+        "disposalMs": {
+          "median": 0.4814,
+          "p95": 0.61778,
+          "p99": 0.638596
+        },
+        "readerCompletionMs": {
+          "median": 0.4884,
+          "p95": 0.7297399999999999,
+          "p99": 0.746748
+        }
+      }
+    }
+  ]
+}

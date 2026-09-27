@@ -1,0 +1,183 @@
+{
+  "schema": "libtmux-topology-mode-record-v1",
+  "collectedUtc": "2026-09-27T10:17:14.2724287+00:00",
+  "sourceCommit": "3f3243068bd122030fe71caa7908f0bdcbff18fd",
+  "sourceClean": true,
+  "evidenceStatus": "clean-source",
+  "sourceTreeFingerprint": null,
+  "sourceTreeFingerprintBefore": null,
+  "sourceTreeFingerprintAfter": null,
+  "tmuxBinaryPath": "/usr/local/bin/tmux",
+  "tmuxBinarySha256": "67f5ab7a73c1382628acef557bafdc2014889813170c6255fd0055e0f97de05b",
+  "tmuxVersion": "3.7d",
+  "runtime": ".NET 10.0.11",
+  "os": "Ubuntu 24.04.5 LTS",
+  "architecture": "X64",
+  "processors": 10,
+  "cpuModel": "12th Gen Intel(R) Core(TM) i7-12700H",
+  "rawSha256": "aaf6336e47658d43c515a0628cec54d3ae0548e113fb8f466947be4c86629341",
+  "method": {
+    "tool": "TopologyModeProbe",
+    "warmupRounds": 5,
+    "measuredRounds": 20,
+    "itemsPerSample": 8,
+    "concurrencyCap": 4,
+    "modeOrder": [
+      "serial-process",
+      "concurrent-process",
+      "process-chain",
+      "serial-control",
+      "concurrent-control"
+    ],
+    "interleaved": true,
+    "percentiles": "linear interpolation at p*(n-1)"
+  },
+  "topologies": [
+    {
+      "topology": "small",
+      "physicalWindows": 1,
+      "placements": 1,
+      "queryRows": 1,
+      "distinctPaneIds": 1,
+      "setupMs": 612.0336
+    },
+    {
+      "topology": "medium",
+      "physicalWindows": 4,
+      "placements": 8,
+      "queryRows": 8,
+      "distinctPaneIds": 4,
+      "setupMs": 480.3325
+    },
+    {
+      "topology": "large",
+      "physicalWindows": 16,
+      "placements": 32,
+      "queryRows": 32,
+      "distinctPaneIds": 16,
+      "setupMs": 1258.3911
+    }
+  ],
+  "cases": [
+    {
+      "topology": "small",
+      "mode": "serial-process",
+      "samples": 20,
+      "medianMs": 301.90395,
+      "p95Ms": 383.49129500000004,
+      "p99Ms": 387.74113900000003
+    },
+    {
+      "topology": "small",
+      "mode": "concurrent-process",
+      "samples": 20,
+      "medianMs": 125.94035,
+      "p95Ms": 147.71381499999998,
+      "p99Ms": 154.379243
+    },
+    {
+      "topology": "small",
+      "mode": "process-chain",
+      "samples": 20,
+      "medianMs": 11.94375,
+      "p95Ms": 24.171945000000008,
+      "p99Ms": 30.43350899999999
+    },
+    {
+      "topology": "small",
+      "mode": "serial-control",
+      "samples": 20,
+      "medianMs": 20.14585,
+      "p95Ms": 39.36266,
+      "p99Ms": 39.687332
+    },
+    {
+      "topology": "small",
+      "mode": "concurrent-control",
+      "samples": 20,
+      "medianMs": 7.938000000000001,
+      "p95Ms": 18.17882,
+      "p99Ms": 20.019843999999996
+    },
+    {
+      "topology": "medium",
+      "mode": "serial-process",
+      "samples": 20,
+      "medianMs": 288.76255000000003,
+      "p95Ms": 384.44180500000004,
+      "p99Ms": 389.822681
+    },
+    {
+      "topology": "medium",
+      "mode": "concurrent-process",
+      "samples": 20,
+      "medianMs": 119.88730000000001,
+      "p95Ms": 173.45726000000002,
+      "p99Ms": 186.26417199999997
+    },
+    {
+      "topology": "medium",
+      "mode": "process-chain",
+      "samples": 20,
+      "medianMs": 13.70935,
+      "p95Ms": 21.341745000000003,
+      "p99Ms": 23.658908999999994
+    },
+    {
+      "topology": "medium",
+      "mode": "serial-control",
+      "samples": 20,
+      "medianMs": 23.541150000000002,
+      "p95Ms": 48.65915000000001,
+      "p99Ms": 60.81534999999998
+    },
+    {
+      "topology": "medium",
+      "mode": "concurrent-control",
+      "samples": 20,
+      "medianMs": 10.642949999999999,
+      "p95Ms": 19.805905000000003,
+      "p99Ms": 21.076701
+    },
+    {
+      "topology": "large",
+      "mode": "serial-process",
+      "samples": 20,
+      "medianMs": 231.62515000000002,
+      "p95Ms": 336.96461500000004,
+      "p99Ms": 352.257563
+    },
+    {
+      "topology": "large",
+      "mode": "concurrent-process",
+      "samples": 20,
+      "medianMs": 109.13855,
+      "p95Ms": 138.616005,
+      "p99Ms": 146.52464099999997
+    },
+    {
+      "topology": "large",
+      "mode": "process-chain",
+      "samples": 20,
+      "medianMs": 8.61225,
+      "p95Ms": 23.802795000000003,
+      "p99Ms": 28.238078999999992
+    },
+    {
+      "topology": "large",
+      "mode": "serial-control",
+      "samples": 20,
+      "medianMs": 9.1466,
+      "p95Ms": 36.576695,
+      "p99Ms": 36.629819
+    },
+    {
+      "topology": "large",
+      "mode": "concurrent-control",
+      "samples": 20,
+      "medianMs": 7.3713,
+      "p95Ms": 15.535495000000001,
+      "p99Ms": 16.149499
+    }
+  ]
+}
