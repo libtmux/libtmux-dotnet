@@ -1741,6 +1741,34 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Completed_run_keeps_input_reservation_until_its_output_is_captured()
+    {
+        await using var owner = new ToolFixture { BlockCaptureAttempt = 2 };
+        await using var contender = new ToolFixture();
+        Task<RunResult> running = owner.Capabilities.RunShellCommandAsync(
+            "echo owner",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        await owner.CaptureBlocked.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                contender.Capabilities.SendKeysAsync(
+                    "taint output",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(0, contender.SuccessfulSends);
+        }
+        finally
+        {
+            owner.ReleaseCapture();
+            _ = await running;
+        }
+    }
+
+    [Fact]
     public async Task A_run_refuses_in_flight_input_through_another_binary_route()
     {
         await using var writer = new ToolFixture { BlockFirstSend = true };
@@ -1869,6 +1897,61 @@ public sealed class WriteToolsExecutionSafetyTests
             {
                 writer.ReleaseFirstSend();
                 _ = await writing;
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Distinct_socket_endpoints_do_not_share_command_reservations()
+    {
+        string directory = SocketRoots.Reserve("distinct-runs");
+        string firstPath = Path.Combine(directory, "first.sock");
+        string secondPath = Path.Combine(directory, "second.sock");
+        Directory.CreateDirectory(directory);
+        using Socket firstEndpoint = CreateBoundSocket(firstPath);
+        using Socket secondEndpoint = CreateBoundSocket(secondPath);
+        try
+        {
+            await using var owner = new ToolFixture(socketPath: firstPath)
+            {
+                BlockFirstWait = true,
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: firstPath)],
+                ],
+            };
+            await using var independent = new ToolFixture(
+                socketPath: secondPath,
+                generation: new ServerGeneration(122, 1202))
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: secondPath)],
+                ],
+            };
+            Task<RunResult> first = owner.Capabilities.RunShellCommandAsync(
+                "printf first",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken);
+            await owner.FirstWaitStarted.WaitAsync(TestContext.Current.CancellationToken);
+            try
+            {
+                RunResult second = await independent.Capabilities.RunShellCommandAsync(
+                    "printf second",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+                Assert.Equal(0, second.ExitStatus);
+                Assert.Equal(1, independent.SuccessfulSends);
+            }
+            finally
+            {
+                owner.ReleaseFirstWait();
+                _ = await first;
             }
         }
         finally
@@ -2917,6 +3000,10 @@ public sealed class WriteToolsExecutionSafetyTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _statusUnsetObserved = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _captureBlocked = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseCapture = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal ToolFixture(
             ServerPolicy? policy = null,
@@ -2971,6 +3058,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal bool BlockFirstSend { get; init; }
 
         internal int? BlockPaneListingAttempt { get; init; }
+
+        internal int? BlockCaptureAttempt { get; init; }
 
         internal bool TimeoutFirstWait { get; init; }
 
@@ -3051,6 +3140,8 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal Task WaitSignalBlocked => _waitSignalBlocked.Task;
 
+        internal Task CaptureBlocked => _captureBlocked.Task;
+
         internal WriteTools Tools { get; }
 
         internal ReadTools Reads { get; }
@@ -3075,6 +3166,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal void ReleasePaneListing() => _releasePaneListing.TrySetResult();
 
         internal void ReleaseWaitSignal() => _releaseWaitSignal.TrySetResult();
+
+        internal void ReleaseCapture() => _releaseCapture.TrySetResult();
 
         internal void PublishStatus(string? status) => Volatile.Write(ref _statusValue, status);
 
@@ -3238,6 +3331,13 @@ public sealed class WriteToolsExecutionSafetyTests
             {
                 StatusUnsetTokenWasCancelled |= cancellationToken.IsCancellationRequested;
                 _statusUnsetObserved.TrySetResult();
+            }
+
+            if (arguments.Contains("capture-pane", StringComparer.Ordinal)
+                && BlockCaptureAttempt == Volatile.Read(ref _captureCount) + 1)
+            {
+                _captureBlocked.TrySetResult();
+                await _releaseCapture.Task.WaitAsync(cancellationToken);
             }
 
             return Success(arguments, Output(arguments));

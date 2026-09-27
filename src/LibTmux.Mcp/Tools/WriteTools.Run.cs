@@ -258,6 +258,10 @@ internal sealed partial class WriteTools
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumBytes);
+        if (command.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new McpException("The command cannot contain NUL.");
+        }
         if (command.Length > maximumBytes)
         {
             throw RunCommandTooLarge(
