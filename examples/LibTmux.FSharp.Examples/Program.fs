@@ -56,6 +56,108 @@ let private verifyPackedAssembly () =
         then
             failwith "The F# example did not load the expected packed LibTmux.FSharp assembly."
 
+let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
+    task {
+        let mutable started = 0
+        let mutable active = 0
+        let failure = InvalidOperationException("expected bounded worker failure")
+
+        let failingWork (_: CancellationToken) value =
+            task {
+                Interlocked.Increment(&started) |> ignore
+                Interlocked.Increment(&active) |> ignore
+
+                try
+                    do! Task.Yield()
+
+                    if value <= 2 then
+                        raise failure
+
+                    return value
+                finally
+                    Interlocked.Decrement(&active) |> ignore
+            }
+
+        let failing =
+            GuideSnippets.boundedMapAsync 2 cancellationToken failingWork [ 1; 2; 3; 4 ]
+
+        let mutable observedFailure = false
+
+        try
+            let! _ = failing.WaitAsync(TimeSpan.FromMilliseconds 750., cancellationToken)
+            ()
+        with :? InvalidOperationException as error when obj.ReferenceEquals(error, failure) ->
+            observedFailure <- true
+
+        if not observedFailure || started <> 4 || active <> 0 then
+            failwith "The bounded helper did not drain all workers after failure."
+
+        use canceled = new CancellationTokenSource()
+        let token = canceled.Token
+
+        let entered =
+            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+        let held =
+            TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+        let mutable cancelStarted = 0
+        let mutable cancelActive = 0
+        let mutable cancelMaximum = 0
+        let maximumLock = obj ()
+
+        let cancelableWork (workToken: CancellationToken) value =
+            task {
+                let active = Interlocked.Increment(&cancelActive)
+                lock maximumLock (fun () -> cancelMaximum <- max cancelMaximum active)
+
+                if Interlocked.Increment(&cancelStarted) = 2 then
+                    entered.TrySetResult() |> ignore
+
+                try
+                    do! held.Task.WaitAsync(workToken)
+                    return value
+                finally
+                    Interlocked.Decrement(&cancelActive) |> ignore
+            }
+
+        let pending = GuideSnippets.boundedMapAsync 2 token cancelableWork [ 1; 2; 3; 4 ]
+
+        try
+            do! entered.Task.WaitAsync(TimeSpan.FromMilliseconds 750., cancellationToken)
+
+            if cancelStarted <> 2 || cancelMaximum <> 2 then
+                failwith "The bounded helper did not hold two workers before cancellation."
+
+            canceled.Cancel()
+
+            let mutable observedCancellation = false
+
+            try
+                let! _ = pending.WaitAsync(TimeSpan.FromMilliseconds 750., cancellationToken)
+                ()
+            with :? OperationCanceledException as error when error.CancellationToken = token ->
+                observedCancellation <- true
+
+            if
+                not observedCancellation
+                || not pending.IsCanceled
+                || cancelMaximum > 2
+                || cancelActive <> 0
+            then
+                failwithf
+                    "Bounded cancellation: observed=%b taskCanceled=%b started=%d maximum=%d active=%d status=%A"
+                    observedCancellation
+                    pending.IsCanceled
+                    cancelStarted
+                    cancelMaximum
+                    cancelActive
+                    pending.Status
+        finally
+            canceled.Cancel()
+            held.TrySetCanceled(token) |> ignore
+    }
+
 let private runAsync () =
     task {
         verifyPackedAssembly ()
@@ -75,6 +177,20 @@ let private runAsync () =
 
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
+
+        let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken
+
+        if ownedCommands <> [ "sh" ] then
+            failwithf "The package README did not read its owned pane: %A" ownedCommands
+
+        let! ownedPaneIds, foundPaneId =
+            GuideSnippets.inspectOwnedSessionAsync cancellationToken
+
+        if
+            ownedPaneIds.Length <> 2
+            || not (foundPaneId |> Option.exists (fun id -> List.contains id ownedPaneIds))
+        then
+            failwith "The getting-started guide did not find its new pane."
 
         let! captured = scope.Server |> Server.capture cancellationToken SnapshotDepth.Panes
 
@@ -103,6 +219,26 @@ let private runAsync () =
 
         if chained <> [ "fsharp-chain-first"; "fsharp-chain-second" ] then
             failwith "The chaining guide did not preserve command order."
+
+        let! indexedOption, inheritedOption, hookIndex, renderedFormat =
+            GuideSnippets.inspectCoreSettingsAsync cancellationToken scope.Server scope.Session
+
+        printfn
+            "Core interop: command-alias[%d], inherited status-keys=%s, hook[%d], %s"
+            indexedOption
+            inheritedOption
+            hookIndex
+            renderedFormat
+
+        do!
+            GuideSnippets.exerciseCoreOperationsAsync
+                cancellationToken
+                scope.Server
+                scope.Session
+                scope.Window
+                scope.Pane
+
+        do! GuideSnippets.exerciseWindowInputAsync cancellationToken scope.Session
 
         let encodedFilter = GuideSnippets.encodeEditorPaneFilter ()
         let decodedFilter = GuideSnippets.decodeFilter encodedFilter
@@ -141,6 +277,8 @@ let private runAsync () =
 
         if squared <> [ 1; 4; 9; 16 ] || maximumInFlight <> 2 then
             failwith "The bounded-concurrency guide did not preserve its bound and input order."
+
+        do! verifyBoundedCleanupAsync cancellationToken
 
         let! captures =
             GuideSnippets.capturePanesBoundedAsync 2 cancellationToken captured.Panes

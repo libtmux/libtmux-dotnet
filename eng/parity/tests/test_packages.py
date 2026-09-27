@@ -147,6 +147,7 @@ def test_matching_source_and_archive_cannot_expand_allowed_dependencies(
         check=True,
     )
     shutil.copy2(ROOT / "docs/public-api.json", source / "docs/public-api.json")
+    shutil.copy2(ROOT / "src/LibTmux.FSharp/README.md", source / "src/LibTmux.FSharp/README.md")
     packages = tmp_path / "packages"
     shutil.copytree(artifacts, packages)
     baseline = inspect(packages, source)

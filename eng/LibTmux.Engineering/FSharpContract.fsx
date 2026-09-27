@@ -3,6 +3,7 @@
 open System
 open System.IO
 open System.Text.RegularExpressions
+open System.Text.Json
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Text
@@ -27,6 +28,31 @@ let queryJsonAssembly = Path.GetFullPath(arguments[2])
 let readme = Path.GetFullPath(arguments[3])
 let documentation = Path.GetFullPath(arguments[4])
 let checker = FSharpChecker.Create()
+
+let fsharpCoreAssembly =
+    use assets =
+        JsonDocument.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(readme), "obj", "project.assets.json")))
+
+    let fsharpCore =
+        assets.RootElement.GetProperty("libraries").EnumerateObject()
+        |> Seq.find (fun library -> library.Name.StartsWith("FSharp.Core/", StringComparison.Ordinal))
+
+    let fsharpCorePath = fsharpCore.Value.GetProperty("path").GetString()
+
+    let compilePath =
+        assets.RootElement
+            .GetProperty("targets")
+            .GetProperty("net10.0")
+            .GetProperty(fsharpCore.Name)
+            .GetProperty("compile")
+            .EnumerateObject()
+        |> Seq.exactlyOne
+        |> fun item -> item.Name
+
+    assets.RootElement.GetProperty("packageFolders").EnumerateObject()
+    |> Seq.map (fun folder -> Path.Combine(folder.Name, fsharpCorePath, compilePath))
+    |> Seq.tryFind File.Exists
+    |> Option.defaultWith (fun () -> failwith "The restored FSharp.Core compile assembly is missing.")
 
 let prelude =
     $"""#r @"{coreAssembly}"
@@ -115,9 +141,30 @@ let check contract =
 
     let text = SourceText.ofString (prelude + contract.Source)
 
-    let options, optionDiagnostics =
+    let scriptOptions, optionDiagnostics =
         checker.GetProjectOptionsFromScript(path, text, assumeDotNetFramework = false)
         |> Async.RunSynchronously
+
+    let isFsharpCoreReference (option: string) =
+        option.StartsWith("-r:", StringComparison.Ordinal)
+        && String.Equals(Path.GetFileName(option.Substring(3)), "FSharp.Core.dll", StringComparison.OrdinalIgnoreCase)
+
+    if
+        scriptOptions.OtherOptions |> Array.filter isFsharpCoreReference |> Array.length
+        <> 1
+    then
+        failwith "The F# script did not resolve exactly one FSharp.Core reference."
+
+    let options =
+        { scriptOptions with
+            OtherOptions =
+                scriptOptions.OtherOptions
+                |> Array.map (fun option ->
+                    if isFsharpCoreReference option then
+                        "-r:" + fsharpCoreAssembly
+                    else
+                        option)
+        }
 
     let _, checkedFile =
         checker.ParseAndCheckFileInProject(path, 0, text, options)

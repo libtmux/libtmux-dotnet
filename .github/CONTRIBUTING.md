@@ -299,10 +299,35 @@ native binary for both target frameworks. It covers the static snapshot and
 native sequence route. `Selection.exactlyOne` is not a NativeAOT route while
 FSharp.Core emits linker diagnostics for its `Result` return type.
 
-The two AOT owners name a runtime identifier. Their restores are separate from
-the portable library graph. Their package inputs retain the development version
-between builds, so a new cache is required even when the version has not
-changed. Historical package compatibility is not a release gate.
+The required F# trimmed smoke step publishes and runs the same static route
+with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:
+
+```console
+$ env -u TMUX -u TMUX_PANE NUGET_PACKAGES="$(mktemp -d)" mise exec -- bash -euc '
+    output=$(mktemp -d)
+    dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+        --runtime linux-x64 \
+        --configfile tests/NuGet.config \
+        -p:PublishAot=false \
+        -p:PublishTrimmed=true
+    for framework in net8.0 net10.0; do
+        dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+            --configuration Release \
+            --framework "$framework" \
+            --runtime linux-x64 \
+            --no-restore \
+            --output "$output/$framework" \
+            -p:PublishAot=false \
+            -p:PublishTrimmed=true
+        "$output/$framework/LibTmux.FSharp.AotSmoke"
+    done'
+```
+
+Both F# deployment checks use packed assets and name a runtime identifier.
+Their restores are separate from the portable library graph. Their package
+inputs retain the development version between builds, so a new cache is
+required even when the version has not changed. Historical package
+compatibility is not a release gate.
 
 ### Compiler inventory, policy and documents
 
@@ -338,6 +363,15 @@ $ uv run python eng/parity/verify_tmux_versions.py
 $ uv run python eng/docs/render_api_reference.py --check
 ```
 
+After a Release build with `ContinuousIntegrationBuild=true`, check the F#
+member pages generated from compiler XML documentation by the pinned
+`fsdocs-tool`. A local build without normalized source paths can put absolute
+paths in the generated pages and fail this check:
+
+```console
+$ mise exec -- uv run python eng/docs/sync_fsdocs_reference.py --check
+```
+
 ```console
 $ uv run python eng/docs/sync_snippets.py --check
 ```
@@ -348,8 +382,10 @@ $ uv run eng/mcp/dump_tools.py --check
 
 The API renderer matches exact compiler identities, including overloads and
 generic members. Missing documentation and stale Markdown fail independently
-of analyzer baseline checks. `sync_snippets.py` checks published blocks against
-their source regions; regenerate them with the same command without `--check`.
+of analyzer baseline checks. The fsdocs check also rejects broken internal
+links and local paths in the F# member pages. `sync_snippets.py` checks
+published blocks against their source regions; regenerate them with the same
+command without `--check`.
 
 `ExampleSuite` runs the complete ordinary example set once. The console
 `--smoke` selects one example to check the entrypoint. `ReadmeExampleTests`

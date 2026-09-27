@@ -3,10 +3,12 @@ namespace LibTmux.FSharp.Tests
 open System
 open System.Collections.Generic
 open System.IO
+open System.Text
 open System.Threading
 open System.Threading.Tasks
 open LibTmux
 open LibTmux.FSharp
+open LibTmux.Internal
 open Xunit
 
 type private EventSession(events: TmuxEvent list, ?failure: exn, ?cleanupFailure: exn, ?sessionCleanupFailure: exn) =
@@ -186,6 +188,96 @@ module ControlTests =
             Assert.Same(cleanup, thrown.Data["LibTmux.ControlModeClientCleanupFailure"])
             Assert.True(session.ReaderDisposed |> not)
             Assert.Equal(1, session.DisposeCalls)
+        }
+
+    [<Fact>]
+    let ``owned session cancellation awaits cleanup and preserves its token`` () =
+        task {
+            use canceled = new CancellationTokenSource()
+            canceled.Cancel()
+            let cleanup = IOException("client cleanup failed")
+            let session = EventSession([], sessionCleanupFailure = cleanup)
+
+            let operation =
+                Control.useSession (fun _ -> Task.FromCanceled<string>(canceled.Token)) session
+
+            let! thrown =
+                Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> operation :> Task)
+
+            Assert.True(operation.IsCanceled)
+            Assert.Equal(canceled.Token, thrown.CancellationToken)
+            Assert.Same(cleanup, thrown.Data["LibTmux.ControlModeClientCleanupFailure"])
+            Assert.Equal(1, session.DisposeCalls)
+        }
+
+    [<Fact>]
+    let ``canceling control acquisition preserves the token and skips work`` () =
+        task {
+            use source = new CancellationTokenSource()
+            let token = source.Token
+
+            let acquiring =
+                TaskCompletionSource<string array * CancellationToken>(
+                    TaskCreationOptions.RunContinuationsAsynchronously
+                )
+
+            let held =
+                TaskCompletionSource<TmuxCommandResult>(TaskCreationOptions.RunContinuationsAsynchronously)
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-control-acquisition"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>
+                        (fun request cancellationToken ->
+                            let arguments = request.LogicalArguments |> Seq.toArray
+
+                            if arguments = [| "-V" |] then
+                                let output = Encoding.UTF8.GetBytes("tmux 3.7\n")
+
+                                Task.FromResult(
+                                    TmuxCommandResult(
+                                        arguments,
+                                        0,
+                                        ReadOnlyMemory<byte>(output),
+                                        ReadOnlyMemory<byte>.Empty,
+                                        [| "tmux 3.7" |],
+                                        [||]
+                                    )
+                                )
+                            else
+                                acquiring.SetResult((arguments, cancellationToken))
+                                held.Task.WaitAsync(cancellationToken))
+                )
+
+            let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.7")
+            let mutable worked = false
+
+            let pending =
+                Control.withSession
+                    token
+                    (fun _ ->
+                        worked <- true
+                        Task.FromResult("unexpected"))
+                    server
+
+            try
+                let! (arguments, forwardedToken) = acquiring.Task.WaitAsync(TimeSpan.FromSeconds(1.))
+
+                Assert.Contains("display-message", arguments)
+                Assert.Equal(token, forwardedToken)
+                Assert.False(pending.IsCompleted)
+
+                source.Cancel()
+
+                let! thrown =
+                    Assert.ThrowsAnyAsync<OperationCanceledException>(fun () -> pending :> Task)
+
+                Assert.Equal(token, thrown.CancellationToken)
+                Assert.True(pending.IsCanceled)
+                Assert.False(worked)
+            finally
+                source.Cancel()
+                held.TrySetCanceled(token) |> ignore
         }
 
     [<Fact>]

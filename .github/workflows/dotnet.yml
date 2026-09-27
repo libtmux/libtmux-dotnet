@@ -250,6 +250,28 @@ jobs:
             "tests/LibTmux.FSharp.AotSmoke/bin/Release/${framework}/linux-x64/native/LibTmux.FSharp.AotSmoke"
           done
 
+      - name: F# trimmed smoke test
+        id: fsharp-trimmed-smoke
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-trimmed-smoke
+        run: |
+          dotnet restore tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+            --runtime linux-x64 \
+            --configfile tests/NuGet.config \
+            -p:PublishAot=false \
+            -p:PublishTrimmed=true
+          for framework in net8.0 net10.0; do
+            dotnet publish tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj \
+              --configuration Release \
+              --framework "${framework}" \
+              --runtime linux-x64 \
+              --no-restore \
+              --output "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}" \
+              -p:PublishAot=false \
+              -p:PublishTrimmed=true
+            "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}/LibTmux.FSharp.AotSmoke"
+          done
+
       - name: F# example console
         id: fsharp-examples
         run: |
@@ -320,6 +342,10 @@ jobs:
           uv run python eng/docs/sync_snippets.py --check
           uv run python eng/docs/sync_fsharp_snippets.py --check
           uv run eng/mcp/dump_tools.py --check
+
+      - name: F# member reference
+        id: fsharp-fsdocs
+        run: python3 eng/docs/sync_fsdocs_reference.py --check
 
       - name: Check out the pinned Python libtmux
         # The parity records quote one revision of the Python library. It is

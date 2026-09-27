@@ -161,9 +161,39 @@ def verify(root: pathlib.Path) -> list[str]:
     for identifier in (
         "fsharp-format", "fsharp-unit-net8", "fsharp-unit-net10",
         "fsharp-package-consumer", "fsharp-aot-smoke", "fsharp-examples",
-        "fsharp-packed-examples",
+        "fsharp-packed-examples", "fsharp-trimmed-smoke",
+        "fsharp-fsdocs",
     ):
         required_step("dotnet", "build", identifier)
+
+    trimmed = required_step("dotnet", "build", "fsharp-trimmed-smoke")
+    trimmed_run = trimmed.get("run", "")
+    trimmed_project = "tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj"
+    trimmed_output = "${RUNNER_TEMP}/libtmux-fsharp-trimmed/${framework}"
+    require(
+        trimmed.get("env", {}).get("NUGET_PACKAGES")
+        == "${{ runner.temp }}/libtmux-fsharp-trimmed-smoke"
+        and f"dotnet restore {trimmed_project}" in trimmed_run
+        and f"dotnet publish {trimmed_project}" in trimmed_run
+        and "--configfile tests/NuGet.config" in trimmed_run
+        and "for framework in net8.0 net10.0; do" in trimmed_run
+        and "--framework \"${framework}\"" in trimmed_run
+        and trimmed_run.count("--runtime linux-x64") >= 2
+        and "--no-restore" in trimmed_run
+        and f'--output "{trimmed_output}"' in trimmed_run
+        and trimmed_run.count("-p:PublishAot=false") >= 2
+        and trimmed_run.count("-p:PublishTrimmed=true") >= 2
+        and f'"{trimmed_output}/LibTmux.FSharp.AotSmoke"'
+        in {line.strip() for line in trimmed_run.splitlines()},
+        "dotnet.build.fsharp-trimmed-smoke must publish and run both packed trimmed frameworks",
+    )
+
+    fsdocs = required_step("dotnet", "build", "fsharp-fsdocs")
+    require(
+        "python3 eng/docs/sync_fsdocs_reference.py --check"
+        in fsdocs.get("run", ""),
+        "dotnet.build.fsharp-fsdocs must check the generated member reference",
+    )
 
     fsharp_format = required_step("dotnet", "build", "fsharp-format")
     require(

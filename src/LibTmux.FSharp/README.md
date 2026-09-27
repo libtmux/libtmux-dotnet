@@ -9,15 +9,53 @@ maintained in the `libtmux` organization by the same primary author.
 $ dotnet package add LibTmux.FSharp --prerelease
 ```
 
-**Guides** — [getting started](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md)
-· [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md)
-· [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md)
-· [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
-· [API reference](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md)
+## Read an owned tmux server
+
+<!-- fsharp-contract: golden -->
+<!-- fsharp-snippet: OwnedSnapshot run -->
+```fsharp run
+open System
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let readOwnedPaneCommandsAsync (cancellationToken: CancellationToken) =
+    task {
+        let binary =
+            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+            |> Option.ofObj
+            |> Option.defaultValue "tmux"
+
+        let options =
+            ServerConnectionOptions(
+                SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
+                ConfigurationFile = "/dev/null",
+                TmuxBinaryPath = binary
+            )
+
+        use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+
+        use! _ownedSession =
+            ownedServer.Value.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "demo", Command = "/bin/sh"),
+                cancellationToken
+            )
+
+        let! captured =
+            ownedServer.Value |> Server.capture cancellationToken SnapshotDepth.Panes
+
+        return captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
+    }
+```
+<!-- endfsharp-snippet -->
+
+The socket name is unique to this call. The owned session and server are
+stopped when the task finishes, including when it fails. `Server.capture`
+performs I/O; the sequence projection reads the captured result locally.
+With `/bin/sh`, the function returns `["sh"]`.
 
 ## Capture and filter
 
-<!-- fsharp-contract: golden -->
 <!-- fsharp-snippet: CaptureAndFilter run -->
 ```fsharp run
 open System.Threading
@@ -55,6 +93,12 @@ The [complete example](https://github.com/libtmux/libtmux-dotnet/tree/master/exa
 creates an owned tmux server and verifies that a portable filter and a native
 F# query select the same panes. A successful run writes
 `PASS F# snapshot and portable query example`.
+
+**Guides** — [getting started](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md)
+· [portable queries](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md)
+· [execution modes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md)
+· [interoperation](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md)
+· [API reference](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md)
 
 ## Native F# queries
 

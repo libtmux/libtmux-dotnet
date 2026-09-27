@@ -134,6 +134,11 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "",
         "Generated from compiled F# signatures and XML summaries. Regenerate with",
         "`uv run python eng/docs/render_api_reference.py --fsharp`.",
+        "",
+        "[Detailed member reference](../fsharp-reference/reference/index.md) includes",
+        "parameters, return types and source links.",
+        "Core handles and request types appear in the",
+        "[LibTmux API reference](../api/README.md).",
     ]
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
