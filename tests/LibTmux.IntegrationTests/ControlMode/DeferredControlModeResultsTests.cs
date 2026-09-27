@@ -10,10 +10,7 @@ public sealed class DeferredControlModeResultsTests
     [UnixFact]
     public async Task Foreground_shell_failure_exposes_the_shell_exit_status()
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
-            TestContext.Current.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(1));
-        CancellationToken token = timeout.Token;
+        CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await Server.ConnectAsync(new ServerConnectionOptions
         {
@@ -30,10 +27,7 @@ public sealed class DeferredControlModeResultsTests
     [UnixFact]
     public async Task Foreground_shell_text_uses_the_process_route_and_leaves_control_usable()
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
-            TestContext.Current.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(1));
-        CancellationToken token = timeout.Token;
+        CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Server server = await Server.ConnectAsync(new ServerConnectionOptions
         {

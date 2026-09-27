@@ -1029,17 +1029,20 @@ public sealed class TmuxToolsTests
             literal: true,
             cancellationToken: token);
 
+        var waitingReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
             pane,
             [marker],
-            timeoutSeconds: 2,
+            timeoutSeconds: 1,
+            progress: new Progress<ProgressNotificationValue>(_ => waitingReady.TrySetResult()),
             cancellationToken: token);
 
         // Ctrl-L is unmodelled, so it fails open (clears the pending line)
         // rather than keep discounting text this server can no longer vouch
         // for; readline's redraw of it then matches, the tolerated trade-off
         // in the echo contract's S6.
-        await Task.Delay(TimeSpan.FromMilliseconds(300), token);
+        await Task.WhenAny(waitingReady.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
         await mcp.Write.SendKeysAsync(
             "C-l",
             pane,
