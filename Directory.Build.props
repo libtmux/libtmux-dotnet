@@ -46,9 +46,8 @@
     <Copyright>Copyright (c) 2026 Tony Narlock &lt;tony@git-pull.com&gt;</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
 
-    <!-- The libtmux mark, shared with the Python original these packages carry
-         parity with. nuget.org takes PNG or JPEG only, so an SVG would have to
-         be exported before it could ship. -->
+    <!-- Each project packs its language and product artwork as icon.png.
+         NuGet uses the PNG; the SVG is included for documentation reuse. -->
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/libtmux/libtmux-dotnet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/libtmux/libtmux-dotnet</RepositoryUrl>

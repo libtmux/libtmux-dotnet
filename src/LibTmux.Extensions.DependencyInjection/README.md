@@ -1,3 +1,12 @@
+<!-- libtmux-logo -->
+<p align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-dotnet/master/src/LibTmux.Extensions.DependencyInjection/assets/logo.png" width="128" height="128" alt="libtmux for C# / .NET">
+  </picture>
+</p>
+<!-- /libtmux-logo -->
+
 # LibTmux.Extensions.DependencyInjection
 
 Registers [LibTmux](https://www.nuget.org/packages/LibTmux) with

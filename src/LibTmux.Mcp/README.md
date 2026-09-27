@@ -1,3 +1,12 @@
+<!-- libtmux-logo -->
+<p align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-dotnet/master/src/LibTmux.Mcp/assets/logo.png" width="128" height="128" alt="libtmux for C# / .NET MCP">
+  </picture>
+</p>
+<!-- /libtmux-logo -->
+
 # LibTmux.Mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that gives

@@ -17,9 +17,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)assets/icon.png"
-          Pack="true"
-          PackagePath="\"
-          Visible="false" />
+    <None Update="assets/logo.png" Pack="true" PackagePath="icon.png" />
+    <None Update="assets/logo.svg" Pack="true" PackagePath="assets/logo.svg" />
   </ItemGroup>
 </Project>

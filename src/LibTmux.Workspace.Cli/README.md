@@ -1,3 +1,12 @@
+<!-- libtmux-logo -->
+<p align="center">
+  <picture>
+    <source srcset="assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-dotnet/master/src/LibTmux.Workspace.Cli/assets/logo.png" width="128" height="128" alt="libtmux for C# / .NET workspace">
+  </picture>
+</p>
+<!-- /libtmux-logo -->
+
 # tmux-workspace
 
 [![NuGet](https://img.shields.io/nuget/vpre/LibTmux.Workspace.Cli?logo=nuget&label=LibTmux.Workspace.Cli)](https://www.nuget.org/packages/LibTmux.Workspace.Cli)
