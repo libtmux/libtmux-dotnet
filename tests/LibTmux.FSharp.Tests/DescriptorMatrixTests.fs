@@ -129,43 +129,41 @@ module DescriptorMatrixTests =
             }
         ]
 
-    let private matrixRows (content: string) =
-        let start = "<!-- descriptor-matrix-start -->"
-        let finish = "<!-- descriptor-matrix-end -->"
+    let private documentedFields (content: string) =
+        let start = "<!-- descriptor-fields-start -->"
+        let finish = "<!-- descriptor-fields-end -->"
         let beginIndex = content.IndexOf(start, StringComparison.Ordinal)
         let endIndex = content.IndexOf(finish, StringComparison.Ordinal)
 
         if beginIndex < 0 || endIndex <= beginIndex then
-            invalidOp "The F# descriptor matrix markers are missing or reversed."
+            invalidOp "The F# descriptor field markers are missing or reversed."
 
         content[(beginIndex + start.Length) .. (endIndex - 1)]
             .Split('\n', StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
-        |> Array.skip 2
-        |> Array.map (fun row ->
-            let values = row.Trim('|').Split('|', StringSplitOptions.TrimEntries)
-
-            if values.Length <> 7 then
-                invalidOp $"The F# descriptor matrix row has {values.Length} columns: {row}"
-
-            values)
+        |> Array.filter (fun line -> not (line.StartsWith("## ", StringComparison.Ordinal)))
         |> Array.toList
 
-    let private expectedRows =
+    let private expectedFields =
         descriptors
-        |> List.map (fun descriptor ->
-            [|
-                descriptor.Name
-                descriptor.CoreProperty
-                descriptor.WireName
-                descriptor.ValueType
-                descriptor.Operators
-                string descriptor.Depth
-                string QueryDocument.CurrentVersion
-            |])
+        |> List.collect (fun descriptor ->
+            let operators =
+                descriptor.Operators.Split(", ", StringSplitOptions.None)
+                |> Array.map (fun name -> $"`{name}`")
+                |> String.concat ", "
 
-    let private validateMatrix content =
-        if expectedRows <> matrixRows content then
-            invalidOp "The F# descriptor matrix does not match the exposed descriptors."
+            [
+                $"### `{descriptor.Name}`"
+                $"- Core property: `{descriptor.CoreProperty}`"
+                $"- Wire name: `{descriptor.WireName}`"
+                $"- Value type: `{descriptor.ValueType}`"
+                $"- Operators: {operators}"
+                $"- Required depth: `{descriptor.Depth}`"
+                $"- Schema version: `{QueryDocument.CurrentVersion}`"
+            ])
+
+    let private validateFields content =
+        if expectedFields <> documentedFields content then
+            invalidOp "The F# descriptor guide does not match the exposed descriptors."
 
         for descriptor in descriptors do
             let wire = QueryJson.Serialize(descriptor.Document)
@@ -174,18 +172,21 @@ module DescriptorMatrixTests =
             Assert.Equal(descriptor.Depth, descriptor.Document.RequiredSnapshotDepth)
 
     [<Fact>]
-    let ``descriptor matrix names only translated v1 fields`` () =
+    let ``descriptor guide names only translated v1 fields`` () =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
-        validateMatrix (File.ReadAllText(path))
+        validateFields (File.ReadAllText(path))
 
-    [<Fact>]
-    let ``descriptor matrix rejects an advertised unsupported field`` () =
+    [<Theory>]
+    [<InlineData("pane_command", "pane_current_path")>]
+    [<InlineData("- Schema version: `1`", "- Schema version: `2`")>]
+    [<InlineData("- Required depth: `Panes`", "- Required depth: `Windows`")>]
+    let ``descriptor guide rejects field contract drift`` (original: string) (replacement: string) =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
 
         let drifted =
-            File.ReadAllText(path).Replace("pane_command", "pane_current_path", StringComparison.Ordinal)
+            File.ReadAllText(path).Replace(original, replacement, StringComparison.Ordinal)
 
-        Assert.Throws<InvalidOperationException>(fun () -> validateMatrix drifted)
+        Assert.Throws<InvalidOperationException>(fun () -> validateFields drifted)
         |> ignore
 
     [<Fact>]
