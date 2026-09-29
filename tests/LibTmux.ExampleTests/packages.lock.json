@@ -411,10 +411,7 @@
         }
       },
       "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
-        }
+        "type": "Project"
       },
       "libtmux.examples": {
         "type": "Project",

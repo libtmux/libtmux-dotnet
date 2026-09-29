@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Extensions.DependencyInjection;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using Microsoft.Extensions.Logging;
@@ -76,7 +77,7 @@ public sealed class StructuredLoggingTests
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
-                Logger = logger,
+                LogSink = logger is null ? null : TmuxLogSink.For(logger),
             },
             token);
 

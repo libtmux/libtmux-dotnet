@@ -21,9 +21,7 @@ every tmux from **3.2a to 3.7c**, on **net8.0** and **net10.0**.
 $ dotnet package add LibTmux --prerelease
 ```
 
-One dependency: `Microsoft.Extensions.Logging.Abstractions`, which is
-interfaces with no implementation attached — a caller who wants no logging pays
-nothing for it.
+No package dependencies: everything it uses ships with .NET.
 
 ## Start here
 
@@ -400,11 +398,13 @@ nothing behind.
 
 ## Logging
 
-Pass an `ILogger` when connecting and every tmux command is recorded once, at
-the single point they all pass through:
+Set `LogSink` when connecting and every tmux command is recorded once, at the
+single point they all pass through. The sink receives a `TmuxLogEntry`; with
+`LibTmux.Extensions.DependencyInjection`, `TmuxLogSink.For(logger)` forwards
+each one to an `ILogger`:
 
 ```csharp
-Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
+Server logged = await Server.ConnectAsync(new ServerConnectionOptions { LogSink = TmuxLogSink.For(logger) });
 ```
 
 Commands are recorded at `Debug` and failures at `Error`, with stable scalar
@@ -415,7 +415,7 @@ that can carry a payload is truncated, the command line included.
 
 Every command is also a span and a measurement. `TmuxDiagnostics` names the
 sources, so a telemetry pipeline subscribes by name and this library keeps its
-single dependency: pass `TmuxDiagnostics.ActivitySourceName` to OpenTelemetry's
+no package dependency: pass `TmuxDiagnostics.ActivitySourceName` to OpenTelemetry's
 `AddSource`, and `TmuxDiagnostics.MeterName` to its `AddMeter`.
 
 The span is named for the subcommand and tagged `tmux.subcommand`,

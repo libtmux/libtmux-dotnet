@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -286,9 +285,9 @@ public sealed partial class Pane
             .ExecuteAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
         if (result.StandardErrorLines.Count > 0
-            && owner.Connection?.Options.Logger is ILogger logger)
+            && owner.Connection?.Options.LogSink is { } sink)
         {
-            LogDisplayMessageRefused(logger, string.Join('\n', result.StandardErrorLines));
+            LogDisplayMessageRefused(sink, string.Join('\n', result.StandardErrorLines));
         }
 
         return request.ReturnText ? result.StandardOutputLines : null;

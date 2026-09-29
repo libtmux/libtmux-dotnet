@@ -258,10 +258,7 @@
         "contentHash": "QTXEoQBzz00SFWbo7nAg1Ogd4f99lwqcO9uAJ7MYSLEUR28f6As32QktrqG2Fr9cfAfd1GjLyGYspE7Ipj7P6w=="
       },
       "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
-        }
+        "type": "Project"
       },
       "libtmux.mcp": {
         "type": "Project",
@@ -649,10 +646,7 @@
         }
       },
       "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )"
-        }
+        "type": "Project"
       },
       "libtmux.mcp": {
         "type": "Project",

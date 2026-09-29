@@ -1,5 +1,4 @@
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -26,7 +25,7 @@ public sealed class PsmuxConnectionOptions
     /// <param name="namespaceName">
     /// A dedicated non-default <c>-L</c> namespace containing exactly one session.
     /// </param>
-    /// <param name="logger">The optional connection logger.</param>
+    /// <param name="logSink">The optional sink for the library's diagnostics.</param>
     /// <exception cref="ArgumentException">
     /// A path, hash, or namespace is absent, malformed, ambiguous, not fixed-drive,
     /// or not isolated.
@@ -36,7 +35,7 @@ public sealed class PsmuxConnectionOptions
         string expectedBinarySha256,
         string dataDirectory,
         string namespaceName,
-        ILogger? logger = null)
+        Action<TmuxLogEntry>? logSink = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         if (executablePath.IndexOfAny(['\0', '\r', '\n']) >= 0
@@ -61,7 +60,7 @@ public sealed class PsmuxConnectionOptions
         NamespaceName = PsmuxCompatibility.ValidateNamespaceName(
             namespaceName,
             nameof(namespaceName));
-        Logger = logger;
+        LogSink = logSink;
     }
 
     /// <summary>Gets the local absolute psmux client executable path.</summary>
@@ -76,6 +75,6 @@ public sealed class PsmuxConnectionOptions
     /// <summary>Gets the explicit non-default psmux namespace.</summary>
     public string NamespaceName { get; }
 
-    /// <summary>Gets the optional connection logger.</summary>
-    public ILogger? Logger { get; }
+    /// <summary>Gets the optional sink for the library's diagnostics.</summary>
+    public Action<TmuxLogEntry>? LogSink { get; }
 }

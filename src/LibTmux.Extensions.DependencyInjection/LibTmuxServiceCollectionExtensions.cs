@@ -1,4 +1,5 @@
 using LibTmux;
+using LibTmux.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,8 +26,9 @@ public static class LibTmuxServiceCollectionExtensions
     /// <para>
     /// Options bind from configuration as
     /// <c>services.Configure&lt;ServerConnectionOptions&gt;(section)</c>
-    /// before <paramref name="configure" /> runs. When they name no logger and
-    /// the provider has an <see cref="ILoggerFactory" />, one is taken from it.
+    /// before <paramref name="configure" /> runs. When they name no log sink and
+    /// the provider has an <see cref="ILoggerFactory" />, a sink writing to its
+    /// <c>LibTmux</c> category is used.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="services" /> is null.</exception>
@@ -52,10 +54,10 @@ public static class LibTmuxServiceCollectionExtensions
             options = configure(options);
         }
 
-        if (options.Logger is null
+        if (options.LogSink is null
             && provider.GetService<ILoggerFactory>() is ILoggerFactory factory)
         {
-            options = options with { Logger = factory.CreateLogger("LibTmux") };
+            options = options with { LogSink = TmuxLogSink.For(factory.CreateLogger("LibTmux")) };
         }
 
         return Server.Open(options);

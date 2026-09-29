@@ -121,6 +121,7 @@ modes differ.
 | `LibTmux.TmuxInterceptor` | Wraps one tmux invocation: observe it, retry it, refuse it, or answer it. |
 | `LibTmux.TmuxInvocation` | One tmux invocation, as a sees it. |
 | `LibTmux.TmuxKeys` | The key bindings of one server. |
+| `LibTmux.TmuxLogEntry` | One diagnostic the library reports about how it drove tmux. |
 | `LibTmux.TmuxMenuItem` | One line of a tmux menu. |
 | `LibTmux.TmuxNotificationEvent` | A notification this library does not parse further. |
 | `LibTmux.TmuxObjectNotFoundException` | Reports a missing tmux object. |
@@ -276,7 +277,7 @@ modes differ.
 | `LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
 | `LibTmux.PsmuxCaptureOptions.#ctor(System.Nullable{LibTmux.CapturePanePosition},System.Nullable{LibTmux.CapturePanePosition},System.Boolean,System.Boolean)` | Initializes a bounded psmux capture. |
-| `LibTmux.PsmuxConnectionOptions.#ctor(System.String,System.String,System.String,System.String,Microsoft.Extensions.Logging.ILogger)` | Initializes one explicit psmux endpoint. |
+| `LibTmux.PsmuxConnectionOptions.#ctor(System.String,System.String,System.String,System.String,System.Action{LibTmux.TmuxLogEntry})` | Initializes one explicit psmux endpoint. |
 | `LibTmux.PsmuxPane.CaptureAsync(LibTmux.PsmuxCaptureOptions,System.Threading.CancellationToken)` | Reads this pane's text through the audited capture subset. |
 | `LibTmux.PsmuxServer.ConnectAsync(LibTmux.PsmuxConnectionOptions,System.Threading.CancellationToken)` | Connects to a separately provisioned psmux namespace. |
 | `LibTmux.PsmuxServer.GetPanesAsync(System.Threading.CancellationToken)` | Reads every pane in the sole session. |
@@ -832,7 +833,7 @@ modes differ.
 | `LibTmux.PsmuxConnectionOptions.DataDirectory` | Gets the canonical isolated data-directory path on a fixed local Windows drive. |
 | `LibTmux.PsmuxConnectionOptions.ExecutablePath` | Gets the local absolute psmux client executable path. |
 | `LibTmux.PsmuxConnectionOptions.ExpectedBinarySha256` | Gets the expected executable SHA-256 in lowercase hexadecimal. |
-| `LibTmux.PsmuxConnectionOptions.Logger` | Gets the optional connection logger. |
+| `LibTmux.PsmuxConnectionOptions.LogSink` | Gets the optional sink for the library's diagnostics. |
 | `LibTmux.PsmuxConnectionOptions.NamespaceName` | Gets the explicit non-default psmux namespace. |
 | `LibTmux.PsmuxPane.Height` | Gets the captured height in rows. |
 | `LibTmux.PsmuxPane.Id` | Gets the captured pane identifier. |
@@ -929,7 +930,7 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
 | `LibTmux.ServerConnectionOptions.Interceptor` | Gets what every tmux invocation on this connection passes through, or null. |
-| `LibTmux.ServerConnectionOptions.Logger` | Gets the connection logger. |
+| `LibTmux.ServerConnectionOptions.LogSink` | Gets the sink that receives the library's diagnostics, or null for none. |
 | `LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream` | Gets the largest output one command may capture, in bytes. |
 | `LibTmux.ServerConnectionOptions.SocketName` | Gets the explicit socket name. |
 | `LibTmux.ServerConnectionOptions.SocketNameFactory` | Gets the deferred socket-name factory. |
@@ -1033,6 +1034,11 @@ modes differ.
 | `LibTmux.TmuxHookEntry.Index` | Gets where the command sits in the hook's order. |
 | `LibTmux.TmuxHooks.Scope` | Gets the scope these hooks are read and written in by default. |
 | `LibTmux.TmuxInvocation.Arguments` | Gets the arguments tmux receives. |
+| `LibTmux.TmuxLogEntry.EventId` | Gets the stable number that identifies the kind of record. |
+| `LibTmux.TmuxLogEntry.Fields` | Gets the named values the placeholders of stand for. |
+| `LibTmux.TmuxLogEntry.Level` | Gets how serious the record is. |
+| `LibTmux.TmuxLogEntry.Message` | Gets with each placeholder replaced by its field's value. |
+| `LibTmux.TmuxLogEntry.Template` | Gets the message with its {Name} placeholders unexpanded. |
 | `LibTmux.TmuxMenuItem.Command` | Gets the tmux command it runs. |
 | `LibTmux.TmuxMenuItem.Key` | Gets the key that chooses it. |
 | `LibTmux.TmuxMenuItem.Name` | Gets the text shown for the item. |

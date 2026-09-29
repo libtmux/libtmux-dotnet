@@ -80,8 +80,10 @@ var services = new ServiceCollection();
 services.AddLibTmux(options => options with { CommandTimeout = TimeSpan.FromSeconds(5) });
 ```
 
-When the options name no logger and the provider has an `ILoggerFactory`, one
-is taken from it, so tmux commands are logged with everything else.
+When the options name no log sink and the provider has an `ILoggerFactory`, a
+sink that writes to its `LibTmux` category is used, so tmux commands are logged
+with everything else. Without a container, set
+`ServerConnectionOptions.LogSink` to `TmuxLogSink.For(logger)`.
 
 ## License
 

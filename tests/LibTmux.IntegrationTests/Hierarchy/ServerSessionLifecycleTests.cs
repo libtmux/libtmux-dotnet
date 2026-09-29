@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Extensions.DependencyInjection;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
@@ -294,7 +295,7 @@ public sealed class ServerSessionLifecycleTests
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
-                Logger = logger,
+                LogSink = TmuxLogSink.For(logger),
             },
             token);
 

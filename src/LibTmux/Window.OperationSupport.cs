@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -55,11 +54,11 @@ public sealed partial class Window
         && TmuxCapabilities.IsSupported(version, capability);
 
 
-    private static void Warn(Server owner, Action<ILogger, string?> log)
+    private static void Warn(Server owner, Action<Action<TmuxLogEntry>, string?> log)
     {
-        if (owner.Connection?.Options.Logger is ILogger logger)
+        if (owner.Connection?.Options.LogSink is { } sink)
         {
-            log(logger, owner.RawVersion);
+            log(sink, owner.RawVersion);
         }
     }
 

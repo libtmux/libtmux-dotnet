@@ -1,7 +1,7 @@
+using System.Diagnostics.Tracing;
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -65,99 +65,129 @@ public sealed partial class Pane
         && TmuxCapabilities.IsSupported(version, capability);
 
 
-    [LoggerMessage(
-        EventId = 6,
-        Level = LogLevel.Warning,
-        Message = "trailing-space trim flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogTrimUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogTrimUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            6,
+            "trailing-space trim flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 7,
-        Level = LogLevel.Warning,
-        Message = "mode-screen capture flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogModeScreenUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogModeScreenUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            7,
+            "mode-screen capture flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 8,
-        Level = LogLevel.Warning,
-        Message = "capture metadata flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogCaptureMetadataUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogCaptureMetadataUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            8,
+            "capture metadata flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 9,
-        Level = LogLevel.Warning,
-        Message = "hyperlink reset flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogHyperlinksUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogHyperlinksUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            9,
+            "hyperlink reset flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 10,
-        Level = LogLevel.Warning,
-        Message = "copy-mode page-down flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogPageDownUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogPageDownUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            10,
+            "copy-mode page-down flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 11,
-        Level = LogLevel.Warning,
-        Message = "literal message flag omitted, tmux {TmuxVersion} will expand the message")]
-    private static partial void LogLiteralUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogLiteralUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            11,
+            "literal message flag omitted, tmux {TmuxVersion} will expand the message",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 12,
-        Level = LogLevel.Warning,
-        Message = "pane redraw flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogUpdatePaneUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogUpdatePaneUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            12,
+            "pane redraw flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 13,
-        Level = LogLevel.Warning,
-        Message = "popup appearance flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogPopupOptionsUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogPopupOptionsUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            13,
+            "popup appearance flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 14,
-        Level = LogLevel.Warning,
-        Message = "popup key flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogPopupKeyPolicyUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogPopupKeyPolicyUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            14,
+            "popup key flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 15,
-        Level = LogLevel.Warning,
-        Message = "raw paste flag omitted, tmux {TmuxVersion} already pastes raw bytes")]
-    private static partial void LogRawPasteUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogRawPasteUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            15,
+            "raw paste flag omitted, tmux {TmuxVersion} already pastes raw bytes",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 16,
-        Level = LogLevel.Warning,
-        Message = "send-keys client flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogClientKeysUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogClientKeysUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            16,
+            "send-keys client flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 17,
-        Level = LogLevel.Warning,
-        Message = "split appearance flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogSplitAppearanceUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogSplitAppearanceUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            17,
+            "split appearance flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 18,
-        Level = LogLevel.Warning,
-        Message = "empty split flag omitted, tmux {TmuxVersion} will spawn a shell instead")]
-    private static partial void LogSplitEmptyUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogSplitEmptyUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            18,
+            "empty split flag omitted, tmux {TmuxVersion} will spawn a shell instead",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 20,
-        Level = LogLevel.Warning,
-        Message = "activity-time sort order omitted, tmux {TmuxVersion} dropped it")]
-    private static partial void LogChooseTreeSortTime(ILogger logger, string? tmuxVersion);
+    private static void LogChooseTreeSortTime(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            20,
+            "activity-time sort order omitted, tmux {TmuxVersion} dropped it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 19,
-        Level = LogLevel.Warning,
-        Message = "tmux refused to display the message: {TmuxError}")]
-    private static partial void LogDisplayMessageRefused(ILogger logger, string tmuxError);
+    private static void LogDisplayMessageRefused(Action<TmuxLogEntry> sink, string tmuxError) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            19,
+            "tmux refused to display the message: {TmuxError}",
+            ("TmuxError", tmuxError));
 
     // The version comes from state captured when the handle materialized, so
     // gating costs no extra tmux command and the call still dispatches once.
-    private bool Requires(string capability, Action<ILogger, string?> log)
+    private bool Requires(string capability, Action<Action<TmuxLogEntry>, string?> log)
     {
         Server owner = Server;
         if (Supports(owner, capability))
@@ -165,9 +195,9 @@ public sealed partial class Pane
             return true;
         }
 
-        if (owner.Connection?.Options.Logger is ILogger logger)
+        if (owner.Connection?.Options.LogSink is { } sink)
         {
-            log(logger, owner.RawVersion);
+            log(sink, owner.RawVersion);
         }
 
         return false;

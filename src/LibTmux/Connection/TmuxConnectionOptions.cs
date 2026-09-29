@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -144,8 +143,12 @@ public sealed record ServerConnectionOptions
         init => _childEnvironment = CopyChildEnvironment(value);
     }
 
-    /// <summary>Gets the connection logger.</summary>
-    public ILogger? Logger { get; init; }
+    /// <summary>Gets the sink that receives the library's diagnostics, or null for none.</summary>
+    /// <remarks>
+    /// Nothing is assembled when no sink is set. A logging framework bridges
+    /// by forwarding each <see cref="TmuxLogEntry" />.
+    /// </remarks>
+    public Action<TmuxLogEntry>? LogSink { get; init; }
 
     /// <summary>Gets how long one tmux command may run, or null to wait indefinitely.</summary>
     /// <remarks>
@@ -296,7 +299,7 @@ public sealed record ServerConnectionOptions
         {
             TmuxBinaryPath = options.ExecutablePath,
             SocketName = options.NamespaceName,
-            Logger = options.Logger,
+            LogSink = options.LogSink,
             PsmuxPreview = new PsmuxPreviewOptions(
                 options.ExpectedBinarySha256,
                 options.DataDirectory),

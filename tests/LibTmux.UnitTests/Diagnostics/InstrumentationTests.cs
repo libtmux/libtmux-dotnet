@@ -3,7 +3,6 @@ using System.Diagnostics.Metrics;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 using LibTmux.UnitTests.Transport;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LibTmux.UnitTests.Diagnostics;
 
@@ -52,7 +51,7 @@ public sealed class InstrumentationTests
         using ActivityListener listener = ListenForSpans(spans);
         var dispatcher = new TmuxCommandDispatcher(
             static (_, _) => throw new TmuxTransportException("gone", ["list-sessions"]),
-            new TmuxCommandContext(NullLogger.Instance, socket));
+            new TmuxCommandContext(null, socket));
 
         await Assert.ThrowsAsync<TmuxTransportException>(
             () => dispatcher.ExecuteAsync(["list-sessions"], TestContext.Current.CancellationToken));
@@ -91,7 +90,7 @@ public sealed class InstrumentationTests
                 throw new UnreachableException();
             },
             new TmuxCommandContext(
-                NullLogger.Instance,
+                null,
                 "timeout",
                 TimeSpan.FromMilliseconds(50)));
 
@@ -115,7 +114,7 @@ public sealed class InstrumentationTests
         using ActivityListener listener = ListenForSpans(spans);
         var dispatcher = new TmuxCommandDispatcher(
             static (_, _) => throw new UnreachableException(),
-            new TmuxCommandContext(NullLogger.Instance, socket, TimeSpan.FromMilliseconds(50)));
+            new TmuxCommandContext(null, socket, TimeSpan.FromMilliseconds(50)));
         var chain = new TmuxChain(
             dispatcher,
             [new TmuxCommand("list-panes", []) { RequiredGeneration = new ServerGeneration(1, 2) }],
@@ -148,7 +147,7 @@ public sealed class InstrumentationTests
                 await Task.Delay(Timeout.Infinite, token);
                 throw new UnreachableException();
             },
-            new TmuxCommandContext(NullLogger.Instance, "cancel", TimeSpan.FromMinutes(5)));
+            new TmuxCommandContext(null, "cancel", TimeSpan.FromMinutes(5)));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => dispatcher.ExecuteAsync(["list-sessions"], caller.Token));
@@ -165,7 +164,7 @@ public sealed class InstrumentationTests
                     ReadOnlyMemory<byte>.Empty,
                     [],
                     [])),
-            new TmuxCommandContext(NullLogger.Instance, socket));
+            new TmuxCommandContext(null, socket));
         await dispatcher.ExecuteAsync(arguments, TestContext.Current.CancellationToken);
     }
 

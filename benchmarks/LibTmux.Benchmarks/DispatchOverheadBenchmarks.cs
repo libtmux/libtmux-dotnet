@@ -3,7 +3,6 @@ using System.Diagnostics.Metrics;
 using System.Runtime.Versioning;
 using BenchmarkDotNet.Attributes;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LibTmux.Benchmarks;
 
@@ -89,7 +88,7 @@ public class DispatchOverheadBenchmarks
             (arguments, cancellationToken) => send(
                 TmuxCommandRequest.Single(arguments),
                 cancellationToken),
-            new TmuxCommandContext(NullLogger.Instance, "bench", null));
+            new TmuxCommandContext(null, "bench", null));
 
     private static TmuxCommandResult Answer(IReadOnlyList<string> arguments) =>
         new(arguments, 0, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty, [], []);
@@ -104,7 +103,7 @@ public class DispatchOverheadBenchmarks
                     ReadOnlyMemory<byte>.Empty,
                     [],
                     [])),
-            new TmuxCommandContext(NullLogger.Instance, "bench", timeout));
+            new TmuxCommandContext(null, "bench", timeout));
 
     private static ActivityListener ListenForSpans()
     {

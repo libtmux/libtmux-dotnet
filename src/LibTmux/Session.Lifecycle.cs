@@ -1,6 +1,6 @@
+using System.Diagnostics.Tracing;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -461,19 +461,21 @@ public sealed partial class Session
             return true;
         }
 
-        if (owner.Connection?.Options.Logger is ILogger logger)
+        if (owner.Connection?.Options.LogSink is { } sink)
         {
-            LogGroupKillUnsupported(logger, owner.RawVersion);
+            LogGroupKillUnsupported(sink, owner.RawVersion);
         }
 
         return false;
     }
 
-    [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Warning,
-        Message = "session group kill flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogGroupKillUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogGroupKillUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            1,
+            "session group kill flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
     // Selection reports the window tmux settled on rather than the one that was
     // asked for, because next-window and previous-window choose it themselves.

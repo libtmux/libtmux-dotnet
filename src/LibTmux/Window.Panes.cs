@@ -1,6 +1,6 @@
+using System.Diagnostics.Tracing;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -302,17 +302,21 @@ public sealed partial class Window
         return [.. rows.Select(row => RelationReader.ToPane(owner, row))];
     }
 
-    [LoggerMessage(
-        EventId = 3,
-        Level = LogLevel.Warning,
-        Message = "split appearance flags omitted, tmux {TmuxVersion} does not carry them")]
-    private static partial void LogSplitAppearanceUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogSplitAppearanceUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            3,
+            "split appearance flags omitted, tmux {TmuxVersion} does not carry them",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 4,
-        Level = LogLevel.Warning,
-        Message = "empty split flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogSplitEmptyUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogSplitEmptyUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            4,
+            "empty split flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
     private void AddSplitAppearance(List<string> arguments, SplitPaneRequest options)
     {

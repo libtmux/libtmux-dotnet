@@ -219,6 +219,10 @@ def test_corrupt_packages_fail(
         target = core.with_suffix(".snupkg")
     elif mutation == "bundled-assembly":
         target = next(tmp_path.glob("LibTmux.Mcp.*.nupkg"))
+    elif mutation == "dependency":
+        # The core declares no dependency, so the version check needs a
+        # package that still declares one.
+        target = next(tmp_path.glob("LibTmux.Extensions.DependencyInjection.[0-9]*.nupkg"))
     else:
         target = core
     if mutation == "extra":

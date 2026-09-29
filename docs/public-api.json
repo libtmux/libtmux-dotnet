@@ -6,9 +6,7 @@
     {
       "id": "LibTmux",
       "owns": "hierarchy, values, query AST, local evaluator",
-      "allowedDependencies": [
-        "Microsoft.Extensions.Logging.Abstractions"
-      ]
+      "allowedDependencies": []
     },
     {
       "id": "LibTmux.FSharp",
@@ -38,6 +36,7 @@
       "allowedDependencies": [
         "LibTmux",
         "Microsoft.Extensions.DependencyInjection.Abstractions",
+        "Microsoft.Extensions.Logging.Abstractions",
         "Microsoft.Extensions.Options"
       ]
     },

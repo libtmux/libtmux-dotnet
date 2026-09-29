@@ -61,10 +61,10 @@ internal sealed class TmuxConnection
                 Options.TmuxBinaryPath)
             : new PsmuxDialect(send, sendVersion, Options, _resolvedSocketName);
 
-        // Built whether or not a logger is set: the socket and the timeout it
+        // Built whether or not a sink is set: the socket and the timeout it
         // carries are read by tracing and dispatch, not only by logging.
         CommandContext = new TmuxCommandContext(
-            Options.Logger,
+            Options.LogSink,
             Options.SocketName ?? Options.SocketPath,
             Options.CommandTimeout);
         ServerDispatcher = new TmuxCommandDispatcher(

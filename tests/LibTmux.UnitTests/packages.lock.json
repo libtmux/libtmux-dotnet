@@ -434,16 +434,14 @@
         }
       },
       "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
-        }
+        "type": "Project"
       },
       "libtmux.extensions.dependencyinjection": {
         "type": "Project",
         "dependencies": {
           "LibTmux": "[0.0.0-alpha.17, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "Microsoft.Extensions.Options": "[10.0.10, )"
         }
       },
@@ -1032,16 +1030,14 @@
         }
       },
       "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )"
-        }
+        "type": "Project"
       },
       "libtmux.extensions.dependencyinjection": {
         "type": "Project",
         "dependencies": {
           "LibTmux": "[0.0.0-alpha.17, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[8.0.0, )",
           "Microsoft.Extensions.Options": "[8.0.0, )"
         }
       },

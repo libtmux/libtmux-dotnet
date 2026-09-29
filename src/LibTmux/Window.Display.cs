@@ -1,7 +1,7 @@
+using System.Diagnostics.Tracing;
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -91,25 +91,29 @@ public sealed partial class Window
             .ExecuteAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
         if (result.StandardErrorLines.Count > 0
-            && owner.Connection?.Options.Logger is ILogger logger)
+            && owner.Connection?.Options.LogSink is { } sink)
         {
-            LogDisplayMessageRefused(logger, string.Join('\n', result.StandardErrorLines));
+            LogDisplayMessageRefused(sink, string.Join('\n', result.StandardErrorLines));
         }
 
         return request.ReturnText ? result.StandardOutputLines : null;
     }
 
-    [LoggerMessage(
-        EventId = 2,
-        Level = LogLevel.Warning,
-        Message = "literal message flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogLiteralUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogLiteralUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            2,
+            "literal message flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
-    [LoggerMessage(
-        EventId = 5,
-        Level = LogLevel.Warning,
-        Message = "tmux refused to display the message: {TmuxError}")]
-    private static partial void LogDisplayMessageRefused(ILogger logger, string tmuxError);
+    private static void LogDisplayMessageRefused(Action<TmuxLogEntry> sink, string tmuxError) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            5,
+            "tmux refused to display the message: {TmuxError}",
+            ("TmuxError", tmuxError));
 
     // The version comes from state captured when the handle materialized, so
     // gating costs no extra tmux command and the call still dispatches once.

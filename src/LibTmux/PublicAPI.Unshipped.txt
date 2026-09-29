@@ -678,9 +678,9 @@ LibTmux.PsmuxConnectionOptions
 LibTmux.PsmuxConnectionOptions.DataDirectory.get -> string!
 LibTmux.PsmuxConnectionOptions.ExecutablePath.get -> string!
 LibTmux.PsmuxConnectionOptions.ExpectedBinarySha256.get -> string!
-LibTmux.PsmuxConnectionOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+LibTmux.PsmuxConnectionOptions.LogSink.get -> System.Action<LibTmux.TmuxLogEntry!>?
 LibTmux.PsmuxConnectionOptions.NamespaceName.get -> string!
-LibTmux.PsmuxConnectionOptions.PsmuxConnectionOptions(string! executablePath, string! expectedBinarySha256, string! dataDirectory, string! namespaceName, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+LibTmux.PsmuxConnectionOptions.PsmuxConnectionOptions(string! executablePath, string! expectedBinarySha256, string! dataDirectory, string! namespaceName, System.Action<LibTmux.TmuxLogEntry!>? logSink = null) -> void
 LibTmux.PsmuxPane
 LibTmux.PsmuxPane.CaptureAsync(LibTmux.PsmuxCaptureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.PsmuxPane.Height.get -> int
@@ -955,8 +955,8 @@ LibTmux.ServerConnectionOptions.InitializeAsync.get -> System.Func<LibTmux.Serve
 LibTmux.ServerConnectionOptions.InitializeAsync.init -> void
 LibTmux.ServerConnectionOptions.Interceptor.get -> LibTmux.TmuxInterceptor?
 LibTmux.ServerConnectionOptions.Interceptor.init -> void
-LibTmux.ServerConnectionOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
-LibTmux.ServerConnectionOptions.Logger.init -> void
+LibTmux.ServerConnectionOptions.LogSink.get -> System.Action<LibTmux.TmuxLogEntry!>?
+LibTmux.ServerConnectionOptions.LogSink.init -> void
 LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.get -> int?
 LibTmux.ServerConnectionOptions.MaxCapturedBytesPerStream.init -> void
 LibTmux.ServerConnectionOptions.ServerConnectionOptions() -> void
@@ -1271,6 +1271,12 @@ LibTmux.TmuxKeys
 LibTmux.TmuxKeys.BindAsync(LibTmux.BindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.TmuxKeys.GetAllAsync(string? keyTable = null, string? format = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.TmuxKeys.UnbindAsync(LibTmux.UnbindKeyRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.TmuxLogEntry
+LibTmux.TmuxLogEntry.EventId.get -> int
+LibTmux.TmuxLogEntry.Fields.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string!, object?>>!
+LibTmux.TmuxLogEntry.Level.get -> System.Diagnostics.Tracing.EventLevel
+LibTmux.TmuxLogEntry.Message.get -> string!
+LibTmux.TmuxLogEntry.Template.get -> string!
 LibTmux.TmuxMenuItem
 LibTmux.TmuxMenuItem.<Clone>$() -> LibTmux.TmuxMenuItem!
 LibTmux.TmuxMenuItem.Command.get -> string!

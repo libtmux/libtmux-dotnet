@@ -69,6 +69,7 @@ public sealed class ReadmeExampleTests
         using System.Threading;
         using System.Threading.Tasks;
         using LibTmux;
+        using LibTmux.Extensions.DependencyInjection;
         using LibTmux.Mcp;
         using LibTmux.Query;
         using LibTmux.Query.Json;

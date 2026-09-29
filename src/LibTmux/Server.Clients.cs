@@ -1,6 +1,6 @@
+using System.Diagnostics.Tracing;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -122,11 +122,13 @@ public sealed partial class Server
         }
     }
 
-    [LoggerMessage(
-        EventId = 20,
-        Level = LogLevel.Warning,
-        Message = "clipboard query flag omitted, tmux {TmuxVersion} does not carry it")]
-    private static partial void LogClipboardQueryUnsupported(ILogger logger, string? tmuxVersion);
+    private static void LogClipboardQueryUnsupported(Action<TmuxLogEntry> sink, string? tmuxVersion) =>
+        TmuxLog.Write(
+            sink,
+            EventLevel.Warning,
+            20,
+            "clipboard query flag omitted, tmux {TmuxVersion} does not carry it",
+            ("TmuxVersion", tmuxVersion));
 
     // The version comes from state captured at connect, so gating costs no
     // extra tmux command and the redraw still dispatches once.
@@ -138,9 +140,9 @@ public sealed partial class Server
             return true;
         }
 
-        if (Connection?.Options.Logger is ILogger logger)
+        if (Connection?.Options.LogSink is { } sink)
         {
-            LogClipboardQueryUnsupported(logger, RawVersion);
+            LogClipboardQueryUnsupported(sink, RawVersion);
         }
 
         return false;

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
 
@@ -79,9 +78,9 @@ public sealed partial class Server
             return request.ReturnText ? result.StandardOutputLines : null;
         }
 
-        if (Connection?.Options.Logger is ILogger logger)
+        if (Connection?.Options.LogSink is { } sink)
         {
-            LogDisplayMessageRefused(logger, string.Join('\n', result.StandardErrorLines));
+            LogDisplayMessageRefused(sink, string.Join('\n', result.StandardErrorLines));
         }
 
         return null;

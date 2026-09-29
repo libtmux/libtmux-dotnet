@@ -1,3 +1,5 @@
 #nullable enable
 Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions
 static Microsoft.Extensions.DependencyInjection.LibTmuxServiceCollectionExtensions.AddLibTmux(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Func<LibTmux.ServerConnectionOptions!, LibTmux.ServerConnectionOptions!>? configure = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+LibTmux.Extensions.DependencyInjection.TmuxLogSink
+static LibTmux.Extensions.DependencyInjection.TmuxLogSink.For(Microsoft.Extensions.Logging.ILogger! logger) -> System.Action<LibTmux.TmuxLogEntry!>!
