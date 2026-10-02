@@ -1,0 +1,95 @@
+// fsharp-snippet: ServerFilters
+open System
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let runAsync () =
+    task {
+        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
+        let token = deadline.Token
+
+        let binary =
+            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
+            |> Option.ofObj
+            |> Option.defaultValue "tmux"
+
+        let options =
+            ServerConnectionOptions(
+                SocketName = "fsharp-filters-" + Guid.NewGuid().ToString("N"),
+                ConfigurationFile = "/dev/null",
+                TmuxBinaryPath = binary
+            )
+
+        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+
+        use! demo =
+            owned.Value.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
+                token
+            )
+
+        use! _worker =
+            owned.Value.CreateOwnedSessionAsync(
+                NewSessionRequest(Name = "worker", WindowName = "jobs", Command = "/bin/sh"),
+                token
+            )
+
+        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! sessions = server |> Server.listSessions token
+
+        let nativeMatches =
+            sessions
+            |> Seq.filter (fun session -> session.Name.StartsWith("de", StringComparison.Ordinal))
+            |> Seq.toList
+
+        let portableMatches =
+            sessions
+            |> Query.matchingWithCancellation token (Filter.startsWith "de" SessionFields.name)
+
+        let! windows = server |> Server.listWindows token
+
+        let matchingWindows =
+            windows |> Query.matching (Filter.eq "shell" WindowFields.name)
+
+        let! captured = server |> Server.capture token SnapshotDepth.Panes
+
+        let demoSession =
+            captured.Sessions |> Seq.find (fun session -> session.Id = demo.Value.Id)
+
+        let demoPane =
+            demoSession.Windows
+            |> Seq.collect (fun window -> window.Panes)
+            |> Seq.exactlyOne
+
+        let paneFilter = Filter.eq demoPane.Id PaneFields.id
+        let matchingPanes = captured.Panes |> Query.matching paneFilter
+
+        let hasDemoPane =
+            paneFilter |> Filter.any WindowFields.panes |> Filter.any SessionFields.windows
+
+        let matchingParents = captured.Sessions |> Query.matching hasDemoPane
+
+        use! _control = server |> Control.enter token
+        let! clients = server |> Server.listClients token
+
+        let controlClients =
+            clients |> Query.matching (Filter.eq true ClientFields.controlMode)
+
+        if
+            (nativeMatches |> List.map (fun session -> session.Id)) <> [ demo.Value.Id ]
+            || (portableMatches |> Seq.map (fun session -> session.Id) |> Seq.toList)
+               <> [ demo.Value.Id ]
+            || matchingWindows.Count <> 1
+            || matchingPanes.Count <> 1
+            || (matchingParents |> Seq.exactlyOne).Id <> demo.Value.Id
+            || controlClients.Count <> 1
+        then
+            failwith "The native, portable and relation filters selected unexpected entities."
+
+        printfn "Native and portable session filters: demo"
+        printfn "Window: shell; panes: %d; parent: demo; control clients: %d" matchingPanes.Count controlClients.Count
+    }
+
+runAsync().GetAwaiter().GetResult()
+// endfsharp-snippet

@@ -139,19 +139,6 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
-    // fsharp-snippet: MatchingSessions
-    open LibTmux
-    open LibTmux.FSharp
-
-    let editorSessions =
-        Filter.oneOf [ "nvim"; "vim" ] PaneFields.currentCommand
-        |> Filter.any WindowFields.panes
-        |> Filter.any SessionFields.windows
-
-    let matchingSessions (captured: Server) =
-        captured.Sessions |> Query.matching editorSessions
-    // endfsharp-snippet
-
     // fsharp-snippet: ObserveControlEvents
     open System.Threading
     open LibTmux

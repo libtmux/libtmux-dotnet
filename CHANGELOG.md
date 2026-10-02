@@ -12,6 +12,10 @@ version.
 
 ### Added
 
+- `LibTmux.FSharp.Server` adds `listSessions`, `listWindows`, `listClients`,
+  `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
+  `None` for absent objects and propagate read errors and cancellation.
+
 ### Fixed
 
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so

@@ -57,6 +57,12 @@ jobs:
           dotnet restore examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj --locked-mode
           dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
             --configuration Release --no-restore --warnaserror
+          for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
+            program="$(basename "${source}" .fs)"
+            dotnet build examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+              --configuration Release --no-restore --warnaserror \
+              -p:ExampleProgram="${program}"
+          done
 
       - name: Archive runnable assemblies
         run: |
@@ -70,6 +76,7 @@ jobs:
             tests/LibTmux.Workspace.Cli.Tests/bin/Release/net10.0 \
             examples/LibTmux.FSharp.Examples/bin/Release/net8.0 \
             examples/LibTmux.FSharp.Examples/bin/Release/net10.0 \
+            examples/LibTmux.FSharp.Examples/bin/Release/programs \
             src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \
@@ -196,11 +203,18 @@ jobs:
           LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
           LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
           MATRIX_FRAMEWORK: ${{ matrix.framework }}
+          # Leave room for the socket name within Unix socket path limits.
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
         run: |
+          mkdir -p "${TMUX_TMPDIR}"
           test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
           PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
           export PATH
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+          for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
+            program="$(basename "${source}" .fs)"
+            dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+          done
 
   advisory:
     needs: build
