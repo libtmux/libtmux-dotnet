@@ -57,18 +57,49 @@ module Window =
 /// <summary>Starts explicit server reads with the caller's cancellation token.</summary>
 [<RequireQualifiedAccess>]
 module Server =
+    /// <summary>Lists sessions and captures their scalar fields.</summary>
+    /// <remarks>Child windows and panes require an explicit capture at the corresponding depth.</remarks>
+    val listSessions:
+        cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IReadOnlyList<LibTmux.Session>>
+
+    /// <summary>Lists window placements across all sessions and captures their scalar fields.</summary>
+    /// <remarks>A linked window can appear in more than one session. Panes require an explicit capture.</remarks>
+    val listWindows:
+        cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IReadOnlyList<LibTmux.Window>>
+
     /// <summary>Lists panes and captures their scalar fields.</summary>
     val listPanes: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IReadOnlyList<LibTmux.Pane>>
+
+    /// <summary>Lists attached clients and captures their scalar fields.</summary>
+    /// <remarks>A successful read returns an empty collection when no clients are attached.</remarks>
+    val listClients:
+        cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IReadOnlyList<LibTmux.Client>>
 
     /// <summary>Returns a new server handle captured to the requested depth.</summary>
     /// <remarks>Acquisition is not atomic; retained handles do not refresh themselves.</remarks>
     val capture:
         cancellationToken: CancellationToken -> depth: SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>
 
+    /// <summary>Returns a session or None after a successful lookup establishes absence.</summary>
+    /// <remarks>Connection, command and cancellation errors propagate unchanged.</remarks>
+    val tryFindSession:
+        cancellationToken: CancellationToken -> id: SessionId -> server: LibTmux.Server -> Task<LibTmux.Session option>
+
+    /// <summary>Returns a window or None after a successful lookup establishes absence.</summary>
+    /// <remarks>Connection, command and cancellation errors propagate unchanged.</remarks>
+    val tryFindWindow:
+        cancellationToken: CancellationToken -> id: WindowId -> server: LibTmux.Server -> Task<LibTmux.Window option>
+
     /// <summary>Returns a pane or None after a successful lookup establishes absence.</summary>
     /// <remarks>Connection, command and cancellation errors propagate unchanged.</remarks>
     val tryFindPane:
         cancellationToken: CancellationToken -> id: PaneId -> server: LibTmux.Server -> Task<LibTmux.Pane option>
+
+    /// <summary>Returns the client with an exact name or None after a successful listing finds no match.</summary>
+    /// <remarks>Connection, command and cancellation errors propagate unchanged.</remarks>
+    /// <exception cref="T:System.ArgumentException">The client name is null, empty or whitespace.</exception>
+    val tryFindClient:
+        cancellationToken: CancellationToken -> name: string -> server: LibTmux.Server -> Task<LibTmux.Client option>
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]

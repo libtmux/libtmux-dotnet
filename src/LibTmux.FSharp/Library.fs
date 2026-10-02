@@ -67,16 +67,44 @@ module Window =
 
 [<RequireQualifiedAccess>]
 module Server =
+    let listSessions (cancellationToken: CancellationToken) (server: LibTmux.Server) =
+        server.GetSessionsAsync(cancellationToken)
+
+    let listWindows (cancellationToken: CancellationToken) (server: LibTmux.Server) =
+        server.GetWindowsAsync(cancellationToken)
+
     let listPanes (cancellationToken: CancellationToken) (server: LibTmux.Server) =
         server.GetPanesAsync(cancellationToken)
 
+    let listClients (cancellationToken: CancellationToken) (server: LibTmux.Server) =
+        server.GetClientsAsync(cancellationToken)
+
     let capture (cancellationToken: CancellationToken) depth (server: LibTmux.Server) =
         server.CaptureSnapshotAsync(depth, cancellationToken)
+
+    let tryFindSession (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
+        task {
+            let! session = server.FindSessionAsync(id, cancellationToken)
+            return Option.ofObj session
+        }
+
+    let tryFindWindow (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
+        task {
+            let! window = server.FindWindowAsync(id, cancellationToken)
+            return Option.ofObj window
+        }
 
     let tryFindPane (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
         task {
             let! pane = server.FindPaneAsync(id, cancellationToken)
             return Option.ofObj pane
+        }
+
+    let tryFindClient (cancellationToken: CancellationToken) name (server: LibTmux.Server) =
+        task {
+            System.ArgumentException.ThrowIfNullOrWhiteSpace(name)
+            let! clients = server.GetClientsAsync(cancellationToken)
+            return clients |> Seq.tryFind (fun client -> client.Name = name)
         }
 
 [<RequireQualifiedAccess>]

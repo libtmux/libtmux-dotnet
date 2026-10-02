@@ -9,7 +9,7 @@ Type/Module | Description | Source
 [Field<'T, 'Value>](../reference/libtmux-fsharp-field-2.md) | Identifies a supported scalar field and its query constant type. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L15)
 [Filter](../reference/libtmux-fsharp-filter.md) | Constructs portable predicates through the core query translator. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L23)
 [Filter<'T>](../reference/libtmux-fsharp-filter-1.md) | Describes a validated portable predicate over one entity type. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L11)
-[Pane](../reference/libtmux-fsharp-pane.md) | Reads captured pane fields and starts explicit pane operations. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L75)
+[Pane](../reference/libtmux-fsharp-pane.md) | Reads captured pane fields and starts explicit pane operations. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L106)
 [PaneFields](../reference/libtmux-fsharp-panefields.md) | Provides supported pane fields for portable filters. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L101)
 [Query](../reference/libtmux-fsharp-query.md) | Applies portable filters locally to captured objects. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L67)
 [Relation<'Parent, 'Child>](../reference/libtmux-fsharp-relation-2.md) | Identifies a supported captured relation between two entity types. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L19)

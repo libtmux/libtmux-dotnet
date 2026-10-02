@@ -55,8 +55,28 @@ module ContractTests =
             Assert.Equal(SnapshotDepth.Server, depth)
         | Captured _ -> failwith "An unqueried endpoint cannot contain captured panes."
 
-    [<Fact>]
-    let ``optional lookup forwards cancellation and preserves transport diagnostics`` () =
+    let private readServer operation token server : Task =
+        match operation with
+        | "listSessions" -> Server.listSessions token server
+        | "listWindows" -> Server.listWindows token server
+        | "listPanes" -> Server.listPanes token server
+        | "listClients" -> Server.listClients token server
+        | "tryFindSession" -> Server.tryFindSession token (SessionId 7) server
+        | "tryFindWindow" -> Server.tryFindWindow token (WindowId 7) server
+        | "tryFindPane" -> Server.tryFindPane token (PaneId 7) server
+        | "tryFindClient" -> Server.tryFindClient token "client-7" server
+        | _ -> invalidArg (nameof operation) operation
+
+    [<Theory>]
+    [<InlineData("listSessions", "list-sessions", "")>]
+    [<InlineData("listWindows", "list-windows", "-a")>]
+    [<InlineData("listPanes", "list-panes", "-a")>]
+    [<InlineData("listClients", "list-clients", "")>]
+    [<InlineData("tryFindSession", "display-message", "$7")>]
+    [<InlineData("tryFindWindow", "display-message", "@7")>]
+    [<InlineData("tryFindPane", "display-message", "%7")>]
+    [<InlineData("tryFindClient", "list-clients", "")>]
+    let ``server reads forward cancellation and preserve transport diagnostics`` operation command target =
         task {
             use source = new CancellationTokenSource()
             let token = source.Token
@@ -76,7 +96,7 @@ module ContractTests =
 
                             if arguments = [| "-V" |] then
                                 versionReply arguments
-                            elif arguments |> Array.contains "%7" then
+                            elif arguments |> Array.contains command then
                                 observedCommand <- arguments
                                 observedToken <- cancellationToken
                                 Task.FromException<TmuxCommandResult>(failure)
@@ -89,20 +109,86 @@ module ContractTests =
             let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.7")
 
             let! observed =
-                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () ->
-                    Server.tryFindPane token (PaneId 7) server :> Task)
+                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () -> readServer operation token server)
 
-            let lookup = [| "display-message"; "-p"; "-t"; "%7" |]
+            Assert.Contains(command, observedCommand)
 
-            Assert.True(
-                observedCommand |> Array.windowed lookup.Length |> Array.exists ((=) lookup),
-                "The exception must come from the pane lookup."
-            )
+            if target <> "" then
+                Assert.Contains(target, observedCommand)
 
             Assert.Equal(token, observedToken)
             Assert.Same(failure, observed)
             Assert.True(observed.CommandMayHaveExecuted)
             Assert.Equal(117, observed.ClientProcessId)
+        }
+
+    [<Theory>]
+    [<InlineData("tryFindSession")>]
+    [<InlineData("tryFindWindow")>]
+    [<InlineData("tryFindPane")>]
+    [<InlineData("tryFindClient")>]
+    let ``optional server lookups distinguish absence from a failed command`` operation =
+        task {
+            let failure = TmuxTransportException("The tmux read failed.", [| "list" |])
+            let mutable failCommand = false
+            let mutable reads = 0
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-lookup-absence"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            reads <- reads + 1
+
+                            if failCommand then
+                                Task.FromException<TmuxCommandResult>(failure)
+                            else
+                                Task.FromResult(
+                                    TmuxCommandResult(
+                                        arguments,
+                                        0,
+                                        ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("17:29\n")),
+                                        ReadOnlyMemory<byte>.Empty,
+                                        [||],
+                                        [||]
+                                    )
+                                ))
+                )
+
+            // tmux 3.2a resolves missing IDs through an empty successful listing.
+            let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.2a")
+
+            let! absent =
+                task {
+                    match operation with
+                    | "tryFindSession" ->
+                        let! found = Server.tryFindSession CancellationToken.None (SessionId 7) server
+                        return Option.isNone found
+                    | "tryFindWindow" ->
+                        let! found = Server.tryFindWindow CancellationToken.None (WindowId 7) server
+                        return Option.isNone found
+                    | "tryFindPane" ->
+                        let! found = Server.tryFindPane CancellationToken.None (PaneId 7) server
+                        return Option.isNone found
+                    | _ ->
+                        let! found = Server.tryFindClient CancellationToken.None "client-7" server
+                        return Option.isNone found
+                }
+
+            Assert.True(absent)
+            Assert.Equal(1, reads)
+            failCommand <- true
+
+            let! observed =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () -> readServer operation CancellationToken.None server)
+
+            Assert.Equal(failure.Message, observed.Message)
+            Assert.Equal(failure.Dispatch, observed.Dispatch)
+            Assert.Equal(2, reads)
         }
 
     [<Fact>]

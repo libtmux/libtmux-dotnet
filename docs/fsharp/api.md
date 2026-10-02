@@ -114,8 +114,14 @@ Core handles and request types appear in the
 |---|---|
 | `LibTmux.FSharp.Server` | Starts explicit server reads with the caller's cancellation token. |
 | `val capture: cancellationToken: System.Threading.CancellationToken -> depth: LibTmux.SnapshotDepth -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
+| `val listClients: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Client>>` | Lists attached clients and captures their scalar fields. |
 | `val listPanes: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane>>` | Lists panes and captures their scalar fields. |
+| `val listSessions: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session>>` | Lists sessions and captures their scalar fields. |
+| `val listWindows: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Window>>` | Lists window placements across all sessions and captures their scalar fields. |
+| `val tryFindClient: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Client Microsoft.FSharp.Core.option>` | Returns the client with an exact name or None after a successful listing finds no match. |
 | `val tryFindPane: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.PaneId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Pane Microsoft.FSharp.Core.option>` | Returns a pane or None after a successful lookup establishes absence. |
+| `val tryFindSession: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.SessionId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Session Microsoft.FSharp.Core.option>` | Returns a session or None after a successful lookup establishes absence. |
+| `val tryFindWindow: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.WindowId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Window Microsoft.FSharp.Core.option>` | Returns a window or None after a successful lookup establishes absence. |
 
 ## SessionFields
 
