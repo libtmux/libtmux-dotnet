@@ -240,7 +240,8 @@ jobs:
               --framework "${framework}" \
               --no-restore \
               -p:UsePackageReferences=true
-            for program in ServerListings ServerLookups ServerFilters; do
+            for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
+              program="$(basename "${source}" .fs)"
               dotnet run \
                 --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
                 --configuration Release \

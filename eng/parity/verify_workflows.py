@@ -19,6 +19,7 @@ import typing as t
 import yaml
 
 TARGET_FRAMEWORKS = {"net8.0", "net10.0"}
+FSHARP_PROGRAM_LOOP = "for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do"
 
 
 class WorkflowLoader(yaml.CBaseLoader):
@@ -171,8 +172,8 @@ def verify(root: pathlib.Path) -> list[str]:
     examples_run = examples.get("run", "")
     require(
         "for framework in net8.0 net10.0; do" in examples_run
-        and "for program in ServerListings ServerLookups ServerFilters; do"
-        in examples_run
+        and FSHARP_PROGRAM_LOOP in examples_run
+        and 'program="$(basename "${source}" .fs)"' in examples_run
         and '-p:ExampleProgram="${program}"' in examples_run
         and examples_run.count("-p:UsePackageReferences=true") >= 2,
         "dotnet.build.fsharp-packed-examples must execute every query program on both packed frameworks",
@@ -256,6 +257,11 @@ def verify(root: pathlib.Path) -> list[str]:
         fsharp_build.get("run", "").count(fsharp_project) >= 2,
         "dotnet-tmux.build must restore and build the F# example",
     )
+    require(
+        FSHARP_PROGRAM_LOOP in fsharp_build.get("run", "")
+        and '-p:ExampleProgram="${program}"' in fsharp_build.get("run", ""),
+        "dotnet-tmux.build must compile every F# query program",
+    )
     archives = [
         step for step in producer.get("steps", [])
         if step.get("name") == "Archive runnable assemblies"
@@ -263,6 +269,10 @@ def verify(root: pathlib.Path) -> list[str]:
     require(len(archives) == 1, "dotnet-tmux.build must archive runnable assemblies")
     if len(archives) == 1:
         archive_command = archives[0].get("run", "")
+        require(
+            "examples/LibTmux.FSharp.Examples/bin/Release/programs" in archive_command,
+            "dotnet-tmux.build must archive every F# query program",
+        )
         for framework in sorted(TARGET_FRAMEWORKS):
             require(
                 f"examples/LibTmux.FSharp.Examples/bin/Release/{framework}"
@@ -289,6 +299,12 @@ def verify(root: pathlib.Path) -> list[str]:
         in fsharp_example.get("run", "")
         and "LIBTMUX_EXPECTED_TMUX_VERSION" in fsharp_example.get("run", ""),
         "dotnet-tmux.matrix.fsharp-examples must verify and run the selected cell",
+    )
+    require(
+        FSHARP_PROGRAM_LOOP in fsharp_example.get("run", "")
+        and 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"'
+        in {line.strip() for line in fsharp_example.get("run", "").splitlines()},
+        "dotnet-tmux.matrix must execute every F# query program",
     )
     aggregate("dotnet-tmux", "compatibility", {"build", "matrix"})
 

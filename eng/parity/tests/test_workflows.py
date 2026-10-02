@@ -56,7 +56,7 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
 @pytest.mark.parametrize(
     "removed",
     [
-        "ServerLookups ",
+        "Programs/*.fs",
         '-p:ExampleProgram="${program}"',
         "for framework in net8.0 net10.0; do",
         "-p:UsePackageReferences=true",
@@ -126,6 +126,32 @@ def test_fsharp_example_is_required_in_every_tmux_matrix_cell(
     path.write_text(yaml.safe_dump(document))
 
     assert any("fsharp-examples" in error for error in verify(repository))
+
+
+@pytest.mark.parametrize(
+    ("job", "step_name", "removed"),
+    [
+        ("build", "Build F# examples for the tmux matrix", '-p:ExampleProgram="${program}"'),
+        ("build", "Archive runnable assemblies", "examples/LibTmux.FSharp.Examples/bin/Release/programs"),
+        ("matrix", "F# example", "Programs/*.fs"),
+        ("matrix", "F# example", 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/'),
+    ],
+)
+def test_query_programs_survive_matrix_build_and_execution(
+    repository: pathlib.Path, job: str, step_name: str, removed: str
+) -> None:
+    """Every displayed program must reach and run in the tmux matrix."""
+    path = repository / ".github/workflows/dotnet-tmux.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"][job]["steps"]
+        if step.get("name") == step_name
+    )
+    assert removed in step["run"]
+    step["run"] = step["run"].replace(removed, "")
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("every F# query program" in error for error in verify(repository))
 
 
 def test_commented_dependencies_do_not_gate_publication(
