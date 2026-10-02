@@ -167,6 +167,17 @@ def verify(root: pathlib.Path) -> list[str]:
     ):
         required_step("dotnet", "build", identifier)
 
+    examples = required_step("dotnet", "build", "fsharp-packed-examples")
+    examples_run = examples.get("run", "")
+    require(
+        "for framework in net8.0 net10.0; do" in examples_run
+        and "for program in ServerListings ServerLookups ServerFilters; do"
+        in examples_run
+        and '-p:ExampleProgram="${program}"' in examples_run
+        and examples_run.count("-p:UsePackageReferences=true") >= 2,
+        "dotnet.build.fsharp-packed-examples must execute every query program on both packed frameworks",
+    )
+
     trimmed = required_step("dotnet", "build", "fsharp-trimmed-smoke")
     trimmed_run = trimmed.get("run", "")
     trimmed_project = "tests/LibTmux.FSharp.AotSmoke/LibTmux.FSharp.AotSmoke.fsproj"

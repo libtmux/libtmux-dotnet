@@ -13,9 +13,15 @@
     <LibTmuxPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</LibTmuxPackageVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(ExampleProgram)' != ''">
+    <OutputPath>bin/$(Configuration)/programs/$(ExampleProgram)/</OutputPath>
+    <IntermediateOutputPath>obj/$(Configuration)/$(TargetFramework)/$(ExampleProgram)/</IntermediateOutputPath>
+  </PropertyGroup>
+
   <ItemGroup>
-    <Compile Include="Snippets/GuideSnippets.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="Snippets/GuideSnippets.fs" Condition="'$(ExampleProgram)' == ''" />
+    <Compile Include="Program.fs" Condition="'$(ExampleProgram)' == ''" />
+    <Compile Include="Programs/$(ExampleProgram).fs" Condition="'$(ExampleProgram)' != ''" />
     <PackageReference Include="FSharp.Core" Condition="'$(UsePackageReferences)' != 'true'" />
     <AssemblyMetadata Include="ExpectedPackageVersion" Value="$(LibTmuxPackageVersion)" />
   </ItemGroup>

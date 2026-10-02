@@ -53,6 +53,31 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
     assert any("F# snippets" in error for error in verify(repository))
 
 
+@pytest.mark.parametrize(
+    "removed",
+    [
+        "ServerLookups ",
+        '-p:ExampleProgram="${program}"',
+        "for framework in net8.0 net10.0; do",
+        "-p:UsePackageReferences=true",
+    ],
+)
+def test_packed_query_programs_are_required(
+    repository: pathlib.Path, removed: str
+) -> None:
+    """A workflow cannot skip a displayed program or substitute source references."""
+    path = repository / ".github/workflows/dotnet.yml"
+    document = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+    step = next(
+        step for step in document["jobs"]["build"]["steps"]
+        if step.get("id") == "fsharp-packed-examples"
+    )
+    step["run"] = step["run"].replace(removed, "")
+    path.write_text(yaml.safe_dump(document))
+
+    assert any("execute every query program" in error for error in verify(repository))
+
+
 def test_fsdocs_reference_check_is_required(repository: pathlib.Path) -> None:
     """The generated member pages must be checked, not only built."""
     path = repository / ".github/workflows/dotnet.yml"

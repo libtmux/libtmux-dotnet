@@ -240,6 +240,15 @@ jobs:
               --framework "${framework}" \
               --no-restore \
               -p:UsePackageReferences=true
+            for program in ServerListings ServerLookups ServerFilters; do
+              dotnet run \
+                --project examples/LibTmux.FSharp.Examples/LibTmux.FSharp.Examples.fsproj \
+                --configuration Release \
+                --framework "${framework}" \
+                --no-restore \
+                -p:UsePackageReferences=true \
+                -p:ExampleProgram="${program}"
+            done
           done
 
       - name: Ahead-of-time smoke test
