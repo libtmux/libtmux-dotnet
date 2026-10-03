@@ -114,6 +114,14 @@ public sealed class PushdownDifferentialTests
             token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", "dev", "-n", "edit", "sh"], token);
         await raw.ExecuteAsync(["wait-for", ready], token);
+
+        // A pane names its command once the program has started; the snapshot
+        // and the later listings must see the same one.
+        foreach (string shell in (string[])["ops:logs.0", "ops:logs.1", "dev:edit"])
+        {
+            await ReportsAsync(raw, shell, "#{==:#{pane_current_command},sh}", token);
+        }
+
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         SessionId ops = snapshot.Sessions.Single(session => session.Name == "ops").Id;
