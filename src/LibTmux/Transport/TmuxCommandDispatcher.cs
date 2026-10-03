@@ -165,7 +165,10 @@ internal sealed class TmuxCommandDispatcher
         TmuxInstrumentation.Complete(activity, started, copy, socket, result.ExitCode);
         TmuxLog.CommandCompleted(_context, copy, result);
 
-        if (copy.Contains("has-session", StringComparer.Ordinal)
+        // Only the subcommand counts: the text has-session typed into a pane
+        // is not a question about a session.
+        if (copy.Length > 0
+            && string.Equals(copy[0], "has-session", StringComparison.Ordinal)
             && result.StandardOutputLines.Count == 0
             && result.StandardErrorLines.Count > 0)
         {
