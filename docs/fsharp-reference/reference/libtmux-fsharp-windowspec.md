@@ -38,7 +38,7 @@ Field type: <code><span>string&#32;option</span></code>
 
 #### <code>Environment</code>
 
-Variables added to the first pane's environment.
+Variables added to the first pane's environment; a session's first window takes them from the session instead.
 
 Field type: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-collections-fsharpmap-2">Map</a>&lt;<span>string,&#32;string</span>&gt;</span></code>
 

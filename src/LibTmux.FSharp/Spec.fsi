@@ -31,7 +31,7 @@ type WindowSpec =
         Command: string option
         /// <summary>The first pane's working directory.</summary>
         Directory: string option
-        /// <summary>Variables added to the first pane's environment.</summary>
+        /// <summary>Variables added to the first pane's environment; a session's first window takes them from the session instead.</summary>
         Environment: Map<string, string>
         /// <summary>The panes split off in order, each beside the pane before it.</summary>
         Splits: SplitSpec list

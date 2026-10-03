@@ -38,7 +38,8 @@ module Server =
     /// <para>
     /// tmux gives a new session one window, so the first <c>WindowSpec</c> is
     /// that window: its name, command and directory go into the command that
-    /// creates the session, and its environment adds to the session's. Each
+    /// creates the session. tmux sets environment there for the whole session,
+    /// so the first window's must be empty; put it in the session's. Each
     /// later spec creates a window of its own. A window's splits are made in
     /// order, each beside the pane before it.
     /// </para>
@@ -48,7 +49,10 @@ module Server =
     /// </para>
     /// </remarks>
     /// <returns>The session, read again after its windows and panes exist.</returns>
-    /// <exception cref="T:System.ArgumentException">The session and its first window name different directories.</exception>
+    /// <exception cref="T:System.ArgumentException">
+    /// The session and its first window name different directories, or the
+    /// first window sets an environment.
+    /// </exception>
     /// <exception cref="T:LibTmux.TmuxSessionExistsException">The name is already taken.</exception>
     val newSession:
         cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>
@@ -247,6 +251,7 @@ module Chain =
     val start: server: LibTmux.Server -> TmuxChain
 
     /// <summary>Adds a window to a session and makes it the one following steps act on.</summary>
+    /// <remarks>It fails rather than reach another session when tmux restarted after the session was read.</remarks>
     val newWindow: session: LibTmux.Session -> name: string -> chain: TmuxChain -> TmuxChain
 
     /// <summary>Splits the current pane into a left and a right one; the right becomes current.</summary>

@@ -59,13 +59,17 @@ module Server =
             )
         | _ -> ()
 
-        backgroundTask {
-            let firstEnvironment =
-                match first with
-                | Some window ->
-                    Map.fold (fun merged name value -> Map.add name value merged) spec.Environment window.Environment
-                | None -> spec.Environment
+        match first with
+        | Some window when not window.Environment.IsEmpty ->
+            raise (
+                ArgumentException(
+                    "tmux sets the first window's environment for the whole session; put it in the session's Environment.",
+                    nameof spec
+                )
+            )
+        | _ -> ()
 
+        backgroundTask {
             let! session =
                 server.CreateSessionAsync(
                     NewSessionRequest(
@@ -73,7 +77,7 @@ module Server =
                         WindowName = (first |> Option.bind (fun window -> window.Name) |> Option.toObj),
                         Command = (first |> Option.bind (fun window -> window.Command) |> Option.toObj),
                         StartDirectory = (firstDirectory |> Option.orElse spec.Directory |> Option.toObj),
-                        Environment = environment firstEnvironment
+                        Environment = environment spec.Environment
                     ),
                     cancellationToken
                 )
@@ -218,7 +222,14 @@ module Chain =
     let start (server: LibTmux.Server) = server.Chain()
 
     let newWindow (session: LibTmux.Session) (name: string) (chain: TmuxChain) =
-        chain.Then("new-window", "-t", session.Id.ToString() + ":", "-n", name)
+        // The id is the session's only on the server it was read from.
+        chain.Then(
+            TmuxCommand(
+                "new-window",
+                [| "-t"; session.Id.ToString() + ":"; "-n"; name |],
+                RequiredGeneration = Nullable session.Generation
+            )
+        )
 
     let splitLeftRight (chain: TmuxChain) = chain.Then("split-window", "-h")
 
@@ -227,7 +238,8 @@ module Chain =
     let sendLine (line: string) (chain: TmuxChain) =
         chain.Then("send-keys", "-l", "--", line + "\r")
 
-    let arrange (layout: string) (chain: TmuxChain) = chain.Then("select-layout", layout)
+    let arrange (layout: string) (chain: TmuxChain) =
+        chain.Then(TmuxCommand("select-layout", [| layout |], ChecksLayout = true))
 
     let add (command: TmuxCommand) (chain: TmuxChain) = chain.Then(command)
 

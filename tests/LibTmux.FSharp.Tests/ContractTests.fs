@@ -391,6 +391,19 @@ module FailureTests =
             [ for command in chain.Commands -> List.ofSeq (command.ToArguments()) ]
         )
 
+        // The new window's session id holds only on the server it was read from,
+        // and the layout is checked before tmux, which some versions crash on.
+        Assert.Equal(Nullable generation, chain.Commands[0].RequiredGeneration)
+        Assert.True(chain.Commands[4].ChecksLayout)
+
+        Assert.ThrowsAsync<ArgumentException>(fun () ->
+            server
+            |> Chain.start
+            |> Chain.arrange "no-such-layout"
+            |> Chain.run CancellationToken.None
+            :> Task)
+        |> fun refused -> refused.GetAwaiter().GetResult() |> ignore
+
     [<Fact>]
     let ``a session description is checked before tmux and names itself without printf`` () =
         task {
@@ -418,6 +431,21 @@ module FailureTests =
                 Assert.ThrowsAsync<ArgumentException>(fun () ->
                     Server.newSession CancellationToken.None conflicting server :> Task)
 
+            // tmux would give the first window's environment to the whole session.
+            let windowEnvironment =
+                { SessionSpec.named "dev" with
+                    Windows =
+                        [
+                            { WindowSpec.named "editor" with
+                                Environment = Map [ "EDITOR", "nvim" ]
+                            }
+                        ]
+                }
+
+            let! _ =
+                Assert.ThrowsAsync<ArgumentException>(fun () ->
+                    Server.newSession CancellationToken.None windowEnvironment server :> Task)
+
             Assert.Equal(
                 ("session dev", "window editor", "split running the default shell"),
                 (string conflicting, string conflicting.Windows[0], string SplitSpec.empty)
@@ -429,6 +457,7 @@ module FailureTests =
         task {
             let sent = ResizeArray<string>()
             let mutable flaky = 0
+            let slow = TaskCompletionSource<TmuxCommandResult>()
 
             let connection =
                 TmuxConnection(
@@ -440,7 +469,9 @@ module FailureTests =
                         if name = "flaky" then
                             flaky <- flaky + 1
 
-                        if name = "refused" || (name = "flaky" && flaky = 1) then
+                        if name = "slow" then
+                            slow.Task
+                        elif name = "refused" || (name = "flaky" && flaky = 1) then
                             Task.FromException<TmuxCommandResult>(
                                 TmuxTransportException(
                                     "refused",
@@ -492,10 +523,26 @@ module FailureTests =
                         })
                     :> Task)
 
+            // A command still in flight when another is refused counts as sent.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let pending = run "slow" token
+                            let! _ = run "refused" token
+                            return! pending
+                        })
+                    :> Task)
+
+            slow.SetResult(TmuxCommandResult([ "slow" ], 0, ReadOnlyMemory.Empty, ReadOnlyMemory.Empty, [], []))
+
             // A lone command refused before dispatch is still repeated.
             let! recovered = Retry.ifNotSent CancellationToken.None 2 (run "flaky")
 
-            Assert.Equal((1, 1, 2, 0), (count "first", count "nested", count "flaky", recovered.ExitCode))
+            Assert.Equal(
+                (1, 1, 1, 2, 0),
+                (count "first", count "nested", count "slow", count "flaky", recovered.ExitCode)
+            )
         }
 
     [<Fact>]

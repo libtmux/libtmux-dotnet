@@ -26,7 +26,7 @@ Acquisition is not atomic; retained handles do not refresh themselves.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Server&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L111)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L115)
 
 <a name="clients"></a>
 
@@ -53,7 +53,8 @@ Creates a session as described: its windows, and each window&#39;s splits.
 <p class='fsdocs-para'>
  tmux gives a new session one window, so the first <code>WindowSpec</code> is
  that window: its name, command and directory go into the command that
- creates the session, and its environment adds to the session&#39;s. Each
+ creates the session. tmux sets environment there for the whole session,
+ so the first window&#39;s must be empty; put it in the session&#39;s. Each
  later spec creates a window of its own. A window&#39;s splits are made in
  order, each beside the pane before it.
  </p><p class='fsdocs-para'>
@@ -73,7 +74,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 The session, read again after its windows and panes exist.
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The session and its first window name different directories.
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The session and its first window name different directories, or the
+ first window sets an environment.
 
 `TmuxSessionExistsException` The name is already taken.
 
@@ -129,7 +131,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The client name is null, empty or whitespace.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L132)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L136)
 
 <a name="tryFindPane"></a>
 
@@ -149,7 +151,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Pane&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L126)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L130)
 
 <a name="tryFindSession"></a>
 
@@ -169,7 +171,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Session&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L114)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L118)
 
 <a name="tryFindWindow"></a>
 
@@ -189,7 +191,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Window&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L120)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L124)
 
 <a name="windows"></a>
 

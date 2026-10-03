@@ -336,7 +336,7 @@ Signatures assume `open System`, `open System.Threading`,
 |---|---|
 | `SplitSpec list` | The panes split off in order, each beside the pane before it. |
 | `WindowSpec` | Describes a window: its first pane, then each pane split off the one before. |
-| `Map<string,string>` | Variables added to the first pane's environment. |
+| `Map<string,string>` | Variables added to the first pane's environment; a session's first window takes them from the session instead. |
 | `string option` | The command the first pane runs instead of the default shell. |
 | `string option` | The first pane's working directory. |
 | `string option` | The window's name; tmux names it after its command when None. |
