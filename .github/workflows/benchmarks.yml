@@ -14,8 +14,9 @@ on:
         default: '3.7c'
         type: choice
         options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
-  # A push that changes what is measured, the query and snapshot code the
-  # pushdown gate times, or how a run is recorded, records and gates a run.
+  # A push that changes what is measured, the query, snapshot and
+  # control-mode code the gates and the pane watch time, or how a run is
+  # recorded, records and gates a run.
   # A pull_request filter would match the whole pull request's diff and
   # record again on every later push to it.
   push:
@@ -25,8 +26,10 @@ on:
       - '.github/workflows/benchmarks.yml'
       - 'src/LibTmux/Query/**'
       - 'src/LibTmux/Snapshots/**'
+      - 'src/LibTmux/ControlMode/**'
       - 'src/LibTmux/Server.Queries.cs'
       - 'src/LibTmux.FSharp/Query.fs'
+      - 'src/LibTmux.FSharp/Control.fs'
 
 permissions:
   contents: read
