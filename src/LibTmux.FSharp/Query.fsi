@@ -212,6 +212,12 @@ module WindowFields =
     val active: Field<LibTmux.Window, bool>
     /// <summary>Identifies whether one of the window's panes is zoomed to fill it.</summary>
     val zoomed: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether a bell rang in the window since it was last the current window.</summary>
+    val bellAlert: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether the window printed since it was last the current window, while monitor-activity is on.</summary>
+    val activityAlert: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether the window has been silent for monitor-silence seconds.</summary>
+    val silenceAlert: Field<LibTmux.Window, bool>
     /// <summary>Identifies the number of panes in the window.</summary>
     val paneCount: Field<LibTmux.Window, int>
     /// <summary>Identifies panes captured through this window placement.</summary>
@@ -256,6 +262,8 @@ module PaneFields =
     val processId: Field<LibTmux.Pane, int>
     /// <summary>Identifies whether keys typed into the pane go to every synchronized pane in its window.</summary>
     val synchronized: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies how many lines have scrolled into the pane's history.</summary>
+    val historySize: Field<LibTmux.Pane, int>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

@@ -136,6 +136,33 @@ module DescriptorMatrixTests =
                 Document = Filter.eq true WindowFields.zoomed |> Filter.toDocument
             }
             {
+                Name = "WindowFields.bellAlert"
+                CoreProperty = "Window.BellAlert"
+                WireName = "window_bell_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.bellAlert |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.activityAlert"
+                CoreProperty = "Window.ActivityAlert"
+                WireName = "window_activity_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.activityAlert |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.silenceAlert"
+                CoreProperty = "Window.SilenceAlert"
+                WireName = "window_silence_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.silenceAlert |> Filter.toDocument
+            }
+            {
                 Name = "WindowFields.paneCount"
                 CoreProperty = "Window.Panes"
                 WireName = "window_panes"
@@ -320,6 +347,15 @@ module DescriptorMatrixTests =
                 Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq true PaneFields.synchronized |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.historySize"
+                CoreProperty = "Pane.HistorySize"
+                WireName = "history_size"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.historySize |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"

@@ -167,6 +167,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val currentPath: Field<LibTmux.Pane,string>` | Identifies the pane's working directory, as the text tmux reported. |
 | `val dead: Field<LibTmux.Pane,bool>` | Identifies whether the pane's program has exited while the pane remains. |
 | `val height: Field<LibTmux.Pane,int>` | Identifies the pane's height in cells. |
+| `val historySize: Field<LibTmux.Pane,int>` | Identifies how many lines have scrolled into the pane's history. |
 | `val id: Field<LibTmux.Pane,PaneId>` | Identifies the typed pane ID. |
 | `val inMode: Field<LibTmux.Pane,bool>` | Identifies whether the pane is in a mode, such as copy mode. |
 | `val index: Field<LibTmux.Pane,int>` | Identifies the pane's position in its window. |
@@ -343,12 +344,15 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `module WindowFields` | Provides supported window fields and relations for portable filters. |
 | `val active: Field<LibTmux.Window,bool>` | Identifies whether the window is the current window of the session it was read through. |
+| `val activityAlert: Field<LibTmux.Window,bool>` | Identifies whether the window printed since it was last the current window, while monitor-activity is on. |
+| `val bellAlert: Field<LibTmux.Window,bool>` | Identifies whether a bell rang in the window since it was last the current window. |
 | `val height: Field<LibTmux.Window,int>` | Identifies the window's height in cells. |
 | `val id: Field<LibTmux.Window,WindowId>` | Identifies the typed physical window ID. |
 | `val index: Field<LibTmux.Window,int>` | Identifies where the window sits in its session. |
 | `val name: Field<LibTmux.Window,string>` | Identifies the window name. |
 | `val paneCount: Field<LibTmux.Window,int>` | Identifies the number of panes in the window. |
 | `val panes: Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |
+| `val silenceAlert: Field<LibTmux.Window,bool>` | Identifies whether the window has been silent for monitor-silence seconds. |
 | `val width: Field<LibTmux.Window,int>` | Identifies the window's width in cells. |
 | `val zoomed: Field<LibTmux.Window,bool>` | Identifies whether one of the window's panes is zoomed to fill it. |
 
