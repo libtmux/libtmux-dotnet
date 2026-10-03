@@ -458,3 +458,18 @@ module ContextTests =
 
         for source in sources do
             Assert.DoesNotMatch(plainTask, IO.File.ReadAllText(source))
+
+    [<Fact>]
+    let ``facade sources never format through printf`` () =
+        let sources =
+            IO.Directory.GetFiles(IO.Path.Combine(AppContext.BaseDirectory, "facade-source"), "*.fs")
+
+        Assert.NotEmpty sources
+
+        // Interpolated strings and the printf family reach FSharp.Core's
+        // reflection-based formatter, which NativeAOT rejects.
+        let printf =
+            Text.RegularExpressions.Regex(@"\$""|(?<![A-Za-z])(sprintf|printfn?|failwithf|kprintf)\b")
+
+        for source in sources do
+            Assert.DoesNotMatch(printf, IO.File.ReadAllText(source))

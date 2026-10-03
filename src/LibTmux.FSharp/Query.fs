@@ -18,7 +18,7 @@ module internal Targets =
         elif typeof<'T> = typeof<LibTmux.Client> then
             QueryTarget.Client
         else
-            invalidArg "T" $"Type '{typeof<'T>.Name}' is not a session, window, pane or client."
+            invalidArg "T" ("Type '" + typeof<'T>.Name + "' is not a session, window, pane or client.")
 
 [<Sealed>]
 type Filter<'T> internal (node: QueryNode) =
@@ -57,7 +57,7 @@ module private Nodes =
             | :? SessionId as id -> TypedIdConstant(QueryTarget.Session, id.ToString())
             | :? WindowId as id -> TypedIdConstant(QueryTarget.Window, id.ToString())
             | :? PaneId as id -> TypedIdConstant(QueryTarget.Pane, id.ToString())
-            | other -> invalidArg "value" $"A constant of type '{other.GetType().Name}' has no query form."
+            | other -> invalidArg "value" ("A constant of type '" + other.GetType().Name + "' has no query form.")
 
         ConstantNode literal
 
@@ -210,7 +210,10 @@ type Query<'T>
                 for each in first :: rest do
                     TmuxFilterRenderer.RequireSingleExpression each
 
-                UnsafeTmuxFilter(rest |> List.fold (fun combined next -> $"#{{&&:{combined},{next}}}") first)
+                UnsafeTmuxFilter(
+                    rest
+                    |> List.fold (fun combined next -> "#{&&:" + combined + "," + next + "}") first
+                )
 
         ListingRequest(target, Option.toNullable session, Option.toNullable window, filter, unsafeFilter, null)
 
