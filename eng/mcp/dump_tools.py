@@ -174,6 +174,38 @@ def _parameters(schema: dict, names: list[str]) -> str:
     return ", ".join(_parameter(name, properties[name]) for name in names) or "none"
 
 
+def _omitted(tools: list[dict]) -> list[tuple[str, str, list[str]]]:
+    """Return what omitting each parameter means, from its "Omit for ..." sentence."""
+    meanings: dict[tuple[str, str], list[str]] = {}
+    for tool in tools:
+        properties = (tool.get("inputSchema") or {}).get("properties") or {}
+        for name, schema in properties.items():
+            sentence = next(
+                (each for each in _sentences(schema.get("description", "")) if each.startswith("Omit ")),
+                None,
+            )
+            if sentence is not None:
+                meaning = sentence.removeprefix("Omit ").removesuffix(".")
+                meaning = meaning.removeprefix("for ")
+                meanings.setdefault((name, meaning), []).append(tool["name"])
+    return sorted((name, meaning, names) for (name, meaning), names in meanings.items())
+
+
+def _fields(schema: dict) -> str:
+    """Name a result's fields, and one level of the fields inside each object or list."""
+    rendered = []
+    for name, field in (schema.get("properties") or {}).items():
+        inner = field.get("items", field) if field.get("type") == "array" else field
+        children = list((inner.get("properties") or {}).keys())
+        listed = "[]" if field.get("type") == "array" else ""
+        rendered.append(
+            f"`{name}`{listed}" + (f" ({', '.join(f'`{child}`' for child in children)})" if children else "")
+        )
+    if not rendered and isinstance(schema.get("additionalProperties"), dict):
+        return "a map from each requested name to its value"
+    return ", ".join(rendered) or "none"
+
+
 def _batch_tools(tool: dict) -> list[str]:
     """Return the tools a batch tool's schema lets it run."""
     items = (((tool.get("inputSchema") or {}).get("properties") or {}).get("operations") or {}).get("items") or {}
@@ -266,12 +298,34 @@ def main() -> int:
         lines.append(
             f"| `{tool['name']}` | {_parameters(schema, required)} | {_parameters(schema, optional)} |"
         )
+    lines += [
+        "",
+        "An omitted parameter means:",
+        "",
+        "| Parameter | When omitted | Tools |",
+        "|---|---|---|",
+    ]
+    lines += [
+        f"| `{name}` | {meaning} | {', '.join(f'`{tool}`' for tool in names)} |"
+        for name, meaning, names in _omitted(tools)
+    ]
     for tool in tools:
         if batched := _batch_tools(tool):
             lines += [
                 "",
                 f"`{tool['name']}` runs any of: " + ", ".join(f"`{name}`" for name in batched) + ".",
             ]
+
+    lines += [
+        "",
+        "## Results",
+        "",
+        "Each tool's output schema describes its result; these are its fields.",
+        "",
+        "| Tool | Fields |",
+        "|---|---|",
+    ]
+    lines += [f"| `{tool['name']}` | {_fields(tool.get('outputSchema') or {})} |" for tool in tools]
 
     for label, key, field, uri in (
         ("Resources", 3, "resources", "uri"),

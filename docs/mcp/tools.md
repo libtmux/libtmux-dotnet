@@ -118,7 +118,70 @@ A `?` marks a parameter that accepts null, and `=` gives its default.
 | `wait_for_channel` | `channel`: string | `timeoutSeconds`: number? |
 | `wait_for_text` | none | `paneId`: string?, `patterns`: object[]?, `stopPatterns`: object[]?, `timeoutSeconds`: number?, `ignoreCase`: boolean = true |
 
+An omitted parameter means:
+
+| Parameter | When omitted | Tools |
+|---|---|---|
+| `name` | every name with hasValue instead of values | `show_environment` |
+| `paneId` | the active pane | `capture_pane`, `capture_since`, `clear_pane_scrollback`, `paste_text`, `resize_pane`, `respawn_pane`, `run_shell_command`, `send_keys`, `set_pane_title`, `snapshot_pane`, `split_window`, `wait_for_text` |
+| `session` | every session | `list_panes`, `list_windows`, `search_panes` |
+| `session` | the server environment | `show_environment` |
+| `windowId` | every window | `list_panes` |
+| `windowId` | the active window | `resize_window`, `select_layout`, `set_synchronize_panes` |
+
 `call_read_tools_batch` runs any of: `capture_pane`, `capture_since`, `find_pane_by_position`, `get_pane_info`, `get_server_info`, `get_session_info`, `get_tmux_variables`, `get_window_info`, `list_panes`, `list_sessions`, `list_windows`, `search_panes`, `show_environment`, `show_hooks`, `show_option`, `snapshot_pane`.
+
+## Results
+
+Each tool's output schema describes its result; these are its fields.
+
+| Tool | Fields |
+|---|---|
+| `call_read_tools_batch` | `results`[] (`index`, `tool`, `success`, `error`, `result`, `resultTruncated`), `succeeded`, `failed`, `stoppedAt`, `truncated`, `truncatedBytes`, `onError` |
+| `capture_pane` | `paneId`, `content` (`lines`, `truncated`, `droppedLines`, `droppedBytes`) |
+| `capture_since` | `paneId`, `content` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `cursor`, `linesMissed`, `anchorLost` |
+| `clear_pane_scrollback` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `create_session` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `create_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `find_pane_by_position` | `paneId`, `windowId`, `sessionId`, `index`, `width`, `height`, `title`, `active`, `dead`, `zoomed`, `inMode`, `currentCommand`, `currentPath`, `pid`, `historySize`, `historyLimit`, `isCaller` |
+| `get_pane_info` | `paneId`, `windowId`, `sessionId`, `index`, `width`, `height`, `title`, `active`, `dead`, `zoomed`, `inMode`, `currentCommand`, `currentPath`, `pid`, `historySize`, `historyLimit`, `isCaller` |
+| `get_server_info` | `socketName`, `socketPath`, `version`, `sessionCount`, `windowCount`, `paneCount`, `callerPaneId`, `callerPaneSocket` |
+| `get_session_info` | `sessionId`, `name`, `attached`, `windowCount` |
+| `get_tmux_variables` | a map from each requested name to its value |
+| `get_window_info` | `windowId`, `sessionId`, `index`, `name`, `width`, `height`, `active`, `paneCount`, `layout` |
+| `kill_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `kill_session` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `kill_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `list_panes` | `result`[] (`paneId`, `windowId`, `sessionId`, `index`, `width`, `height`, `title`, `active`, `dead`, `zoomed`, `inMode`, `currentCommand`, `currentPath`, `pid`, `historySize`, `historyLimit`, `isCaller`) |
+| `list_sessions` | `result`[] (`sessionId`, `name`, `attached`, `windowCount`) |
+| `list_windows` | `result`[] (`windowId`, `sessionId`, `index`, `name`, `width`, `height`, `active`, `paneCount`, `layout`) |
+| `move_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `paste_text` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `rename_session` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `rename_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `resize_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `resize_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `respawn_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `run_shell_command` | `paneId`, `exitStatus`, `timedOut`, `output` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds`, `linesMissed`, `anchorLost`, `started` |
+| `search_panes` | `pattern`, `panesSearched`, `panes`[] (`paneId`, `windowId`, `sessionId`, `matches`), `truncated` |
+| `select_layout` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `select_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `select_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `send_keys` | `changed`, `paneId`, `targetPaneIds`[] |
+| `send_keys_batch` | `results`[] (`index`, `paneId`, `success`, `error`, `targetPaneIds`), `succeeded`, `failed`, `stoppedAt`, `onError` |
+| `set_history_limit` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `set_mouse_enabled` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `set_pane_title` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `set_synchronize_panes` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `show_environment` | `result`[] (`name`, `value`, `isRemoved`, `hasValue`, `withheld`) |
+| `show_hooks` | `result`[] (`name`, `index`, `command`, `scope`) |
+| `show_option` | `result`[] (`name`, `value`, `scope`, `inherited`) |
+| `signal_channel` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `snapshot_pane` | `pane` (`paneId`, `windowId`, `sessionId`, `index`, `width`, `height`, `title`, `active`, `dead`, `zoomed`, `inMode`, `currentCommand`, `currentPath`, `pid`, `historySize`, `historyLimit`, `isCaller`), `content` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `cursorX`, `cursorY`, `alternateScreen` |
+| `split_window` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `swap_pane` | `changed`, `paneId`, `windowId`, `sessionId` |
+| `wait_for_channel` | `changed`, `channel`, `signalled`, `elapsedSeconds`, `effectiveTimeoutSeconds` |
+| `wait_for_text` | `paneId`, `outcome`, `matchedPattern`, `tail` (`lines`, `truncated`, `droppedLines`, `droppedBytes`), `elapsedSeconds`, `effectiveTimeoutSeconds` |
 
 ## Resources
 
