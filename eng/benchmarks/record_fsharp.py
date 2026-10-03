@@ -92,8 +92,9 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
 
 
 def scaled(value_ns: float, divisor: float) -> str:
-    """Format a time at three significant figures in the class's unit."""
-    return f"{value_ns / divisor:.3g}"
+    """Format a time at three significant figures in the class's unit, never in exponent form."""
+    value = value_ns / divisor
+    return f"{value:,.0f}" if value >= 100 else f"{value:.3g}"
 
 
 def render(record: dict) -> str:
