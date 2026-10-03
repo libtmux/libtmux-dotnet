@@ -27,6 +27,20 @@ Signatures assume `open System`, `open System.Threading`,
 | `MultipleMatches` | At least two elements matched. |
 | `NoMatches` | No element matched. |
 
+## Chain
+
+| Signature | Summary |
+|---|---|
+| `Chain` | Builds commands tmux runs together, each acting on what the one before made. |
+| `val add: command: LibTmux.TmuxCommand -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Appends any command, such as a typed request's ToCommand. |
+| `val arrange: layout: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Arranges the current window with a tmux layout; the chain checks the name before tmux sees it. |
+| `val newWindow: session: LibTmux.Session -> name: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Adds a window to a session and makes it the one following steps act on. |
+| `val run: cancellationToken: CancellationToken -> chain: LibTmux.TmuxChain -> Task<LibTmux.TmuxCommandResult>` | Runs every command in one tmux invocation and returns tmux's combined answer. |
+| `val sendLine: line: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Types a line into the current pane and presses Enter. |
+| `val splitLeftRight: chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Splits the current pane into a left and a right one; the right becomes current. |
+| `val splitTopBottom: chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Splits the current pane into a top and a bottom one; the bottom becomes current. |
+| `val start: server: LibTmux.Server -> LibTmux.TmuxChain` | Starts an empty chain against a server. |
+
 ## ClientFields
 
 | Signature | Summary |
@@ -198,6 +212,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `Server` | Starts server reads and queries with the caller's cancellation token. |
 | `val capture: cancellationToken: CancellationToken -> depth: LibTmux.SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
 | `val clients: server: LibTmux.Server -> Query<LibTmux.Client>` | Queries attached clients. |
+| `val newSession: cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>` | Creates a session as described: its windows, and each window's splits. |
 | `val panes: server: LibTmux.Server -> Query<LibTmux.Pane>` | Queries every pane. |
 | `val sessions: server: LibTmux.Server -> Query<LibTmux.Session>` | Queries every session. |
 | `val tryFindClient: cancellationToken: CancellationToken -> name: string -> server: LibTmux.Server -> Task<LibTmux.Client option>` | Returns the client with an exact name or None after a successful listing finds no match. |
@@ -205,6 +220,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `val tryFindSession: cancellationToken: CancellationToken -> id: LibTmux.SessionId -> server: LibTmux.Server -> Task<LibTmux.Session option>` | Returns a session or None after a successful lookup establishes absence. |
 | `val tryFindWindow: cancellationToken: CancellationToken -> id: LibTmux.WindowId -> server: LibTmux.Server -> Task<LibTmux.Window option>` | Returns a window or None after a successful lookup establishes absence. |
 | `val windows: server: LibTmux.Server -> Query<LibTmux.Window>` | Queries window placements across all sessions. |
+| `val within: timeout: TimeSpan -> server: LibTmux.Server -> LibTmux.Server` | Returns the server with every command bounded by a timeout, for it and every handle taken from it. |
 
 ## Session
 
@@ -225,6 +241,24 @@ Signatures assume `open System`, `open System.Threading`,
 | `val windowCount: Field<LibTmux.Session,int>` | Identifies the number of windows linked into the session. |
 | `val windows: Relation<LibTmux.Session,LibTmux.Window>` | Identifies captured window placements within the session. |
 
+## SessionSpec
+
+| Signature | Summary |
+|---|---|
+| `SessionSpec` | Describes a session and its windows, for Server.newSession. |
+| `WindowSpec list` | The windows, in order; the first is the one tmux creates with the session. |
+| `Map<string,string>` | Variables added to the session's environment. |
+| `string` | The session's name. |
+| `string option` | The working directory of the session and its first window. |
+| `override ToString: unit -> string` | Names the session, without formatting through printf. |
+
+## SessionSpecModule
+
+| Signature | Summary |
+|---|---|
+| `SessionSpecModule` | Starts session descriptions. |
+| `val named: name: string -> SessionSpec` | A named session with tmux's single default window. |
+
 ## Snapshot
 
 | Signature | Summary |
@@ -232,6 +266,25 @@ Signatures assume `open System`, `open System.Threading`,
 | `Snapshot` | Reads captured values without contacting tmux. |
 | `val relation: relation: LibTmux.CapturedRelation<'T> -> CaptureState<IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
 | `val value: value: LibTmux.CapturedValue<'T> -> CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
+
+## SplitSpec
+
+| Signature | Summary |
+|---|---|
+| `SplitSpec` | Describes a pane split off the pane created before it. |
+| `LibTmux.PaneDirection option` | Where the new pane goes, beside the pane before it; tmux puts it below when None. |
+| `Map<string,string>` | Variables added to the pane's environment. |
+| `string option` | The command the pane runs instead of the default shell. |
+| `string option` | The pane's working directory. |
+| `string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `override ToString: unit -> string` | Names the split by its command, without formatting through printf. |
+
+## SplitSpecModule
+
+| Signature | Summary |
+|---|---|
+| `SplitSpecModule` | Starts split descriptions. |
+| `val empty: SplitSpec` | A split below the pane before it, running the default shell. |
 
 ## StreamStep
 
@@ -276,3 +329,23 @@ Signatures assume `open System`, `open System.Threading`,
 | Signature | Summary |
 |---|---|
 | `WindowPlacementKey` | Identifies one indexed placement of a window within a server generation. |
+
+## WindowSpec
+
+| Signature | Summary |
+|---|---|
+| `SplitSpec list` | The panes split off in order, each beside the pane before it. |
+| `WindowSpec` | Describes a window: its first pane, then each pane split off the one before. |
+| `Map<string,string>` | Variables added to the first pane's environment. |
+| `string option` | The command the first pane runs instead of the default shell. |
+| `string option` | The first pane's working directory. |
+| `string option` | The window's name; tmux names it after its command when None. |
+| `override ToString: unit -> string` | Names the window, without formatting through printf. |
+
+## WindowSpecModule
+
+| Signature | Summary |
+|---|---|
+| `WindowSpecModule` | Starts window descriptions. |
+| `val empty: WindowSpec` | A window tmux names after its command, running the default shell. |
+| `val named: name: string -> WindowSpec` | A named window running the default shell. |

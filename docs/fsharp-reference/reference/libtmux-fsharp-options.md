@@ -32,7 +32,7 @@ Type parameters: 'T
 
 `TmuxOptionException`tmux rejected the name, reported no value, or reported one the key cannot read.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L122)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L210)
 
 <a name="set"></a>
 
@@ -56,4 +56,4 @@ Type parameters: 'T
 
 `TmuxOptionException`tmux rejected the name or the value.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L125)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L213)

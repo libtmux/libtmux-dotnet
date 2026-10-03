@@ -24,6 +24,35 @@ module Server =
     /// <remarks>tmux narrows a filtered client listing only from tmux 3.4; older tmux lists every client.</remarks>
     val clients: server: LibTmux.Server -> Query<LibTmux.Client>
 
+    /// <summary>Returns the server with every command bounded by a timeout, for it and every handle taken from it.</summary>
+    /// <remarks>
+    /// The handle shares the connection, so nothing starts or is verified again.
+    /// A command that outlasts the bound fails as <c>MayHaveRun</c>; a caller's
+    /// own cancellation still reads as cancellation.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The timeout does not run forward.</exception>
+    val within: timeout: TimeSpan -> server: LibTmux.Server -> LibTmux.Server
+
+    /// <summary>Creates a session as described: its windows, and each window's splits.</summary>
+    /// <remarks>
+    /// <para>
+    /// tmux gives a new session one window, so the first <c>WindowSpec</c> is
+    /// that window: its name, command and directory go into the command that
+    /// creates the session, and its environment adds to the session's. Each
+    /// later spec creates a window of its own. A window's splits are made in
+    /// order, each beside the pane before it.
+    /// </para>
+    /// <para>
+    /// Steps run one after another; a failure part way leaves what was already
+    /// created, so kill the session by name to clean up.
+    /// </para>
+    /// </remarks>
+    /// <returns>The session, read again after its windows and panes exist.</returns>
+    /// <exception cref="T:System.ArgumentException">The session and its first window name different directories.</exception>
+    /// <exception cref="T:LibTmux.TmuxSessionExistsException">The name is already taken.</exception>
+    val newSession:
+        cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>
+
     /// <summary>Returns a new server handle captured to the requested depth.</summary>
     /// <remarks>Acquisition is not atomic; retained handles do not refresh themselves.</remarks>
     val capture:
@@ -195,3 +224,46 @@ module Options =
     /// <summary>Sets an option in a scope from a value of its key's type.</summary>
     /// <exception cref="T:LibTmux.TmuxOptionException">tmux rejected the name or the value.</exception>
     val set: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> value: 'T -> options: TmuxOptions -> Task
+
+/// <summary>Builds commands tmux runs together, each acting on what the one before made.</summary>
+/// <remarks>
+/// <para>
+/// tmux moves its current target as a chain runs: <c>newWindow</c> makes the
+/// new window current, a following split splits its pane, and a following
+/// <c>sendLine</c> types into the pane that split made. No step after the
+/// first names a target, so a chain needs no round trip to learn the id of
+/// what it just created.
+/// </para>
+/// <para>
+/// A chain is a core <c>TmuxChain</c>: each step returns a new one, building
+/// reads nothing, and <c>run</c> sends every command in one tmux invocation.
+/// <c>add</c> appends any command, such as a typed request's <c>ToCommand</c>.
+/// </para>
+/// </remarks>
+[<RequireQualifiedAccess>]
+module Chain =
+    /// <summary>Starts an empty chain against a server.</summary>
+    /// <exception cref="T:System.InvalidOperationException">The server handle has no connection.</exception>
+    val start: server: LibTmux.Server -> TmuxChain
+
+    /// <summary>Adds a window to a session and makes it the one following steps act on.</summary>
+    val newWindow: session: LibTmux.Session -> name: string -> chain: TmuxChain -> TmuxChain
+
+    /// <summary>Splits the current pane into a left and a right one; the right becomes current.</summary>
+    val splitLeftRight: chain: TmuxChain -> TmuxChain
+
+    /// <summary>Splits the current pane into a top and a bottom one; the bottom becomes current.</summary>
+    val splitTopBottom: chain: TmuxChain -> TmuxChain
+
+    /// <summary>Types a line into the current pane and presses Enter.</summary>
+    val sendLine: line: string -> chain: TmuxChain -> TmuxChain
+
+    /// <summary>Arranges the current window with a tmux layout; the chain checks the name before tmux sees it.</summary>
+    val arrange: layout: string -> chain: TmuxChain -> TmuxChain
+
+    /// <summary>Appends any command, such as a typed request's <c>ToCommand</c>.</summary>
+    val add: command: TmuxCommand -> chain: TmuxChain -> TmuxChain
+
+    /// <summary>Runs every command in one tmux invocation and returns tmux's combined answer.</summary>
+    /// <remarks>Cancellation after dispatch does not undo commands tmux already ran.</remarks>
+    val run: cancellationToken: CancellationToken -> chain: TmuxChain -> Task<TmuxCommandResult>

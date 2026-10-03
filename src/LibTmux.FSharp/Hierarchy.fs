@@ -20,6 +20,94 @@ module Server =
     let clients (server: LibTmux.Server) =
         Query<LibTmux.Client>.Create(server, QueryTarget.Client, None, None)
 
+    let within (timeout: TimeSpan) (server: LibTmux.Server) = server.Within(timeout)
+
+    // An empty map adds no -e flags, the same as none.
+    let private environment (values: Map<string, string>) : IReadOnlyDictionary<string, string> = values
+
+    let private splitAll (cancellationToken: CancellationToken) (first: LibTmux.Pane) (splits: SplitSpec list) =
+        backgroundTask {
+            let mutable current = first
+
+            for split in splits do
+                let! next =
+                    current.SplitAsync(
+                        SplitPaneRequest(
+                            Direction = Option.toNullable split.Direction,
+                            Command = Option.toObj split.Command,
+                            StartDirectory = Option.toObj split.Directory,
+                            Size = Option.toObj split.Size,
+                            Environment = environment split.Environment
+                        ),
+                        cancellationToken
+                    )
+
+                current <- next
+        }
+
+    let newSession (cancellationToken: CancellationToken) (spec: SessionSpec) (server: LibTmux.Server) =
+        let first = List.tryHead spec.Windows
+        let firstDirectory = first |> Option.bind (fun window -> window.Directory)
+
+        match spec.Directory, firstDirectory with
+        | Some session, Some window when session <> window ->
+            raise (
+                ArgumentException(
+                    "The session and its first window name different directories; tmux starts that window in one.",
+                    nameof spec
+                )
+            )
+        | _ -> ()
+
+        backgroundTask {
+            let firstEnvironment =
+                match first with
+                | Some window ->
+                    Map.fold (fun merged name value -> Map.add name value merged) spec.Environment window.Environment
+                | None -> spec.Environment
+
+            let! session =
+                server.CreateSessionAsync(
+                    NewSessionRequest(
+                        Name = spec.Name,
+                        WindowName = (first |> Option.bind (fun window -> window.Name) |> Option.toObj),
+                        Command = (first |> Option.bind (fun window -> window.Command) |> Option.toObj),
+                        StartDirectory = (firstDirectory |> Option.orElse spec.Directory |> Option.toObj),
+                        Environment = environment firstEnvironment
+                    ),
+                    cancellationToken
+                )
+
+            match first with
+            | Some window ->
+                let! panes = session.GetPanesAsync(cancellationToken)
+                do! splitAll cancellationToken panes[0] window.Splits
+            | None -> ()
+
+            for window in
+                List.tail (
+                    if spec.Windows.IsEmpty then
+                        [ WindowSpec.empty ]
+                    else
+                        spec.Windows
+                ) do
+                let! created =
+                    session.CreateWindowAsync(
+                        NewWindowRequest(
+                            Name = Option.toObj window.Name,
+                            Command = Option.toObj window.Command,
+                            StartDirectory = Option.toObj window.Directory,
+                            Environment = environment window.Environment
+                        ),
+                        cancellationToken
+                    )
+
+                let! panes = created.GetPanesAsync(cancellationToken)
+                do! splitAll cancellationToken panes[0] window.Splits
+
+            return! session.RefreshAsync(cancellationToken)
+        }
+
     let capture (cancellationToken: CancellationToken) depth (server: LibTmux.Server) =
         server.CaptureSnapshotAsync(depth, cancellationToken)
 
@@ -124,3 +212,23 @@ module Options =
 
     let set (cancellationToken: CancellationToken) (key: TmuxOptionKey<'T>) (value: 'T) (options: TmuxOptions) =
         options.SetAsync(key, value, cancellationToken)
+
+[<RequireQualifiedAccess>]
+module Chain =
+    let start (server: LibTmux.Server) = server.Chain()
+
+    let newWindow (session: LibTmux.Session) (name: string) (chain: TmuxChain) =
+        chain.Then("new-window", "-t", session.Id.ToString() + ":", "-n", name)
+
+    let splitLeftRight (chain: TmuxChain) = chain.Then("split-window", "-h")
+
+    let splitTopBottom (chain: TmuxChain) = chain.Then("split-window", "-v")
+
+    let sendLine (line: string) (chain: TmuxChain) =
+        chain.Then("send-keys", "-l", "--", line + "\r")
+
+    let arrange (layout: string) (chain: TmuxChain) = chain.Then("select-layout", layout)
+
+    let add (command: TmuxCommand) (chain: TmuxChain) = chain.Then(command)
+
+    let run (cancellationToken: CancellationToken) (chain: TmuxChain) = chain.ExecuteAsync(cancellationToken)

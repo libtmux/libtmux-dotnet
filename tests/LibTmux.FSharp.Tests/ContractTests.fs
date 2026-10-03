@@ -358,6 +358,73 @@ module FailureTests =
         )
 
     [<Fact>]
+    let ``a chain's steps act on what the one before made and send nothing until run`` () =
+        let generation = ServerGeneration(96, 906)
+
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-chain-steps"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                    raise (InvalidOperationException "Building a chain reached tmux."))
+            )
+
+        let server = Server(connection, generation, "tmux 3.7")
+        let session = Session(server, connection, generation, SessionId 3, Dictionary())
+
+        let chain =
+            server
+            |> Chain.start
+            |> Chain.newWindow session "watch"
+            |> Chain.splitLeftRight
+            |> Chain.splitTopBottom
+            |> Chain.sendLine "tail -f log"
+            |> Chain.arrange "tiled"
+
+        Assert.Equal<string list list>(
+            [
+                [ "new-window"; "-t"; "$3:"; "-n"; "watch" ]
+                [ "split-window"; "-h" ]
+                [ "split-window"; "-v" ]
+                [ "send-keys"; "-l"; "--"; "tail -f log\r" ]
+                [ "select-layout"; "tiled" ]
+            ],
+            [ for command in chain.Commands -> List.ofSeq (command.ToArguments()) ]
+        )
+
+    [<Fact>]
+    let ``a session description is checked before tmux and names itself without printf`` () =
+        task {
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-session-spec"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                        raise (InvalidOperationException "A rejected description reached tmux."))
+                )
+
+            let server = Server(connection, ServerGeneration(97, 907), "tmux 3.7")
+
+            let conflicting =
+                { SessionSpec.named "dev" with
+                    Directory = Some "/srv"
+                    Windows =
+                        [
+                            { WindowSpec.named "editor" with
+                                Directory = Some "/tmp"
+                            }
+                        ]
+                }
+
+            let! _ =
+                Assert.ThrowsAsync<ArgumentException>(fun () ->
+                    Server.newSession CancellationToken.None conflicting server :> Task)
+
+            Assert.Equal(
+                ("session dev", "window editor", "split running the default shell"),
+                (string conflicting, string conflicting.Windows[0], string SplitSpec.empty)
+            )
+        }
+
+    [<Fact>]
     let ``retry does not repeat an operation once any command it sent reached tmux`` () =
         task {
             let sent = ResizeArray<string>()
