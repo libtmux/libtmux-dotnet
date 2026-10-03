@@ -258,6 +258,16 @@ let private runAsync () =
         if greeting <> [ "hello" ] then
             failwithf "The testing guide read %A." greeting
 
+        let ciOptions = GuideSnippets.ciTestOptions ()
+
+        do!
+            task {
+                use! ciScope = TmuxTestFactory().CreateServerAsync(ciOptions, cancellationToken)
+
+                if ciScope.Server.ConnectionOptions.SocketName <> ciOptions.ConnectionOptions.SocketName then
+                    failwith "The CI test options did not reach the test server."
+            }
+
         let! history, stage, _ =
             GuideSnippets.tuneAsync cancellationToken scope.Session scope.Window
 

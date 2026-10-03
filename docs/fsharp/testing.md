@@ -72,10 +72,37 @@ passing test finishes as soon as tmux does, and a failing one at its timeout.
 ## Run tests in CI
 
 - Install tmux 3.2a or later. Set `LIBTMUX_TMUX` to choose a binary other than
-  the first `tmux` on `PATH`, and pass it as `ServerConnectionOptions.TmuxBinaryPath`.
+  the first `tmux` on `PATH`, and pass it to each scope through
+  `TmuxTestOptions`, as below.
 - Keep `TMUX_TMPDIR` short, such as `/tmp/tmux-tests`: a socket path longer
   than about 100 bytes cannot be bound.
 - Clear `TMUX` and `TMUX_PANE` when tests run inside a tmux pane. The scopes
   use their own sockets either way, but code under test that finds its server
   from the environment, such as `Server.FromEnvironment()`, would otherwise
   reach the outer server.
+
+<!-- fsharp-snippet: CiTestOptions -->
+```fsharp
+open System
+open LibTmux
+open LibTmux.Testing
+
+// Options that name a connection replace the private socket a test gets
+// by default, so name a socket of the test's own as well as the binary.
+let ciTestOptions () =
+    let binary =
+        Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+        |> Option.ofObj
+        |> Option.defaultValue "tmux"
+
+    TmuxTestOptions(
+        ServerConnectionOptions(
+            SocketName = "libtmux-test-" + Guid.NewGuid().ToString("N"),
+            TmuxBinaryPath = binary
+        )
+    )
+```
+<!-- endfsharp-snippet -->
+
+Pass the options to each scope, such as
+`TmuxTestFactory().CreateHierarchyAsync(ciTestOptions (), cancellationToken)`.
