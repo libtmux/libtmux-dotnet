@@ -76,7 +76,7 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
         classes.append({"name": name, "cases": cases})
 
     return {
-        "schema": "libtmux-benchmark-record-v1",
+        "schema": "libtmux-fsharp-benchmark-record-v1",
         "collected": collected,
         "libraryVersion": git("describe", "--tags", "--always"),
         "commit": git("rev-parse", "HEAD"),

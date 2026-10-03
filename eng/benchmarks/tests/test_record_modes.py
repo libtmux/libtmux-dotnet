@@ -138,11 +138,15 @@ def test_five_mode_record_requires_complete_samples_and_preflight(tmp_path, monk
 RUNS = pathlib.Path(__file__).parents[3] / "docs" / "benchmarks" / "runs"
 
 
+RECORDERS = {
+    "libtmux-fsharp-benchmark-record-v1": RECORDER.with_name("record_fsharp.py"),
+}
+
+
 @pytest.mark.parametrize("record", sorted(RUNS.glob("*.json")), ids=lambda path: path.stem)
 def test_a_published_table_is_its_record_rendered(record):
     # The table is what gets read and quoted; it must say what the record
     # says, field for field, however either was last edited.
-    recorder = runpy.run_path(str(RECORDER))
-    assert record.with_suffix(".md").read_text(encoding="utf-8") == recorder["render"](
-        json.loads(record.read_text(encoding="utf-8"))
-    )
+    document = json.loads(record.read_text(encoding="utf-8"))
+    recorder = runpy.run_path(str(RECORDERS.get(document.get("schema"), RECORDER)))
+    assert record.with_suffix(".md").read_text(encoding="utf-8") == recorder["render"](document)
