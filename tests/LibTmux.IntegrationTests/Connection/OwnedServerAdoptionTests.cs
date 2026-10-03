@@ -158,6 +158,27 @@ public sealed class OwnedServerAdoptionTests
         }
     }
 
+    [UnixFact]
+    public async Task Waiting_for_a_stopped_server_ignores_a_process_that_reused_its_id()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using System.Diagnostics.Process stranger = System.Diagnostics.Process.Start("sleep", "30");
+        try
+        {
+            // Same ID, earlier start: the process recorded has gone and this one took its ID.
+            Task waiting = OwnedServerScope.WaitForExitAsync(
+                (stranger.Id, stranger.StartTime.AddSeconds(-1)),
+                token);
+
+            await waiting.WaitAsync(TimeSpan.FromSeconds(2), token);
+            Assert.False(stranger.HasExited);
+        }
+        finally
+        {
+            stranger.Kill();
+        }
+    }
+
     // An owned server whose tmux exits 1 while the returned file exists, so a
     // test can make stopping it fail and then succeed.
     private static async Task<(OwnedServerScope Owned, string Refuse)> CreateRefusableAsync(
