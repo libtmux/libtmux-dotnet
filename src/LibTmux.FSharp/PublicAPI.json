@@ -1903,6 +1903,108 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneRunResult>"
     },
     {
+      "id": "M:LibTmux.FSharp.Pane.sendAndWait(System.Threading.CancellationToken,System.TimeSpan,System.String,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendAndWait",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendAndWait: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> line: Microsoft.FSharp.Core.string -> text: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan -> Microsoft.FSharp.Core.string -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "timeout",
+          "optional": false,
+          "type": "System.TimeSpan"
+        },
+        {
+          "name": "line",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "text",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendAndWait",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Pane.sendAndWaitFor(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.PaneWaitRequest,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendAndWaitFor",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendAndWaitFor: cancellationToken: System.Threading.CancellationToken -> keys: LibTmux.SendKeysRequest -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.SendKeysRequest -> LibTmux.PaneWaitRequest -> LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "keys",
+          "optional": false,
+          "type": "LibTmux.SendKeysRequest"
+        },
+        {
+          "name": "request",
+          "optional": false,
+          "type": "LibTmux.PaneWaitRequest"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendAndWaitFor",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "sendKeys",

@@ -116,6 +116,38 @@ module Pane =
     val waitFor:
         cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
 
+    /// <summary>Types a line, presses Enter, and waits for a later line to contain the text.</summary>
+    /// <remarks>
+    /// The screen before the line is typed never ends the wait, and the
+    /// shell's echo of the line is discounted: waiting for <c>done</c> after
+    /// typing <c>echo done</c> waits for the command's output. Prefer this to
+    /// <c>sendKeys</c> followed by <c>waitForText</c>, which can match the
+    /// typed line itself.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    val sendAndWait:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        line: string ->
+        text: string ->
+        pane: LibTmux.Pane ->
+            Task<PaneWaitResult>
+
+    /// <summary>Sends keys as the request describes, then waits as the wait request describes.</summary>
+    /// <remarks>
+    /// As <c>sendAndWait</c>: only output after the keys counts, and literal
+    /// text is discounted from it. Key names are not.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    val sendAndWaitFor:
+        cancellationToken: CancellationToken ->
+        keys: SendKeysRequest ->
+        request: PaneWaitRequest ->
+        pane: LibTmux.Pane ->
+            Task<PaneWaitResult>
+
     /// <summary>Waits until a condition holds over the rows the pane shows, top to bottom.</summary>
     /// <remarks>The condition sees the whole screen each time the pane prints or changes state.</remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>

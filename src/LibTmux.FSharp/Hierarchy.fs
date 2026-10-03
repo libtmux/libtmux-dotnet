@@ -83,6 +83,23 @@ module Pane =
     let waitFor (cancellationToken: CancellationToken) (request: PaneWaitRequest) (pane: LibTmux.Pane) =
         pane.WaitForTextAsync(request, cancellationToken)
 
+    let sendAndWait
+        (cancellationToken: CancellationToken)
+        (timeout: TimeSpan)
+        (line: string)
+        (text: string)
+        (pane: LibTmux.Pane)
+        =
+        pane.SendTextAndWaitAsync(line, text, timeout, cancellationToken)
+
+    let sendAndWaitFor
+        (cancellationToken: CancellationToken)
+        (keys: SendKeysRequest)
+        (request: PaneWaitRequest)
+        (pane: LibTmux.Pane)
+        =
+        pane.SendKeysAndWaitAsync(keys, request, cancellationToken)
+
     let waitUntil
         (cancellationToken: CancellationToken)
         (timeout: TimeSpan)

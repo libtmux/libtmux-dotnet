@@ -118,6 +118,8 @@ Signatures assume `open System`, `open System.Threading`,
 | `val currentPath: pane: LibTmux.Pane -> string option` | Reads the captured working directory, preserving an empty string. |
 | `val findOnScreen: cancellationToken: CancellationToken -> search: ScreenSearch -> pane: LibTmux.Pane -> Task<int option>` | Returns the first visible row showing the text, counted from 1, or None. |
 | `val run: cancellationToken: CancellationToken -> timeout: TimeSpan -> command: string -> pane: LibTmux.Pane -> Task<LibTmux.PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
+| `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
+| `val sendAndWaitFor: cancellationToken: CancellationToken -> keys: LibTmux.SendKeysRequest -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Sends keys as the request describes, then waits as the wait request describes. |
 | `val sendKeys: cancellationToken: CancellationToken -> request: LibTmux.SendKeysRequest -> pane: LibTmux.Pane -> Task` | Sends text or key names according to the request's literal and Enter settings. |
 | `val split: cancellationToken: CancellationToken -> request: LibTmux.SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
 | `val waitFor: cancellationToken: CancellationToken -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |

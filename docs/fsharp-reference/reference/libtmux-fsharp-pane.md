@@ -103,7 +103,66 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane is in a mode or not running a POSIX shell.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L94)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L111)
+
+<a name="sendAndWait"></a>
+
+#### <code><span>Pane.sendAndWait&#32;<span>cancellationToken&#32;timeout&#32;line&#32;text&#32;pane</span></span></code>
+
+Types a line, presses Enter, and waits for a later line to contain the text.
+
+The screen before the line is typed never ends the wait, and the
+ shell&#39;s echo of the line is discounted: waiting for <code>done</code> after
+ typing <code>echo done</code> waits for the command&#39;s output. Prefer this to
+ <code>sendKeys</code> followed by <code>waitForText</code>, which can match the
+ typed line itself.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**line**: <code>string</code>
+
+**text**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text is empty or spans lines.
+
+`TmuxPaneException` The pane&#39;s program had already exited.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L86)
+
+<a name="sendAndWaitFor"></a>
+
+#### <code><span>Pane.sendAndWaitFor&#32;<span>cancellationToken&#32;keys&#32;request&#32;pane</span></span></code>
+
+Sends keys as the request describes, then waits as the wait request describes.
+
+As <code>sendAndWait</code>: only output after the keys counts, and literal
+ text is discounted from it. Key names are not.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**keys**: <code>SendKeysRequest</code>
+
+**request**: <code>PaneWaitRequest</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The wait names no pattern.
+
+`TmuxPaneException` The pane&#39;s program had already exited.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L95)
 
 <a name="sendKeys"></a>
 
@@ -123,7 +182,7 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L97)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L114)
 
 <a name="split"></a>
 
@@ -143,7 +202,7 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L100)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L117)
 
 <a name="waitFor"></a>
 
@@ -215,4 +274,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L86)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L103)
