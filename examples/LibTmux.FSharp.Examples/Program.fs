@@ -181,14 +181,12 @@ let private runAsync () =
         let! tour =
             task {
                 use! owned =
-                    LibTmux.Server.CreateOwnedAsync(
-                        ServerConnectionOptions(
-                            SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
-                            ConfigurationFile = "/dev/null",
-                            TmuxBinaryPath = tmuxBinary
-                        ),
-                        cancellationToken
+                    ServerConnectionOptions(
+                        SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
+                        ConfigurationFile = "/dev/null",
+                        TmuxBinaryPath = tmuxBinary
                     )
+                    |> Server.createOwned cancellationToken
 
                 let! _ =
                     owned.Value.CreateSessionAsync(
@@ -393,11 +391,7 @@ let private runAsync () =
                     let reading =
                         GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
 
-                    do!
-                        watchedPane
-                        |> Pane.sendKeys
-                            cancellationToken
-                            (SendKeysRequest(Text = "printf 'watch''ed\\n'", Literal = true))
+                    do! watchedPane |> Pane.sendLine cancellationToken "printf 'watch''ed\\n'"
 
                     return! reading
                 })

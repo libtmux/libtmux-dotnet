@@ -80,6 +80,7 @@ each documented on the function that raises it:
 | `TmuxWaitTimeoutException` | `Mirror.waitUntil` saw no matching view in time. Pane waits return `TimedOut` instead. |
 | `InvalidOperationException` | `Query.atMostOne` found several matches, a mirror ended before a wait's condition held, a second reader started on a control client, or `Server.createOwned` met a server already on the default socket. |
 | `TmuxSessionExistsException` | `Server.newSession` names a session that already exists. |
+| `TmuxObjectNotFoundException` | A mirror's anchor session is gone; `Mirror.views` raises the failure that ended the mirror. |
 | `TmuxOptionException` | tmux rejected an option name or value, or reported one the key cannot read. |
 | `TmuxVersionTooLowException` | A raw client filter ran on tmux older than 3.4. |
 | `IncompleteSnapshotException` | A captured relation or field was read that the capture did not include. |
