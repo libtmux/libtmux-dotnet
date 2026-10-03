@@ -179,6 +179,13 @@ def verify(root: pathlib.Path) -> list[str]:
         "dotnet.build.fsharp-packed-examples must execute every complete program on both packed frameworks",
     )
 
+    quickstart = required_step("dotnet", "build", "fsharp-readme-quickstart")
+    require(
+        "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart"
+        in quickstart.get("run", ""),
+        "dotnet.build.fsharp-readme-quickstart must compare its output with the README",
+    )
+
     sdk8 = required_step("dotnet", "build", "fsharp-sdk8-consumer")
     sdk8_run = sdk8.get("run", "")
     require(

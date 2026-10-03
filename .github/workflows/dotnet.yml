@@ -233,11 +233,12 @@ jobs:
           dotnet restore examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
             --configfile tests/NuGet.config
           for framework in net8.0 net10.0; do
-            env -u TMUX -u TMUX_PANE dotnet run \
+            printed="$(env -u TMUX -u TMUX_PANE dotnet run \
               --project examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
               --configuration Release \
               --framework "${framework}" \
-              --no-restore
+              --no-restore)"
+            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart
           done
 
       - name: F# packed example console

@@ -1,8 +1,13 @@
-"""Materialize compiled F# guide blocks into the documents that publish them."""
+"""Materialize compiled F# guide blocks into the documents that publish them.
+
+A document may also show what a program prints in an output block; CI pipes
+the program's real output to ``--expect-output NAME`` to keep it true.
+"""
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import pathlib
 import re
 import sys
@@ -29,6 +34,12 @@ ANCHOR = re.compile(
     re.DOTALL,
 )
 FENCE = re.compile(r"```fsharp(?:[ \t]+run)?\r?\n.*?```", re.DOTALL)
+OUTPUT = re.compile(
+    r"<!-- fsharp-output: (?P<name>\S+) -->\n"
+    r"```text\n(?P<body>.*?)```\n"
+    r"<!-- endfsharp-output -->",
+    re.DOTALL,
+)
 
 
 def read_regions(sources: pathlib.Path) -> dict[str, str]:
@@ -110,7 +121,44 @@ def run(
 
     idle = sorted(set(regions) - set(used))
     errors.extend(f"F# source block {name} is published by no document" for name in idle)
+
+    outputs = {
+        match.group("name")
+        for path in documents
+        for match in OUTPUT.finditer(path.read_text(encoding="utf-8"))
+    }
+    errors.extend(
+        f"F# output {name} names no F# source block" for name in sorted(outputs - set(regions))
+    )
     return errors
+
+
+def lines(text: str) -> list[str]:
+    """Return text as lines without trailing spaces or trailing blank lines."""
+    result = [line.rstrip() for line in text.splitlines()]
+    while result and not result[-1]:
+        result.pop()
+    return result
+
+
+def compare_output(documents: t.Iterable[pathlib.Path], name: str, actual: str) -> list[str]:
+    """Return why a program's output differs from the one block that documents it."""
+    blocks = [
+        match.group("body")
+        for path in documents
+        for match in OUTPUT.finditer(path.read_text(encoding="utf-8"))
+        if match.group("name") == name
+    ]
+    if len(blocks) != 1:
+        return [f"F# output {name} is documented {len(blocks)} times; expected once"]
+    expected = lines(blocks[0])
+    printed = lines(actual)
+    if expected == printed:
+        return []
+    return [
+        f"F# output {name} differs from what the program printed:",
+        *difflib.unified_diff(expected, printed, "documented", "printed", lineterm=""),
+    ]
 
 
 def main(arguments: t.Sequence[str] | None = None) -> int:
@@ -121,8 +169,17 @@ def main(arguments: t.Sequence[str] | None = None) -> int:
         action="store_true",
         help="report drift without writing",
     )
+    parser.add_argument(
+        "--expect-output",
+        metavar="NAME",
+        help="compare standard input with the output documented for NAME",
+    )
     parsed = parser.parse_args(arguments)
-    errors = run(SNIPPETS, DOCUMENTS, check=parsed.check)
+    errors = (
+        compare_output(DOCUMENTS, parsed.expect_output, sys.stdin.read())
+        if parsed.expect_output
+        else run(SNIPPETS, DOCUMENTS, check=parsed.check)
+    )
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
