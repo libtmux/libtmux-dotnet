@@ -179,6 +179,44 @@ public sealed class OwnedServerAdoptionTests
         }
     }
 
+    [UnixFact]
+    public async Task A_start_cancelled_after_tmux_started_stops_that_server()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = CreateSocketRoot();
+        string started = Path.Combine(root, "started");
+        string configuration = Path.Combine(root, "tmux.conf");
+        string tmux = Path.Combine(root, "tmux");
+
+        // The server outlives having no sessions, and once started it never
+        // answers list-sessions, so the start waits until it is cancelled.
+        await File.WriteAllTextAsync(configuration, "set-option -s exit-empty off\n", token);
+        await TestExecutable.WriteAsync(
+            tmux,
+            "#!/bin/sh\n"
+            + $"case \" $* \" in *\" start-server \"*) : > '{started}' ;; *\" list-sessions \"*) [ -e '{started}' ] && exit 1 ;; esac\n"
+            + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+            token);
+        ServerConnectionOptions options = Options(root, "owned") with { ConfigurationFile = configuration };
+        Server observer = Server.Open(options);
+        try
+        {
+            using CancellationTokenSource cancelled = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cancelled.CancelAfter(TimeSpan.FromMilliseconds(300));
+            // The start had run, so the cancellation arrives as a failure that says so.
+            LibTmuxException failure = await Assert.ThrowsAnyAsync<LibTmuxException>(
+                () => Server.CreateOwnedAsync(options with { TmuxBinaryPath = tmux }, cancelled.Token));
+            Assert.IsAssignableFrom<OperationCanceledException>(failure.InnerException);
+
+            Assert.True(File.Exists(started));
+            Assert.False(await observer.IsAliveAsync(token), "the started server was left running");
+        }
+        finally
+        {
+            await CleanUpAsync(observer, root, token);
+        }
+    }
+
     // An owned server whose tmux exits 1 while the returned file exists, so a
     // test can make stopping it fail and then succeed.
     private static async Task<(OwnedServerScope Owned, string Refuse)> CreateRefusableAsync(
