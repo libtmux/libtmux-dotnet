@@ -8,72 +8,24 @@ Recognises how a wait on a pane's output ended.
 
 ### Active patterns
 
-<a name="(%7cEnded%7c_%7c)"></a>
+<a name="(%7cFound%7cPrinted%7cStopped%7cTimedOut%7cEnded%7c)"></a>
 
-#### <code><span>PaneWait.(|Ended|_|)&#32;<span>result</span></span></code>
+#### <code><span>PaneWait.(|Found|Printed|Stopped|TimedOut|Ended|)&#32;<span>result</span></span></code>
 
-Matches a wait that ended because the pane's program exited or a full-screen program took over.
+Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning.
 
-**Parameters:**
-
-**result**: <code>PaneWaitResult</code>
-
-Returns: <code><span>unit&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L106)
-
-<a name="(%7cFound%7c_%7c)"></a>
-
-#### <code><span>PaneWait.(|Found|_|)&#32;<span>result</span></span></code>
-
-Matches a wait whose text or pattern appeared, before or during it.
+<code>Found</code>: the text or a pattern appeared, before or during the wait.
+ <code>Printed</code>: a wait with no pattern saw the pane print something.
+ <code>Stopped</code>: a stop pattern matched, carried as its text.
+ <code>TimedOut</code>: the time allowed ran out.
+ <code>Ended</code>: the pane&#39;s program exited, or a full-screen program took over.
 
 **Parameters:**
 
 **result**: <code>PaneWaitResult</code>
 
-Returns: <code><span>unit&#32;option</span></code>
+Returns: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-core-fsharpchoice-5">Choice</a>&lt;<span>unit,&#32;unit,&#32;string,&#32;unit,&#32;unit</span>&gt;</span></code>
+
+[ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The outcome is not one this facade knows.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L86)
-
-<a name="(%7cPrinted%7c_%7c)"></a>
-
-#### <code><span>PaneWait.(|Printed|_|)&#32;<span>result</span></span></code>
-
-Matches a wait with no pattern that ended because the pane printed something.
-
-**Parameters:**
-
-**result**: <code>PaneWaitResult</code>
-
-Returns: <code><span>unit&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L88)
-
-<a name="(%7cStopped%7c_%7c)"></a>
-
-#### <code><span>PaneWait.(|Stopped|_|)&#32;<span>result</span></span></code>
-
-Matches a wait a stop pattern ended, with the pattern that matched.
-
-**Parameters:**
-
-**result**: <code>PaneWaitResult</code>
-
-Returns: <code><span>string&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L94)
-
-<a name="(%7cTimedOut%7c_%7c)"></a>
-
-#### <code><span>PaneWait.(|TimedOut|_|)&#32;<span>result</span></span></code>
-
-Matches a wait whose time ran out.
-
-**Parameters:**
-
-**result**: <code>PaneWaitResult</code>
-
-Returns: <code><span>unit&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L100)

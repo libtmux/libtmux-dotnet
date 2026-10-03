@@ -353,7 +353,6 @@ module PaneWaitTests =
         | PaneWait.Stopped pattern -> "stopped by " + pattern
         | PaneWait.TimedOut -> "timed out"
         | PaneWait.Ended -> "ended"
-        | _ -> "other"
 
     [<Fact>]
     let ``every wait outcome has one pattern`` () =
@@ -381,9 +380,9 @@ module PaneWaitTests =
             ]
         )
 
-        // An outcome added later must not fall through every pattern.
+        // An outcome the core adds later must have a case here before it ships.
         for outcome in Enum.GetValues<PaneWaitOutcome>() do
-            Assert.NotEqual<string>("other", wait outcome "pattern")
+            wait outcome "pattern" |> ignore
 
 module FailureTests =
     let private failure dispatch =

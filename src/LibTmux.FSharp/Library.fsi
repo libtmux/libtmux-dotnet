@@ -83,20 +83,16 @@ module PaneRun =
 /// <summary>Recognises how a wait on a pane's output ended.</summary>
 [<RequireQualifiedAccess>]
 module PaneWait =
-    /// <summary>Matches a wait whose text or pattern appeared, before or during it.</summary>
-    val (|Found|_|): result: PaneWaitResult -> unit option
-
-    /// <summary>Matches a wait with no pattern that ended because the pane printed something.</summary>
-    val (|Printed|_|): result: PaneWaitResult -> unit option
-
-    /// <summary>Matches a wait a stop pattern ended, with the pattern that matched.</summary>
-    val (|Stopped|_|): result: PaneWaitResult -> string option
-
-    /// <summary>Matches a wait whose time ran out.</summary>
-    val (|TimedOut|_|): result: PaneWaitResult -> unit option
-
-    /// <summary>Matches a wait that ended because the pane's program exited or a full-screen program took over.</summary>
-    val (|Ended|_|): result: PaneWaitResult -> unit option
+    /// <summary>Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Found</c>: the text or a pattern appeared, before or during the wait.
+    /// <c>Printed</c>: a wait with no pattern saw the pane print something.
+    /// <c>Stopped</c>: a stop pattern matched, carried as its text.
+    /// <c>TimedOut</c>: the time allowed ran out.
+    /// <c>Ended</c>: the pane's program exited, or a full-screen program took over.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The outcome is not one this facade knows.</exception>
+    val (|Found|Printed|Stopped|TimedOut|Ended|): result: PaneWaitResult -> Choice<unit, unit, string, unit, unit>
 
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]

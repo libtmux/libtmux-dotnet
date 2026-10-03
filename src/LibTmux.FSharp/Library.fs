@@ -83,31 +83,19 @@ module PaneRun =
 
 [<RequireQualifiedAccess>]
 module PaneWait =
-    let (|Found|_|) (result: PaneWaitResult) = if result.Found then Some() else None
-
-    let (|Printed|_|) (result: PaneWaitResult) =
-        if result.Outcome = PaneWaitOutcome.AnyOutput then
-            Some()
-        else
-            None
-
-    let (|Stopped|_|) (result: PaneWaitResult) =
-        if result.Outcome = PaneWaitOutcome.Stopped then
-            Some(Option.ofObj result.Pattern |> Option.defaultValue "")
-        else
-            None
-
-    let (|TimedOut|_|) (result: PaneWaitResult) =
-        if result.Outcome = PaneWaitOutcome.TimedOut then
-            Some()
-        else
-            None
-
-    let (|Ended|_|) (result: PaneWaitResult) =
+    let (|Found|Printed|Stopped|TimedOut|Ended|) (result: PaneWaitResult) =
         match result.Outcome with
+        | PaneWaitOutcome.Matched
+        | PaneWaitOutcome.PresentAtEntry -> Found
+        | PaneWaitOutcome.AnyOutput -> Printed
+        | PaneWaitOutcome.Stopped -> Stopped(Option.ofObj result.Pattern |> Option.defaultValue "")
+        | PaneWaitOutcome.TimedOut -> TimedOut
         | PaneWaitOutcome.PaneExited
-        | PaneWaitOutcome.AlternateScreen -> Some()
-        | _ -> None
+        | PaneWaitOutcome.AlternateScreen -> Ended
+        | outcome ->
+            raise (
+                ArgumentOutOfRangeException(nameof result, outcome, "The wait outcome is not one this facade knows.")
+            )
 
 [<RequireQualifiedAccess>]
 module Retry =
