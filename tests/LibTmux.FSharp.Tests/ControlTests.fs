@@ -433,5 +433,8 @@ module ContextTests =
 
         Assert.NotEmpty sources
 
+        // backgroundTask ignores the caller's context; a plain task builder captures it.
+        let plainTask = Text.RegularExpressions.Regex(@"(?<![A-Za-z])task\s*\{")
+
         for source in sources do
-            Assert.DoesNotContain("task {", IO.File.ReadAllText(source).Replace("backgroundTask {", ""))
+            Assert.DoesNotMatch(plainTask, IO.File.ReadAllText(source))

@@ -81,7 +81,11 @@ module Filter =
         | boxed -> Filter<'T>(ComparisonNode(QueryComparison.Equal, field.Node, Nodes.constant boxed))
 
     let negate (filter: Filter<'T>) = Filter<'T>(NotNode filter.Node)
-    let ne value field = eq value field |> negate
+
+    let ne (value: 'Value) (field: Field<'T, 'Value>) =
+        match box value with
+        | :? string -> eq value field |> negate
+        | boxed -> Filter<'T>(ComparisonNode(QueryComparison.NotEqual, field.Node, Nodes.constant boxed))
 
     let eqIgnoreCase value field =
         Nodes.text QueryStringOperation.EqualsOrdinalIgnoreCase value field
@@ -201,7 +205,11 @@ type Query<'T>
         let unsafeFilter =
             match List.rev native with
             | [] -> null
+            | [ only ] -> UnsafeTmuxFilter only
             | first :: rest ->
+                for each in first :: rest do
+                    TmuxFilterRenderer.RequireSingleExpression each
+
                 UnsafeTmuxFilter(rest |> List.fold (fun combined next -> $"#{{&&:{combined},{next}}}") first)
 
         ListingRequest(target, Option.toNullable session, Option.toNullable window, filter, unsafeFilter, null)

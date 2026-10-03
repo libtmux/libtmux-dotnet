@@ -144,6 +144,13 @@ module QueryTests =
             Filter.matchesIgnoreCase "^dev" SessionFields.name |> Filter.toDocument
         )
 
+        let id = SessionId 3
+
+        Assert.Equal(
+            translate <@ Func<LibTmux.Session, bool>(fun session -> session.Id <> id) @>,
+            Filter.ne id SessionFields.id |> Filter.toDocument
+        )
+
         Assert.Equal(
             translate <@ Func<CountRow, bool>(fun row -> row.SessionWindows > 2L) @>,
             Filter.gt 2 SessionFields.windowCount |> Filter.toDocument
