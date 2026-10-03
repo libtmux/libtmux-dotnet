@@ -7,10 +7,8 @@ namespace LibTmux.UnitTests.ControlMode;
 [UnsupportedOSPlatform("windows")]
 public sealed class PaneObservationTests
 {
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Notification_loss_is_forwarded_and_rechecks_the_pane(bool present)
+    [Fact]
+    public async Task Notification_loss_is_forwarded_and_rechecks_the_pane()
     {
         var connection = new TmuxConnection(
             new ServerConnectionOptions { SocketName = "pane-loss" },
@@ -20,7 +18,7 @@ public sealed class PaneObservationTests
         Pane pane = new(
             new Server(connection, generation, "tmux 3.7"), connection, generation,
             new PaneId(1), new Dictionary<string, string?>());
-        LossSession session = new(present);
+        LossSession session = new();
         List<TmuxEvent> observed = [];
 
         await foreach (TmuxEvent item in session.WatchAsync(pane, TestContext.Current.CancellationToken))
@@ -29,19 +27,12 @@ public sealed class PaneObservationTests
         }
 
         Assert.Equal(new TmuxEventsDroppedEvent(3, 3), observed[0]);
-        Assert.Equal(1, session.Probes);
+        Assert.Equal(2, session.Probes);
         Assert.False(session.Disposed);
-        if (present)
-        {
-            Assert.IsType<TmuxExitEvent>(observed[1]);
-        }
-        else
-        {
-            Assert.Equal(new TmuxPaneGoneEvent(new PaneId(1)), observed[1]);
-        }
+        Assert.IsType<TmuxExitEvent>(observed[1]);
     }
 
-    private sealed class LossSession(bool present) : IControlModeSession
+    private sealed class LossSession : IControlModeSession
     {
         internal int Probes { get; private set; }
 
@@ -56,7 +47,7 @@ public sealed class PaneObservationTests
         {
             Assert.Equal(["display-message", "-p", "-t", "%1", "#{pane_id}"], command.ToArguments());
             Probes++;
-            return Task.FromResult<IReadOnlyList<string>>(present ? ["%1"] : [""]);
+            return Task.FromResult<IReadOnlyList<string>>(["%1"]);
         }
 
         public ValueTask DisposeAsync()

@@ -49,6 +49,41 @@ public sealed class ControlModeEventBufferTests
     }
 
     [Fact]
+    public async Task An_oversized_event_reports_loss_before_its_watermark_boundary()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 4, maxBytes: 1);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "é")));
+        long watermark = buffer.CaptureWatermark();
+
+        await using ControlModeEventBuffer.Reader reader = buffer.CreateReader(token);
+        Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+        Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
+    }
+
+    [Fact]
+    public async Task Byte_eviction_preserves_later_events_beyond_a_watermark()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 4, maxBytes: 2);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "a")));
+        long watermark = buffer.CaptureWatermark();
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "bb")));
+
+        await using (ControlModeEventBuffer.Reader reader = buffer.CreateReader(token))
+        {
+            Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
+            Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+            Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
+        }
+
+        await using ControlModeEventBuffer.Reader following = buffer.CreateReader(token);
+        Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
+        Assert.Equal("bb", Assert.IsType<TmuxOutputEvent>(following.Current).Data);
+    }
+
+    [Fact]
     public async Task Payload_bytes_bound_the_queue_before_its_event_count_limit()
     {
         var buffer = new ControlModeEventBuffer(capacity: 128);

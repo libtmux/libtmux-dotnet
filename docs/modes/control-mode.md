@@ -55,7 +55,7 @@ count and the separate protocol line limit bound object overhead.
 
 The buffer discards oldest events until both ceilings hold. It rejects an
 individually oversized event; an oversized final exit reason is omitted while
-the terminal exit notification is retained. Each discard produces a
+the terminal exit notification is retained. Discards are reported through
 `TmuxEventsDroppedEvent`. The marker precedes the next delivered event, or
 arrives alone when no event fits. It does not identify the panes or stream
 positions lost. `Count` is the loss since the previous marker and
