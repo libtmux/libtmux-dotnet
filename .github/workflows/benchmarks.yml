@@ -14,8 +14,10 @@ on:
         default: '3.7c'
         type: choice
         options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
-  # A change to what is measured, or how it is recorded, records a run.
-  pull_request:
+  # A push that changes what is measured, or how it is recorded, records a
+  # run. A pull_request filter would match the whole pull request's diff and
+  # record again on every later push to it.
+  push:
     paths:
       - 'benchmarks/**'
       - 'eng/benchmarks/**'

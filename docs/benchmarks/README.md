@@ -252,8 +252,8 @@ runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
 took 9.2 ms pushed down against 82 ms for a full listing and 169 ms for a
 snapshot, and the session query 36 ms against 179 ms and 176 ms. Its two
 local session routes agree within 2%, where the workstation's differed by
-half. A pull request's run records the merge commit GitHub tested, so its
-commit is not on the branch.
+half. That run was a pull request's, so it records the merge commit GitHub
+tested, which is not on the branch.
 
 ```console
 $ dotnet run \
@@ -293,8 +293,8 @@ fixed 3.4 µs, across 256 events.
 The `benchmarks` workflow runs every F# class on a GitHub-hosted runner
 against a tmux built from source, records the run with
 `eng/benchmarks/record_fsharp.py`, and uploads the record for comparison with
-those under `runs/`. It runs when a pull request changes what is measured or
-how it is recorded, and on dispatch for a chosen tmux version:
+those under `runs/`. It runs when a push changes what is measured or how it
+is recorded, and on dispatch for a chosen tmux version:
 
 ```console
 $ gh workflow run benchmarks.yml -f tmux=3.2a
