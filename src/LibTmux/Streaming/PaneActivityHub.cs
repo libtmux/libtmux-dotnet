@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Tells a waiter the moment a pane prints something.</summary>
 /// <remarks>
@@ -28,7 +28,7 @@ namespace LibTmux.Mcp;
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed class PaneActivityHub : IAsyncDisposable
+internal sealed partial class PaneActivityHub : IAsyncDisposable
 {
     /// <summary>How long a poll-based wait sleeps between reads.</summary>
     internal static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(60);
@@ -402,7 +402,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
                 if (hub._logger is not null)
                 {
-                    Log.ControlClientUnavailable(hub._logger, error, key.SessionId);
+                    LogControlClientUnavailable(hub._logger, error, key.SessionId);
                 }
 
                 _retired = true;
@@ -450,7 +450,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
                             OnPaneOutput(output.PaneId);
                             break;
                         case TmuxExitEvent exit when hub._logger is not null:
-                            Log.ControlClientEnded(hub._logger, key.SessionId, exit.Reason);
+                            LogControlClientEnded(hub._logger, key.SessionId, exit.Reason);
                             break;
                         default:
                             break;
@@ -495,7 +495,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
                 if (hub._logger is not null
                     && Interlocked.Exchange(ref run.CleanupReported, 1) == 0)
                 {
-                    Log.ControlClientCleanupFailed(hub._logger, error, key.SessionId);
+                    LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
                 }
             }
         }
@@ -668,4 +668,22 @@ public sealed class PaneActivityHub : IAsyncDisposable
         internal static SessionWatchKey ForTest(string endpointId, string sessionId) =>
             new(Server: null, Generation: null, endpointId, sessionId);
     }
+
+    [LoggerMessage(
+        EventId = 42,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} ended: {Reason}")]
+    private static partial void LogControlClientEnded(ILogger logger, string? session, string? reason);
+
+    [LoggerMessage(
+        EventId = 43,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} could not start; falling back to polling.")]
+    private static partial void LogControlClientUnavailable(ILogger logger, Exception error, string? session);
+
+    [LoggerMessage(
+        EventId = 44,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} could not be cleaned up.")]
+    private static partial void LogControlClientCleanupFailed(ILogger logger, Exception error, string? session);
 }

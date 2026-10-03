@@ -6,6 +6,8 @@ using ModelContextProtocol.Extensions.Tasks;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
+using LibTmux.Internal;
+
 namespace LibTmux.Mcp;
 
 /// <summary>Assembles the server: what it offers, and what it refuses to.</summary>

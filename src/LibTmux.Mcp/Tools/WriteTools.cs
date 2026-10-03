@@ -2,6 +2,8 @@ using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Text;
 
+using LibTmux.Internal;
+
 namespace LibTmux.Mcp;
 
 /// <summary>Everything an assistant can change about tmux, short of removing it.</summary>

@@ -1,5 +1,7 @@
 using System.Runtime.Versioning;
 
+using LibTmux.Internal;
+
 namespace LibTmux.Mcp;
 
 /// <summary>Everything an assistant can ask tmux without changing it.</summary>

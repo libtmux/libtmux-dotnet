@@ -67,7 +67,7 @@ public sealed class ReadToolsHistoryTests
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
             TestContext.Current.CancellationToken);
         var rows = new CancellingRows(cancellation, cancelAt: 8, count: 1_000);
-        var cursor = new TailCursor(
+        var cursor = new PaneCursor(
             Version: 3,
             EndpointFingerprint: "endpoint",
             ServerProcessId: 1,
@@ -77,7 +77,7 @@ public sealed class ReadToolsHistoryTests
             HistorySize: 1_000,
             PaneHeight: 24,
             AnchorAbsolute: 500,
-            AnchorHash: TailCursor.HashLine("absent anchor"),
+            AnchorHash: PaneCursor.HashLine("absent anchor"),
             BelowCount: 0,
             BelowHash: null,
             SuffixCount: 0,

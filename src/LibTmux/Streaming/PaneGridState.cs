@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Where a pane's grid stands at one instant.</summary>
 /// <param name="PanePid">The process the pane started. A new one means a new pane.</param>
@@ -45,9 +45,11 @@ internal sealed record PaneGridState(
         Pane pane,
         CancellationToken cancellationToken)
     {
-        string? line = await TmuxTargets.DisplayAsync(pane, Format, cancellationToken)
+        IReadOnlyList<string>? lines = await pane.DisplayMessageAsync(
+                new DisplayMessageRequest { Message = Format, ReturnText = true },
+                cancellationToken)
             .ConfigureAwait(false);
-        if (line is null)
+        if (lines is not { Count: > 0 } || lines[0] is not { } line)
         {
             return null;
         }

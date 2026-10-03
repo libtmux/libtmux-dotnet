@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using LibTmux.Mcp;
 using LibTmux.Testing;
+using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests;
 

@@ -197,13 +197,13 @@ internal sealed partial class WriteTools
             long? daemonProcessStart = CaptureDaemonProcessStart(pane.Generation);
             TimeSpan budget = _policy.EffectiveTimeout(
                 timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
-            PaneRead baselineRead = await PaneReader
+            PaneRead baselineRead = await McpPaneReader
                 .ReadVisibleAsync(pane, null, cancellationToken)
                 .ConfigureAwait(false);
-            string baselineToken = TailCursor
+            string baselineToken = PaneCursor
                 .Build(pane, baselineRead.State, baselineRead.CursorRows)
                 .Encode();
-            TailCursor baseline = TailCursor.Decode(baselineToken, pane)!;
+            PaneCursor baseline = TailCursor.Decode(baselineToken, pane)!;
 
             RunToken token = RunToken.Create();
             Stopwatch elapsed = Stopwatch.StartNew();
@@ -254,7 +254,7 @@ internal sealed partial class WriteTools
                 completionAuthenticated = !timedOut;
 
                 PaneRead read = await sequence
-                    .ObserveAsync(() => PaneReader.ReadSinceAsync(
+                    .ObserveAsync(() => McpPaneReader.ReadSinceAsync(
                         pane,
                         baseline,
                         cancellationToken))

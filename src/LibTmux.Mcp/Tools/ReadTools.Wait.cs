@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.RegularExpressions;
+using LibTmux.Internal;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
@@ -124,9 +125,9 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
 
-        PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
+        PaneRead first = await McpPaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);
-        TailCursor cursor = TailCursor.Build(pane, first.State, first.CursorRows);
+        PaneCursor cursor = PaneCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
 
         // Checked once, up front, against what was already on screen -
@@ -173,9 +174,9 @@ internal sealed partial class ReadTools
             // the next wait instead of being slept through.
             object? signal = _activity.CaptureSignal(pane);
 
-            PaneRead read = await PaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
+            PaneRead read = await McpPaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
                 .ConfigureAwait(false);
-            cursor = TailCursor.Build(pane, read.State, read.CursorRows);
+            cursor = PaneCursor.Build(pane, read.State, read.CursorRows);
 
             // Matched against the rows the caller receives, not the raw ones:
             // a concurrent run's payload echo could otherwise satisfy a wait
