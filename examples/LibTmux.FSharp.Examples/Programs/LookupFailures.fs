@@ -36,12 +36,12 @@ let runAsync () =
 
         let! stoppedServer =
             task {
-                use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+                use! owned = options |> Server.createOwned token
 
                 use! session =
                     owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
 
-                let! server = LibTmux.Server.ConnectAsync(options, token)
+                let! server = options |> Server.connect token
 
                 let! missing =
                     failure (fun () -> server |> Server.tryFindSession token (SessionId Int32.MaxValue))

@@ -119,7 +119,7 @@ let runAsync () =
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -137,7 +137,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
 
         let! logs =
             server
@@ -298,7 +298,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -312,7 +312,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
         let! sessions = server |> Server.sessions |> Query.list token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
@@ -381,7 +381,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -389,7 +389,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne

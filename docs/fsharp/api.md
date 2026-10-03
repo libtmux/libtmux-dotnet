@@ -235,6 +235,8 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `Server` | Starts server reads and queries with the caller's cancellation token. |
 | `val capture: cancellationToken: CancellationToken -> depth: SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
 | `val clients: server: LibTmux.Server -> Query<Client>` | Queries attached clients. |
+| `val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>` | Attaches to a server already listening on the socket the options name. |
+| `val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>` | Starts a server on the socket the options name and owns it; disposing the scope stops it. |
 | `val newSession: cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>` | Creates a session as described: its windows, and each window's splits. |
 | `val panes: server: LibTmux.Server -> Query<LibTmux.Pane>` | Queries every pane. |
 | `val sessions: server: LibTmux.Server -> Query<LibTmux.Session>` | Queries every session. |

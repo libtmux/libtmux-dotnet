@@ -19,7 +19,7 @@ let runAsync () =
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -37,7 +37,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
 
         let! logs =
             server

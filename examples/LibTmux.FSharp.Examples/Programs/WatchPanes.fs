@@ -19,7 +19,7 @@ let runAsync () =
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "exec sleep 60"), token)

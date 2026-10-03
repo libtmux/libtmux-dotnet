@@ -20,7 +20,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! session =
             owned.Value.CreateOwnedSessionAsync(
@@ -38,7 +38,7 @@ let runAsync () =
             original
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 

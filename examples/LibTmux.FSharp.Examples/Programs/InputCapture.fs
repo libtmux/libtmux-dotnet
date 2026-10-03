@@ -20,12 +20,12 @@ let runAsync () =
         let options =
             ServerConnectionOptions(SocketName = socketName, ConfigurationFile = "/dev/null", TmuxBinaryPath = binary)
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _session =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), token)
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
         let! panes = server |> Server.panes |> Query.list token
         let pane = panes |> Seq.exactlyOne
         let channel = "capture-" + Guid.NewGuid().ToString("N")

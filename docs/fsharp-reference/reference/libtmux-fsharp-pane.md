@@ -24,7 +24,7 @@ Captures pane contents using the supplied core request.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;string&gt;</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L163)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L169)
 
 <a name="currentCommand"></a>
 
@@ -40,7 +40,7 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The command field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L161)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L167)
 
 <a name="currentPath"></a>
 
@@ -56,7 +56,7 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The path field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L160)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L166)
 
 <a name="findOnScreen"></a>
 
@@ -78,7 +78,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text cannot be written as a tmux format.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L166)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L172)
 
 <a name="run"></a>
 
@@ -103,7 +103,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane is in a mode or not running a POSIX shell.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L203)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L209)
 
 <a name="sendAndWait"></a>
 
@@ -135,7 +135,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L178)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L184)
 
 <a name="sendAndWaitFor"></a>
 
@@ -162,7 +162,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L187)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L193)
 
 <a name="sendKeys"></a>
 
@@ -182,7 +182,7 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L206)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L212)
 
 <a name="split"></a>
 
@@ -202,7 +202,7 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L209)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
 
 <a name="waitFor"></a>
 
@@ -222,7 +222,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L175)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L181)
 
 <a name="waitForText"></a>
 
@@ -250,7 +250,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L172)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L178)
 
 <a name="waitUntil"></a>
 
@@ -274,4 +274,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 `TmuxPaneException` The pane&#39;s program had already exited.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L195)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L201)
