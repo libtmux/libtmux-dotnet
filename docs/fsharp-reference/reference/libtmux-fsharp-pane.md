@@ -80,6 +80,28 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L172)
 
+<a name="pressKey"></a>
+
+#### <code><span>Pane.pressKey&#32;<span>cancellationToken&#32;key&#32;pane</span></span></code>
+
+Presses one key by its tmux name, such as <code>Enter</code>, <code>C-c</code> or <code>Up</code>.
+
+tmux types a name it does not know as text. Cancellation can occur after dispatch; it does not undo the key.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**key**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The key is empty or white space.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L218)
+
 <a name="run"></a>
 
 #### <code><span>Pane.run&#32;<span>cancellationToken&#32;timeout&#32;command&#32;pane</span></span></code>
@@ -184,7 +206,7 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L218)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L222)
 
 <a name="sendLine"></a>
 
@@ -246,7 +268,7 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L221)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L225)
 
 <a name="waitFor"></a>
 

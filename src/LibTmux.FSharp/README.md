@@ -82,7 +82,7 @@ targets `net8.0` and `net10.0`.
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
 | Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
 | Attach to a running server | `options \|> Server.connect ct` | `Server` |
-| Type a line, or keys | `Pane.sendLine ct line pane`; `Pane.sendKeys` for key names | `Task` |
+| Type a line, or press a key | `Pane.sendLine ct line pane`; `Pane.pressKey ct "C-c" pane` | `Task` |
 | Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |

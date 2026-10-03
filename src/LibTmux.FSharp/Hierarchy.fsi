@@ -234,6 +234,11 @@ module Pane =
     /// <exception cref="T:System.ArgumentException">The text contains NUL.</exception>
     val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task
 
+    /// <summary>Presses one key by its tmux name, such as <c>Enter</c>, <c>C-c</c> or <c>Up</c>.</summary>
+    /// <remarks>tmux types a name it does not know as text. Cancellation can occur after dispatch; it does not undo the key.</remarks>
+    /// <exception cref="T:System.ArgumentException">The key is empty or white space.</exception>
+    val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task
+
     /// <summary>Sends text or key names according to the request's literal and Enter settings.</summary>
     /// <remarks>Cancellation can occur after dispatch; it does not undo sent keys.</remarks>
     val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task

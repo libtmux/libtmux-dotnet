@@ -22,7 +22,7 @@ run, mirror, option and snapshot helpers.
 | [SelectionResults.fs](../LibTmux.FSharp.Examples/Programs/SelectionResults.fs) | Match all `Selection.exactlyOne` results |
 | [LookupFailures.fs](../LibTmux.FSharp.Examples/Programs/LookupFailures.fs) | Keep cancellation, invalid input and failed reads distinct from absence |
 | [CreateWindowPane.fs](../LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs) | Own a session and window, then split a pane |
-| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Send literal text and Enter, then capture signalled output |
+| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Type literal text, press Enter by name, then capture signalled output |
 | [Queries.fs](../LibTmux.FSharp.Examples/Programs/Queries.fs) | Query every level and let tmux narrow the listing |
 | [SendWaitRead.fs](../LibTmux.FSharp.Examples/Programs/SendWaitRead.fs) | Send a command, wait for its output and run to an exit status |
 | [LiveState.fs](../LibTmux.FSharp.Examples/Programs/LiveState.fs) | Follow live server state |
