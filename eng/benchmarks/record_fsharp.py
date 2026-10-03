@@ -191,9 +191,41 @@ def render(record: dict) -> str:
 PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
 MINIMUM_SPEEDUP = 3.0
 
+# A mirror captures the server once per announcement, so a rename seen through
+# it costs about one capture more than the capture alone: 1.2 to 1.3 times on
+# the workstation. Two captures per change would pass 2.
+MIRROR_CLASS = "FSharpMirrorBenchmarks"
+MAXIMUM_MIRROR_RATIO = 2.0
+
 
 def gate(record: dict) -> list[str]:
-    """Return why pushdown did not beat listing everything in this run, if it did not."""
+    """Return why pushdown or the mirror missed its bar in this run, if either did."""
+    return _pushdown_failures(record) + _mirror_failures(record)
+
+
+def _mirror_failures(record: dict) -> list[str]:
+    # Records made before the mirror benchmark existed carry no mirror class.
+    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == MIRROR_CLASS), None)
+    if cases is None:
+        return []
+    by_case = {(case["method"], case["parameters"]): case for case in cases}
+    failures = []
+    for parameters in sorted({case["parameters"] for case in cases}):
+        seen = by_case.get(("RenameUntilSeen", parameters))
+        captured = by_case.get(("CaptureSnapshot", parameters))
+        if seen is None or captured is None:
+            failures.append(f"{MIRROR_CLASS} {parameters}: the rename or the capture is missing")
+            continue
+        ratio = seen["median_ns"] / captured["median_ns"]
+        if ratio > MAXIMUM_MIRROR_RATIO:
+            failures.append(
+                f"{MIRROR_CLASS} {parameters}: a rename seen through the mirror costs {ratio:.1f} captures; "
+                f"the gate allows {MAXIMUM_MIRROR_RATIO:g}"
+            )
+    return failures
+
+
+def _pushdown_failures(record: dict) -> list[str]:
     cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == PUSHDOWN_CLASS), None)
     if cases is None:
         return [f"{PUSHDOWN_CLASS} is not in the record"]
