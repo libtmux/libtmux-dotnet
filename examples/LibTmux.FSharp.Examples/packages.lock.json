@@ -17,7 +17,7 @@
       "libtmux.fsharp": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.302, )",
+          "FSharp.Core": "[8.0.100, )",
           "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
@@ -65,7 +65,7 @@
       "libtmux.fsharp": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.302, )",
+          "FSharp.Core": "[8.0.100, )",
           "LibTmux": "[0.0.0-alpha.17, )"
         }
       },

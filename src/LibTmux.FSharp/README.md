@@ -224,6 +224,7 @@ their order and multiplicity. An uncaptured relationship raises
 | Area | Contract and verification |
 | --- | --- |
 | .NET | Targets .NET 8 and .NET 10 and uses the matching `LibTmux` package version. |
+| F# | Requires FSharp.Core 8.0.100 or newer, so an application keeps its SDK's FSharp.Core. Required CI builds and runs a consumer with the .NET 8 SDK's F# compiler and implicit FSharp.Core. |
 | tmux | Required Linux CI runs the repository's F# integration example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
 | Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows tmux is unsupported. |
 | Trimming and NativeAOT | A Linux consumer publishes and runs the static snapshot and native `Seq` route on both frameworks. |

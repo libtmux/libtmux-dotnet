@@ -27,6 +27,13 @@ type Field<'T, 'Value> internal (property: PropertyInfo) =
 type Relation<'Parent, 'Child> internal (property: PropertyInfo) =
     member internal _.Property = property
 
+module private Required =
+    // nonNull needs FSharp.Core 9, above this library's FSharp.Core floor.
+    let property (owner: Type) (name: string) =
+        match owner.GetProperty(name) with
+        | null -> invalidOp $"Type '{owner.Name}' has no public property '{name}'."
+        | property -> property
+
 module private Construction =
     let make<'T> parameter body =
         let expression = Expression.Lambda<Func<'T, bool>>(body, [| parameter |])
@@ -42,7 +49,9 @@ module private Construction =
                         node
             }
 
-        visitor.Visit(filter.Expression.Body) |> nonNull
+        match visitor.Visit(filter.Expression.Body) with
+        | null -> invalidOp "Replacing a filter parameter produced no expression."
+        | body -> body
 
     let combine operation (filters: Filter<'T> list) =
         match filters with
@@ -93,8 +102,9 @@ module Filter =
         let parameter = Expression.Parameter(typeof<'T>, "entity")
 
         let method' =
-            typeof<string>.GetMethod("StartsWith", [| typeof<string>; typeof<StringComparison> |])
-            |> nonNull
+            match typeof<string>.GetMethod("StartsWith", [| typeof<string>; typeof<StringComparison> |]) with
+            | null -> invalidOp "String.StartsWith(string, StringComparison) is missing."
+            | method' -> method'
 
         let body =
             Expression.Call(
@@ -144,72 +154,61 @@ module Query =
 module SessionFields =
     let name =
         Field<LibTmux.Session, string>(
-            typeof<LibTmux.Session>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Session>.Name))
-            |> nonNull
+            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Name))
         )
 
     let id =
         Field<LibTmux.Session, SessionId>(
-            typeof<LibTmux.Session>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Session>.Id))
-            |> nonNull
+            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Id))
         )
 
     let attached =
         Field<LibTmux.Session, bool>(
-            typeof<LibTmux.Session>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Session>.Attached))
-            |> nonNull
+            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Attached))
         )
 
     let windows =
         Relation<LibTmux.Session, LibTmux.Window>(
-            typeof<LibTmux.Session>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Session>.Windows))
-            |> nonNull
+            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Windows))
         )
 
 [<RequireQualifiedAccess>]
 module WindowFields =
     let name =
         Field<LibTmux.Window, string>(
-            typeof<LibTmux.Window>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Window>.Name))
-            |> nonNull
+            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Name))
         )
 
     let id =
         Field<LibTmux.Window, WindowId>(
-            typeof<LibTmux.Window>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Window>.Id))
-            |> nonNull
+            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Id))
         )
 
     let panes =
         Relation<LibTmux.Window, LibTmux.Pane>(
-            typeof<LibTmux.Window>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Window>.Panes))
-            |> nonNull
+            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Panes))
         )
 
 [<RequireQualifiedAccess>]
 module PaneFields =
     let currentCommand =
         Field<LibTmux.Pane, string>(
-            typeof<LibTmux.Pane>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Pane>.CurrentCommand))
-            |> nonNull
+            Required.property typeof<LibTmux.Pane> (nameof (Unchecked.defaultof<LibTmux.Pane>.CurrentCommand))
         )
 
     let id =
         Field<LibTmux.Pane, PaneId>(
-            typeof<LibTmux.Pane>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Pane>.Id))
-            |> nonNull
+            Required.property typeof<LibTmux.Pane> (nameof (Unchecked.defaultof<LibTmux.Pane>.Id))
         )
 
 [<RequireQualifiedAccess>]
 module ClientFields =
     let name =
         Field<LibTmux.Client, string>(
-            typeof<LibTmux.Client>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Client>.Name))
-            |> nonNull
+            Required.property typeof<LibTmux.Client> (nameof (Unchecked.defaultof<LibTmux.Client>.Name))
         )
 
     let controlMode =
         Field<LibTmux.Client, bool>(
-            typeof<LibTmux.Client>.GetProperty(nameof (Unchecked.defaultof<LibTmux.Client>.IsControlClient))
-            |> nonNull
+            Required.property typeof<LibTmux.Client> (nameof (Unchecked.defaultof<LibTmux.Client>.IsControlClient))
         )

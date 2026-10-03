@@ -32,8 +32,8 @@
       },
       "FSharp.Core": {
         "type": "Transitive",
-        "resolved": "10.1.302",
-        "contentHash": "bN7XMQrAQg1dyHScJ7FcsznERBkvm74LtIo1O6C5mUzgbDqSwNbDpb3+nBGaJAjDmtC/suK5Vx5pFysKY6Hm+Q=="
+        "resolved": "8.0.100",
+        "contentHash": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg=="
       },
       "Gee.External.Capstone": {
         "type": "Transitive",
@@ -183,7 +183,7 @@
       "libtmux.fsharp": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.302, )",
+          "FSharp.Core": "[8.0.100, )",
           "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
@@ -225,8 +225,8 @@
       },
       "FSharp.Core": {
         "type": "Transitive",
-        "resolved": "10.1.302",
-        "contentHash": "bN7XMQrAQg1dyHScJ7FcsznERBkvm74LtIo1O6C5mUzgbDqSwNbDpb3+nBGaJAjDmtC/suK5Vx5pFysKY6Hm+Q=="
+        "resolved": "8.0.100",
+        "contentHash": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg=="
       },
       "Gee.External.Capstone": {
         "type": "Transitive",
@@ -387,7 +387,7 @@
       "libtmux.fsharp": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.302, )",
+          "FSharp.Core": "[8.0.100, )",
           "LibTmux": "[0.0.0-alpha.17, )"
         }
       },

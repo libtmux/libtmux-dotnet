@@ -24,7 +24,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L127)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L137)
 
 <a name="allOf"></a>
 
@@ -42,7 +42,7 @@ Type parameters: 'T
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The filters list is empty.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L109)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L119)
 
 <a name="any"></a>
 
@@ -60,7 +60,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L124)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L134)
 
 <a name="anyOf"></a>
 
@@ -78,7 +78,7 @@ Type parameters: 'T
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The filters list is empty.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L112)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L122)
 
 <a name="eq"></a>
 
@@ -96,7 +96,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L76)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L85)
 
 <a name="isNull"></a>
 
@@ -112,7 +112,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L84)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L93)
 
 <a name="negate"></a>
 
@@ -128,7 +128,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L121)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L131)
 
 <a name="none"></a>
 
@@ -146,7 +146,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L130)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L140)
 
 <a name="oneOf"></a>
 
@@ -166,7 +166,7 @@ Type parameters: 'Value, 'T
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The values list is empty.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L115)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L125)
 
 <a name="startsWith"></a>
 
@@ -184,7 +184,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L92)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L101)
 
 <a name="toDocument"></a>
 
@@ -200,7 +200,7 @@ Returns: <code>QueryDocument</code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L131)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L141)
 
 <a name="toPredicate"></a>
 
@@ -218,4 +218,4 @@ Returns: <code><span>'T&#32;->&#32;bool</span></code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L133)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L143)

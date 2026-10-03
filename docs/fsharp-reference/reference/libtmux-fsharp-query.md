@@ -24,7 +24,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L137)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L147)
 
 <a name="matchingWithCancellation"></a>
 
@@ -44,4 +44,4 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L140)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L150)
