@@ -256,7 +256,10 @@ Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.
 
 Splits the pane and returns the new pane handle.
 
-Cancellation can leave the split applied; do not retry automatically.
+It takes the core request, which carries every split-window option;
+ <code>SplitSpec</code> describes only the splits a <code>Server.newSession</code>
+ spec builds. Cancellation can leave the split applied; do not retry
+ automatically.
 
 **Parameters:**
 

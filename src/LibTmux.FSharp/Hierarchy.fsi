@@ -244,7 +244,12 @@ module Pane =
     val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task
 
     /// <summary>Splits the pane and returns the new pane handle.</summary>
-    /// <remarks>Cancellation can leave the split applied; do not retry automatically.</remarks>
+    /// <remarks>
+    /// It takes the core request, which carries every split-window option;
+    /// <c>SplitSpec</c> describes only the splits a <c>Server.newSession</c>
+    /// spec builds. Cancellation can leave the split applied; do not retry
+    /// automatically.
+    /// </remarks>
     val split:
         cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
 
