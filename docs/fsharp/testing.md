@@ -62,7 +62,9 @@ sending keys races the program. Wait for the result instead:
   expected text after it; the line's own echo does not count.
 - `Pane.waitForText` and `Pane.waitUntil` return once the pane shows what the
   test expects, or report `TimedOut`.
-- `Mirror.waitUntil` waits for sessions, windows and panes to reach a state.
+- `Mirror.waitUntil` waits for sessions, windows and panes to reach a state,
+  and raises `TmuxWaitTimeoutException` when they do not in time;
+  `Mirror.tryWaitUntil` returns `None` instead.
 
 Each returns when tmux reports the state rather than after a fixed sleep, so a
 passing test finishes as soon as tmux does, and a failing one at its timeout.

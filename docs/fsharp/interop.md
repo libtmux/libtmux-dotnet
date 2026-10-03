@@ -1,9 +1,8 @@
 # .NET interoperation
 
 The companion is built on
-[LibTmux](https://github.com/libtmux/libtmux-dotnet/) in the same `libtmux`
-organization and maintained by the same primary author. It uses the existing
-entities, IDs, requests, exceptions, snapshots, and query documents. Pass a
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/) and uses its entities,
+IDs, requests, exceptions, snapshots, and query documents. Pass a
 `Server`, `Session`, `Window`, or `Pane` between F# and C# without conversion.
 
 `Task<'T>` remains the default asynchronous contract. Pass the cancellation
