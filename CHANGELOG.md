@@ -51,8 +51,8 @@ version.
 
 - F# benchmark records state whether the host was a virtual machine, how many
   cores the run could use, the CPU governor and the load averages. (#53)
-- The `benchmarks` workflow fails a run in which pushdown is less than twice
-  as fast as listing everything, or allocates no less. (#53)
+- The `benchmarks` workflow fails a run in which pushdown is less than three
+  times as fast as listing everything, or allocates no less. (#53)
 
 ## [0.0.0-alpha.18] — 2026-10-03
 
