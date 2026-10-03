@@ -475,7 +475,7 @@ jobs:
       - name: Inspect the macOS runner
         id: debug
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
-        uses: owenthereal/action-upterm@eec00cabd6cdaa61f61ca9f4939852fcfd2b285f # v2.2.0
+        uses: owenthereal/action-upterm@7df5fa550d6dc458335f4b2685452a0e42d0ba7e # v2.4.0
         with:
           detached: true
           limit-access-to-actor: true
