@@ -68,6 +68,8 @@ public sealed class TmuxToolsTests
             first, cancellationToken: token);
         await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
 
+        await WaitForShellsAsync(mcp, token, first, second.PaneId!, third.PaneId!);
+
         PaneInputResult all = await mcp.Capabilities.SendKeysAsync(
             "# all", first, enter: true, cancellationToken: token);
         Assert.Equal(3, all.TargetPaneIds.Count);
@@ -2057,6 +2059,7 @@ public sealed class TmuxToolsTests
         _ = await scope.Window.Options.SetAsync(
             new SetOptionRequest("synchronize-panes", "on"), token);
 
+        await WaitForShellsAsync(mcp, token, source, peerId);
         await SetPaneSynchronizationAsync(scope.Pane, "on", token);
         await SetPaneSynchronizationAsync(peer, "off", token);
         await AssertSourceOnlyInputAsync("source-on-peer-off", source, peerId, mcp, token);
@@ -2187,6 +2190,25 @@ public sealed class TmuxToolsTests
         _ = await mcp.Capabilities.WaitForTextAsync(
             source, [marker], timeoutSeconds: 5, cancellationToken: cancellationToken);
         await AssertMarkerAbsentAsync(mcp, peer, marker, cancellationToken);
+    }
+
+    // The input preflight reads each pane's running command twice and refuses
+    // if it changed, as it does while a shell is still starting.
+    private static async Task WaitForShellsAsync(
+        McpToolFixture mcp,
+        CancellationToken cancellationToken,
+        params string[] paneIds)
+    {
+        Server server = await mcp.Connection.GetAsync(cancellationToken: cancellationToken);
+        foreach (string id in paneIds)
+        {
+            Pane pane = await TmuxTargets.PaneAsync(server, id, cancellationToken);
+            PaneWaitResult prompt = await pane.WaitUntilAsync(
+                rows => rows.Any(row => row.Trim().Length > 0),
+                TimeSpan.FromSeconds(10),
+                cancellationToken);
+            Assert.True(prompt.Found, $"{id} never drew a prompt");
+        }
     }
 
     private static async Task AssertMarkerAbsentAsync(
