@@ -77,7 +77,8 @@ internal static class PackageInspection
 
             CheckMetadata(package, project, version, revision);
             CheckReadmeLinks(package);
-            CheckSourceFile(package, "README.md", Path.Combine(project.DirectoryPath, "README.md"));
+            CheckReadmeHtml(package);
+            CheckPackedReadme(package, Path.Combine(project.DirectoryPath, "README.md"));
             CheckSourceFile(package, "icon.png", Path.Combine(project.DirectoryPath, "assets", "logo.png"));
             CheckSourceFile(package, "assets/logo.svg", Path.Combine(project.DirectoryPath, "assets", "logo.svg"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
@@ -160,6 +161,34 @@ internal static class PackageInspection
             @"\]\((?<target>(?!https?://|mailto:|#)[^)\s]+)|^ {0,3}\[[^\]]+\]:[ \t]*(?<target>(?!https?://|mailto:|#)\S+)",
             RegexOptions.Multiline);
         Require(!relative.Success, $"{package.NuspecReader.GetId()}: README link '{relative.Groups["target"].Value}' is relative, which nuget.org cannot resolve.");
+    }
+
+    // nuget.org renders Markdown but shows an HTML element as text, so the
+    // packed README is its source without the centered logo block.
+    private static void CheckPackedReadme(PackageArchiveReader package, string source)
+    {
+        string expected = Regex.Replace(
+            File.ReadAllText(source),
+            @"<!-- libtmux-logo -->.*?<!-- /libtmux-logo -->\r?\n(\r?\n)?",
+            string.Empty,
+            RegexOptions.Singleline);
+        var packed = ReadContents(package, "README.md");
+        Require(packed.Length > 0 && packed.AsSpan().SequenceEqual(new System.Text.UTF8Encoding(false).GetBytes(expected)), $"{package.NuspecReader.GetId()}: packaged README.md differs from its source without the logo block.");
+    }
+
+    private static void CheckReadmeHtml(PackageArchiveReader package)
+    {
+        bool fenced = false;
+        foreach (string line in System.Text.Encoding.UTF8.GetString(ReadContents(package, "README.md")).Split('\n'))
+        {
+            if (Regex.IsMatch(line, @"^ {0,3}(```|~~~)"))
+            {
+                fenced = !fenced;
+                continue;
+            }
+
+            Require(fenced || !Regex.IsMatch(line, @"^ {0,3}</?[A-Za-z]"), $"{package.NuspecReader.GetId()}: README line '{line.Trim()}' is HTML, which nuget.org shows as text.");
+        }
     }
 
     private static void CheckDependencies(string id, PackageDependencyGroup group, Project project, Dictionary<string, Project> projects)

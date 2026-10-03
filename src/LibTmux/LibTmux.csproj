@@ -26,7 +26,6 @@
     <!-- The package page gets the readme written for the package. The one at
          the repository root is the face of the repository, which is a
          different audience with a different question. -->
-    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

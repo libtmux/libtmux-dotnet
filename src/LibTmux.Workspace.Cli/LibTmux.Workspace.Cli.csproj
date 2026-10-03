@@ -21,6 +21,5 @@
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="YamlDotNet" />
     <InternalsVisibleTo Include="LibTmux.Workspace.Cli.Tests" />
-    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>
