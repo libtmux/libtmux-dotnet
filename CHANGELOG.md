@@ -56,8 +56,9 @@ version.
 - `Window.IsActive` reads whether the captured placement is selected in its
   session, including repeated links to the same window.
 
-- `WorkspaceFile.Resolve` resolves inherited directories against an explicit
-  document base and supplied variables without reading process context.
+- `WorkspaceFile.Resolve` resolves inherited directories and session, window
+  and pane option values from supplied variables without reading process
+  context. Unknown option variables remain literal.
 
 - Workspace `environment` and `shell_command_before` declarations inherit
   through session, window and pane levels. `WithDefaults` copies these values

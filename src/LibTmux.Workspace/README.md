@@ -101,8 +101,11 @@ that tmux would otherwise interpret as formats or styles.
 
 Directory expansion accepts `$NAME` and `${NAME}` from the `variables` argument.
 A leading `~` requires an absolute `HOME` value in that map; `$$` means a literal
-dollar sign. Unknown variables fail. The resolver does not read process
-environment variables, and leaves commands, names and option values literal.
+dollar sign. Unknown directory variables fail. At session, window and pane scope,
+option values also expand supplied variables; unknown option variables remain
+literal so values such as `exec $SHELL` still reach tmux unchanged. The resolver
+does not read process environment variables. Commands, names and environment
+values remain literal.
 Building an unresolved declaration passes directory strings to tmux unchanged,
 including native tmux formats. Session and window names are literal.
 

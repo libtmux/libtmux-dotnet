@@ -164,6 +164,31 @@ public sealed class WorkspaceBuilderTests
     }
 
     [UnixFact]
+    public async Task Resolved_window_option_value_reaches_tmux()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: option-variable
+            options:
+              default-command: exec /bin/cat
+            windows:
+              - window_name: editor
+                layout: main-horizontal
+                options:
+                  main-pane-height: '${MAIN_PANE_HEIGHT}'
+                panes:
+                  - shell_command: []
+                  - shell_command: []
+            """).Resolve(Path.GetTempPath(), new Dictionary<string, string> { ["MAIN_PANE_HEIGHT"] = "8" });
+
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
+        TmuxOption option = Assert.Single(await result.Windows[0].Options.GetAsync(
+            new GetOptionRequest("main-pane-height"), token));
+        Assert.Equal("8", option.Value.Raw);
+    }
+
+    [UnixFact]
     public async Task Environment_and_before_commands_inherit_in_declaration_order()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

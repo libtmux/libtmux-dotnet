@@ -234,14 +234,16 @@ public sealed class WorkspaceFile
 
     /// <summary>Resolves inherited pane directories against an explicit document base.</summary>
     /// <param name="baseDirectory">The absolute directory containing the declaration.</param>
-    /// <param name="variables">The only variables available to directory expansion.</param>
+    /// <param name="variables">The only variables available to directory and option-value expansion.</param>
     /// <returns>A new declaration with absolute inherited directories and its document directory.</returns>
     /// <remarks>
     /// Resolves relative paths against the parent declaration's directory. Expansion
     /// accepts $NAME, ${NAME}, and a leading ~ using the supplied HOME variable;
-    /// $$ produces a literal dollar sign. It reads neither the process environment
-    /// nor the filesystem. The builder treats resolved directories as literal paths,
-    /// including tmux format characters. Commands, the host script, names and option values remain literal.
+    /// $$ produces a literal dollar sign. Session, window and pane option values
+    /// expand supplied variables; unknown variables remain literal. Resolution reads
+    /// neither the process environment nor the filesystem. The builder treats resolved
+    /// directories as literal paths, including tmux format characters. Commands, the
+    /// host script, names and environment values remain literal.
     /// </remarks>
     /// <exception cref="ArgumentException">The document base is not absolute.</exception>
     /// <exception cref="WorkspaceFormatException">A directory or expansion is invalid.</exception>
