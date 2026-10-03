@@ -86,6 +86,18 @@ public sealed class TmuxFilterRendererTests
     }
 
     [Fact]
+    public void An_absent_number_matches_only_inequality_though_tmux_reads_it_as_0()
+    {
+        Assert.Equal(
+            "#{&&:#{!=:#{pane_dead_status},},#{e|==|:#{pane_dead_status},0}}",
+            Render<Pane>(p => p.DeadStatus == 0));
+        Assert.Equal(
+            "#{||:#{==:#{pane_dead_status},},#{e|!=|:#{pane_dead_status},0}}",
+            Render<Pane>(p => p.DeadStatus != 0));
+        Assert.Equal("#{e|<|:#{pane_width},10}", Render<Pane>(p => p.Width < 10));
+    }
+
+    [Fact]
     public void Relations_loop_over_the_rows_own_children()
     {
         Assert.Equal(

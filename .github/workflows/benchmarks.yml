@@ -14,14 +14,19 @@ on:
         default: '3.7c'
         type: choice
         options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
-  # A push that changes what is measured, or how it is recorded, records a
-  # run. A pull_request filter would match the whole pull request's diff and
+  # A push that changes what is measured, the query and snapshot code the
+  # pushdown gate times, or how a run is recorded, records and gates a run.
+  # A pull_request filter would match the whole pull request's diff and
   # record again on every later push to it.
   push:
     paths:
       - 'benchmarks/**'
       - 'eng/benchmarks/**'
       - '.github/workflows/benchmarks.yml'
+      - 'src/LibTmux/Query/**'
+      - 'src/LibTmux/Snapshots/**'
+      - 'src/LibTmux/Server.Queries.cs'
+      - 'src/LibTmux.FSharp/Query.fs'
 
 permissions:
   contents: read
@@ -104,3 +109,7 @@ jobs:
           path: artifacts/benchmark-record
           if-no-files-found: error
           retention-days: 30
+
+      # After the upload, so a run that fails the gate is still recorded.
+      - name: Gate pushdown against listing everything
+        run: python3 eng/benchmarks/record_fsharp.py --gate artifacts/benchmark-record/*.json

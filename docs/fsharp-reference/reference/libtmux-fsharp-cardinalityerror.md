@@ -18,7 +18,7 @@ Describes a selection that does not contain exactly one match.
 
 At least two elements matched.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L13)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L14)
 
 <a name="NoMatches"></a>
 
@@ -26,7 +26,7 @@ At least two elements matched.
 
 No element matched.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L11)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L12)
 
 ### Instance members
 

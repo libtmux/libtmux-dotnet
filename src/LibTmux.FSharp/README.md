@@ -63,9 +63,10 @@ Building a query reads nothing; `Query.list` asks tmux, which drops panes that
 cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
-polling, and ends early if the program exits. `Pane.run` returns the command's
-exit status and the lines it printed. The quick start below runs these steps
-against an isolated tmux server.
+polling, and ends early if the program exits while it waits. `Pane.run` returns
+the command's exit status and the lines it printed. `server` comes from
+`Server.connect` for a tmux already running, or from `Server.createOwned`,
+which the quick start below uses to run these steps on an isolated server.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -73,24 +74,82 @@ targets `net8.0` and `net10.0`.
 
 ## Choose a call
 
-| Need | F# call | Result |
+### Connect
+
+| Need | F# call | Returns |
 | --- | --- | --- |
-| List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
-| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
-| Find, or create when absent | `Query.atMostOne ct query` | `option`: `None` only when nothing matched; several raise. Publishes under NativeAOT |
-| A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
-| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo. `Pane.sendAndWaitFor` takes a keys request and patterns |
-| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once. [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait) compares them all |
-| Wait for a condition over the whole screen | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult`; the condition sees every visible row, including what a full-screen program draws |
-| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
-| Create a session with windows and splits | `Server.newSession ct spec server` | The `Session`; describe it with `SessionSpec`, `WindowSpec` and `SplitSpec` records |
-| Run several commands in one tmux call | `Chain.start server \|> Chain.newWindow session name \|> … \|> Chain.run ct` | One `TmuxCommandResult`; each step acts on what the one before made |
-| Bound every command a handle sends | `Server.within timeout server` | A handle to the same server; its sessions, windows and panes share the bound |
-| Read or set an option as its type | `Options.get ct TmuxOptionKey.HistoryLimit session.Options` | The value as the key's type; `Options.set` writes one |
-| A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
-| Follow live server state | `Mirror.start ct session` | A `ServerMirror` to `use!`, updated from tmux's announcements; `Mirror.waitUntil` waits for a view |
-| React to events as they happen | `Control.withSession ct work server`, then `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client, which `withSession` disposes |
-| Let an assistant drive the same tmux | The `LibTmux.Mcp` server on a shared socket | [Which F# call each MCP tool matches](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
+| Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
+| Attach to a running server | `options \|> Server.connect ct` | `Server` |
+| Bound every command's time | `Server.within timeout server` | `Server` |
+
+### Find
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct`; `Session.panes`, `Window.panes` for one scope | `IReadOnlyList<Pane>` |
+| Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
+| Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
+| Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
+| One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
+
+### Type, wait and run
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| Type a line, or press a key | `Pane.sendLine ct line pane`; `Pane.pressKey ct "C-c" pane` | `Task` |
+| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
+| Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
+| Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |
+| Find text on one screen | `Pane.findOnScreen ct search pane` | row `int option` |
+
+### Build
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| Split a pane | `Pane.split ct request pane` | the new `Pane` |
+| Create a session with windows | `Server.newSession ct spec server` | `Session` |
+| Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |
+| Read or set a typed option | `Options.get ct key options` | the key's value type |
+
+### Observe
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| A whole object graph | `Server.capture ct depth server` | snapshot `Server` |
+| Live server state | `Mirror.start ct session` | `ServerMirror` |
+| Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
+| An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
+
+### Recover
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| Tell failures apart | `TmuxFailure.NotSent`, `Ran`, `MayHaveRun` | active patterns |
+| Retry only unsent work | `Retry.ifNotSent ct retries operation`, or `Retry.ifNotSentAfter ct delays operation` | the operation's result |
+
+### Caveats
+
+- **Queries:** tmux narrows each listing where it can, and every row is
+  rechecked. `Query.atMostOne` and `Query.tryExactlyOne` publish under
+  NativeAOT; `Result` does not.
+- **Waits:** `Pane.sendAndWait` ignores the screen before the line and the
+  line's echo; `Pane.waitForText` answers at once when the text is already
+  showing. Each ends early if the pane's program exits during it, and raises
+  `TmuxPaneException` if it had already exited. Match the result with
+  `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut` or `Ended`;
+  [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
+  compares them.
+- **Runs:** `Pane.run` needs a POSIX shell prompt.
+- **Bounds:** a handle from `Server.within` shares its bound with the
+  sessions, windows and panes taken from it.
+- **Live state:** `Mirror.start` returns a mirror to `use!`.
+  `Mirror.waitUntil` raises when no view matches in time;
+  `Mirror.tryWaitUntil` returns `None`.
+- **Events:** inside `Control.withSession`, `Control.events`,
+  `Control.watchPane` and `Control.watchPanes` read the client it opens, one
+  reader at a time.
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
 linked into more than one session has contextual placements; filtering keeps
@@ -135,59 +194,54 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
         let token = deadline.Token
 
+        // A server of its own on a private socket, without user configuration.
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
-        for name in [ "build"; "web"; "worker" ] do
-            let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = name, Command = "/bin/sh"), token)
+        // One session whose window runs a plain shell.
+        let shell =
+            { WindowSpec.empty with
+                Command = Some "/bin/sh"
+            }
 
-            ()
+        let build =
+            { SessionSpec.named "build" with
+                Windows = [ shell ]
+            }
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! session = owned.Value |> Server.newSession token build
+
+        let! panes = session |> Session.panes |> Query.list token
+        let pane = panes[0]
+
+        // Type a command and wait for what it prints, not for its echo.
+        let! started =
+            pane
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
+
+        printfn "wait found: %b" started.Found
+
+        // Run a command to its exit status and read what it printed.
+        let! result =
+            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
+
+        match result with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+        | _ -> printfn "run: did not finish"
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
-        // atMostOne is None when nothing matches and raises when several do.
-        let! build =
-            server
+        let! found =
+            owned.Value
             |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.eq "build")
-            |> Query.atMostOne token
-
-        let! others =
-            server
-            |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.ne "build")
+            |> Query.where (SessionFields.name |> Filter.startsWith "bu")
             |> Query.list token
 
-        printfn "other sessions: %s" (String.Join(", ", [ for session in others -> session.Name ]))
-
-        match build with
-        | None -> printfn "no build session"
-        | Some session ->
-            let! panes = session |> Session.panes |> Query.list token
-            let pane = panes[0]
-
-            // Type a command and wait for what it prints, not for its echo.
-            let! started =
-                pane
-                |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
-
-            // Run a command to its exit status and read what it printed.
-            let! result =
-                pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
-
-            printfn "wait found: %b" started.Found
-            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
+        printfn "sessions: %s" (String.Join(", ", [ for listed in found -> listed.Name ]))
     }
 
 runAsync().GetAwaiter().GetResult()
@@ -204,19 +258,18 @@ It prints:
 
 <!-- fsharp-output: Quickstart -->
 ```text
-other sessions: web, worker
 wait found: true
 run: exit 3, output ["ok"]
+sessions: build
 ```
 <!-- endfsharp-output -->
 
-`CreateOwnedAsync` starts a server on a unique socket and `use!` stops it when
-the task ends. `ConnectAsync` attaches a second handle to that socket, as an
-application attaches to a server it did not start. `Query.atMostOne` returns
-`None` only when no session matched, so the `match` is where a program would
-create the missing session; several matches raise. The wait succeeds
-whether the line appeared before or after it began, and the run's exit status
-comes from the shell, not from reading the screen.
+`Server.createOwned` starts a server on a unique socket, with the `tmux` on
+`PATH`; set `ServerConnectionOptions.TmuxBinaryPath` to use another. `use!`
+stops it when the task ends. The wait succeeds whether the line appeared
+before or after it began, and the run's exit status comes from the shell, not
+from reading the screen. The listing reaches tmux as a filter, so tmux returns
+only the sessions that match.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
 is the published block. CI restores only `LibTmux.FSharp` as a direct package
@@ -225,10 +278,10 @@ on both target frameworks, and compares what it prints with the block above.
 
 ## Existing tmux
 
-The quickstart's `ConnectAsync(options, ct)` attaches to a running server by
-socket name. In an application, use your server's socket name and omit the
-owned setup. `ConnectAsync` never starts tmux. A bare `ConnectAsync()` resolves
-the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
+`options |> Server.connect ct` attaches to a server already running on the
+socket the options name; use it in place of `Server.createOwned` for a server
+your program did not start. `Server.connect` never starts tmux. Default options
+resolve the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
 explains the configuration order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to locate that pane's server.
 

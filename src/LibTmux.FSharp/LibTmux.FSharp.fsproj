@@ -25,7 +25,6 @@
     <Compile Include="Hierarchy.fs" />
     <ProjectReference Include="../LibTmux/LibTmux.csproj" />
     <PackageReference Include="FSharp.Core" />
-    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <Target Name="PinCorePackageDependency" AfterTargets="_GetProjectReferenceVersions">

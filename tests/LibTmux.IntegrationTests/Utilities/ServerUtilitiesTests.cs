@@ -407,6 +407,17 @@ public sealed class ServerUtilitiesTests
     }
 
     [UnixFact]
+    public void A_run_shell_delay_keeps_its_fraction_of_a_second()
+    {
+        Server server = Server.Open(new ServerConnectionOptions { SocketName = $"unused-{Guid.NewGuid():N}" });
+
+        List<string> arguments = server.BuildRunShellArguments(
+            new RunShellRequest("true") { Delay = TimeSpan.FromMilliseconds(500) });
+
+        Assert.Equal("0.5", arguments[arguments.IndexOf("-d") + 1]);
+    }
+
+    [UnixFact]
     public Task ClearPromptHistoryCommandVersionPolicy() =>
         ProvesWholeCommandGateAsync(
             ServerUtilities.ClearPromptHistoryCapability,

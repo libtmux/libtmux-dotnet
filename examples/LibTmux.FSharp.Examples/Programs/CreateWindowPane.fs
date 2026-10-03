@@ -8,6 +8,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
@@ -20,7 +21,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! session =
             owned.Value.CreateOwnedSessionAsync(
@@ -38,15 +39,13 @@ let runAsync () =
             original
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 
-        if windows.Count <> 2 || allPanes.Count <> 3 || added.Id = original.Id then
-            failwith "Expected two windows and three distinct panes."
-
         printfn "Created session demo and window editor."
         printfn "Windows: %d; panes: %d" windows.Count allPanes.Count
+        printfn "The split made a new pane: %b" (added.Id <> original.Id)
     }
 
 runAsync().GetAwaiter().GetResult()

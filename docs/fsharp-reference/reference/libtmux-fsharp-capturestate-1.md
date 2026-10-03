@@ -22,7 +22,7 @@ Contains the captured value, including an observed empty collection.
 
 **value**: <code>'T</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L18)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L19)
 
 <a name="Uncaptured"></a>
 
@@ -36,7 +36,7 @@ Names the unread relation and the depth the snapshot reached.
 
 **depth**: <code>SnapshotDepth</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L20)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L21)
 
 ### Instance members
 

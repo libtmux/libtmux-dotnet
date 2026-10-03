@@ -69,6 +69,30 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L144)
 
+<a name="tryWaitUntil"></a>
+
+#### <code><span>Mirror.tryWaitUntil&#32;<span>cancellationToken&#32;timeout&#32;condition&#32;mirror</span></span></code>
+
+Waits until a view satisfies a condition, or returns None when none did in time.
+
+As <code>waitUntil</code>, for a caller to whom running out of time is an ordinary outcome.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**condition**: <code><span>ServerMirrorView&#32;->&#32;bool</span></code>
+
+**mirror**: <code>ServerMirror</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>ServerMirrorView&#32;option</span>&gt;</span></code>
+
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The mirror ended first.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L159)
+
 <a name="views"></a>
 
 #### <code><span>Mirror.views&#32;<span>mirror</span></span></code>
@@ -83,6 +107,8 @@ The stream is cold, ends when the mirror ends, and raises the failure that ended
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;ServerMirrorView&gt;</span></code>
 
+`TmuxObjectNotFoundException` The anchor session has gone, so the mirror could not attach again.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L149)
 
 <a name="waitUntil"></a>
@@ -90,6 +116,10 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 #### <code><span>Mirror.waitUntil&#32;<span>cancellationToken&#32;timeout&#32;condition&#32;mirror</span></span></code>
 
 Waits until a view satisfies a condition, testing the current view first.
+
+A view is published only when something besides activity times, cursor
+ positions and history sizes changes, so a condition on those alone can
+ wait for an unrelated change. Wait on output with the pane waits.
 
 **Parameters:**
 

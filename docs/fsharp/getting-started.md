@@ -9,8 +9,8 @@ Both packages are maintained in the `libtmux` organization by the same primary
 author.
 
 It keeps the core handles and task-based I/O. This example creates a server on
-a unique socket, creates one session, lists its pane, splits it, sends literal
-text, and reads the resulting pane IDs. Both owned scopes dispose at the end of
+a unique socket, creates one session, lists its pane, splits it, types a line
+into the new pane, and reads the resulting pane IDs. Both owned scopes dispose at the end of
 the task.
 
 <!-- fsharp-snippet: OwnedWorkflow run -->
@@ -34,7 +34,7 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
                 TmuxBinaryPath = binary
             )
 
-        use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+        use! ownedServer = options |> Server.createOwned cancellationToken
         let server = ownedServer.Value
 
         use! ownedSession =
@@ -45,9 +45,7 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         let! second =
             panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-        do!
-            second
-            |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready\\n'", Literal = true))
+        do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
         let! found = server |> Server.tryFindPane cancellationToken second.Id
         let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
@@ -58,8 +56,9 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
 ```
 <!-- endfsharp-snippet -->
 
-`Pane.sendKeys` completes after tmux accepts the keys; it does not wait for the
-shell to print. To wait for what it prints, use `Pane.sendAndWait` below. `Server.capture` performs I/O, then the ID projection is local.
+`Pane.sendLine` completes after tmux accepts the line; it does not wait for the
+shell to print. To wait for what it prints, use `Pane.sendAndWait` below.
+`Server.capture` performs I/O, then the ID projection is local.
 `Server.tryFindPane` returns `Some pane` after a successful lookup or `None`
 when the pane is absent. This example returns two pane IDs and `Some` of the
 new pane's ID. Failures and cancellation still propagate.
@@ -86,13 +85,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-send-wait-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
@@ -107,7 +107,7 @@ let runAsync () =
             |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))
+        do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane
@@ -119,9 +119,22 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        printfn "ready: %b" ready.Found
-        printfn "counted: %b" counted.Found
-        printfn "run: exit %A, output %A" listing.ExitStatus (List.ofSeq listing.Output)
+        // One case for each way a wait can end; leaving one out draws a warning.
+        let describe wait =
+            match wait with
+            | PaneWait.Found -> "found"
+            | PaneWait.Printed -> "printed"
+            | PaneWait.Stopped pattern -> "stopped by " + pattern
+            | PaneWait.TimedOut -> "timed out"
+            | PaneWait.Ended -> "the pane's program ended"
+
+        printfn "ready: %s" (describe ready)
+        printfn "counted: %s" (describe counted)
+
+        match listing with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | _ -> printfn "run: did not finish"
+
         printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
 
@@ -133,8 +146,8 @@ It prints:
 
 <!-- fsharp-output: SendWaitRead -->
 ```text
-ready: true
-counted: true
+ready: found
+counted: found
 run: exit 4, output ["a"; "b"]
 screen shows the run: true
 ```
@@ -151,11 +164,23 @@ screen shows the run: true
 | Run a command to its exit status | `Pane.run` | The command exits. It returns the status and the lines it printed. |
 | Follow output as it prints | `Control.watchPane`, or `Control.watchPanes` for several panes on one client | You stop reading, or the panes are gone; see [streams](streams.md). |
 
-Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
+A wait's `PaneWaitResult` falls under one `PaneWait` case, so a match that
+leaves one out draws a compiler warning:
+
+| Case | Outcomes | It means |
+| --- | --- | --- |
+| `PaneWait.Found` | `Matched`, `PresentAtEntry` | The text or a pattern appeared, before or during the wait. |
+| `PaneWait.Printed` | `AnyOutput` | A wait with no pattern saw the pane print something. |
+| `PaneWait.Stopped pattern` | `Stopped` | A stop pattern matched; the case carries it. |
+| `PaneWait.TimedOut` | `TimedOut` | The time allowed ran out. |
+| `PaneWait.Ended` | `PaneExited`, `AlternateScreen` | The pane's program exited, or a full-screen program took over. |
+
+Calling `Pane.sendLine` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use
 `Pane.sendAndWait` instead. Every wait also ends early when the pane's program
-exits or a full-screen program takes over, and each sleeps on the pane's own
-output through a control client rather than polling.
+exits during it or a full-screen program takes over, raises
+`TmuxPaneException` on a pane whose program had already exited, and sleeps on
+the pane's own output through a control client rather than polling.
 
 `Pane.run` needs the pane at a prompt of `sh`, `ash`, `bash`, `dash`, `zsh` or
 a Korn shell; fish, PowerShell and a REPL are refused. It runs the command in a
@@ -186,13 +211,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         // Describe the session, then create it in one call: the first window is
         // the one tmux makes with the session, and each split goes beside the

@@ -36,8 +36,9 @@ public sealed partial class Server
         ServerUtilities.AddValue(
             arguments,
             "-d",
+            // tmux reads the delay as a decimal number of seconds.
             request.Delay is TimeSpan delay
-                ? ((long)delay.TotalSeconds).ToString(CultureInfo.InvariantCulture)
+                ? delay.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture)
                 : null);
         ServerUtilities.AddValue(arguments, "-t", request.TargetPane);
         ServerUtilities.EndOptions(arguments);
@@ -124,7 +125,8 @@ public sealed partial class Server
     /// <see cref="TmuxWaitMode.Lock" /> cancelling never kills the client, since
     /// tmux hands a released lock to whichever queued client is still alive: the
     /// client keeps running, and a lock it goes on to acquire is released again
-    /// automatically once this call has already given up on it.
+    /// automatically once this call has already given up on it. A lock that is
+    /// never released therefore keeps one tmux client queued per cancelled call.
     /// </param>
     /// <remarks>
     /// Waiting blocks until something else signals the channel, so a call that

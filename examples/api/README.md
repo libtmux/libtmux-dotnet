@@ -1,14 +1,17 @@
 # Complete API programs
 
 These programs run as standalone package consumers. Each file contains its
-imports, entry point, owned tmux server, cancellation deadline, assertions and
-cleanup. The manifest identifies whole files, including their final newline,
-for API pages to publish from a recorded source revision. Every import and
-helper is present in the displayed file.
+imports, entry point, owned tmux server, cancellation deadline and cleanup. The
+F# programs print what they observe, and the manifest records that output, so a
+program that observes something else fails its check. The manifest identifies
+whole files, including their final newline, for API pages to publish from a
+recorded source revision. Every import and helper is present in the displayed
+file.
 
-The F# programs use `LibTmux.Server.CreateOwnedAsync` and the core session and
-window methods for construction. The F# facade supplies task, snapshot, query,
-wait, run, mirror and option helpers; it has no separate server constructor.
+The F# programs start a server of their own with `Server.createOwned` and work
+through `owned.Value`, and build sessions and windows with the core session
+and window methods or `Server.newSession`. The F# facade supplies the query, wait,
+run, mirror, option and snapshot helpers.
 
 | Program | Task |
 | --- | --- |
@@ -19,7 +22,7 @@ wait, run, mirror and option helpers; it has no separate server constructor.
 | [SelectionResults.fs](../LibTmux.FSharp.Examples/Programs/SelectionResults.fs) | Match all `Selection.exactlyOne` results |
 | [LookupFailures.fs](../LibTmux.FSharp.Examples/Programs/LookupFailures.fs) | Keep cancellation, invalid input and failed reads distinct from absence |
 | [CreateWindowPane.fs](../LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs) | Own a session and window, then split a pane |
-| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Send literal text and Enter, then capture signalled output |
+| [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Type literal text, press Enter by name, then capture signalled output |
 | [Queries.fs](../LibTmux.FSharp.Examples/Programs/Queries.fs) | Query every level and let tmux narrow the listing |
 | [SendWaitRead.fs](../LibTmux.FSharp.Examples/Programs/SendWaitRead.fs) | Send a command, wait for its output and run to an exit status |
 | [LiveState.fs](../LibTmux.FSharp.Examples/Programs/LiveState.fs) | Follow live server state |
@@ -75,8 +78,8 @@ operation; it does not undo input or mutations already sent to tmux. An
 unhandled error exits the program unsuccessfully after cleanup.
 
 `InputCapture.fs` waits for a private signal sent by the pane's shell after
-printing. Its capture assertion compares a whole line after removing terminal
-padding, so the echoed command cannot satisfy it. The wait channel is also
+printing. It looks for a whole captured line after removing terminal padding,
+so the echoed command cannot match it. The wait channel is also
 disposed. `SnapshotAccess.fs` turns off `exit-empty` on its own server to show
 an empty captured relation after disposing the last session; the outer server
 scope still stops that daemon.

@@ -10,6 +10,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
@@ -20,12 +21,12 @@ let runAsync () =
         let options =
             ServerConnectionOptions(SocketName = socketName, ConfigurationFile = "/dev/null", TmuxBinaryPath = binary)
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _session =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), token)
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! panes = server |> Server.panes |> Query.list token
         let pane = panes |> Seq.exactlyOne
         let channel = "capture-" + Guid.NewGuid().ToString("N")
@@ -40,23 +41,19 @@ let runAsync () =
                 (quoteShell socketName)
                 (quoteShell channel)
 
-        do!
-            pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = command, Literal = true, Enter = false))
+        do! pane |> Pane.sendText token command
 
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "Enter", Enter = false))
+        do! pane |> Pane.pressKey token "Enter"
         let! ready = wait.WaitAsync(TimeSpan.FromSeconds 5., token)
-
-        if not ready then
-            failwith "The pane did not signal that its output was ready."
+        printfn "The shell signalled: %b" ready
 
         let! lines = pane |> Pane.capture token (CapturePaneRequest(JoinWrappedLines = true))
 
-        // Joining wrapped lines preserves terminal padding after the output.
-        if not (lines |> Seq.exists (fun line -> line.TrimEnd() = marker)) then
-            failwithf "Capture did not contain the complete output line: %A" lines
-
-        printfn "%s" marker
+        // Joining wrapped lines keeps the terminal's padding after the output,
+        // and only a whole line counts, so the echoed command cannot match.
+        match lines |> Seq.map (fun line -> line.TrimEnd()) |> Seq.tryFind ((=) marker) with
+        | Some line -> printfn "Captured line: %s" line
+        | None -> printfn "Captured line: none"
     }
 
 runAsync().GetAwaiter().GetResult()

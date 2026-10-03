@@ -217,6 +217,52 @@ module ContractTests =
         }
 
     [<Fact>]
+    let ``pressKey sends one key name and no Enter`` () =
+        task {
+            let sent = System.Collections.Concurrent.ConcurrentQueue<string array>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-press-key"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            sent.Enqueue arguments
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    arguments,
+                                    0,
+                                    ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("17:29\n")),
+                                    ReadOnlyMemory<byte>.Empty,
+                                    [||],
+                                    [||]
+                                )
+                            ))
+                )
+
+            let generation = ServerGeneration(17, 29)
+            let server = LibTmux.Server(connection, generation, "tmux 3.7")
+
+            let pane =
+                LibTmux.Pane(server, connection, generation, PaneId 1, Dictionary<string, string>())
+
+            do! pane |> Pane.pressKey CancellationToken.None "C-c"
+
+            // Each command also carries the server generation check, so look
+            // for the key; a following Enter would be a second command.
+            let arguments = Assert.Single(sent)
+            Assert.Contains("C-c", arguments)
+            Assert.DoesNotContain("-l", arguments)
+
+            Assert.Throws<ArgumentException>(fun () -> pane |> Pane.pressKey CancellationToken.None " " |> ignore)
+            |> ignore
+        }
+
+    [<Fact>]
     let ``send keys keeps post-dispatch cancellation token and diagnostics`` () =
         task {
             use source = new CancellationTokenSource()
@@ -327,6 +373,62 @@ module ContractTests =
             Assert.Equal(token, observed.CancellationToken)
             Assert.Equal(0, mutations)
         }
+
+module PaneRunTests =
+    let private describe result =
+        match result with
+        | PaneRun.Exited status -> "exited " + string status
+        | PaneRun.TimedOut -> "timed out"
+        | PaneRun.NotStarted -> "not started"
+        | _ -> "other"
+
+    [<Fact>]
+    let ``runs are told apart by how they ended`` () =
+        let run status timedOut started =
+            PaneRunResult(status, timedOut, [], TimeSpan.Zero, started, false)
+
+        Assert.Equal("exited 3", describe (run (Nullable 3) false true))
+        Assert.Equal("timed out", describe (run (Nullable()) true true))
+        Assert.Equal("not started", describe (run (Nullable()) false false))
+
+module PaneWaitTests =
+    let private describe result =
+        match result with
+        | PaneWait.Found -> "found"
+        | PaneWait.Printed -> "printed"
+        | PaneWait.Stopped pattern -> "stopped by " + pattern
+        | PaneWait.TimedOut -> "timed out"
+        | PaneWait.Ended -> "ended"
+
+    [<Fact>]
+    let ``every wait outcome has one pattern`` () =
+        let wait outcome (pattern: string | null) =
+            PaneWaitResult(outcome, pattern, TimeSpan.Zero) |> describe
+
+        Assert.Equal<string list>(
+            [
+                "found"
+                "found"
+                "printed"
+                "stopped by FAIL"
+                "timed out"
+                "ended"
+                "ended"
+            ],
+            [
+                wait PaneWaitOutcome.Matched "ok"
+                wait PaneWaitOutcome.PresentAtEntry "ok"
+                wait PaneWaitOutcome.AnyOutput null
+                wait PaneWaitOutcome.Stopped "FAIL"
+                wait PaneWaitOutcome.TimedOut null
+                wait PaneWaitOutcome.PaneExited null
+                wait PaneWaitOutcome.AlternateScreen null
+            ]
+        )
+
+        // An outcome the core adds later must have a case here before it ships.
+        for outcome in Enum.GetValues<PaneWaitOutcome>() do
+            wait outcome "pattern" |> ignore
 
 module FailureTests =
     let private failure dispatch =
@@ -543,6 +645,26 @@ module FailureTests =
                 (1, 1, 1, 2, 0),
                 (count "first", count "nested", count "slow", count "flaky", recovered.ExitCode)
             )
+        }
+
+    [<Fact>]
+    let ``retry after delays waits before each attempt and stops when they run out`` () =
+        task {
+            let mutable attempts = 0
+            let started = Diagnostics.Stopwatch.StartNew()
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSentAfter
+                        CancellationToken.None
+                        [ TimeSpan.FromMilliseconds 20.; TimeSpan.FromMilliseconds 30. ]
+                        (fun _ ->
+                            attempts <- attempts + 1
+                            Task.FromException<int>(failure TmuxDispatchState.NotDispatched))
+                    :> Task)
+
+            Assert.Equal(3, attempts)
+            Assert.True(started.Elapsed >= TimeSpan.FromMilliseconds 50.)
         }
 
     [<Fact>]

@@ -46,9 +46,26 @@ program's. The MCP server reads the socket once, when it starts.
 | `wait_for_text` | `Pane.waitForText` and `Pane.waitFor` |
 | `send_keys` followed by `wait_for_text` | `Pane.sendAndWait` and `Pane.sendAndWaitFor` |
 | `run_shell_command` | `Pane.run` |
-| `send_keys` | `Pane.sendKeys` |
+| `send_keys` | `Pane.sendLine`, `Pane.sendText` and `Pane.pressKey`, or `Pane.sendKeys` with a request |
 | `split_window` | `Pane.split` |
 | `set_history_limit`, `set_mouse_enabled`, `show_option` | `Options.set` and `Options.get` with `TmuxOptionKey` |
+| `set_synchronize_panes` | `Options.set` with `TmuxOptionKey.SynchronizePanes` |
+| `get_session_info`, `get_window_info`, `get_pane_info` | `Server.tryFindSession`, `Server.tryFindWindow`, `Server.tryFindPane`, then the handle's properties |
+| `find_pane_by_position` | `Window.panes` with `Query.where` on `PaneFields.index` |
+| `get_server_info` | `server.IsAliveAsync` and `server.Version` |
+| `get_tmux_variables` | `pane.DisplayMessageAsync` with a `DisplayMessageRequest` whose `Format` names them and `ReturnText` is true |
+| `show_environment`, `show_hooks` | `server.Environment` or `session.Environment`, and the `Hooks` of any level |
+| `create_session`, `create_window` | `Server.newSession` with a `SessionSpec`, and `session.CreateWindowAsync` |
+| `rename_session`, `rename_window`, `set_pane_title` | `session.RenameAsync`, `window.RenameAsync`, `pane.SetTitleAsync` |
+| `kill_session`, `kill_window`, `kill_pane` | `KillAsync` on the session, window or pane |
+| `select_window`, `select_pane` | `window.SelectAsync`, `pane.SelectAsync` |
+| `move_window`, `swap_pane` | `window.MoveAsync`, `pane.SwapAsync` |
+| `resize_window`, `resize_pane`, `select_layout` | `window.ResizeAsync`, `pane.ResizeAsync`, `window.SelectLayoutAsync` |
+| `respawn_pane`, `clear_pane_scrollback` | `pane.RespawnAsync`, `pane.ClearHistoryAsync` |
+| `paste_text` | `server.Buffers.SetAsync`, then `pane.PasteBufferAsync`; or `Pane.sendText` to type it instead |
+| `send_keys_batch` | `Pane.sendKeys` and `Pane.sendLine` in sequence, or `Chain.add` with each `SendKeysRequest`'s `ToCommand pane` to send them in one tmux call |
+| `wait_for_channel`, `signal_channel` | `server.OpenWaitChannel`, and `server.WaitForAsync` with `TmuxWaitMode.Signal` |
+| `call_read_tools_batch` | None: it saves MCP round trips, which F# calls in the same process do not make |
 
 Two differences follow from who is asking. The MCP server remembers the keys
 it typed across calls and discounts their echo from any later wait; F# sends

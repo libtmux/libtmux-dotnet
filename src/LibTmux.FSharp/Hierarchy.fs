@@ -8,6 +8,12 @@ open LibTmux.Query
 
 [<RequireQualifiedAccess>]
 module Server =
+    let createOwned (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+
+    let connect (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.ConnectAsync(options, cancellationToken)
+
     let sessions (server: LibTmux.Server) =
         Query<LibTmux.Session>.Create(server, QueryTarget.Session, None, None)
 
@@ -202,6 +208,16 @@ module Pane =
 
     let run (cancellationToken: CancellationToken) (timeout: TimeSpan) (command: string) (pane: LibTmux.Pane) =
         pane.RunAsync(command, timeout, cancellationToken)
+
+    let sendLine (cancellationToken: CancellationToken) (line: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(line, true, cancellationToken)
+
+    let sendText (cancellationToken: CancellationToken) (text: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(text, false, cancellationToken)
+
+    let pressKey (cancellationToken: CancellationToken) (key: string) (pane: LibTmux.Pane) =
+        ArgumentException.ThrowIfNullOrWhiteSpace(key)
+        pane.SendKeysAsync(SendKeysRequest(Text = key, Enter = false), cancellationToken)
 
     let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SendKeysAsync(request, cancellationToken)

@@ -19,9 +19,10 @@ public interface IControlModeSession : IAsyncDisposable
     /// <summary>Reads what tmux reports for as long as the client runs.</summary>
     /// <remarks>
     /// The sequence completes after <see cref="TmuxExitEvent" /> on a normal
-    /// exit and faults after buffered events when the control stream fails. It
-    /// may be enumerated once; a second enumeration reads only what has not
-    /// already been taken. A slow reader receives
+    /// exit and faults after buffered events when the control stream fails.
+    /// Reading takes what it reads, so a later enumeration reads only what has
+    /// not already been taken, and one started while another is still reading
+    /// throws <see cref="InvalidOperationException" />. A slow reader receives
     /// <see cref="TmuxEventsDroppedEvent" /> instead of silently missing data
     /// when the bounded buffer overflows. Pane output is discarded before any
     /// notification, and a pane whose output was discarded is paused until the

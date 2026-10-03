@@ -44,11 +44,18 @@ public sealed record ServerMirrorView(long Epoch, Server Server, IReadOnlyList<C
 [UnsupportedOSPlatform("windows")]
 public sealed class ServerMirror : IAsyncDisposable
 {
-    // Fields that move with every keystroke or line of output.
+    // Fields that move with every keystroke, line of output or redrawn frame,
+    // or with the clock: client_activity_string changes each second a client
+    // is used, client_written with every status-line redraw, the window
+    // offsets with the cursor of a window larger than its client, and a
+    // program updating its screen atomically toggles synchronized_output_flag
+    // around every frame.
     private static readonly FrozenSet<string> Restless = FrozenSet.ToFrozenSet(
         [
-            "client_activity", "cursor_character", "cursor_x", "cursor_y", "history_bytes",
-            "history_size", "session_activity", "window_activity",
+            "client_activity", "client_activity_string", "client_discarded", "client_written",
+            "cursor_character", "cursor_x", "cursor_y", "history_bytes", "history_size",
+            "saved_cursor_x", "saved_cursor_y", "session_activity", "synchronized_output_flag",
+            "window_activity", "window_offset_x", "window_offset_y",
         ],
         StringComparer.Ordinal);
 
@@ -524,7 +531,7 @@ public sealed class ServerMirror : IAsyncDisposable
         return text.ToString();
     }
 
-    private static void Append(StringBuilder text, char kind, IReadOnlyDictionary<string, string?> fields)
+    internal static void Append(StringBuilder text, char kind, IReadOnlyDictionary<string, string?> fields)
     {
         text.Append(kind);
         foreach (KeyValuePair<string, string?> field in fields

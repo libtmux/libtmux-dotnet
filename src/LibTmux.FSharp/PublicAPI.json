@@ -1841,6 +1841,54 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirror>"
     },
     {
+      "id": "M:LibTmux.FSharp.Mirror.tryWaitUntil(System.Threading.CancellationToken,System.TimeSpan,Microsoft.FSharp.Core.FSharpFunc{LibTmux.ServerMirrorView,System.Boolean},LibTmux.ServerMirror)",
+      "package": "LibTmux.FSharp",
+      "name": "tryWaitUntil",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val tryWaitUntil: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> condition: (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> mirror: LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView Microsoft.FSharp.Core.option>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan -> (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView Microsoft.FSharp.Core.option>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "timeout",
+          "optional": false,
+          "type": "System.TimeSpan"
+        },
+        {
+          "name": "condition",
+          "optional": false,
+          "type": "LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool"
+        },
+        {
+          "name": "mirror",
+          "optional": false,
+          "type": "LibTmux.ServerMirror"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "tryWaitUntil",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirrorView Microsoft.FSharp.Core.option>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Mirror.views(LibTmux.ServerMirror)",
       "package": "LibTmux.FSharp",
       "name": "views",
@@ -2167,6 +2215,48 @@
       "returnType": "System.Threading.Tasks.Task<Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
     },
     {
+      "id": "M:LibTmux.FSharp.Pane.pressKey(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "pressKey",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val pressKey: cancellationToken: System.Threading.CancellationToken -> key: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "key",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "pressKey",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.run(System.Threading.CancellationToken,System.TimeSpan,System.String,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "run",
@@ -2359,6 +2449,90 @@
       "returnType": "System.Threading.Tasks.Task"
     },
     {
+      "id": "M:LibTmux.FSharp.Pane.sendLine(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendLine",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendLine: cancellationToken: System.Threading.CancellationToken -> line: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "line",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendLine",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Pane.sendText(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendText",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendText: cancellationToken: System.Threading.CancellationToken -> text: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "text",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendText",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "split",
@@ -2537,6 +2711,126 @@
       "compiledName": "waitUntil",
       "genericParameters": [],
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.PaneRun.|Exited|_|(LibTmux.PaneRunResult)",
+      "package": "LibTmux.FSharp",
+      "name": "(|Exited|_|)",
+      "declaringType": "T:LibTmux.FSharp.PaneRun",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|Exited|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.PaneRunResult"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|Exited|_|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.PaneRun.|NotStarted|_|(LibTmux.PaneRunResult)",
+      "package": "LibTmux.FSharp",
+      "name": "(|NotStarted|_|)",
+      "declaringType": "T:LibTmux.FSharp.PaneRun",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|NotStarted|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.PaneRunResult"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|NotStarted|_|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.PaneRun.|TimedOut|_|(LibTmux.PaneRunResult)",
+      "package": "LibTmux.FSharp",
+      "name": "(|TimedOut|_|)",
+      "declaringType": "T:LibTmux.FSharp.PaneRun",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|TimedOut|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.PaneRunResult"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|TimedOut|_|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.PaneWait.|Found|Printed|Stopped|TimedOut|Ended|(LibTmux.PaneWaitResult)",
+      "package": "LibTmux.FSharp",
+      "name": "(|Found|Printed|Stopped|TimedOut|Ended|)",
+      "declaringType": "T:LibTmux.FSharp.PaneWait",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|Found|Printed|Stopped|TimedOut|Ended|) : result: LibTmux.PaneWaitResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.string,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.PaneWaitResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.string,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "result",
+          "optional": false,
+          "type": "LibTmux.PaneWaitResult"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|Found|Printed|Stopped|TimedOut|Ended|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.string,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
     },
     {
       "id": "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
@@ -2862,6 +3156,53 @@
       "returnType": "LibTmux.FSharp.Query<'T>"
     },
     {
+      "id": "M:LibTmux.FSharp.Retry.ifNotSentAfter``1(System.Threading.CancellationToken,Microsoft.FSharp.Collections.FSharpList{System.TimeSpan},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
+      "package": "LibTmux.FSharp",
+      "name": "ifNotSentAfter",
+      "declaringType": "T:LibTmux.FSharp.Retry",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val ifNotSentAfter: cancellationToken: System.Threading.CancellationToken -> delays: System.TimeSpan Microsoft.FSharp.Collections.list -> operation: (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan Microsoft.FSharp.Collections.list -> (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "delays",
+          "optional": false,
+          "type": "System.TimeSpan Microsoft.FSharp.Collections.list"
+        },
+        {
+          "name": "operation",
+          "optional": false,
+          "type": "System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "ifNotSentAfter",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Retry.ifNotSent``1(System.Threading.CancellationToken,System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
       "package": "LibTmux.FSharp",
       "name": "ifNotSent",
@@ -3014,6 +3355,78 @@
       "compiledName": "clients",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Query<LibTmux.Client>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.connect(System.Threading.CancellationToken,LibTmux.ServerConnectionOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "connect",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val connect: cancellationToken: System.Threading.CancellationToken -> options: LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.Server>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.Server>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.ServerConnectionOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "connect",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Server>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.createOwned(System.Threading.CancellationToken,LibTmux.ServerConnectionOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "createOwned",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val createOwned: cancellationToken: System.Threading.CancellationToken -> options: LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.ServerConnectionOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "createOwned",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
     },
     {
       "id": "M:LibTmux.FSharp.Server.newSession(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,LibTmux.Server)",
@@ -3811,6 +4224,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.string>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.active",
+      "package": "LibTmux.FSharp",
+      "name": "active",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val active: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "active",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.atBottom",
       "package": "LibTmux.FSharp",
       "name": "atBottom",
@@ -3943,6 +4378,50 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.dead",
+      "package": "LibTmux.FSharp",
+      "name": "dead",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val dead: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "dead",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.deadStatus",
+      "package": "LibTmux.FSharp",
+      "name": "deadStatus",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val deadStatus: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "deadStatus",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -3961,6 +4440,28 @@
       "parameters": [],
       "argumentGroups": [],
       "compiledName": "height",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.historySize",
+      "package": "LibTmux.FSharp",
+      "name": "historySize",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val historySize: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "historySize",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
@@ -3985,6 +4486,28 @@
       "compiledName": "id",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,LibTmux.PaneId>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.inMode",
+      "package": "LibTmux.FSharp",
+      "name": "inMode",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val inMode: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "inMode",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
     },
     {
       "id": "P:LibTmux.FSharp.PaneFields.index",
@@ -4031,6 +4554,72 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.processId",
+      "package": "LibTmux.FSharp",
+      "name": "processId",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val processId: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "processId",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.startCommand",
+      "package": "LibTmux.FSharp",
+      "name": "startCommand",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val startCommand: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "startCommand",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.synchronized",
+      "package": "LibTmux.FSharp",
+      "name": "synchronized",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val synchronized: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "synchronized",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.title",
       "package": "LibTmux.FSharp",
       "name": "title",
@@ -4073,6 +4662,28 @@
       "compiledName": "top",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.tty",
+      "package": "LibTmux.FSharp",
+      "name": "tty",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val tty: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "tty",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
     },
     {
       "id": "P:LibTmux.FSharp.PaneFields.width",
@@ -4409,6 +5020,94 @@
       "returnType": "LibTmux.FSharp.SplitSpec"
     },
     {
+      "id": "P:LibTmux.FSharp.WindowFields.active",
+      "package": "LibTmux.FSharp",
+      "name": "active",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val active: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "active",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.activityAlert",
+      "package": "LibTmux.FSharp",
+      "name": "activityAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val activityAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "activityAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.bellAlert",
+      "package": "LibTmux.FSharp",
+      "name": "bellAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val bellAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "bellAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.flags",
+      "package": "LibTmux.FSharp",
+      "name": "flags",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val flags: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "flags",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+    },
+    {
       "id": "P:LibTmux.FSharp.WindowFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -4473,6 +5172,28 @@
       "compiledName": "index",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.layout",
+      "package": "LibTmux.FSharp",
+      "name": "layout",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val layout: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "layout",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowFields.name",
@@ -4541,6 +5262,28 @@
       "returnType": "LibTmux.FSharp.Relation<LibTmux.Window,LibTmux.Pane>"
     },
     {
+      "id": "P:LibTmux.FSharp.WindowFields.silenceAlert",
+      "package": "LibTmux.FSharp",
+      "name": "silenceAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val silenceAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "silenceAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.WindowFields.width",
       "package": "LibTmux.FSharp",
       "name": "width",
@@ -4561,6 +5304,28 @@
       "compiledName": "width",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.zoomed",
+      "package": "LibTmux.FSharp",
+      "name": "zoomed",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val zoomed: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "zoomed",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowSpec.Command",
@@ -5089,6 +5854,60 @@
       "interfaces": [],
       "exposedTypes": [
         "LibTmux.FSharp.PaneFields"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.PaneRun",
+      "package": "LibTmux.FSharp",
+      "name": "PaneRun",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.PaneRun",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.PaneRun"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.PaneWait",
+      "package": "LibTmux.FSharp",
+      "name": "PaneWait",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.PaneWait",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.PaneWait"
       ],
       "attributes": [
         {

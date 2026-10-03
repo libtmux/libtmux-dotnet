@@ -118,6 +118,71 @@ module DescriptorMatrixTests =
                 Document = Filter.gt 1 WindowFields.height |> Filter.toDocument
             }
             {
+                Name = "WindowFields.active"
+                CoreProperty = "Window.Active"
+                WireName = "window_active"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.active |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.zoomed"
+                CoreProperty = "Window.Zoomed"
+                WireName = "window_zoomed_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.zoomed |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.bellAlert"
+                CoreProperty = "Window.BellAlert"
+                WireName = "window_bell_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.bellAlert |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.activityAlert"
+                CoreProperty = "Window.ActivityAlert"
+                WireName = "window_activity_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.activityAlert |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.silenceAlert"
+                CoreProperty = "Window.SilenceAlert"
+                WireName = "window_silence_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.silenceAlert |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.layout"
+                CoreProperty = "Window.Layout"
+                WireName = "window_layout"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.startsWith "b25d," WindowFields.layout |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.flags"
+                CoreProperty = "Window.Flags"
+                WireName = "window_flags"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.contains "Z" WindowFields.flags |> Filter.toDocument
+            }
+            {
                 Name = "WindowFields.paneCount"
                 CoreProperty = "Window.Panes"
                 WireName = "window_panes"
@@ -257,6 +322,89 @@ module DescriptorMatrixTests =
                 Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq true PaneFields.atRight |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.active"
+                CoreProperty = "Pane.Active"
+                WireName = "pane_active"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.active |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.dead"
+                CoreProperty = "Pane.Dead"
+                WireName = "pane_dead"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.dead |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.inMode"
+                CoreProperty = "Pane.InMode"
+                WireName = "pane_in_mode"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.inMode |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.processId"
+                CoreProperty = "Pane.ProcessId"
+                WireName = "pane_pid"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.processId |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.synchronized"
+                CoreProperty = "Pane.Synchronized"
+                WireName = "pane_synchronized"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.synchronized |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.historySize"
+                CoreProperty = "Pane.HistorySize"
+                WireName = "history_size"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.historySize |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.deadStatus"
+                CoreProperty = "Pane.DeadStatus"
+                WireName = "pane_dead_status"
+                ValueType = "int option"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.ne (Some 0) PaneFields.deadStatus |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.tty"
+                CoreProperty = "Pane.Tty"
+                WireName = "pane_tty"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "/dev/pts/3" PaneFields.tty |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.startCommand"
+                CoreProperty = "Pane.StartCommand"
+                WireName = "pane_start_command"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.startsWith "\"sleep" PaneFields.startCommand |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"

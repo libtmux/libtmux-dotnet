@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -67,6 +68,32 @@ module TmuxFailure =
     /// <summary>Matches a failure, or a cancellation, after which tmux may already have acted.</summary>
     val (|MayHaveRun|_|): error: exn -> exn option
 
+/// <summary>Recognises how a command run with <c>Pane.run</c> ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneRun =
+    /// <summary>Matches a command that exited, with its exit status.</summary>
+    val (|Exited|_|): result: PaneRunResult -> int option
+
+    /// <summary>Matches a command still running when the time allowed ran out.</summary>
+    val (|TimedOut|_|): result: PaneRunResult -> unit option
+
+    /// <summary>Matches a command the pane's shell never ran.</summary>
+    val (|NotStarted|_|): result: PaneRunResult -> unit option
+
+/// <summary>Recognises how a wait on a pane's output ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneWait =
+    /// <summary>Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Found</c>: the text or a pattern appeared, before or during the wait.
+    /// <c>Printed</c>: a wait with no pattern saw the pane print something.
+    /// <c>Stopped</c>: a stop pattern matched, carried as its text.
+    /// <c>TimedOut</c>: the time allowed ran out.
+    /// <c>Ended</c>: the pane's program exited, or a full-screen program took over.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The outcome is not one this facade knows.</exception>
+    val (|Found|Printed|Stopped|TimedOut|Ended|): result: PaneWaitResult -> Choice<unit, unit, string, unit, unit>
+
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =
@@ -83,6 +110,20 @@ module Retry =
     /// <exception cref="T:System.ArgumentOutOfRangeException">The retry count is negative.</exception>
     val ifNotSent:
         cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>
+
+    /// <summary>Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux.</summary>
+    /// <remarks>
+    /// Retries as <c>ifNotSent</c> does, once per delay, waiting that long
+    /// first, so a server still starting has time to answer:
+    /// <c>Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation</c>.
+    /// Cancellation during a delay propagates.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">A delay is negative.</exception>
+    val ifNotSentAfter:
+        cancellationToken: CancellationToken ->
+        delays: TimeSpan list ->
+        operation: (CancellationToken -> Task<'T>) ->
+            Task<'T>
 
 module internal Placement =
     val key: window: LibTmux.Window -> WindowPlacementKey

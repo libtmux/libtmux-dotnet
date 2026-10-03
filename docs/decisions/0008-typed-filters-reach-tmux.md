@@ -30,7 +30,9 @@ locally, so the result is the local result whatever tmux kept. A predicate
 tmux cannot express renders as no filter at all. A relation filter is
 evaluated once per session, and only the sessions it keeps are captured.
 Operands are escaped as format text, and `#[` is refused rather than
-rewritten.
+rewritten. A number tmux can leave unset, such as `pane_dead_status`, is
+tested for emptiness first, because tmux reads empty as 0 where the local
+check holds it unequal to every number.
 
 Raw `UnsafeTmuxFilter` strings remain separate: tmux evaluates them and
 nothing rechecks them.
@@ -38,8 +40,12 @@ nothing rechecks them.
 The version 1 catalog grows during the prerelease line. It adds `pane_index`,
 `pane_title`, `pane_current_path`, `pane_width`, `pane_height`, `pane_left`,
 `pane_top`, `pane_at_top`, `pane_at_bottom`, `pane_at_left`, `pane_at_right`,
-`window_index`, `window_width` and `window_height`. The wire grammar stays
-closed: a reader rejects a name it does not know.
+`pane_active`, `pane_dead`, `pane_in_mode`, `pane_pid`, `pane_synchronized`,
+`window_index`, `window_width`, `window_height`, `window_active`,
+`window_zoomed_flag`, `history_size`, `window_bell_flag`,
+`window_activity_flag`, `window_silence_flag`, `pane_dead_status`,
+`window_flags`, `window_layout`, `pane_tty` and `pane_start_command`. The
+wire grammar stays closed: a reader rejects a name it does not know.
 
 ## Alternatives
 

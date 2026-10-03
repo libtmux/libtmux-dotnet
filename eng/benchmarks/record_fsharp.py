@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import pathlib
 import statistics
 import subprocess
@@ -55,6 +56,30 @@ def git(*arguments: str) -> str:
         raise SystemExit("git failed; source provenance is unavailable") from error
 
 
+def conditions() -> dict:
+    """Read what else shaped the run, where this host says.
+
+    Recorded straight after the run, so the 5- and 15-minute load averages
+    span it. Every value is None where the host does not expose it.
+    """
+    def read(path: str) -> str | None:
+        try:
+            return pathlib.Path(path).read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+
+    cpuinfo = read("/proc/cpuinfo") or ""
+    flags = next((line for line in cpuinfo.splitlines() if line.startswith("flags")), "")
+    load = os.getloadavg() if hasattr(os, "getloadavg") else None
+    affinity = os.sched_getaffinity(0) if hasattr(os, "sched_getaffinity") else None
+    return {
+        "hypervisor": None if not flags else " hypervisor" in f" {flags.split(':', 1)[-1]} ",
+        "governor": read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+        "cpusAvailable": None if affinity is None else len(affinity),
+        "loadAverage": None if load is None else [round(value, 2) for value in load],
+    }
+
+
 def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> dict:
     """Build one record from the full JSON reports of several benchmark classes."""
     if not reports:
@@ -87,6 +112,7 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
             "processor": host.get("ProcessorName"),
             "logicalCores": host.get("LogicalCoreCount"),
             "runtime": host.get("RuntimeVersion"),
+            **conditions(),
         },
         "classes": classes,
     }
@@ -100,6 +126,21 @@ def scaled(value_ns: float, divisor: float) -> str:
     text = f"{value:.3g}"
     # A case far faster than its class's median would otherwise read 4e-05.
     return f"{value:.{2 - math.floor(math.log10(value))}f}" if "e" in text else text
+
+
+def describe_conditions(host: dict) -> str:
+    """Say the run's conditions in words, leaving out what the host did not report."""
+    parts = []
+    if host.get("hypervisor") is not None:
+        parts.append("virtual machine" if host["hypervisor"] else "bare metal")
+    if host.get("cpusAvailable") is not None:
+        parts.append(f"{host['cpusAvailable']} of {host['logicalCores']} logical cores available")
+    if host.get("governor"):
+        parts.append(f"{host['governor']} governor")
+    if host.get("loadAverage"):
+        one, five, fifteen = host["loadAverage"]
+        parts.append(f"load {one} / {five} / {fifteen} (1, 5, 15 min) when recorded")
+    return "; ".join(parts) or "not reported"
 
 
 def render(record: dict) -> str:
@@ -117,6 +158,8 @@ def render(record: dict) -> str:
         f"| **Runtime** | {host['runtime']} |",
         f"| **Host** | {host['processor']}, {host['os']} |",
     ]
+    if "loadAverage" in host:
+        lines.append(f"| **Conditions** | {describe_conditions(host)} |")
     for benchmark_class in record["classes"]:
         median = statistics.median(case["median_ns"] for case in benchmark_class["cases"])
         divisor, unit = next((divisor, unit) for divisor, unit in UNITS if median >= divisor)
@@ -140,14 +183,92 @@ def render(record: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+# Absolute times move by more than half between runs on one host, so the gate
+# compares routes measured in the same run. Every recorded host shows pushdown
+# 4 to 9 times faster than listing everything and filtering locally, with 10 to
+# 28 times fewer bytes allocated, so missing either bar means pushdown stopped
+# narrowing the listing rather than a noisy runner.
+PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
+MINIMUM_SPEEDUP = 3.0
+
+# A mirror captures the server once per announcement, so a rename seen through
+# it costs about one capture more than the capture alone: 1.2 to 1.3 times on
+# the workstation. Two captures per change would pass 2.
+MIRROR_CLASS = "FSharpMirrorBenchmarks"
+MAXIMUM_MIRROR_RATIO = 2.0
+
+
+def gate(record: dict) -> list[str]:
+    """Return why pushdown or the mirror missed its bar in this run, if either did."""
+    return _pushdown_failures(record) + _mirror_failures(record)
+
+
+def _mirror_failures(record: dict) -> list[str]:
+    # Records made before the mirror benchmark existed carry no mirror class.
+    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == MIRROR_CLASS), None)
+    if cases is None:
+        return []
+    by_case = {(case["method"], case["parameters"]): case for case in cases}
+    failures = []
+    for parameters in sorted({case["parameters"] for case in cases}):
+        seen = by_case.get(("RenameUntilSeen", parameters))
+        captured = by_case.get(("CaptureSnapshot", parameters))
+        if seen is None or captured is None:
+            failures.append(f"{MIRROR_CLASS} {parameters}: the rename or the capture is missing")
+            continue
+        ratio = seen["median_ns"] / captured["median_ns"]
+        if ratio > MAXIMUM_MIRROR_RATIO:
+            failures.append(
+                f"{MIRROR_CLASS} {parameters}: a rename seen through the mirror costs {ratio:.1f} captures; "
+                f"the gate allows {MAXIMUM_MIRROR_RATIO:g}"
+            )
+    return failures
+
+
+def _pushdown_failures(record: dict) -> list[str]:
+    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == PUSHDOWN_CLASS), None)
+    if cases is None:
+        return [f"{PUSHDOWN_CLASS} is not in the record"]
+    routes = {(case["method"], case["parameters"]): case for case in cases}
+    failures = []
+    for method in sorted({case["method"] for case in cases}):
+        pushed = routes.get((method, "Route=pushdown"))
+        listed = routes.get((method, "Route=list-then-filter"))
+        if pushed is None or listed is None:
+            failures.append(f"{method}: the pushdown or list-then-filter route is missing")
+            continue
+        speedup = listed["median_ns"] / pushed["median_ns"]
+        if speedup < MINIMUM_SPEEDUP:
+            failures.append(
+                f"{method}: pushdown is {speedup:.1f} times as fast as listing everything; the gate needs {MINIMUM_SPEEDUP:g}"
+            )
+        if None not in (pushed["allocated_bytes"], listed["allocated_bytes"]) and (
+            pushed["allocated_bytes"] >= listed["allocated_bytes"]
+        ):
+            failures.append(
+                f"{method}: pushdown allocates {pushed['allocated_bytes']:,} bytes, "
+                f"no fewer than listing everything ({listed['allocated_bytes']:,})"
+            )
+    return failures
+
+
 def main() -> int:
     """Write the record's JSON and Markdown, refusing a tree HEAD does not describe."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--reports", type=pathlib.Path, required=True)
-    parser.add_argument("--tmux-version", required=True)
-    parser.add_argument("--collected", required=True, help="ISO date of the run")
-    parser.add_argument("--out", type=pathlib.Path, required=True)
+    parser.add_argument("--reports", type=pathlib.Path)
+    parser.add_argument("--tmux-version")
+    parser.add_argument("--collected", help="ISO date of the run")
+    parser.add_argument("--out", type=pathlib.Path)
+    parser.add_argument("--gate", type=pathlib.Path, metavar="RECORD", help="check a written record instead")
     parsed = parser.parse_args()
+    if parsed.gate is not None:
+        failures = gate(json.loads(parsed.gate.read_text(encoding="utf-8")))
+        for failure in failures:
+            print(failure, file=sys.stderr)
+        return 1 if failures else 0
+
+    if None in (parsed.reports, parsed.tmux_version, parsed.collected, parsed.out):
+        parser.error("--reports, --tmux-version, --collected and --out are required to record")
     if git("status", "--porcelain", "--untracked-files=no"):
         print("refusing to record from a tree with uncommitted changes", file=sys.stderr)
         return 1

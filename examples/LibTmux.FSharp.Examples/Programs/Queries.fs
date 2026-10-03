@@ -13,13 +13,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-queries-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -37,7 +38,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
 
         let! logs =
             server

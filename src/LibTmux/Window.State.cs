@@ -20,6 +20,35 @@ public sealed partial class Window
     /// </remarks>
     public int Index => ReadCapturedInt("window_index", "index");
 
+    /// <summary>Gets whether this is the current window of the session it was read through.</summary>
+    /// <remarks>
+    /// A window linked into several sessions can be current in one and not in
+    /// another, as with <see cref="Index" />.
+    /// </remarks>
+    public bool Active => ReadSnapshot("window_active") == "1";
+
+    /// <summary>Gets whether a bell rang in the window since it was last the current window.</summary>
+    /// <remarks>tmux sets it only while <c>monitor-bell</c> is on, which it is by default.</remarks>
+    public bool BellAlert => ReadSnapshot("window_bell_flag") == "1";
+
+    /// <summary>Gets whether the window printed since it was last the current window.</summary>
+    /// <remarks>tmux sets it only while <c>monitor-activity</c> is on.</remarks>
+    public bool ActivityAlert => ReadSnapshot("window_activity_flag") == "1";
+
+    /// <summary>Gets whether the window has been silent for <c>monitor-silence</c> seconds.</summary>
+    public bool SilenceAlert => ReadSnapshot("window_silence_flag") == "1";
+
+    /// <summary>Gets whether one of the window's panes is zoomed to fill it.</summary>
+    public bool Zoomed => ReadSnapshot("window_zoomed_flag") == "1";
+
+    /// <summary>Gets the window's flags as its status line shows them, such as <c>*</c> for the current window.</summary>
+    /// <remarks>Empty for a window with no flags.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The flags were not captured.</exception>
+    public string Flags =>
+        _snapshot is not null && _snapshot.TryGetValue("window_flags", out string? flags)
+            ? flags ?? string.Empty
+            : throw new IncompleteSnapshotException("flags", SnapshotDepth.Windows);
+
     /// <summary>Gets the window height captured with this handle.</summary>
     public int Height => ReadCapturedInt("window_height", "height");
 

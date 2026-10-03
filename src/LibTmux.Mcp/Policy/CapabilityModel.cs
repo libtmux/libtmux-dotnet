@@ -84,9 +84,16 @@ internal sealed record ToolDefinition(
     FrozenDictionary<string, string> InputLiteralization,
     ImmutableHashSet<string> NestedAuthority,
     bool SelfBounded = false,
-    bool BatchEligible = false)
+    bool BatchEligible = false,
+    bool AlwaysLoad = false)
 {
     internal const string CapabilityMetadataKey = "com.git-pull.libtmux-mcp/capability";
+
+    // Asks a client that defers tool schemas to keep this one loaded, so an
+    // agent finds the discovery tools without a search first. Claude Code
+    // honours it; other clients ignore the key. Each always-loaded schema
+    // costs every conversation context, so only discovery anchors set it.
+    internal const string AlwaysLoadMetadataKey = "anthropic/alwaysLoad";
 
     internal JsonElement InputSchema { get; init; }
 
@@ -106,6 +113,10 @@ internal sealed record ToolDefinition(
         JsonObject? metadata = includeCapabilityMetadata
             ? new JsonObject { [CapabilityMetadataKey] = CapabilityRow() }
             : null;
+        if (metadata is not null && AlwaysLoad)
+        {
+            metadata[AlwaysLoadMetadataKey] = true;
+        }
         return McpServerTool.Create(
             Handler,
             context => context.Services!.GetRequiredService<CapabilityTools>(),
@@ -556,15 +567,15 @@ internal sealed class CapabilityRegistry
         return
         [
             Inspect("list_sessions", "List sessions", Metadata, nameof(CapabilityTools.ListSessionsAsync), S(), batchEligible: true, detail: "List the tmux sessions. This reads names and sizes, not terminal text — to find what a pane is showing, use search_panes."),
-            Inspect("list_windows", "List windows", Metadata, nameof(CapabilityTools.ListWindowsAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true, detail: "List tmux windows, optionally within one session. This reads names and layouts, not terminal text — to find what a pane is showing, use search_panes."),
-            Inspect("list_panes", "List panes", Metadata, nameof(CapabilityTools.ListPanesAsync), S(("session", InputSink.TmuxLookup), ("windowId", InputSink.TmuxLookup)), batchEligible: true, detail: "List tmux panes, optionally within one session or window. Filter for isCaller=true to answer 'which pane am I in?', which finds one only when this server drives the caller's own socket — get_server_info says whose socket that is. This reads sizes and running commands, not terminal text — for that use search_panes."),
+            Inspect("list_windows", "List windows", Metadata, nameof(CapabilityTools.ListWindowsAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true, alwaysLoad: true, detail: "List tmux windows, optionally within one session. This reads names and layouts, not terminal text — to find what a pane is showing, use search_panes."),
+            Inspect("list_panes", "List panes", Metadata, nameof(CapabilityTools.ListPanesAsync), S(("session", InputSink.TmuxLookup), ("windowId", InputSink.TmuxLookup)), batchEligible: true, alwaysLoad: true, detail: "List tmux panes, optionally within one session or window. Filter for isCaller=true to answer 'which pane am I in?', which finds one only when this server drives the caller's own socket — get_server_info says whose socket that is. This reads sizes and running commands, not terminal text — for that use search_panes."),
             Inspect("get_server_info", "Get server info", Metadata, nameof(CapabilityTools.GetServerInfoAsync), S(), batchEligible: true, detail: "Read the tmux server's version and how many sessions, windows and panes it holds. Use to confirm a socket is alive and which tmux is running it."),
-            Inspect("get_session_info", "Get session info", Metadata, nameof(CapabilityTools.GetSessionInfoAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true),
-            Inspect("get_window_info", "Get window info", Metadata, nameof(CapabilityTools.GetWindowInfoAsync), S(("windowId", InputSink.TmuxLookup)), batchEligible: true),
-            Inspect("get_pane_info", "Get pane info", Metadata, nameof(CapabilityTools.GetPaneInfoAsync), S(("paneId", InputSink.TmuxLookup)), batchEligible: true),
+            Inspect("get_session_info", "Get session info", Metadata, nameof(CapabilityTools.GetSessionInfoAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true, detail: "Read one session's name, ID, window count and whether a client is attached, without listing every session. Give the session, or a window ID to read the session that holds it."),
+            Inspect("get_window_info", "Get window info", Metadata, nameof(CapabilityTools.GetWindowInfoAsync), S(("windowId", InputSink.TmuxLookup)), batchEligible: true, detail: "Read one window's name, index, size, layout, pane count and whether it is its session's current window, without listing every window. Give the window ID, or a pane ID to read the window that holds it."),
+            Inspect("get_pane_info", "Get pane info", Metadata, nameof(CapabilityTools.GetPaneInfoAsync), S(("paneId", InputSink.TmuxLookup)), batchEligible: true, detail: "Read one pane's size, title, running command, working directory, process ID, history size and limit, and whether it is active, dead, zoomed, in a mode or the pane this server runs in. This is metadata only; to read what the pane shows, use capture_pane or snapshot_pane."),
             Inspect("capture_pane", "Capture pane", PaneOutput, nameof(CapabilityTools.CapturePaneAsync), S(("paneId", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("maxLines", InputSink.None), ("joinWrappedLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read the text a pane is showing, and optionally its scrollback. The newest lines are always kept; anything dropped to fit the budget is reported. To watch a pane across several turns, use capture_since instead — it returns only what is new."),
             Inspect("capture_since", "Capture since", PaneOutput, nameof(CapabilityTools.CaptureSinceAsync), S(("paneId", InputSink.TmuxLookup), ("cursor", InputSink.None), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read only what a pane has printed since the last call. Pass back the cursor each time. Use this to watch a long-running process across turns: the tenth read costs what the first did, where re-capturing the pane would return everything again. Call with no cursor to start watching from now."),
-            Inspect("snapshot_pane", "Snapshot pane", PaneOutput, nameof(CapabilityTools.SnapshotPaneAsync), S(("paneId", InputSink.TmuxLookup), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read a pane's visible content together with its cursor position, size and running command, in one call. Prefer this over capture_pane plus list_panes: it is one round trip and the cursor is guaranteed to describe the text returned with it."),
+            Inspect("snapshot_pane", "Snapshot pane", PaneOutput, nameof(CapabilityTools.SnapshotPaneAsync), S(("paneId", InputSink.TmuxLookup), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, alwaysLoad: true, detail: "Read a pane's visible content together with its cursor position, size and running command, in one call. Prefer this over capture_pane plus list_panes: it is one round trip and the cursor is guaranteed to describe the text returned with it."),
             Inspect("search_panes", "Search panes", PaneOutput, nameof(CapabilityTools.SearchPanesAsync), S(("pattern", InputSink.Regex), ("session", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("ignoreCase", InputSink.None), ("maxMatchesPerPane", InputSink.None)), terminal: true, batchEligible: true, detail: "Find which panes are showing text matching a regular expression. This is the tool for 'which pane has the error', 'where is the build running', or any question about what a pane CONTAINS — the list tools only see names and sizes."),
             Inspect("find_pane_by_position", "Find pane by position", Metadata, nameof(CapabilityTools.FindPaneByPositionAsync), S(("windowId", InputSink.TmuxLookup), ("position", InputSink.None)), batchEligible: true, detail: "Find the pane sitting at an index within a window. Answers nothing rather than failing when no pane is at that position."),
             Inspect("wait_for_text", "Wait for text", PaneOutput, nameof(CapabilityTools.WaitForTextAsync), S(("paneId", InputSink.TmuxLookup), ("patterns", InputSink.Regex), ("stopPatterns", InputSink.Regex), ("timeoutSeconds", InputSink.None), ("ignoreCase", InputSink.None)), terminal: true, selfBounded: true, detail: "Wait until a pane prints something matching one of these patterns, then return. Use for output you did NOT start — a server's ready line, another process's progress, a person typing. Only output arriving AFTER the call counts: text already on screen never matches, so a pattern visible in the returned tail can still time out. For a command you are running yourself, run_shell_command is better: it reports the real exit status instead of guessing from text. Never poll capture_pane in a loop; this call does the waiting. Text this server itself typed is discounted while deciding what is new, for a few seconds after it is sent or submitted, so its own echo cannot be the match — except on a pane whose program has not yet configured its terminal; wait for a first prompt before typing into a freshly created pane."),
@@ -579,10 +590,10 @@ internal sealed class CapabilityRegistry
             ManageTool("select_window", "Select window", Manage, nameof(CapabilityTools.SelectWindowAsync), S(("windowId", InputSink.TmuxLookup)), detail: "Make a window the current one in its session."),
             ManageTool("select_pane", "Select pane", Manage, nameof(CapabilityTools.SelectPaneAsync), S(("paneId", InputSink.TmuxLookup)), detail: "Make a pane the active one in its window. This changes what a watching human sees; targeting a pane by id does not require selecting it first."),
             ManageTool("select_layout", "Select layout", Manage, nameof(CapabilityTools.SelectLayoutAsync), S(("windowId", InputSink.TmuxLookup), ("layout", InputSink.TmuxState)), detail: "Arrange a window's panes with a named layout — even-horizontal, even-vertical, main-horizontal, main-vertical, tiled — or a layout string read from list_windows."),
-            ManageTool("resize_window", "Resize window", Manage, nameof(CapabilityTools.ResizeWindowAsync), S(("windowId", InputSink.TmuxLookup), ("width", InputSink.None), ("height", InputSink.None))),
+            ManageTool("resize_window", "Resize window", Manage, nameof(CapabilityTools.ResizeWindowAsync), S(("windowId", InputSink.TmuxLookup), ("width", InputSink.None), ("height", InputSink.None)), detail: "Resize a window to a width and height in cells; its panes resize with it. To resize one pane, use resize_pane."),
             ManageTool("resize_pane", "Resize pane", Manage, nameof(CapabilityTools.ResizePaneAsync), S(("paneId", InputSink.TmuxLookup), ("width", InputSink.None), ("height", InputSink.None), ("zoom", InputSink.None)), detail: "Resize a pane, or zoom it to fill its window. Widening a pane before reading it is the fix for output that comes back wrapped across rows."),
             ManageTool("move_window", "Move window", Manage, nameof(CapabilityTools.MoveWindowAsync), S(("windowId", InputSink.TmuxLookup), ("destination", InputSink.TmuxState), ("session", InputSink.TmuxLookup), ("replaceExisting", InputSink.None)), detail: "Move a window to another index, or into another session. With replaceExisting it takes an index that is already occupied by killing the window there, which needs the teardown toolset."),
-            ManageTool("swap_pane", "Swap pane", Manage, nameof(CapabilityTools.SwapPaneAsync), S(("paneId", InputSink.TmuxLookup), ("targetPaneId", InputSink.TmuxLookup), ("detach", InputSink.None), ("keepZoom", InputSink.None))),
+            ManageTool("swap_pane", "Swap pane", Manage, nameof(CapabilityTools.SwapPaneAsync), S(("paneId", InputSink.TmuxLookup), ("targetPaneId", InputSink.TmuxLookup), ("detach", InputSink.None), ("keepZoom", InputSink.None)), detail: "Swap two panes' positions; each keeps its program, its content and its ID."),
             ManageTool("set_pane_title", "Set pane title", Manage, nameof(CapabilityTools.SetPaneTitleAsync), SM(M("title", InputSink.TmuxState, InputSink.TmuxFormat), M("paneId", InputSink.TmuxLookup)), inputLiteralization: F(("title", "double-hash-once")), detail: "Set a pane's title. Useful for labelling panes you created so a human watching can tell which is which."),
             ManageTool("wait_for_channel", "Wait for channel", Manage, nameof(CapabilityTools.WaitForChannelAsync), S(("channel", InputSink.TmuxState), ("timeoutSeconds", InputSink.None)), selfBounded: true, stateOnly: true, detail: "Block until something signals a tmux wait-for channel with 'tmux wait-for -S <channel>'. Use when you composed a shell command that signals it. For an ordinary command whose completion you want, run_shell_command already does this and also reports the exit status."),
             ManageTool("signal_channel", "Signal channel", Manage, nameof(CapabilityTools.SignalChannelAsync), S(("channel", InputSink.TmuxState)), stateOnly: true, detail: "Signal a tmux wait-for channel, releasing whatever waits on it. The channel latches: signalling before anyone waits still satisfies the next wait, so a handoff cannot be lost to a race."),
@@ -597,12 +608,12 @@ internal sealed class CapabilityRegistry
             Execute("send_keys", "Send keys", Input, ProcessReach.PaneInput, nameof(CapabilityTools.SendKeysAsync), S(("keys", InputSink.PaneInput), ("paneId", InputSink.TmuxLookup), ("enter", InputSink.PaneInput), ("literal", InputSink.None), ("suppressHistory", InputSink.None)), detail: "Send raw keystrokes to a pane and return immediately. Use for driving an interactive program — a key in vim, a menu choice, Ctrl-C. Set literal=false to send named keys such as C-c, Escape or F5. It refuses the named pane in a human-owned mode and, when source input expands, every synchronized input cohort peer. To run a shell command and learn whether it worked, use run_shell_command instead; this reports nothing about what happens next. Tracks what it sends — including edits such as backspace, Ctrl-U or Ctrl-C — so wait_for_text can tell this pane's echo apart from real output for a short time afterward."),
             Execute("send_keys_batch", "Send keys batch", Input, ProcessReach.PaneInput, nameof(CapabilityTools.SendKeysBatchAsync), SM(M("operations", InputSink.PaneInput, InputSink.TmuxLookup), M("onError", InputSink.None)), detail: "Send several keystrokes to one pane in order, in a single call. Use for a short interactive sequence — open a file, move, type, save — instead of one call per key. Each operation refuses the named pane in a human-owned mode and, when source input expands, every synchronized input cohort peer. A batch has at most 64 steps and 64 KiB of UTF-8 text. Each delay is 0-2000 ms and all delays together must fit the server wait ceiling."),
             Execute("paste_text", "Paste text", Input, ProcessReach.PaneInput, nameof(CapabilityTools.PasteTextAsync), S(("text", InputSink.PaneInput), ("paneId", InputSink.TmuxLookup), ("bracketed", InputSink.None), ("enter", InputSink.PaneInput)), detail: "Paste a block of text into exactly one pane through a tmux buffer. Use for multi-line text, or anything an editor would mangle if typed — bracketed paste stops auto-indent. Set enter to append a newline to that same private buffer. It refuses a target in a human-owned mode and never fans out to synchronized siblings. The temporary buffer is deleted afterwards; if cleanup fails, the result identifies what remains."),
-            Execute("set_synchronize_panes", "Set synchronize panes", Manage, ProcessReach.None, nameof(CapabilityTools.SetSynchronizePanesAsync), S(("enabled", InputSink.TmuxState), ("windowId", InputSink.TmuxLookup)), effects: E(Effect.Change), amplifiesFutureInput: true, detail: "The synchronized input cohort is the panes whose effective synchronize-panes setting is on. Enabling it makes panes without overrides members; pane overrides can include or exclude panes."),
+            Execute("set_synchronize_panes", "Set synchronize panes", Manage, ProcessReach.None, nameof(CapabilityTools.SetSynchronizePanesAsync), S(("enabled", InputSink.TmuxState), ("windowId", InputSink.TmuxLookup)), effects: E(Effect.Change), amplifiesFutureInput: true, detail: "Turn synchronize-panes on or off for a window. Input typed into one of its panes then reaches the synchronized input cohort: every pane whose effective synchronize-panes setting is on. A pane without a setting of its own follows the window; one with its own setting stays included or excluded either way."),
 
-            TeardownTool("clear_pane_scrollback", "Clear pane scrollback", Teardown, nameof(CapabilityTools.ClearPaneScrollbackAsync), S(("paneId", InputSink.TmuxLookup))),
-            TeardownTool("kill_pane", "Kill pane", Teardown, nameof(CapabilityTools.KillPaneAsync), S(("paneId", InputSink.TmuxLookup)), observes: true),
-            TeardownTool("kill_window", "Kill window", Teardown, nameof(CapabilityTools.KillWindowAsync), S(("windowId", InputSink.TmuxLookup)), observes: true),
-            TeardownTool("kill_session", "Kill session", Teardown, nameof(CapabilityTools.KillSessionAsync), S(("session", InputSink.TmuxLookup)), observes: true),
+            TeardownTool("clear_pane_scrollback", "Clear pane scrollback", Teardown, nameof(CapabilityTools.ClearPaneScrollbackAsync), S(("paneId", InputSink.TmuxLookup)), detail: "Delete a pane's scrollback history, keeping what the screen shows. Deleted history cannot be read back."),
+            TeardownTool("kill_pane", "Kill pane", Teardown, nameof(CapabilityTools.KillPaneAsync), S(("paneId", InputSink.TmuxLookup)), observes: true, detail: "Close a pane and end its program. Refuses the pane this server runs in; to remove a whole window, use kill_window."),
+            TeardownTool("kill_window", "Kill window", Teardown, nameof(CapabilityTools.KillWindowAsync), S(("windowId", InputSink.TmuxLookup)), observes: true, detail: "Close a window and every pane in it. Refuses the window this server runs in."),
+            TeardownTool("kill_session", "Kill session", Teardown, nameof(CapabilityTools.KillSessionAsync), S(("session", InputSink.TmuxLookup)), observes: true, detail: "Close a session with all its windows and panes. Refuses the session this server runs in."),
         ];
     }
 
@@ -623,7 +634,8 @@ internal sealed class CapabilityRegistry
         ImmutableHashSet<string>? nested = null,
         string? detail = null,
         ImmutableHashSet<Effect>? effects = null,
-        bool metadata = true) => new(
+        bool metadata = true,
+        bool alwaysLoad = false) => new(
             name, title, opener + " " + (detail ?? title + "."), Toolset.Inspect, ProcessReach.None,
             effects ?? E(Effect.Observe), O(
                 metadata ? OutputClass.TmuxMetadata : null,
@@ -634,7 +646,7 @@ internal sealed class CapabilityRegistry
             CapabilityAnnotations.Conservative, Method(method), sinks,
             inputLiteralization ?? F(),
             nested ?? ImmutableHashSet<string>.Empty,
-            selfBounded, batchEligible);
+            selfBounded, batchEligible, alwaysLoad);
 
     private static ToolDefinition ManageTool(
         string name,

@@ -18,7 +18,7 @@ Identifies one indexed placement of a window within a server generation.
 
 Field type: <code>int</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L27)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L28)
 
 <a name="ServerStartTime"></a>
 
@@ -26,7 +26,7 @@ Field type: <code>int</code>
 
 Field type: <code>int64</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L28)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L29)
 
 <a name="SessionId"></a>
 
@@ -34,7 +34,7 @@ Field type: <code>int64</code>
 
 Field type: <code>int</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L29)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L30)
 
 <a name="WindowId"></a>
 
@@ -42,7 +42,7 @@ Field type: <code>int</code>
 
 Field type: <code>int</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L30)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L31)
 
 <a name="WindowIndex"></a>
 
@@ -50,4 +50,4 @@ Field type: <code>int</code>
 
 Field type: <code>int</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L31)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L32)

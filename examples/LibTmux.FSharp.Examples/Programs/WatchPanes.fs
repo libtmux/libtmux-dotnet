@@ -13,13 +13,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "exec sleep 60"), token)

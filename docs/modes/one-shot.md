@@ -37,12 +37,15 @@ what a program writes into a pane, you need a client that stays —
 
 An owned scope cleans up the resource it created. A listed handle has no
 cleanup responsibility. Mutations return a fresh snapshot; keep the result
-when later calls need the changed state.
+when later calls need the changed state. Give an owned server a socket of its
+own: on the default socket, a server already running is refused rather than
+owned, since disposing the scope would stop it.
 
 ```csharp
 using LibTmux;
 
-await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync();
+await using OwnedServerScope ownedServer = await Server.CreateOwnedAsync(
+    new ServerConnectionOptions { SocketName = "work" });
 await using OwnedSessionScope ownedSession =
     await ownedServer.Value.CreateOwnedSessionAsync(new NewSessionRequest { Name = "work" });
 Session original = ownedSession.Value;

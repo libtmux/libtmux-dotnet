@@ -77,7 +77,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Streams every event a control client reports.
 
-A client has one event stream; two consumers each see only part of it.
+A client has one event stream; reading it while another reader is reading raises <code>InvalidOperationException</code>.
 
 **Parameters:**
 

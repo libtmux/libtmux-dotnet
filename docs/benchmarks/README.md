@@ -10,7 +10,7 @@ Nothing here is a promise about your machine.
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 | 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
-| 2026-10-03 | 3.7c | `0.0.0-alpha.17` + F# branch, hosted runner | [F# costs including the pane watch](runs/2026-10-03-tmux-3.7c-fsharp.md) |
+| 2026-10-03 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane watch and mirror](runs/2026-10-03-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -40,6 +40,12 @@ property of the host. Both orders have been measured here.
 
 **Compare allocations within one workload and runtime.** The records include
 allocated bytes alongside timing; changing the workload changes that count.
+
+**Read each F# record's conditions before comparing two.** A record says
+whether the host was a virtual machine, how many cores the run could use, the
+CPU governor where Linux exposes one, and the load averages when it was
+recorded; the 5- and 15-minute figures span the run. A run under load reads
+slower, and the spread between median and p95 shows how much.
 
 ## Reproducing
 
@@ -249,11 +255,10 @@ process start under load.
 
 The [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 9.2 ms pushed down against 82 ms for a full listing and 169 ms for a
-snapshot, and the session query 36 ms against 179 ms and 176 ms. Its two
-local session routes agree within 2%, where the workstation's differed by
-half. That run was a pull request's, so it records the merge commit GitHub
-tested, which is not on the branch.
+took 9.1 ms pushed down against 75 ms for a full listing and 169 ms for a
+snapshot, and the session query 34 ms against 166 ms and 174 ms. Its two
+local session routes agree within 5%, where the workstation's differed by
+half.
 
 ```console
 $ dotnet run \
@@ -284,9 +289,26 @@ when it starts and after each layout change; the synthetic client answers at
 once, and against a real server each answer is one tmux round trip.
 
 In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
-about 1 µs for every count of panes, and the watch 4.3 µs for one pane, 5.2 µs
-for two and 10.8 µs for eight: about 0.9 µs for each pane checked, on top of a
-fixed 3.4 µs, across 256 events.
+1.5 to 1.7 µs for every count of panes, and the watch 5.1 µs for one pane,
+5.9 µs for two and 11.4 µs for eight: about 0.9 µs for each pane checked, on
+top of a fixed 4.2 µs, across 256 events.
+
+## F# live mirror
+
+[`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
+mirrors a server of one or sixteen sessions with four windows each, renames a
+window, and waits with `Mirror.waitUntil` until a view shows the new name. The
+baseline captures the same server to pane depth, which is what the mirror does
+on each announcement. The difference between the two is the command, tmux's
+announcement and the publish; the capture is the part that grows with the
+server. Setup fails unless the mirror publishes a renamed window, and the
+[regression gate](#regression-gate) bounds the rename at two captures.
+
+In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) a rename seen
+through the mirror took 14.7 ms against 10.9 ms for a capture of one session,
+1.35 captures, and 54.8 ms against 46.8 ms for sixteen sessions, 1.17. The
+capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
+large server spends most of a mirror's cost on captures.
 
 ## Hosted runs
 
@@ -302,11 +324,32 @@ $ gh workflow run benchmarks.yml -f tmux=3.2a
 
 ## Regression gate
 
-Timings are not gated in CI: the same case moves by more than half between
-runs on one machine, so a threshold loose enough to pass would catch nothing.
-What is gated is what does not vary. An integration test counts the tmux
-processes a pushed-down query starts and the rows tmux returns through the
-connection interceptor, and fails when a listing stops narrowing.
+Absolute timings are not gated in CI: the same case moves by more than half
+between runs on one machine, so a threshold loose enough to pass would catch
+nothing. Three things are gated instead:
+
+- An integration test counts the tmux processes a pushed-down query starts and
+  the rows tmux returns through the connection interceptor, and fails when a
+  listing stops narrowing.
+- The `benchmarks` workflow compares routes measured in the same run: pushdown
+  must be at least three times as fast as listing everything and filtering
+  locally, and allocate less managed memory per operation, as BenchmarkDotNet's
+  memory diagnoser counts it. Every recorded host clears both by far, 4 to 9
+  times as fast with 10 to 29 times fewer bytes allocated, so a failure means
+  pushdown stopped narrowing rather than a noisy runner. The rows tmux sends
+  are counted by the integration test above, not here.
+- The same workflow fails a run in which a rename seen through a mirror costs
+  more than two snapshot captures of the same server. The workstation and the
+  hosted runner measured 1.2 to 1.35, since each rebuild is one capture;
+  capturing twice per change would pass 2. Records made before the mirror benchmark carry no mirror
+  class and pass this check.
+
+Check a record with:
+
+```console
+$ python3 eng/benchmarks/record_fsharp.py \
+    --gate docs/benchmarks/runs/2026-10-03-tmux-3.7c-fsharp.json
+```
 
 ## Control stream probe
 

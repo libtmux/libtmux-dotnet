@@ -24,6 +24,20 @@ internal static class QueryFieldCatalog
             nameof(Client.Name),
             new(static element => ((Client)element).Name, typeof(string))),
         new(
+            "history_size",
+            QueryTarget.Pane,
+            QueryValueKind.Int64,
+            typeof(Pane),
+            nameof(Pane.HistorySize),
+            new(static element => (long)((Pane)element).HistorySize, typeof(long))),
+        new(
+            "pane_active",
+            QueryTarget.Pane,
+            QueryValueKind.Boolean,
+            typeof(Pane),
+            nameof(Pane.Active),
+            new(static element => ((Pane)element).Active, typeof(bool))),
+        new(
             "pane_at_bottom",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
@@ -66,6 +80,20 @@ internal static class QueryFieldCatalog
             nameof(Pane.CurrentPath),
             new(static element => ((Pane)element).CurrentPath, typeof(string))),
         new(
+            "pane_dead",
+            QueryTarget.Pane,
+            QueryValueKind.Boolean,
+            typeof(Pane),
+            nameof(Pane.Dead),
+            new(static element => ((Pane)element).Dead, typeof(bool))),
+        new(
+            "pane_dead_status",
+            QueryTarget.Pane,
+            QueryValueKind.Int64,
+            typeof(Pane),
+            nameof(Pane.DeadStatus),
+            new(static element => (long?)((Pane)element).DeadStatus, typeof(long?))),
+        new(
             "pane_height",
             QueryTarget.Pane,
             QueryValueKind.Int64,
@@ -79,6 +107,13 @@ internal static class QueryFieldCatalog
             typeof(Pane),
             nameof(Pane.Id),
             new(static element => ((Pane)element).Id, typeof(PaneId))),
+        new(
+            "pane_in_mode",
+            QueryTarget.Pane,
+            QueryValueKind.Boolean,
+            typeof(Pane),
+            nameof(Pane.InMode),
+            new(static element => ((Pane)element).InMode, typeof(bool))),
         new(
             "pane_index",
             QueryTarget.Pane,
@@ -94,6 +129,27 @@ internal static class QueryFieldCatalog
             nameof(Pane.Left),
             new(static element => (long)((Pane)element).Left, typeof(long))),
         new(
+            "pane_pid",
+            QueryTarget.Pane,
+            QueryValueKind.Int64,
+            typeof(Pane),
+            nameof(Pane.ProcessId),
+            new(static element => (long)((Pane)element).ProcessId, typeof(long))),
+        new(
+            "pane_start_command",
+            QueryTarget.Pane,
+            QueryValueKind.String,
+            typeof(Pane),
+            nameof(Pane.StartCommand),
+            new(static element => ((Pane)element).StartCommand, typeof(string))),
+        new(
+            "pane_synchronized",
+            QueryTarget.Pane,
+            QueryValueKind.Boolean,
+            typeof(Pane),
+            nameof(Pane.Synchronized),
+            new(static element => ((Pane)element).Synchronized, typeof(bool))),
+        new(
             "pane_title",
             QueryTarget.Pane,
             QueryValueKind.String,
@@ -107,6 +163,13 @@ internal static class QueryFieldCatalog
             typeof(Pane),
             nameof(Pane.Top),
             new(static element => (long)((Pane)element).Top, typeof(long))),
+        new(
+            "pane_tty",
+            QueryTarget.Pane,
+            QueryValueKind.String,
+            typeof(Pane),
+            nameof(Pane.Tty),
+            new(static element => ((Pane)element).Tty, typeof(string))),
         new(
             "pane_width",
             QueryTarget.Pane,
@@ -146,6 +209,34 @@ internal static class QueryFieldCatalog
                 static element => ((Session)element).Windows,
                 typeof(CapturedRelation<Window>))),
         new(
+            "window_active",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.Active),
+            new(static element => ((Window)element).Active, typeof(bool))),
+        new(
+            "window_activity_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.ActivityAlert),
+            new(static element => ((Window)element).ActivityAlert, typeof(bool))),
+        new(
+            "window_bell_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.BellAlert),
+            new(static element => ((Window)element).BellAlert, typeof(bool))),
+        new(
+            "window_flags",
+            QueryTarget.Window,
+            QueryValueKind.String,
+            typeof(Window),
+            nameof(Window.Flags),
+            new(static element => ((Window)element).Flags, typeof(string))),
+        new(
             "window_height",
             QueryTarget.Window,
             QueryValueKind.Int64,
@@ -167,6 +258,13 @@ internal static class QueryFieldCatalog
             nameof(Window.Index),
             new(static element => (long)((Window)element).Index, typeof(long))),
         new(
+            "window_layout",
+            QueryTarget.Window,
+            QueryValueKind.String,
+            typeof(Window),
+            nameof(Window.Layout),
+            new(static element => ((Window)element).Layout, typeof(string))),
+        new(
             "window_name",
             QueryTarget.Window,
             QueryValueKind.String,
@@ -182,12 +280,26 @@ internal static class QueryFieldCatalog
             new(static element => checked((long)((Window)element).Panes.Count), typeof(long)),
             new(static element => ((Window)element).Panes, typeof(CapturedRelation<Pane>))),
         new(
+            "window_silence_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.SilenceAlert),
+            new(static element => ((Window)element).SilenceAlert, typeof(bool))),
+        new(
             "window_width",
             QueryTarget.Window,
             QueryValueKind.Int64,
             typeof(Window),
             nameof(Window.Width),
             new(static element => (long)((Window)element).Width, typeof(long))),
+        new(
+            "window_zoomed_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.Zoomed),
+            new(static element => ((Window)element).Zoomed, typeof(bool))),
     ];
 
     private static readonly FrozenDictionary<string, FieldDefinition> FieldsByWireName =
@@ -229,6 +341,9 @@ internal static class QueryFieldCatalog
         format = FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) ? field.TmuxFormat : null;
         return format is not null;
     }
+
+    internal static bool CanBeAbsent(string wireName) =>
+        FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) && field.CanBeAbsent;
 
     internal static bool TryGetWireName(Type owner, string property, out string wireName)
     {
@@ -299,6 +414,10 @@ internal static class QueryFieldCatalog
         QueryFieldAccessor? Scalar = null,
         QueryFieldAccessor? Relation = null)
     {
+        // Whether the value can be absent, which tmux prints as empty.
+        internal bool CanBeAbsent =>
+            Scalar is { ValueType: { } type } && Nullable.GetUnderlyingType(type) is not null;
+
         // The tmux format variable a -f filter reads, when tmux has one.
         internal string? TmuxFormat => WireName switch
         {

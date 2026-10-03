@@ -13,13 +13,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-live-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
             owned.Value.CreateSessionAsync(
@@ -42,24 +43,26 @@ let runAsync () =
 
         let! panes = session |> Session.panes |> Query.list token
 
-        do!
-            panes[0]
-            |> Pane.sendKeys token (SendKeysRequest(Text = "exec sleep 30", Literal = true))
+        do! panes[0] |> Pane.sendLine token "exec sleep 30"
 
+        // tryWaitUntil answers None when no view matched in time.
         let! sleeping =
             mirror
-            |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
+            |> Mirror.tryWaitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
                 view.Server.Panes |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
 
         printfn "windows: %s" (String.Join(", ", [ for window in withLogs.Server.Windows -> window.Name ]))
 
-        printfn
-            "sleeping panes: %d"
-            (sleeping.Server.Panes
-             |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
-             |> Seq.length)
+        match sleeping with
+        | Some sleeping ->
+            printfn
+                "sleeping panes: %d"
+                (sleeping.Server.Panes
+                 |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
+                 |> Seq.length)
 
-        printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+            printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+        | None -> printfn "no pane ran sleep within five seconds"
     }
 
 runAsync().GetAwaiter().GetResult()

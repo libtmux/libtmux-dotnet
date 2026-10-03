@@ -54,6 +54,7 @@ module private Nodes =
             | :? string as text -> StringConstant text
             | :? bool as flag -> BooleanConstant flag
             | :? int as number -> Int64Constant(int64 number)
+            | :? (int option) as number -> Int64Constant(int64 number.Value)
             | :? SessionId as id -> TypedIdConstant(QueryTarget.Session, id.ToString())
             | :? WindowId as id -> TypedIdConstant(QueryTarget.Window, id.ToString())
             | :? PaneId as id -> TypedIdConstant(QueryTarget.Pane, id.ToString())
@@ -286,6 +287,13 @@ module WindowFields =
     let index = Field<LibTmux.Window, int>("window_index")
     let width = Field<LibTmux.Window, int>("window_width")
     let height = Field<LibTmux.Window, int>("window_height")
+    let active = Field<LibTmux.Window, bool>("window_active")
+    let zoomed = Field<LibTmux.Window, bool>("window_zoomed_flag")
+    let bellAlert = Field<LibTmux.Window, bool>("window_bell_flag")
+    let activityAlert = Field<LibTmux.Window, bool>("window_activity_flag")
+    let silenceAlert = Field<LibTmux.Window, bool>("window_silence_flag")
+    let layout = Field<LibTmux.Window, string>("window_layout")
+    let flags = Field<LibTmux.Window, string>("window_flags")
     let paneCount = Field<LibTmux.Window, int>("window_panes")
     let panes = Relation<LibTmux.Window, LibTmux.Pane>("window_panes")
 
@@ -304,6 +312,15 @@ module PaneFields =
     let atBottom = Field<LibTmux.Pane, bool>("pane_at_bottom")
     let atLeft = Field<LibTmux.Pane, bool>("pane_at_left")
     let atRight = Field<LibTmux.Pane, bool>("pane_at_right")
+    let active = Field<LibTmux.Pane, bool>("pane_active")
+    let dead = Field<LibTmux.Pane, bool>("pane_dead")
+    let inMode = Field<LibTmux.Pane, bool>("pane_in_mode")
+    let processId = Field<LibTmux.Pane, int>("pane_pid")
+    let synchronized = Field<LibTmux.Pane, bool>("pane_synchronized")
+    let historySize = Field<LibTmux.Pane, int>("history_size")
+    let deadStatus = Field<LibTmux.Pane, int option>("pane_dead_status")
+    let tty = Field<LibTmux.Pane, string>("pane_tty")
+    let startCommand = Field<LibTmux.Pane, string>("pane_start_command")
 
 [<RequireQualifiedAccess>]
 module ClientFields =

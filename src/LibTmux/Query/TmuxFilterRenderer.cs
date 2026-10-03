@@ -239,10 +239,11 @@ internal static class TmuxFilterRenderer
 
     private static Bounds Negate(Bounds operand) => new(Not(operand.Lower), Not(operand.Upper));
 
-    // Session.Attached is any value other than empty or 0, which is tmux's own
-    // truth test; the other flags are true only as 1.
+    // session_attached and pane_in_mode are counts, true as any value other
+    // than empty or 0, which is tmux's own truth test; the other flags are
+    // true only as 1.
     private static string Truthy(FieldNode field, string token) =>
-        field.WireName == "session_attached" ? token : $"#{{==:{token},1}}";
+        field.WireName is "session_attached" or "pane_in_mode" ? token : $"#{{==:{token},1}}";
 
     private static Bounds Comparison(ComparisonNode comparison)
     {
@@ -274,7 +275,18 @@ internal static class TmuxFilterRenderer
                     _ => ">=",
                 };
                 string value = number.Value.ToString(CultureInfo.InvariantCulture);
-                return Bounds.Exact($"#{{e|{operation}|:{token},{value}}}");
+                string test = $"#{{e|{operation}|:{token},{value}}}";
+                if (!QueryFieldCatalog.CanBeAbsent(field.WireName))
+                {
+                    return Bounds.Exact(test);
+                }
+
+                // tmux prints an absent value as empty and reads empty as 0,
+                // where the recheck holds it unequal to every number and
+                // unordered against all of them.
+                return Bounds.Exact(comparison.Operator == QueryComparison.NotEqual
+                    ? Or($"#{{==:{token},}}", test)
+                    : And($"#{{!=:{token},}}", test));
             default:
                 return Bounds.Unknown;
         }

@@ -52,7 +52,7 @@ module Control =
             Task<'State>
 
     /// <summary>Streams every event a control client reports.</summary>
-    /// <remarks>A client has one event stream; two consumers each see only part of it.</remarks>
+    /// <remarks>A client has one event stream; reading it while another reader is reading raises <c>InvalidOperationException</c>.</remarks>
     val events: session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams one pane's output from a borrowed control client.</summary>
@@ -134,9 +134,15 @@ module Mirror =
 
     /// <summary>Streams the current view and each newer one, skipping views published while the reader was busy.</summary>
     /// <remarks>The stream is cold, ends when the mirror ends, and raises the failure that ended it.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">The anchor session has gone, so the mirror could not attach again.</exception>
     val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>
 
     /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
+    /// <remarks>
+    /// A view is published only when something besides activity times, cursor
+    /// positions and history sizes changes, so a condition on those alone can
+    /// wait for an unrelated change. Wait on output with the pane waits.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxWaitTimeoutException">No view satisfied the condition in time.</exception>
     /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
     val waitUntil:
@@ -145,3 +151,13 @@ module Mirror =
         condition: (ServerMirrorView -> bool) ->
         mirror: ServerMirror ->
             Task<ServerMirrorView>
+
+    /// <summary>Waits until a view satisfies a condition, or returns None when none did in time.</summary>
+    /// <remarks>As <c>waitUntil</c>, for a caller to whom running out of time is an ordinary outcome.</remarks>
+    /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
+    val tryWaitUntil:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        condition: (ServerMirrorView -> bool) ->
+        mirror: ServerMirror ->
+            Task<ServerMirrorView option>

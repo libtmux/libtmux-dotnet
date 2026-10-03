@@ -9,59 +9,54 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
         let token = deadline.Token
 
+        // A server of its own on a private socket, without user configuration.
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
-        for name in [ "build"; "web"; "worker" ] do
-            let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = name, Command = "/bin/sh"), token)
+        // One session whose window runs a plain shell.
+        let shell =
+            { WindowSpec.empty with
+                Command = Some "/bin/sh"
+            }
 
-            ()
+        let build =
+            { SessionSpec.named "build" with
+                Windows = [ shell ]
+            }
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! session = owned.Value |> Server.newSession token build
+
+        let! panes = session |> Session.panes |> Query.list token
+        let pane = panes[0]
+
+        // Type a command and wait for what it prints, not for its echo.
+        let! started =
+            pane
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
+
+        printfn "wait found: %b" started.Found
+
+        // Run a command to its exit status and read what it printed.
+        let! result =
+            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
+
+        match result with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+        | _ -> printfn "run: did not finish"
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
-        // atMostOne is None when nothing matches and raises when several do.
-        let! build =
-            server
+        let! found =
+            owned.Value
             |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.eq "build")
-            |> Query.atMostOne token
-
-        let! others =
-            server
-            |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.ne "build")
+            |> Query.where (SessionFields.name |> Filter.startsWith "bu")
             |> Query.list token
 
-        printfn "other sessions: %s" (String.Join(", ", [ for session in others -> session.Name ]))
-
-        match build with
-        | None -> printfn "no build session"
-        | Some session ->
-            let! panes = session |> Session.panes |> Query.list token
-            let pane = panes[0]
-
-            // Type a command and wait for what it prints, not for its echo.
-            let! started =
-                pane
-                |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
-
-            // Run a command to its exit status and read what it printed.
-            let! result =
-                pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
-
-            printfn "wait found: %b" started.Found
-            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
+        printfn "sessions: %s" (String.Join(", ", [ for listed in found -> listed.Name ]))
     }
 
 runAsync().GetAwaiter().GetResult()

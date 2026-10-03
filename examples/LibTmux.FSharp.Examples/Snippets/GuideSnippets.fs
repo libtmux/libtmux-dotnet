@@ -20,7 +20,7 @@ module internal GuideSnippets =
                     TmuxBinaryPath = binary
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
 
             use! _ownedSession =
                 ownedServer.Value.CreateOwnedSessionAsync(
@@ -202,7 +202,7 @@ module internal GuideSnippets =
                     TmuxBinaryPath = binary
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
             let server = ownedServer.Value
 
             use! ownedSession =
@@ -213,9 +213,7 @@ module internal GuideSnippets =
             let! second =
                 panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-            do!
-                second
-                |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready\\n'", Literal = true))
+            do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
             let! found = server |> Server.tryFindPane cancellationToken second.Id
             let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
@@ -411,7 +409,29 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
+    // fsharp-snippet: CiTestOptions
+    open System
+    open LibTmux
+    open LibTmux.Testing
+
+    // Options that name a connection replace the private socket a test gets
+    // by default, so name a socket of the test's own as well as the binary.
+    let ciTestOptions () =
+        let binary =
+            Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+            |> Option.ofObj
+            |> Option.defaultValue "tmux"
+
+        TmuxTestOptions(
+            ServerConnectionOptions(
+                SocketName = "libtmux-test-" + Guid.NewGuid().ToString("N"),
+                TmuxBinaryPath = binary
+            )
+        )
+    // endfsharp-snippet
+
     // fsharp-snippet: SafeRetry
+    open System
     open System.Threading
     open LibTmux
     open LibTmux.FSharp
@@ -419,9 +439,13 @@ module internal GuideSnippets =
     let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
         task {
             try
-                // Runs again only when tmux never received the command.
+                // Runs again only when tmux never received the command, after
+                // each delay in turn, so a server still starting can answer.
                 let! sessions =
-                    Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+                    Retry.ifNotSentAfter
+                        cancellationToken
+                        [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                        (fun token -> server.GetSessionsAsync(token))
 
                 return Ok [ for session in sessions -> session.Name ]
             with

@@ -20,7 +20,9 @@ publication rejects it.
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace
 `Program.fs` in a console project referencing this revision of
-`LibTmux.FSharp`. Set `LIBTMUX_TMUX` to select a tmux binary outside `PATH`.
+`LibTmux.FSharp`. Each program reads `LIBTMUX_TMUX` itself to pick a tmux
+binary outside `PATH`; the library does not, so code of your own sets
+`ServerConnectionOptions.TmuxBinaryPath`.
 
 Each program creates a uniquely named server. Its `use!` bindings dispose
 the control clients, sessions, and server when the task finishes or fails.
@@ -111,13 +113,14 @@ let runAsync () =
             ServerConnectionOptions(
                 SocketName = "fsharp-queries-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
+                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
                 TmuxBinaryPath =
                     (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
                      |> Option.ofObj
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -135,7 +138,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
 
         let! logs =
             server
@@ -284,6 +287,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
@@ -296,7 +300,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -310,7 +314,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
@@ -367,6 +371,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
@@ -379,7 +384,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -387,7 +392,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne

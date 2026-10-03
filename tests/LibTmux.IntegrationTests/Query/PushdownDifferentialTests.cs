@@ -114,6 +114,14 @@ public sealed class PushdownDifferentialTests
             token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", "dev", "-n", "edit", "sh"], token);
         await raw.ExecuteAsync(["wait-for", ready], token);
+
+        // A pane names its command once the program has started; the snapshot
+        // and the later listings must see the same one.
+        foreach (string shell in (string[])["ops:logs.0", "ops:logs.1", "dev:edit"])
+        {
+            await ReportsAsync(raw, shell, "#{==:#{pane_current_command},sh}", token);
+        }
+
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         SessionId ops = snapshot.Sessions.Single(session => session.Name == "ops").Id;
@@ -234,6 +242,10 @@ public sealed class PushdownDifferentialTests
         await raw.ExecuteAsync(["split-window", "-d", "-v", "-t", "geo:grid.0", "sh"], token);
         await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.1", "-T", "build"], token);
         await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.2", "-T", "b#uild,x}"], token);
+
+        // tmux quotes a command given as one string, and a layout carries
+        // commas and brackets, so both test operand escaping.
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "geo", "-n", "side", "sleep 60"], token);
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         Pane[] panes = [.. snapshot.Panes];
@@ -266,6 +278,14 @@ public sealed class PushdownDifferentialTests
         await Agree<Window>(window => window.Index == 0 && window.Width >= 120, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => window.Height < 40, windows, QueryTarget.Window, Key);
 
+        string layout = windows.Single(window => window.Name == "grid").Layout;
+        string tty = panes[0].Tty!;
+        await Agree<Window>(window => window.Layout == layout, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => window.Flags == "*", windows, QueryTarget.Window, Key);
+        await Agree<Pane>(pane => pane.Tty == tty, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.StartCommand == "\"sleep 60\"", panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.StartCommand!.StartsWith("\"sl", StringComparison.Ordinal), panes, QueryTarget.Pane, PaneKey);
+
         // Escaped operands inside tmux's window and pane loops.
         Session[] sessions = [.. snapshot.Sessions];
         string SessionKey(Session session) => session.Id.ToString();
@@ -281,6 +301,90 @@ public sealed class PushdownDifferentialTests
             SessionKey);
 
         Assert.True(panes.Length >= 3 && path.Length > 0);
+        Assert.Contains(",", layout, StringComparison.Ordinal);
+        Assert.Contains(windows, window => window.Flags == "*");
+        Assert.Contains(windows, window => window.Flags.Length == 0);
+        Assert.Single(panes, pane => pane.Tty == tty);
+        Assert.Single(panes, pane => pane.StartCommand == "\"sleep 60\"");
+        Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
+    }
+
+    [UnixFact]
+    public async Task Pane_and_window_state_flags_answer_what_a_snapshot_answers()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await raw.ExecuteAsync(["set-option", "-g", "automatic-rename", "off"], token);
+        await raw.ExecuteAsync(["new-session", "-d", "-s", "flags", "-n", "modes", "-x", "120", "-y", "40", "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:modes", "sh"], token);
+        await raw.ExecuteAsync(["copy-mode", "-t", "flags:modes.0"], token);
+
+        // tmux counts stacked modes, so this pane reports 2 and must still
+        // count as in a mode.
+        await raw.ExecuteAsync(["copy-mode", "-t", "flags:modes.1"], token);
+        await raw.ExecuteAsync(["clock-mode", "-t", "flags:modes.1"], token);
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "zoom", "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:zoom", "sh"], token);
+        await raw.ExecuteAsync(["resize-pane", "-Z", "-t", "flags:zoom.0"], token);
+        await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:zoom", "synchronize-panes", "on"], token);
+
+        // A bell rung in a window that is not current; tmux takes it from the
+        // pane's output, so wait until it says so.
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "bell", "printf '\\a'; exec sleep 60"], token);
+        await ReportsAsync(raw, "flags:bell", "#{window_bell_flag}", token);
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
+        await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
+        await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:dead", "exit 3"], token);
+        await raw.ExecuteAsync(["wait-for", "died"], token);
+        Server server = await ConnectAsync(raw, token);
+        Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Pane[] panes = [.. snapshot.Panes];
+        Window[] windows = [.. snapshot.Windows];
+        Session[] sessions = [.. snapshot.Sessions];
+        int pid = panes.First(pane => !pane.Dead).ProcessId;
+        List<string> disagreements = [];
+
+        async Task Agree<T>(Expression<Func<T, bool>> predicate, IEnumerable<T> universe, QueryTarget target, Func<T, string> key)
+        {
+            QueryDocument document = QueryExtensions.Translate(predicate);
+            string[] expected = [.. universe.Where(document.Compile<T>()).Select(key)];
+            string[] actual = [.. (await server.QueryAsync<T>(new ListingRequest(target, Filter: document), token)).Select(key)];
+            if (!expected.SequenceEqual(actual))
+            {
+                disagreements.Add($"{predicate.Body}: expected [{string.Join("|", expected)}], got [{string.Join("|", actual)}]");
+            }
+        }
+
+        string PaneKey(Pane pane) => pane.Id.ToString();
+        await Agree<Pane>(pane => pane.Active, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => !pane.Active && !pane.InMode, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.InMode, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Dead, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.ProcessId == pid, panes, QueryTarget.Pane, PaneKey);
+
+        // tmux reads a running pane's empty status as 0; these keep it.
+        await Agree<Pane>(pane => pane.DeadStatus != 0, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => !(pane.DeadStatus == 0), panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.DeadStatus > 0, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.HistorySize == 0 && !pane.Dead, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Window>(window => window.BellAlert, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => !window.ActivityAlert && !window.SilenceAlert, windows, QueryTarget.Window, Key);
+        await Agree<Pane>(pane => pane.Synchronized && !pane.Active, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Window>(window => window.Active, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => window.Zoomed && !window.Active, windows, QueryTarget.Window, Key);
+        await Agree<Session>(
+            session => session.Windows.Any(window => window.Zoomed),
+            sessions,
+            QueryTarget.Session,
+            session => session.Id.ToString());
+
+        Assert.Contains(panes, pane => pane.RawFormatFields["pane_in_mode"] == "2");
+        Assert.Equal(2, panes.Count(pane => pane.InMode));
+        Assert.Single(panes, pane => pane.Dead && pane.DeadStatus == 3);
+        Assert.Single(windows, window => window.Zoomed);
+        Assert.Single(windows, window => window.BellAlert);
+        Assert.Equal(2, panes.Count(pane => pane.Synchronized));
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 
@@ -353,6 +457,19 @@ public sealed class PushdownDifferentialTests
             token);
 
     private static string Key(Window window) => window.Id + "=" + window.Name;
+
+    // Waits until tmux reports 1 for a format of a target, as it does once it
+    // has read the pane output that sets it.
+    private static async Task ReportsAsync(RawTmuxTestContext raw, string target, string format, CancellationToken token)
+    {
+        using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TestBudget.Settle);
+        while (System.Text.Encoding.UTF8.GetString(
+            (await raw.ExecuteAsync(["display-message", "-p", "-t", target, format], deadline.Token)).StandardOutput).Trim() != "1")
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20), deadline.Token);
+        }
+    }
 
     private static IEnumerable<Expression<Func<Window, bool>>> Predicates(string[] names, WindowId last)
     {

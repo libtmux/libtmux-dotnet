@@ -9,6 +9,20 @@ open LibTmux
 /// <summary>Starts server reads and queries with the caller's cancellation token.</summary>
 [<RequireQualifiedAccess>]
 module Server =
+    /// <summary>Starts a server on the socket the options name and owns it; disposing the scope stops it.</summary>
+    /// <remarks>
+    /// The core's <c>Server.CreateOwnedAsync</c>, named so F# need not qualify
+    /// the type this module shares a name with. A server already listening on
+    /// the default socket is refused rather than owned.
+    /// </remarks>
+    /// <exception cref="T:System.InvalidOperationException">A server is already listening on the default socket.</exception>
+    /// <exception cref="T:LibTmux.TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
+    val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>
+
+    /// <summary>Attaches to a server already listening on the socket the options name.</summary>
+    /// <remarks>The core's <c>Server.ConnectAsync</c>; it never starts a server.</remarks>
+    val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>
+
     /// <summary>Queries every session.</summary>
     /// <remarks>Child windows and panes require an explicit capture at the corresponding depth.</remarks>
     val sessions: server: LibTmux.Server -> Query<LibTmux.Session>
@@ -134,6 +148,7 @@ module Pane =
     /// Text already on screen ends the wait at once as <c>PresentAtEntry</c>.
     /// The wait sleeps on the pane's own output rather than polling, and ends
     /// early when the pane's program exits or a full-screen program starts.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -145,6 +160,7 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits as the request describes: patterns, stop patterns, or any output.</summary>
+    /// <remarks>Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.</remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
     val waitFor:
         cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
@@ -156,6 +172,7 @@ module Pane =
     /// typing <c>echo done</c> waits for the command's output. Prefer this to
     /// <c>sendKeys</c> followed by <c>waitForText</c>, which can match the
     /// typed line itself.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -171,6 +188,7 @@ module Pane =
     /// <remarks>
     /// As <c>sendAndWait</c>: only output after the keys counts, and literal
     /// text is discounted from it. Key names are not.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -182,7 +200,10 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits until a condition holds over the rows the pane shows, top to bottom.</summary>
-    /// <remarks>The condition sees the whole screen each time the pane prints or changes state.</remarks>
+    /// <remarks>
+    /// The condition sees the whole screen each time the pane prints or changes state.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
     val waitUntil:
         cancellationToken: CancellationToken ->
@@ -203,6 +224,20 @@ module Pane =
         command: string ->
         pane: LibTmux.Pane ->
             Task<PaneRunResult>
+
+    /// <summary>Types a line into the pane as literal text, then presses Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The line contains NUL.</exception>
+    /// <exception cref="T:LibTmux.LibTmuxException">The text was sent but Enter failed; whether tmux pressed it is unknown, so do not send the line again.</exception>
+    val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Types text into the pane literally, without pressing Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The text contains NUL.</exception>
+    val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Presses one key by its tmux name, such as <c>Enter</c>, <c>C-c</c> or <c>Up</c>.</summary>
+    /// <remarks>tmux types a name it does not know as text. Cancellation can occur after dispatch; it does not undo the key.</remarks>
+    /// <exception cref="T:System.ArgumentException">The key is empty or white space.</exception>
+    val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task
 
     /// <summary>Sends text or key names according to the request's literal and Enter settings.</summary>
     /// <remarks>Cancellation can occur after dispatch; it does not undo sent keys.</remarks>

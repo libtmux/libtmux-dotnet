@@ -8,6 +8,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
@@ -20,7 +21,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
@@ -28,28 +29,22 @@ let runAsync () =
         use! _worker =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "worker", Command = "/bin/cat"), token)
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
 
-        match
-            sessions
-            |> Seq.filter (fun session -> session.Name = "demo")
-            |> Selection.exactlyOne
-        with
-        | Ok session -> printfn "One match: %s" session.Name
-        | Error error -> failwithf "Expected one demo session, received %A." error
+        // Exactly one match is Ok; none and several are distinct errors.
+        let describe (result: Result<LibTmux.Session, CardinalityError>) =
+            match result with
+            | Ok session -> "Ok " + session.Name
+            | Error NoMatches -> "Error NoMatches"
+            | Error MultipleMatches -> "Error MultipleMatches"
 
-        match
-            sessions
-            |> Seq.filter (fun session -> session.Name = "missing")
-            |> Selection.exactlyOne
-        with
-        | Error NoMatches -> printfn "No match: NoMatches"
-        | result -> failwithf "Expected NoMatches, received %A." result
+        let named name =
+            sessions |> Seq.filter (fun session -> session.Name = name)
 
-        match sessions |> Selection.exactlyOne with
-        | Error MultipleMatches -> printfn "Two matches: MultipleMatches"
-        | result -> failwithf "Expected MultipleMatches, received %A." result
+        printfn "Sessions named demo: %s" (named "demo" |> Selection.exactlyOne |> describe)
+        printfn "Sessions named missing: %s" (named "missing" |> Selection.exactlyOne |> describe)
+        printfn "Every session: %s" (sessions |> Selection.exactlyOne |> describe)
     }
 
 runAsync().GetAwaiter().GetResult()

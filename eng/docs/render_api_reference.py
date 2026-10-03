@@ -124,8 +124,7 @@ def fsharp_group(member: dict[str, str]) -> str:
     return member["id"].split(":", 1)[1].split(".")[-1].split("`")[0]
 
 
-# Namespaces an F# reader writes `open` for. Core LibTmux names keep their
-# namespace: LibTmux.Server and the facade's Server module are different things.
+# Namespaces an F# reader writes `open` for.
 OPENED_NAMESPACE = re.compile(
     r"\b(?:Microsoft\.FSharp\.(?:Core|Collections|Control)|System\.Threading\.Tasks"
     r"|System\.Threading|System\.Collections\.Generic|LibTmux\.FSharp)\.(?=[A-Za-z_])"
@@ -134,16 +133,89 @@ OPENED_NAMESPACE = re.compile(
 )
 
 
-def short_names(signature: str) -> str:
-    """Return a signature as F# source spells it after the usual opens."""
-    return OPENED_NAMESPACE.sub("", signature)
+# A type directly in the LibTmux namespace, not one in a namespace below it.
+CORE_TYPE = re.compile(r"\bLibTmux\.(?P<name>[A-Za-z_]\w*)\b(?!\.)")
+
+
+def short_names(signature: str, modules: t.AbstractSet[str] = frozenset()) -> str:
+    """Return a signature as F# source spells it after the usual opens.
+
+    A core type named like a facade module keeps its namespace: LibTmux.Pane
+    and the facade's Pane module are different things.
+    """
+    return CORE_TYPE.sub(
+        lambda match: match.group(0) if match.group("name") in modules else match.group("name"),
+        OPENED_NAMESPACE.sub("", signature),
+    )
+
+
+# Where each module or type sits in the page's index, after the calls a task
+# starts with. A module or type not listed here fails the render, so a new one
+# is placed before it ships; so does a listed call the facade does not have.
+FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("Find and filter",
+     ("Server.panes", "Query.where", "Query.list", "Query.exactlyOne", "Server.tryFindPane"),
+     ("Query", "Filter", "Field", "Relation", "SessionFields", "WindowFields", "PaneFields",
+      "ClientFields", "ScreenSearch", "Selection", "CardinalityError")),
+    ("Servers, sessions, windows and panes",
+     ("Server.createOwned", "Server.connect", "Server.newSession", "Pane.sendLine", "Pane.sendKeys",
+      "Pane.split"),
+     ("Server", "Session", "Window", "Pane", "SessionSpec", "WindowSpec", "SplitSpec", "Chain",
+      "Options", "WindowPlacementKey")),
+    ("Wait, run and read results",
+     ("Pane.sendAndWait", "Pane.waitForText", "Pane.waitFor", "Pane.run", "Pane.capture"),
+     ("PaneWait", "PaneRun")),
+    ("Live state and events",
+     ("Control.withSession", "Control.watchPane", "Mirror.start", "Mirror.tryWaitUntil",
+      "Server.capture"),
+     ("Control", "Mirror", "StreamStep", "Snapshot", "CaptureState")),
+    ("Failures and retries", ("Retry.ifNotSent", "Retry.ifNotSentAfter"), ("TmuxFailure", "Retry")),
+)
+
+
+def fsharp_section(member: dict[str, str], types: set[str]) -> str:
+    """Return the section an entry belongs to, folding Name and NameModule together.
+
+    F# compiles a module that shares its name with a type as NameModule; a
+    reader writes Name for both.
+    """
+    group = fsharp_group(member)
+    base = group.removesuffix("Module")
+    return base if group != base and base in types else group
+
+
+def fsharp_signature(member: dict[str, str]) -> str:
+    """Return the signature a reader writes, naming a record field before its type."""
+    signature = member["signature"]
+    if member.get("kind") == "field":
+        return f"{member['id'].rsplit('.', 1)[-1]}: {signature}"
+    if member.get("kind") == "module":
+        return f"module {signature.removesuffix('Module')}"
+    return signature
 
 
 def render_fsharp(members: list[dict[str, str]]) -> str:
     """Render the F# companion reference from compiler inventory entries."""
+    types = {fsharp_group(member) for member in members}
     grouped: dict[str, list[dict[str, str]]] = {}
     for member in members:
-        grouped.setdefault(fsharp_group(member), []).append(member)
+        grouped.setdefault(fsharp_section(member, types), []).append(member)
+
+    placed = {name for _, _, names in FSHARP_TASKS for name in names}
+    if unplaced := sorted(grouped.keys() - placed):
+        raise ValueError(f"F# API sections missing from FSHARP_TASKS: {', '.join(unplaced)}")
+    calls = {
+        f"{section}.{member['id'].split('(', 1)[0].rsplit('.', 1)[-1].split('``', 1)[0]}"
+        for section, entries in grouped.items()
+        for member in entries
+    }
+    # A call is checked only where its section renders, so a partial inventory
+    # still renders the sections it has.
+    if missing := sorted(
+        call for _, starts, _ in FSHARP_TASKS for call in starts
+        if call.split(".", 1)[0] in grouped and call not in calls
+    ):
+        raise ValueError(f"FSHARP_TASKS names calls the facade lacks: {', '.join(missing)}")
 
     lines = [
         "# F# API reference",
@@ -156,14 +228,29 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "Core handles and request types appear in the",
         "[LibTmux API reference](../api/README.md).",
         "Signatures assume `open System`, `open System.Threading`,",
-        "`open System.Threading.Tasks`, `open System.Collections.Generic` and",
-        "`open LibTmux.FSharp`; core types keep their `LibTmux.` prefix.",
+        "`open System.Threading.Tasks`, `open System.Collections.Generic`,",
+        "`open LibTmux` and `open LibTmux.FSharp`. A core type that shares its name",
+        "with a module here, such as `LibTmux.Pane`, keeps its prefix.",
+        "",
+        "## By task",
+        "",
+        "| Task | Start with | Sections |",
+        "|---|---|---|",
     ]
+    for task, starts, names in FSHARP_TASKS:
+        if not (sections := [name for name in names if name in grouped]):
+            continue
+        start = ", ".join(
+            f"[`{call}`](#{call.split('.', 1)[0].lower()})" for call in starts
+            if call.split(".", 1)[0] in grouped
+        )
+        links = ", ".join(f"[{name}](#{name.lower()})" for name in sections)
+        lines.append(f"| {task} | {start} | {links} |")
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
-        for entry in sorted(entries, key=lambda item: item["signature"]):
+        for entry in sorted(entries, key=fsharp_signature):
             lines.append(
-                f"| {code_span(short_names(entry['signature']))} | {entry['summary'].replace('|', '\\|')} |"
+                f"| {code_span(short_names(fsharp_signature(entry), grouped.keys()))} | {entry['summary'].replace('|', '\\|')} |"
             )
 
     return "\n".join(lines) + "\n"

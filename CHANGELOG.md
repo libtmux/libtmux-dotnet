@@ -12,13 +12,67 @@ version.
 
 ### Added
 
+- `Pane.Active`, `Pane.Dead`, `Pane.DeadStatus`, `Pane.InMode`,
+  `Pane.ProcessId`, `Pane.Synchronized`, `Pane.HistorySize`, `Pane.Tty`,
+  `Pane.StartCommand`, `Window.Active`, `Window.Zoomed`, `Window.Flags`,
+  `Window.BellAlert`, `Window.ActivityAlert` and `Window.SilenceAlert` read a
+  pane's and window's state, and queries filter on them, and on
+  `Window.Layout`, through tmux. `LibTmux.FSharp` adds the matching
+  `PaneFields` and `WindowFields`. (#53)
+- `LibTmux.FSharp.PaneRun.Exited`, `TimedOut` and `NotStarted` match how a
+  `Pane.run` ended, and `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut`
+  and `Ended` how a wait did. (#53)
+- `LibTmux.FSharp.Mirror.tryWaitUntil` returns `None` when no view matches in
+  time, where `Mirror.waitUntil` raises. (#53)
+- `LibTmux.FSharp.Retry.ifNotSentAfter` retries unsent work after each of a
+  list of delays, for a server still starting. (#53)
+- `LibTmux.FSharp.Server.createOwned` and `Server.connect` start and attach to
+  a server without qualifying the core `LibTmux.Server` type. (#53)
+- `LibTmux.FSharp.Pane.pressKey` presses one key by its tmux name, such as
+  `Enter` or `C-c`. (#53)
+- The MCP server's `list_panes`, `list_windows` and `snapshot_pane` advertise
+  `anthropic/alwaysLoad`, so a client that defers tool schemas keeps them
+  loaded. (#53)
+
 ### Fixed
 
+- **`Server.CreateOwnedAsync` refuses the default socket while a server is
+  listening there.** It took that server over and stopped it when the scope
+  was disposed. Give an owned server a socket of its own, or use
+  `ConnectAsync` to attach without owning it. (#53)
+- `OwnedServerScope.DisposeAsync` stops the server when called again after a
+  failed attempt, and a call made while another is stopping it waits for that
+  stop and its outcome; both returned at once. (#53)
+- `ServerMirror` no longer publishes a view when nothing changed: client
+  activity times and write counts, the saved cursor, window offsets and
+  synchronized-output toggles no longer count as changes. (#53)
+- `RunShellRequest.Delay` keeps its fraction of a second; half a second ran
+  at once. (#53)
+- `Server.CreateOwnedAsync` stops a server it started when it then fails or
+  is cancelled; it left the server running with nothing to stop it. (#53)
+- `Server.CreateOwnedAsync` raises `TmuxCommandException` when tmux cannot say
+  whether a server is listening, such as on a socket it may not open. It
+  started a server anyway, and a failed start then stopped the one already
+  there. (#53)
+- Package pages on nuget.org no longer open with the logo's HTML shown as
+  text. (#53)
+
 ### Changed
+
+- **Reading a control client's events while another reader is reading throws
+  `InvalidOperationException`.** Two readers each received part of the
+  stream. Open another control client to read independently. (#53)
 
 ### Removed
 
 ### Development
+
+- F# benchmark records state whether the host was a virtual machine, how many
+  cores the run could use, the CPU governor and the load averages. (#53)
+- The `benchmarks` workflow fails a run in which pushdown is less than three
+  times as fast as listing everything, or allocates no less. (#53)
+- `FSharpMirrorBenchmarks` measures what one tmux change costs a live mirror,
+  against the capture each rebuild performs. (#53)
 
 ## [0.0.0-alpha.18] — 2026-10-03
 

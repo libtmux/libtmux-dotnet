@@ -8,8 +8,19 @@ parameters, return types and source links.
 Core handles and request types appear in the
 [LibTmux API reference](../api/README.md).
 Signatures assume `open System`, `open System.Threading`,
-`open System.Threading.Tasks`, `open System.Collections.Generic` and
-`open LibTmux.FSharp`; core types keep their `LibTmux.` prefix.
+`open System.Threading.Tasks`, `open System.Collections.Generic`,
+`open LibTmux` and `open LibTmux.FSharp`. A core type that shares its name
+with a module here, such as `LibTmux.Pane`, keeps its prefix.
+
+## By task
+
+| Task | Start with | Sections |
+|---|---|---|
+| Find and filter | [`Server.panes`](#server), [`Query.where`](#query), [`Query.list`](#query), [`Query.exactlyOne`](#query), [`Server.tryFindPane`](#server) | [Query](#query), [Filter](#filter), [Field](#field), [Relation](#relation), [SessionFields](#sessionfields), [WindowFields](#windowfields), [PaneFields](#panefields), [ClientFields](#clientfields), [ScreenSearch](#screensearch), [Selection](#selection), [CardinalityError](#cardinalityerror) |
+| Servers, sessions, windows and panes | [`Server.createOwned`](#server), [`Server.connect`](#server), [`Server.newSession`](#server), [`Pane.sendLine`](#pane), [`Pane.sendKeys`](#pane), [`Pane.split`](#pane) | [Server](#server), [Session](#session), [Window](#window), [Pane](#pane), [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [Chain](#chain), [Options](#options), [WindowPlacementKey](#windowplacementkey) |
+| Wait, run and read results | [`Pane.sendAndWait`](#pane), [`Pane.waitForText`](#pane), [`Pane.waitFor`](#pane), [`Pane.run`](#pane), [`Pane.capture`](#pane) | [PaneWait](#panewait), [PaneRun](#panerun) |
+| Live state and events | [`Control.withSession`](#control), [`Control.watchPane`](#control), [`Mirror.start`](#mirror), [`Mirror.tryWaitUntil`](#mirror), [`Server.capture`](#server) | [Control](#control), [Mirror](#mirror), [StreamStep](#streamstep), [Snapshot](#snapshot), [CaptureState](#capturestate) |
+| Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) | [TmuxFailure](#tmuxfailure), [Retry](#retry) |
 
 ## CaptureState
 
@@ -17,7 +28,7 @@ Signatures assume `open System`, `open System.Threading`,
 |---|---|
 | `Captured of value: 'T` | Contains the captured value, including an observed empty collection. |
 | ``CaptureState`1`` | Distinguishes captured state from a relation the snapshot did not read. |
-| `Uncaptured of relation: string * depth: LibTmux.SnapshotDepth` | Names the unread relation and the depth the snapshot reached. |
+| `Uncaptured of relation: string * depth: SnapshotDepth` | Names the unread relation and the depth the snapshot reached. |
 
 ## CardinalityError
 
@@ -31,39 +42,39 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Chain` | Builds commands tmux runs together, each acting on what the one before made. |
-| `val add: command: LibTmux.TmuxCommand -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Appends any command, such as a typed request's ToCommand. |
-| `val arrange: layout: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Arranges the current window with a tmux layout; the chain checks the name before tmux sees it. |
-| `val newWindow: session: LibTmux.Session -> name: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Adds a window to a session and makes it the one following steps act on. |
-| `val run: cancellationToken: CancellationToken -> chain: LibTmux.TmuxChain -> Task<LibTmux.TmuxCommandResult>` | Runs every command in one tmux invocation and returns tmux's combined answer. |
-| `val sendLine: line: string -> chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Types a line into the current pane and presses Enter. |
-| `val splitLeftRight: chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Splits the current pane into a left and a right one; the right becomes current. |
-| `val splitTopBottom: chain: LibTmux.TmuxChain -> LibTmux.TmuxChain` | Splits the current pane into a top and a bottom one; the bottom becomes current. |
-| `val start: server: LibTmux.Server -> LibTmux.TmuxChain` | Starts an empty chain against a server. |
+| `module Chain` | Builds commands tmux runs together, each acting on what the one before made. |
+| `val add: command: TmuxCommand -> chain: TmuxChain -> TmuxChain` | Appends any command, such as a typed request's ToCommand. |
+| `val arrange: layout: string -> chain: TmuxChain -> TmuxChain` | Arranges the current window with a tmux layout; the chain checks the name before tmux sees it. |
+| `val newWindow: session: LibTmux.Session -> name: string -> chain: TmuxChain -> TmuxChain` | Adds a window to a session and makes it the one following steps act on. |
+| `val run: cancellationToken: CancellationToken -> chain: TmuxChain -> Task<TmuxCommandResult>` | Runs every command in one tmux invocation and returns tmux's combined answer. |
+| `val sendLine: line: string -> chain: TmuxChain -> TmuxChain` | Types a line into the current pane and presses Enter. |
+| `val splitLeftRight: chain: TmuxChain -> TmuxChain` | Splits the current pane into a left and a right one; the right becomes current. |
+| `val splitTopBottom: chain: TmuxChain -> TmuxChain` | Splits the current pane into a top and a bottom one; the bottom becomes current. |
+| `val start: server: LibTmux.Server -> TmuxChain` | Starts an empty chain against a server. |
 
 ## ClientFields
 
 | Signature | Summary |
 |---|---|
-| `ClientFields` | Provides supported client fields for portable filters. |
-| `val controlMode: Field<LibTmux.Client,bool>` | Identifies whether the captured client uses control mode. |
-| `val name: Field<LibTmux.Client,string>` | Identifies the client name. |
+| `module ClientFields` | Provides supported client fields for portable filters. |
+| `val controlMode: Field<Client,bool>` | Identifies whether the captured client uses control mode. |
+| `val name: Field<Client,string>` | Identifies the client name. |
 
 ## Control
 
 | Signature | Summary |
 |---|---|
-| `Control` | Opens control clients and reads their event streams. |
+| `module Control` | Opens control clients and reads their event streams. |
 | `val cleanupFailure: error: exn -> exn option` | Returns the cleanup failure attached to the exception a helper rethrew. |
-| `val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<LibTmux.IControlModeSession>` | Opens a control client attached to the most recently used session. |
-| `val enterSession: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.IControlModeSession>` | Opens a control client attached to a session. |
-| `val events: session: LibTmux.IControlModeSession -> IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams every event a control client reports. |
+| `val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>` | Opens a control client attached to the most recently used session. |
+| `val enterSession: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IControlModeSession>` | Opens a control client attached to a session. |
+| `val events: session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>` | Streams every event a control client reports. |
 | `val foldWhile: cancellationToken: CancellationToken -> folder: ('State -> 'T -> Task<StreamStep<'State>>) -> initial: 'State -> source: IAsyncEnumerable<'T> -> Task<'State>` | Folds items until the stream ends or the folder returns Stop. |
 | `val iter: cancellationToken: CancellationToken -> handler: ('T -> Task) -> source: IAsyncEnumerable<'T> -> Task<unit>` | Awaits one handler at a time for each item until the stream ends. |
-| `val useSession: work: (LibTmux.IControlModeSession -> Task<'State>) -> session: LibTmux.IControlModeSession -> Task<'State>` | Runs work with an owned control client and disposes it after the returned task completes. |
-| `val watchPane: pane: LibTmux.Pane -> session: LibTmux.IControlModeSession -> IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams one pane's output from a borrowed control client. |
-| `val watchPanes: panes: LibTmux.Pane list -> session: LibTmux.IControlModeSession -> IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams several panes' output from one borrowed control client. |
-| `val withSession: cancellationToken: CancellationToken -> work: (LibTmux.IControlModeSession -> Task<'State>) -> server: LibTmux.Server -> Task<'State>` | Opens a control client, runs work, and disposes the client after the returned task completes. |
+| `val useSession: work: (IControlModeSession -> Task<'State>) -> session: IControlModeSession -> Task<'State>` | Runs work with an owned control client and disposes it after the returned task completes. |
+| `val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>` | Streams one pane's output from a borrowed control client. |
+| `val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>` | Streams several panes' output from one borrowed control client. |
+| `val withSession: cancellationToken: CancellationToken -> work: (IControlModeSession -> Task<'State>) -> server: LibTmux.Server -> Task<'State>` | Opens a control client, runs work, and disposes the client after the returned task completes. |
 
 ## Field
 
@@ -75,8 +86,8 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Filter` | Constructs portable predicates without reflection. |
 | ``Filter`1`` | Describes a validated portable predicate over one entity type. |
+| `module Filter` | Constructs portable predicates without reflection. |
 | `val all: relation: Relation<'Parent,'Child> -> predicate: Filter<'Child> -> Filter<'Parent>` | Requires every child to match, returning true for an empty captured relation. |
 | `val allOf: filters: Filter<'T> list -> Filter<'T>` | Requires every predicate in order; an empty list matches everything. |
 | `val any: relation: Relation<'Parent,'Child> -> predicate: Filter<'Child> -> Filter<'Parent>` | Requires a matching child, returning false for an empty captured relation. |
@@ -108,64 +119,93 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Mirror` | Follows a server's sessions, windows, panes and clients as tmux announces changes. |
-| `val current: mirror: LibTmux.ServerMirror -> LibTmux.ServerMirrorView` | Returns the latest published view. |
-| `val start: cancellationToken: CancellationToken -> anchor: LibTmux.Session -> Task<LibTmux.ServerMirror>` | Mirrors the server an anchor session belongs to, capturing on each announcement. |
-| `val startRefreshing: cancellationToken: CancellationToken -> every: TimeSpan -> anchor: LibTmux.Session -> Task<LibTmux.ServerMirror>` | Mirrors a server, also capturing whenever it has been quiet for an interval. |
-| `val views: mirror: LibTmux.ServerMirror -> IAsyncEnumerable<LibTmux.ServerMirrorView>` | Streams the current view and each newer one, skipping views published while the reader was busy. |
-| `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (LibTmux.ServerMirrorView -> bool) -> mirror: LibTmux.ServerMirror -> Task<LibTmux.ServerMirrorView>` | Waits until a view satisfies a condition, testing the current view first. |
+| `module Mirror` | Follows a server's sessions, windows, panes and clients as tmux announces changes. |
+| `val current: mirror: ServerMirror -> ServerMirrorView` | Returns the latest published view. |
+| `val start: cancellationToken: CancellationToken -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors the server an anchor session belongs to, capturing on each announcement. |
+| `val startRefreshing: cancellationToken: CancellationToken -> every: TimeSpan -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors a server, also capturing whenever it has been quiet for an interval. |
+| `val tryWaitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (ServerMirrorView -> bool) -> mirror: ServerMirror -> Task<ServerMirrorView option>` | Waits until a view satisfies a condition, or returns None when none did in time. |
+| `val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>` | Streams the current view and each newer one, skipping views published while the reader was busy. |
+| `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (ServerMirrorView -> bool) -> mirror: ServerMirror -> Task<ServerMirrorView>` | Waits until a view satisfies a condition, testing the current view first. |
 
 ## Options
 
 | Signature | Summary |
 |---|---|
-| `Options` | Reads and writes options through keys that know their value's type. |
-| `val get: cancellationToken: CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> options: LibTmux.TmuxOptions -> Task<'T> when 'T: not null` | Reads the value an option has in a scope, set there or inherited, as its key's type. |
-| `val set: cancellationToken: CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> value: 'T -> options: LibTmux.TmuxOptions -> Task when 'T: not null` | Sets an option in a scope from a value of its key's type. |
+| `module Options` | Reads and writes options through keys that know their value's type. |
+| `val get: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> options: TmuxOptions -> Task<'T> when 'T: not null` | Reads the value an option has in a scope, set there or inherited, as its key's type. |
+| `val set: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> value: 'T -> options: TmuxOptions -> Task when 'T: not null` | Sets an option in a scope from a value of its key's type. |
 
 ## Pane
 
 | Signature | Summary |
 |---|---|
-| `Pane` | Reads captured pane fields and starts explicit pane operations. |
-| `val capture: cancellationToken: CancellationToken -> request: LibTmux.CapturePaneRequest -> pane: LibTmux.Pane -> Task<IReadOnlyList<string>>` | Captures pane contents using the supplied core request. |
+| `module Pane` | Reads captured pane fields and starts explicit pane operations. |
+| `val capture: cancellationToken: CancellationToken -> request: CapturePaneRequest -> pane: LibTmux.Pane -> Task<IReadOnlyList<string>>` | Captures pane contents using the supplied core request. |
 | `val currentCommand: pane: LibTmux.Pane -> string option` | Reads the captured command name, preserving an empty string. |
 | `val currentPath: pane: LibTmux.Pane -> string option` | Reads the captured working directory, preserving an empty string. |
 | `val findOnScreen: cancellationToken: CancellationToken -> search: ScreenSearch -> pane: LibTmux.Pane -> Task<int option>` | Returns the first visible row showing the text, counted from 1, or None. |
-| `val run: cancellationToken: CancellationToken -> timeout: TimeSpan -> command: string -> pane: LibTmux.Pane -> Task<LibTmux.PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
-| `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
-| `val sendAndWaitFor: cancellationToken: CancellationToken -> keys: LibTmux.SendKeysRequest -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Sends keys as the request describes, then waits as the wait request describes. |
-| `val sendKeys: cancellationToken: CancellationToken -> request: LibTmux.SendKeysRequest -> pane: LibTmux.Pane -> Task` | Sends text or key names according to the request's literal and Enter settings. |
-| `val split: cancellationToken: CancellationToken -> request: LibTmux.SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
-| `val waitFor: cancellationToken: CancellationToken -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |
-| `val waitForText: cancellationToken: CancellationToken -> timeout: TimeSpan -> text: string -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Waits for a line the pane prints to contain the text. |
-| `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (IReadOnlyList<string> -> bool) -> pane: LibTmux.Pane -> Task<LibTmux.PaneWaitResult>` | Waits until a condition holds over the rows the pane shows, top to bottom. |
+| `val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task` | Presses one key by its tmux name, such as Enter, C-c or Up. |
+| `val run: cancellationToken: CancellationToken -> timeout: TimeSpan -> command: string -> pane: LibTmux.Pane -> Task<PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
+| `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
+| `val sendAndWaitFor: cancellationToken: CancellationToken -> keys: SendKeysRequest -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Sends keys as the request describes, then waits as the wait request describes. |
+| `val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task` | Sends text or key names according to the request's literal and Enter settings. |
+| `val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task` | Types a line into the pane as literal text, then presses Enter. |
+| `val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task` | Types text into the pane literally, without pressing Enter. |
+| `val split: cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
+| `val waitFor: cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |
+| `val waitForText: cancellationToken: CancellationToken -> timeout: TimeSpan -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits for a line the pane prints to contain the text. |
+| `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (IReadOnlyList<string> -> bool) -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits until a condition holds over the rows the pane shows, top to bottom. |
 
 ## PaneFields
 
 | Signature | Summary |
 |---|---|
-| `PaneFields` | Provides supported pane fields for portable filters. |
+| `module PaneFields` | Provides supported pane fields for portable filters. |
+| `val active: Field<LibTmux.Pane,bool>` | Identifies whether the pane is its window's active pane. |
 | `val atBottom: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the bottom of its window. |
 | `val atLeft: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the left of its window. |
 | `val atRight: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the right of its window. |
 | `val atTop: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the top of its window. |
 | `val currentCommand: Field<LibTmux.Pane,string>` | Identifies the captured command, including a captured unavailable value. |
 | `val currentPath: Field<LibTmux.Pane,string>` | Identifies the pane's working directory, as the text tmux reported. |
+| `val dead: Field<LibTmux.Pane,bool>` | Identifies whether the pane's program has exited while the pane remains. |
+| `val deadStatus: Field<LibTmux.Pane,int option>` | Identifies the exit status of a dead pane's program; None while it runs, or when a signal ended it. |
 | `val height: Field<LibTmux.Pane,int>` | Identifies the pane's height in cells. |
-| `val id: Field<LibTmux.Pane,LibTmux.PaneId>` | Identifies the typed pane ID. |
+| `val historySize: Field<LibTmux.Pane,int>` | Identifies how many lines have scrolled into the pane's history. |
+| `val id: Field<LibTmux.Pane,PaneId>` | Identifies the typed pane ID. |
+| `val inMode: Field<LibTmux.Pane,bool>` | Identifies whether the pane is in a mode, such as copy mode. |
 | `val index: Field<LibTmux.Pane,int>` | Identifies the pane's position in its window. |
 | `val left: Field<LibTmux.Pane,int>` | Identifies the column of the pane's left edge in its window. |
+| `val processId: Field<LibTmux.Pane,int>` | Identifies the process ID of the program the pane started. |
+| `val startCommand: Field<LibTmux.Pane,string>` | Identifies the command the pane started, quoted as tmux prints it; empty for the default shell. |
+| `val synchronized: Field<LibTmux.Pane,bool>` | Identifies whether keys typed into the pane go to every synchronized pane in its window. |
 | `val title: Field<LibTmux.Pane,string>` | Identifies the pane's title, which a program running in it can set. |
 | `val top: Field<LibTmux.Pane,int>` | Identifies the row of the pane's top edge in its window. |
+| `val tty: Field<LibTmux.Pane,string>` | Identifies the terminal device the pane's program reads and writes, such as /dev/pts/3. |
 | `val width: Field<LibTmux.Pane,int>` | Identifies the pane's width in cells. |
+
+## PaneRun
+
+| Signature | Summary |
+|---|---|
+| `module PaneRun` | Recognises how a command run with Pane.run ended. |
+| `val (|Exited|_|) : result: PaneRunResult -> int option` | Matches a command that exited, with its exit status. |
+| `val (|NotStarted|_|) : result: PaneRunResult -> unit option` | Matches a command the pane's shell never ran. |
+| `val (|TimedOut|_|) : result: PaneRunResult -> unit option` | Matches a command still running when the time allowed ran out. |
+
+## PaneWait
+
+| Signature | Summary |
+|---|---|
+| `module PaneWait` | Recognises how a wait on a pane's output ended. |
+| `val (|Found|Printed|Stopped|TimedOut|Ended|) : result: PaneWaitResult -> Choice<unit,unit,string,unit,unit>` | Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning. |
 
 ## Query
 
 | Signature | Summary |
 |---|---|
-| `Query` | Narrows and runs tmux queries, and filters captured objects locally. |
 | ``Query`1`` | Describes a tmux listing: a scope, filters and text panes must show. |
+| `module Query` | Narrows and runs tmux queries, and filters captured objects locally. |
 | `val atMostOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>` | Reads the sole match, or None when nothing matches; several matches raise. |
 | `val exactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<Result<'T,CardinalityError>>` | Reads the sole match, or why there is not exactly one. |
 | `val list: cancellationToken: CancellationToken -> query: Query<'T> -> Task<IReadOnlyList<'T>>` | Reads the matching objects in tmux's listing order. |
@@ -173,7 +213,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `val showing: search: ScreenSearch -> query: Query<LibTmux.Pane> -> Query<LibTmux.Pane>` | Keeps panes whose visible rows show the searched text. |
 | `val tryExactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>` | Reads the sole match, or None when there are none or several. |
 | `val where: filter: Filter<'T> -> query: Query<'T> -> Query<'T>` | Adds a portable filter every result satisfies. |
-| `val whereUnsafe: filter: LibTmux.UnsafeTmuxFilter -> query: Query<'T> -> Query<'T>` | Adds a raw tmux filter, which tmux evaluates and nothing rechecks. |
+| `val whereUnsafe: filter: UnsafeTmuxFilter -> query: Query<'T> -> Query<'T>` | Adds a raw tmux filter, which tmux evaluates and nothing rechecks. |
 
 ## Relation
 
@@ -185,8 +225,9 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Retry` | Runs an operation again only when tmux never saw it. |
+| `module Retry` | Runs an operation again only when tmux never saw it. |
 | `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while nothing it sent reached tmux. |
+| `val ifNotSentAfter: cancellationToken: CancellationToken -> delays: TimeSpan list -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux. |
 
 ## ScreenSearch
 
@@ -202,23 +243,25 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Selection` | Selects values from ordinary F# sequences. |
+| `module Selection` | Selects values from ordinary F# sequences. |
 | `val exactlyOne: source: 'T seq -> Result<'T,CardinalityError>` | Returns the sole match, examining at most two elements. |
 
 ## Server
 
 | Signature | Summary |
 |---|---|
-| `Server` | Starts server reads and queries with the caller's cancellation token. |
-| `val capture: cancellationToken: CancellationToken -> depth: LibTmux.SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
-| `val clients: server: LibTmux.Server -> Query<LibTmux.Client>` | Queries attached clients. |
+| `module Server` | Starts server reads and queries with the caller's cancellation token. |
+| `val capture: cancellationToken: CancellationToken -> depth: SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
+| `val clients: server: LibTmux.Server -> Query<Client>` | Queries attached clients. |
+| `val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>` | Attaches to a server already listening on the socket the options name. |
+| `val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>` | Starts a server on the socket the options name and owns it; disposing the scope stops it. |
 | `val newSession: cancellationToken: CancellationToken -> spec: SessionSpec -> server: LibTmux.Server -> Task<LibTmux.Session>` | Creates a session as described: its windows, and each window's splits. |
 | `val panes: server: LibTmux.Server -> Query<LibTmux.Pane>` | Queries every pane. |
 | `val sessions: server: LibTmux.Server -> Query<LibTmux.Session>` | Queries every session. |
-| `val tryFindClient: cancellationToken: CancellationToken -> name: string -> server: LibTmux.Server -> Task<LibTmux.Client option>` | Returns the client with an exact name or None after a successful listing finds no match. |
-| `val tryFindPane: cancellationToken: CancellationToken -> id: LibTmux.PaneId -> server: LibTmux.Server -> Task<LibTmux.Pane option>` | Returns a pane or None after a successful lookup establishes absence. |
-| `val tryFindSession: cancellationToken: CancellationToken -> id: LibTmux.SessionId -> server: LibTmux.Server -> Task<LibTmux.Session option>` | Returns a session or None after a successful lookup establishes absence. |
-| `val tryFindWindow: cancellationToken: CancellationToken -> id: LibTmux.WindowId -> server: LibTmux.Server -> Task<LibTmux.Window option>` | Returns a window or None after a successful lookup establishes absence. |
+| `val tryFindClient: cancellationToken: CancellationToken -> name: string -> server: LibTmux.Server -> Task<Client option>` | Returns the client with an exact name or None after a successful listing finds no match. |
+| `val tryFindPane: cancellationToken: CancellationToken -> id: PaneId -> server: LibTmux.Server -> Task<LibTmux.Pane option>` | Returns a pane or None after a successful lookup establishes absence. |
+| `val tryFindSession: cancellationToken: CancellationToken -> id: SessionId -> server: LibTmux.Server -> Task<LibTmux.Session option>` | Returns a session or None after a successful lookup establishes absence. |
+| `val tryFindWindow: cancellationToken: CancellationToken -> id: WindowId -> server: LibTmux.Server -> Task<LibTmux.Window option>` | Returns a window or None after a successful lookup establishes absence. |
 | `val windows: server: LibTmux.Server -> Query<LibTmux.Window>` | Queries window placements across all sessions. |
 | `val within: timeout: TimeSpan -> server: LibTmux.Server -> LibTmux.Server` | Returns the server with every command bounded by a timeout, for it and every handle taken from it. |
 
@@ -226,7 +269,7 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `Session` | Starts queries confined to one session. |
+| `module Session` | Starts queries confined to one session. |
 | `val panes: session: LibTmux.Session -> Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
 | `val windows: session: LibTmux.Session -> Query<LibTmux.Window>` | Queries the window placements in a session. |
 
@@ -234,9 +277,9 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `SessionFields` | Provides supported session fields and relations for portable filters. |
+| `module SessionFields` | Provides supported session fields and relations for portable filters. |
 | `val attached: Field<LibTmux.Session,bool>` | Identifies whether the captured session has attached clients. |
-| `val id: Field<LibTmux.Session,LibTmux.SessionId>` | Identifies the typed session ID. |
+| `val id: Field<LibTmux.Session,SessionId>` | Identifies the typed session ID. |
 | `val name: Field<LibTmux.Session,string>` | Identifies the session name. |
 | `val windowCount: Field<LibTmux.Session,int>` | Identifies the number of windows linked into the session. |
 | `val windows: Relation<LibTmux.Session,LibTmux.Window>` | Identifies captured window placements within the session. |
@@ -245,45 +288,35 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
+| `Directory: string option` | The working directory of the session and its first window. |
+| `Environment: Map<string,string>` | Variables added to the session's environment. |
 | `SessionSpec` | Describes a session and its windows, for Server.newSession. |
-| `WindowSpec list` | The windows, in order; the first is the one tmux creates with the session. |
-| `Map<string,string>` | Variables added to the session's environment. |
-| `string` | The session's name. |
-| `string option` | The working directory of the session and its first window. |
+| `Name: string` | The session's name. |
+| `Windows: WindowSpec list` | The windows, in order; the first is the one tmux creates with the session. |
+| `module SessionSpec` | Starts session descriptions. |
 | `override ToString: unit -> string` | Names the session, without formatting through printf. |
-
-## SessionSpecModule
-
-| Signature | Summary |
-|---|---|
-| `SessionSpecModule` | Starts session descriptions. |
 | `val named: name: string -> SessionSpec` | A named session with tmux's single default window. |
 
 ## Snapshot
 
 | Signature | Summary |
 |---|---|
-| `Snapshot` | Reads captured values without contacting tmux. |
-| `val relation: relation: LibTmux.CapturedRelation<'T> -> CaptureState<IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
-| `val value: value: LibTmux.CapturedValue<'T> -> CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
+| `module Snapshot` | Reads captured values without contacting tmux. |
+| `val relation: relation: CapturedRelation<'T> -> CaptureState<IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
+| `val value: value: CapturedValue<'T> -> CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
 
 ## SplitSpec
 
 | Signature | Summary |
 |---|---|
+| `Command: string option` | The command the pane runs instead of the default shell. |
+| `Direction: PaneDirection option` | Where the new pane goes, beside the pane before it; tmux puts it below when None. |
+| `Directory: string option` | The pane's working directory. |
+| `Environment: Map<string,string>` | Variables added to the pane's environment. |
 | `SplitSpec` | Describes a pane split off the pane created before it. |
-| `LibTmux.PaneDirection option` | Where the new pane goes, beside the pane before it; tmux puts it below when None. |
-| `Map<string,string>` | Variables added to the pane's environment. |
-| `string option` | The command the pane runs instead of the default shell. |
-| `string option` | The pane's working directory. |
-| `string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `Size: string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `module SplitSpec` | Starts split descriptions. |
 | `override ToString: unit -> string` | Names the split by its command, without formatting through printf. |
-
-## SplitSpecModule
-
-| Signature | Summary |
-|---|---|
-| `SplitSpecModule` | Starts split descriptions. |
 | `val empty: SplitSpec` | A split below the pane before it, running the default shell. |
 
 ## StreamStep
@@ -298,16 +331,16 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
+| `module TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
 | `val (|MayHaveRun|_|) : error: exn -> exn option` | Matches a failure, or a cancellation, after which tmux may already have acted. |
-| `val (|NotSent|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure whose command never reached tmux; running it again repeats nothing. |
-| `val (|Ran|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used. |
+| `val (|NotSent|_|) : error: exn -> LibTmuxException option` | Matches a failure whose command never reached tmux; running it again repeats nothing. |
+| `val (|Ran|_|) : error: exn -> LibTmuxException option` | Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used. |
 
 ## Window
 
 | Signature | Summary |
 |---|---|
-| `Window` | Identifies window placements and starts queries confined to one window. |
+| `module Window` | Identifies window placements and starts queries confined to one window. |
 | `val panes: window: LibTmux.Window -> Query<LibTmux.Pane>` | Queries the panes in a window. |
 | `val placementKey: window: LibTmux.Window -> WindowPlacementKey` | Returns a comparable key including the captured session and window index. |
 
@@ -315,14 +348,21 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `WindowFields` | Provides supported window fields and relations for portable filters. |
+| `module WindowFields` | Provides supported window fields and relations for portable filters. |
+| `val active: Field<LibTmux.Window,bool>` | Identifies whether the window is the current window of the session it was read through. |
+| `val activityAlert: Field<LibTmux.Window,bool>` | Identifies whether the window printed since it was last the current window, while monitor-activity is on. |
+| `val bellAlert: Field<LibTmux.Window,bool>` | Identifies whether a bell rang in the window since it was last the current window. |
+| `val flags: Field<LibTmux.Window,string>` | Identifies the window's flags as its status line shows them, such as * for the current window; empty for none. |
 | `val height: Field<LibTmux.Window,int>` | Identifies the window's height in cells. |
-| `val id: Field<LibTmux.Window,LibTmux.WindowId>` | Identifies the typed physical window ID. |
+| `val id: Field<LibTmux.Window,WindowId>` | Identifies the typed physical window ID. |
 | `val index: Field<LibTmux.Window,int>` | Identifies where the window sits in its session. |
+| `val layout: Field<LibTmux.Window,string>` | Identifies the window's layout string, as select-layout takes it. |
 | `val name: Field<LibTmux.Window,string>` | Identifies the window name. |
 | `val paneCount: Field<LibTmux.Window,int>` | Identifies the number of panes in the window. |
 | `val panes: Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |
+| `val silenceAlert: Field<LibTmux.Window,bool>` | Identifies whether the window has been silent for monitor-silence seconds. |
 | `val width: Field<LibTmux.Window,int>` | Identifies the window's width in cells. |
+| `val zoomed: Field<LibTmux.Window,bool>` | Identifies whether one of the window's panes is zoomed to fill it. |
 
 ## WindowPlacementKey
 
@@ -334,18 +374,13 @@ Signatures assume `open System`, `open System.Threading`,
 
 | Signature | Summary |
 |---|---|
-| `SplitSpec list` | The panes split off in order, each beside the pane before it. |
+| `Command: string option` | The command the first pane runs instead of the default shell. |
+| `Directory: string option` | The first pane's working directory. |
+| `Environment: Map<string,string>` | Variables added to the first pane's environment; a session's first window takes them from the session instead. |
 | `WindowSpec` | Describes a window: its first pane, then each pane split off the one before. |
-| `Map<string,string>` | Variables added to the first pane's environment; a session's first window takes them from the session instead. |
-| `string option` | The command the first pane runs instead of the default shell. |
-| `string option` | The first pane's working directory. |
-| `string option` | The window's name; tmux names it after its command when None. |
+| `Name: string option` | The window's name; tmux names it after its command when None. |
+| `Splits: SplitSpec list` | The panes split off in order, each beside the pane before it. |
+| `module WindowSpec` | Starts window descriptions. |
 | `override ToString: unit -> string` | Names the window, without formatting through printf. |
-
-## WindowSpecModule
-
-| Signature | Summary |
-|---|---|
-| `WindowSpecModule` | Starts window descriptions. |
 | `val empty: WindowSpec` | A window tmux names after its command, running the default shell. |
 | `val named: name: string -> WindowSpec` | A named window running the default shell. |
