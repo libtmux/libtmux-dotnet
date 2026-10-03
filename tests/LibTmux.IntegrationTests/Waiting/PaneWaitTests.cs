@@ -76,6 +76,31 @@ public sealed class PaneWaitTests
         Assert.Equal(PaneWaitOutcome.AlternateScreen, repainting.Outcome);
     }
 
+    [UnixFact]
+    public async Task Conditions_see_rows_a_full_screen_program_draws()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane pane = await NewPaneAsync(raw, "draw", "printf '\\033[?1049h\\033[5;3Hdra''wn'", token);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<PaneWaitResult> waiting = pane.WaitUntilAsync(
+            rows =>
+            {
+                entered.TrySetResult();
+                return rows.Count > 4 && rows[4] == "  drawn";
+            },
+            Arrival,
+            token);
+        await entered.Task.WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+        await raw.ExecuteAsync(["wait-for", "-S", Channel(raw, "draw")], token);
+        PaneWaitResult drawn = await waiting;
+
+        Assert.Equal(PaneWaitOutcome.Matched, drawn.Outcome);
+        Assert.Null(drawn.Pattern);
+    }
+
     // Starts the wait, lets the pane run its gated command only once the wait
     // has read the screen it began with, and returns how the wait ended.
     private static async Task<PaneWaitResult> AfterEntryAsync(

@@ -608,6 +608,7 @@ LibTmux.Pane.Title.get -> string?
 LibTmux.Pane.Top.get -> int
 LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.WaitForTextAsync(string! text, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
+LibTmux.Pane.WaitUntilAsync(System.Func<System.Collections.Generic.IReadOnlyList<string!>!, bool>! condition, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.Width.get -> int
 LibTmux.Pane.Window.get -> LibTmux.Window!
 LibTmux.PaneDirection

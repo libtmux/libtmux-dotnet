@@ -107,6 +107,34 @@ public sealed partial class Pane
         return new PaneWaitResult(outcome, pattern, elapsed);
     }
 
+    /// <summary>Waits until a condition holds over the rows the pane shows.</summary>
+    /// <param name="condition">Judges the visible rows, top to bottom.</param>
+    /// <param name="timeout">How long to wait.</param>
+    /// <param name="cancellationToken">Stops the wait.</param>
+    /// <returns>How the wait ended.</returns>
+    /// <remarks>
+    /// The condition is tested when the wait begins and again each time the
+    /// pane prints or changes state, so a screen that is already right ends the
+    /// wait at once as <see cref="PaneWaitOutcome.PresentAtEntry" />. Unlike
+    /// <see cref="WaitForTextAsync(PaneWaitRequest, CancellationToken)" />, it
+    /// sees the whole screen, including rows a full-screen program redraws.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<PaneWaitResult> WaitUntilAsync(
+        Func<IReadOnlyList<string>, bool> condition,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(condition);
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero);
+        (PaneWaitOutcome outcome, TimeSpan elapsed) = await PaneTextWaiter
+            .WaitForScreenAsync(this, PaneActivityHub.Shared, condition, timeout, PaneReader.Failure, cancellationToken)
+            .ConfigureAwait(false);
+        return new PaneWaitResult(outcome, null, elapsed);
+    }
+
     private static string? Match(Regex[] patterns, IReadOnlyList<string> lines)
     {
         foreach (Regex pattern in patterns)

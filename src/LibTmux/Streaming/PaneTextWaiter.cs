@@ -109,6 +109,70 @@ internal static class PaneTextWaiter
         }
     }
 
+    /// <summary>Waits until a condition holds over everything the pane shows.</summary>
+    /// <param name="pane">The pane to watch.</param>
+    /// <param name="activity">Wakes the wait when the pane prints or changes state.</param>
+    /// <param name="condition">Judges the visible rows.</param>
+    /// <param name="budget">How long the wait may run.</param>
+    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
+    /// <param name="cancellationToken">Stops the wait.</param>
+    /// <returns>How the wait ended and how long it took.</returns>
+    internal static async Task<(PaneWaitOutcome Outcome, TimeSpan Elapsed)> WaitForScreenAsync(
+        Pane pane,
+        PaneActivityHub activity,
+        Func<IReadOnlyList<string>, bool> condition,
+        TimeSpan budget,
+        Func<PaneReadFailure, Pane, Exception> fail,
+        CancellationToken cancellationToken)
+    {
+        Stopwatch elapsed = Stopwatch.StartNew();
+        IAsyncDisposable lease = await activity.WatchAsync(pane, cancellationToken).ConfigureAwait(false);
+        await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
+        string? pid = null;
+        while (true)
+        {
+            object? signal = activity.CaptureSignal(pane);
+            PaneRead read;
+            try
+            {
+                read = await PaneReader.ReadVisibleAsync(pane, pid, fail, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception error) when (pid is not null && error is not OperationCanceledException)
+            {
+                if (await PaneIsGoneAsync(pane, cancellationToken).ConfigureAwait(false))
+                {
+                    return (PaneWaitOutcome.PaneExited, elapsed.Elapsed);
+                }
+
+                ExceptionDispatchInfo.Capture(error).Throw();
+                throw;
+            }
+
+            if (condition(read.Lines))
+            {
+                return (pid is null ? PaneWaitOutcome.PresentAtEntry : PaneWaitOutcome.Matched, elapsed.Elapsed);
+            }
+
+            if (read.State.Dead)
+            {
+                return (PaneWaitOutcome.PaneExited, elapsed.Elapsed);
+            }
+
+            if (budget - elapsed.Elapsed <= TimeSpan.Zero)
+            {
+                return (PaneWaitOutcome.TimedOut, elapsed.Elapsed);
+            }
+
+            pid = read.State.PanePid;
+            await activity.WaitForActivityAsync(
+                    pane.Id.ToString(),
+                    signal,
+                    budget - elapsed.Elapsed,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     private static async Task<bool> PaneIsGoneAsync(Pane pane, CancellationToken cancellationToken)
     {
         try

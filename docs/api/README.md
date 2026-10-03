@@ -268,6 +268,7 @@ modes differ.
 | `LibTmux.Pane.SwapAsync(LibTmux.SwapPaneRequest,System.Threading.CancellationToken)` | Swaps this pane with another. |
 | `LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest,System.Threading.CancellationToken)` | Waits until the pane prints output a request describes. |
 | `LibTmux.Pane.WaitForTextAsync(System.String,System.TimeSpan,System.Threading.CancellationToken)` | Waits until the pane shows literal text. |
+| `LibTmux.Pane.WaitUntilAsync(System.Func{System.Collections.Generic.IReadOnlyList{System.String},System.Boolean},System.TimeSpan,System.Threading.CancellationToken)` | Waits until a condition holds over the rows the pane shows. |
 | `LibTmux.Pane.op_Equality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name the same pane. |
 | `LibTmux.Pane.op_Inequality(LibTmux.Pane,LibTmux.Pane)` | Reports whether two handles name different panes. |
 | `LibTmux.PaneId.#ctor(System.Int32)` | Initializes a pane identifier. |
