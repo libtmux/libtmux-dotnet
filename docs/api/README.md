@@ -832,19 +832,23 @@ modes differ.
 | `LibTmux.OwnedServerScope.Value` | Gets the owned server. |
 | `LibTmux.OwnedSessionScope.Value` | Gets the owned session. |
 | `LibTmux.OwnedWindowScope.Value` | Gets the owned window. |
+| `LibTmux.Pane.Active` | Gets whether the pane is its window's active pane. |
 | `LibTmux.Pane.AtBottom` | Gets whether the pane touches the bottom of its window. |
 | `LibTmux.Pane.AtLeft` | Gets whether the pane touches the left of its window. |
 | `LibTmux.Pane.AtRight` | Gets whether the pane touches the right of its window. |
 | `LibTmux.Pane.AtTop` | Gets whether the pane touches the top of its window. |
 | `LibTmux.Pane.CurrentCommand` | Gets the foreground command captured with this pane. |
 | `LibTmux.Pane.CurrentPath` | Gets the current working directory captured with this pane. |
+| `LibTmux.Pane.Dead` | Gets whether the pane's program has exited and the pane remains. |
 | `LibTmux.Pane.Generation` | Gets the server generation captured with this pane. |
 | `LibTmux.Pane.Height` | Gets the pane height captured with this handle. |
 | `LibTmux.Pane.Hooks` | Gets the hooks of this pane. |
 | `LibTmux.Pane.Id` | Gets the pane identifier. |
+| `LibTmux.Pane.InMode` | Gets whether the pane is in a mode, such as copy mode. |
 | `LibTmux.Pane.Index` | Gets the index this pane holds in its window. |
 | `LibTmux.Pane.Left` | Gets the pane's left offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Options` | Gets the options of this pane. |
+| `LibTmux.Pane.ProcessId` | Gets the process ID of the program the pane started. |
 | `LibTmux.Pane.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Pane.Server` | Gets the server that owns this pane. |
 | `LibTmux.Pane.Session` | Gets the session containing this pane. |
@@ -1153,6 +1157,7 @@ modes differ.
 | `LibTmux.UnsupportedQueryExpressionException.Expression` | Gets the expression that could not be translated. |
 | `LibTmux.WaitForRequest.Channel` | Gets the channel name. |
 | `LibTmux.WaitForRequest.Mode` | Gets what to do with it. |
+| `LibTmux.Window.Active` | Gets whether this is the current window of the session it was read through. |
 | `LibTmux.Window.ActivePane` | Gets the captured active pane, or an uncaptured relation. |
 | `LibTmux.Window.Edge` | Gets where this window sits in the session it was read from. |
 | `LibTmux.Window.EntityKey` | Gets the session, window and index this handle names together. |
@@ -1170,6 +1175,7 @@ modes differ.
 | `LibTmux.Window.Server` | Gets the server that owns this window. |
 | `LibTmux.Window.Session` | Gets the session this window was read through. |
 | `LibTmux.Window.Width` | Gets the window width captured with this handle. |
+| `LibTmux.Window.Zoomed` | Gets whether one of the window's panes is zoomed to fill it. |
 | `LibTmux.WindowEntityKey.SessionId` | The session the window is linked into. |
 | `LibTmux.WindowEntityKey.WindowId` | The linked window. |
 | `LibTmux.WindowEntityKey.WindowIndex` | The index of this placement in the session. |
