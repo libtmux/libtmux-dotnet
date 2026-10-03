@@ -24,7 +24,7 @@ Captures pane contents using the supplied core request.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;string&gt;</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L70)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L71)
 
 <a name="currentCommand"></a>
 
@@ -40,7 +40,7 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The command field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L68)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L69)
 
 <a name="currentPath"></a>
 
@@ -56,7 +56,7 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The path field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L67)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L68)
 
 <a name="findOnScreen"></a>
 
@@ -78,7 +78,32 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text cannot be written as a tmux format.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L73)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L74)
+
+<a name="run"></a>
+
+#### <code><span>Pane.run&#32;<span>cancellationToken&#32;timeout&#32;command&#32;pane</span></span></code>
+
+Runs a shell command in the pane and waits for its exit status and output.
+
+The pane must sit at a POSIX shell prompt. A command still running at
+ the timeout keeps running; the result reports <code>TimedOut</code>.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**command**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneRunResult&gt;</span></code>
+
+`TmuxPaneException` The pane is in a mode or not running a POSIX shell.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L94)
 
 <a name="sendKeys"></a>
 
@@ -98,7 +123,7 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L79)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L97)
 
 <a name="split"></a>
 
@@ -118,4 +143,76 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L82)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L100)
+
+<a name="waitFor"></a>
+
+#### <code><span>Pane.waitFor&#32;<span>cancellationToken&#32;request&#32;pane</span></span></code>
+
+Waits as the request describes: patterns, stop patterns, or any output.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**request**: <code>PaneWaitRequest</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
+
+`TmuxPaneException` The pane&#39;s program had already exited.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L83)
+
+<a name="waitForText"></a>
+
+#### <code><span>Pane.waitForText&#32;<span>cancellationToken&#32;timeout&#32;text&#32;pane</span></span></code>
+
+Waits for a line the pane prints to contain the text.
+
+Text already on screen ends the wait at once as <code>PresentAtEntry</code>.
+ The wait sleeps on the pane&#39;s own output rather than polling, and ends
+ early when the pane&#39;s program exits or a full-screen program starts.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**text**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text is empty or spans lines.
+
+`TmuxPaneException` The pane&#39;s program had already exited.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L80)
+
+<a name="waitUntil"></a>
+
+#### <code><span>Pane.waitUntil&#32;<span>cancellationToken&#32;timeout&#32;condition&#32;pane</span></span></code>
+
+Waits until a condition holds over the rows the pane shows, top to bottom.
+
+The condition sees the whole screen each time the pane prints or changes state.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**condition**: <code><span><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;string&gt;</span>&#32;->&#32;bool</span></code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneWaitResult&gt;</span></code>
+
+`TmuxPaneException` The pane&#39;s program had already exited.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L86)

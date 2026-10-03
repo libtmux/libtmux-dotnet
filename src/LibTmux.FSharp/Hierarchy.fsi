@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -94,6 +95,49 @@ module Pane =
     /// <exception cref="T:System.ArgumentException">The text cannot be written as a tmux format.</exception>
     val findOnScreen:
         cancellationToken: CancellationToken -> search: ScreenSearch -> pane: LibTmux.Pane -> Task<int option>
+
+    /// <summary>Waits for a line the pane prints to contain the text.</summary>
+    /// <remarks>
+    /// Text already on screen ends the wait at once as <c>PresentAtEntry</c>.
+    /// The wait sleeps on the pane's own output rather than polling, and ends
+    /// early when the pane's program exits or a full-screen program starts.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    val waitForText:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        text: string ->
+        pane: LibTmux.Pane ->
+            Task<PaneWaitResult>
+
+    /// <summary>Waits as the request describes: patterns, stop patterns, or any output.</summary>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    val waitFor:
+        cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
+
+    /// <summary>Waits until a condition holds over the rows the pane shows, top to bottom.</summary>
+    /// <remarks>The condition sees the whole screen each time the pane prints or changes state.</remarks>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    val waitUntil:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        condition: (IReadOnlyList<string> -> bool) ->
+        pane: LibTmux.Pane ->
+            Task<PaneWaitResult>
+
+    /// <summary>Runs a shell command in the pane and waits for its exit status and output.</summary>
+    /// <remarks>
+    /// The pane must sit at a POSIX shell prompt. A command still running at
+    /// the timeout keeps running; the result reports <c>TimedOut</c>.
+    /// </remarks>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode or not running a POSIX shell.</exception>
+    val run:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        command: string ->
+        pane: LibTmux.Pane ->
+            Task<PaneRunResult>
 
     /// <summary>Sends text or key names according to the request's literal and Enter settings.</summary>
     /// <remarks>Cancellation can occur after dispatch; it does not undo sent keys.</remarks>

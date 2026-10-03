@@ -1,6 +1,7 @@
 namespace LibTmux.FSharp
 
 open System
+open System.Collections.Generic
 open System.Threading
 open LibTmux
 open LibTmux.Query
@@ -75,6 +76,23 @@ module Pane =
             let! row = pane.FindOnScreenAsync(ScreenSearch.toCore search, cancellationToken)
             return Option.ofNullable row
         }
+
+    let waitForText (cancellationToken: CancellationToken) (timeout: TimeSpan) (text: string) (pane: LibTmux.Pane) =
+        pane.WaitForTextAsync(text, timeout, cancellationToken)
+
+    let waitFor (cancellationToken: CancellationToken) (request: PaneWaitRequest) (pane: LibTmux.Pane) =
+        pane.WaitForTextAsync(request, cancellationToken)
+
+    let waitUntil
+        (cancellationToken: CancellationToken)
+        (timeout: TimeSpan)
+        (condition: IReadOnlyList<string> -> bool)
+        (pane: LibTmux.Pane)
+        =
+        pane.WaitUntilAsync(Func<_, _> condition, timeout, cancellationToken)
+
+    let run (cancellationToken: CancellationToken) (timeout: TimeSpan) (command: string) (pane: LibTmux.Pane) =
+        pane.RunAsync(command, timeout, cancellationToken)
 
     let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SendKeysAsync(request, cancellationToken)

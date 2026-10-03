@@ -22,7 +22,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L55)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L56)
 
 <a name="windows"></a>
 
@@ -38,4 +38,4 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&
 
 `IncompleteSnapshotException` The session was not read through a server.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L52)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L53)
