@@ -355,8 +355,7 @@ public sealed class ServerMirror : IAsyncDisposable
                 }
 
                 // The client ended or left the anchor, and tmux has forgotten
-                // what it announced. Disposing a faulted client raises its
-                // fault again.
+                // what it announced.
                 lock (_gate)
                 {
                     _controlReleased = true;
@@ -368,7 +367,10 @@ public sealed class ServerMirror : IAsyncDisposable
                 }
                 catch (Exception) when (!closing.IsCancellationRequested)
                 {
+                    // Disposing a faulted client raises the fault the read
+                    // above already handled.
                 }
+
                 if (Stopwatch.GetElapsedTime(listening) < LongestReattachDelay)
                 {
                     await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
