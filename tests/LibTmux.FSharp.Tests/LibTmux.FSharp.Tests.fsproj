@@ -19,5 +19,8 @@
     <None Include="../../docs/fsharp/supported-query-fields.md"
           Link="supported-query-fields.md"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/LibTmux.FSharp/*.fs"
+          Link="facade-source/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

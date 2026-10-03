@@ -83,25 +83,25 @@ module Server =
         server.CaptureSnapshotAsync(depth, cancellationToken)
 
     let tryFindSession (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
+        backgroundTask {
             let! session = server.FindSessionAsync(id, cancellationToken)
             return Option.ofObj session
         }
 
     let tryFindWindow (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
+        backgroundTask {
             let! window = server.FindWindowAsync(id, cancellationToken)
             return Option.ofObj window
         }
 
     let tryFindPane (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
+        backgroundTask {
             let! pane = server.FindPaneAsync(id, cancellationToken)
             return Option.ofObj pane
         }
 
     let tryFindClient (cancellationToken: CancellationToken) name (server: LibTmux.Server) =
-        task {
+        backgroundTask {
             System.ArgumentException.ThrowIfNullOrWhiteSpace(name)
             let! clients = server.GetClientsAsync(cancellationToken)
             return clients |> Seq.tryFind (fun client -> client.Name = name)

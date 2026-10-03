@@ -14,7 +14,7 @@ type StreamStep<'State> =
 
 module private AsyncCleanup =
     let run (cleanupKey: string) (work: unit -> Task<'T>) (cleanup: unit -> Task) =
-        task {
+        backgroundTask {
             let mutable outcome: Result<'T, exn> option = None
 
             try
@@ -70,14 +70,14 @@ module Control =
         (work: IControlModeSession -> Task<'State>)
         (server: LibTmux.Server)
         =
-        task {
+        backgroundTask {
             let! session = enter cancellationToken server
             return! useSession work session
         }
 
     let iterEvents (cancellationToken: CancellationToken) (handler: TmuxEvent -> Task) (session: IControlModeSession) =
         EventReader.consume cancellationToken session (fun reader ->
-            task {
+            backgroundTask {
                 let mutable reading = true
 
                 while reading do
@@ -96,7 +96,7 @@ module Control =
         (session: IControlModeSession)
         =
         EventReader.consume cancellationToken session (fun reader ->
-            task {
+            backgroundTask {
                 let mutable state = initial
                 let mutable reading = true
 

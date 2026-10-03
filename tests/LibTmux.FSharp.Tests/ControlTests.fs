@@ -316,3 +316,122 @@ module ControlTests =
             Assert.True(session.ReaderDisposed)
             Assert.Equal(0, session.DisposeCalls)
         }
+
+type private CountingContext() =
+    inherit SynchronizationContext()
+    let posts = ref 0
+    member _.Posts = posts.Value
+
+    override _.Post(callback, state) =
+        Interlocked.Increment(&posts.contents) |> ignore
+        ThreadPool.QueueUserWorkItem((fun _ -> callback.Invoke state), null) |> ignore
+
+type private PendingEventSession(count: int) =
+    let mutable index = 0
+
+    interface IControlModeSession with
+        member _.Events =
+            { new IAsyncEnumerable<TmuxEvent> with
+                member _.GetAsyncEnumerator(_) =
+                    { new IAsyncEnumerator<TmuxEvent> with
+                        member _.Current = TmuxNotificationEvent(string index, [])
+
+                        member _.MoveNextAsync() =
+                            ValueTask<bool>(
+                                Task.Run(fun () ->
+                                    index <- index + 1
+                                    index <= count)
+                            )
+
+                        member _.DisposeAsync() = ValueTask(Task.Run(fun () -> ()))
+                    }
+            }
+
+        member _.IsRunning = true
+
+        member _.SendAsync(_, _) =
+            Task.FromResult<IReadOnlyList<string>>([])
+
+        member _.DisposeAsync() = ValueTask(Task.Run(fun () -> ()))
+
+module ContextTests =
+    // tmux 3.2a resolves a missing ID through an empty successful listing.
+    let private pendingReply (arguments: string array) =
+        Task.Run(fun () ->
+            let output, lines =
+                if arguments = [| "-V" |] then
+                    "tmux 3.2a\n", [| "tmux 3.2a" |]
+                else
+                    "17:29\n", [||]
+
+            TmuxCommandResult(
+                arguments,
+                0,
+                ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(output)),
+                ReadOnlyMemory<byte>.Empty,
+                lines,
+                [||]
+            ))
+
+    let private server () =
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-context"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                    pendingReply (request.LogicalArguments |> Seq.toArray))
+            )
+
+        LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.2a")
+
+    let private operation name : unit -> Task =
+        let token = CancellationToken.None
+
+        match name with
+        | "tryFindSession" -> fun () -> Server.tryFindSession token (SessionId 7) (server ())
+        | "tryFindWindow" -> fun () -> Server.tryFindWindow token (WindowId 7) (server ())
+        | "tryFindPane" -> fun () -> Server.tryFindPane token (PaneId 7) (server ())
+        | "tryFindClient" -> fun () -> Server.tryFindClient token "client-7" (server ())
+        | "iterEvents" -> fun () -> Control.iterEvents token (fun _ -> Task.Run(fun () -> ())) (PendingEventSession 3)
+        | "foldEventsWhile" ->
+            fun () ->
+                Control.foldEventsWhile
+                    token
+                    (fun count _ -> Task.Run(fun () -> StreamStep.Continue(count + 1)))
+                    0
+                    (PendingEventSession 3)
+        | "useSession" -> fun () -> Control.useSession (fun _ -> Task.Run(fun () -> 1)) (PendingEventSession 0)
+        | _ -> invalidArg (nameof name) name
+
+    [<Theory>]
+    [<InlineData("tryFindSession")>]
+    [<InlineData("tryFindWindow")>]
+    [<InlineData("tryFindPane")>]
+    [<InlineData("tryFindClient")>]
+    [<InlineData("iterEvents")>]
+    [<InlineData("foldEventsWhile")>]
+    [<InlineData("useSession")>]
+    let ``continuations never resume on the caller's synchronization context`` name =
+        task {
+            let context = CountingContext()
+            let previous = SynchronizationContext.Current
+            SynchronizationContext.SetSynchronizationContext context
+
+            let pending =
+                try
+                    operation name ()
+                finally
+                    SynchronizationContext.SetSynchronizationContext previous
+
+            do! pending.WaitAsync(TimeSpan.FromSeconds 5.)
+            Assert.Equal(0, context.Posts)
+        }
+
+    [<Fact>]
+    let ``facade sources start every task without the caller's context`` () =
+        let sources =
+            IO.Directory.GetFiles(IO.Path.Combine(AppContext.BaseDirectory, "facade-source"), "*.fs")
+
+        Assert.NotEmpty sources
+
+        for source in sources do
+            Assert.DoesNotContain("task {", IO.File.ReadAllText(source).Replace("backgroundTask {", ""))
