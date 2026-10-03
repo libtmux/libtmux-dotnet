@@ -63,7 +63,70 @@ type private EventSession(events: TmuxEvent list, ?failure: exn, ?cleanupFailure
             | Some error -> ValueTask(Task.FromException(error))
             | None -> ValueTask()
 
+// A pane watch asks display-message for each watched pane's id; this
+// answers only for the panes it was told are alive.
+type private LivePaneSession(events: TmuxEvent list, alive: Set<string>) =
+    let source = EventSession(events) :> IControlModeSession
+
+    interface IControlModeSession with
+        member _.Events = source.Events
+        member _.IsRunning = true
+
+        member _.SendAsync(command, _) =
+            let target =
+                command.Arguments |> Seq.skipWhile ((<>) "-t") |> Seq.skip 1 |> Seq.head
+
+            Task.FromResult<IReadOnlyList<string>>(if alive.Contains target then [ target ] else [])
+
+        member _.DisposeAsync() = ValueTask()
+
 module ControlTests =
+    [<Fact>]
+    let ``watchPanes passes only the listed panes' output through one client`` () =
+        task {
+            let generation = ServerGeneration(94, 904)
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-watch-panes"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                        raise (InvalidOperationException "A watch reached the server handle."))
+                )
+
+            let server = Server(connection, generation, "tmux 3.7")
+
+            let pane id =
+                Pane(server, connection, generation, PaneId id, Dictionary())
+
+            let session =
+                LivePaneSession(
+                    [
+                        TmuxOutputEvent(PaneId 17, "build")
+                        TmuxOutputEvent(PaneId 99, "other")
+                        TmuxOutputEvent(PaneId 18, "test")
+                    ],
+                    set [ "%17"; "%18" ]
+                )
+
+            let! printed =
+                session
+                |> Control.watchPanes [ pane 17; pane 18 ]
+                |> Control.foldWhile
+                    CancellationToken.None
+                    (fun printed event ->
+                        task {
+                            match event with
+                            | :? TmuxOutputEvent as output -> return StreamStep.Continue(printed @ [ output.Data ])
+                            | _ -> return StreamStep.Continue printed
+                        })
+                    []
+
+            Assert.Equal<string list>([ "build"; "test" ], printed)
+
+            Assert.Throws<ArgumentException>(fun () -> session |> Control.watchPanes [] |> ignore)
+            |> ignore
+        }
+
     [<Fact>]
     let ``fold stops before the next event and leaves a borrowed client open`` () =
         task {
