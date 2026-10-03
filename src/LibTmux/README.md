@@ -113,6 +113,11 @@ await server.Chain()
 Control mode is an order of magnitude cheaper *per command*; a chain wins *for
 a batch* by paying one round trip for the whole sequence.
 
+For readiness text printed by a pane, `PaneTextObserver.WaitForTextAsync`
+owns the control client and returns a typed outcome with a bounded rendered
+tail. The [executed pane-text example](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/modes/control-mode.md#wait-for-rendered-text)
+shows setup and cleanup.
+
 ## Reading what is there
 
 Accessors return `IReadOnlyList<T>` over an explicit read and never shell out

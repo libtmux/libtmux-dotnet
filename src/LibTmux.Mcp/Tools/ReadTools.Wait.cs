@@ -196,6 +196,17 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
     }
 
+    internal static McpException WaitMatchingError(Exception error) => error switch
+    {
+        RegexMatchTimeoutException timedOut => new McpException(
+            $"The pattern '{timedOut.Pattern}' took too long to match. Simplify it.",
+            timedOut),
+        PaneTextWaitEngine.MatchWorkExceededException exceeded => new McpException(
+            "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane.",
+            exceeded),
+        _ => throw new ArgumentException("Not a pane wait matching failure.", nameof(error)),
+    };
+
     /// <summary>Tells the client a wait is still running.</summary>
     /// <param name="progress">Where to report, or null when the client asked for none.</param>
     /// <param name="elapsed">How long the wait has run.</param>

@@ -10,6 +10,50 @@ namespace LibTmux.IntegrationTests;
 public sealed class PaneWaitConsistencyTests
 {
     [UnixFact]
+    public async Task A_core_text_observer_reads_rendered_output_and_preserves_the_daemon()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryServerScope scope = await new TmuxTestFactory()
+            .CreateServerAsync(mcp.Options, token);
+        Session session = await scope.Server.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "text-observer",
+            Command = "exec /bin/cat",
+            Width = "80",
+            Height = "24",
+        }, token);
+        Pane pane = Assert.Single(await Assert.Single(
+            await session.GetWindowsAsync(token)).GetPanesAsync(token));
+        const string Marker = "observer-rendered-ready";
+
+        await using (PaneTextObserver observer = new())
+        {
+            Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+                pane,
+                new PaneTextWaitRequest
+                {
+                    Patterns = [Marker],
+                    SimpleMatch = true,
+                    Timeout = TimeSpan.FromSeconds(3),
+                    TailLines = 4,
+                },
+                token);
+            await pane.SendTextAsync(Marker, enter: false, cancellationToken: token);
+            PaneTextWaitResult result = await waiting;
+
+            Assert.True(result.Outcome is PaneTextWaitOutcome.Matched
+                or PaneTextWaitOutcome.PresentAtEntry);
+            Assert.Equal(Marker, result.MatchedPattern);
+            Assert.Contains(result.Tail, line => line.Contains(Marker, StringComparison.Ordinal));
+            Assert.False(result.PollingFallback);
+            Assert.Equal(0, result.EventsDropped);
+        }
+
+        Assert.True(await scope.Server.IsAliveAsync(token));
+    }
+
+    [UnixFact]
     public async Task An_established_wait_recovers_after_unstable_captures()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

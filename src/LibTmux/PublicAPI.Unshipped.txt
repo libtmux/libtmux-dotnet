@@ -2243,3 +2243,52 @@ override LibTmux.PaneCommandResult.GetHashCode() -> int
 override LibTmux.PaneCommandResult.ToString() -> string!
 static LibTmux.PaneCommandResult.operator !=(LibTmux.PaneCommandResult? left, LibTmux.PaneCommandResult? right) -> bool
 static LibTmux.PaneCommandResult.operator ==(LibTmux.PaneCommandResult? left, LibTmux.PaneCommandResult? right) -> bool
+LibTmux.PaneTextObserver
+LibTmux.PaneTextObserver.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.PaneTextObserver.PaneTextObserver(Microsoft.Extensions.Logging.ILogger? logger = null, bool allowPollingFallback = false) -> void
+LibTmux.PaneTextObserver.WaitForTextAsync(LibTmux.Pane! pane, LibTmux.PaneTextWaitRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneTextWaitResult!>!
+LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.AnyOutput = 3 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.Matched = 1 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.PaneDied = 5 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.PresentAtEntry = 0 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.Stopped = 2 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitOutcome.TimedOut = 4 -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitRequest
+LibTmux.PaneTextWaitRequest.<Clone>$() -> LibTmux.PaneTextWaitRequest!
+LibTmux.PaneTextWaitRequest.Equals(LibTmux.PaneTextWaitRequest? other) -> bool
+LibTmux.PaneTextWaitRequest.IgnoreCase.get -> bool
+LibTmux.PaneTextWaitRequest.IgnoreCase.init -> void
+LibTmux.PaneTextWaitRequest.MaxOutputBytes.get -> int
+LibTmux.PaneTextWaitRequest.MaxOutputBytes.init -> void
+LibTmux.PaneTextWaitRequest.PaneTextWaitRequest() -> void
+LibTmux.PaneTextWaitRequest.Patterns.get -> System.Collections.Generic.IReadOnlyList<string!>?
+LibTmux.PaneTextWaitRequest.Patterns.init -> void
+LibTmux.PaneTextWaitRequest.SimpleMatch.get -> bool
+LibTmux.PaneTextWaitRequest.SimpleMatch.init -> void
+LibTmux.PaneTextWaitRequest.StopPatterns.get -> System.Collections.Generic.IReadOnlyList<string!>?
+LibTmux.PaneTextWaitRequest.StopPatterns.init -> void
+LibTmux.PaneTextWaitRequest.TailLines.get -> int
+LibTmux.PaneTextWaitRequest.TailLines.init -> void
+LibTmux.PaneTextWaitRequest.Timeout.get -> System.TimeSpan
+LibTmux.PaneTextWaitRequest.Timeout.init -> void
+LibTmux.PaneTextWaitResult
+LibTmux.PaneTextWaitResult.AnchorLost.get -> bool
+LibTmux.PaneTextWaitResult.EffectiveTimeout.get -> System.TimeSpan
+LibTmux.PaneTextWaitResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneTextWaitResult.EventsDropped.get -> long
+LibTmux.PaneTextWaitResult.LinesMissed.get -> bool
+LibTmux.PaneTextWaitResult.MatchedPattern.get -> string?
+LibTmux.PaneTextWaitResult.OmittedTailBytes.get -> int
+LibTmux.PaneTextWaitResult.OmittedTailLines.get -> int
+LibTmux.PaneTextWaitResult.Outcome.get -> LibTmux.PaneTextWaitOutcome
+LibTmux.PaneTextWaitResult.PaneId.get -> LibTmux.PaneId
+LibTmux.PaneTextWaitResult.PollingFallback.get -> bool
+LibTmux.PaneTextWaitResult.PollingInterval.get -> System.TimeSpan?
+LibTmux.PaneTextWaitResult.Tail.get -> System.Collections.Generic.IReadOnlyList<string!>!
+override LibTmux.PaneTextWaitRequest.Equals(object? obj) -> bool
+override LibTmux.PaneTextWaitRequest.GetHashCode() -> int
+override LibTmux.PaneTextWaitRequest.ToString() -> string!
+static LibTmux.PaneTextWaitRequest.operator !=(LibTmux.PaneTextWaitRequest? left, LibTmux.PaneTextWaitRequest? right) -> bool
+static LibTmux.PaneTextWaitRequest.operator ==(LibTmux.PaneTextWaitRequest? left, LibTmux.PaneTextWaitRequest? right) -> bool
+LibTmux.PaneTextWaitRequest.Validate() -> void

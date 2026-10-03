@@ -67,6 +67,10 @@ modes differ.
 | `LibTmux.PaneWaitOutcome` | Names how a wait on a pane's output ended. |
 | `LibTmux.PaneWaitRequest` | Describes output to wait for in a pane. |
 | `LibTmux.PaneWaitResult` | Describes how a wait on a pane's output ended. |
+| `LibTmux.PaneTextObserver` | Waits for rendered pane text using an owned, shared control client. |
+| `LibTmux.PaneTextWaitOutcome` | How a rendered-pane text wait ended. |
+| `LibTmux.PaneTextWaitRequest` | Configures a wait for text rendered in a pane. |
+| `LibTmux.PaneTextWaitResult` | Reports the result of a rendered-pane text wait. |
 | `LibTmux.PasteBufferRequest` | Describes one paste-buffer invocation. |
 | `LibTmux.PipePaneRequest` | Describes one pipe-pane invocation. |
 | `LibTmux.PopupCloseMode` | Names when a popup closes on its own. |
@@ -311,6 +315,10 @@ modes differ.
 | `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
 | `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
+| `LibTmux.PaneTextObserver.#ctor(Microsoft.Extensions.Logging.ILogger,System.Boolean)` | Creates an observer that requires control-mode notification. |
+| `LibTmux.PaneTextObserver.DisposeAsync` | Inherits the base member contract. |
+| `LibTmux.PaneTextObserver.WaitForTextAsync(LibTmux.Pane,LibTmux.PaneTextWaitRequest,System.Threading.CancellationToken)` | Waits until a pattern appears, a stop pattern appears, or the wait ends. |
+| `LibTmux.PaneTextWaitRequest.Validate` | Validates local limits and compiles patterns before pane I/O. |
 | `LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
 | `LibTmux.PsmuxCaptureOptions.#ctor(System.Nullable{LibTmux.CapturePanePosition},System.Nullable{LibTmux.CapturePanePosition},System.Boolean,System.Boolean)` | Initializes a bounded psmux capture. |
@@ -917,6 +925,26 @@ modes differ.
 | `LibTmux.PaneWaitResult.Found` | Gets whether the awaited text appeared, before or during the wait. |
 | `LibTmux.PaneWaitResult.Outcome` | How the wait ended. |
 | `LibTmux.PaneWaitResult.Pattern` | The pattern that matched, when one did. |
+| `LibTmux.PaneTextWaitRequest.IgnoreCase` | Gets whether pattern matching ignores case. |
+| `LibTmux.PaneTextWaitRequest.MaxOutputBytes` | Gets the maximum UTF-8 bytes returned in the rendered tail. |
+| `LibTmux.PaneTextWaitRequest.Patterns` | Regular expressions to wait for, or null for any new output. |
+| `LibTmux.PaneTextWaitRequest.SimpleMatch` | Gets whether patterns are matched as literal strings. |
+| `LibTmux.PaneTextWaitRequest.StopPatterns` | Stop patterns checked before wanted patterns, including at entry. |
+| `LibTmux.PaneTextWaitRequest.TailLines` | Gets the maximum number of recent rendered lines returned. |
+| `LibTmux.PaneTextWaitRequest.Timeout` | Gets the requested wait duration. |
+| `LibTmux.PaneTextWaitResult.AnchorLost` | Gets whether the previous grid anchor could not be recovered. |
+| `LibTmux.PaneTextWaitResult.EffectiveTimeout` | Gets the timeout applied after the library ceiling. |
+| `LibTmux.PaneTextWaitResult.Elapsed` | Gets the elapsed duration. |
+| `LibTmux.PaneTextWaitResult.EventsDropped` | Gets session events dropped during this wait. |
+| `LibTmux.PaneTextWaitResult.LinesMissed` | Gets whether scrollback may have lost unread lines. |
+| `LibTmux.PaneTextWaitResult.MatchedPattern` | Gets the pattern that ended the wait, when one did. |
+| `LibTmux.PaneTextWaitResult.OmittedTailBytes` | Gets how many UTF-8 tail bytes were omitted by output limits. |
+| `LibTmux.PaneTextWaitResult.OmittedTailLines` | Gets how many whole tail lines were omitted by output limits. |
+| `LibTmux.PaneTextWaitResult.Outcome` | Gets why the wait ended. |
+| `LibTmux.PaneTextWaitResult.PaneId` | Gets the watched pane's typed ID. |
+| `LibTmux.PaneTextWaitResult.PollingFallback` | Gets whether explicitly enabled polling was used. |
+| `LibTmux.PaneTextWaitResult.PollingInterval` | Gets the polling interval when fallback was used. |
+| `LibTmux.PaneTextWaitResult.Tail` | Gets an owned, read-only tail of rendered pane lines. |
 | `LibTmux.PasteBufferRequest.Bracketed` | Gets whether the paste is bracketed. |
 | `LibTmux.PasteBufferRequest.DeleteAfter` | Gets whether the buffer is deleted once pasted. |
 | `LibTmux.PasteBufferRequest.Name` | Gets the buffer to paste, or null for the most recent. |
@@ -1291,6 +1319,12 @@ modes differ.
 | `LibTmux.PaneWaitOutcome.PresentAtEntry` | A pattern already matched the screen when the wait began. |
 | `LibTmux.PaneWaitOutcome.Stopped` | New output matched a stop pattern. |
 | `LibTmux.PaneWaitOutcome.TimedOut` | The time allowed ran out. |
+| `LibTmux.PaneTextWaitOutcome.AnyOutput` | The pane printed text and no wanted pattern was specified. |
+| `LibTmux.PaneTextWaitOutcome.Matched` | A wanted pattern appeared after the initial read. |
+| `LibTmux.PaneTextWaitOutcome.PaneDied` | The watched pane or its original process ended. |
+| `LibTmux.PaneTextWaitOutcome.PresentAtEntry` | A wanted pattern was already visible when observation began. |
+| `LibTmux.PaneTextWaitOutcome.Stopped` | A stop pattern appeared before a wanted pattern. |
+| `LibTmux.PaneTextWaitOutcome.TimedOut` | No match appeared within the effective wait budget. |
 | `LibTmux.PopupCloseMode.AnyExit` | Close when the command exits, however it exits. |
 | `LibTmux.PopupCloseMode.SuccessfulExit` | Close only when the command exits successfully. |
 | `LibTmux.PromptType.Command` | A tmux command. |

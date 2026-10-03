@@ -82,6 +82,7 @@
     "T:LibTmux.OwnedSessionScope": "owned",
     "T:LibTmux.OwnedWindowScope": "owned",
     "T:LibTmux.Pane": "borrowed",
+    "T:LibTmux.PaneTextObserver": "owned",
     "T:LibTmux.Server": "borrowed",
     "T:LibTmux.Session": "borrowed",
     "T:LibTmux.Testing.TemporaryHierarchyScope": "owned",
@@ -1109,6 +1110,15 @@
     },
     {
       "id": "M:LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)",
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.PaneTextObserver.WaitForTextAsync(LibTmux.Pane,LibTmux.PaneTextWaitRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.PaneTextObserver.DisposeAsync",
       "processBacked": true
     },
     {

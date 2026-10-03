@@ -6,6 +6,45 @@ namespace LibTmux.Examples.Snippets;
 [UnsupportedOSPlatform("windows")]
 public static class ControlMode
 {
+    /// <summary>Waits for a command's rendered ready line.</summary>
+    [Example("Wait for text rendered by a pane")]
+    public static async Task WaitForPaneText()
+    {
+        #region WaitForPaneText
+        Server server = await Server.ConnectAsync(new ServerConnectionOptions
+        {
+            TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+        });
+        await using OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+            new NewSessionRequest
+            {
+                Name = $"text-wait-{Guid.NewGuid():N}",
+                Command = "exec /bin/sh",
+            });
+        Window window = (await owned.Value.GetWindowsAsync()).Single();
+        Pane pane = (await window.GetPanesAsync()).Single();
+
+        await using PaneTextObserver observer = new();
+        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+            pane,
+            new PaneTextWaitRequest
+            {
+                Patterns = ["observer-ready"],
+                SimpleMatch = true,
+                Timeout = TimeSpan.FromSeconds(5),
+            });
+        await pane.SendTextAsync("printf 'observer-%s\\n' ready");
+        PaneTextWaitResult result = await waiting;
+        if (result.Outcome is not (PaneTextWaitOutcome.Matched
+            or PaneTextWaitOutcome.PresentAtEntry))
+        {
+            throw new InvalidOperationException($"Pane text wait ended: {result.Outcome}");
+        }
+
+        Console.WriteLine($"{result.Outcome}: {string.Join(' ', result.Tail)}");
+        #endregion
+    }
+
     /// <summary>Waits for tmux to announce the window this created.</summary>
     [Example("Hold a client open and read an event nobody asked for")]
     public static async Task WatchForWindowAdd(Server server, CancellationToken ct)
