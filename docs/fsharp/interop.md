@@ -57,6 +57,18 @@ let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server
 A read that is safe to repeat whatever happened can use any retry policy; a
 command that changes tmux should be retried only on `NotSent`.
 
+## Bound how long tmux may take
+
+Bound one call with its token: pass `(new CancellationTokenSource(timeout)).Token`.
+A call cancelled that way raises `TmuxOperationCanceledException`, whose
+`CommandMayHaveExecuted` says whether tmux may already have run it, and which
+`TmuxFailure.MayHaveRun` matches.
+
+Bound every command a handle sends with `ServerConnectionOptions.CommandTimeout`.
+A command that outlasts it raises `TmuxTransportException` with an `Unknown`
+dispatch state. To give some calls a tighter bound than others, connect twice
+to the same socket with different options: both handles reach the same server.
+
 ## Typed options
 
 `Options.get` and `Options.set` take a `TmuxOptionKey` that knows its value's
