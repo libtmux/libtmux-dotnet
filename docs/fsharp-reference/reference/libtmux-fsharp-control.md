@@ -213,7 +213,10 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 Opens a control client, runs work, and disposes the client after the returned task completes.
 
-The cancellation token starts the client; the work function forwards its own token.
+The cancellation token starts the client; the work function forwards its
+ own token. Like <code>enter</code>, the client attaches to the most recently
+ used session; for a chosen one, pass <code>enterSession</code>&#39;s client to
+ <code>useSession</code>.
 
 **Parameters:**
 

@@ -39,7 +39,12 @@ module Control =
     val useSession: work: (IControlModeSession -> Task<'State>) -> session: IControlModeSession -> Task<'State>
 
     /// <summary>Opens a control client, runs work, and disposes the client after the returned task completes.</summary>
-    /// <remarks>The cancellation token starts the client; the work function forwards its own token.</remarks>
+    /// <remarks>
+    /// The cancellation token starts the client; the work function forwards its
+    /// own token. Like <c>enter</c>, the client attaches to the most recently
+    /// used session; for a chosen one, pass <c>enterSession</c>'s client to
+    /// <c>useSession</c>.
+    /// </remarks>
     val withSession:
         cancellationToken: CancellationToken ->
         work: (IControlModeSession -> Task<'State>) ->
