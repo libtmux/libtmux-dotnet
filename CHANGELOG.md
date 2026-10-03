@@ -13,9 +13,10 @@ version.
 ### Added
 
 - `Pane.Active`, `Pane.Dead`, `Pane.InMode`, `Pane.ProcessId`,
-  `Pane.Synchronized`, `Window.Active` and `Window.Zoomed` read a pane's and
-  window's state, and queries filter on them through tmux. `LibTmux.FSharp`
-  adds the matching `PaneFields` and `WindowFields`. (#53)
+  `Pane.Synchronized`, `Pane.HistorySize`, `Window.Active`, `Window.Zoomed`,
+  `Window.BellAlert`, `Window.ActivityAlert` and `Window.SilenceAlert` read a
+  pane's and window's state, and queries filter on them through tmux.
+  `LibTmux.FSharp` adds the matching `PaneFields` and `WindowFields`. (#53)
 - `LibTmux.FSharp.PaneRun.Exited`, `TimedOut` and `NotStarted` match how a
   `Pane.run` ended, and `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut`
   and `Ended` how a wait did. (#53)
