@@ -14,11 +14,13 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 ## By task
 
-- **Find and filter:** [Query](#query), [Filter](#filter), [Field](#field), [Relation](#relation), [SessionFields](#sessionfields), [WindowFields](#windowfields), [PaneFields](#panefields), [ClientFields](#clientfields), [ScreenSearch](#screensearch), [Selection](#selection), [CardinalityError](#cardinalityerror)
-- **Servers, sessions, windows and panes:** [Server](#server), [Session](#session), [Window](#window), [Pane](#pane), [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [Chain](#chain), [Options](#options), [WindowPlacementKey](#windowplacementkey)
-- **Wait, run and read results:** [PaneWait](#panewait), [PaneRun](#panerun)
-- **Live state and events:** [Control](#control), [Mirror](#mirror), [StreamStep](#streamstep), [Snapshot](#snapshot), [CaptureState](#capturestate)
-- **Failures and retries:** [TmuxFailure](#tmuxfailure), [Retry](#retry)
+| Task | Start with | Sections |
+|---|---|---|
+| Find and filter | [`Server.panes`](#server), [`Query.where`](#query), [`Query.list`](#query), [`Query.exactlyOne`](#query), [`Server.tryFindPane`](#server) | [Query](#query), [Filter](#filter), [Field](#field), [Relation](#relation), [SessionFields](#sessionfields), [WindowFields](#windowfields), [PaneFields](#panefields), [ClientFields](#clientfields), [ScreenSearch](#screensearch), [Selection](#selection), [CardinalityError](#cardinalityerror) |
+| Servers, sessions, windows and panes | [`Server.createOwned`](#server), [`Server.connect`](#server), [`Server.newSession`](#server), [`Pane.sendLine`](#pane), [`Pane.sendKeys`](#pane), [`Pane.split`](#pane) | [Server](#server), [Session](#session), [Window](#window), [Pane](#pane), [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [Chain](#chain), [Options](#options), [WindowPlacementKey](#windowplacementkey) |
+| Wait, run and read results | [`Pane.sendAndWait`](#pane), [`Pane.waitForText`](#pane), [`Pane.waitFor`](#pane), [`Pane.run`](#pane), [`Pane.capture`](#pane) | [PaneWait](#panewait), [PaneRun](#panerun) |
+| Live state and events | [`Control.withSession`](#control), [`Control.watchPane`](#control), [`Mirror.start`](#mirror), [`Mirror.tryWaitUntil`](#mirror), [`Server.capture`](#server) | [Control](#control), [Mirror](#mirror), [StreamStep](#streamstep), [Snapshot](#snapshot), [CaptureState](#capturestate) |
+| Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) | [TmuxFailure](#tmuxfailure), [Retry](#retry) |
 
 ## CaptureState
 
