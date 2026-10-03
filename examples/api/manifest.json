@@ -74,7 +74,7 @@
         "M:LibTmux.FSharp.Pane.currentCommand(LibTmux.Pane)",
         "T:LibTmux.FSharp.CaptureState`1"
       ],
-      "output": "Sessions have not been captured.\nThe captured active pane has a path and command.\nThe original handle is still uncaptured.\nCaptured sessions can be empty.\n"
+      "output": "Connected handle's sessions: not captured\nCaptured handle's sessions: captured 1\nActive pane reports a path: true; a command: true\nOriginal handle's sessions: not captured\nEmpty server's sessions: captured 0\n"
     },
     {
       "id": "fsharp-SelectionResults",
@@ -86,7 +86,7 @@
         "M:LibTmux.FSharp.Selection.exactlyOne``1(System.Collections.Generic.IEnumerable{``0})",
         "T:LibTmux.FSharp.CardinalityError"
       ],
-      "output": "One match: demo\nNo match: NoMatches\nTwo matches: MultipleMatches\n"
+      "output": "Sessions named demo: Ok demo\nSessions named missing: Error NoMatches\nEvery session: Error MultipleMatches\n"
     },
     {
       "id": "fsharp-LookupFailures",
@@ -98,7 +98,7 @@
         "M:LibTmux.FSharp.Server.tryFindSession(System.Threading.CancellationToken,LibTmux.SessionId,LibTmux.Server)",
         "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
       ],
-      "output": "A successful lookup can return None.\nCancellation remains OperationCanceledException.\nA blank client name remains ArgumentException.\nA stopped server remains a LibTmuxException.\n"
+      "output": "A session that does not exist: None\nA cancelled lookup: OperationCanceledException\nA blank client name: ArgumentException\nA server that has stopped: LibTmuxException\n"
     },
     {
       "id": "fsharp-CreateWindowPane",
@@ -110,7 +110,7 @@
         "T:LibTmux.FSharp.Server",
         "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)"
       ],
-      "output": "Created session demo and window editor.\nWindows: 2; panes: 3\n"
+      "output": "Created session demo and window editor.\nWindows: 2; panes: 3\nThe split made a new pane: true\n"
     },
     {
       "id": "fsharp-InputCapture",
@@ -122,7 +122,7 @@
         "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
-      "output": "api capture ready\n"
+      "output": "The shell signalled: true\nCaptured line: api capture ready\n"
     },
     {
       "id": "fsharp-Queries",
