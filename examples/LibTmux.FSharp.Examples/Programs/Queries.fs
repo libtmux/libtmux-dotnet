@@ -38,7 +38,7 @@ let runAsync () =
                 token
             )
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
 
         let! logs =
             server

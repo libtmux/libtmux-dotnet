@@ -39,7 +39,7 @@ let runAsync () =
             original
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 
