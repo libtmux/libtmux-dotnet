@@ -12,23 +12,132 @@ version.
 
 ### Added
 
-- `LibTmux.FSharp.Server` adds `listSessions`, `listWindows`, `listClients`,
-  `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
-  `None` for absent objects and propagate read errors and cancellation.
+- `LibTmux.FSharp.Server` adds `tryFindSession`, `tryFindWindow`, and
+  `tryFindClient`. Lookups return `None` for absent objects and propagate
+  read errors and cancellation.
+- `LibTmux.FSharp` reads every level through one query shape.
+  `Server.sessions`, `Server.windows`, `Server.panes`, `Server.clients`,
+  `Session.windows`, `Session.panes` and `Window.panes` return a `Query<'T>`;
+  `Query.where`, `Query.showing` and `Query.whereUnsafe` narrow it, and
+  `Query.list`, `Query.exactlyOne`, `Query.tryExactlyOne` and
+  `Query.atMostOne` read it. Building a query reads nothing. (#51)
+- `Query.list` passes a typed filter to tmux's `-f` where tmux can evaluate
+  it, then rechecks every row, so a listing reads only rows that can match.
+  Client listings are narrowed from tmux 3.4. (#51)
+- `Query.atMostOne` returns `None` only when nothing matched and raises on
+  several, for finding an object or creating it. Under NativeAOT, read one
+  row with it or `Query.tryExactlyOne`: FSharp.Core 10.1.302 formats the
+  `Result` from `Query.exactlyOne` through `printf`, which NativeAOT
+  publication rejects. (#51)
+- `LibTmux.FSharp.Filter` adds `ne`, `eqIgnoreCase`, `startsWithIgnoreCase`,
+  `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`,
+  `matches`, `matchesIgnoreCase`, `lt`, `le`, `gt`, `ge` and `notOneOf`.
+  (#51)
+- Queries filter on a pane's index, title, working directory, size, position
+  and edges, a window's index and size, `SessionFields.windowCount` and
+  `WindowFields.paneCount`, in C#, F# and the version 1 query schema. (#51)
+- `Query.showing` and `LibTmux.FSharp.Pane.findOnScreen` search a pane's
+  visible rows with tmux's own search, as `find-window -C` does. (#51)
+- `Server.SearchClientsAsync` lists the clients a raw tmux filter keeps. It
+  needs tmux 3.4. (#51)
+- `QueryExtensions.Translate` accepts `StartsWith`, `EndsWith`, `Contains`
+  and `Equals` with `StringComparison.Ordinal` or `OrdinalIgnoreCase`, and
+  query documents gain `startsWithOrdinalIgnoreCase`,
+  `endsWithOrdinalIgnoreCase` and `containsOrdinalIgnoreCase`. (#51)
+- `Pane.WaitForTextAsync` and `Pane.WaitUntilAsync` wait for pane output, or
+  a condition over the visible rows, without polling. They end early when the
+  pane's program exits or a full-screen program starts. (#51)
+- `Pane.SendKeysAndWaitAsync` and `Pane.SendTextAndWaitAsync` send keys and
+  wait for what the pane prints next. The earlier screen and the typed line's
+  echo do not count. (#51)
+- `Pane.RunAsync` runs a command at a POSIX shell prompt and returns its exit
+  status and output. (#51)
+- `LibTmux.FSharp.Pane` adds `sendAndWait`, `sendAndWaitFor`, `waitForText`,
+  `waitFor`, `waitUntil` and `run`. (#51)
+- `ServerMirror` keeps a live copy of a server's sessions, windows, panes and
+  clients, recaptured on each change tmux announces and optionally on an
+  interval. `LibTmux.FSharp.Mirror` wraps it. (#51)
+- `TmuxOptionKey<T>`, `TmuxOptions.GetAsync<T>` and `TmuxOptions.SetAsync<T>`
+  read and write an option as its type. `LibTmux.FSharp.Options` wraps them.
+  (#51)
+- `Server.Within(TimeSpan)` returns a handle over the same connection whose
+  commands, and those of every handle taken from it, carry that timeout.
+  `LibTmux.FSharp.Server.within` wraps it. (#51)
+- `LibTmux.FSharp.Server.newSession` creates a session described by
+  `SessionSpec`, `WindowSpec` and `SplitSpec` records. (#51)
+- `LibTmux.FSharp.Chain` runs a pipeline of named steps, `newWindow`,
+  `splitLeftRight`, `splitTopBottom`, `sendLine` and `arrange`, in one tmux
+  call. (#51)
+- `LibTmux.FSharp.TmuxFailure` matches a failure as `NotSent`, `Ran` or
+  `MayHaveRun`, and `Retry.ifNotSent` repeats an operation only when nothing
+  it sent reached tmux. (#51)
+- `PaneObservation.WatchAsync` follows several panes through one control
+  client. `LibTmux.FSharp.Control` adds `watchPanes`, `watchPane`, `events`,
+  `enterSession` and `cleanupFailure`. (#51)
+- A control client keeps notifications through a flooding pane: a full buffer
+  drops that pane's oldest output first, `TmuxEventsDroppedEvent.OnlyOutput`
+  says no notification was lost, and tmux pauses the pane until the reader
+  catches up. (#51)
 
 ### Fixed
 
 - `LibTmux.Testing` gives each default test scope its own tmux socket, so
   parallel scopes cannot stop one another's servers. (#36)
+- Disposing an `OwnedServerScope` returns once the tmux server process has
+  exited, not when `kill-server` answers. (#51)
+- `LibTmux.FSharp` loads in a project built with the .NET 8 SDK, where it
+  failed with `FileNotFoundException`. It now requires FSharp.Core 8.0.100 or
+  later. (#51)
+- `LibTmux.FSharp` task functions no longer resume on the caller's
+  `SynchronizationContext`, so blocking on one from a UI thread cannot
+  deadlock. (#51)
+- The MCP server's `wait_for_text` reports `PaneDied` as soon as the pane's
+  program exits, and reads the pane once more before it reports a timeout.
+  (#51)
+- The MCP server's `run_shell_command` checks a command that outlived its
+  timeout every 5 seconds, not every 100 ms. (#51)
 
 ### Changed
 
+- **`%pause` and `%continue` arrive as `TmuxPanePausedEvent` and
+  `TmuxPaneContinuedEvent`, not `TmuxNotificationEvent`.** Match the typed
+  events instead of the names `pause` and `continue`. (#51)
+- `PaneObservation.WatchAsync` passes through the watched pane's pause and
+  continue events, which bracket output it did not receive. (#51)
+- `Filter.oneOf`, `Filter.anyOf` and `Filter.allOf` accept an empty list:
+  `oneOf []` and `anyOf []` match nothing, and `allOf []` matches everything.
+  (#51)
+- `Query.matching` and `Filter.toPredicate` no longer require unreferenced
+  code, so trimmed and NativeAOT applications can call them. (#51)
+
 ### Removed
+
+- **`LibTmux.FSharp.Server.listPanes` is removed.** Use
+  `server |> Server.panes |> Query.list ct`. (#51)
+- **`LibTmux.FSharp.Query.matchingWithCancellation` is removed.** Use
+  `Query.matching`, or `Filter.toPredicate` in a sequence the caller can stop.
+  (#51)
+- **`LibTmux.FSharp.Control.iterEvents` and `foldEventsWhile` are removed.**
+  Use `Control.events` with `Control.iter` or `Control.foldWhile`, which take
+  any `IAsyncEnumerable`. (#51)
 
 ### Development
 
 - macOS real-tmux CI waits for observable pane state and offers a restricted
   debug shell for investigating runner failures. (#36)
+- CI builds and runs an F# consumer with the .NET 8 SDK against the packed
+  `LibTmux.FSharp`. (#51)
+- CI compares what every F# example program and the README quickstart print
+  with their recorded output, on every supported tmux. (#51)
+- An integration test fails a pushed-down query that starts more tmux
+  processes or reads more rows than it needs. (#51)
+- A hung integration test fails its lane after five minutes with a dump that
+  names the test. (#51)
+- Benchmarks record F# query, pushdown, control-fold, task and pane-watch
+  costs, and the `benchmarks` workflow records them on a hosted runner. (#51)
+- ADR 0008 records that typed filters reach tmux with a local recheck, ADR
+  0009 that the F# facade covers idioms rather than every core operation, and
+  ADR 0010 that it still builds sessions and chains and bounds handles. (#51)
 
 ## [0.0.0-alpha.17] — 2026-09-27
 
