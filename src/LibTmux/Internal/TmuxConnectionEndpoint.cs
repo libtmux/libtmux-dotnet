@@ -8,6 +8,9 @@ namespace LibTmux.Internal;
 /// <summary>Resolves one immutable connection endpoint and its child environment.</summary>
 internal static class TmuxConnectionEndpoint
 {
+    /// <summary>The socket tmux uses when a caller names none.</summary>
+    internal const string DefaultSocketName = "default";
+
     private const string DefaultSocketRoot = "/tmp";
     private const string SocketNameVariable = "LIBTMUX_SOCKET_NAME";
     private const string SocketPathVariable = "LIBTMUX_SOCKET_PATH";
@@ -44,7 +47,7 @@ internal static class TmuxConnectionEndpoint
             }
 
             socketName ??= environmentSocketName;
-            socketName ??= "default";
+            socketName ??= DefaultSocketName;
             ResolvedSocketRoot socketRoot = ResolveSocketRoot(options.ChildEnvironment);
             childEnvironment = FreezeChildEnvironment(
                 options.ChildEnvironment,

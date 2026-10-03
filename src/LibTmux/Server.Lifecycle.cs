@@ -207,13 +207,31 @@ public sealed partial class Server
     /// window, and pane listings and <see cref="CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />
     /// discover the live server on each call, and the objects they return
     /// carry the discovered handle.
+    /// <para>
+    /// On the default socket, the one a caller gets by naming none, a server
+    /// already listening is refused rather than adopted: disposing the scope
+    /// stops the server, and on a developer's machine the default socket holds
+    /// the one they are using. A named socket or path stays the caller's to
+    /// adopt deliberately.
+    /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(
         ServerConnectionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         Server endpoint = Open(options ?? ServerConnectionOptions.Default);
+        if (endpoint.Connection is
+            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } }
+            && await endpoint.IsAliveAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException(
+                "A tmux server is already listening on the default socket. Refusing to own it: "
+                + "disposing the scope would stop a server this call did not start. Name a socket "
+                + "of your own, or use ConnectAsync to attach without owning it.");
+        }
+
         var sequence = new TmuxMutationSequence();
         await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
             .ConfigureAwait(false);
@@ -383,6 +401,7 @@ public sealed class OwnedServerScope : IAsyncDisposable
 
     /// <summary>Stops the owned server.</summary>
     /// <returns>A task that completes once the server process has exited.</returns>
+    /// <remarks>A call that fails leaves the scope undisposed, so calling again retries.</remarks>
     /// <exception cref="LibTmuxException">The server could not be stopped, or had not exited within five seconds.</exception>
     [UnsupportedOSPlatform("windows")]
     public async ValueTask DisposeAsync()
@@ -396,11 +415,20 @@ public sealed class OwnedServerScope : IAsyncDisposable
         // caller still needs its server gone; it bounds itself instead so a
         // wedged socket cannot hang disposal forever.
         using CancellationTokenSource cleanup = new(CleanupTimeout);
-        int? processId = await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
-        await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
-        if (processId is int id)
+        try
         {
-            await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
+            int? processId = await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
+            await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
+            if (processId is int id)
+            {
+                await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // The server may still be running, so a later call tries again.
+            Volatile.Write(ref _disposed, 0);
+            throw;
         }
     }
 
