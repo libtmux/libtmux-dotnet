@@ -212,7 +212,9 @@ public sealed partial class Server
     /// already listening is refused rather than adopted: disposing the scope
     /// stops the server, and on a developer's machine the default socket holds
     /// the one they are using. A named socket or path stays the caller's to
-    /// adopt deliberately.
+    /// adopt deliberately. The check and the start are two tmux calls, so two
+    /// callers that own the default socket at the same moment can both pass
+    /// it; give each owned server a socket of its own.
     /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
