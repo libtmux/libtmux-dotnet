@@ -8,6 +8,10 @@ public sealed class ServerMirrorFingerprintTests
 {
     [Theory]
     [InlineData("client_activity_string")]
+    [InlineData("client_written")]
+    [InlineData("client_discarded")]
+    [InlineData("window_offset_x")]
+    [InlineData("window_offset_y")]
     [InlineData("saved_cursor_x")]
     [InlineData("saved_cursor_y")]
     [InlineData("synchronized_output_flag")]
