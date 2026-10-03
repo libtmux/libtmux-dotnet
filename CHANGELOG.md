@@ -43,6 +43,8 @@ version.
   synchronized-output toggles no longer count as changes. (#53)
 - `RunShellRequest.Delay` keeps its fraction of a second; half a second ran
   at once. (#53)
+- `Server.CreateOwnedAsync` stops a server it started when it then fails or
+  is cancelled; it left the server running with nothing to stop it. (#53)
 - Package pages on nuget.org no longer open with the logo's HTML shown as
   text. (#53)
 
