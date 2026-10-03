@@ -18,6 +18,21 @@ public sealed partial class Pane
     /// <summary>Gets whether the pane touches the right of its window.</summary>
     public bool AtRight => ReadSnapshot("pane_at_right") == "1";
 
+    /// <summary>Gets whether the pane is its window's active pane.</summary>
+    public bool Active => ReadSnapshot("pane_active") == "1";
+
+    /// <summary>Gets whether the pane's program has exited and the pane remains.</summary>
+    /// <remarks>A pane outlives its program only while <c>remain-on-exit</c> is on.</remarks>
+    public bool Dead => ReadSnapshot("pane_dead") == "1";
+
+    /// <summary>Gets whether the pane is in a mode, such as copy mode.</summary>
+    /// <remarks>tmux reports how many modes are stacked on the pane; any number but zero is true.</remarks>
+    public bool InMode => ReadSnapshot("pane_in_mode") is not (null or "" or "0");
+
+    /// <summary>Gets the process ID of the program the pane started.</summary>
+    /// <remarks>A dead pane keeps the ID of the program that exited.</remarks>
+    public int ProcessId => ReadCapturedInt("pane_pid", "process ID");
+
     /// <summary>Gets the pane height captured with this handle.</summary>
     public int Height => ReadCapturedInt("pane_height", "height");
 

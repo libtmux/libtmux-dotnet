@@ -553,6 +553,10 @@ LibTmux.Pane.AtBottom.get -> bool
 LibTmux.Pane.AtLeft.get -> bool
 LibTmux.Pane.AtRight.get -> bool
 LibTmux.Pane.AtTop.get -> bool
+LibTmux.Pane.Active.get -> bool
+LibTmux.Pane.Dead.get -> bool
+LibTmux.Pane.InMode.get -> bool
+LibTmux.Pane.ProcessId.get -> int
 LibTmux.Pane.BreakAsync(string? windowName = null, bool detach = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
 LibTmux.Pane.CaptureAsync(LibTmux.CapturePaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.Pane.CaptureToBufferAsync(string! bufferName, LibTmux.CapturePaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -1579,6 +1583,8 @@ LibTmux.Window.SplitPaneAsync(LibTmux.SplitPaneRequest? request = null, System.T
 LibTmux.Window.SwapAsync(LibTmux.WindowId target, bool detach = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Window.UnlinkAsync(bool killIfLast = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Window.Width.get -> int
+LibTmux.Window.Active.get -> bool
+LibTmux.Window.Zoomed.get -> bool
 LibTmux.WindowDirection
 LibTmux.WindowDirection.After = 1 -> LibTmux.WindowDirection
 LibTmux.WindowDirection.Before = 0 -> LibTmux.WindowDirection

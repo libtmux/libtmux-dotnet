@@ -284,6 +284,68 @@ public sealed class PushdownDifferentialTests
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 
+    [UnixFact]
+    public async Task Pane_and_window_state_flags_answer_what_a_snapshot_answers()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await raw.ExecuteAsync(["set-option", "-g", "automatic-rename", "off"], token);
+        await raw.ExecuteAsync(["new-session", "-d", "-s", "flags", "-n", "modes", "-x", "120", "-y", "40", "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:modes", "sh"], token);
+        await raw.ExecuteAsync(["copy-mode", "-t", "flags:modes.0"], token);
+
+        // tmux counts stacked modes, so this pane reports 2 and must still
+        // count as in a mode.
+        await raw.ExecuteAsync(["copy-mode", "-t", "flags:modes.1"], token);
+        await raw.ExecuteAsync(["clock-mode", "-t", "flags:modes.1"], token);
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "zoom", "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:zoom", "sh"], token);
+        await raw.ExecuteAsync(["resize-pane", "-Z", "-t", "flags:zoom.0"], token);
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
+        await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
+        await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:dead", "true"], token);
+        await raw.ExecuteAsync(["wait-for", "died"], token);
+        Server server = await ConnectAsync(raw, token);
+        Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Pane[] panes = [.. snapshot.Panes];
+        Window[] windows = [.. snapshot.Windows];
+        Session[] sessions = [.. snapshot.Sessions];
+        int pid = panes.First(pane => !pane.Dead).ProcessId;
+        List<string> disagreements = [];
+
+        async Task Agree<T>(Expression<Func<T, bool>> predicate, IEnumerable<T> universe, QueryTarget target, Func<T, string> key)
+        {
+            QueryDocument document = QueryExtensions.Translate(predicate);
+            string[] expected = [.. universe.Where(document.Compile<T>()).Select(key)];
+            string[] actual = [.. (await server.QueryAsync<T>(new ListingRequest(target, Filter: document), token)).Select(key)];
+            if (!expected.SequenceEqual(actual))
+            {
+                disagreements.Add($"{predicate.Body}: expected [{string.Join("|", expected)}], got [{string.Join("|", actual)}]");
+            }
+        }
+
+        string PaneKey(Pane pane) => pane.Id.ToString();
+        await Agree<Pane>(pane => pane.Active, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => !pane.Active && !pane.InMode, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.InMode, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Dead, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.ProcessId == pid, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Window>(window => window.Active, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => window.Zoomed && !window.Active, windows, QueryTarget.Window, Key);
+        await Agree<Session>(
+            session => session.Windows.Any(window => window.Zoomed),
+            sessions,
+            QueryTarget.Session,
+            session => session.Id.ToString());
+
+        Assert.Contains(panes, pane => pane.RawFormatFields["pane_in_mode"] == "2");
+        Assert.Equal(2, panes.Count(pane => pane.InMode));
+        Assert.Single(panes, pane => pane.Dead);
+        Assert.Single(windows, window => window.Zoomed);
+        Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
+    }
+
     // Wall time is too noisy to gate on; the tmux processes a query starts and
     // the rows tmux returns are exact, so a pushdown that silently fell back to
     // a full read fails here.

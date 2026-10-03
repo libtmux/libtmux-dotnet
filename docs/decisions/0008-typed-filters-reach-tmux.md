@@ -38,8 +38,9 @@ nothing rechecks them.
 The version 1 catalog grows during the prerelease line. It adds `pane_index`,
 `pane_title`, `pane_current_path`, `pane_width`, `pane_height`, `pane_left`,
 `pane_top`, `pane_at_top`, `pane_at_bottom`, `pane_at_left`, `pane_at_right`,
-`window_index`, `window_width` and `window_height`. The wire grammar stays
-closed: a reader rejects a name it does not know.
+`pane_active`, `pane_dead`, `pane_in_mode`, `pane_pid`, `window_index`,
+`window_width`, `window_height`, `window_active` and `window_zoomed_flag`. The
+wire grammar stays closed: a reader rejects a name it does not know.
 
 ## Alternatives
 

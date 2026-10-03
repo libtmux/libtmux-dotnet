@@ -119,10 +119,12 @@ Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLim
 
 Sessions: `session_name`, `session_attached`, `session_id`, `session_windows`.
 Windows: `window_name`, `window_id`, `window_index`, `window_width`,
-`window_height`, `window_panes`. Panes: `pane_id`, `pane_command`,
-`pane_index`, `pane_title`, `pane_current_path`, `pane_width`, `pane_height`,
-`pane_left`, `pane_top`, `pane_at_top`, `pane_at_bottom`, `pane_at_left`,
-`pane_at_right`. Clients: `client_id`, `client_name`, `client_control_mode`.
+`window_height`, `window_panes`, `window_active`, `window_zoomed_flag`. Panes:
+`pane_id`, `pane_command`, `pane_index`, `pane_title`, `pane_current_path`,
+`pane_width`, `pane_height`, `pane_left`, `pane_top`, `pane_at_top`,
+`pane_at_bottom`, `pane_at_left`, `pane_at_right`, `pane_active`, `pane_dead`,
+`pane_in_mode`, `pane_pid`. Clients: `client_id`, `client_name`,
+`client_control_mode`.
 
 You write these as the properties they are, such as `Session.Name`,
 `Pane.Width`, `Client.IsControlClient` and `Pane.CurrentCommand`. The v1 name

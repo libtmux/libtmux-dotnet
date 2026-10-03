@@ -239,10 +239,11 @@ internal static class TmuxFilterRenderer
 
     private static Bounds Negate(Bounds operand) => new(Not(operand.Lower), Not(operand.Upper));
 
-    // Session.Attached is any value other than empty or 0, which is tmux's own
-    // truth test; the other flags are true only as 1.
+    // session_attached and pane_in_mode are counts, true as any value other
+    // than empty or 0, which is tmux's own truth test; the other flags are
+    // true only as 1.
     private static string Truthy(FieldNode field, string token) =>
-        field.WireName == "session_attached" ? token : $"#{{==:{token},1}}";
+        field.WireName is "session_attached" or "pane_in_mode" ? token : $"#{{==:{token},1}}";
 
     private static Bounds Comparison(ComparisonNode comparison)
     {
