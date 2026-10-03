@@ -267,6 +267,64 @@ public sealed class PushdownDifferentialTests
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 
+    // Wall time is too noisy to gate on; the tmux processes a query starts and
+    // the rows tmux returns are exact, so a pushdown that silently fell back to
+    // a full read fails here.
+    [UnixFact]
+    public async Task A_pushed_down_listing_reads_only_matching_rows_in_as_few_tmux_processes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await raw.ExecuteAsync(["set-option", "-g", "automatic-rename", "off"], token);
+        foreach (string name in new[] { "alpha", "beta", "gamma" })
+        {
+            await raw.ExecuteAsync(["new-session", "-d", "-s", name, "-n", name == "beta" ? "target" : "other", "sh"], token);
+        }
+
+        int processes = 0;
+        int rows = 0;
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Interceptor = async (_, next, cancellationToken) =>
+                {
+                    Interlocked.Increment(ref processes);
+                    TmuxCommandResult result = await next(cancellationToken);
+                    Interlocked.Add(ref rows, result.StandardOutputLines.Count);
+                    return result;
+                },
+            },
+            token);
+        _ = await server.GetSessionsAsync(token);
+
+        async Task<(int Processes, int Rows, string[] Names)> CountAsync<T>(ListingRequest request, Func<T, string> name)
+        {
+            Interlocked.Exchange(ref processes, 0);
+            Interlocked.Exchange(ref rows, 0);
+            IReadOnlyList<T> found = await server.QueryAsync<T>(request, token);
+            return (Volatile.Read(ref processes), Volatile.Read(ref rows), [.. found.Select(name)]);
+        }
+
+        QueryDocument windowNamed = QueryExtensions.Translate<Window>(window => window.Name == "target");
+        QueryDocument sessionWithTarget = QueryExtensions.Translate<Session>(
+            session => session.Windows.Any(window => window.Name == "target"));
+
+        (int windowProcesses, int windowRows, string[] windows) = await CountAsync<Window>(
+            new ListingRequest(QueryTarget.Window, Filter: windowNamed),
+            window => window.Name);
+        (int relationProcesses, int relationRows, string[] sessions) = await CountAsync<Session>(
+            new ListingRequest(QueryTarget.Session, Filter: sessionWithTarget),
+            session => session.Name);
+
+        Assert.Equal(["target"], windows);
+        Assert.Equal(["beta"], sessions);
+        Assert.Equal((1, 2), (windowProcesses, windowRows));
+        Assert.Equal((2, 4), (relationProcesses, relationRows));
+    }
+
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
