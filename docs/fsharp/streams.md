@@ -286,8 +286,10 @@ notification was discarded, so state derived from notifications is still
 exact. The client then pauses the flooding pane in tmux until the reader
 catches up: `TmuxPanePausedEvent` and `TmuxPaneContinuedEvent` bracket output
 the pane printed that the reader never receives, and a client nobody reads
-keeps the pane paused. Capture the pane to read its screen after a gap. `TmuxExitEvent` precedes normal stream
-completion. A stream fault arrives after buffered events. Cancellation stops
+keeps the pane paused. The pause is the client's own `refresh-client -A`,
+sent when its buffer fills; it does not set tmux's age-based `pause-after`,
+so a reader that keeps up never sees a pause. Capture the pane to read its
+screen after a gap. `TmuxExitEvent` precedes normal stream completion. A stream fault arrives after buffered events. Cancellation stops
 waiting and disposes the reader; it does not undo a command tmux already
 received.
 

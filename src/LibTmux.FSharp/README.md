@@ -71,6 +71,24 @@ Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
 targets `net8.0` and `net10.0`.
 
+## Choose a call
+
+| Need | F# call | Result |
+| --- | --- | --- |
+| List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
+| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several; under NativeAOT use `Query.tryExactlyOne`, which returns an `option` |
+| A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
+| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
+| A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
+| React to events as they happen | `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client |
+
+Captured sessions, windows, panes, and IDs are the core .NET types. A window
+linked into more than one session has contextual placements; filtering keeps
+their order and multiplicity. An uncaptured relationship raises
+`IncompleteSnapshotException` rather than behaving as empty.
+
 ## Quick start
 
 Install tmux and make sure it is available on `PATH`.
@@ -203,24 +221,6 @@ owned setup. `ConnectAsync` never starts tmux. A bare `ConnectAsync()` resolves
 the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
 explains the configuration order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to locate that pane's server.
-
-## Choose a call
-
-| Need | F# call | Result |
-| --- | --- | --- |
-| List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
-| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several; under NativeAOT use `Query.tryExactlyOne`, which returns an `option` |
-| A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
-| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
-| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
-| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
-| A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
-| React to events as they happen | `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client |
-
-Captured sessions, windows, panes, and IDs are the core .NET types. A window
-linked into more than one session has contextual placements; filtering keeps
-their order and multiplicity. An uncaptured relationship raises
-`IncompleteSnapshotException` rather than behaving as empty.
 
 ## Keep going
 
