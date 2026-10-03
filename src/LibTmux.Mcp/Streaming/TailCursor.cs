@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LibTmux.Internal;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
@@ -32,7 +33,7 @@ internal sealed record TailCursor(
     string? BelowHash,
     int SuffixCount,
     string? SuffixHash,
-    string? RowHashes)
+    string? RowHashes) : IPaneTextGridCursor
 {
     private const int CurrentVersion = 3;
     private const int DigestHexLength = 64;
@@ -79,6 +80,8 @@ internal sealed record TailCursor(
     /// <returns>The packed digests, one <c>RowDigestBytes</c> run per row.</returns>
     internal byte[]? TrackedRowDigests() =>
         RowHashes is null ? null : FromBase64Url(RowHashes);
+
+    byte[]? IPaneTextGridCursor.TrackedRowDigests() => TrackedRowDigests();
 
     /// <summary>Answers whether a tracked row still holds the text it was seen with.</summary>
     /// <param name="digests">The digests <see cref="TrackedRowDigests" /> returned.</param>

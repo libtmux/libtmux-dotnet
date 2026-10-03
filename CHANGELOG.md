@@ -12,6 +12,11 @@ version.
 
 ### Added
 
+- `PaneTextObserver.WaitForTextAsync` waits for rendered pane text with a shared
+  control client and a bounded final capture. Its result distinguishes text
+  already present, new matches, stop patterns, any new output, timeout and pane
+  death, and reports event loss, grid loss and polling fallback.
+
 - Workspace command lists accept tmuxp-style `{cmd: ...}` entries alongside
   scalar commands at session, window and pane scope. Unsupported command
   modifiers fail with the declaration path and source location.
@@ -121,6 +126,10 @@ version.
   characters when creating windows and panes.
 
 ### Changed
+
+- MCP `wait_for_text` now gives a stop pattern priority over a wanted pattern
+  already visible on the initial screen. A screen containing both returns
+  `Stopped` instead of `PresentAtEntry`.
 
 - **`WorkspaceBuilder.BuildAsync` uses the plan/apply engine and sends input
   immediately by default.** Use `WorkspacePlanOptions.Readiness =

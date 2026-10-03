@@ -1,7 +1,7 @@
+using System.Globalization;
 using System.Runtime.Versioning;
-using LibTmux.Internal;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Where a pane's grid stands at one instant.</summary>
 /// <param name="PanePid">The process the pane started. A new one means a new pane.</param>
@@ -17,7 +17,7 @@ namespace LibTmux.Mcp;
 /// belongs to neither.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-internal sealed record PaneGridState(
+internal sealed record PaneTextGridState(
     string PanePid,
     int HistorySize,
     int HistoryLimit,
@@ -26,6 +26,10 @@ internal sealed record PaneGridState(
     bool Dead,
     bool AlternateScreen)
 {
+    private const string Format =
+        "#{pane_pid}\t#{history_size}\t#{history_limit}\t#{pane_height}"
+        + "\t#{cursor_y}\t#{pane_dead}\t#{alternate_on}";
+
     /// <summary>Gets the absolute position of the row the cursor is on.</summary>
     /// <remarks>
     /// Counted from the oldest line tmux still holds. It survives scrolling,
@@ -37,21 +41,39 @@ internal sealed record PaneGridState(
     /// <param name="pane">The pane to read.</param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The state, or null when tmux answered nothing readable.</returns>
-    internal static async Task<PaneGridState?> ReadAsync(
+    internal static async Task<PaneTextGridState?> ReadAsync(
         Pane pane,
         CancellationToken cancellationToken)
     {
-        PaneTextGridState? state = await PaneTextGridState.ReadAsync(pane, cancellationToken)
+        IReadOnlyList<string>? lines = await pane.DisplayMessageAsync(
+                new DisplayMessageRequest { Message = Format, ReturnText = true },
+                cancellationToken)
             .ConfigureAwait(false);
-        return state is null ? null : FromCore(state);
+        string? line = lines is { Count: > 0 } ? lines[0] : null;
+        if (line is null)
+        {
+            return null;
+        }
+
+        string[] parts = line.Split('\t');
+        if (parts.Length < 7)
+        {
+            throw new InvalidDataException(
+                $"tmux returned an incomplete grid state for pane {pane.Id}.");
+        }
+
+        return new PaneTextGridState(
+            PanePid: parts[0],
+            HistorySize: Int(parts[1]),
+            HistoryLimit: Int(parts[2]),
+            PaneHeight: Int(parts[3]),
+            CursorY: Int(parts[4]),
+            Dead: parts[5] == "1",
+            AlternateScreen: parts[6] == "1");
     }
 
-    internal static PaneGridState FromCore(PaneTextGridState state) => new(
-        state.PanePid,
-        state.HistorySize,
-        state.HistoryLimit,
-        state.PaneHeight,
-        state.CursorY,
-        state.Dead,
-        state.AlternateScreen);
+    private static int Int(string text) =>
+        int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)
+            ? parsed
+            : 0;
 }

@@ -56,6 +56,20 @@ public sealed class WaitInputBudgetTests
     }
 
     [Fact]
+    public void Oversized_pattern_lists_are_rejected_without_enumeration()
+    {
+        var patterns = new OversizedPatternList();
+
+        McpException mcp = Assert.Throws<McpException>(() =>
+            ReadTools.ValidateWaitPatterns(patterns, null, 4_000));
+        Assert.Contains("32", mcp.Message, StringComparison.Ordinal);
+
+        ArgumentException core = Assert.Throws<ArgumentException>(() =>
+            new PaneTextWaitRequest { Patterns = patterns });
+        Assert.Contains("32", core.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Escaping_that_cannot_fit_the_result_is_rejected()
     {
         string escaped = new('\n', 700);
@@ -125,5 +139,15 @@ public sealed class WaitInputBudgetTests
             TestContext.Current.CancellationToken));
 
         Assert.Contains("matching work limit", error.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class OversizedPatternList : IReadOnlyList<string>
+    {
+        public int Count => int.MaxValue;
+        public string this[int index] => throw new InvalidOperationException("Must not read entries.");
+        public IEnumerator<string> GetEnumerator() =>
+            throw new InvalidOperationException("Must not enumerate entries.");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+            GetEnumerator();
     }
 }

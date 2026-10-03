@@ -36,6 +36,62 @@ payload the same way it escapes an option value, and this undoes that:
 
 becomes a `TmuxOutputEvent` whose `Data` holds the real control bytes.
 
+## Wait for rendered text
+
+`PaneTextObserver` waits for text in a pane's rendered grid. It owns the
+control client that wakes the wait and borrows the pane and daemon. Dispose the
+observer when the wait is done. The example creates an owned session so its
+cleanup leaves the connected daemon running. Its `printf` command constructs
+the marker at execution time; the command's own echo cannot satisfy the wait.
+
+<!-- snippet: WaitForPaneText usings: LibTmux -->
+```csharp
+using LibTmux;
+
+Server server = await Server.ConnectAsync(new ServerConnectionOptions
+{
+    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+});
+await using OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+    new NewSessionRequest
+    {
+        Name = $"text-wait-{Guid.NewGuid():N}",
+        Command = "exec /bin/sh",
+    });
+Window window = (await owned.Value.GetWindowsAsync()).Single();
+Pane pane = (await window.GetPanesAsync()).Single();
+
+await using PaneTextObserver observer = new();
+Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+    pane,
+    new PaneTextWaitRequest
+    {
+        Patterns = ["observer-ready"],
+        SimpleMatch = true,
+        Timeout = TimeSpan.FromSeconds(5),
+    });
+await pane.SendTextAsync("printf 'observer-%s\\n' ready");
+PaneTextWaitResult result = await waiting;
+if (result.Outcome is not (PaneTextWaitOutcome.Matched
+    or PaneTextWaitOutcome.PresentAtEntry))
+{
+    throw new InvalidOperationException($"Pane text wait ended: {result.Outcome}");
+}
+
+Console.WriteLine($"{result.Outcome}: {string.Join(' ', result.Tail)}");
+```
+<!-- endsnippet -->
+
+`PresentAtEntry` means the pattern was already on screen; `Matched` means it
+appeared after the first read. A stop pattern yields `Stopped` and takes
+priority over a wanted pattern on the same screen, including the first read.
+No patterns yield `AnyOutput` on new text, and a dead pane yields `PaneDied`.
+With no match, the observer reserves a final grid read and stays subscribed
+until the effective timeout, so late output can still match. The result includes a bounded
+`Tail` and reports `EventsDropped`, `LinesMissed`, `AnchorLost`, and
+`PollingFallback` when observation loses information. Control loss is an error
+unless the observer was explicitly constructed with `allowPollingFallback: true`.
+
 ## Two things worth knowing
 
 Entering control mode **attaches**. A control client that never attaches is

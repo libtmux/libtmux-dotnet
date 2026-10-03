@@ -54,6 +54,25 @@ internal static class Program
             Window window = scope.Window;
             Pane pane = scope.Pane;
 
+            await using PaneTextObserver observer = new();
+            Task<PaneTextWaitResult> textWait = observer.WaitForTextAsync(
+                pane,
+                new PaneTextWaitRequest
+                {
+                    Patterns = ["aot-observer-ready"],
+                    Timeout = TimeSpan.FromSeconds(3),
+                });
+            await pane.SendKeysAsync(new SendKeysRequest
+            {
+                Text = "printf 'aot-%s\\n' observer-ready",
+                Literal = true,
+            });
+            PaneTextWaitResult textObserved = await textWait;
+            bool observerWorks = (textObserved.Outcome is PaneTextWaitOutcome.Matched
+                or PaneTextWaitOutcome.PresentAtEntry)
+                && textObserved.Tail.Any(line => line.Contains(
+                    "aot-observer-ready", StringComparison.Ordinal));
+
             await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"));
             TmuxOption option = (await window.Options.GetAsync(
                 new GetOptionRequest("automatic-rename")))[0];
@@ -77,6 +96,7 @@ internal static class Program
                 && related[0].LinkedSessions.Single().Name == sessionName
                 && graphPlan.PushedPredicate is null && graphPlan.ResidualPredicate is not null;
             Console.WriteLine($"query-source {sourceQueries}");
+            Console.WriteLine($"pane-observer {observerWorks}");
 
             Console.WriteLine($"session {session.Name}");
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");
@@ -91,6 +111,7 @@ internal static class Program
                 && queryMatches
                 && queryTranslates
                 && sourceQueries
+                && observerWorks
                 ? 0
                 : 1;
         }

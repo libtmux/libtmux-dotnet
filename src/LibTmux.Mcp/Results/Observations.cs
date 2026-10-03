@@ -111,6 +111,12 @@ public sealed record WaitResult(
     /// The session-wide count can include notifications about other panes.
     /// </remarks>
     public long EventsDropped { get; init; }
+
+    /// <summary>Gets whether unread rendered lines may have been lost.</summary>
+    public bool LinesMissed { get; init; }
+
+    /// <summary>Gets whether the prior grid anchor could not be recovered.</summary>
+    public bool AnchorLost { get; init; }
 }
 
 /// <summary>What happened while waiting on a tmux wait-for channel.</summary>
