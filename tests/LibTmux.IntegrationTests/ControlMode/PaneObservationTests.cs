@@ -291,6 +291,49 @@ public sealed class PaneObservationTests
     }
 
     [UnixFact]
+    public async Task Panes_gone_together_each_end_once_in_the_order_given()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane first = await server.GetPaneAsync(new PaneId(0), token);
+        Pane second = await first.SplitAsync(cancellationToken: token);
+        await first.SplitAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        await using var delivery = new WatermarkedSession(control, capacity: 16);
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        IAsyncEnumerable<TmuxEvent> watch = delivery.WatchAsync([second, first], watchdog.Token);
+
+        await second.KillAsync(cancellationToken: token);
+        await first.KillAsync(cancellationToken: token);
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(first.Id, "first-last"));
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(second.Id, "second-last"));
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
+        var observed = new List<string>();
+        await foreach (TmuxEvent item in watch)
+        {
+            observed.Add(item switch
+            {
+                TmuxOutputEvent output => output.Data,
+                TmuxPaneGoneEvent gone => $"gone {gone.PaneId}",
+                _ => item.GetType().Name,
+            });
+        }
+
+        Assert.Equal(["first-last", "second-last", $"gone {second.Id}", $"gone {first.Id}"], observed);
+
+        // Enumerating the same stream again watches both panes again.
+        var again = new List<PaneId>();
+        await foreach (TmuxEvent item in watch)
+        {
+            again.Add(Assert.IsType<TmuxPaneGoneEvent>(item).PaneId);
+        }
+
+        Assert.Equal([second.Id, first.Id], again);
+    }
+
+    [UnixFact]
     public async Task A_lost_arrangement_notification_still_terminates_the_watch()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

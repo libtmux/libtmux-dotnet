@@ -16,11 +16,11 @@ namespace LibTmux;
 /// </remarks>
 public sealed record TmuxPaneGoneEvent(PaneId PaneId) : TmuxEvent;
 
-/// <summary>Narrows a control client's event stream to one pane, and ends it cleanly.</summary>
+/// <summary>Narrows a control client's event stream to some panes, and ends it cleanly.</summary>
 /// <remarks>
 /// A killed pane's session and window usually survive it, so the general
 /// event stream just keeps running - the closest thing tmux sends is a
-/// <c>%layout-change</c> for the window the pane left. Watching a pane
+/// <c>%layout-change</c> for the window the pane left. Watching panes
 /// through this instead answers "is the pane I care about still there" as a
 /// typed, terminal event rather than leaving a caller to infer it from a
 /// notification shaped like any other.
@@ -62,8 +62,9 @@ public static class PaneObservation
         Pane pane,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(pane);
-        return session.WatchAsync([pane], cancellationToken);
+        return WatchCoreAsync(session, [pane], cancellationToken);
     }
 
     /// <summary>Watches several panes' output through one control client until each has ended.</summary>
@@ -75,15 +76,18 @@ public static class PaneObservation
     /// <see cref="TmuxPanePausedEvent" /> and <see cref="TmuxPaneContinuedEvent" />
     /// around output a slow reader missed. Each pane confirmed gone is reported
     /// by a <see cref="TmuxPaneGoneEvent" /> after the output buffered before
-    /// it went; the stream ends once every pane is gone, or with
-    /// <see cref="TmuxExitEvent" /> when the control client itself ended. The
-    /// client remains borrowed.
+    /// it went, unless the client ends first; panes found gone together are
+    /// reported in the order given. The stream ends once every pane is gone,
+    /// or with <see cref="TmuxExitEvent" /> when the control client itself
+    /// ended. The client remains borrowed.
     /// </returns>
     /// <remarks>
     /// <para>
     /// A client has one event stream, so this is how one client serves
     /// several panes: each output event names its pane. Events after the last
-    /// pane's end stay unread for the client's next reader.
+    /// pane's end stay unread for the client's next reader. Each layout change
+    /// or loss report asks tmux about every pane still watched, one command
+    /// each.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent to a control client once a
@@ -100,29 +104,46 @@ public static class PaneObservation
     /// confirmed gone, without consuming another event.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
+    public static IAsyncEnumerable<TmuxEvent> WatchAsync(
         this IControlModeSession session,
         IReadOnlyCollection<Pane> panes,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(panes);
-        Dictionary<PaneId, Pane> alive = [];
+        List<Pane> distinct = [];
+        HashSet<PaneId> seen = [];
         foreach (Pane pane in panes)
         {
             ArgumentNullException.ThrowIfNull(pane, nameof(panes));
-            alive.TryAdd(pane.Id, pane);
+            if (seen.Add(pane.Id))
+            {
+                distinct.Add(pane);
+            }
         }
 
-        if (alive.Count == 0)
+        if (distinct.Count == 0)
         {
             throw new ArgumentException("Name at least one pane to watch.", nameof(panes));
         }
 
-        HashSet<PaneId> watched = [.. alive.Keys];
+        return WatchCoreAsync(session, distinct, cancellationToken);
+    }
 
-        // Panes confirmed gone, each with the last event written before it went.
-        PriorityQueue<PaneId, long> ending = new();
+    [UnsupportedOSPlatform("windows")]
+    private static async IAsyncEnumerable<TmuxEvent> WatchCoreAsync(
+        IControlModeSession session,
+        IReadOnlyList<Pane> panes,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        // Copied per enumeration: each one removes panes as they end.
+        List<Pane> alive = [.. panes];
+        HashSet<PaneId> watched = [.. alive.Select(pane => pane.Id)];
+
+        // Panes confirmed gone, each with the last event written before it
+        // went; panes found together keep the order they were given in.
+        PriorityQueue<PaneId, (long Watermark, int Found)> ending = new();
+        int found = 0;
         using CancellationTokenSource reading =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         IControlModeEventWatermarkSource? source = session as IControlModeEventWatermarkSource;
@@ -143,8 +164,8 @@ public static class PaneObservation
                 if (read == ControlModeEventRead.Boundary)
                 {
                     // Everything buffered before these panes went has been read.
-                    long boundary = ending.TryPeek(out _, out long first) ? first : long.MaxValue;
-                    while (ending.TryPeek(out PaneId gone, out long watermark) && watermark <= boundary)
+                    long boundary = ending.TryPeek(out _, out (long Watermark, int) first) ? first.Watermark : long.MaxValue;
+                    while (ending.TryPeek(out PaneId gone, out (long Watermark, int) next) && next.Watermark <= boundary)
                     {
                         ending.Dequeue();
                         yield return new TmuxPaneGoneEvent(gone);
@@ -217,7 +238,7 @@ public static class PaneObservation
 
         async Task CheckForGoneAsync()
         {
-            foreach (Pane pane in alive.Values.ToArray())
+            foreach (Pane pane in alive.ToArray())
             {
                 if (await CheckAsync(pane).ConfigureAwait(false))
                 {
@@ -232,8 +253,8 @@ public static class PaneObservation
                     throw error;
                 }
 
-                alive.Remove(pane.Id);
-                ending.Enqueue(pane.Id, source.CaptureEventWatermark());
+                alive.Remove(pane);
+                ending.Enqueue(pane.Id, (source.CaptureEventWatermark(), found++));
             }
         }
 
@@ -268,8 +289,8 @@ public static class PaneObservation
 
                 if (watermarked is not null)
                 {
-                    return ending.TryPeek(out _, out long boundary)
-                        ? await watermarked.MoveNextThroughAsync(boundary).ConfigureAwait(false)
+                    return ending.TryPeek(out _, out (long Watermark, int) next)
+                        ? await watermarked.MoveNextThroughAsync(next.Watermark).ConfigureAwait(false)
                         : await watermarked.MoveNextAsync().ConfigureAwait(false);
                 }
 

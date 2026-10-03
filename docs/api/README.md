@@ -56,7 +56,7 @@ modes differ.
 | `LibTmux.PaneDirection` | Defines pane placement directions. |
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
-| `LibTmux.PaneObservation` | Narrows a control client's event stream to one pane, and ends it cleanly. |
+| `LibTmux.PaneObservation` | Narrows a control client's event stream to some panes, and ends it cleanly. |
 | `LibTmux.PaneRunRequest` | Describes a shell command to run in a pane and wait for. |
 | `LibTmux.PaneRunResult` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
