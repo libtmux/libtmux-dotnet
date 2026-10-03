@@ -12,13 +12,39 @@ version.
 
 ### Added
 
+- `Pane.Active`, `Pane.Dead`, `Pane.InMode`, `Pane.ProcessId`, `Window.Active`
+  and `Window.Zoomed` read a pane's and window's state, and queries filter on
+  them through tmux. `LibTmux.FSharp` adds the matching `PaneFields` and
+  `WindowFields`. (#53)
+- `LibTmux.FSharp.PaneRun.Exited`, `TimedOut` and `NotStarted` match how a
+  `Pane.run` ended. (#53)
+- The MCP server's `list_panes`, `list_windows` and `snapshot_pane` advertise
+  `anthropic/alwaysLoad`, so a client that defers tool schemas keeps them
+  loaded. (#53)
+
 ### Fixed
 
+- **`Server.CreateOwnedAsync` refuses the default socket while a server is
+  listening there.** It took that server over and stopped it when the scope
+  was disposed. Give an owned server a socket of its own, or use
+  `ConnectAsync` to attach without owning it. (#53)
+- `OwnedServerScope.DisposeAsync` stops the server when called again after a
+  failed attempt; it returned at once and left the server running. (#53)
+- Package pages on nuget.org no longer open with the logo's HTML shown as
+  text. (#53)
+
 ### Changed
+
+- **Reading a control client's events while another reader is reading throws
+  `InvalidOperationException`.** Two readers each received part of the
+  stream. Open another control client to read independently. (#53)
 
 ### Removed
 
 ### Development
+
+- F# benchmark records state whether the host was a virtual machine, how many
+  cores the run could use, the CPU governor and the load averages. (#53)
 
 ## [0.0.0-alpha.18] — 2026-10-03
 
