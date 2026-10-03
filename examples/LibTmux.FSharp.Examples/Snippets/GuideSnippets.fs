@@ -51,14 +51,10 @@ module internal GuideSnippets =
 
             let pane = shells[0]
 
-            // Send keys, then wait for what the program prints instead of sleeping.
-            do!
-                pane
-                |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready %s\\n' now", Literal = true))
-
+            // Type a command and wait for what it prints, not for its echo.
             let! ready =
                 pane
-                |> Pane.waitForText cancellationToken (TimeSpan.FromSeconds 10.) "ready now"
+                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
 
             // Run a command to its exit status and read what it printed.
             let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
@@ -138,27 +134,10 @@ module internal GuideSnippets =
             use! ownedSession =
                 server.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), cancellationToken)
 
-            let! sessions = server.GetSessionsAsync(cancellationToken)
-            let! clients = server.GetClientsAsync(cancellationToken)
-            let! foundSession = server.FindSessionAsync(ownedSession.Value.Id, cancellationToken)
-
-            if
-                sessions.Count <> 1
-                || sessions[0].Id <> ownedSession.Value.Id
-                || clients.Count <> 0
-                || isNull foundSession
-            then
-                failwith "The owned session was not discoverable on its detached server."
-
-            let! panes = server |> Server.panes |> Query.list cancellationToken
-
-            let first =
-                panes
-                |> Selection.exactlyOne
-                |> Result.defaultWith (fun error -> failwithf "Expected one initial pane: %A" error)
+            let! panes = ownedSession.Value |> Session.panes |> Query.list cancellationToken
 
             let! second =
-                first |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+                panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
             do!
                 second

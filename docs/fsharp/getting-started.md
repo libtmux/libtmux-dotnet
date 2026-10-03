@@ -9,9 +9,9 @@ Both packages are maintained in the `libtmux` organization by the same primary
 author.
 
 It keeps the core handles and task-based I/O. This example creates a server on
-a unique socket, creates one session, discovers it through the core API,
-splits its pane, sends literal text, and reads the resulting pane IDs. Both
-owned scopes dispose at the end of the task.
+a unique socket, creates one session, lists its pane, splits it, sends literal
+text, and reads the resulting pane IDs. Both owned scopes dispose at the end of
+the task.
 
 <!-- fsharp-snippet: OwnedWorkflow run -->
 ```fsharp run
@@ -40,27 +40,10 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         use! ownedSession =
             server.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), cancellationToken)
 
-        let! sessions = server.GetSessionsAsync(cancellationToken)
-        let! clients = server.GetClientsAsync(cancellationToken)
-        let! foundSession = server.FindSessionAsync(ownedSession.Value.Id, cancellationToken)
-
-        if
-            sessions.Count <> 1
-            || sessions[0].Id <> ownedSession.Value.Id
-            || clients.Count <> 0
-            || isNull foundSession
-        then
-            failwith "The owned session was not discoverable on its detached server."
-
-        let! panes = server |> Server.panes |> Query.list cancellationToken
-
-        let first =
-            panes
-            |> Selection.exactlyOne
-            |> Result.defaultWith (fun error -> failwithf "Expected one initial pane: %A" error)
+        let! panes = ownedSession.Value |> Session.panes |> Query.list cancellationToken
 
         let! second =
-            first |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+            panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
         do!
             second
@@ -76,7 +59,7 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
 <!-- endfsharp-snippet -->
 
 `Pane.sendKeys` completes after tmux accepts the keys; it does not wait for the
-shell to print. `Server.capture` performs I/O, then the ID projection is local.
+shell to print. To wait for what it prints, use `Pane.sendAndWait` below. `Server.capture` performs I/O, then the ID projection is local.
 `Server.tryFindPane` returns `Some pane` after a successful lookup or `None`
 when the pane is absent. This example returns two pane IDs and `Some` of the
 new pane's ID. Failures and cancellation still propagate.
@@ -84,7 +67,7 @@ new pane's ID. Failures and cancellation still propagate.
 ## Send, wait, read
 
 To act on what a pane prints, wait for it instead of sleeping. This complete
-program sends a command and waits for its output, waits for a condition over
+program types a command and waits for its output, waits for a condition over
 the whole screen, and runs a command to its exit status:
 
 <!-- fsharp-snippet: SendWaitRead run -->
@@ -117,12 +100,11 @@ let runAsync () =
         let! panes = session |> Session.panes |> Query.list token
         let pane = panes[0]
 
-        // Send, then wait for the pane's own output instead of sleeping.
-        do!
+        // Type a line and wait for what it prints. The screen before it and
+        // the line's own echo do not count.
+        let! ready =
             pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = "printf 'server %s\\n' ready", Literal = true))
-
-        let! ready = pane |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "server ready"
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
         do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))
@@ -158,13 +140,27 @@ screen shows the run: true
 ```
 <!-- endfsharp-output -->
 
-`Pane.waitForText` matches one printed line. Text already on screen ends the
-wait at once with `PresentAtEntry`, so a wait started after a fast command
-still succeeds. `Pane.waitUntil` sees every visible row, including what a
-full-screen program draws. `Pane.run` needs the pane at a POSIX shell prompt;
-it returns the command's exit status and the lines it printed, and reports
-`TimedOut` for a command that is still running. The waits sleep on the pane's
-own output through a control client rather than polling.
+### Which wait
+
+| You want to | Call | It ends when |
+| --- | --- | --- |
+| Type a line and wait for its output | `Pane.sendAndWait` | A later line contains the text. The screen before the line and the line's own echo do not count. |
+| Send keys by request and wait by patterns | `Pane.sendAndWaitFor` | A pattern or stop pattern matches later output. The echo of literal text does not count; keys sent by name are not discounted. |
+| Wait for output you did not type | `Pane.waitForText`, `Pane.waitFor` | A line contains the text. Text already on screen answers at once with `PresentAtEntry`. |
+| Wait for a condition over the whole screen | `Pane.waitUntil` | The condition holds over the visible rows, including what a full-screen program draws. |
+| Run a command to its exit status | `Pane.run` | The command exits. It returns the status and the lines it printed. |
+| Follow output as it prints | `Control.watchPane` | You stop reading; see [streams](streams.md). |
+
+Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
+contains can end on the shell's echo before the command runs; use
+`Pane.sendAndWait` instead. Every wait also ends early when the pane's program
+exits or a full-screen program takes over, and each sleeps on the pane's own
+output through a control client rather than polling.
+
+`Pane.run` needs the pane at a prompt of `sh`, `ash`, `bash`, `dash`, `zsh` or
+a Korn shell; fish, PowerShell and a REPL are refused. It runs the command in a
+subshell, so `cd` and `export` do not persist into the pane. A command still
+running at the timeout keeps running, and the result reports `TimedOut`.
 
 ## Describe a session
 

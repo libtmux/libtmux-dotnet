@@ -27,12 +27,11 @@ let runAsync () =
         let! panes = session |> Session.panes |> Query.list token
         let pane = panes[0]
 
-        // Send, then wait for the pane's own output instead of sleeping.
-        do!
+        // Type a line and wait for what it prints. The screen before it and
+        // the line's own echo do not count.
+        let! ready =
             pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = "printf 'server %s\\n' ready", Literal = true))
-
-        let! ready = pane |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "server ready"
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
         do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))

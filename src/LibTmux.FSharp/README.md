@@ -46,14 +46,10 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
 
         let pane = shells[0]
 
-        // Send keys, then wait for what the program prints instead of sleeping.
-        do!
-            pane
-            |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready %s\\n' now", Literal = true))
-
+        // Type a command and wait for what it prints, not for its echo.
         let! ready =
             pane
-            |> Pane.waitForText cancellationToken (TimeSpan.FromSeconds 10.) "ready now"
+            |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
 
         // Run a command to its exit status and read what it printed.
         let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
@@ -64,10 +60,12 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
 <!-- endfsharp-snippet -->
 
 Building a query reads nothing; `Query.list` asks tmux, which drops panes that
-cannot match, and checks every row it returns. `Pane.waitForText` sleeps on
-the pane's own output instead of polling, and ends early if the program exits.
-`Pane.run` returns the command's exit status and the lines it printed. The
-quick start below runs these steps against an isolated tmux server.
+cannot match, and checks every row it returns. `Pane.sendAndWait` types the
+line, then waits for a later line to contain the text; the screen before it and
+the line's own echo do not count. It sleeps on the pane's output instead of
+polling, and ends early if the program exits. `Pane.run` returns the command's
+exit status and the lines it printed. The quick start below runs these steps
+against an isolated tmux server.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -151,13 +149,10 @@ let runAsync () =
         let! panes = session |> Session.panes |> Query.list token
         let pane = panes[0]
 
-        // Send keys, then wait for what the program prints instead of sleeping.
-        do!
-            pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = "printf 'build %s\\n' started", Literal = true))
-
+        // Type a command and wait for what it prints, not for its echo.
         let! started =
-            pane |> Pane.waitForText token (TimeSpan.FromSeconds 10.) "build started"
+            pane
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
 
         // Run a command to its exit status and read what it printed.
         let! result =
@@ -216,8 +211,9 @@ explains the configuration order. Code running inside a tmux pane can use
 | List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
 | Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
 | A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
-| Wait for output | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; ends early when the program exits |
-| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines |
+| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
 | A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
 | React to events as they happen | `Control.events` or `Control.watchPane` | Cold `IAsyncEnumerable` for a control client |
 
@@ -243,7 +239,7 @@ their order and multiplicity. An uncaptured relationship raises
 | .NET | Targets .NET 8 and .NET 10 and uses the matching `LibTmux` package version. |
 | F# | Requires FSharp.Core 8.0.100 or newer, so an application keeps its SDK's FSharp.Core. Required CI builds and runs a consumer with the .NET 8 SDK's F# compiler and implicit FSharp.Core. |
 | tmux | Required Linux CI runs the repository's F# integration example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
-| Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows tmux is unsupported. |
+| Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows is unsupported: the core marks its tmux calls `[UnsupportedOSPlatform("windows")]`. WSL runs the Linux build, which CI does not exercise separately. |
 | Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
 `Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,

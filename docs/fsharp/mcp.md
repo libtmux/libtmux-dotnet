@@ -44,13 +44,15 @@ program's. The MCP server reads the socket once, when it starts.
 | `capture_pane`, `snapshot_pane` | `Pane.capture`, or `Server.capture` for the whole hierarchy |
 | `capture_since` | `Control.watchPane`, which streams a pane's output as it prints |
 | `wait_for_text` | `Pane.waitForText` and `Pane.waitFor` |
+| `send_keys` followed by `wait_for_text` | `Pane.sendAndWait` and `Pane.sendAndWaitFor` |
 | `run_shell_command` | `Pane.run` |
 | `send_keys` | `Pane.sendKeys` |
 | `split_window` | `Pane.split` |
 | `set_history_limit`, `set_mouse_enabled`, `show_option` | `Options.set` and `Options.get` with `TmuxOptionKey` |
 
 Two differences follow from who is asking. The MCP server remembers the keys
-it typed and discounts their echo from its waits; `Pane.waitForText` does
-not, so wait for text the command line itself does not contain, or use
-`Pane.run`. And every MCP result is bounded to keep an assistant's context
-small, where the F# functions return everything tmux reported.
+it typed across calls and discounts their echo from any later wait; F# sends
+and waits in one call, so `Pane.sendAndWait` discounts the echo of its own
+line and `Pane.waitForText` discounts nothing. And every MCP result is bounded
+to keep an assistant's context small, where the F# functions return
+everything tmux reported.

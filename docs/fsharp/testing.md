@@ -58,6 +58,8 @@ A pane runs its program asynchronously, so a test that reads right after
 sending keys races the program. Wait for the result instead:
 
 - `Pane.run` returns once the command has exited, with its status and output.
+- `Pane.sendAndWait` types a line and returns once the pane prints the
+  expected text after it; the line's own echo does not count.
 - `Pane.waitForText` and `Pane.waitUntil` return once the pane shows what the
   test expects, or report `TimedOut`.
 - `Mirror.waitUntil` waits for sessions, windows and panes to reach a state.

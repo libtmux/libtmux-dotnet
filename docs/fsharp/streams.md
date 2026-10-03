@@ -6,8 +6,9 @@ a control client has one event stream with one consumer.
 
 ## Choose a wait or a stream
 
-To wait for one thing a pane prints, use `Pane.waitForText`, `Pane.waitUntil`
-or `Pane.run`; each returns a single result. The waits share one control client
+To wait for one thing a pane prints, use `Pane.sendAndWait`,
+`Pane.waitForText`, `Pane.waitUntil` or `Pane.run`; each returns a single
+result, and [which wait](getting-started.md#which-wait) compares them. The waits share one control client
 per session while any wait on it runs, and `Pane.run` learns its exit status
 from a private `wait-for` channel. Read a stream when the caller reacts to
 events as they arrive.

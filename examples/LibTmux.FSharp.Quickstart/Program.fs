@@ -49,13 +49,10 @@ let runAsync () =
         let! panes = session |> Session.panes |> Query.list token
         let pane = panes[0]
 
-        // Send keys, then wait for what the program prints instead of sleeping.
-        do!
-            pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = "printf 'build %s\\n' started", Literal = true))
-
+        // Type a command and wait for what it prints, not for its echo.
         let! started =
-            pane |> Pane.waitForText token (TimeSpan.FromSeconds 10.) "build started"
+            pane
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
 
         // Run a command to its exit status and read what it printed.
         let! result =
