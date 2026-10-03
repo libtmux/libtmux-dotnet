@@ -74,11 +74,12 @@ open LibTmux
 
 let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
     task {
+        // Each typed request becomes one command of the chain.
+        let print text =
+            DisplayMessageRequest(Format = text, ReturnText = true).ToCommand(server)
+
         let chain =
-            server
-                .Chain()
-                .Then("display-message", "-p", "fsharp-chain-first")
-                .Then("display-message", "-p", "fsharp-chain-second")
+            server.Chain().Then(print "fsharp-chain-first").Then(print "fsharp-chain-second")
 
         let! result = chain.ExecuteAsync(cancellationToken)
         return result.StandardOutputLines |> Seq.toList
@@ -86,6 +87,9 @@ let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server)
 ```
 <!-- endfsharp-snippet -->
 
+Forty request types, such as `SendKeysRequest`, `SplitPaneRequest` and
+`CapturePaneRequest`, convert to a command with `ToCommand`, so a chain keeps
+their validation; `Then(name, arguments)` takes any other command as text.
 Use a chain for a known batch. It returns one `TmuxCommandResult`, not a typed
 object for every step. Use one-shot operations when each step needs a refreshed
 entity handle.

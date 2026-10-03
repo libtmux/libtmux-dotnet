@@ -238,11 +238,12 @@ module internal GuideSnippets =
 
     let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
         task {
+            // Each typed request becomes one command of the chain.
+            let print text =
+                DisplayMessageRequest(Format = text, ReturnText = true).ToCommand(server)
+
             let chain =
-                server
-                    .Chain()
-                    .Then("display-message", "-p", "fsharp-chain-first")
-                    .Then("display-message", "-p", "fsharp-chain-second")
+                server.Chain().Then(print "fsharp-chain-first").Then(print "fsharp-chain-second")
 
             let! result = chain.ExecuteAsync(cancellationToken)
             return result.StandardOutputLines |> Seq.toList
