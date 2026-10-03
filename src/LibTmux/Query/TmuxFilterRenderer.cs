@@ -22,6 +22,9 @@ internal static class TmuxFilterRenderer
     private const string True = "1";
     private const string False = "0";
 
+    // The largest integer a double holds exactly, 2^53.
+    private const long MostExactInteger = 9_007_199_254_740_992;
+
     /// <summary>Renders the upper bound of a validated document.</summary>
     /// <returns>The filter text, or null when tmux cannot narrow the listing.</returns>
     internal static string? Superset(QueryDocument document)
@@ -264,6 +267,10 @@ internal static class TmuxFilterRenderer
                 && (equal || comparison.Operator == QueryComparison.NotEqual):
                 string same = $"#{{==:{token},{literal}}}";
                 return Bounds.Exact(equal ? same : Not(same));
+            // tmux reads an operand as a double and casts it to long long, so
+            // beyond 2^53 it is inexact and past 2^63 the cast overflows.
+            case Int64Constant { Value: > MostExactInteger or < -MostExactInteger }:
+                return Bounds.Unknown;
             case Int64Constant number:
                 string operation = comparison.Operator switch
                 {

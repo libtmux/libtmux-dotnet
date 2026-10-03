@@ -269,6 +269,10 @@ public sealed class PushdownDifferentialTests
         await Agree<Pane>(pane => pane.Height <= 20, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Left == 0 && pane.Top > 0, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Index != 1, panes, QueryTarget.Pane, PaneKey);
+
+        // tmux casts operands to long long, which overflows past 2^63.
+        long largest = long.MaxValue;
+        await Agree<Pane>(pane => pane.Width < largest, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.AtTop && !pane.AtBottom, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.AtLeft || pane.AtRight, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Title == "build", panes, QueryTarget.Pane, PaneKey);
