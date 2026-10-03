@@ -300,6 +300,123 @@ internal static partial class PaneText
     /// wait-for — orphaned from the marker below it, on every read path.
     /// </para>
     /// </remarks>
+    private static bool IsWordChar(char character) => char.IsLetterOrDigit(character) || character == '_';
+
+    /// <summary>Removes every standalone occurrence of <paramref name="echo" /> from <paramref name="text" />.</summary>
+    /// <remarks>
+    /// An occurrence counts only where it is not part of a longer run of word
+    /// characters on either side - what tells a short typed answer apart from
+    /// a longer word that merely contains it: <c>y</c> comes off <c>$ y</c>
+    /// and stays inside <c>ready</c>. This is what lets a whole recorded line
+    /// (<c>echo MARKER</c>) be removed as the exact thing that was typed,
+    /// without also erasing an unrelated later line whose real output happens
+    /// to repeat one of its words.
+    /// </remarks>
+    internal static string WithoutEcho(string text, string echo)
+    {
+        if (echo.Length == 0 || text.Length == 0)
+        {
+            return text;
+        }
+
+        StringBuilder result = new(text.Length);
+        int cursor = 0;
+        int from = 0;
+        while (true)
+        {
+            int at = text.IndexOf(echo, from, StringComparison.Ordinal);
+            if (at < 0)
+            {
+                break;
+            }
+
+            int end = at + echo.Length;
+            bool opens = at == 0 || !IsWordChar(text[at - 1]) || !IsWordChar(echo[0]);
+            bool closes = end == text.Length || !IsWordChar(text[end]) || !IsWordChar(echo[^1]);
+            if (opens && closes)
+            {
+                result.Append(text, cursor, at - cursor);
+                cursor = end;
+                from = end;
+            }
+            else
+            {
+                from = at + 1;
+            }
+        }
+
+        result.Append(text, cursor, text.Length - cursor);
+        return result.ToString();
+    }
+
+    /// <summary><see cref="WithoutEcho" />, applied for every text in <paramref name="echoes" />.</summary>
+    internal static string WithoutEchoes(string text, IEnumerable<string> echoes)
+    {
+        string result = text;
+        foreach (string echo in echoes.Where(echo => echo.Length > 0))
+        {
+            result = WithoutEcho(result, echo);
+        }
+
+        return result;
+    }
+
+    /// <summary>Removes typed text from screen rows, including where the pane wrapped it.</summary>
+    /// <param name="rows">Screen rows, top to bottom.</param>
+    /// <param name="typed">The lines that were typed.</param>
+    /// <returns>The rows with every standalone occurrence of a typed line removed.</returns>
+    /// <remarks>
+    /// A typed line longer than the pane continues on the next row, and
+    /// tmux trims the spaces a row ends with, so a wrap can fall between any
+    /// two characters and swallow a space. The rows are searched as one text
+    /// in which a row break may stand inside an occurrence; removing one keeps
+    /// its row breaks, so the rows stay in place. As in
+    /// <see cref="WithoutEcho" />, an occurrence counts only where it is not
+    /// part of a longer word.
+    /// </remarks>
+    internal static IReadOnlyList<string> WithoutTypedEcho(IReadOnlyList<string> rows, IEnumerable<string> typed)
+    {
+        string text = string.Join('\n', rows);
+        foreach (string line in typed.Where(line => line.Length > 0))
+        {
+            string source = text;
+            text = WrappedOccurrence(line).Replace(source, occurrence =>
+            {
+                int end = occurrence.Index + occurrence.Length;
+                bool opens = occurrence.Index == 0 || !IsWordChar(source[occurrence.Index - 1]) || !IsWordChar(line[0]);
+                bool closes = end == source.Length || !IsWordChar(source[end]) || !IsWordChar(line[^1]);
+                return opens && closes ? new string('\n', occurrence.Value.Count(character => character == '\n')) : occurrence.Value;
+            });
+        }
+
+        return text.Split('\n');
+    }
+
+    // Each character may be followed by a wrap; a run of spaces may be cut
+    // short by one, since tmux drops the spaces a wrapped row ends with.
+    private static Regex WrappedOccurrence(string line)
+    {
+        StringBuilder pattern = new(line.Length * 4);
+        for (int index = 0; index < line.Length; index++)
+        {
+            if (line[index] == ' ')
+            {
+                while (index + 1 < line.Length && line[index + 1] == ' ')
+                {
+                    index++;
+                }
+
+                pattern.Append("(?: +| *\n *)");
+            }
+            else
+            {
+                pattern.Append(Regex.Escape(line[index].ToString())).Append(index + 1 < line.Length ? "\n?" : string.Empty);
+            }
+        }
+
+        return new Regex(pattern.ToString(), RegexOptions.CultureInvariant);
+    }
+
     [GeneratedRegex(
         @"@?lt_[rsbe]_[0-9a-f]{10}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
         RegexOptions.CultureInvariant)]

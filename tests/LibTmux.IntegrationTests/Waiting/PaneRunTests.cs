@@ -28,6 +28,28 @@ public sealed class PaneRunTests
     }
 
     [UnixFact]
+    public async Task Sending_a_command_waits_for_its_output_not_the_screen_before_or_its_echo()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
+        _ = await shell.RunAsync("printf 'MARKER\\n'", Allowed, token);
+        string gate = $"{raw.SessionName}-send";
+
+        Task<PaneWaitResult> waiting = shell.SendTextAndWaitAsync(
+            $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' wait-for {gate}; echo MARKER",
+            "MARKER",
+            Allowed,
+            token);
+        _ = await shell.WaitUntilAsync(rows => rows.Any(row => row.Contains("wait-for", StringComparison.Ordinal)), Allowed, token);
+        Assert.False(waiting.IsCompleted);
+        await raw.ExecuteAsync(["wait-for", "-S", gate], token);
+        PaneWaitResult done = await waiting;
+
+        Assert.Equal((PaneWaitOutcome.Matched, "MARKER"), (done.Outcome, done.Pattern));
+    }
+
+    [UnixFact]
     public async Task A_run_that_outlasts_its_timeout_says_so_and_is_followed_to_completion()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

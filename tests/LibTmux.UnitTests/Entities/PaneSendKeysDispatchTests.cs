@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Text.RegularExpressions;
 using LibTmux.Internal;
 
 using LibTmux.UnitTests.Connection;
@@ -11,6 +12,24 @@ namespace LibTmux.UnitTests.Entities;
 public sealed class PaneSendKeysDispatchTests
 {
     private static readonly ServerGeneration Generation = new(91, 901);
+
+    [Fact]
+    public void A_send_and_wait_judges_later_output_without_the_typed_echo()
+    {
+        const string typed = "true && true && echo MARKER";
+        var wait = new PaneWaitRequest { Patterns = [new Regex("MARKER")], StopPatterns = [new Regex("^FATAL")] };
+        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, typed);
+
+        // A narrow pane wraps the typed line, once mid-word and once where
+        // tmux trims the space a row ends with; the last row alone holds the pattern.
+        string[] echoed = ["$ true && tr", "ue &&", "echo MARKER"];
+
+        Assert.Null(classify(["MARKER"], true));
+        Assert.Null(classify(["$ " + typed], false));
+        Assert.Null(classify(echoed, false));
+        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "MARKER"), classify([.. echoed, "MARKER"], false));
+        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Stopped, "^FATAL"), classify(["FATAL: MARKER"], false));
+    }
 
     [Fact]
     public void A_composite_request_cannot_be_reduced_to_one_command()

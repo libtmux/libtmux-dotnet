@@ -594,8 +594,10 @@ LibTmux.Pane.RespawnAsync(LibTmux.RespawnRequest? request = null, System.Threadi
 LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
 LibTmux.Pane.RunAsync(string! command, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
 LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
+LibTmux.Pane.SendKeysAndWaitAsync(LibTmux.SendKeysRequest! keys, LibTmux.PaneWaitRequest! wait, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.SendPrefixAsync(bool secondary = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Pane.SendTextAndWaitAsync(string! line, string! text, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.SendTextAsync(string! text, bool enter = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.Server.get -> LibTmux.Server!
 LibTmux.Pane.Session.get -> LibTmux.Session!

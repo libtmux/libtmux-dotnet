@@ -264,8 +264,10 @@ modes differ.
 | `LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest,System.Threading.CancellationToken)` | Runs a shell command in the pane and waits for its exit status. |
 | `LibTmux.Pane.RunAsync(System.String,System.TimeSpan,System.Threading.CancellationToken)` | Runs a shell command in the pane and waits for its exit status. |
 | `LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest,System.Threading.CancellationToken)` | Selects this pane. |
+| `LibTmux.Pane.SendKeysAndWaitAsync(LibTmux.SendKeysRequest,LibTmux.PaneWaitRequest,System.Threading.CancellationToken)` | Sends keys to the pane and waits for what it prints in response. |
 | `LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest,System.Threading.CancellationToken)` | Sends keys to the pane. |
 | `LibTmux.Pane.SendPrefixAsync(System.Boolean,System.Threading.CancellationToken)` | Sends the configured prefix key to the pane. |
+| `LibTmux.Pane.SendTextAndWaitAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)` | Types a line, presses Enter, and waits for a later line to contain the text. |
 | `LibTmux.Pane.SendTextAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Types text into the pane. |
 | `LibTmux.Pane.SetHeightAsync(System.Int32,System.Threading.CancellationToken)` | Sets this pane's height. |
 | `LibTmux.Pane.SetTitleAsync(System.String,System.Threading.CancellationToken)` | Sets this pane's title. |

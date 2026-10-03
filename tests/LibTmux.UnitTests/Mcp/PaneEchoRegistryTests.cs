@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 
 namespace LibTmux.UnitTests.Mcp;
@@ -23,10 +24,10 @@ public sealed class PaneEchoRegistryTests
     [Fact]
     public void WithoutEcho_removes_only_whole_word_occurrences()
     {
-        Assert.Equal("$ ready", PaneEchoRegistry.WithoutEcho("$ ready", "y"));
-        Assert.Equal("$ ", PaneEchoRegistry.WithoutEcho("$ y", "y"));
-        Assert.Equal("uid=1000", PaneEchoRegistry.WithoutEcho("uid=1000", "id"));
-        Assert.Equal("$ ", PaneEchoRegistry.WithoutEcho("$ id", "id"));
+        Assert.Equal("$ ready", PaneText.WithoutEcho("$ ready", "y"));
+        Assert.Equal("$ ", PaneText.WithoutEcho("$ y", "y"));
+        Assert.Equal("uid=1000", PaneText.WithoutEcho("uid=1000", "id"));
+        Assert.Equal("$ ", PaneText.WithoutEcho("$ id", "id"));
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public sealed class PaneEchoRegistryTests
     {
         Assert.Equal(
             "\nMARKER",
-            PaneEchoRegistry.WithoutEchoes("echo MARKER\nMARKER", ["echo MARKER"]));
+            PaneText.WithoutEchoes("echo MARKER\nMARKER", ["echo MARKER"]));
     }
 
     [Fact]

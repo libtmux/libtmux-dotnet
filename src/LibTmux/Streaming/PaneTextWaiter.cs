@@ -31,6 +31,7 @@ internal static class PaneTextWaiter
     /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="progress">Told how long the wait has run and what the pane last showed.</param>
     /// <param name="cancellationToken">Stops the wait.</param>
+    /// <param name="afterEntry">Runs once the screen at entry is read, before anything later is; it may send keys.</param>
     /// <returns>How the wait ended, what matched, and how long it took.</returns>
     internal static async Task<(PaneWaitOutcome Outcome, string? Match, TimeSpan Elapsed)> WaitAsync(
         Pane pane,
@@ -39,7 +40,8 @@ internal static class PaneTextWaiter
         TimeSpan budget,
         Func<PaneReadFailure, Pane, Exception> fail,
         Action<TimeSpan, string>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? afterEntry = null)
     {
         Stopwatch elapsed = Stopwatch.StartNew();
         IAsyncDisposable lease = await activity.WatchAsync(pane, cancellationToken).ConfigureAwait(false);
@@ -52,6 +54,11 @@ internal static class PaneTextWaiter
         if (classify(first.Lines, true) is { } entry)
         {
             return (entry.Outcome, entry.Match, elapsed.Elapsed);
+        }
+
+        if (afterEntry is not null)
+        {
+            await afterEntry(cancellationToken).ConfigureAwait(false);
         }
 
         while (true)
