@@ -430,6 +430,10 @@ classes, trust flags, conservative annotations, schemas, internal input-sink
 classification, public input literalization, nested authority, and handler used
 for registration, dispatch, disclosure, and generated reference material.
 Internal sink classifications stay out of the public capability rows.
+`list_panes`, `list_windows` and `snapshot_pane` also carry
+`_meta["anthropic/alwaysLoad"]`, which asks a client that defers tool schemas,
+such as Claude Code, to keep those three loaded so an agent can find panes
+without searching for a tool first.
 
 Long calls report progress while they run, so a wait shows as running rather
 than hung. It costs nothing when the client asks for none.
