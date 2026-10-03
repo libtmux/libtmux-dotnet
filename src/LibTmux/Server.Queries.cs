@@ -8,6 +8,8 @@ namespace LibTmux;
 // Reads listings that tmux narrows with -f before each row is rechecked.
 public sealed partial class Server
 {
+    private const string ListClientsFilterCapability = "list_clients_filter";
+
     /// <summary>Lists the objects a request describes.</summary>
     /// <remarks>
     /// A filter that needs a relation reads a snapshot of only the session
@@ -27,6 +29,14 @@ public sealed partial class Server
             request.Screen?.Render(),
             And(request.Unsafe?.Value, request.Filter is null ? null : TmuxFilterRenderer.Superset(request.Filter)));
         Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        if (request.Target == QueryTarget.Client)
+        {
+            IReadOnlyList<Client> clients = await owner
+                .ReadClientsAsync(owner.ClientFilterArguments(narrowed, request.Unsafe), cancellationToken)
+                .ConfigureAwait(false);
+            return [.. clients.Cast<T>().Where(keep)];
+        }
+
         SnapshotDepth required = request.Filter?.RequiredSnapshotDepth ?? SnapshotDepth.Server;
         if (required > ListedDepth(request.Target))
         {
@@ -59,6 +69,28 @@ public sealed partial class Server
             (_, { } session, _) => ("list-panes", ["-s", "-t", session.ToString()]),
             _ => ("list-panes", ["-a"]),
         };
+
+    // list-clients gained -f in tmux 3.4. Older tmux leaves a typed filter to
+    // the recheck; a raw filter has no local meaning, so nothing is sent.
+    private string[] ClientFilterArguments(string? filter, UnsafeTmuxFilter? unsafeFilter)
+    {
+        if (filter is null)
+        {
+            return [];
+        }
+
+        if (Supports(ListClientsFilterCapability))
+        {
+            return ["-f", filter];
+        }
+
+        return unsafeFilter is null
+            ? []
+            : throw new TmuxVersionTooLowException(
+                "Filtering clients in tmux requires tmux 3.4.",
+                TmuxVersion.Parse("3.4"),
+                Version ?? default);
+    }
 
     [UnsupportedOSPlatform("windows")]
     private static T Materialize<T>(Server owner, QueryTarget target, IReadOnlyDictionary<string, string?> row) =>

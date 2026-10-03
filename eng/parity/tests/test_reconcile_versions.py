@@ -318,6 +318,7 @@ def test_cohort_maps_only_protocol_observations_to_frozen_production_tests(
         "hook_scope_pane_window_show": "HookScopePaneWindowShow",
         "kill_session_group": "KillSessionGroup",
         "layout_mirrors": "LayoutMirrors",
+        "list_clients_filter": "ListClientsFilter",
         "list_keys_format": "ListKeysFormat",
         "new_pane_command": "NewPaneCommand",
         "option_dollar_double_escape": "OptionDollarDoubleEscape",
@@ -660,7 +661,7 @@ def test_closure_cohort_uses_only_exact_wrapper_policy_proofs(
         row for row in reconciled["capabilities"] if row.get("kind") == "command_gate"
     ]
 
-    assert len(policies) == 35
+    assert len(policies) == 36
     assert {row["evidenceStatus"] for row in policies} == {"verified"}
     assert {row["evidence"]["capabilityCohort"] for row in policies} == {CLOSURE_COHORT}
     assert {
@@ -675,7 +676,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
     namespace = load_reconciler()
     cohorts = namespace["EVIDENCE_COHORT_TESTS"]
     assert len(cohorts[CAPABILITY_COHORT]) == 7
-    assert len(cohorts[CLOSURE_COHORT]) == 35
+    assert len(cohorts[CLOSURE_COHORT]) == 36
     mapping = cohorts["workspace"]
     assert mapping == {
         **cohorts[CAPABILITY_COHORT],
@@ -717,7 +718,7 @@ def test_workspace_cohort_reconciles_exact_complete_native_proofs(
         repository=tmp_path,
         document_path=document_path,
     )
-    assert len(reconciled["capabilities"]) == 43
+    assert len(reconciled["capabilities"]) == 44
     assert {row["evidenceStatus"] for row in reconciled["capabilities"]} == {"verified"}
     assert {
         row["capability"]: tuple(row["evidence"]["tests"])
@@ -1557,6 +1558,15 @@ def test_command_flag_capabilities_freeze_version_and_fallback_behavior() -> Non
             "warn_and_ignore",
             ("libtmux.session:Session.kill",),
         ),
+        "list_clients_filter": (
+            "flag",
+            "list-clients",
+            ("-f",),
+            "3.4",
+            "unknown",
+            "throw_unsupported_version",
+            ("libtmux.server:Server.clients",),
+        ),
         "list_keys_format": (
             "flag",
             "list-keys",
@@ -1731,6 +1741,7 @@ def test_command_policies_have_exact_later_component_owners() -> None:
         "hook_scope_pane_window_set": (15,),
         "hook_scope_pane_window_show": (15,),
         "kill_session_group": (10,),
+        "list_clients_filter": (13,),
         "list_keys_format": (16,),
         "new_pane_command": (12,),
         "paste_buffer_no_vis": (12,),

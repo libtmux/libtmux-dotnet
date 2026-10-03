@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 
 using LibTmux.Internal;
+using LibTmux.Query;
 
 namespace LibTmux;
 
@@ -52,6 +53,21 @@ public sealed partial class Server
             filter,
             static (owner, row) => RelationReader.ToPane(owner, row),
             cancellationToken);
+
+    /// <summary>Runs a tmux-side filter over every attached client.</summary>
+    /// <param name="filter">The raw tmux filter expression.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The clients tmux kept.</returns>
+    /// <exception cref="TmuxVersionTooLowException">The server runs tmux older than 3.4, whose list-clients has no filter.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<IReadOnlyList<Client>> SearchClientsAsync(
+        UnsafeTmuxFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        return await QueryAsync<Client>(new ListingRequest(QueryTarget.Client, Unsafe: filter), cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     [UnsupportedOSPlatform("windows")]
     private async Task<IReadOnlyList<T>> SearchAsync<T>(

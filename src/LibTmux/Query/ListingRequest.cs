@@ -25,11 +25,6 @@ internal sealed record ListingRequest(
                 $"The filter selects {Filter.Target} objects, but the listing reads {Target} objects.");
         }
 
-        if (Target == QueryTarget.Client)
-        {
-            throw new ArgumentException("Clients are not part of the session hierarchy this reads.");
-        }
-
         if (Screen is not null && Target != QueryTarget.Pane)
         {
             throw new ArgumentException($"Only panes show screen text; the listing reads {Target} objects.");
@@ -38,6 +33,7 @@ internal sealed record ListingRequest(
         bool scoped = (Session, Window, Target) switch
         {
             (null, null, _) => true,
+            (_, _, QueryTarget.Client) => false,
             (_, null, QueryTarget.Window or QueryTarget.Pane) => true,
             (null, _, QueryTarget.Pane) => true,
             _ => false,

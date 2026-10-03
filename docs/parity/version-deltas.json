@@ -2020,6 +2020,40 @@
       ]
     },
     {
+      "capability": "list_clients_filter",
+      "evidenceStatus": "pending",
+      "featureKind": "flag",
+      "introducedIn": "3.4",
+      "kind": "command_gate",
+      "namedRealServerTest": "tests/LibTmux.IntegrationTests/Versioning/VersionParityTests.cs::ListClientsFilter",
+      "policyOwnerComponents": [
+        13
+      ],
+      "policyProofContract": {
+        "supportedBoundary": "exact_argv_single_dispatch",
+        "unsupportedBoundary": "typed_version_exception_zero_dispatch"
+      },
+      "pythonSourceSymbolIds": [
+        "libtmux.server:Server.clients"
+      ],
+      "removedIn": "unknown",
+      "tmuxCommand": "list-clients",
+      "tmuxFlags": [
+        "-f"
+      ],
+      "tmuxSourceEndpoints": {
+        "3.2a": "https://github.com/tmux/tmux/tree/3.2a",
+        "3.7b": "https://github.com/tmux/tmux/tree/3.7b"
+      },
+      "tmuxTransitionSources": {
+        "3.4": "https://github.com/tmux/tmux/blob/3.4/tmux.1"
+      },
+      "unsupportedBehavior": "throw_unsupported_version",
+      "wrapperPolicyTests": [
+        "tests/LibTmux.IntegrationTests/Clients/ClientAdministrationTests.cs::ListClientsFilterVersionPolicy"
+      ]
+    },
+    {
       "capability": "list_keys_format",
       "evidence": {
         "capabilityCohort": "workspace",

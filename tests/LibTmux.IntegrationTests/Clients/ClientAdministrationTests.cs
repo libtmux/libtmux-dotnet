@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 using LibTmux.Internal;
+using LibTmux.Query;
 using Microsoft.Extensions.Logging;
 
 namespace LibTmux.IntegrationTests.Clients;
@@ -243,6 +244,45 @@ public sealed class ClientAdministrationTests
         // Without the request the flag never appears, on any lane.
         logger.Clear();
         await server.RefreshClientAsync(client.Name, cancellationToken: token);
+        Assert.Empty(logger.Warnings);
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task ListClientsFilterVersionPolicy()
+    {
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(
+            TestContext.Current.CancellationToken);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        RecordingLogger logger = new();
+        Server server = await ConnectAsync(raw, token, logger);
+        await using PtyAttachedClientScope attached = await PtyAttachedClientScope.StartAsync(
+            raw,
+            token);
+        Client client = await WaitForClientAsync(server, token);
+        UnsafeTmuxFilter terminal = new("#{==:#{client_control_mode},0}");
+        string name = client.Name;
+        QueryDocument named = QueryExtensions.Translate<Client>(candidate => candidate.Name == name);
+
+        // A typed filter has the same answer on every lane: tmux narrows the
+        // listing from 3.4 and the recheck alone decides before.
+        IReadOnlyList<Client> typed = await server.QueryAsync<Client>(
+            new ListingRequest(QueryTarget.Client, Filter: named),
+            token);
+        Assert.Equal(client.Name, Assert.Single(typed).Name);
+
+        if (TmuxCapabilities.IsSupported(server.Version!.Value, "list_clients_filter"))
+        {
+            Assert.Equal(client.Name, Assert.Single(await server.SearchClientsAsync(terminal, token)).Name);
+        }
+        else
+        {
+            // A raw filter has no local meaning, so nothing is sent at all.
+            await Assert.ThrowsAsync<TmuxVersionTooLowException>(() => server.SearchClientsAsync(terminal, token));
+        }
+
         Assert.Empty(logger.Warnings);
     }
 

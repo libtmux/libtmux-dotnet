@@ -348,6 +348,7 @@ modes differ.
 | `LibTmux.Server.OpenWaitChannel(System.String)` | Opens a wait on a channel that survives a timed attempt. |
 | `LibTmux.Server.RefreshClientAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Redraws one client. |
 | `LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest,System.Threading.CancellationToken)` | Runs a shell command and reports what it printed. |
+| `LibTmux.Server.SearchClientsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every attached client. |
 | `LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every pane. |
 | `LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every session. |
 | `LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter,System.Threading.CancellationToken)` | Runs a tmux-side filter over every window. |
