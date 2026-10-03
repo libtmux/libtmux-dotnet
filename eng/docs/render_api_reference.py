@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 import typing as t
 from xml.etree import ElementTree
@@ -123,6 +124,19 @@ def fsharp_group(member: dict[str, str]) -> str:
     return member["id"].split(":", 1)[1].split(".")[-1].split("`")[0]
 
 
+# Namespaces an F# reader writes `open` for. Core LibTmux names keep their
+# namespace: LibTmux.Server and the facade's Server module are different things.
+OPENED_NAMESPACE = re.compile(
+    r"\b(?:Microsoft\.FSharp\.(?:Core|Collections|Control)|System\.Threading\.Tasks"
+    r"|System\.Threading|System\.Collections\.Generic|System|LibTmux\.FSharp)\.(?=[A-Za-z_])"
+)
+
+
+def short_names(signature: str) -> str:
+    """Return a signature as F# source spells it after the usual opens."""
+    return OPENED_NAMESPACE.sub("", signature)
+
+
 def render_fsharp(members: list[dict[str, str]]) -> str:
     """Render the F# companion reference from compiler inventory entries."""
     grouped: dict[str, list[dict[str, str]]] = {}
@@ -139,12 +153,15 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "parameters, return types and source links.",
         "Core handles and request types appear in the",
         "[LibTmux API reference](../api/README.md).",
+        "Signatures assume `open System`, `open System.Threading`,",
+        "`open System.Threading.Tasks`, `open System.Collections.Generic` and",
+        "`open LibTmux.FSharp`; core types keep their `LibTmux.` prefix.",
     ]
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
         for entry in sorted(entries, key=lambda item: item["signature"]):
             lines.append(
-                f"| {code_span(entry['signature'])} | {entry['summary'].replace('|', '\\|')} |"
+                f"| {code_span(short_names(entry['signature']))} | {entry['summary'].replace('|', '\\|')} |"
             )
 
     return "\n".join(lines) + "\n"
