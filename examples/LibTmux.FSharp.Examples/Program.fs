@@ -264,7 +264,10 @@ let private runAsync () =
             task {
                 use! ciScope = TmuxTestFactory().CreateServerAsync(ciOptions, cancellationToken)
 
-                if ciScope.Server.ConnectionOptions.SocketName <> ciOptions.ConnectionOptions.SocketName then
+                if
+                    ciScope.Server.ConnectionOptions.SocketName
+                    <> ciOptions.ConnectionOptions.SocketName
+                then
                     failwith "The CI test options did not reach the test server."
             }
 
