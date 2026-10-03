@@ -124,7 +124,8 @@ public sealed partial class Server
     /// <see cref="TmuxWaitMode.Lock" /> cancelling never kills the client, since
     /// tmux hands a released lock to whichever queued client is still alive: the
     /// client keeps running, and a lock it goes on to acquire is released again
-    /// automatically once this call has already given up on it.
+    /// automatically once this call has already given up on it. A lock that is
+    /// never released therefore keeps one tmux client queued per cancelled call.
     /// </param>
     /// <remarks>
     /// Waiting blocks until something else signals the channel, so a call that
