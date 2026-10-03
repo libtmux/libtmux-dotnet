@@ -77,7 +77,7 @@ internal sealed class McpToolFixture : IAsyncDisposable
             WaitCeiling = TimeSpan.FromSeconds(20),
         };
 
-        PaneActivityHub activity = new(allowPollingFallback: effective.AllowPollingFallback);
+        PaneActivityHub activity = new();
         var read = new ReadTools(connection, effective, activity);
         var write = new WriteTools(connection, effective, activity);
         return new McpToolFixture(

@@ -273,7 +273,11 @@ session/window/pane scope, windows, window indexes, panes, layouts, focus,
 environment, and scalar or ordered `shell_command` and `shell_command_before`
 values. `before_script` runs on the host only when the plan enables
 `AllowHostScripts`. Resolve the declaration against its document directory
-first. `HostScriptTimeout` and
+first. The named session exists before the script runs; its working directory
+is the resolved session `start_directory`, or the document directory when
+none is declared. `Reuse` skips the script for an existing session.
+The script is literal shell text passed to `/bin/sh -c`; tmuxp's separate
+rewrite of a leading `./script` path is not applied. `HostScriptTimeout` and
 `MaxHostOutputBytes` bound host execution and its combined captured output.
 Linux cleanup uses pinned process handles when available; otherwise it uses
 .NET's best-effort tree cleanup, and an observed loss of descendant coverage

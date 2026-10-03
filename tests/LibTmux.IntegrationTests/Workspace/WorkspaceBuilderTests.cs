@@ -551,14 +551,11 @@ public sealed class WorkspaceBuilderTests
 
             WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
             Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
-            await using PaneTextObserver observer = new();
-            PaneTextWaitResult pending = await observer.WaitForTextAsync(pane, new PaneTextWaitRequest
-            {
-                Patterns = ["printf 'held'"],
-                SimpleMatch = true,
-                Timeout = TimeSpan.FromSeconds(2),
-            }, token);
-            Assert.True(pending.Outcome is PaneTextWaitOutcome.PresentAtEntry or PaneTextWaitOutcome.Matched);
+            PaneWaitResult pending = await pane.WaitForTextAsync(
+                PaneWaitRequest.FromTextPatterns(["printf 'held'"], simpleMatch: true)
+                    with
+                { Timeout = TimeSpan.FromSeconds(2) }, token);
+            Assert.True(pending.Outcome is PaneWaitOutcome.PresentAtEntry or PaneWaitOutcome.Matched);
             Assert.Contains(pending.Tail, line => line.Contains("printf 'held'", StringComparison.Ordinal));
             Assert.False(File.Exists(received));
 

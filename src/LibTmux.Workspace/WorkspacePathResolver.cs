@@ -42,9 +42,9 @@ internal static class WorkspacePathResolver
                 .WithDefaults(environment: window.Environment, beforeCommands: window.BeforeCommands);
         }
 
-        return new WorkspaceFile(workspace.SessionName, directory, ExpandOptions(workspace.Options, inputs), windows, workspace.BeforeScript)
-        { DirectoriesAreResolved = true, DocumentDirectory = documentDirectory }
-            .WithDefaults(environment: workspace.Environment, beforeCommands: workspace.BeforeCommands);
+        WorkspaceFile resolved = new(workspace.SessionName, directory, ExpandOptions(workspace.Options, inputs), windows, workspace.BeforeScript)
+        { DirectoriesAreResolved = true, DocumentDirectory = documentDirectory };
+        return new WorkspaceFile(resolved, workspace.Environment, null, workspace.BeforeCommands, workspace.SourceLocations);
 
         string Directory(string? value, string inherited, string key)
         {
@@ -63,9 +63,13 @@ internal static class WorkspacePathResolver
 
                 return Path.GetFullPath(expanded, inherited);
             }
+            catch (WorkspaceFormatException failure) when (workspace.SourceLocations.ContainsKey(key))
+            {
+                throw workspace.At(key, failure.Message, failure);
+            }
             catch (ArgumentException failure)
             {
-                throw new WorkspaceFormatException($"Workspace path '{key}' is not a valid directory.", failure);
+                throw workspace.At(key, $"Workspace path '{key}' is not a valid directory.", failure);
             }
         }
     }

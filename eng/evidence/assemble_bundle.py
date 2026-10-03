@@ -36,7 +36,7 @@ PRODUCER_ALLOWLISTS: dict[str, tuple[str, ...]] = {
         "allocations.ndjson",
         "api-examples.md",
         "redaction-proof.json",
-        "libtmux-query-v1.schema.json",
+        "libtmux-query-v2.schema.json",
         "goldens/*.json",
     ),
     "model-aot": (
@@ -51,7 +51,7 @@ AOT_REQUIRED_FILES = {
     "allocations.ndjson",
     "api-examples.md",
     "redaction-proof.json",
-    "libtmux-query-v1.schema.json",
+    "libtmux-query-v2.schema.json",
 }
 AOT_REQUIRED_GOLDENS = {
     "goldens/attached-nvim.json",
@@ -325,15 +325,22 @@ def _validate_aot(files: dict[str, pathlib.Path], commit: str) -> None:
     proof = _load_json_object(files["redaction-proof.json"])
     if set(proof) != {"passed", "rejected"} or proof.get("passed") is not True:
         raise BundleAssemblyError("AOT redaction proof schema is invalid")
-    schema = _load_json_object(files["libtmux-query-v1.schema.json"])
-    if "evaluatedCommit" in schema or not isinstance(schema.get("$schema"), str):
+    schema = _load_json_object(files["libtmux-query-v2.schema.json"])
+    properties = schema.get("properties")
+    version = properties.get("version") if isinstance(properties, dict) else None
+    if (
+        "evaluatedCommit" in schema
+        or not isinstance(schema.get("$schema"), str)
+        or not isinstance(version, dict)
+        or version.get("const") != 2
+    ):
         raise BundleAssemblyError("AOT query schema is invalid")
     for relative in AOT_REQUIRED_GOLDENS:
         golden = _load_json_object(files[relative])
         if (
             set(golden) != AOT_GOLDEN_KEYS
             or golden.get("schema") != "libtmux-query"
-            or golden.get("version") != 1
+            or golden.get("version") != 2
             or golden.get("target") not in {"session", "window", "pane", "client"}
             or not isinstance(golden.get("predicate"), dict)
         ):

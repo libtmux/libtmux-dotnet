@@ -305,27 +305,30 @@ public sealed class PaneWaitTests
 
         Assert.Equal(PaneWaitOutcome.PresentAtEntry, present.Outcome);
         Assert.Equal(PaneWaitOutcome.TimedOut, absent.Outcome);
-        Assert.True(absent.Elapsed >= TimeSpan.FromMilliseconds(200));
+        Assert.True(absent.Elapsed >= TimeSpan.FromMilliseconds(200),
+            $"Elapsed={absent.Elapsed.TotalMilliseconds:F4}ms, Timeout={absent.EffectiveTimeout.TotalMilliseconds:F4}ms");
     }
 
     [UnixFact]
-    public async Task Exits_closes_and_full_screen_programs_end_a_wait_before_its_deadline()
+    public async Task Exits_and_closes_end_a_wait_while_full_screen_output_can_match()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Pane exiting = await NewPaneAsync(raw, "exit", "exit 3", token);
         await raw.ExecuteAsync(["set-option", "-p", "-t", exiting.Id.ToString(), "remain-on-exit", "on"], token);
         Pane closing = await NewPaneAsync(raw, "close", "exit 0", token);
-        Pane fullScreen = await NewPaneAsync(raw, "screen", "printf '\\033[?1049h'; exec sleep 60", token);
+        Pane fullScreen = await NewPaneAsync(raw, "screen", "printf '\\033[?1049h\\033[5;3Hdra''wn'; exec sleep 60", token);
         PaneWaitRequest never = new() { Patterns = [new Regex("never")], Timeout = Arrival };
 
         PaneWaitResult exited = await AfterEntryAsync(raw, "exit", exiting, never, token);
         PaneWaitResult closed = await AfterEntryAsync(raw, "close", closing, never, token);
-        PaneWaitResult repainting = await AfterEntryAsync(raw, "screen", fullScreen, never, token);
+        PaneWaitResult repainting = await AfterEntryAsync(raw, "screen", fullScreen,
+            PaneWaitRequest.FromTextPatterns(["drawn"]) with { Timeout = Arrival }, token);
 
         Assert.Equal(PaneWaitOutcome.PaneExited, exited.Outcome);
         Assert.Equal(PaneWaitOutcome.PaneExited, closed.Outcome);
-        Assert.Equal(PaneWaitOutcome.AlternateScreen, repainting.Outcome);
+        Assert.Equal(PaneWaitOutcome.Matched, repainting.Outcome);
+        Assert.Equal("drawn", repainting.Pattern);
     }
 
     [UnixFact]
@@ -354,7 +357,7 @@ public sealed class PaneWaitTests
     }
 
     [UnixFact]
-    public async Task A_condition_wait_fails_when_another_program_replaces_the_pane()
+    public async Task A_condition_wait_reports_when_another_program_replaces_the_pane()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
@@ -374,7 +377,8 @@ public sealed class PaneWaitTests
             ["respawn-pane", "-k", "-t", pane.Id.ToString(), "printf 'replaced\\n'; exec sleep 60"],
             token);
 
-        await Assert.ThrowsAsync<TmuxPaneException>(() => waiting);
+        PaneWaitResult result = await waiting;
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
     }
 
     // Starts the wait, lets the pane run its gated command only once the wait

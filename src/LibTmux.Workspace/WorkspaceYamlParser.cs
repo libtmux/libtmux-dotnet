@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
@@ -41,23 +42,28 @@ internal static class WorkspaceYamlParser
                     "The workspace file must contain exactly one YAML document.");
             }
 
+            Dictionary<string, (long Line, long Column)> sourceLocations = new(StringComparer.Ordinal);
             Dictionary<string, YamlNode> root = ReadMapping(
                 stream.Documents[0].RootNode,
                 "$",
-                RootKeys);
+                RootKeys,
+                sourceLocations);
 
-            return new WorkspaceFile(
+            WorkspaceFile declaration = new(
                 sessionName: ReadOptionalScalar(root, "session_name", "session_name"),
                 startDirectory: ReadOptionalScalar(
                     root,
                     "start_directory",
                     "start_directory"),
-                options: ReadOptions(root, "options", "options"),
-                windows: ReadWindows(root),
-                beforeScript: ReadBeforeScript(root))
-                .WithDefaults(
-                    environment: ReadOptions(root, "environment", "environment"),
-                    beforeCommands: ReadCommands(root, "$", "shell_command_before"));
+                options: ReadOptions(root, "options", "options", sourceLocations),
+                windows: ReadWindows(root, sourceLocations),
+                beforeScript: ReadBeforeScript(root));
+            return new WorkspaceFile(
+                declaration,
+                ReadOptions(root, "environment", "environment", sourceLocations),
+                null,
+                ReadCommands(root, "$", sourceLocations, "shell_command_before"),
+                sourceLocations.ToFrozenDictionary(StringComparer.Ordinal));
         }
         catch (WorkspaceFormatException)
         {
@@ -71,7 +77,9 @@ internal static class WorkspaceYamlParser
         }
     }
 
-    private static WorkspaceWindow[] ReadWindows(Dictionary<string, YamlNode> root)
+    private static WorkspaceWindow[] ReadWindows(
+        Dictionary<string, YamlNode> root,
+        Dictionary<string, (long Line, long Column)> sourceLocations)
     {
         if (!root.TryGetValue("windows", out YamlNode? node))
         {
@@ -86,7 +94,8 @@ internal static class WorkspaceYamlParser
             Dictionary<string, YamlNode> values = ReadMapping(
                 sequence.Children[index],
                 path,
-                WindowKeys);
+                WindowKeys,
+                sourceLocations);
 
             windows[index] = new WorkspaceWindow(
                 windowName: ReadOptionalScalar(values, "window_name", $"{path}.window_name"),
@@ -96,12 +105,12 @@ internal static class WorkspaceYamlParser
                     $"{path}.start_directory"),
                 layout: ReadOptionalScalar(values, "layout", $"{path}.layout"),
                 focus: ReadOptionalBoolean(values, "focus", $"{path}.focus"),
-                options: ReadOptions(values, "options", $"{path}.options"),
-                panes: ReadPanes(values, path),
+                options: ReadOptions(values, "options", $"{path}.options", sourceLocations),
+                panes: ReadPanes(values, path, sourceLocations),
                 windowIndex: ReadOptionalWindowIndex(values, $"{path}.window_index"))
                 .WithDefaults(
-                    environment: ReadOptions(values, "environment", $"{path}.environment"),
-                    beforeCommands: ReadCommands(values, path, "shell_command_before"));
+                    environment: ReadOptions(values, "environment", $"{path}.environment", sourceLocations),
+                    beforeCommands: ReadCommands(values, path, sourceLocations, "shell_command_before"));
         }
 
         return windows;
@@ -109,7 +118,8 @@ internal static class WorkspaceYamlParser
 
     private static WorkspacePane[] ReadPanes(
         Dictionary<string, YamlNode> window,
-        string windowPath)
+        string windowPath,
+        Dictionary<string, (long Line, long Column)> sourceLocations)
     {
         if (!window.TryGetValue("panes", out YamlNode? node))
         {
@@ -128,22 +138,24 @@ internal static class WorkspaceYamlParser
                 string? command = ReadNullableScalar(scalar);
                 panes[index] = new WorkspacePane(
                     shellCommands: command is null ? [] : [command]);
+                if (command is not null)
+                    sourceLocations[$"{panePath}.shell_command[0]"] = (scalar.Start.Line, scalar.Start.Column);
                 continue;
             }
 
-            Dictionary<string, YamlNode> values = ReadMapping(pane, panePath, PaneKeys);
+            Dictionary<string, YamlNode> values = ReadMapping(pane, panePath, PaneKeys, sourceLocations);
             panes[index] = new WorkspacePane(
-                commands: ReadCommands(values, panePath),
+                commands: ReadCommands(values, panePath, sourceLocations),
                 startDirectory: ReadOptionalScalar(
                     values,
                     "start_directory",
                     $"{panePath}.start_directory"),
                 focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"),
-                options: ReadOptions(values, "options", $"{panePath}.options"),
+                options: ReadOptions(values, "options", $"{panePath}.options", sourceLocations),
                 enter: ReadOptionalEnter(values, $"{panePath}.enter"))
                 .WithDefaults(
-                    environment: ReadOptions(values, "environment", $"{panePath}.environment"),
-                    beforeCommands: ReadCommands(values, panePath, "shell_command_before"));
+                    environment: ReadOptions(values, "environment", $"{panePath}.environment", sourceLocations),
+                    beforeCommands: ReadCommands(values, panePath, sourceLocations, "shell_command_before"));
         }
 
         return panes;
@@ -168,6 +180,7 @@ internal static class WorkspaceYamlParser
     private static WorkspaceCommand[] ReadCommands(
         Dictionary<string, YamlNode> pane,
         string panePath,
+        Dictionary<string, (long Line, long Column)> sourceLocations,
         string key = "shell_command")
     {
         if (!pane.TryGetValue(key, out YamlNode? node))
@@ -179,6 +192,8 @@ internal static class WorkspaceYamlParser
         if (node is YamlScalarNode scalar)
         {
             string? command = ReadNullableScalar(scalar);
+            if (command is not null)
+                sourceLocations[$"{path}[0]"] = (scalar.Start.Line, scalar.Start.Column);
             return command is null ? [] : [new WorkspaceCommand(command)];
         }
 
@@ -190,13 +205,14 @@ internal static class WorkspaceYamlParser
             string commandPath = $"{path}[{index}]";
             string? commandText;
             bool? enter = null;
+            Dictionary<string, YamlNode>? values = null;
             if (command is YamlScalarNode commandScalar)
             {
                 commandText = ReadNullableScalar(commandScalar);
             }
             else if (command is YamlMappingNode)
             {
-                Dictionary<string, YamlNode> values = ReadMapping(command, commandPath, ["cmd", "enter"]);
+                values = ReadMapping(command, commandPath, ["cmd", "enter"]);
                 if (!values.TryGetValue("cmd", out YamlNode? value))
                 {
                     throw At(command, $"Workspace path '{commandPath}' requires key 'cmd'.");
@@ -212,6 +228,13 @@ internal static class WorkspaceYamlParser
 
             if (commandText is not null)
             {
+                string retainedPath = $"{path}[{commands.Count}]";
+                sourceLocations[retainedPath] = (command.Start.Line, command.Start.Column);
+                if (values is not null)
+                {
+                    foreach ((string field, YamlNode value) in values)
+                        sourceLocations[$"{retainedPath}.{field}"] = (value.Start.Line, value.Start.Column);
+                }
                 commands.Add(new WorkspaceCommand(commandText, enter));
             }
         }
@@ -254,7 +277,8 @@ internal static class WorkspaceYamlParser
     private static Dictionary<string, string> ReadOptions(
         Dictionary<string, YamlNode> parent,
         string key,
-        string path)
+        string path,
+        Dictionary<string, (long Line, long Column)> sourceLocations)
     {
         if (!parent.TryGetValue(key, out YamlNode? node))
         {
@@ -288,6 +312,7 @@ internal static class WorkspaceYamlParser
             {
                 throw DuplicateKey(optionKey, path, name);
             }
+            sourceLocations[$"{path}.{name}"] = (optionValue.Start.Line, optionValue.Start.Column);
         }
 
         return options;
@@ -296,7 +321,8 @@ internal static class WorkspaceYamlParser
     private static Dictionary<string, YamlNode> ReadMapping(
         YamlNode node,
         string path,
-        string[] allowedKeys)
+        string[] allowedKeys,
+        Dictionary<string, (long Line, long Column)>? sourceLocations = null)
     {
         if (node is not YamlMappingNode mapping)
         {
@@ -316,6 +342,8 @@ internal static class WorkspaceYamlParser
             {
                 throw DuplicateKey(keyNode, path, key);
             }
+            if (sourceLocations is not null)
+                sourceLocations[path == "$" ? key : $"{path}.{key}"] = (value.Start.Line, value.Start.Column);
         }
 
         return values;

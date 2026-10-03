@@ -37,7 +37,7 @@ public sealed class ControlModeEventBufferTests
 
         Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "é")));
         Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(1), token));
-        Assert.Equal(new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true }, reader.Current);
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
         Assert.True(buffer.TryWrite(new TmuxExitEvent("too large")));
         buffer.Complete();
 
@@ -156,7 +156,7 @@ public sealed class ControlModeEventBufferTests
 
         Assert.Equal([new PaneId(1)], discarded);
         Assert.Equal(
-            ["window-add", "dropped 1, only output", "%1: second", "layout-change"],
+            ["dropped 1, only output", "window-add", "%1: second", "layout-change"],
             observed.Select(item => item switch
             {
                 TmuxEventsDroppedEvent loss => $"dropped {loss.Count}{(loss.OnlyOutput ? ", only output" : "")}",
@@ -184,7 +184,7 @@ public sealed class ControlModeEventBufferTests
         }
 
         Assert.Equal([new PaneId(2)], discarded);
-        Assert.Equal(["%1: quiet", "dropped", "%2: flood-2", "%2: flood-3"], observed);
+        Assert.Equal(["dropped", "%1: quiet", "%2: flood-2", "%2: flood-3"], observed);
     }
 
     [Fact]

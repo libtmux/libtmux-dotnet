@@ -1,8 +1,8 @@
-using LibTmux.Internal;
 using System.ComponentModel;
 using System.Runtime.Versioning;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LibTmux.Internal;
 using ModelContextProtocol.Server;
 
 namespace LibTmux.Mcp;

@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using LibTmux.Internal;
 using LibTmux.Mcp;
@@ -15,22 +17,41 @@ public sealed class PaneWaitConsistencyTests
     [Fact]
     public void A_core_wait_request_owns_patterns_and_validates_before_io()
     {
-        string[] wanted = ["ready"];
-        string[] stopped = ["fatal"];
-        PaneTextWaitRequest request = new()
+        Regex[] wanted = [new("ready")];
+        Regex[] stopped = [new("fatal")];
+        PaneWaitRequest request = new()
         {
             Patterns = wanted,
             StopPatterns = stopped,
         };
 
-        wanted[0] = "changed";
-        stopped[0] = "changed";
-        Assert.Equal("ready", Assert.Single(request.Patterns!));
-        Assert.Equal("fatal", Assert.Single(request.StopPatterns!));
+        wanted[0] = new("changed");
+        stopped[0] = new("changed");
+        Assert.Equal("ready", Assert.Single(request.Patterns).ToString());
+        Assert.Equal("fatal", Assert.Single(request.StopPatterns).ToString());
         request.Validate();
 
-        PaneTextWaitRequest invalid = new() { Patterns = ["(?=not-supported)"] };
-        Assert.Throws<NotSupportedException>(invalid.Validate);
+        Assert.Throws<ArgumentException>(() => PaneWaitRequest.FromTextPatterns(
+            ["(?=not-supported)"]));
+    }
+
+    [Fact]
+    public void Native_backtracking_regex_cannot_consume_a_longer_budget_than_the_wait()
+    {
+        PaneWaitRequest request = new()
+        {
+            Patterns = [new Regex("^(a+)+$", RegexOptions.None, TimeSpan.FromSeconds(5))],
+            Timeout = TimeSpan.FromMilliseconds(25),
+        };
+        PaneWaitPattern[] patterns = request.Snapshot().Wanted;
+        int work = 0;
+        Stopwatch elapsed = Stopwatch.StartNew();
+
+        Assert.Throws<RegexMatchTimeoutException>(() => PaneTextWaiter.Match(
+            patterns, [new string('a', 10_000) + "x"], ref work,
+            TestContext.Current.CancellationToken,
+            () => request.Timeout - elapsed.Elapsed));
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -43,16 +64,14 @@ public sealed class PaneWaitConsistencyTests
             Unstable = false,
         };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
-        PaneTextWaitRequest request = new()
-        {
-            Patterns = [.. Enumerable.Range(0, 15).Select(index => $"absent-{index}")],
-        };
+        PaneWaitRequest request = PaneWaitRequest.FromTextPatterns(
+            [.. Enumerable.Range(0, 15).Select(index => $"absent-{index}")]);
 
-        PaneTextWaitEngine.MatchWorkExceededException exceeded =
-            await Assert.ThrowsAsync<PaneTextWaitEngine.MatchWorkExceededException>(() =>
-                observer.WaitForTextAsync(pane, request, token));
+        PaneTextWaiter.MatchWorkExceededException exceeded =
+            await Assert.ThrowsAsync<PaneTextWaiter.MatchWorkExceededException>(() =>
+                WaitCoreAsync(observer, pane, request, token));
 
         McpException mapped = ReadTools.WaitMatchingError(exceeded);
         Assert.Contains("matching work limit", mapped.Message, StringComparison.Ordinal);
@@ -65,16 +84,16 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Output = "ready" };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using (PaneTextObserver observer = new(
+        await using (PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock))
         {
-            PaneTextWaitResult result = await observer.WaitForTextAsync(
+            PaneWaitResult result = await WaitCoreAsync(observer,
                 pane,
-                new PaneTextWaitRequest { Patterns = ["ready"] },
+                PaneWaitRequest.FromTextPatterns(["ready"]),
                 token);
 
-            Assert.Equal(PaneTextWaitOutcome.PresentAtEntry, result.Outcome);
+            Assert.Equal(PaneWaitOutcome.PresentAtEntry, result.Outcome);
             Assert.Contains("ready", result.Tail);
             Assert.False(result.PollingFallback);
         }
@@ -88,15 +107,15 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Output = "ready on 8080", PadToHeight = true };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneTextWaitResult result = await observer.WaitForTextAsync(
+        PaneWaitResult result = await WaitCoreAsync(observer,
             pane,
-            new PaneTextWaitRequest { Patterns = ["ready on"], TailLines = 4 },
+            PaneWaitRequest.FromTextPatterns(["ready on"]) with { TailLines = 4 },
             token);
 
-        Assert.Equal(PaneTextWaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.PresentAtEntry, result.Outcome);
         Assert.Contains("ready on 8080", result.Tail);
         Assert.Equal(0, result.OmittedTailLines);
     }
@@ -107,20 +126,216 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Output = "ready fatal" };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneTextWaitResult result = await observer.WaitForTextAsync(
+        PaneWaitResult result = await WaitCoreAsync(observer,
             pane,
-            new PaneTextWaitRequest
-            {
-                Patterns = ["ready"],
-                StopPatterns = ["fatal"],
-            },
+            PaneWaitRequest.FromTextPatterns(["ready"], ["fatal"]),
             token);
 
-        Assert.Equal(PaneTextWaitOutcome.Stopped, result.Outcome);
-        Assert.Equal("fatal", result.MatchedPattern);
+        Assert.Equal(PaneWaitOutcome.Stopped, result.Outcome);
+        Assert.Equal("fatal", result.Pattern);
+    }
+
+    [Fact]
+    public async Task A_trigger_wait_sends_after_baseline_even_when_old_screen_matches()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "old ready fatal", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+        bool sent = false;
+
+        PaneWaitResult result = await PaneTextWaiter.WaitAsync(
+            observer, pane, PaneWaitRequest.FromTextPatterns(["ready"], ["fatal"]).Snapshot(),
+            null, null, null, token, afterEntry: _ =>
+            {
+                Assert.True(fixture.Captures > 0);
+                sent = true;
+                fixture.Output = "old ready fatal\nnew ready";
+                fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "new ready"));
+                return Task.CompletedTask;
+            });
+
+        Assert.True(sent);
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.Contains("new ready", result.Tail);
+    }
+
+    [Fact]
+    public async Task A_typed_trigger_wait_keeps_an_empty_delta_without_rebasing()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "baseline", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("typed");
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["ready"]) with
+            { Timeout = TimeSpan.FromSeconds(1) }).Snapshot(),
+            withoutEcho, withoutEcho, null, token,
+            afterEntry: _ => Task.CompletedTask);
+        await fixture.Clock.Waiting.Task.WaitAsync(token);
+        Assert.Equal(2, fixture.Captures);
+        Assert.False(waiting.IsCompleted);
+
+        fixture.Output = "ready";
+        fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "ready"));
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.False(result.LinesMissed);
+        Assert.False(result.AnchorLost);
+    }
+
+    [Fact]
+    public async Task A_trigger_wait_does_not_match_old_screen_on_final_capture()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "old ready fatal", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+        bool sent = false;
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["ready"], ["fatal"]) with
+            { Timeout = TimeSpan.FromMilliseconds(500) }).Snapshot(),
+            null, null, null, token, afterEntry: _ =>
+            {
+                sent = true;
+                return Task.CompletedTask;
+            });
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.Waiting.Task).WaitAsync(token);
+        Assert.Same(fixture.Clock.Waiting.Task, completed);
+        Assert.True(sent);
+
+        ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
+        timer.Fire();
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.TimedOut, result.Outcome);
+    }
+
+    [Fact]
+    public async Task A_trigger_wait_recovers_after_an_ambiguous_anchor_loss()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new()
+        {
+            Output = "old ready fatal",
+            Unstable = false,
+            HistorySize = 100,
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+        bool sent = false;
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane, PaneWaitRequest.FromTextPatterns(["ready"], ["fatal"]).Snapshot(),
+            null, null, null, token, afterEntry: _ =>
+            {
+                sent = true;
+                fixture.HistorySize = 0;
+                fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "unrecoverable prior row"));
+                return Task.CompletedTask;
+            });
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.Waiting.Task).WaitAsync(token);
+        PaneWaitResult? completedWait = waiting.IsCompletedSuccessfully ? await waiting : null;
+        string premature = completedWait is not null
+            ? $"Outcome={completedWait.Outcome}, AnchorLost={completedWait.AnchorLost}, "
+                + $"LinesMissed={completedWait.LinesMissed}"
+            : $"Status={waiting.Status}, Error={waiting.Exception?.GetBaseException().Message}";
+        Assert.True(ReferenceEquals(fixture.Clock.Waiting.Task, completed), premature);
+        Assert.True(sent);
+
+        fixture.Output = "old ready fatal\nnew ready";
+        fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "new ready"));
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.True(result.LinesMissed);
+        Assert.True(result.AnchorLost);
+    }
+
+    [Fact]
+    public async Task A_trigger_wait_ignores_old_matches_in_an_incrementally_rewritten_row()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "old ready fatal", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane, PaneWaitRequest.FromTextPatterns(["ready"], ["fatal"]).Snapshot(),
+            null, null, null, token, afterEntry: _ =>
+            {
+                fixture.Output = "old ready fatal re";
+                fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "re"));
+                return Task.CompletedTask;
+            });
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.Waiting.Task).WaitAsync(token);
+        PaneWaitResult? premature = waiting.IsCompletedSuccessfully ? await waiting : null;
+        Assert.True(ReferenceEquals(fixture.Clock.Waiting.Task, completed),
+            premature is null ? $"Wait status: {waiting.Status}" :
+            $"Wait ended early: {premature.Outcome}, pattern {premature.Pattern}");
+
+        fixture.Output = "old ready fatal ready";
+        fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "ady"));
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+    }
+
+    [Fact]
+    public async Task A_proven_trigger_final_delta_survives_an_unstable_tail_capture()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new()
+        {
+            Output = "baseline",
+            Unstable = false,
+            PauseAfterGridStateReadNumber = 6,
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["ready"]) with
+            { Timeout = TimeSpan.FromSeconds(1) }).Snapshot(),
+            null, null, null, token, afterEntry: _ => Task.CompletedTask);
+        ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
+        fixture.Output = "ready";
+        timer.Fire();
+        await fixture.GridStateReadReached.Task.WaitAsync(token);
+        fixture.Unstable = true;
+        fixture.GridStateReadRelease.TrySetResult();
+
+        PaneWaitResult result = await waiting.WaitAsync(token);
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.Contains("ready", result.Tail);
     }
 
     [Fact]
@@ -144,23 +359,21 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
-        PaneTextWaitRequest request = new()
-        {
-            Patterns = namedPattern ? ["ready"] : null,
-            Timeout = TimeSpan.FromSeconds(20),
-        };
+        PaneWaitRequest request = PaneWaitRequest.FromTextPatterns(
+            namedPattern ? ["ready"] : null) with
+        { Timeout = TimeSpan.FromSeconds(20) };
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(pane, request, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer, pane, request, token);
         await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.Output = "ready";
         fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "raw fragment"));
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
         Assert.Equal(
-            namedPattern ? PaneTextWaitOutcome.Matched : PaneTextWaitOutcome.AnyOutput,
+            namedPattern ? PaneWaitOutcome.Matched : PaneWaitOutcome.AnyOutput,
             result.Outcome);
         Assert.Contains("ready", result.Tail);
         Assert.False(result.PollingFallback);
@@ -172,24 +385,20 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
             pane,
-            new PaneTextWaitRequest
-            {
-                Patterns = ["ready"],
-                Timeout = TimeSpan.FromSeconds(1),
-            },
+            PaneWaitRequest.FromTextPatterns(["ready"]) with { Timeout = TimeSpan.FromSeconds(1) },
             token);
         ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
         int capturesBeforeTimeout = fixture.Captures;
         timer.Fire();
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.TimedOut, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.TimedOut, result.Outcome);
         Assert.Equal(capturesBeforeTimeout + 1, fixture.Captures);
         Assert.False(result.PollingFallback);
     }
@@ -200,19 +409,19 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["ready"] }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["ready"]), token);
         ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.Output = "ready";
         timer.Fire();
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.Matched, result.Outcome);
-        Assert.Equal("ready", result.MatchedPattern);
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
         Assert.Contains("ready", result.Tail);
     }
 
@@ -226,17 +435,13 @@ public sealed class PaneWaitConsistencyTests
             PauseAfterGridStateReadNumber = 6,
         };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
             pane,
-            new PaneTextWaitRequest
-            {
-                Patterns = ["late-ready"],
-                Timeout = TimeSpan.FromSeconds(1),
-            },
+            PaneWaitRequest.FromTextPatterns(["late-ready"]) with { Timeout = TimeSpan.FromSeconds(1) },
             token);
         ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
         timer.Fire();
@@ -245,10 +450,39 @@ public sealed class PaneWaitConsistencyTests
         fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "new output"));
         fixture.GridStateReadRelease.TrySetResult();
 
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
-        Assert.Equal(PaneTextWaitOutcome.Matched, result.Outcome);
-        Assert.Equal("late-ready", result.MatchedPattern);
+        PaneWaitResult result = await waiting.WaitAsync(token);
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("late-ready", result.Pattern);
         Assert.Contains("late-ready", result.Tail);
+    }
+
+    [Fact]
+    public async Task An_early_final_timer_keeps_waiting_on_the_same_output_signal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(
+            observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["ready"]) with
+            { Timeout = TimeSpan.FromSeconds(1) }).Snapshot(),
+            null, null, null, token, finalTimerProvider: fixture.Clock);
+        ManualTimer observationTimer = await fixture.Clock.Waiting.Task.WaitAsync(token);
+        observationTimer.Fire();
+        ManualTimer earlyFinalTimer = await fixture.Clock.WaitingAgain.Task.WaitAsync(token);
+        earlyFinalTimer.Fire();
+
+        fixture.Output = "ready";
+        fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "ready"));
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("ready", result.Pattern);
+        Assert.False(result.PollingFallback);
     }
 
     [Fact]
@@ -257,18 +491,18 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Timeout = TimeSpan.FromSeconds(20) }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, new PaneWaitRequest { Timeout = TimeSpan.FromSeconds(20) }, token);
         ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.Output = "new rendered output";
         timer.Fire();
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.AnyOutput, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.AnyOutput, result.Outcome);
         Assert.Contains("new rendered output", result.Tail);
     }
 
@@ -283,17 +517,17 @@ public sealed class PaneWaitConsistencyTests
             OutputAfterCapture = "between final reads",
         };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Timeout = TimeSpan.FromSeconds(20) }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, new PaneWaitRequest { Timeout = TimeSpan.FromSeconds(20) }, token);
         ManualTimer timer = await fixture.Clock.Waiting.Task.WaitAsync(token);
         timer.Fire();
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.AnyOutput, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.AnyOutput, result.Outcome);
         Assert.Contains("between final reads", result.Tail);
     }
 
@@ -307,13 +541,13 @@ public sealed class PaneWaitConsistencyTests
             DisappearAtGridStateRead = 3,
         };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneTextWaitResult result = await observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["ready"] }, token);
+        PaneWaitResult result = await WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["ready"]), token);
 
-        Assert.Equal(PaneTextWaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.PresentAtEntry, result.Outcome);
         Assert.Contains("ready", result.Tail);
     }
 
@@ -323,13 +557,13 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Output = "last line", Dead = true };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneTextWaitResult result = await observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["never"] }, token);
+        PaneWaitResult result = await WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["never"]), token);
 
-        Assert.Equal(PaneTextWaitOutcome.PaneDied, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
         Assert.Contains("last line", result.Tail);
     }
 
@@ -339,19 +573,19 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Output = "before respawn", Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["never"] }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["never"]), token);
         await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.PanePid = "456";
         fixture.Output = "new process";
         fixture.Control.Emit(new TmuxOutputEvent(pane.Id, "new process"));
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.PaneDied, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
         Assert.Contains("before respawn", result.Tail);
         Assert.DoesNotContain("new process", result.Tail);
     }
@@ -363,8 +597,10 @@ public sealed class PaneWaitConsistencyTests
         await using Fixture fixture = new() { PanePid = "456", Output = "replacement text" };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
 
-        await Assert.ThrowsAsync<PaneTextGridReader.PaneReplacedException>(() =>
-            PaneTextGridReader.ReadVisibleAsync(pane, "123", token));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            PaneReader.ReadVisibleAsync(pane, "123",
+                (failure, _) => new InvalidOperationException(failure.ToString()), token));
+        Assert.Equal("Replaced", error.Message);
     }
 
     [Theory]
@@ -375,12 +611,12 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["ready"] }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["ready"]), token);
         await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.LinkedInCapturedSession = false;
         fixture.Output = "ready";
@@ -399,26 +635,44 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
-            allowPollingFallback: true,
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["ready"] }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["ready"]) with
+            { AllowPollingFallback = true }, token);
         await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.LinkedInCapturedSession = false;
         fixture.Output = "ready";
         fixture.Control.Emit(new TmuxNotificationEvent("window-close", ["@1"]));
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
-        Assert.Equal(PaneTextWaitOutcome.Matched, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
         Assert.True(result.PollingFallback);
         Assert.True(result.LinesMissed);
     }
 
     [Fact]
-    public async Task Disposing_a_text_observer_cancels_a_stalled_control_start()
+    public async Task An_attach_fallback_reports_that_grid_lines_may_have_been_missed()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "ready", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub activity = new((_, _) =>
+            Task.FromException<IControlModeSession>(new LibTmuxException("control unavailable")));
+
+        PaneWaitResult result = await WaitCoreAsync(activity, pane,
+            PaneWaitRequest.FromTextPatterns(["ready"]) with
+            { AllowPollingFallback = true }, token);
+
+        Assert.Equal(PaneWaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.True(result.PollingFallback);
+        Assert.True(result.LinesMissed);
+    }
+
+    [Fact]
+    public async Task Disposing_an_activity_hub_cancels_a_stalled_control_start()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new();
@@ -426,13 +680,13 @@ public sealed class PaneWaitConsistencyTests
         TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource<IControlModeSession> startup = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        PaneTextObserver observer = new((_, _) =>
+        PaneActivityHub observer = new((_, _) =>
         {
             entered.TrySetResult();
             return startup.Task;
         });
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(pane, cancellationToken: token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer, pane, cancellationToken: token);
         await entered.Task.WaitAsync(token);
         await observer.DisposeAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
@@ -443,15 +697,15 @@ public sealed class PaneWaitConsistencyTests
     }
 
     [Fact]
-    public async Task Disposing_a_text_observer_cancels_a_stalled_grid_capture()
+    public async Task Disposing_an_activity_hub_cancels_a_stalled_grid_capture()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { BlockFirstCapture = true };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        PaneTextObserver observer = new(
+        PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(pane, cancellationToken: token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer, pane, cancellationToken: token);
         await fixture.CaptureStarted.Task.WaitAsync(token);
         await observer.DisposeAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
@@ -468,21 +722,21 @@ public sealed class PaneWaitConsistencyTests
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
         TaskCompletionSource<IControlModeSession> startup = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        await using PaneTextObserver observer = new((_, _) => stalledCapture
+        await using PaneActivityHub observer = new((_, _) => stalledCapture
             ? Task.FromResult<IControlModeSession>(fixture.Control)
             : startup.Task);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
             pane,
-            new PaneTextWaitRequest { Timeout = TimeSpan.FromMilliseconds(100) },
+            new PaneWaitRequest { Timeout = TimeSpan.FromMilliseconds(100) },
             token);
         if (stalledCapture)
         {
             await fixture.CaptureStarted.Task.WaitAsync(token);
         }
 
-        PaneTextWaitResult result = await waiting.WaitAsync(token);
-        Assert.Equal(PaneTextWaitOutcome.TimedOut, result.Outcome);
+        PaneWaitResult result = await waiting.WaitAsync(token);
+        Assert.Equal(PaneWaitOutcome.TimedOut, result.Outcome);
         Assert.InRange(result.Elapsed, TimeSpan.FromMilliseconds(75), TimeSpan.FromSeconds(1));
 
         if (!stalledCapture)
@@ -498,12 +752,12 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { Unstable = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
             timeProvider: fixture.Clock);
 
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["never"] }, token);
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["never"]), token);
         await fixture.Clock.Waiting.Task.WaitAsync(token);
         fixture.Control.Fail(new IOException("control stream closed"));
 
@@ -517,13 +771,14 @@ public sealed class PaneWaitConsistencyTests
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { DisappearsAtFirstCapture = true };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
-        await using PaneTextObserver observer = new(
+        await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneTextWaitResult result = await observer.WaitForTextAsync(
-            pane, new PaneTextWaitRequest { Patterns = ["never"] }, token);
+        PaneWaitResult result = await WaitCoreAsync(observer,
+            pane, PaneWaitRequest.FromTextPatterns(["never"]), token);
 
-        Assert.Equal(PaneTextWaitOutcome.PaneDied, result.Outcome);
+        Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
+        Assert.Null(await fixture.Server.FindPaneAsync(pane.Id, token));
     }
 
     [Theory]
@@ -610,6 +865,38 @@ public sealed class PaneWaitConsistencyTests
     }
 
     [Fact]
+    public async Task Mcp_any_output_wait_ignores_an_unchanged_screen_after_anchor_loss()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new()
+        {
+            Output = "old line",
+            Unstable = false,
+            HistorySize = 100,
+        };
+        Task<WaitResult> waiting = fixture.Tools.WaitForTextAsync(
+            "%1", patterns: null, timeoutSeconds: 20, cancellationToken: token);
+        await fixture.Clock.Waiting.Task.WaitAsync(token);
+
+        fixture.HistorySize = 0;
+        fixture.Control.Emit(new TmuxNotificationEvent("layout-change", ["@1"]));
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.WaitingAgain.Task).WaitAsync(token);
+        WaitResult? premature = waiting.IsCompletedSuccessfully ? await waiting : null;
+        Assert.True(ReferenceEquals(fixture.Clock.WaitingAgain.Task, completed),
+            premature is null ? $"Wait status: {waiting.Status}" :
+            $"Wait ended early: {premature.Outcome}, AnchorLost={premature.AnchorLost}");
+
+        fixture.Output = "old line\nfresh line";
+        fixture.Control.Emit(new TmuxOutputEvent(new PaneId(1), "fresh line"));
+        WaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(WaitOutcome.AnyOutput, result.Outcome);
+        Assert.Contains("fresh line", result.Tail.Lines);
+        Assert.True(result.LinesMissed);
+        Assert.True(result.AnchorLost);
+    }
+
+    [Fact]
     public async Task A_wait_retries_after_resize_only_instability_without_later_output()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -640,8 +927,8 @@ public sealed class PaneWaitConsistencyTests
         await using Fixture fixture = new() { StableEntry = false };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
 
-        McpException failure = await Assert.ThrowsAnyAsync<McpException>(() =>
-            PaneReader.ReadVisibleAsync(pane, null, McpPaneReader.Failure, token));
+        McpException failure = await Assert.ThrowsAsync<McpPaneReader.UnstableSnapshotException>(() =>
+            McpPaneReader.ReadVisibleAsync(pane, null, token));
 
         Assert.Contains("changed during every snapshot attempt", failure.Message, StringComparison.Ordinal);
         Assert.Equal(3, fixture.Captures);
@@ -660,6 +947,14 @@ public sealed class PaneWaitConsistencyTests
         Assert.Equal(2, fixture.Captures);
         Assert.False(fixture.Activity.IsStreaming);
     }
+
+    private static Task<PaneWaitResult> WaitCoreAsync(
+        PaneActivityHub activity,
+        Pane pane,
+        PaneWaitRequest? request = null,
+        CancellationToken cancellationToken = default) =>
+        PaneTextWaiter.WaitAsync(activity, pane, (request ?? new PaneWaitRequest()).Snapshot(),
+            null, null, null, cancellationToken);
 
     private sealed class RecordingProgress : IProgress<ProgressNotificationValue>
     {
@@ -774,6 +1069,16 @@ public sealed class PaneWaitConsistencyTests
                 if (Captures == 1 && ReadyAfterBaseline)
                     Output = "ready";
             }
+            else if (arguments.Contains("display-message", StringComparer.Ordinal)
+                && arguments.Any(value => value.Contains(FormatProjection.RowSeparator, StringComparison.Ordinal)))
+            {
+                FormatProjection projection = FormatProjection.Create("list-panes", TmuxVersion.Parse("3.7"));
+                payload = string.Concat(projection.Fields.Select(field =>
+                    (PaneExists || field.WireName is "pid" or "start_time"
+                        ? Field(field.WireName)
+                        : string.Empty)
+                    + FormatProjection.RowSeparator)) + "\n";
+            }
             else if (arguments.Any(value => value.Contains("#{history_size}", StringComparison.Ordinal)))
             {
                 GridStateReads++;
@@ -793,6 +1098,7 @@ public sealed class PaneWaitConsistencyTests
 
             if (PauseAfterGridStateReadNumber > 0
                 && arguments.Any(value => value.Contains("#{history_size}", StringComparison.Ordinal))
+                && !arguments.Any(value => value.Contains(FormatProjection.RowSeparator, StringComparison.Ordinal))
                 && GridStateReads == PauseAfterGridStateReadNumber)
             {
                 GridStateReadReached.TrySetResult();
@@ -870,11 +1176,15 @@ public sealed class PaneWaitConsistencyTests
 
     private sealed class ControlledClock : TimeProvider
     {
+        private int _timersCreated;
         internal TaskCompletionSource<ManualTimer> Waiting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource<ManualTimer> WaitingAgain { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
             ManualTimer timer = new(callback, state, dueTime);
             Waiting.TrySetResult(timer);
+            if (Interlocked.Increment(ref _timersCreated) == 2)
+                WaitingAgain.TrySetResult(timer);
             return timer;
         }
     }

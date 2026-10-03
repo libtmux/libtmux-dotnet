@@ -24,19 +24,14 @@ public static class ControlMode
         Window window = (await owned.Value.GetWindowsAsync()).Single();
         Pane pane = (await window.GetPanesAsync()).Single();
 
-        await using PaneTextObserver observer = new();
-        Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-            pane,
-            new PaneTextWaitRequest
-            {
-                Patterns = ["observer-ready"],
-                SimpleMatch = true,
-                Timeout = TimeSpan.FromSeconds(5),
-            });
+        Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+            PaneWaitRequest.FromTextPatterns(["observer-ready"], simpleMatch: true)
+                with
+            { Timeout = TimeSpan.FromSeconds(5) });
         await pane.SendTextAsync("printf 'observer-%s\\n' ready");
-        PaneTextWaitResult result = await waiting;
-        if (result.Outcome is not (PaneTextWaitOutcome.Matched
-            or PaneTextWaitOutcome.PresentAtEntry))
+        PaneWaitResult result = await waiting;
+        if (result.Outcome is not (PaneWaitOutcome.Matched
+            or PaneWaitOutcome.PresentAtEntry))
         {
             throw new InvalidOperationException($"Pane text wait ended: {result.Outcome}");
         }

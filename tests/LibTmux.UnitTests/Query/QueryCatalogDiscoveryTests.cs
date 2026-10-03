@@ -73,7 +73,8 @@ public sealed class QueryCatalogDiscoveryTests
         [
             "equal", "notEqual", "lessThan", "lessThanOrEqual", "greaterThan", "greaterThanOrEqual",
             "stringEqualOrdinal", "stringEqualOrdinalIgnoreCase", "startsWithOrdinal", "endsWithOrdinal",
-            "containsOrdinal", "regex", "any", "all", "related",
+            "containsOrdinal", "startsWithOrdinalIgnoreCase", "endsWithOrdinalIgnoreCase",
+            "containsOrdinalIgnoreCase", "regex", "any", "all", "related",
         ];
         foreach (QueryFieldDescriptor field in Enum.GetValues<QueryTarget>().SelectMany(QueryFieldCatalog.GetFields))
         {
@@ -134,8 +135,11 @@ public sealed class QueryCatalogDiscoveryTests
             "stringEqualOrdinal" => QueryStringOperation.EqualsOrdinal,
             "stringEqualOrdinalIgnoreCase" => QueryStringOperation.EqualsOrdinalIgnoreCase,
             "startsWithOrdinal" => QueryStringOperation.StartsWithOrdinal,
+            "startsWithOrdinalIgnoreCase" => QueryStringOperation.StartsWithOrdinalIgnoreCase,
             "endsWithOrdinal" => QueryStringOperation.EndsWithOrdinal,
+            "endsWithOrdinalIgnoreCase" => QueryStringOperation.EndsWithOrdinalIgnoreCase,
             "containsOrdinal" => QueryStringOperation.ContainsOrdinal,
+            "containsOrdinalIgnoreCase" => QueryStringOperation.ContainsOrdinalIgnoreCase,
             _ => throw new InvalidOperationException("Unknown test operation."),
         };
         return new StringNode(text, field, new ConstantNode(new StringConstant("value")));

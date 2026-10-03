@@ -73,16 +73,23 @@ public sealed partial class Server
         }
         catch (Exception startupFailure)
         {
+            Exception reported = await session.EnrichStartupFailureAsync(startupFailure, cancellationToken)
+                .ConfigureAwait(false);
             try
             {
                 await session.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception cleanupFailure)
             {
-                startupFailure.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
+                reported.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
             }
 
-            throw;
+            if (ReferenceEquals(reported, startupFailure))
+            {
+                throw;
+            }
+
+            throw reported;
         }
     }
 }

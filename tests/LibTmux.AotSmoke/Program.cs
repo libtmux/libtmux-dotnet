@@ -54,22 +54,17 @@ internal static class Program
             Window window = scope.Window;
             Pane pane = scope.Pane;
 
-            await using PaneTextObserver observer = new();
-            Task<PaneTextWaitResult> textWait = observer.WaitForTextAsync(
-                pane,
-                new PaneTextWaitRequest
-                {
-                    Patterns = ["aot-observer-ready"],
-                    Timeout = TimeSpan.FromSeconds(3),
-                });
+            Task<PaneWaitResult> textWait = pane.WaitForTextAsync(
+                PaneWaitRequest.FromTextPatterns(["aot-observer-ready"], simpleMatch: true)
+                    with { Timeout = TimeSpan.FromSeconds(3) });
             await pane.SendKeysAsync(new SendKeysRequest
             {
                 Text = "printf 'aot-%s\\n' observer-ready",
                 Literal = true,
             });
-            PaneTextWaitResult textObserved = await textWait;
-            bool observerWorks = (textObserved.Outcome is PaneTextWaitOutcome.Matched
-                or PaneTextWaitOutcome.PresentAtEntry)
+            PaneWaitResult textObserved = await textWait;
+            bool observerWorks = (textObserved.Outcome is PaneWaitOutcome.Matched
+                or PaneWaitOutcome.PresentAtEntry)
                 && textObserved.Tail.Any(line => line.Contains(
                     "aot-observer-ready", StringComparison.Ordinal));
 

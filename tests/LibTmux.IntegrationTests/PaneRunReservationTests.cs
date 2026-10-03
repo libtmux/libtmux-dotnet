@@ -5,7 +5,7 @@ using LibTmux.Testing;
 namespace LibTmux.IntegrationTests;
 
 [UnsupportedOSPlatform("windows")]
-public sealed class PaneCommandRunTests
+public sealed class PaneRunReservationTests
 {
     [UnixFact]
     public async Task Public_pane_run_reports_status_retains_timeout_and_borrows_server()
@@ -22,7 +22,7 @@ public sealed class PaneCommandRunTests
             options,
             cancellationToken);
 
-        PaneCommandResult success = await scope.Pane.RunCommandAsync(
+        PaneRunResult success = await scope.Pane.RunAsync(
             "printf 'completed\\n'",
             TimeSpan.FromSeconds(10),
             cancellationToken: cancellationToken);
@@ -30,7 +30,7 @@ public sealed class PaneCommandRunTests
         Assert.Equal(0, success.ExitStatus);
         Assert.False(success.TimedOut);
 
-        PaneCommandResult failure = await scope.Pane.RunCommandAsync(
+        PaneRunResult failure = await scope.Pane.RunAsync(
             "exit 7",
             TimeSpan.FromSeconds(10),
             cancellationToken: cancellationToken);
@@ -45,7 +45,7 @@ public sealed class PaneCommandRunTests
         string quotedBinary = "'" + binary.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
         try
         {
-            PaneCommandResult timedOut = await scope.Pane.RunCommandAsync(
+            PaneRunResult timedOut = await scope.Pane.RunAsync(
                 $"{quotedBinary} wait-for {gate}",
                 TimeSpan.FromMilliseconds(20),
                 cancellationToken: cancellationToken);
@@ -53,7 +53,7 @@ public sealed class PaneCommandRunTests
             Assert.Null(timedOut.ExitStatus);
 
             LibTmuxException pending = await Assert.ThrowsAsync<LibTmuxException>(() =>
-                scope.Pane.RunCommandAsync(
+                scope.Pane.RunAsync(
                     "printf 'would retry\\n'",
                     TimeSpan.FromSeconds(1),
                     cancellationToken: cancellationToken));

@@ -226,6 +226,24 @@ public sealed class WorkspaceFileTests
             () => declaration.Resolve(Path.GetTempPath()));
         Assert.Contains("start_directory", failure.Message, StringComparison.Ordinal);
         Assert.Contains("HOME", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("At line", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("windows:\n  - panes:\n      - start_directory: ${MISSING}\n", "At line 3, column 26.")]
+    [InlineData("{\n  \"windows\": [\n    {\"panes\": [{\"start_directory\": \"${MISSING}\"}]}\n  ]\n}", "At line 3, column 36.")]
+    public void Directory_resolution_keeps_original_source_locations_after_defaults(
+        string document,
+        string location)
+    {
+        WorkspaceFile declaration = WorkspaceFile.Parse(document).WithDefaults();
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
+            () => declaration.Resolve(Path.GetTempPath()));
+
+        Assert.Equal(
+            $"Workspace path 'windows[0].panes[0].start_directory' requires the supplied variable 'MISSING'. {location}",
+            failure.Message);
     }
 
     [Theory]

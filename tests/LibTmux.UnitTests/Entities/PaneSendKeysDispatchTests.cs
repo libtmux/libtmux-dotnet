@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Text.RegularExpressions;
 using LibTmux.Internal;
 
 using LibTmux.UnitTests.Connection;
@@ -17,30 +16,27 @@ public sealed class PaneSendKeysDispatchTests
     public void A_send_and_wait_judges_later_output_without_the_typed_echo()
     {
         const string typed = "true && true && echo MARKER";
-        var wait = new PaneWaitRequest { Patterns = [new Regex("MARKER")], StopPatterns = [new Regex("^FATAL")] };
-        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, typed);
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho = PaneText.TypedEchoRemover(typed);
 
         // A narrow pane wraps the typed line, once mid-word and once where
         // tmux trims the space a row ends with; the last row alone holds the pattern.
         string[] echoed = ["$ true && tr", "ue &&", "echo MARKER"];
 
-        Assert.Null(classify(["MARKER"], true));
-        Assert.Null(classify(["$ " + typed], false));
-        Assert.Null(classify(echoed, false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "MARKER"), classify([.. echoed, "MARKER"], false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Stopped, "^FATAL"), classify(["FATAL: MARKER"], false));
+        Assert.DoesNotContain("MARKER", string.Join('\n', withoutEcho(["$ " + typed])), StringComparison.Ordinal);
+        Assert.DoesNotContain("MARKER", string.Join('\n', withoutEcho(echoed)), StringComparison.Ordinal);
+        Assert.Equal("MARKER", withoutEcho([.. echoed, "MARKER"])[^1]);
     }
 
     [Fact]
     public void A_send_and_wait_discounts_an_echo_in_progress_or_with_trailing_spaces()
     {
-        var wait = new PaneWaitRequest { Patterns = [new Regex("done")] };
-        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, "echo done; sleep 5 ");
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("echo done; sleep 5 ");
 
         // The shell has echoed only part of the line, which already holds the pattern.
-        Assert.Null(classify(["$ echo done; sl"], false));
-        Assert.Null(classify(["$ echo done; sleep 5", ""], false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "done"), classify(["$ echo done; sleep 5", "done"], false));
+        Assert.DoesNotContain("done", string.Join('\n', withoutEcho(["$ echo done; sl"])), StringComparison.Ordinal);
+        Assert.DoesNotContain("done", string.Join('\n', withoutEcho(["$ echo done; sleep 5", ""])), StringComparison.Ordinal);
+        Assert.Equal("done", withoutEcho(["$ echo done; sleep 5", "done"])[^1]);
     }
 
     [Fact]

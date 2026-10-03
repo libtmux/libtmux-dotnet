@@ -113,7 +113,7 @@ await server.Chain()
 Control mode is an order of magnitude cheaper *per command*; a chain wins *for
 a batch* by paying one round trip for the whole sequence.
 
-For readiness text printed by a pane, `PaneTextObserver.WaitForTextAsync`
+For readiness text printed by a pane, `Pane.WaitForTextAsync`
 owns the control client and returns a typed outcome with a bounded rendered
 tail. The [executed pane-text example](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/modes/control-mode.md#wait-for-rendered-text)
 shows setup and cleanup.
@@ -275,14 +275,14 @@ parent and child graph. Reading any of these properties performs no I/O.
 
 ## Running something, and reading it back
 
-`RunCommandAsync` waits for a POSIX shell command and reports its real exit
-status. A timeout returns `TimedOut = true` and `ExitStatus = null`; the
-command may still be running, so do not retry it automatically. The server
-remains owned by its caller. Runs to the same server generation and pane are
-reserved within one process; separate processes are not coordinated.
+`RunAsync` waits for a POSIX shell command and reports its real exit status
+and bounded rendered pane output. A timeout returns `TimedOut = true` and
+`ExitStatus = null`; the command may still be running. Another run in the
+same pane is refused until completion can be authenticated. The server
+remains owned by its caller; separate processes are not coordinated.
 
 ```csharp run
-PaneCommandResult run = await pane.RunCommandAsync(
+PaneRunResult run = await pane.RunAsync(
     "printf 'hello-from-libtmux\\n'",
     TimeSpan.FromSeconds(10),
     cancellationToken: ct);
@@ -291,16 +291,16 @@ if (run.ExitStatus != 0)
     throw new InvalidOperationException($"Command exited {run.ExitStatus}.");
 }
 
-IReadOnlyList<string> screen = await pane.CaptureAsync(cancellationToken: ct);
-if (!screen.Any(line => line.Contains("hello-from-libtmux", StringComparison.Ordinal)))
+if (!run.Output.Contains("hello-from-libtmux"))
 {
-    throw new InvalidOperationException("Command output was not visible in the pane.");
+    throw new InvalidOperationException("Command output was not observed in the pane.");
 }
 ```
 
-`RunCommandAsync` does not capture output. `CaptureAsync` reads rendered pane
-text, which is not a byte-exact stdout or stderr stream. For interactive
-programs, `SendTextAsync` types input without assuming a shell command ended.
+`Output` is rendered pane text, not byte-exact stdout or stderr. Check
+`LinesMissed`, `AnchorLost`, and the omitted-output counts before treating it
+as complete. For interactive programs, `SendTextAsync` types input without
+assuming a shell command ended.
 
 `SendTextAsync` types leading dashes, semicolons and newlines as input. NUL
 is rejected before dispatch. Setting `enter: false` omits the extra Enter

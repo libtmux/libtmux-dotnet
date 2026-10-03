@@ -45,7 +45,7 @@ public sealed class PaneObservationTests
         public Task<IReadOnlyList<string>> SendAsync(
             TmuxCommand command, CancellationToken cancellationToken = default)
         {
-            Assert.Equal(["list-panes", "-s", "-F", "#{pane_id}"], command.ToArguments());
+            Assert.Equal(["display-message", "-p", "-t", "%1", "#{pane_id}"], command.ToArguments());
             Probes++;
             return Task.FromResult<IReadOnlyList<string>>(["%1"]);
         }

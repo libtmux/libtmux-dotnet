@@ -49,6 +49,20 @@ public sealed class WorkspacePlanTests
     }
 
     [Fact]
+    public void Empty_imported_session_name_reports_its_value_location_after_resolution()
+    {
+        WorkspaceFile workspace = WorkspaceFile.Parse("session_name: ''\nwindows:\n  - window_name: editor\n")
+            .WithDefaults(environment: new Dictionary<string, string> { ["PROJECT"] = "reviewed" })
+            .Resolve(Path.GetTempPath());
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
+            () => WorkspaceBuilder.Validate(workspace));
+
+        Assert.Contains("session_name", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 1, column 15", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Duplicate_declared_window_indexes_fail_before_endpoint_inspection()
     {
         Server absent = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = "/missing-workspace-tmux" });
@@ -57,11 +71,14 @@ public sealed class WorkspacePlanTests
             windows:
               - window_index: 5
               - window_index: 5
-            """);
+            """).WithDefaults(environment: new Dictionary<string, string> { ["PROJECT"] = "reviewed" })
+            .Resolve(Path.GetTempPath());
 
         WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
             () => WorkspaceBuilder.Validate(workspace));
         Assert.Contains("window_index 5", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("windows[1].window_index", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 4, column 19", failure.Message, StringComparison.Ordinal);
         await Assert.ThrowsAsync<WorkspaceFormatException>(() => new WorkspaceBuilder(absent).PlanAsync(
             workspace, cancellationToken: TestContext.Current.CancellationToken));
     }
@@ -230,8 +247,10 @@ public sealed class WorkspacePlanTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
-        WorkspaceFile declaration = new("planned", windows:
-        [new WorkspaceWindow(panes: [new WorkspacePane(options: new Dictionary<string, string> { ["@pane"] = "reviewed" })])],
+        WorkspaceFile declaration = new("planned", startDirectory: "session-directory",
+            options: new Dictionary<string, string> { ["@session"] = "reviewed" }, windows:
+            [new WorkspaceWindow(panes: [new WorkspacePane(startDirectory: "pane-directory",
+                options: new Dictionary<string, string> { ["@pane"] = "reviewed" })])],
             beforeScript: "printf reviewed");
         WorkspaceBuilder builder = new(scope.Server);
         await Assert.ThrowsAsync<WorkspaceFormatException>(() => builder.PlanAsync(declaration, cancellationToken: token));
@@ -239,16 +258,39 @@ public sealed class WorkspacePlanTests
             new() { AllowHostScripts = true }, token));
         WorkspaceFile resolved = declaration.Resolve(Path.GetTempPath());
         WorkspacePlan plan = await builder.PlanAsync(resolved, new() { AllowHostScripts = true }, token);
-        Assert.Equal(WorkspaceActionKind.RunHostScript, plan.Actions[0].Kind);
-        WorkspaceAction<SetOptionRequest> option = Assert.Single(plan.Actions.OfType<WorkspaceAction<SetOptionRequest>>());
-        Assert.Equal("window:0/pane:0", option.Target);
-        Assert.Equal("@pane", option.Request.Name);
-        Assert.Equal("reviewed", option.Request.Value);
+        Assert.Equal(WorkspaceActionKind.CreateSession, plan.Actions[0].Kind);
+        Assert.Equal(WorkspaceActionKind.CaptureBootstrap, plan.Actions[1].Kind);
+        WorkspaceAction<WorkspaceHostCommand> host = Assert.IsType<WorkspaceAction<WorkspaceHostCommand>>(plan.Actions[2]);
+        Assert.Equal(WorkspaceActionKind.RunHostScript, host.Kind);
+        Assert.Equal(resolved.StartDirectory, host.Request.WorkingDirectory);
+        Assert.NotEqual(resolved.DocumentDirectory, host.Request.WorkingDirectory);
+        Assert.NotEqual(Assert.IsType<WorkspaceAction<NewSessionRequest>>(plan.Actions[0]).Request.StartDirectory,
+            host.Request.WorkingDirectory);
+        WorkspaceAction<SetOptionRequest> sessionOption = Assert.IsType<WorkspaceAction<SetOptionRequest>>(plan.Actions[3]);
+        Assert.Equal("session", sessionOption.Target);
+        Assert.Equal("@session", sessionOption.Request.Name);
+        WorkspaceAction<SetOptionRequest> paneOption = Assert.Single(plan.Actions.OfType<WorkspaceAction<SetOptionRequest>>(),
+            action => action.Target == "window:0/pane:0");
+        Assert.Equal("@pane", paneOption.Request.Name);
+        Assert.Equal("reviewed", paneOption.Request.Value);
         Assert.Null(await scope.Server.InspectAsync(token));
 
         _ = await scope.Server.CreateSessionAsync(new() { Name = "planned", Command = "exec /bin/cat" }, token);
         WorkspacePlan reused = await builder.PlanAsync(declaration, new() { ExistingSession = WorkspaceExistingSession.Reuse }, token);
         Assert.Equal(WorkspaceActionKind.ReuseSession, Assert.Single(reused.Actions).Kind);
+        WorkspacePlan appended = await builder.PlanAsync(resolved,
+            new() { ExistingSession = WorkspaceExistingSession.Append, AllowHostScripts = true }, token);
+        Assert.Equal(WorkspaceActionKind.RunHostScript, appended.Actions[0].Kind);
+        Assert.Equal(WorkspaceActionKind.CreateWindow, appended.Actions[1].Kind);
+        WorkspacePlan replaced = await builder.PlanAsync(resolved,
+            new() { ExistingSession = WorkspaceExistingSession.Replace, AllowHostScripts = true }, token);
+        int sessionCreate = replaced.Actions.ToList().FindIndex(action =>
+            action.Kind == WorkspaceActionKind.CreateSession && action.Target == "session");
+        Assert.True(sessionCreate > 0);
+        Assert.Equal(WorkspaceActionKind.RemoveSession, replaced.Actions[sessionCreate - 1].Kind);
+        Assert.Equal(WorkspaceActionKind.CaptureBootstrap, replaced.Actions[sessionCreate + 1].Kind);
+        Assert.Equal(WorkspaceActionKind.RunHostScript, replaced.Actions[sessionCreate + 2].Kind);
+        Assert.Equal(WorkspaceActionKind.SetOption, replaced.Actions[sessionCreate + 3].Kind);
     }
 
     [UnixFact]

@@ -54,28 +54,28 @@ public static class QueryFieldCatalog
             QueryValueKind.Boolean,
             typeof(Pane),
             nameof(Pane.AtBottom),
-            new(static element => ((Pane)element).AtBottom, typeof(bool))),
+            new(static element => ReadPaneFlag((Pane)element, "pane_at_bottom"), typeof(bool))),
         new(
             "pane_at_left",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
             typeof(Pane),
             nameof(Pane.AtLeft),
-            new(static element => ((Pane)element).AtLeft, typeof(bool))),
+            new(static element => ReadPaneFlag((Pane)element, "pane_at_left"), typeof(bool))),
         new(
             "pane_at_right",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
             typeof(Pane),
             nameof(Pane.AtRight),
-            new(static element => ((Pane)element).AtRight, typeof(bool))),
+            new(static element => ReadPaneFlag((Pane)element, "pane_at_right"), typeof(bool))),
         new(
             "pane_at_top",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
             typeof(Pane),
             nameof(Pane.AtTop),
-            new(static element => ((Pane)element).AtTop, typeof(bool))),
+            new(static element => ReadPaneFlag((Pane)element, "pane_at_top"), typeof(bool))),
         new(
             "pane_command",
             QueryTarget.Pane,
@@ -105,14 +105,11 @@ public static class QueryFieldCatalog
             QueryValueKind.Int64,
             typeof(Pane),
             nameof(Pane.DeadStatus),
-            new(static element => (long?)((Pane)element).DeadStatus, typeof(long?))),
+            new(static element => (long?)((Pane)element).DeadStatus, typeof(long?)),
+            Nullable: true),
         new(
-            "pane_height",
-            QueryTarget.Pane,
-            QueryValueKind.Int64,
-            typeof(Pane),
-            nameof(Pane.Height),
-            new(static element => (long)((Pane)element).Height, typeof(long))),
+            "pane_height", QueryTarget.Pane, QueryValueKind.Int64, typeof(Pane), nameof(Pane.Height),
+            new(static element => ((Pane)element).Height, typeof(int))),
         new(
             "pane_id",
             QueryTarget.Pane,
@@ -133,14 +130,14 @@ public static class QueryFieldCatalog
             QueryValueKind.Int64,
             typeof(Pane),
             nameof(Pane.Index),
-            new(static element => (long)((Pane)element).Index, typeof(long))),
+            new(static element => ((Pane)element).Index, typeof(int))),
         new(
             "pane_left",
             QueryTarget.Pane,
             QueryValueKind.Int64,
             typeof(Pane),
             nameof(Pane.Left),
-            new(static element => (long)((Pane)element).Left, typeof(long))),
+            new(static element => ((Pane)element).Left, typeof(int))),
         new(
             "pane_pid",
             QueryTarget.Pane,
@@ -149,12 +146,17 @@ public static class QueryFieldCatalog
             nameof(Pane.ProcessId),
             new(static element => (long)((Pane)element).ProcessId, typeof(long))),
         new(
+            "pane_session", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Session),
+            Relation: new(static element => ((Pane)element).Session, typeof(Session)),
+            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Session, SnapshotDepth.Panes)),
+        new(
             "pane_start_command",
             QueryTarget.Pane,
             QueryValueKind.String,
             typeof(Pane),
             nameof(Pane.StartCommand),
-            new(static element => ((Pane)element).StartCommand, typeof(string))),
+            new(static element => ((Pane)element).StartCommand, typeof(string)),
+            Nullable: true),
         new(
             "pane_synchronized",
             QueryTarget.Pane,
@@ -168,32 +170,26 @@ public static class QueryFieldCatalog
             QueryValueKind.String,
             typeof(Pane),
             nameof(Pane.Title),
-            new(static element => ((Pane)element).Title, typeof(string))),
+            new(static element => ReadPaneText((Pane)element, "pane_title"), typeof(string)),
+            Nullable: true),
         new(
             "pane_top",
             QueryTarget.Pane,
             QueryValueKind.Int64,
             typeof(Pane),
             nameof(Pane.Top),
-            new(static element => (long)((Pane)element).Top, typeof(long))),
+            new(static element => ((Pane)element).Top, typeof(int))),
         new(
             "pane_tty",
             QueryTarget.Pane,
             QueryValueKind.String,
             typeof(Pane),
             nameof(Pane.Tty),
-            new(static element => ((Pane)element).Tty, typeof(string))),
+            new(static element => ((Pane)element).Tty, typeof(string)),
+            Nullable: true),
         new(
-            "pane_width",
-            QueryTarget.Pane,
-            QueryValueKind.Int64,
-            typeof(Pane),
-            nameof(Pane.Width),
-            new(static element => (long)((Pane)element).Width, typeof(long))),
-        new(
-            "pane_session", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Session),
-            Relation: new(static element => ((Pane)element).Session, typeof(Session)),
-            RelationShape: new(QueryRelationCardinality.One, QueryTarget.Session, SnapshotDepth.Panes)),
+            "pane_width", QueryTarget.Pane, QueryValueKind.Int64, typeof(Pane), nameof(Pane.Width),
+            new(static element => ((Pane)element).Width, typeof(int))),
         new(
             "pane_window", QueryTarget.Pane, null, typeof(Pane), nameof(Pane.Window),
             Relation: new(static element => ((Pane)element).Window, typeof(Window)),
@@ -289,12 +285,8 @@ public static class QueryFieldCatalog
             nameof(Window.Id),
             new(static element => ((Window)element).Id, typeof(WindowId))),
         new(
-            "window_index",
-            QueryTarget.Window,
-            QueryValueKind.Int64,
-            typeof(Window),
-            nameof(Window.Index),
-            new(static element => (long)((Window)element).Index, typeof(long))),
+            "window_index", QueryTarget.Window, QueryValueKind.Int64, typeof(Window), nameof(Window.Index),
+            new(static element => ((Window)element).Index, typeof(int))),
         new(
             "window_layout",
             QueryTarget.Window,
@@ -340,7 +332,7 @@ public static class QueryFieldCatalog
             QueryValueKind.Int64,
             typeof(Window),
             nameof(Window.Width),
-            new(static element => (long)((Window)element).Width, typeof(long))),
+            new(static element => ((Window)element).Width, typeof(int))),
         new(
             "window_zoomed_flag",
             QueryTarget.Window,
@@ -371,7 +363,9 @@ public static class QueryFieldCatalog
         else if (field.Kind is QueryValueKind.String)
         {
             operations.AddRange(["stringEqualOrdinal", "stringEqualOrdinalIgnoreCase",
-                "startsWithOrdinal", "endsWithOrdinal", "containsOrdinal", "regex"]);
+                "startsWithOrdinal", "startsWithOrdinalIgnoreCase",
+                "endsWithOrdinal", "endsWithOrdinalIgnoreCase",
+                "containsOrdinal", "containsOrdinalIgnoreCase", "regex"]);
         }
         if (field.RelationShape?.Cardinality is QueryRelationCardinality.Many)
         {
@@ -400,7 +394,7 @@ public static class QueryFieldCatalog
             field.RelationShape?.Target,
             field.RelationShape?.Cardinality,
             depth,
-            field.Scalar is null ? null : field.Nullable || field.CanBeAbsent,
+            field.Scalar is null ? null : field.Nullable,
             operations);
     }
 
@@ -453,7 +447,7 @@ public static class QueryFieldCatalog
     }
 
     internal static bool CanBeAbsent(string wireName) =>
-        FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) && field.CanBeAbsent;
+        FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) && field.Nullable;
 
     internal static bool TryGetWireName(Type owner, string property, out string wireName)
     {
@@ -521,6 +515,22 @@ public static class QueryFieldCatalog
         return false;
     }
 
+    private static string? ReadPaneText(Pane pane, string wireName) =>
+        pane.Snapshot is { } fields && fields.TryGetValue(wireName, out string? value)
+            ? value
+            : throw new IncompleteSnapshotException(wireName, SnapshotDepth.Panes);
+
+    private static bool ReadPaneFlag(Pane pane, string wireName) => ReadPaneText(pane, wireName) switch
+    {
+        "1" => true,
+        "0" => false,
+        null => throw new IncompleteSnapshotException(wireName, SnapshotDepth.Panes),
+        string value => throw new TmuxProtocolException(
+            $"Captured {wireName} value '{value}' is not zero or one.",
+            value,
+            TmuxDispatchState.NotDispatched),
+    };
+
     private readonly record struct FieldDefinition(
         string WireName,
         QueryTarget Target,
@@ -533,14 +543,12 @@ public static class QueryFieldCatalog
         bool Nullable = false,
         bool UnwrapCapturedValue = false)
     {
-        // Whether the value can be absent, which tmux prints as empty.
-        internal bool CanBeAbsent =>
-            Scalar is { ValueType: { } type } && System.Nullable.GetUnderlyingType(type) is not null;
-
         // The tmux format variable a -f filter reads, when tmux has one.
         internal string? TmuxFormat => WireName switch
         {
-            "client_id" => null,
+            // tmux has no session pane total, and its linked-session count
+            // collapses session groups rather than counting captured sessions.
+            "client_id" or "session_panes" or "window_linked_sessions" => null,
             "pane_command" => "pane_current_command",
             _ => WireName,
         };

@@ -486,8 +486,11 @@
                 "stringEqualOrdinal",
                 "stringEqualOrdinalIgnoreCase",
                 "startsWithOrdinal",
+                "startsWithOrdinalIgnoreCase",
                 "endsWithOrdinal",
-                "containsOrdinal"
+                "endsWithOrdinalIgnoreCase",
+                "containsOrdinal",
+                "containsOrdinalIgnoreCase"
               ]
             },
             "left": {"$ref": "#/$defs/stringField"},
@@ -728,6 +731,7 @@
     },
     "paneNode": {
       "oneOf": [
+        {"$ref": "#/$defs/paneBooleanField"},
         {"$ref": "#/$defs/booleanConstantNode"},
         {
           "allOf": [
@@ -907,6 +911,7 @@
         }
       ]
     },
-    "windowBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/windowField"}]}
+    "windowBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/windowField"}]},
+    "paneBooleanField": {"allOf": [{"$ref": "#/$defs/booleanField"}, {"$ref": "#/$defs/paneField"}]}
   }
 }

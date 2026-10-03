@@ -34,6 +34,24 @@ public sealed class QuerySourceTests
         Assert.Equal(document, local.ResidualPredicate);
         Assert.NotEmpty(local.FallbackReasons);
         Assert.Throws<NotSupportedException>(() => ((IList<string>)local.FallbackReasons).Clear());
+
+        QueryDocument inactive = QueryExtensions.Translate<Window>(window => !window.IsActive);
+        QueryPlan<Window> floor = inactive.Plan<Window>(TmuxVersion.Parse("3.2a"), QueryPushdown.Require);
+        Assert.Null(floor.ResidualPredicate);
+        Assert.Equal("#{?#{==:#{window_active},1},0,1}", floor.PredicateFormat);
+
+        QueryNode[] trueIdentities =
+        [
+            new ConstantNode(new BooleanConstant(true)),
+            new AndNode([]),
+            new NotNode(new ConstantNode(new BooleanConstant(false))),
+        ];
+        foreach (QueryNode identity in trueIdentities)
+        {
+            QueryPlan<Window> identityPlan = Document(identity).Plan<Window>(TmuxVersion.Parse("3.2a"), QueryPushdown.Require);
+            Assert.Null(identityPlan.ResidualPredicate);
+            Assert.NotEqual("1", identityPlan.PredicateFormat);
+        }
     }
 
     [Fact]

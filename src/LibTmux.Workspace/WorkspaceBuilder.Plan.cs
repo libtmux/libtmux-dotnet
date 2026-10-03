@@ -55,21 +55,36 @@ public sealed partial class WorkspaceBuilder
         }
         else
         {
+            Server layoutServer = observed ?? _server;
             try
             {
-                await (observed ?? _server).ValidateLayoutsAsync(
+                await layoutServer.ValidateLayoutsAsync(
                     workspace.Windows.Where(window => window.Layout is not null)
                         .Select(window => (window.Layout!, Math.Max(1, window.Panes.Count))),
                     cancellationToken).ConfigureAwait(false);
             }
             catch (ArgumentException error)
             {
-                throw new WorkspaceFormatException(error.Message);
+                for (int index = 0; index < workspace.Windows.Count; index++)
+                {
+                    WorkspaceWindow window = workspace.Windows[index];
+                    if (window.Layout is null)
+                        continue;
+                    try
+                    {
+                        await layoutServer.ValidateLayoutsAsync(
+                            [(window.Layout, Math.Max(1, window.Panes.Count))], cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (ArgumentException specific)
+                    {
+                        string path = $"windows[{index}].layout";
+                        throw workspace.At(path, $"Workspace path '{path}': {specific.Message}", specific);
+                    }
+                }
+                throw new WorkspaceFormatException(error.Message, error);
             }
 
             host ??= PlanHost(workspace, policy);
-            if (host is not null)
-                actions.Add(new WorkspaceAction<WorkspaceHostCommand>(WorkspaceActionKind.RunHostScript, "host", host));
             bool append = existing is not null && policy.ExistingSession == WorkspaceExistingSession.Append;
             bool replace = existing is not null && policy.ExistingSession == WorkspaceExistingSession.Replace;
             if (replace)
@@ -89,12 +104,17 @@ public sealed partial class WorkspaceBuilder
                 actions.Add(new WorkspaceAction<NewSessionRequest>(WorkspaceActionKind.CreateSession, "session",
                     sessionRequest with { ExpectedGeneration = observed?.Generation }));
                 actions.Add(new(WorkspaceActionKind.CaptureBootstrap, "bootstrap", "session"));
+                if (policy.CompensateOnFailure)
+                    compensation.Insert(0, new(WorkspaceActionKind.UnlinkWindow, "bootstrap"));
+            }
+            if (host is not null)
+                actions.Add(new WorkspaceAction<WorkspaceHostCommand>(WorkspaceActionKind.RunHostScript, "host", host));
+            if (!append)
+            {
                 foreach ((string name, string value) in workspace.Options)
                 {
                     actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, "session", new(name, value)));
                 }
-                if (policy.CompensateOnFailure)
-                    compensation.Insert(0, new(WorkspaceActionKind.UnlinkWindow, "bootstrap"));
             }
 
             for (int index = 0; index < workspace.Windows.Count; index++)
@@ -132,10 +152,10 @@ public sealed partial class WorkspaceBuilder
     {
         ArgumentNullException.ThrowIfNull(workspace);
         policy.Validate();
-        if (string.IsNullOrWhiteSpace(workspace.SessionName) || workspace.Windows.Count == 0)
-        {
-            throw new WorkspaceFormatException("A workspace needs a session name and at least one window.");
-        }
+        if (string.IsNullOrWhiteSpace(workspace.SessionName))
+            throw workspace.At("session_name", "Workspace path 'session_name' needs a nonblank session name.");
+        if (workspace.Windows.Count == 0)
+            throw workspace.At("windows", "Workspace path 'windows' needs at least one window.");
 
         NewSessionRequest sessionRequest = new()
         {
@@ -223,33 +243,42 @@ public sealed partial class WorkspaceBuilder
 
     private static void ValidatePlanInput(WorkspaceFile workspace, WorkspacePlanOptions options)
     {
-        ValidateEnvironment(workspace.Environment, options);
-        ValidateText(workspace.SessionName);
-        ValidateText(workspace.StartDirectory);
-        ValidateOptions(workspace.Options);
-        foreach (WorkspaceCommand command in workspace.BeforeCommands)
-            ValidateText(command.Text);
+        ValidateEnvironment(workspace, workspace.Environment, options, "environment");
+        ValidateText(workspace, workspace.SessionName, "session_name");
+        ValidateText(workspace, workspace.StartDirectory, "start_directory");
+        ValidateOptions(workspace, workspace.Options, "options");
+        ValidateCommands(workspace, workspace.BeforeCommands, "shell_command_before");
         HashSet<int> requestedIndexes = [];
-        foreach (WorkspaceWindow window in workspace.Windows)
+        for (int windowIndex = 0; windowIndex < workspace.Windows.Count; windowIndex++)
         {
+            WorkspaceWindow window = workspace.Windows[windowIndex];
+            string windowPath = $"windows[{windowIndex}]";
             if (window.WindowIndex is int index && !requestedIndexes.Add(index))
-                throw new WorkspaceFormatException($"The workspace declares window_index {index} more than once.");
-            ValidateText(window.WindowName);
-            ValidateText(window.StartDirectory);
-            ValidateText(window.Layout);
-            if (window.Layout is not null && !Server.IsValidLayoutCandidate(window.Layout, Math.Max(1, window.Panes.Count)))
-                throw new WorkspaceFormatException($"Layout '{window.Layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
-            ValidateOptions(window.Options);
-            ValidateEnvironment(window.Environment, options);
-            foreach (WorkspaceCommand command in window.BeforeCommands)
-                ValidateText(command.Text);
-            foreach (WorkspacePane pane in window.Panes)
             {
-                ValidateText(pane.StartDirectory);
-                ValidateOptions(pane.Options);
-                ValidateEnvironment(pane.Environment, options);
-                foreach (WorkspaceCommand command in pane.BeforeCommands.Concat(pane.Commands))
-                    ValidateText(command.Text);
+                string path = $"{windowPath}.window_index";
+                throw workspace.At(path, $"Workspace path '{path}' declares window_index {index} more than once.");
+            }
+            ValidateText(workspace, window.WindowName, $"{windowPath}.window_name");
+            ValidateText(workspace, window.StartDirectory, $"{windowPath}.start_directory");
+            ValidateText(workspace, window.Layout, $"{windowPath}.layout");
+            if (window.Layout is not null && !Server.IsValidLayoutCandidate(window.Layout, Math.Max(1, window.Panes.Count)))
+            {
+                string path = $"{windowPath}.layout";
+                throw workspace.At(path,
+                    $"Workspace path '{path}': Layout '{window.Layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
+            }
+            ValidateOptions(workspace, window.Options, $"{windowPath}.options");
+            ValidateEnvironment(workspace, window.Environment, options, $"{windowPath}.environment");
+            ValidateCommands(workspace, window.BeforeCommands, $"{windowPath}.shell_command_before");
+            for (int paneIndex = 0; paneIndex < window.Panes.Count; paneIndex++)
+            {
+                WorkspacePane pane = window.Panes[paneIndex];
+                string panePath = $"{windowPath}.panes[{paneIndex}]";
+                ValidateText(workspace, pane.StartDirectory, $"{panePath}.start_directory");
+                ValidateOptions(workspace, pane.Options, $"{panePath}.options");
+                ValidateEnvironment(workspace, pane.Environment, options, $"{panePath}.environment");
+                ValidateCommands(workspace, pane.BeforeCommands, $"{panePath}.shell_command_before");
+                ValidateCommands(workspace, pane.Commands, $"{panePath}.shell_command");
             }
         }
     }
@@ -259,33 +288,56 @@ public sealed partial class WorkspaceBuilder
         if (workspace.BeforeScript is null)
             return null;
         if (!policy.AllowHostScripts)
-            throw new WorkspaceFormatException("before_script requires AllowHostScripts in the workspace plan options.");
+            throw workspace.At("before_script", "before_script requires AllowHostScripts in the workspace plan options.");
         if (workspace.DocumentDirectory is null)
-            throw new WorkspaceFormatException("before_script requires an explicit document directory; call WorkspaceFile.Resolve before planning.");
-        return new(workspace.BeforeScript, workspace.DocumentDirectory, policy.MaxHostOutputBytes,
+            throw workspace.At("before_script", "before_script requires an explicit document directory; call WorkspaceFile.Resolve before planning.");
+        return new(workspace.BeforeScript, workspace.StartDirectory ?? workspace.DocumentDirectory, policy.MaxHostOutputBytes,
             policy.HostScriptTimeout, workspace.Environment);
     }
 
-    private static void ValidateOptions(IReadOnlyDictionary<string, string> options)
+    private static void ValidateOptions(WorkspaceFile workspace, IReadOnlyDictionary<string, string> options, string parentPath)
     {
         foreach ((string name, string value) in options)
         {
-            _ = new SetOptionRequest(name, value);
-            ValidateText(name);
-            ValidateText(value);
+            string path = $"{parentPath}.{name}";
+            try
+            {
+                _ = new SetOptionRequest(name, value);
+            }
+            catch (ArgumentException failure)
+            {
+                throw workspace.At(path, $"Workspace path '{path}' has an invalid option: {failure.Message}", failure);
+            }
+            ValidateText(workspace, name, path);
+            ValidateText(workspace, value, path);
         }
     }
 
-    private static void ValidateEnvironment(IReadOnlyDictionary<string, string> environment, WorkspacePlanOptions options)
+    private static void ValidateEnvironment(WorkspaceFile workspace, IReadOnlyDictionary<string, string> environment,
+        WorkspacePlanOptions options, string parentPath)
     {
         if (options.Readiness == WorkspaceReadiness.Cooperative && environment.ContainsKey("LIBTMUX_WORKSPACE_READY"))
-            throw new WorkspaceFormatException("LIBTMUX_WORKSPACE_READY is reserved for the owned cooperative startup channel.");
+        {
+            string path = $"{parentPath}.LIBTMUX_WORKSPACE_READY";
+            throw workspace.At(path, $"Workspace path '{path}': LIBTMUX_WORKSPACE_READY is reserved for the owned cooperative startup channel.");
+        }
     }
 
-    private static void ValidateText(string? value)
+    private static void ValidateCommands(WorkspaceFile workspace, IReadOnlyList<WorkspaceCommand> commands, string parentPath)
+    {
+        for (int index = 0; index < commands.Count; index++)
+        {
+            string path = $"{parentPath}[{index}]";
+            if (workspace.SourceLocations.ContainsKey($"{path}.cmd"))
+                path += ".cmd";
+            ValidateText(workspace, commands[index].Text, path);
+        }
+    }
+
+    private static void ValidateText(WorkspaceFile workspace, string? value, string path)
     {
         if (value?.Contains('\0') == true)
-            throw new WorkspaceFormatException("Workspace command arguments cannot contain NUL.");
+            throw workspace.At(path, $"Workspace path '{path}' cannot contain NUL.");
     }
 
     // An empty conditional separates the escaped hash from '['; tmux otherwise

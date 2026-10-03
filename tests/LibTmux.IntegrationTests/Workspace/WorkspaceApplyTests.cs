@@ -441,38 +441,63 @@ public sealed class WorkspaceApplyTests
         string directory = Directory.CreateTempSubdirectory("libtmux-workspace-host-journal-").FullName;
         try
         {
+            string sessionDirectory = Path.Combine(directory, "session");
+            string paneDirectory = Path.Combine(sessionDirectory, "pane");
+            Directory.CreateDirectory(paneDirectory);
             await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
             Session anchor = await scope.Server.CreateSessionAsync(new() { Name = "anchor", Command = "exec /bin/cat" }, token);
-            WorkspaceFile declaration = new WorkspaceFile("planned",
+            Window anchorWindow = Assert.Single(await anchor.GetWindowsAsync(token));
+            Dictionary<string, string> environment = new()
+            {
+                ["MARK"] = "declared",
+                ["PATH"] = Environment.GetEnvironmentVariable("PATH") ?? "/usr/bin:/bin",
+                ["TMUX_BINARY"] = scope.Server.ConnectionOptions.TmuxBinaryPath,
+                ["TMUX_SOCKET"] = Assert.IsType<string>(scope.Server.ConnectionOptions.SocketName),
+            };
+            if (Environment.GetEnvironmentVariable("TMUX_TMPDIR") is { Length: > 0 } socketDirectory)
+                environment.Add("TMUX_TMPDIR", socketDirectory);
+            WorkspaceFile declaration = new WorkspaceFile("planned", startDirectory: "session",
                 options: new Dictionary<string, string> { ["default-command"] = "exec /bin/cat" },
-                windows: [new WorkspaceWindow()],
-                beforeScript: $"printf '%s:%s' \"$MARK\" \"$PWD\"; printf diagnostic >&2; exit {exitCode}")
-                .WithDefaults(environment: new Dictionary<string, string> { ["MARK"] = "declared" }).Resolve(directory);
+                windows: [new WorkspaceWindow(panes: [new WorkspacePane(startDirectory: "pane")])],
+                beforeScript: $"\"$TMUX_BINARY\" -L \"$TMUX_SOCKET\" has-session -t planned || "
+                    + $"{{ printf 'planned session missing' >&2; exit 41; }}; "
+                    + $"printf '%s:%s' \"$MARK\" \"$PWD\"; printf diagnostic >&2; exit {exitCode}")
+                .WithDefaults(environment: environment).Resolve(directory);
             WorkspaceBuilder builder = new(scope.Server);
-            WorkspacePlan plan = await builder.PlanAsync(declaration, new() { AllowHostScripts = true }, token);
+            WorkspacePlan plan = await builder.PlanAsync(declaration,
+                new() { AllowHostScripts = true, CompensateOnFailure = true }, token);
             Assert.Equal(anchor.Id, Assert.Single(await scope.Server.GetSessionsAsync(token)).Id);
+            int hostIndex = plan.Actions.ToList().FindIndex(action => action.Kind == WorkspaceActionKind.RunHostScript);
+            Assert.True(hostIndex >= 0);
             IReadOnlyList<WorkspaceActionOutcome> journal;
             if (exitCode == 0)
             {
                 WorkspaceResult result = await builder.ApplyAsync(plan, token);
                 journal = result.Journal;
                 Assert.All(journal, outcome => Assert.Equal(WorkspaceActionState.Completed, outcome.State));
+                Assert.Equal(2, (await scope.Server.GetSessionsAsync(token)).Count);
             }
             else
             {
                 WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(() => builder.ApplyAsync(plan, token));
                 journal = failure.Journal;
-                Assert.Null(failure.PartialResult);
+                Assert.Equal("planned", Assert.IsType<WorkspaceResult>(failure.PartialResult).Session.Name);
                 Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
-                Assert.Equal(WorkspaceActionState.Unknown, journal[0].State);
-                Assert.All(journal.Skip(1), outcome => Assert.Equal(WorkspaceActionState.NotStarted, outcome.State));
+                Assert.All(journal.Take(hostIndex), outcome => Assert.Equal(WorkspaceActionState.Completed, outcome.State));
+                Assert.Equal(WorkspaceActionState.Unknown, journal[hostIndex].State);
+                Assert.All(journal.Skip(hostIndex + 1), outcome => Assert.Equal(WorkspaceActionState.NotStarted, outcome.State));
+                Assert.Equal(WorkspaceActionState.Completed, Assert.Single(failure.CompensationJournal,
+                    outcome => outcome.Action.Target == "bootstrap").State);
                 Assert.Equal(anchor.Id, Assert.Single(await scope.Server.GetSessionsAsync(token)).Id);
+                Assert.Equal(anchorWindow.Id, Assert.Single(await anchor.GetWindowsAsync(token)).Id);
             }
-            Assert.Same(plan.Actions[0], journal[0].Action);
-            WorkspaceHostResult host = Assert.IsType<WorkspaceHostResult>(journal[0].Result);
+            Assert.Same(plan.Actions[hostIndex], journal[hostIndex].Action);
+            Assert.Equal(sessionDirectory,
+                Assert.IsType<WorkspaceAction<WorkspaceHostCommand>>(plan.Actions[hostIndex]).Request.WorkingDirectory);
+            WorkspaceHostResult host = Assert.IsType<WorkspaceHostResult>(journal[hostIndex].Result);
             Assert.True(host.Started);
             Assert.Equal(exitCode, host.ExitCode);
-            Assert.Equal($"declared:{directory}", host.StandardOutput);
+            Assert.Equal($"declared:{sessionDirectory}", host.StandardOutput);
             Assert.Equal("diagnostic", host.StandardError);
         }
         finally

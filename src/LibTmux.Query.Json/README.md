@@ -131,9 +131,10 @@ QueryDocument restoredPaths = QueryJson.Deserialize(QueryJson.Serialize(paths));
 Console.WriteLine(restoredPaths.Version);
 ```
 
-Pane properties read captured state without I/O. They throw
-`IncompleteSnapshotException` when the field was never captured; captured
-null and empty-string values remain distinct during local matching.
+`Pane.CurrentCommand` and `Pane.CurrentPath` read captured state without I/O.
+They throw `IncompleteSnapshotException` when the field was never captured;
+equality distinguishes captured null from an empty string. Portable string
+operations read null as empty, matching tmux format expansion.
 
 Pane dimensions support numeric comparisons over the same captured objects:
 
@@ -150,6 +151,12 @@ working directories and session-relative window placements.
 `Window.IsActive` and `Window.Index` describe the placement this handle was
 captured through. Two handles for the same linked window can disagree on
 both values.
+
+The catalog also covers pane position, title, edge flags and tmux index, plus
+window width and height. String predicates support ordinal equality, prefix,
+suffix and containment, with explicit ordinal ignore-case variants. Native
+tmux filtering only receives expressions the source planner can translate
+exactly; the rest runs against captured values.
 
 Collection predicates use native `Any` and `All`. Negate `Any` to require no
 matches. `All` is true for an empty captured collection; an uncaptured
@@ -191,13 +198,18 @@ field and child predicate. They require a captured child. Unavailable values
 raise an error without fetching data. `RequiredSnapshotDepth` includes every
 referenced relation, including nested relations in either direction.
 
-The catalog grows between alpha releases. A reader rejects a name it does not
-know, so pin the same LibTmux version on both sides of a process boundary.
-
 A field outside the catalog throws
 `UnsupportedQueryExpressionException` at translation rather than falling back.
 The document is interpreted locally or by an
 application that deliberately accepts this wire contract.
+
+The catalog grows between alpha releases. A reader rejects a name it does not
+know, so pin the same LibTmux version on both sides of a process boundary.
+
+The catalog also includes pane state, exit status, history, terminal and start
+command, and window alerts, flags and layout. Read the descriptors for the
+installed package rather than assuming another alpha has the same fields.
+Pin the same LibTmux version on both sides of a process boundary.
 
 ## Related packages
 

@@ -615,6 +615,14 @@ public sealed class PaneTextTests
     }
 
     [Fact]
+    public void A_lone_ten_hex_status_shape_is_preserved_as_caller_text()
+    {
+        IReadOnlyList<string> lines = ["before", "@lt_s_a1b2c3d4e5", "after"];
+
+        Assert.Same(lines, PaneText.Scrub(lines, paneWidth: 80));
+    }
+
+    [Fact]
     public void Unremembered_public_run_source_line_is_removed_but_a_path_mention_survives()
     {
         const string path = "/tmp/libtmux-run-fedcba9876543210fedcba9876543210-Abc123/run";

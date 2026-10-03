@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.ObjectModel;
 using System.Runtime.Versioning;
 
@@ -237,11 +238,12 @@ public sealed class WorkspaceFile
         _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
     }
 
-    private WorkspaceFile(
+    internal WorkspaceFile(
         WorkspaceFile source,
         IReadOnlyDictionary<string, string> environment,
         IReadOnlyList<string>? shellCommandsBefore,
-        IReadOnlyList<WorkspaceCommand>? beforeCommands)
+        IReadOnlyList<WorkspaceCommand>? beforeCommands,
+        FrozenDictionary<string, (long Line, long Column)>? sourceLocations = null)
         : this(source.SessionName, source.StartDirectory, source.Options, source.Windows, source.BeforeScript)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
@@ -252,6 +254,7 @@ public sealed class WorkspaceFile
         _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
         DirectoriesAreResolved = source.DirectoriesAreResolved;
         DocumentDirectory = source.DocumentDirectory;
+        SourceLocations = sourceLocations ?? CopySourceLocations(source, environment, shellCommandsBefore, beforeCommands);
     }
 
     /// <summary>Gets the environment entries contributed by this declaration.</summary>
@@ -295,6 +298,32 @@ public sealed class WorkspaceFile
 
     internal bool DirectoriesAreResolved { get; init; }
 
+    internal FrozenDictionary<string, (long Line, long Column)> SourceLocations { get; } =
+        FrozenDictionary<string, (long Line, long Column)>.Empty;
+
+    internal WorkspaceFormatException At(string path, string message, Exception? innerException = null) =>
+        new(SourceLocations.TryGetValue(path, out (long Line, long Column) location)
+            ? FormattableString.Invariant($"{message} At line {location.Line}, column {location.Column}.")
+            : message, innerException);
+
+    private static FrozenDictionary<string, (long Line, long Column)> CopySourceLocations(
+        WorkspaceFile source,
+        IReadOnlyDictionary<string, string> environment,
+        IReadOnlyList<string>? shellCommandsBefore,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands)
+    {
+        bool replaceEnvironment = !ReferenceEquals(environment, source.Environment);
+        bool replaceCommands = shellCommandsBefore is not null
+            || (beforeCommands is not null && !ReferenceEquals(beforeCommands, source.BeforeCommands));
+        if ((!replaceEnvironment && !replaceCommands) || source.SourceLocations.Count == 0)
+            return source.SourceLocations;
+
+        return source.SourceLocations.Where(pair =>
+                !(replaceEnvironment && (pair.Key == "environment" || pair.Key.StartsWith("environment.", StringComparison.Ordinal)))
+                && !(replaceCommands && (pair.Key == "shell_command_before" || pair.Key.StartsWith("shell_command_before[", StringComparison.Ordinal))))
+            .ToFrozenDictionary(StringComparer.Ordinal);
+    }
+
     /// <summary>Resolves inherited pane directories against an explicit document base.</summary>
     /// <param name="baseDirectory">The absolute directory containing the declaration.</param>
     /// <param name="variables">The only variables available to directory and option-value expansion.</param>
@@ -306,7 +335,8 @@ public sealed class WorkspaceFile
     /// expand supplied variables; unknown variables remain literal. Resolution reads
     /// neither the process environment nor the filesystem. The builder treats resolved
     /// directories as literal paths, including tmux format characters. Commands, the
-    /// host script, names and environment values remain literal.
+    /// host script, names and environment values remain literal. Failures retain the
+    /// original YAML or JSON value's line and column when the declaration was parsed.
     /// </remarks>
     /// <exception cref="ArgumentException">The document base is not absolute.</exception>
     /// <exception cref="WorkspaceFormatException">A directory or expansion is invalid.</exception>

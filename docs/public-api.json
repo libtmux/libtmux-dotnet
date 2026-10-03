@@ -82,7 +82,6 @@
     "T:LibTmux.OwnedSessionScope": "owned",
     "T:LibTmux.OwnedWindowScope": "owned",
     "T:LibTmux.Pane": "borrowed",
-    "T:LibTmux.PaneTextObserver": "owned",
     "T:LibTmux.Server": "borrowed",
     "T:LibTmux.Session": "borrowed",
     "T:LibTmux.Testing.TemporaryHierarchyScope": "owned",
@@ -1113,12 +1112,38 @@
       "processBacked": true
     },
     {
-      "id": "M:LibTmux.PaneTextObserver.WaitForTextAsync(LibTmux.Pane,LibTmux.PaneTextWaitRequest,System.Threading.CancellationToken)",
+      "id": "M:LibTmux.Pane.RunAsync(System.String,System.TimeSpan,System.Threading.CancellationToken)",
       "performsIO": true,
       "processBacked": true
     },
     {
-      "id": "M:LibTmux.PaneTextObserver.DisposeAsync",
+      "id": "M:LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.WaitForTextAsync(System.String,System.TimeSpan,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.SendTextAndWaitAsync(System.String,System.String,System.TimeSpan,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.SendKeysAndWaitAsync(LibTmux.SendKeysRequest,LibTmux.PaneWaitRequest,System.Threading.CancellationToken)",
+      "performsIO": true,
+      "processBacked": true
+    },
+    {
+      "id": "M:LibTmux.Pane.WaitUntilAsync(System.Func{System.Collections.Generic.IReadOnlyList{System.String},System.Boolean},System.TimeSpan,System.Threading.CancellationToken)",
+      "performsIO": true,
       "processBacked": true
     },
     {

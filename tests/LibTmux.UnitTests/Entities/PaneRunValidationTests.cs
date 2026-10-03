@@ -6,12 +6,12 @@ using LibTmux.UnitTests.Connection;
 namespace LibTmux.UnitTests.Entities;
 
 [UnsupportedOSPlatform("windows")]
-public sealed class PaneCommandRunTests
+public sealed class PaneRunValidationTests
 {
     [Fact]
     public void Run_markers_use_a_full_guid_and_split_only_the_printed_marker()
     {
-        PaneCommandRunner.RunToken token = PaneCommandRunner.RunToken.Create();
+        PaneRunner.RunToken token = PaneRunner.RunToken.Create();
 
         Assert.Matches("^[0-9a-f]{32}$", token.Id);
         Assert.Equal($"lt_b_{token.Id}", token.BeginHead + token.MarkerTail);
@@ -24,7 +24,7 @@ public sealed class PaneCommandRunTests
     public void Nul_in_shell_command_is_rejected()
     {
         Assert.Throws<ArgumentException>(() =>
-            PaneCommandRunner.ValidateRunCommand("printf before\0after", 1024));
+            new PaneRunRequest("printf before\0after").Validate());
     }
 
     [Fact]
@@ -36,10 +36,11 @@ public sealed class PaneCommandRunTests
         await cancellation.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            pane.RunCommandAsync(
-                "printf 'never executed\\n'",
-                timeout: TimeSpan.FromSeconds(1),
-                cancellationToken: cancellation.Token));
+            pane.RunAsync(
+                new PaneRunRequest("printf 'never executed\\n'")
+                {
+                    Timeout = TimeSpan.FromSeconds(1),
+                }, cancellation.Token));
 
         Assert.Equal(0, Volatile.Read(ref dispatched));
     }
@@ -51,10 +52,23 @@ public sealed class PaneCommandRunTests
         Pane pane = CreatePane(() => Interlocked.Increment(ref dispatched));
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            pane.RunCommandAsync(
-                "printf never",
-                timeout: TimeSpan.MaxValue,
-                cancellationToken: TestContext.Current.CancellationToken));
+            pane.RunAsync(
+                new PaneRunRequest("printf never") { Timeout = TimeSpan.MaxValue },
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, Volatile.Read(ref dispatched));
+    }
+
+    [Fact]
+    public async Task Invalid_output_budget_is_rejected_before_dispatch()
+    {
+        int dispatched = 0;
+        Pane pane = CreatePane(() => Interlocked.Increment(ref dispatched));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            pane.RunAsync(
+                new PaneRunRequest("printf never") { MaxOutputBytes = 0 },
+                TestContext.Current.CancellationToken));
 
         Assert.Equal(0, Volatile.Read(ref dispatched));
     }

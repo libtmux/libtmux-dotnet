@@ -37,7 +37,10 @@ public enum WorkspaceActionKind
     CloseReadinessChannel,
     /// <summary>Returns the exact existing session without mutation.</summary>
     ReuseSession,
-    /// <summary>Runs the explicitly allowed host script in its resolved document directory.</summary>
+    /// <summary>
+    /// Runs an allowed host script from the resolved session directory, or from
+    /// the document directory when no session directory is declared.
+    /// </summary>
     RunHostScript,
     /// <summary>Captures the final session and created placements in a server-wide pane snapshot.</summary>
     CaptureResult,

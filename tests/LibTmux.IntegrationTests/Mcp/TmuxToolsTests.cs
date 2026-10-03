@@ -529,7 +529,7 @@ public sealed class TmuxToolsTests
             token);
 
         Assert.False(mcp.Activity.IsStreaming);
-        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, token);
+        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, cancellationToken: token);
         Assert.True(mcp.Activity.IsStreaming);
 
         await lease.DisposeAsync();
@@ -1024,7 +1024,7 @@ public sealed class TmuxToolsTests
             mcp.Options,
             token);
 
-        PaneCommandResult run = await scope.Pane.RunCommandAsync(
+        PaneRunResult run = await scope.Pane.RunAsync(
             "printf 'public-visible\\n'",
             TimeSpan.FromSeconds(10),
             cancellationToken: token);

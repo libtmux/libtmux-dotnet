@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using System.Text.RegularExpressions;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.UnitTests.Connection;
@@ -65,7 +64,7 @@ public sealed class WaitInputBudgetTests
         Assert.Contains("32", mcp.Message, StringComparison.Ordinal);
 
         ArgumentException core = Assert.Throws<ArgumentException>(() =>
-            new PaneTextWaitRequest { Patterns = patterns });
+            PaneWaitRequest.FromTextPatterns(patterns));
         Assert.Contains("32", core.Message, StringComparison.Ordinal);
     }
 
@@ -118,25 +117,30 @@ public sealed class WaitInputBudgetTests
     [Fact]
     public void A_cancelled_wait_stops_before_scanning_pane_text()
     {
-        Regex[] patterns = [ReadTools.CompilePattern("ready", ignoreCase: false)];
+        PaneWaitPattern[] patterns = PaneWaitRequest.FromTextPatterns(["ready"]).Snapshot().Wanted;
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
+        int matchingWork = 0;
 
-        Assert.Throws<OperationCanceledException>(() => ReadTools.Match(
+        Assert.Throws<OperationCanceledException>(() => PaneTextWaiter.Match(
             patterns,
             Enumerable.Repeat("not yet", 32_768).ToArray(),
+            ref matchingWork,
             cancellation.Token));
     }
 
     [Fact]
     public void A_wait_refuses_more_than_eight_mebibytes_of_matching_work()
     {
-        Regex[] patterns = [ReadTools.CompilePattern("not-present", ignoreCase: false)];
+        PaneWaitPattern[] patterns = PaneWaitRequest.FromTextPatterns(["not-present"]).Snapshot().Wanted;
+        int matchingWork = 0;
 
-        McpException error = Assert.Throws<McpException>(() => ReadTools.Match(
+        PaneTextWaiter.MatchWorkExceededException exceeded = Assert.Throws<PaneTextWaiter.MatchWorkExceededException>(() => PaneTextWaiter.Match(
             patterns,
             [new string('x', 8 * 1024 * 1024 + 1)],
+            ref matchingWork,
             TestContext.Current.CancellationToken));
+        McpException error = ReadTools.WaitMatchingError(exceeded);
 
         Assert.Contains("matching work limit", error.Message, StringComparison.Ordinal);
     }

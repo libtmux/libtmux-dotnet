@@ -14,7 +14,11 @@ internal sealed record PaneRead(
     IReadOnlyList<string> Lines,
     IReadOnlyList<string> CursorRows,
     bool LinesMissed,
-    bool AnchorLost);
+    bool AnchorLost)
+{
+    internal IReadOnlyList<int>? RowPositions { get; init; }
+    internal int AnchorShift { get; init; }
+}
 
 /// <summary>Names why a pane could not be read consistently.</summary>
 internal enum PaneReadFailure
@@ -111,33 +115,29 @@ internal static class PaneReader
     /// <param name="baselinePid">The pid the caller last saw, or null on a first read.</param>
     /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
+    /// <param name="rejectDeadAtEntry">Rejects a pane whose program has already exited.</param>
     /// <returns>The read.</returns>
     internal static Task<PaneRead> ReadVisibleAsync(
         Pane pane,
         string? baselinePid,
         Func<PaneReadFailure, Pane, Exception> fail,
-        CancellationToken cancellationToken) =>
-        ReadVisibleAsync(pane, baselinePid, fail, null, cancellationToken);
+        CancellationToken cancellationToken,
+        bool rejectDeadAtEntry = true) =>
+        ReadVisibleAsync(pane, baselinePid, fail, null, cancellationToken, rejectDeadAtEntry);
 
-    /// <summary>Reads what is on screen now, through a control client when one is given.</summary>
-    /// <param name="pane">The pane to read.</param>
-    /// <param name="baselinePid">The pid the caller last saw, or null on a first read.</param>
-    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
-    /// <param name="control">A control client attached to the pane's session, or null.</param>
-    /// <param name="cancellationToken">Cancels the tmux queries.</param>
-    /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadVisibleAsync(
         Pane pane,
         string? baselinePid,
         Func<PaneReadFailure, Pane, Exception> fail,
         IControlModeSession? control,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool rejectDeadAtEntry = true)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
             PaneGridState before = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
-            if (baselinePid is null && before.Dead)
+            if (rejectDeadAtEntry && baselinePid is null && before.Dead)
             {
                 throw fail(PaneReadFailure.Dead, pane);
             }
@@ -149,6 +149,12 @@ internal static class PaneReader
 
             if (before == after)
             {
+                if (baselinePid is not null
+                    && !string.Equals(after.PanePid, baselinePid, StringComparison.Ordinal))
+                {
+                    throw fail(PaneReadFailure.Replaced, pane);
+                }
+
                 IReadOnlyList<string> cursorRows = CursorRowsFromCapture(lines, 0, after);
                 return new PaneRead(after, lines, cursorRows, false, baselinePid is not null);
             }
@@ -251,14 +257,23 @@ internal static class PaneReader
             }
 
             int cursorOffset = checked(after.CursorY - captureStart);
+            List<int> rowPositions = [];
             List<string> reported = ReportRows(
                 capturedRows,
                 previousOffset,
                 cursorOffset,
-                cursor);
+                cursor,
+                captureStart,
+                after.HistorySize,
+                rowPositions);
             IReadOnlyList<string> cursorRows = RowsFromOffset(capturedRows, cursorOffset);
 
-            return new PaneRead(after, reported, cursorRows, false, false);
+            return new PaneRead(after, reported, cursorRows, false, false)
+            {
+                RowPositions = rowPositions,
+                AnchorShift = checked(after.HistorySize + captureStart + previousOffset
+                    - cursor.AnchorAbsolute),
+            };
         }
 
         PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
@@ -286,7 +301,30 @@ internal static class PaneReader
             int.MinValue => new CapturePaneRequest { StartLine = CapturePanePosition.BeginningOfHistory },
             int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
         };
-        return await pane.CaptureAsync(request, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await pane.CaptureAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TmuxCommandException failure)
+        {
+            bool? stillExists = null;
+            try
+            {
+                stillExists = (await pane.Server.GetPanesAsync(cancellationToken)
+                    .ConfigureAwait(false)).Any(candidate => candidate.Id == pane.Id);
+            }
+            catch (LibTmuxException probeFailure)
+            {
+                failure.Data["LibTmux.PaneExistenceProbeFailure"] = probeFailure;
+            }
+
+            if (stillExists == false)
+            {
+                throw new TmuxPaneException($"Pane {pane.Id} closed during capture.", pane.Id);
+            }
+
+            throw;
+        }
     }
 
     // A capture through the control client a wait already holds is a round
@@ -396,10 +434,14 @@ internal static class PaneReader
         IReadOnlyList<string> capturedRows,
         int previousOffset,
         int cursorOffset,
-        PaneCursor cursor)
+        PaneCursor cursor,
+        int captureStart,
+        int historySize,
+        List<int> rowPositions)
     {
         IReadOnlyList<string> previousRows = RowsFromOffset(capturedRows, previousOffset);
-        List<string> reported = DropAlreadySeen(previousRows, cursor);
+        List<int> relativePositions = [];
+        List<string> reported = DropAlreadySeen(previousRows, cursor, relativePositions);
         // Rows above the previous anchor carry no recorded digest, so a cursor
         // that moved up reports them rather than risk dropping a rewrite.
         if (cursorOffset < previousOffset)
@@ -407,6 +449,14 @@ internal static class PaneReader
             reported.InsertRange(
                 0,
                 capturedRows.Skip(cursorOffset).Take(previousOffset - cursorOffset));
+            relativePositions.InsertRange(0,
+                Enumerable.Range(cursorOffset, previousOffset - cursorOffset)
+                    .Select(index => index - previousOffset));
+        }
+
+        foreach (int relative in relativePositions)
+        {
+            rowPositions.Add(checked(historySize + captureStart + previousOffset + relative));
         }
 
         return reported;
@@ -528,7 +578,12 @@ internal static class PaneReader
 
     internal static List<string> DropAlreadySeen(
         IReadOnlyList<string> rows,
-        PaneCursor cursor)
+        PaneCursor cursor) => DropAlreadySeen(rows, cursor, null);
+
+    private static List<string> DropAlreadySeen(
+        IReadOnlyList<string> rows,
+        PaneCursor cursor,
+        List<int>? relativePositions)
     {
         if (rows.Count == 0)
         {
@@ -541,6 +596,7 @@ internal static class PaneReader
         {
             // The anchor row was rewritten since it was seen, so it is new text.
             kept.Add(rows[0]);
+            relativePositions?.Add(0);
         }
 
         int index = 1;
@@ -551,7 +607,7 @@ internal static class PaneReader
                 cursor.SuffixHash,
                 StringComparison.Ordinal))
         {
-            return Report(kept, rows, index + cursor.SuffixCount);
+            return Report(kept, rows, index + cursor.SuffixCount, relativePositions);
         }
 
         // A pane below the cursor is redrawn a row at a time, so comparing the
@@ -565,17 +621,23 @@ internal static class PaneReader
             if (!PaneCursor.TrackedRowUnchanged(digests!, row, rows[index + row]))
             {
                 kept.Add(rows[index + row]);
+                relativePositions?.Add(index + row);
             }
         }
 
-        return Report(kept, rows, index + tracked);
+        return Report(kept, rows, index + tracked, relativePositions);
     }
 
-    private static List<string> Report(List<string> kept, IReadOnlyList<string> rows, int from)
+    private static List<string> Report(
+        List<string> kept,
+        IReadOnlyList<string> rows,
+        int from,
+        List<int>? relativePositions)
     {
         for (int row = from; row < rows.Count; row++)
         {
             kept.Add(rows[row]);
+            relativePositions?.Add(row);
         }
 
         return kept;

@@ -1439,7 +1439,7 @@ internal sealed class CapabilityTools
             panes,
             endpoint,
             generation);
-        return ResolvePaneInputTargets(
+        return await ResolvePaneInputTargetsAsync(
             panes,
             clients,
             caller,
@@ -1449,7 +1449,8 @@ internal sealed class CapabilityTools
             kind,
             reserveDispatch,
             runLease,
-            inputLease);
+            inputLease,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
@@ -1500,7 +1501,7 @@ internal sealed class CapabilityTools
         return parsed.ToString();
     }
 
-    private static PaneInputPreflight ResolvePaneInputTargets(
+    private static async Task<PaneInputPreflight> ResolvePaneInputTargetsAsync(
         IReadOnlyList<Pane> panes,
         IReadOnlyList<Client> clients,
         PaneInputCallerIdentity caller,
@@ -1510,7 +1511,8 @@ internal sealed class CapabilityTools
         PaneInputPreflightKind kind,
         bool reserveDispatch,
         PaneRunRegistry.PaneRunLease? runLease,
-        PaneRunRegistry.PaneInputLease? inputLease)
+        PaneRunRegistry.PaneInputLease? inputLease,
+        CancellationToken cancellationToken)
     {
         PaneInputTopology topology = ValidatePaneInputTopology(panes, endpoint);
         if (!topology.Members.TryGetValue(paneId, out PaneInputMember? sourceMember))
@@ -1591,6 +1593,20 @@ internal sealed class CapabilityTools
             attention.TerminalClients,
             endpoint,
             kind);
+        if (runLease is null && inputLease is null)
+        {
+            foreach (Pane member in configured)
+            {
+                if (!await PaneRunner.TryReconcilePendingAsync(member, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    throw new McpException(
+                        $"{toolName} refuses pane {member.Id} because a command is still active "
+                        + "or its completion is unverified. Inspect the pane before sending input.");
+                }
+            }
+        }
+
         PaneRunRegistry.PaneInputLease? dispatchLease = PaneRunRegistry.Authorize(
             configured,
             runLease,

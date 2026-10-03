@@ -16,14 +16,10 @@ public sealed class TmuxOptionException : LibTmuxException
         string message,
         string optionName,
         Exception? innerException = null)
-        : base(message, innerException)
+        : this(message, optionName, TmuxDispatchState.Unknown, innerException)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(optionName);
-        OptionName = optionName;
     }
 
-    // For a failure whose dispatch is known: one tmux answered ran, and one
-    // no server heard did not.
     internal TmuxOptionException(
         string message,
         string optionName,

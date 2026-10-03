@@ -70,10 +70,10 @@ internal static partial class PaneText
     /// are minted ids, so the span is exact and matches nothing a caller
     /// wrote.
     /// </remarks>
-    private static bool[] PayloadRows(IReadOnlyList<string> lines)
+    private static bool[] PayloadRows(IReadOnlyList<string> lines, IEnumerable<string> tokens)
     {
         bool[] payload = new bool[lines.Count];
-        foreach (string id in Minted)
+        foreach (string id in tokens)
         {
             string head = $"lt_b_{id[..5]}";
             string channel = $"lt_r_{id}";
@@ -100,7 +100,7 @@ internal static partial class PaneText
         return payload;
     }
 
-    /// <summary>Removes lines that only exist because this server ran something.</summary>    /// <summary>Removes lines that only exist because this server ran something.</summary>
+    /// <summary>Removes lines that only exist because this server ran something.</summary>
     /// <param name="lines">The captured rows, oldest first.</param>
     /// <param name="paneWidth">
     /// The pane's width in columns, used to tell a wrapped continuation from a
@@ -118,7 +118,8 @@ internal static partial class PaneText
         }
 
         Regex marker = MarkerPattern();
-        bool[] payload = PayloadRows(lines);
+        HashSet<string> previousTokens = PreviousRunTokens(lines, paneWidth);
+        bool[] payload = PayloadRows(lines, Minted.Concat(previousTokens));
         List<string>? kept = null;
         StringBuilder logical = new();
 
@@ -147,7 +148,8 @@ internal static partial class PaneText
                 inPayload = payload[row];
             }
 
-            if (inPayload || marker.IsMatch(joined) || CarriesMintedToken(joined))
+            if (inPayload || marker.IsMatch(joined) || CarriesMintedToken(joined)
+                || CarriesPreviousToken(joined, previousTokens))
             {
                 kept ??= [.. lines.Take(start)];
             }
@@ -163,6 +165,70 @@ internal static partial class PaneText
         }
 
         return kept ?? lines;
+    }
+
+    // Ten-hex run tokens were minted by the previous published runner. Their
+    // shape alone is not proof: accept one only when the split begin, status
+    // option and rendezvous channel agree in this capture.
+    private static HashSet<string> PreviousRunTokens(IReadOnlyList<string> lines, int paneWidth)
+    {
+        HashSet<string> beginnings = [];
+        HashSet<string> statuses = [];
+        HashSet<string> channels = [];
+        StringBuilder logical = new();
+        int start = 0;
+        while (start < lines.Count)
+        {
+            int end = start;
+            logical.Clear();
+            logical.Append(lines[start]);
+            while (paneWidth > 0 && end + 1 < lines.Count && lines[end].Length == paneWidth)
+            {
+                end++;
+                logical.Append(lines[end]);
+            }
+
+            foreach (Match match in PreviousMarkerPattern().Matches(logical.ToString()))
+            {
+                string id = match.Groups["id"].Success
+                    ? match.Groups["id"].Value
+                    : match.Groups["head"].Value + match.Groups["tail"].Value;
+                if (match.Value.StartsWith("'lt_b_", StringComparison.Ordinal))
+                {
+                    beginnings.Add(id);
+                }
+                else if (match.Value.StartsWith("@lt_s_", StringComparison.Ordinal))
+                {
+                    statuses.Add(id);
+                }
+                else if (match.Value.StartsWith("lt_r_", StringComparison.Ordinal))
+                {
+                    channels.Add(id);
+                }
+            }
+
+            start = end + 1;
+        }
+
+        beginnings.IntersectWith(statuses);
+        beginnings.IntersectWith(channels);
+        return beginnings;
+    }
+
+    private static bool CarriesPreviousToken(string logical, HashSet<string> tokens)
+    {
+        foreach (Match match in PreviousMarkerPattern().Matches(logical))
+        {
+            string id = match.Groups["id"].Success
+                ? match.Groups["id"].Value
+                : match.Groups["head"].Value + match.Groups["tail"].Value;
+            if (tokens.Contains(id))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Drops everything a run printed before its command's own output.</summary>
@@ -373,6 +439,11 @@ internal static partial class PaneText
         ];
         return rows =>
         {
+            if (rows.Count == 0)
+            {
+                return rows;
+            }
+
             string text = string.Join('\n', rows);
             foreach ((string line, Regex occurrence) in lines)
             {
@@ -504,16 +575,9 @@ internal static partial class PaneText
 
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
-    /// Matches the current full-GUID token and the earlier ten-hex token left
-    /// in scrollback by a previous MCP process. The begin marker
-    /// is spelled in halves in the payload, so the echo carries no full-token
-    /// form — but it always carries the two quoted halves adjacent, which is
-    /// a shape a caller's own output does not have. Matching that rather than
-    /// matching only full tokens keeps a line like <c>lt_b_abcde</c> in a
-    /// user's build log, which a five-digit minimum would have deleted.
-    /// The exact private script path removes the echoed source command from
-    /// public pane runs, whose token was not minted by this MCP process. A
-    /// plain log mention of the same path remains visible.
+    /// Matches full random tokens and their two quoted halves in a sourced
+    /// payload. A bare prefix in a caller's output remains visible. The exact
+    /// private script path also removes the echoed source command.
     /// <para>
     /// The status assignment is matched too, because rejoining wrapped rows
     /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
@@ -523,7 +587,12 @@ internal static partial class PaneText
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"@?lt_[rsbe]_(?:[0-9a-f]{32}|[0-9a-f]{10})(?![0-9a-f])|'lt_[be]_[0-9a-f]{5}' '(?:[0-9a-f]{27}|[0-9a-f]{5})'|\. '[^\r\n]*/libtmux-run-(?:[0-9a-f]{32}|[0-9a-f]{10})-[A-Za-z0-9]{6}/run'|__lt=\$\?",
+        @"@?lt_[rsbe]_[0-9a-f]{32}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{27}'|\. '[^\r\n]*/libtmux-run-[0-9a-f]{32}-[A-Za-z0-9]{6}/run'|__lt=\$\?",
         RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
+
+    [GeneratedRegex(
+        @"@?lt_[rsbe]_(?<id>[0-9a-f]{10})(?![0-9a-f])|'lt_[be]_(?<head>[0-9a-f]{5})' '(?<tail>[0-9a-f]{5})'",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PreviousMarkerPattern();
 }

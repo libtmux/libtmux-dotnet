@@ -10,7 +10,7 @@ namespace LibTmux.IntegrationTests;
 public sealed class PaneWaitConsistencyTests
 {
     [UnixFact]
-    public async Task A_core_text_observer_reads_rendered_output_and_preserves_the_daemon()
+    public async Task A_core_pane_wait_reads_rendered_output_and_preserves_the_daemon()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using McpToolFixture mcp = McpToolFixture.Create();
@@ -27,24 +27,19 @@ public sealed class PaneWaitConsistencyTests
             await session.GetWindowsAsync(token)).GetPanesAsync(token));
         const string Marker = "observer-rendered-ready";
 
-        await using (PaneTextObserver observer = new())
         {
-            Task<PaneTextWaitResult> waiting = observer.WaitForTextAsync(
-                pane,
-                new PaneTextWaitRequest
+            Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+                PaneWaitRequest.FromTextPatterns([Marker], simpleMatch: true) with
                 {
-                    Patterns = [Marker],
-                    SimpleMatch = true,
                     Timeout = TimeSpan.FromSeconds(3),
                     TailLines = 4,
-                },
-                token);
+                }, token);
             await pane.SendTextAsync(Marker, enter: false, cancellationToken: token);
-            PaneTextWaitResult result = await waiting;
+            PaneWaitResult result = await waiting;
 
-            Assert.True(result.Outcome is PaneTextWaitOutcome.Matched
-                or PaneTextWaitOutcome.PresentAtEntry);
-            Assert.Equal(Marker, result.MatchedPattern);
+            Assert.True(result.Outcome is PaneWaitOutcome.Matched
+                or PaneWaitOutcome.PresentAtEntry);
+            Assert.Equal(Marker, result.Pattern);
             Assert.Contains(result.Tail, line => line.Contains(Marker, StringComparison.Ordinal));
             Assert.False(result.PollingFallback);
             Assert.Equal(0, result.EventsDropped);
