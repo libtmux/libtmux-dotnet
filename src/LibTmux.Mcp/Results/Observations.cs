@@ -73,17 +73,11 @@ public enum WaitOutcome
     PaneDied = 4,
 
     /// <summary>
-    /// A wanted pattern was already on screen when the wait began, and
-    /// nothing new arrived before time ran out.
+    /// A wanted pattern was already on screen in the initial capture.
     /// </summary>
     /// <remarks>
-    /// This is what a plain <see cref="Timeout" /> would otherwise report
-    /// here, with the returned tail visibly containing the very text the
-    /// wait says it never found: only output arriving after the call counts
-    /// as new, by design, so calling this right after the command that
-    /// produced the text - the first thing most callers try - would time out
-    /// holding a tail that contradicts it. <see cref="WaitResult.MatchedPattern" />
-    /// names what was already there.
+    /// The wait returns this outcome before waiting for new output.
+    /// <see cref="WaitResult.MatchedPattern" /> names the existing match.
     /// </remarks>
     PresentAtEntry = 5,
 }
@@ -105,7 +99,19 @@ public sealed record WaitResult(
     string? MatchedPattern,
     BoundedText Tail,
     double ElapsedSeconds,
-    double EffectiveTimeoutSeconds);
+    double EffectiveTimeoutSeconds)
+{
+    /// <summary>Gets whether this wait enabled polling after control observation was unavailable.</summary>
+    /// <remarks>False identifies control observation. True includes an entry match obtained before the first timed poll.</remarks>
+    public bool PollingFallback { get; init; }
+
+    /// <summary>Gets control notifications dropped by the watched session during this wait.</summary>
+    /// <remarks>
+    /// Loss wakes a fresh pane read but cannot recover intermediate output.
+    /// The session-wide count can include notifications about other panes.
+    /// </remarks>
+    public long EventsDropped { get; init; }
+}
 
 /// <summary>What happened while waiting on a tmux wait-for channel.</summary>
 /// <param name="Changed">What happened, in plain words.</param>

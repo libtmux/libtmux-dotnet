@@ -22,6 +22,18 @@ public static class QueryExtensions
     public static QueryDocument Translate<T>(Expression<Func<T, bool>> predicate) =>
         QueryTranslator.Translate(predicate);
 
+    /// <summary>Plans an explicit query against the supplied daemon version without I/O.</summary>
+    /// <typeparam name="T">The native Session, Window, or Pane type.</typeparam>
+    /// <param name="document">The portable predicate.</param>
+    /// <param name="daemonVersion">The daemon version observed by Server.InspectAsync.</param>
+    /// <param name="pushdown">Whether predicates may execute inside tmux.</param>
+    /// <returns>An immutable, reusable execution plan.</returns>
+    public static QueryPlan<T> Plan<T>(
+        this QueryDocument document,
+        TmuxVersion daemonVersion,
+        QueryPushdown pushdown = QueryPushdown.Auto) =>
+        new(document, daemonVersion, pushdown);
+
     /// <summary>Compiles a document into an in-memory predicate.</summary>
     /// <typeparam name="T">The filtered element type.</typeparam>
     /// <param name="document">The translated document.</param>

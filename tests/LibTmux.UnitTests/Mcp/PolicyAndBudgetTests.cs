@@ -23,6 +23,19 @@ public sealed class ServerPolicyTests
         Assert.Equal(ServerPolicy.DefaultWaitCeilingSeconds, policy.WaitCeiling.TotalSeconds);
         Assert.Equal(ServerPolicy.DefaultMaxLines, policy.MaxLines);
         Assert.Equal(ServerPolicy.DefaultMaxBytes, policy.MaxBytes);
+        Assert.False(policy.AllowPollingFallback);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("yes", false)]
+    [InlineData("", false)]
+    public void Only_an_explicit_true_enables_pane_polling(string value, bool allowed)
+    {
+        ServerPolicy policy = ServerPolicy.FromEnvironment(
+            name => name == ServerPolicy.AllowPollingFallbackVariable ? value : null);
+        Assert.Equal(allowed, policy.AllowPollingFallback);
     }
 
     [Fact]
@@ -570,8 +583,8 @@ public sealed class ServerInstructionsTests
 /// <summary>Removing this server's bookkeeping without removing anything else.</summary>
 public sealed class PaneTextTests
 {
-    private const string Marker = "@lt_s_0123456789";
-    private const string End = "lt_e_0123456789";
+    private const string Marker = "@lt_s_0123456789abcdef0123456789abcdef";
+    private const string End = "lt_e_0123456789abcdef0123456789abcdef";
 
     [Fact]
     public void A_bookkeeping_line_is_removed()
@@ -584,12 +597,44 @@ public sealed class PaneTextTests
     }
 
     [Fact]
+    public void Previous_process_ten_hex_bookkeeping_is_removed_without_a_minted_token()
+    {
+        IReadOnlyList<string> kept = PaneText.Scrub(
+            [
+                "before",
+                "@lt_s_a1b2c3d4e5",
+                "'lt_b_a1b2c' '3d4e5'",
+                "lt_r_a1b2c3d4e5",
+                "lt_e_a1b2c3d4e5",
+                "after",
+            ],
+            paneWidth: 80);
+
+        Assert.Equal(["before", "after"], kept);
+    }
+
+    [Fact]
+    public void Unremembered_public_run_source_line_is_removed_but_a_path_mention_survives()
+    {
+        const string path = "/tmp/libtmux-run-fedcba9876543210fedcba9876543210-Abc123/run";
+        string source = "$ . '" + path + "'";
+        const int width = 48;
+        string mention = "log mentions " + path;
+
+        IReadOnlyList<string> kept = PaneText.Scrub(
+            ["before", source[..width], source[width..], mention, "after"],
+            paneWidth: width);
+
+        Assert.Equal(["before", mention, "after"], kept);
+    }
+
+    [Fact]
     public void A_marker_split_across_wrapped_rows_is_still_found()
     {
         // tmux stores a wrap as a real line break, so the marker arrives in
         // pieces and matching row by row finds nothing.
         string first = new string('x', 74) + "@lt_s_012";
-        string second = "3456789 rest";
+        string second = "3456789abcdef0123456789abcdef rest";
 
         IReadOnlyList<string> kept = PaneText.Scrub(
             [first, second, "after"],
@@ -642,7 +687,7 @@ public sealed class PaneTextTests
     {
         string first = new string('x', 78) + "lt_e_";
         IReadOnlyList<string> kept = PaneText.BeforeEndMarker(
-            [first, "0123456789 rest", "prompt$"],
+            [first, "0123456789abcdef0123456789abcdef rest", "prompt$"],
             End,
             paneWidth: 83);
 
@@ -706,7 +751,7 @@ public sealed class PaneTextTests
         // registered handlers, so none of them ever reached a client.
         Assert.Contains("run_shell_command", tools["send_keys"].Description, StringComparison.Ordinal);
         Assert.Contains("run_shell_command", tools["wait_for_text"].Description, StringComparison.Ordinal);
-        Assert.Contains("never matches", tools["wait_for_text"].Description, StringComparison.Ordinal);
+        Assert.Contains("PresentAtEntry", tools["wait_for_text"].Description, StringComparison.Ordinal);
         Assert.Contains("search_panes", tools["list_panes"].Description, StringComparison.Ordinal);
         Assert.Contains("capture_since", tools["capture_pane"].Description, StringComparison.Ordinal);
     }

@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Query;
 
 namespace LibTmux;
 
@@ -17,12 +18,13 @@ public sealed partial class Server
         TmuxConnection connection,
         ServerGeneration? generation,
         string? rawVersion,
+        TmuxVersion? daemonVersion,
         ServerSnapshot.Rows rows,
         TimeProvider timeProvider,
         long started,
         DateTimeOffset startedAtUtc,
         CancellationToken cancellationToken)
-        : this(connection, generation, rawVersion)
+        : this(connection, generation, rawVersion, daemonVersion)
     {
         _snapshot = ServerSnapshot.Build(this, rows, cancellationToken);
         SnapshotMetadata = new SnapshotMetadata(
@@ -112,8 +114,29 @@ public sealed partial class Server
         // Only the newly constructed root owns these children; earlier captures
         // and refreshed handles keep their original graph membership.
         return new Server(
-            connection, live.Generation, live.RawVersion, rows,
+            connection, live.Generation, live.RawVersion, live.DaemonVersion, rows,
             timeProvider, started, startedAtUtc, cancellationToken);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<(Server Snapshot, IReadOnlyList<bool>? Matches)> CaptureQuerySnapshotAsync(
+        SnapshotDepth depth,
+        TmuxVersion daemonVersion,
+        QueryTarget target,
+        string? predicateFormat,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TmuxConnection connection = _connection
+            ?? throw new InvalidOperationException("The server handle has no connection.");
+        TimeProvider clock = TimeProvider.System;
+        long started = clock.GetTimestamp();
+        DateTimeOffset startedAtUtc = clock.GetUtcNow();
+        ServerSnapshot.Rows rows = await ServerSnapshot.ReadAsync(
+            this, depth, daemonVersion, target, predicateFormat, cancellationToken).ConfigureAwait(false);
+        var snapshot = new Server(connection, Generation, RawVersion, DaemonVersion, rows,
+            clock, started, startedAtUtc, cancellationToken);
+        return (snapshot, rows.QueryMatches);
     }
 
     private SnapshotDepth Depth => _snapshot?.Depth ?? SnapshotDepth.Server;

@@ -30,8 +30,10 @@ public sealed record TmuxNotificationEvent(
 /// <param name="Count">The events discarded since the previous loss report.</param>
 /// <param name="TotalDropped">The events discarded over this control client's lifetime.</param>
 /// <remarks>
-/// LibTmux synthesizes this event before the next retained event. Command
-/// replies use a separate queue and are never discarded by this buffer.
+/// LibTmux reports loss before the next retained event, or by itself when an
+/// oversized event was dropped from an empty buffer. It does not identify
+/// the panes or stream positions lost. Command replies use a separate queue
+/// and are never discarded by this buffer.
 /// </remarks>
 public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent;
 
@@ -40,8 +42,9 @@ public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : Tmu
 /// Why tmux said it ended, when it said anything. It is silent for an ordinary
 /// exit. For an abnormal one tmux sometimes names a reason and sometimes does
 /// not: a server another client killed, for one, sends a bare <c>%exit</c>
-/// with none. A null <see cref="Reason" /> there is tmux's own silence, not
-/// something this library failed to capture.
+/// with none. A null <see cref="Reason" /> can also mean the reason exceeded
+/// the event buffer's byte limit; a preceding dropped-event notice reports
+/// that loss.
 /// </param>
 /// <remarks>
 /// This is always the last event, and the event stream completes after it.

@@ -55,7 +55,7 @@ cover the cases, and the server's instructions steer between them:
 | You want | Use | Why |
 |---|---|---|
 | Run a command, know if it worked | `run_shell_command` | Waits, returns the shell's **real exit status** |
-| Output you did **not** start | `wait_for_text` | Normally wakes from pane output; bounded polling is the fallback |
+| Output you did **not** start | `wait_for_text` | Wakes from pane output; polling fallback requires operator opt-in |
 | Watch a pane across turns | `capture_since` | Answers only what is **new** since its cursor |
 | Read several facts together | `call_read_tools_batch` | Runs up to 16 declared inspect calls serially |
 
@@ -93,10 +93,29 @@ The in-memory task store admits at most 8 active executions and retains at most
 256 results for 15 minutes. Cancellation keeps its active slot until the
 background execution actually stops.
 
-Normally a wait does not sleep in a loop. It subscribes to tmux's own
+Cancel a plain pane wait with `notifications/cancelled` and its JSON-RPC
+request ID. Cancel a task with `tasks/cancel` and its task ID
+(`McpClient.CancelTaskAsync` in the .NET SDK); cancelling the request that
+created a task does not stop its work. The server releases a plain wait's
+observer as the cancelled wait unwinds. Even without a cancellation
+notification, the observation loop has a deadline.
+
+Cancelling a client-side await alone does not prove the server received
+`notifications/cancelled`. A client that needs prompt server cleanup must
+verify that it sends the notification for the pending request ID, or send it
+explicitly.
+
+A pane text wait subscribes to tmux's own
 [control mode](https://github.com/tmux/tmux/wiki/Control-Mode), so tmux reports
 pane output as it happens and the wait is released the moment there is
 something to look at.
+
+After its initial consistent capture, a wait retains its cursor when the pane
+changes throughout a read and retries on activity within the original deadline.
+Layout and window-close notifications also wake waits in the affected session;
+a resize does not need to produce text for the wait to retry.
+Direct captures and the initial baseline keep their bounded refusal when the
+pane never settles during their attempts.
 
 Two details make that safe. The control client attaches with `ignore-size`
 (tmux 3.2+), so it never drags the window down to its own size; and it is
@@ -105,8 +124,28 @@ arrives on that stream is the pane's raw terminal bytes, so it is used as a
 signal and never as content — the text you get always comes from a capture,
 which is what tmux has already rendered.
 
-If control mode cannot start, waits fall back to polling. Cost changes;
-answers do not.
+Control startup failure or later stream loss ends a text wait by default.
+Set `LIBTMUX_MCP_ALLOW_POLLING_FALLBACK=true` to permit fallback. It waits 60 ms
+between captures, bounded by the same deadline and cancellation token. The
+extra reads cost tmux processes and can miss intermediate screen states; they
+do not provide event-driven observation.
+
+`tmux://capabilities` discloses the startup policy and polling interval. A wait
+that activates fallback returns `pollingFallback: true`, including an immediate
+entry match, and activation is logged to stderr. The field stays true if that
+wait later regains a control stream. An unset or invalid setting requires
+control observation; prior releases enabled fallback implicitly.
+
+Notification loss is separate from polling fallback. A dropped-event notice
+wakes every text wait in that session to read pane state and captured text
+again. `eventsDropped` reports notifications lost while that wait held its
+lease; the count can include other panes in the session. A fresh read does not
+recover intermediate output, so a successful match is evidence about captured
+text, not a complete terminal transcript.
+
+This setting affects `wait_for_text`. `run_shell_command` and
+`wait_for_channel` use tmux rendezvous signals. MCP task-status polling is a
+separate protocol operation, not a request to poll pane contents.
 
 A protocol client calls `run_shell_command` with the pane id and command it
 wants to run:
@@ -382,7 +421,7 @@ for the current surface.
 | Positional socket argument, such as `"args": ["my-socket"]` | `LIBTMUX_SOCKET=my-socket` | The executable takes no positional arguments; socket selection is frozen from the environment. |
 | Most retained `tmux_*` tools | The same operation without the `tmux_` prefix | Check the generated list; several operations below were narrowed or renamed. |
 | `tmux_run` | `run_shell_command` | The call remains synchronous and bounded. There are no detached job handles. |
-| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP cancellation | The background-job registry has no replacement. Long-running work stays visible in its pane. |
+| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP wait cancellation | The background-job registry has no replacement. Cancelling a wait does not stop a command already running in the pane. |
 | `tmux_tail_pane` | `capture_since` | The opaque cursor still supports incremental pane reads. |
 | `enter_copy_mode`, `exit_copy_mode` | `capture_pane`, `snapshot_pane`, `search_panes`, `capture_since`, and explicit human interaction | Capture reads visible text and scrollback without changing client state. A human owns entering, driving, and leaving pane modes. |
 | `tmux_display_message` | `get_tmux_variables` | Only validated variable names are accepted; arbitrary tmux formats have no replacement. |

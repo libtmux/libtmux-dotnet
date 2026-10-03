@@ -32,9 +32,23 @@ internal static class Materializer
         string listCommand)
     {
         ArgumentNullException.ThrowIfNull(context);
-        FormatProjection projection = FormatProjection.Create(listCommand, context.TmuxVersion);
+        return MaterializeFormatFields(context, payload, FormatProjection.Create(listCommand, context.TmuxVersion), out _);
+    }
+
+    internal static IReadOnlyList<IReadOnlyDictionary<string, string?>> MaterializeFormatFields(
+        MaterializationContext context,
+        ReadOnlySpan<byte> payload,
+        FormatProjection projection,
+        out IReadOnlyList<bool>? matches)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (TmuxCapabilities.IsSupported(context.TmuxVersion, "option_dollar_double_escape"))
+        {
+            payload = UnescapePrintedDollars(payload);
+        }
+
         IReadOnlyList<IReadOnlyDictionary<string, ReadOnlyMemory<byte>?>> rows =
-            SeparatedRowFramer.Decode(payload, projection, new TmuxTransportLimits());
+            SeparatedRowFramer.Decode(payload, projection, new TmuxTransportLimits(), out matches);
         var decoded = new List<IReadOnlyDictionary<string, string?>>(rows.Count);
         foreach (IReadOnlyDictionary<string, ReadOnlyMemory<byte>?> row in rows)
         {
@@ -51,6 +65,35 @@ internal static class Materializer
         }
 
         return decoded;
+    }
+
+    private static ReadOnlySpan<byte> UnescapePrintedDollars(ReadOnlySpan<byte> payload)
+    {
+        // tmux 3.4's utf8_strvis adds a dollar escape even with VIS_NOSLASH.
+        // Decode before framing: a trailing field dollar sees the separator's
+        // first letter. Preserve genuine backslashes and dollars before digits.
+        int first = payload.IndexOf("\\$"u8);
+        if (first < 0)
+        {
+            return payload;
+        }
+
+        byte[] decoded = payload.ToArray();
+        int written = first;
+        for (int index = first; index < payload.Length; index++)
+        {
+            if (payload[index] == '\\' && index + 2 < payload.Length
+                && payload[index + 1] == '$'
+                && payload[index + 2] is >= (byte)'A' and <= (byte)'Z'
+                    or >= (byte)'a' and <= (byte)'z' or (byte)'_' or (byte)'{')
+            {
+                continue;
+            }
+
+            decoded[written++] = payload[index];
+        }
+
+        return decoded.AsSpan(0, written);
     }
 
     /// <summary>Materializes one session from framed bytes.</summary>

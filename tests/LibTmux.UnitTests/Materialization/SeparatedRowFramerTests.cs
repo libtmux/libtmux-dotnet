@@ -184,6 +184,27 @@ public sealed class SeparatedRowFramerTests
     public void Decodes_nothing_from_an_empty_payload() =>
         Assert.Empty(SeparatedRowFramer.Decode([], Projection, Limits));
 
+    [Fact]
+    public void Query_markers_are_private_row_aligned_and_strictly_boolean()
+    {
+        FormatProjection marked = FormatProjection.Create("list-sessions", TmuxVersion.Parse("3.7b"), "1");
+        Assert.Equal(Projection.Fields, marked.Fields);
+        Assert.Equal(Projection.FramedFieldCount + 1, marked.FramedFieldCount);
+        byte[] row = FrameWithoutTerminator([]);
+        byte[] payload = [.. row, .. "1"u8, .. Separator, .. "\n"u8,
+            .. row, .. "0"u8, .. Separator, .. "\n"u8];
+        var rows = SeparatedRowFramer.Decode(payload, marked, Limits, out IReadOnlyList<bool>? matches);
+        Assert.Equal([true, false], matches);
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, values => Assert.Equal(Projection.Fields.Count, values.Count));
+        Assert.Throws<TmuxProtocolException>(() => SeparatedRowFramer.Decode(
+            [.. row, .. "2"u8, .. Separator, .. "\n"u8], marked, Limits, out _));
+        Assert.Throws<TmuxProtocolException>(() => SeparatedRowFramer.Decode(
+            [.. row, .. "\n"u8], marked, Limits, out _));
+        Assert.Empty(SeparatedRowFramer.Decode([], marked, Limits, out matches));
+        Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<bool>>(matches));
+    }
+
     private static byte[] Frame(Dictionary<string, byte[]> values) =>
         [.. FrameWithoutTerminator(values), .. "\n"u8];
 

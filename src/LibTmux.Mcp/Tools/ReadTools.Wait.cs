@@ -124,6 +124,8 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
 
+        bool pollingFallback = _activity.RequireObservation(_activity.CaptureSignal(pane));
+
         PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);
         TailCursor cursor = TailCursor.Build(pane, first.State, first.CursorRows);
@@ -149,6 +151,8 @@ internal sealed partial class ReadTools
                     matchedAtEntry,
                     elapsed,
                     budget,
+                    pollingFallback,
+                    lease,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -165,6 +169,8 @@ internal sealed partial class ReadTools
                         null,
                         elapsed,
                         budget,
+                        pollingFallback,
+                        lease,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -172,9 +178,33 @@ internal sealed partial class ReadTools
             // Taken before the read, so output arriving during the read wakes
             // the next wait instead of being slept through.
             object? signal = _activity.CaptureSignal(pane);
+            pollingFallback |= _activity.RequireObservation(signal);
 
-            PaneRead read = await PaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
-                .ConfigureAwait(false);
+            PaneRead read;
+            try
+            {
+                read = await PaneReader.ReadSinceAsync(pane, cursor, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (PaneReader.UnstableSnapshotException)
+            {
+                // Retain the last consistent cursor. The signal predates the
+                // failed read, so output or layout changes during it still wake us.
+                Report(progress, elapsed.Elapsed, budget, $"waiting on {id}");
+                bool changed = await _activity.WaitForActivityAsync(
+                        id, signal, budget - elapsed.Elapsed, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!changed && signal is Task)
+                {
+                    return await FinishAsync(
+                            pane, id, WaitOutcome.Timeout, null, elapsed, budget,
+                            pollingFallback, lease, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                continue;
+            }
+
             cursor = TailCursor.Build(pane, read.State, read.CursorRows);
 
             // Matched against the rows the caller receives, not the raw ones:
@@ -193,6 +223,8 @@ internal sealed partial class ReadTools
                             stopped,
                             elapsed,
                             budget,
+                            pollingFallback,
+                            lease,
                             cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -206,6 +238,8 @@ internal sealed partial class ReadTools
                             null,
                             elapsed,
                             budget,
+                            pollingFallback,
+                            lease,
                             cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -219,6 +253,8 @@ internal sealed partial class ReadTools
                             hit,
                             elapsed,
                             budget,
+                            pollingFallback,
+                            lease,
                             cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -233,6 +269,8 @@ internal sealed partial class ReadTools
                         null,
                         elapsed,
                         budget,
+                        pollingFallback,
+                        lease,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -249,6 +287,8 @@ internal sealed partial class ReadTools
                         null,
                         elapsed,
                         budget,
+                        pollingFallback,
+                        lease,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -262,12 +302,28 @@ internal sealed partial class ReadTools
                 budget,
                 read.Lines.Count > 0 ? read.Lines[^1] : $"waiting on {id}");
 
-            await _activity.WaitForActivityAsync(
+            bool activity = await _activity.WaitForActivityAsync(
                     id,
                     signal,
                     budget - elapsed.Elapsed,
                     cancellationToken)
                 .ConfigureAwait(false);
+            // The timer may expire before Stopwatch reaches the same deadline.
+            // A control timeout is final; a fallback poll still needs another read.
+            if (!activity && signal is Task)
+            {
+                return await FinishAsync(
+                        pane,
+                        id,
+                        WaitOutcome.Timeout,
+                        null,
+                        elapsed,
+                        budget,
+                        pollingFallback,
+                        lease,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
     }
 
@@ -424,6 +480,8 @@ internal sealed partial class ReadTools
         string? matched,
         Stopwatch elapsed,
         TimeSpan budget,
+        bool pollingFallback,
+        IAsyncDisposable lease,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<string> tail = await PaneReader.CaptureAsync(pane, null, cancellationToken)
@@ -439,7 +497,11 @@ internal sealed partial class ReadTools
                 matched,
                 content,
                 elapsedSeconds,
-                budget.TotalSeconds),
+                budget.TotalSeconds)
+            {
+                PollingFallback = pollingFallback,
+                EventsDropped = PaneActivityHub.EventsDropped(lease),
+            },
             "pane wait");
     }
 

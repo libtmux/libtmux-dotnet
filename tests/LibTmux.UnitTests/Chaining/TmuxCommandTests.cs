@@ -71,15 +71,22 @@ public sealed class TmuxCommandTests
         TmuxCommand command = TmuxCommand.Create("move-window", "-s", "$1:5", "-t", "$1:3") with
         {
             RequiredWindowPlacement = placement,
+            RequiredWindowPaneMembership = TmuxWindowPlacementGuard.CreatePaneMembership([new PaneId(1), new PaneId(9)]),
+            RequiredTargetWindow = ("%9", new WindowId(2)),
         };
         TmuxCommand same = command with { RequiredWindowPlacement = placement };
         TmuxCommand otherWindow = command with { RequiredWindowPlacement = placement with { WindowId = new WindowId(3) } };
         Assert.Equal(command, same);
         Assert.Equal(command.GetHashCode(), same.GetHashCode());
         Assert.NotEqual(command, otherWindow);
+        Assert.NotEqual(command, command with { RequiredWindowPaneMembership = TmuxWindowPlacementGuard.CreatePaneMembership([new PaneId(1)]) });
+        Assert.NotEqual(command, command with { RequiredTargetWindow = ("%1", new WindowId(2)) });
+        Assert.NotEqual(command, command with { RequiredTargetWindow = ("%9", new WindowId(3)) });
         Assert.Equal(command.ToArguments(), otherWindow.ToArguments());
         string rendered = ControlModeCommandRenderer.Render(command);
         Assert.Contains(" ; 'move-window' ", rendered, StringComparison.Ordinal);
+        Assert.Contains("#{==:#{pane_id},%9}", rendered, StringComparison.Ordinal);
+        Assert.Contains("'-t' '%9' '#{==:#{window_id},@2}'", rendered, StringComparison.Ordinal);
         Assert.Equal(Encoding.UTF8.GetByteCount(rendered), ControlModeCommandRenderer.GetRenderedByteCount(command));
     }
 

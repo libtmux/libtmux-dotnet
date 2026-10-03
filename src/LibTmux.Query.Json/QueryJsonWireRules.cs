@@ -14,6 +14,7 @@ internal static class QueryJsonWireRules
         ["kind", "operator", "left", "right"];
     private static readonly string[] QuantifierProperties =
         ["kind", "quantifier", "relation", "predicate"];
+    private static readonly string[] RelatedProperties = ["kind", "relation", "predicate"];
     private static readonly string[] RegexProperties =
         ["kind", "input", "dialect", "pattern", "semanticOptions"];
     private static readonly string[] KindProperties = ["kind"];
@@ -33,6 +34,7 @@ internal static class QueryJsonWireRules
             "not" => NotProperties,
             "comparison" => ComparisonProperties,
             "quantifier" => QuantifierProperties,
+            "related" => RelatedProperties,
             "regex" => RegexProperties,
             _ => null,
         };

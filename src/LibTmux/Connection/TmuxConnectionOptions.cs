@@ -51,6 +51,7 @@ public sealed record ServerConnectionOptions
     private readonly TimeSpan? _commandTimeout;
     private readonly int? _maxCapturedBytesPerStream;
     private readonly int? _controlModeEventBufferCapacity;
+    private readonly int? _controlModeEventBufferMaxBytes;
 
     /// <summary>Gets the tmux executable path.</summary>
     /// <exception cref="ArgumentException">The path is empty or whitespace.</exception>
@@ -222,6 +223,32 @@ public sealed record ServerConnectionOptions
             }
 
             _controlModeEventBufferCapacity = value;
+        }
+    }
+
+    /// <summary>Gets the UTF-8 payload byte ceiling for buffered control-mode notifications.</summary>
+    /// <remarks>
+    /// Defaults to 4 MiB. This counts decoded output, notification names and
+    /// arguments, and exit reasons; object overhead is bounded separately by
+    /// <see cref="ControlModeEventBufferCapacity" />. Oldest events are discarded
+    /// until both limits hold. An event larger than the byte ceiling is dropped.
+    /// An oversized exit reason is omitted while the terminal event is retained.
+    /// Every discard is reported by <see cref="TmuxEventsDroppedEvent" />.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The byte ceiling is not positive.</exception>
+    public int? ControlModeEventBufferMaxBytes
+    {
+        get => _controlModeEventBufferMaxBytes;
+        init
+        {
+            if (value is int bytes && bytes <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(ControlModeEventBufferMaxBytes), bytes,
+                    "An event buffer holds at least one payload byte.");
+            }
+
+            _controlModeEventBufferMaxBytes = value;
         }
     }
 

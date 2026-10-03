@@ -8,6 +8,85 @@ namespace LibTmux.UnitTests.Mcp;
 public sealed class PaneActivityHubLifecycleTests
 {
     [Fact]
+    public async Task Notification_loss_wakes_every_observed_pane_in_the_session()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new();
+        FakeControlModeSession session = new();
+        await using IAsyncDisposable lease = await hub.WatchAsync(
+            "$1", _ => Task.FromResult<IControlModeSession>(session), token);
+        Task first = Assert.IsAssignableFrom<Task>(hub.CaptureSignal("%1"));
+        object second = Assert.IsAssignableFrom<object>(hub.CaptureSignal("%2"));
+
+        session.Emit(new TmuxEventsDroppedEvent(2, 2));
+        session.Emit(new TmuxOutputEvent(new PaneId(2), "barrier"));
+        Assert.True(await hub.WaitForActivityAsync("%2", second, TimeSpan.FromSeconds(1), token));
+
+        Assert.True(first.IsCompleted);
+        Assert.True(hub.IsStreaming);
+        Assert.Equal(2, PaneActivityHub.EventsDropped(lease));
+        Assert.False(hub.RequireObservation(hub.CaptureSignal("%1")));
+    }
+
+    [Fact]
+    public async Task Each_watch_discloses_only_losses_after_its_lease_started()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new();
+        FakeControlModeSession session = new();
+        await using IAsyncDisposable first = await hub.WatchAsync(
+            "$1", _ => Task.FromResult<IControlModeSession>(session), token);
+        object firstSignal = Assert.IsAssignableFrom<object>(hub.CaptureSignal("%1"));
+        session.Emit(new TmuxEventsDroppedEvent(2, 2));
+        Assert.True(await hub.WaitForActivityAsync("%1", firstSignal, TimeSpan.FromSeconds(1), token));
+
+        await using IAsyncDisposable second = await hub.WatchAsync(
+            "$1", _ => throw new InvalidOperationException("A live watch is shared."), token);
+        object secondSignal = Assert.IsAssignableFrom<object>(hub.CaptureSignal("%1"));
+        session.Emit(new TmuxEventsDroppedEvent(3, 5));
+        Assert.True(await hub.WaitForActivityAsync("%1", secondSignal, TimeSpan.FromSeconds(1), token));
+
+        Assert.Equal(5, PaneActivityHub.EventsDropped(first));
+        Assert.Equal(3, PaneActivityHub.EventsDropped(second));
+    }
+
+    [Fact]
+    public async Task Control_attach_failure_does_not_silently_enable_polling()
+    {
+        await using PaneActivityHub hub = new();
+        LibTmuxException failure = new("The control client could not attach.");
+
+        LibTmuxException observed = await Assert.ThrowsAsync<LibTmuxException>(() =>
+            hub.WatchAsync(
+                "$1",
+                _ => Task.FromException<IControlModeSession>(failure),
+                TestContext.Current.CancellationToken));
+
+        Assert.Same(failure, observed);
+        Assert.False(hub.IsStreaming);
+    }
+
+    [Fact]
+    public async Task Losing_control_does_not_silently_enable_polling()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new();
+        FakeControlModeSession session = new();
+        await using IAsyncDisposable lease = await hub.WatchAsync(
+            "$1",
+            _ => Task.FromResult<IControlModeSession>(session),
+            token);
+        object signal = Assert.IsAssignableFrom<object>(hub.CaptureSignal("%1"));
+
+        session.EndUnexpectedly();
+        await session.Disposed.Task.WaitAsync(token);
+        Assert.True(await hub.WaitForActivityAsync("%1", signal, TimeSpan.FromSeconds(1), token));
+        Assert.Null(hub.CaptureSignal("%1"));
+        await Assert.ThrowsAsync<TmuxTransportException>(() => hub.WaitForActivityAsync(
+            "%1", null, TimeSpan.FromSeconds(1), token));
+    }
+
+    [Fact]
     public async Task Write_tools_leave_a_supplied_activity_hub_alive()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -207,7 +286,7 @@ public sealed class PaneActivityHubLifecycleTests
     public async Task Failed_start_cannot_remove_a_concurrent_retry_watch()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        await using PaneActivityHub hub = new();
+        await using PaneActivityHub hub = new(allowPollingFallback: true);
         FakeControlModeSession replacement = new();
         TaskCompletionSource failingStartEntered = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -247,7 +326,7 @@ public sealed class PaneActivityHubLifecycleTests
     public async Task Unavailable_session_polls_while_another_session_streams()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        await using PaneActivityHub hub = new();
+        await using PaneActivityHub hub = new(allowPollingFallback: true);
         FakeControlModeSession streaming = new();
 
         await using IAsyncDisposable streamingLease = await hub.WatchAsync(
@@ -316,6 +395,35 @@ public sealed class PaneActivityHubLifecycleTests
 
         second.Emit(new TmuxOutputEvent(new PaneId(1), "second"));
         Assert.True(await secondWait.WaitAsync(token));
+    }
+
+    [Fact]
+    public async Task Explicit_fallback_is_observable_after_a_stream_is_lost()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new(allowPollingFallback: true);
+        FakeControlModeSession session = new();
+        await using IAsyncDisposable lease = await hub.WatchAsync(
+            "$1", _ => Task.FromResult<IControlModeSession>(session), token);
+        Assert.False(hub.RequireObservation(hub.CaptureSignal("%1")));
+
+        session.EndUnexpectedly();
+        await session.Disposed.Task.WaitAsync(token);
+
+        Assert.True(hub.RequireObservation(hub.CaptureSignal("%1")));
+        Assert.False(await hub.WaitForActivityAsync("%1", null, TimeSpan.FromMilliseconds(1), token));
+    }
+
+    [Fact]
+    public async Task Explicit_fallback_never_consumes_startup_cancellation()
+    {
+        using CancellationTokenSource cancellation = new();
+        await using PaneActivityHub hub = new(allowPollingFallback: true);
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => hub.WatchAsync(
+            "$1", _ => Task.FromCanceled<IControlModeSession>(cancellation.Token), cancellation.Token));
+        Assert.False(hub.IsStreaming);
     }
 
     private sealed class FakeControlModeSession : IControlModeSession

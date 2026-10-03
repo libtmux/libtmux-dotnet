@@ -285,13 +285,16 @@ internal static partial class PaneText
 
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
-    /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
-    /// so that ordinary text mentioning the prefix survives. The begin marker
-    /// is spelled in halves in the payload, so the echo carries no ten-digit
+    /// Matches the current full-GUID token and the earlier ten-hex token left
+    /// in scrollback by a previous MCP process. The begin marker
+    /// is spelled in halves in the payload, so the echo carries no full-token
     /// form — but it always carries the two quoted halves adjacent, which is
     /// a shape a caller's own output does not have. Matching that rather than
-    /// widening the digit count keeps a line like <c>lt_b_abcde</c> in a
+    /// matching only full tokens keeps a line like <c>lt_b_abcde</c> in a
     /// user's build log, which a five-digit minimum would have deleted.
+    /// The exact private script path removes the echoed source command from
+    /// public pane runs, whose token was not minted by this MCP process. A
+    /// plain log mention of the same path remains visible.
     /// <para>
     /// The status assignment is matched too, because rejoining wrapped rows
     /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
@@ -301,7 +304,7 @@ internal static partial class PaneText
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"@?lt_[rsbe]_[0-9a-f]{10}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
+        @"@?lt_[rsbe]_(?:[0-9a-f]{32}|[0-9a-f]{10})(?![0-9a-f])|'lt_[be]_[0-9a-f]{5}' '(?:[0-9a-f]{27}|[0-9a-f]{5})'|\. '[^\r\n]*/libtmux-run-(?:[0-9a-f]{32}|[0-9a-f]{10})-[A-Za-z0-9]{6}/run'|__lt=\$\?",
         RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
 }

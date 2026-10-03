@@ -13,12 +13,14 @@ public sealed partial class Server : IEquatable<Server>
     internal Server(
         TmuxConnection connection,
         ServerGeneration? generation,
-        string? rawVersion)
+        string? rawVersion,
+        TmuxVersion? daemonVersion = null)
         : this(connection.ServerDispatcher)
     {
         _connection = connection;
         _generation = generation;
         _rawVersion = rawVersion;
+        DaemonVersion = daemonVersion;
     }
 
     /// <summary>Gets the connection options.</summary>
@@ -66,9 +68,81 @@ public sealed partial class Server : IEquatable<Server>
         return await RediscoverCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Reads the live endpoint identity without running its initializer.</summary>
+    /// <param name="cancellationToken">Cancels inspection before publication.</param>
+    /// <returns>A materialized identity-only handle, or null when no daemon is listening.</returns>
+    /// <remarks>
+    /// Reuses the resolved endpoint and reads its current generation and daemon version.
+    /// No initializer runs, including when the returned handle is subsequently connected.
+    /// Captured relationships are not acquired or copied. A materialized input remains
+    /// bound to its generation and cannot adopt a replacement daemon.
+    /// </remarks>
+    /// <exception cref="StaleServerGenerationException">A different daemon owns the endpoint.</exception>
+    /// <exception cref="LibTmuxException">Inspection failed for a reason other than verified daemon absence.</exception>
+    /// <exception cref="InvalidOperationException">This handle has no connection identity.</exception>
+    /// <exception cref="OperationCanceledException">Inspection was cancelled before publication.</exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<Server?> InspectAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TmuxConnection connection = _connection
+            ?? throw new InvalidOperationException("This server has no connection identity.");
+        TmuxCommandDispatcher dispatcher = _generation is ServerGeneration expected
+            ? connection.CreateEntityDispatcher(expected)
+            : connection.ServerDispatcher;
+        TmuxCommandResult result = await dispatcher.ExecuteAsync(
+                ["display-message", "-p", TmuxConnection.GenerationFormat + "\t#{version}"],
+                cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (InspectionFoundNoDaemon(result))
+        {
+            return null;
+        }
+
+        TmuxCommandFailure.ThrowIfFailed(result, "server inspection");
+        if (result.StandardOutputLines.Count != 1)
+        {
+            throw new TmuxProtocolException("tmux did not report exactly one inspection record.", TmuxDispatchState.Dispatched);
+        }
+
+        string[] fields = result.StandardOutputLines[0].Split('\t');
+        if (fields.Length != 2 || !TmuxVersion.TryParse(fields[1], out TmuxVersion daemonVersion))
+        {
+            throw new TmuxProtocolException("tmux reported a malformed inspection record.", TmuxDispatchState.Dispatched);
+        }
+
+        ServerGeneration generation = TmuxConnection.ParseGeneration(fields[0]);
+        if (_generation is ServerGeneration prior && prior != generation)
+        {
+            throw new StaleServerGenerationException("The inspected daemon generation changed.", prior, generation);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return new Server(connection, generation, connection.VerifiedRawVersion, daemonVersion);
+    }
+
+    private static bool InspectionFoundNoDaemon(TmuxCommandResult result)
+    {
+        if (result.ExitCode != 1 || !result.StandardOutput.IsEmpty || result.StandardErrorLines.Count != 1)
+        {
+            return false;
+        }
+
+        string diagnostic = result.StandardErrorLines[0];
+        const string absent = "no server running on ";
+        const string connecting = "error connecting to ";
+        const string missing = " (No such file or directory)";
+        return (diagnostic.StartsWith(absent, StringComparison.Ordinal) && diagnostic.Length > absent.Length)
+            || (diagnostic.StartsWith(connecting, StringComparison.Ordinal)
+                && diagnostic.EndsWith(missing, StringComparison.Ordinal)
+                && diagnostic.Length > connecting.Length + missing.Length);
+    }
+
     [UnsupportedOSPlatform("windows")]
     private async Task<Server> RediscoverCurrentGenerationAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ServerGeneration? expectedGeneration = null)
     {
         if (_connection is null)
         {
@@ -78,6 +152,11 @@ public sealed partial class Server : IEquatable<Server>
         (ServerGeneration generation, string rawVersion) = await _connection
             .DiscoverAsync(cancellationToken)
             .ConfigureAwait(false);
+        if (expectedGeneration is ServerGeneration expected && expected != generation)
+        {
+            throw new StaleServerGenerationException("The daemon generation changed before readback.", expected, generation);
+        }
+
         if (_generation is ServerGeneration existing && existing == generation)
         {
             return this;

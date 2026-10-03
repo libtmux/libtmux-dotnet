@@ -25,6 +25,7 @@ public sealed class ExceptionContractTests
         TmuxOptionException option = new("unknown option: nope", "nope");
         Assert.Equal("nope", option.OptionName);
         Assert.IsAssignableFrom<LibTmuxException>(option);
+        Assert.Equal(TmuxDispatchState.Unknown, option.Dispatch);
 
         TmuxVersionTooLowException old = new(
             "needs 3.3a",
@@ -38,6 +39,22 @@ public sealed class ExceptionContractTests
         TmuxCommandException failed = new("new-session failed", result);
         Assert.Equal(1, failed.Result.ExitCode);
         Assert.Equal(["new-session", "-s", "taken"], failed.Result.Arguments);
+    }
+
+    [Fact]
+    public void Rejected_option_results_preserve_known_dispatch()
+    {
+        TmuxCommandResult result = new(
+            ["set-option", "nope", "value"], 1,
+            ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty,
+            [], ["invalid option: nope"]);
+
+        TmuxOptionException failure = Assert.Throws<TmuxOptionException>(
+            () => OptionFailure.ThrowIfFailed(result, "nope"));
+
+        Assert.Equal(TmuxDispatchState.Dispatched, failure.Dispatch);
+        Assert.Equal("nope", failure.OptionName);
+        Assert.Equal("invalid option: nope", failure.Message);
     }
 
     [Fact]
