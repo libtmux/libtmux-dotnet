@@ -4576,6 +4576,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.startCommand",
+      "package": "LibTmux.FSharp",
+      "name": "startCommand",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val startCommand: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "startCommand",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.synchronized",
       "package": "LibTmux.FSharp",
       "name": "synchronized",
@@ -4640,6 +4662,28 @@
       "compiledName": "top",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.tty",
+      "package": "LibTmux.FSharp",
+      "name": "tty",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val tty: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "tty",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
     },
     {
       "id": "P:LibTmux.FSharp.PaneFields.width",
@@ -5042,6 +5086,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
     },
     {
+      "id": "P:LibTmux.FSharp.WindowFields.flags",
+      "package": "LibTmux.FSharp",
+      "name": "flags",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val flags: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "flags",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+    },
+    {
       "id": "P:LibTmux.FSharp.WindowFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -5106,6 +5172,28 @@
       "compiledName": "index",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.layout",
+      "package": "LibTmux.FSharp",
+      "name": "layout",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val layout: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "layout",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowFields.name",

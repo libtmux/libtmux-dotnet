@@ -292,6 +292,8 @@ module WindowFields =
     let bellAlert = Field<LibTmux.Window, bool>("window_bell_flag")
     let activityAlert = Field<LibTmux.Window, bool>("window_activity_flag")
     let silenceAlert = Field<LibTmux.Window, bool>("window_silence_flag")
+    let layout = Field<LibTmux.Window, string>("window_layout")
+    let flags = Field<LibTmux.Window, string>("window_flags")
     let paneCount = Field<LibTmux.Window, int>("window_panes")
     let panes = Relation<LibTmux.Window, LibTmux.Pane>("window_panes")
 
@@ -317,6 +319,8 @@ module PaneFields =
     let synchronized = Field<LibTmux.Pane, bool>("pane_synchronized")
     let historySize = Field<LibTmux.Pane, int>("history_size")
     let deadStatus = Field<LibTmux.Pane, int option>("pane_dead_status")
+    let tty = Field<LibTmux.Pane, string>("pane_tty")
+    let startCommand = Field<LibTmux.Pane, string>("pane_start_command")
 
 [<RequireQualifiedAccess>]
 module ClientFields =

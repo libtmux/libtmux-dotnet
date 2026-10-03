@@ -163,6 +163,26 @@ module DescriptorMatrixTests =
                 Document = Filter.eq true WindowFields.silenceAlert |> Filter.toDocument
             }
             {
+                Name = "WindowFields.layout"
+                CoreProperty = "Window.Layout"
+                WireName = "window_layout"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.startsWith "b25d," WindowFields.layout |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.flags"
+                CoreProperty = "Window.Flags"
+                WireName = "window_flags"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.contains "Z" WindowFields.flags |> Filter.toDocument
+            }
+            {
                 Name = "WindowFields.paneCount"
                 CoreProperty = "Window.Panes"
                 WireName = "window_panes"
@@ -365,6 +385,26 @@ module DescriptorMatrixTests =
                 Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.ne (Some 0) PaneFields.deadStatus |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.tty"
+                CoreProperty = "Pane.Tty"
+                WireName = "pane_tty"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "/dev/pts/3" PaneFields.tty |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.startCommand"
+                CoreProperty = "Pane.StartCommand"
+                WireName = "pane_start_command"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.startsWith "\"sleep" PaneFields.startCommand |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"

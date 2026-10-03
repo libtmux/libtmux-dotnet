@@ -38,6 +38,16 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L292)
 
+<a name="flags"></a>
+
+#### <code><span>WindowFields.flags&#32;<span></span></span></code>
+
+Identifies the window&#39;s flags as its status line shows them, such as <code>*</code> for the current window; empty for none.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;string</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L296)
+
 <a name="height"></a>
 
 #### <code><span>WindowFields.height&#32;<span></span></span></code>
@@ -68,6 +78,16 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L287)
 
+<a name="layout"></a>
+
+#### <code><span>WindowFields.layout&#32;<span></span></span></code>
+
+Identifies the window&#39;s layout string, as <code>select-layout</code> takes it.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;string</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L295)
+
 <a name="name"></a>
 
 #### <code><span>WindowFields.name&#32;<span></span></span></code>
@@ -86,7 +106,7 @@ Identifies the number of panes in the window.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L295)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L297)
 
 <a name="panes"></a>
 
@@ -96,7 +116,7 @@ Identifies panes captured through this window placement.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-relation-2.md">Relation</a>&lt;<span>Window,&#32;Pane</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L296)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L298)
 
 <a name="silenceAlert"></a>
 
