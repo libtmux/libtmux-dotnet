@@ -209,7 +209,7 @@ explains the configuration order. Code running inside a tmux pane can use
 | Need | F# call | Result |
 | --- | --- | --- |
 | List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
-| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
+| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several; under NativeAOT use `Query.tryExactlyOne`, which returns an `option` |
 | A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
 | Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
