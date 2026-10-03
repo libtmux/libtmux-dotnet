@@ -244,7 +244,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
 | `val (|MayHaveRun|_|) : error: exn -> exn option` | Matches a failure, or a cancellation, after which tmux may already have acted. |
 | `val (|NotSent|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure whose command never reached tmux; running it again repeats nothing. |
-| `val (|Refused|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure tmux answered: it ran the command, which refused or reported an error. |
+| `val (|Ran|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used. |
 
 ## Window
 

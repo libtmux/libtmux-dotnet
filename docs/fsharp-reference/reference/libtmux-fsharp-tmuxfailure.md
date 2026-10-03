@@ -40,11 +40,13 @@ Returns: <code><span>LibTmuxException&#32;option</span></code>
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L59)
 
-<a name="(%7cRefused%7c_%7c)"></a>
+<a name="(%7cRan%7c_%7c)"></a>
 
-#### <code><span>TmuxFailure.(|Refused|_|)&#32;<span>error</span></span></code>
+#### <code><span>TmuxFailure.(|Ran|_|)&#32;<span>error</span></span></code>
 
-Matches a failure tmux answered: it ran the command, which refused or reported an error.
+Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used.
+
+Running the command again repeats whatever it did; a read can simply be read again.
 
 **Parameters:**
 

@@ -335,7 +335,7 @@ module FailureTests =
     let private describe error =
         match error with
         | TmuxFailure.NotSent _ -> "not sent"
-        | TmuxFailure.Refused _ -> "refused"
+        | TmuxFailure.Ran _ -> "ran"
         | TmuxFailure.MayHaveRun _ -> "may have run"
         | _ -> "other"
 
@@ -345,7 +345,7 @@ module FailureTests =
             TmuxOperationCanceledException("canceled", CancellationToken.None, ran, 7) :> exn
 
         Assert.Equal<string list>(
-            [ "not sent"; "refused"; "may have run"; "may have run"; "other"; "other" ],
+            [ "not sent"; "ran"; "may have run"; "may have run"; "other"; "other" ],
             [
                 failure TmuxDispatchState.NotDispatched
                 failure TmuxDispatchState.Dispatched

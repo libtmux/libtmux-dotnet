@@ -3012,13 +3012,13 @@
       "returnType": "LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
     },
     {
-      "id": "M:LibTmux.FSharp.TmuxFailure.|Refused|_|(System.Exception)",
+      "id": "M:LibTmux.FSharp.TmuxFailure.|Ran|_|(System.Exception)",
       "package": "LibTmux.FSharp",
-      "name": "(|Refused|_|)",
+      "name": "(|Ran|_|)",
       "declaringType": "T:LibTmux.FSharp.TmuxFailure",
       "visibility": "public",
       "kind": "member",
-      "signature": "val (|Refused|_|) : error: Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option",
+      "signature": "val (|Ran|_|) : error: Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
@@ -3037,7 +3037,7 @@
       "argumentGroups": [
         1
       ],
-      "compiledName": "|Refused|_|",
+      "compiledName": "|Ran|_|",
       "genericParameters": [],
       "returnType": "LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
     },

@@ -58,8 +58,9 @@ module TmuxFailure =
     /// <summary>Matches a failure whose command never reached tmux; running it again repeats nothing.</summary>
     val (|NotSent|_|): error: exn -> LibTmuxException option
 
-    /// <summary>Matches a failure tmux answered: it ran the command, which refused or reported an error.</summary>
-    val (|Refused|_|): error: exn -> LibTmuxException option
+    /// <summary>Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used.</summary>
+    /// <remarks>Running the command again repeats whatever it did; a read can simply be read again.</remarks>
+    val (|Ran|_|): error: exn -> LibTmuxException option
 
     /// <summary>Matches a failure, or a cancellation, after which tmux may already have acted.</summary>
     val (|MayHaveRun|_|): error: exn -> exn option

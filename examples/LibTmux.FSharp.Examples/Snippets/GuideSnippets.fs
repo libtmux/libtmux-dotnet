@@ -371,7 +371,7 @@ module internal GuideSnippets =
 
                 return Ok [ for session in sessions -> session.Name ]
             with
-            | TmuxFailure.Refused failure -> return Error $"tmux refused: {failure.Message}"
+            | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
             | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
         }
     // endfsharp-snippet

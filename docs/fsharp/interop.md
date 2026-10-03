@@ -27,11 +27,11 @@ the F# package does not define a second format.
 ## Failures and retries
 
 Every `LibTmuxException` says whether its command reached tmux. The
-`TmuxFailure` patterns match on that: `NotSent` means tmux never saw the
-command, so running it again repeats nothing; `Refused` means tmux ran it and
-reported an error; `MayHaveRun` covers a failure or cancellation after which
-tmux may already have acted. `Retry.ifNotSent` runs an operation again only
-for `NotSent`:
+`TmuxFailure` patterns match on that. `NotSent` means tmux never saw the
+command, so running it again repeats nothing. `Ran` means tmux ran it and then
+reported an error or gave an answer that could not be used. `MayHaveRun`
+covers a failure or cancellation after which tmux may already have acted.
+`Retry.ifNotSent` runs an operation again only for `NotSent`:
 
 <!-- fsharp-snippet: SafeRetry run -->
 ```fsharp run
@@ -48,7 +48,7 @@ let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server
 
             return Ok [ for session in sessions -> session.Name ]
         with
-        | TmuxFailure.Refused failure -> return Error $"tmux refused: {failure.Message}"
+        | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
         | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
     }
 ```

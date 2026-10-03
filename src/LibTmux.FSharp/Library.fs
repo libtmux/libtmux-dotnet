@@ -61,7 +61,7 @@ module TmuxFailure =
         | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.NotDispatched -> Some failure
         | _ -> None
 
-    let (|Refused|_|) (error: exn) =
+    let (|Ran|_|) (error: exn) =
         match error with
         | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Dispatched -> Some failure
         | _ -> None
