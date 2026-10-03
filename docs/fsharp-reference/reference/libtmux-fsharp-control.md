@@ -190,10 +190,10 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 Streams several panes&#39; output from one borrowed control client.
 
 Each output event names its pane. Each pane confirmed gone is reported by
- a <code>TmuxPaneGoneEvent</code> after the output buffered before it went, and
- the stream ends once every pane is gone, or with <code>TmuxExitEvent</code>
- when the client ends. Events after that stay unread for the client&#39;s next
- reader.
+ a <code>TmuxPaneGoneEvent</code> after the output buffered before it went,
+ unless the client ends first, and the stream ends once every pane is gone,
+ or with <code>TmuxExitEvent</code> when the client ends. Events after that stay
+ unread for the client&#39;s next reader.
 
 **Parameters:**
 

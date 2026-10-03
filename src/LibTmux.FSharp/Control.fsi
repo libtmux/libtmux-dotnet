@@ -72,10 +72,10 @@ module Control =
     /// <summary>Streams several panes' output from one borrowed control client.</summary>
     /// <remarks>
     /// Each output event names its pane. Each pane confirmed gone is reported by
-    /// a <c>TmuxPaneGoneEvent</c> after the output buffered before it went, and
-    /// the stream ends once every pane is gone, or with <c>TmuxExitEvent</c>
-    /// when the client ends. Events after that stay unread for the client's next
-    /// reader.
+    /// a <c>TmuxPaneGoneEvent</c> after the output buffered before it went,
+    /// unless the client ends first, and the stream ends once every pane is gone,
+    /// or with <c>TmuxExitEvent</c> when the client ends. Events after that stay
+    /// unread for the client's next reader.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The list is empty.</exception>
     val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
