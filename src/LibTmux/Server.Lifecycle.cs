@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
@@ -485,7 +486,7 @@ public sealed class OwnedServerScope : IAsyncDisposable
             using Process process = Process.GetProcessById(id);
             return (id, process.StartTime);
         }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or Win32Exception)
         {
             // Already gone, so there is nothing to wait for.
             return null;
@@ -507,7 +508,7 @@ public sealed class OwnedServerScope : IAsyncDisposable
                 return;
             }
         }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or Win32Exception)
         {
             return;
         }
