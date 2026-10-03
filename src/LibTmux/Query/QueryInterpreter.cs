@@ -257,6 +257,12 @@ internal static class QueryInterpreter
                 left.EndsWith(right, StringComparison.Ordinal),
             QueryStringOperation.ContainsOrdinal =>
                 left.Contains(right, StringComparison.Ordinal),
+            QueryStringOperation.StartsWithOrdinalIgnoreCase =>
+                left.StartsWith(right, StringComparison.OrdinalIgnoreCase),
+            QueryStringOperation.EndsWithOrdinalIgnoreCase =>
+                left.EndsWith(right, StringComparison.OrdinalIgnoreCase),
+            QueryStringOperation.ContainsOrdinalIgnoreCase =>
+                left.Contains(right, StringComparison.OrdinalIgnoreCase),
             _ => false,
         };
     }

@@ -120,6 +120,12 @@ internal sealed class QueryDocumentJsonReader
                 new StringNode(QueryStringOperation.EndsWithOrdinal, left, right),
             "containsOrdinal" =>
                 new StringNode(QueryStringOperation.ContainsOrdinal, left, right),
+            "startsWithOrdinalIgnoreCase" =>
+                new StringNode(QueryStringOperation.StartsWithOrdinalIgnoreCase, left, right),
+            "endsWithOrdinalIgnoreCase" =>
+                new StringNode(QueryStringOperation.EndsWithOrdinalIgnoreCase, left, right),
+            "containsOrdinalIgnoreCase" =>
+                new StringNode(QueryStringOperation.ContainsOrdinalIgnoreCase, left, right),
             _ => throw new UnsupportedQueryExpressionException("Query document names an unknown comparison."),
         };
     }

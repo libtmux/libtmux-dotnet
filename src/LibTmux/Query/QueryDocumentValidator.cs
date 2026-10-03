@@ -121,6 +121,9 @@ internal static class QueryDocumentValidator
             QueryStringOperation.StartsWithOrdinal => true,
             QueryStringOperation.EndsWithOrdinal => true,
             QueryStringOperation.ContainsOrdinal => true,
+            QueryStringOperation.StartsWithOrdinalIgnoreCase => true,
+            QueryStringOperation.EndsWithOrdinalIgnoreCase => true,
+            QueryStringOperation.ContainsOrdinalIgnoreCase => true,
             _ => throw Unsupported("Query document names an unknown string operation."),
         };
     }

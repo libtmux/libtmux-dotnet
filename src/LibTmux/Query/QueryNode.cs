@@ -61,6 +61,15 @@ internal enum QueryStringOperation
 
     /// <summary>Ordinal substring match.</summary>
     ContainsOrdinal = 4,
+
+    /// <summary>Case-insensitive ordinal prefix match.</summary>
+    StartsWithOrdinalIgnoreCase = 5,
+
+    /// <summary>Case-insensitive ordinal suffix match.</summary>
+    EndsWithOrdinalIgnoreCase = 6,
+
+    /// <summary>Case-insensitive ordinal substring match.</summary>
+    ContainsOrdinalIgnoreCase = 7,
 }
 
 /// <summary>Names how a quantifier folds a relation.</summary>
