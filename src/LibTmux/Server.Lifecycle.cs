@@ -223,13 +223,14 @@ public sealed partial class Server
     /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
+    /// <exception cref="TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(
         ServerConnectionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         Server endpoint = Open(options ?? ServerConnectionOptions.Default);
-        bool serving = await endpoint.IsAliveAsync(cancellationToken).ConfigureAwait(false);
+        bool serving = await endpoint.IsServingAsync(cancellationToken).ConfigureAwait(false);
         if (serving && endpoint.Connection is
             { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } })
         {
@@ -256,6 +257,23 @@ public sealed partial class Server
         }
 
         return sequence.Observe(() => new OwnedServerScope(endpoint));
+    }
+
+    // Unlike IsAliveAsync, a failure that does not say the server is missing
+    // raises: a permission error against a live daemon read as absence would
+    // skip the refusal, and a failed start would then stop that daemon.
+    [UnsupportedOSPlatform("windows")]
+    private async Task<bool> IsServingAsync(CancellationToken cancellationToken)
+    {
+        TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
+            .ConfigureAwait(false);
+        if (result.ExitCode != 0 && NamesMissingServer(result))
+        {
+            return false;
+        }
+
+        TmuxCommandFailure.ThrowIfFailed(result, "list-sessions");
+        return true;
     }
 
     [UnsupportedOSPlatform("windows")]
