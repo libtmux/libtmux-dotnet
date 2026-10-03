@@ -71,9 +71,10 @@ passing test finishes as soon as tmux does, and a failing one at its timeout.
 
 ## Run tests in CI
 
-- Install tmux 3.2a or later. Set `LIBTMUX_TMUX` to choose a binary other than
-  the first `tmux` on `PATH`, and pass it to each scope through
-  `TmuxTestOptions`, as below.
+- Install tmux 3.2a or later. Scopes run the first `tmux` on `PATH`, as
+  Python libtmux's pytest plugin does, so a CI job picks its tmux by putting
+  that binary's directory first. To name a binary instead, pass it to each
+  scope through `TmuxTestOptions`, as below.
 - Keep `TMUX_TMPDIR` short, such as `/tmp/tmux-tests`: a socket path longer
   than about 100 bytes cannot be bound.
 - Clear `TMUX` and `TMUX_PANE` when tests run inside a tmux pane. The scopes
