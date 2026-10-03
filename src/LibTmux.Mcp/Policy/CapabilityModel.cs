@@ -84,9 +84,16 @@ internal sealed record ToolDefinition(
     FrozenDictionary<string, string> InputLiteralization,
     ImmutableHashSet<string> NestedAuthority,
     bool SelfBounded = false,
-    bool BatchEligible = false)
+    bool BatchEligible = false,
+    bool AlwaysLoad = false)
 {
     internal const string CapabilityMetadataKey = "com.git-pull.libtmux-mcp/capability";
+
+    // Asks a client that defers tool schemas to keep this one loaded, so an
+    // agent finds the discovery tools without a search first. Claude Code
+    // honours it; other clients ignore the key. Each always-loaded schema
+    // costs every conversation context, so only discovery anchors set it.
+    internal const string AlwaysLoadMetadataKey = "anthropic/alwaysLoad";
 
     internal JsonElement InputSchema { get; init; }
 
@@ -106,6 +113,10 @@ internal sealed record ToolDefinition(
         JsonObject? metadata = includeCapabilityMetadata
             ? new JsonObject { [CapabilityMetadataKey] = CapabilityRow() }
             : null;
+        if (metadata is not null && AlwaysLoad)
+        {
+            metadata[AlwaysLoadMetadataKey] = true;
+        }
         return McpServerTool.Create(
             Handler,
             context => context.Services!.GetRequiredService<CapabilityTools>(),
@@ -556,15 +567,15 @@ internal sealed class CapabilityRegistry
         return
         [
             Inspect("list_sessions", "List sessions", Metadata, nameof(CapabilityTools.ListSessionsAsync), S(), batchEligible: true, detail: "List the tmux sessions. This reads names and sizes, not terminal text — to find what a pane is showing, use search_panes."),
-            Inspect("list_windows", "List windows", Metadata, nameof(CapabilityTools.ListWindowsAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true, detail: "List tmux windows, optionally within one session. This reads names and layouts, not terminal text — to find what a pane is showing, use search_panes."),
-            Inspect("list_panes", "List panes", Metadata, nameof(CapabilityTools.ListPanesAsync), S(("session", InputSink.TmuxLookup), ("windowId", InputSink.TmuxLookup)), batchEligible: true, detail: "List tmux panes, optionally within one session or window. Filter for isCaller=true to answer 'which pane am I in?', which finds one only when this server drives the caller's own socket — get_server_info says whose socket that is. This reads sizes and running commands, not terminal text — for that use search_panes."),
+            Inspect("list_windows", "List windows", Metadata, nameof(CapabilityTools.ListWindowsAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true, alwaysLoad: true, detail: "List tmux windows, optionally within one session. This reads names and layouts, not terminal text — to find what a pane is showing, use search_panes."),
+            Inspect("list_panes", "List panes", Metadata, nameof(CapabilityTools.ListPanesAsync), S(("session", InputSink.TmuxLookup), ("windowId", InputSink.TmuxLookup)), batchEligible: true, alwaysLoad: true, detail: "List tmux panes, optionally within one session or window. Filter for isCaller=true to answer 'which pane am I in?', which finds one only when this server drives the caller's own socket — get_server_info says whose socket that is. This reads sizes and running commands, not terminal text — for that use search_panes."),
             Inspect("get_server_info", "Get server info", Metadata, nameof(CapabilityTools.GetServerInfoAsync), S(), batchEligible: true, detail: "Read the tmux server's version and how many sessions, windows and panes it holds. Use to confirm a socket is alive and which tmux is running it."),
             Inspect("get_session_info", "Get session info", Metadata, nameof(CapabilityTools.GetSessionInfoAsync), S(("session", InputSink.TmuxLookup)), batchEligible: true),
             Inspect("get_window_info", "Get window info", Metadata, nameof(CapabilityTools.GetWindowInfoAsync), S(("windowId", InputSink.TmuxLookup)), batchEligible: true),
             Inspect("get_pane_info", "Get pane info", Metadata, nameof(CapabilityTools.GetPaneInfoAsync), S(("paneId", InputSink.TmuxLookup)), batchEligible: true),
             Inspect("capture_pane", "Capture pane", PaneOutput, nameof(CapabilityTools.CapturePaneAsync), S(("paneId", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("maxLines", InputSink.None), ("joinWrappedLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read the text a pane is showing, and optionally its scrollback. The newest lines are always kept; anything dropped to fit the budget is reported. To watch a pane across several turns, use capture_since instead — it returns only what is new."),
             Inspect("capture_since", "Capture since", PaneOutput, nameof(CapabilityTools.CaptureSinceAsync), S(("paneId", InputSink.TmuxLookup), ("cursor", InputSink.None), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read only what a pane has printed since the last call. Pass back the cursor each time. Use this to watch a long-running process across turns: the tenth read costs what the first did, where re-capturing the pane would return everything again. Call with no cursor to start watching from now."),
-            Inspect("snapshot_pane", "Snapshot pane", PaneOutput, nameof(CapabilityTools.SnapshotPaneAsync), S(("paneId", InputSink.TmuxLookup), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, detail: "Read a pane's visible content together with its cursor position, size and running command, in one call. Prefer this over capture_pane plus list_panes: it is one round trip and the cursor is guaranteed to describe the text returned with it."),
+            Inspect("snapshot_pane", "Snapshot pane", PaneOutput, nameof(CapabilityTools.SnapshotPaneAsync), S(("paneId", InputSink.TmuxLookup), ("maxLines", InputSink.None)), terminal: true, batchEligible: true, alwaysLoad: true, detail: "Read a pane's visible content together with its cursor position, size and running command, in one call. Prefer this over capture_pane plus list_panes: it is one round trip and the cursor is guaranteed to describe the text returned with it."),
             Inspect("search_panes", "Search panes", PaneOutput, nameof(CapabilityTools.SearchPanesAsync), S(("pattern", InputSink.Regex), ("session", InputSink.TmuxLookup), ("includeHistory", InputSink.None), ("ignoreCase", InputSink.None), ("maxMatchesPerPane", InputSink.None)), terminal: true, batchEligible: true, detail: "Find which panes are showing text matching a regular expression. This is the tool for 'which pane has the error', 'where is the build running', or any question about what a pane CONTAINS — the list tools only see names and sizes."),
             Inspect("find_pane_by_position", "Find pane by position", Metadata, nameof(CapabilityTools.FindPaneByPositionAsync), S(("windowId", InputSink.TmuxLookup), ("position", InputSink.None)), batchEligible: true, detail: "Find the pane sitting at an index within a window. Answers nothing rather than failing when no pane is at that position."),
             Inspect("wait_for_text", "Wait for text", PaneOutput, nameof(CapabilityTools.WaitForTextAsync), S(("paneId", InputSink.TmuxLookup), ("patterns", InputSink.Regex), ("stopPatterns", InputSink.Regex), ("timeoutSeconds", InputSink.None), ("ignoreCase", InputSink.None)), terminal: true, selfBounded: true, detail: "Wait until a pane prints something matching one of these patterns, then return. Use for output you did NOT start — a server's ready line, another process's progress, a person typing. Only output arriving AFTER the call counts: text already on screen never matches, so a pattern visible in the returned tail can still time out. For a command you are running yourself, run_shell_command is better: it reports the real exit status instead of guessing from text. Never poll capture_pane in a loop; this call does the waiting. Text this server itself typed is discounted while deciding what is new, for a few seconds after it is sent or submitted, so its own echo cannot be the match — except on a pane whose program has not yet configured its terminal; wait for a first prompt before typing into a freshly created pane."),
@@ -623,7 +634,8 @@ internal sealed class CapabilityRegistry
         ImmutableHashSet<string>? nested = null,
         string? detail = null,
         ImmutableHashSet<Effect>? effects = null,
-        bool metadata = true) => new(
+        bool metadata = true,
+        bool alwaysLoad = false) => new(
             name, title, opener + " " + (detail ?? title + "."), Toolset.Inspect, ProcessReach.None,
             effects ?? E(Effect.Observe), O(
                 metadata ? OutputClass.TmuxMetadata : null,
@@ -634,7 +646,7 @@ internal sealed class CapabilityRegistry
             CapabilityAnnotations.Conservative, Method(method), sinks,
             inputLiteralization ?? F(),
             nested ?? ImmutableHashSet<string>.Empty,
-            selfBounded, batchEligible);
+            selfBounded, batchEligible, alwaysLoad);
 
     private static ToolDefinition ManageTool(
         string name,
