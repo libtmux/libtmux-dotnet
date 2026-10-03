@@ -140,7 +140,7 @@
         "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})",
         "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})"
       ],
-      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: 1\nerror row: Some 1\nactive panes: 2\ndeploy: absent true, then found true\nat most one of every session: refused\n"
+      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: Some 1\nerror row: Some 1\nactive panes: 2\ndeploy: absent true, then found true\nat most one of every session: refused\n"
     },
     {
       "id": "fsharp-SendWaitRead",

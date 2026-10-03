@@ -71,10 +71,15 @@ let runAsync () =
             |> Query.where (WindowFields.name |> Filter.eq "make")
             |> Query.tryExactlyOne token
 
+        // tryExactlyOne is None when no window, or several, matched.
         let! makePanes =
-            match make with
-            | Some window -> window |> Window.panes |> Query.list token
-            | None -> failwith "The make window is missing."
+            task {
+                match make with
+                | Some window ->
+                    let! panes = window |> Window.panes |> Query.list token
+                    return Some panes.Count
+                | None -> return None
+            }
 
         // tmux searches each pane's visible rows, as find-window does.
         let! showingErrors =
@@ -122,7 +127,7 @@ let runAsync () =
         printfn "logged: %b" logged.Found
         printfn "named: %A" (named |> Result.map (fun session -> session.Name))
         printfn "tailing: %A" [ for session in tailing -> session.Name ]
-        printfn "make panes: %d" makePanes.Count
+        printfn "make panes: %A" makePanes
         printfn "error row: %A" errorRow
         printfn "active panes: %d" active.Count
         printfn "deploy: absent %b, then found %b" existing.IsNone found.IsSome
