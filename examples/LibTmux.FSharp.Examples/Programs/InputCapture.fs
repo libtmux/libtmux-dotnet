@@ -10,6 +10,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
+        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
         let binary =
             Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
             |> Option.ofObj
