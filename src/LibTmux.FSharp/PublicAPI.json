@@ -3811,6 +3811,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.string>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.active",
+      "package": "LibTmux.FSharp",
+      "name": "active",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val active: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "active",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.atBottom",
       "package": "LibTmux.FSharp",
       "name": "atBottom",
@@ -3943,6 +3965,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.dead",
+      "package": "LibTmux.FSharp",
+      "name": "dead",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val dead: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "dead",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -3987,6 +4031,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,LibTmux.PaneId>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.inMode",
+      "package": "LibTmux.FSharp",
+      "name": "inMode",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val inMode: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "inMode",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.index",
       "package": "LibTmux.FSharp",
       "name": "index",
@@ -4027,6 +4093,28 @@
       "parameters": [],
       "argumentGroups": [],
       "compiledName": "left",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.PaneFields.processId",
+      "package": "LibTmux.FSharp",
+      "name": "processId",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val processId: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "processId",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
@@ -4409,6 +4497,28 @@
       "returnType": "LibTmux.FSharp.SplitSpec"
     },
     {
+      "id": "P:LibTmux.FSharp.WindowFields.active",
+      "package": "LibTmux.FSharp",
+      "name": "active",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val active: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "active",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.WindowFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -4561,6 +4671,28 @@
       "compiledName": "width",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.zoomed",
+      "package": "LibTmux.FSharp",
+      "name": "zoomed",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val zoomed: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "zoomed",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowSpec.Command",

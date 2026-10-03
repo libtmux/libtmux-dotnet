@@ -8,6 +8,16 @@ Provides supported window fields and relations for portable filters.
 
 ### Functions and values
 
+<a name="active"></a>
+
+#### <code><span>WindowFields.active&#32;<span></span></span></code>
+
+Identifies whether the window is the current window of the session it was read through.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L289)
+
 <a name="height"></a>
 
 #### <code><span>WindowFields.height&#32;<span></span></span></code>
@@ -56,7 +66,7 @@ Identifies the number of panes in the window.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L289)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L291)
 
 <a name="panes"></a>
 
@@ -66,7 +76,7 @@ Identifies panes captured through this window placement.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-relation-2.md">Relation</a>&lt;<span>Window,&#32;Pane</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L290)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L292)
 
 <a name="width"></a>
 
@@ -77,3 +87,13 @@ Identifies the window's width in cells.
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L287)
+
+<a name="zoomed"></a>
+
+#### <code><span>WindowFields.zoomed&#32;<span></span></span></code>
+
+Identifies whether one of the window's panes is zoomed to fill it.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L290)
