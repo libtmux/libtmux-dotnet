@@ -196,9 +196,15 @@ public sealed partial class WorkspaceBuilder
             }
             foreach ((string name, string value) in pane.Options)
                 actions.Add(new WorkspaceAction<SetOptionRequest>(WorkspaceActionKind.SetOption, paneTarget, new(name, value)));
-            foreach (string command in workspace.ShellCommandsBefore.Concat(window.ShellCommandsBefore).Concat(pane.ShellCommandsBefore).Concat(pane.ShellCommands))
+            bool enter = pane.Enter ?? true;
+            foreach (WorkspaceCommand command in workspace.BeforeCommands
+                .Concat(window.BeforeCommands)
+                .Concat(pane.BeforeCommands)
+                .Concat(pane.Commands))
             {
-                actions.Add(new WorkspaceAction<string>(WorkspaceActionKind.SendText, paneTarget, command));
+                enter = command.Enter ?? enter;
+                actions.Add(new WorkspaceAction<SendKeysRequest>(WorkspaceActionKind.SendText, paneTarget,
+                    new SendKeysRequest { Text = command.Text, Enter = enter, Literal = true }));
             }
             previousPane = paneTarget;
         }
@@ -221,8 +227,8 @@ public sealed partial class WorkspaceBuilder
         ValidateText(workspace.SessionName);
         ValidateText(workspace.StartDirectory);
         ValidateOptions(workspace.Options);
-        foreach (string command in workspace.ShellCommandsBefore)
-            ValidateText(command);
+        foreach (WorkspaceCommand command in workspace.BeforeCommands)
+            ValidateText(command.Text);
         HashSet<int> requestedIndexes = [];
         foreach (WorkspaceWindow window in workspace.Windows)
         {
@@ -235,15 +241,15 @@ public sealed partial class WorkspaceBuilder
                 throw new WorkspaceFormatException($"Layout '{window.Layout}' is unknown, ambiguous, malformed, or has fewer cells than panes.");
             ValidateOptions(window.Options);
             ValidateEnvironment(window.Environment, options);
-            foreach (string command in window.ShellCommandsBefore)
-                ValidateText(command);
+            foreach (WorkspaceCommand command in window.BeforeCommands)
+                ValidateText(command.Text);
             foreach (WorkspacePane pane in window.Panes)
             {
                 ValidateText(pane.StartDirectory);
                 ValidateOptions(pane.Options);
                 ValidateEnvironment(pane.Environment, options);
-                foreach (string command in pane.ShellCommandsBefore.Concat(pane.ShellCommands))
-                    ValidateText(command);
+                foreach (WorkspaceCommand command in pane.BeforeCommands.Concat(pane.Commands))
+                    ValidateText(command.Text);
             }
         }
     }

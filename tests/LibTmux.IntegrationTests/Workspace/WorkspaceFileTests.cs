@@ -356,10 +356,109 @@ public sealed class WorkspaceFileTests
         }
     }
 
+    [Fact]
+    public void Enter_declarations_parse_at_pane_and_command_scopes()
+    {
+        const string yaml = """
+            shell_command_before:
+              - cmd: root
+                enter: false
+            windows:
+              - shell_command_before:
+                  - window
+                panes:
+                  - enter: true
+                    shell_command_before:
+                      - cmd: pane
+                        enter: true
+                    shell_command:
+                      - main
+            """;
+        const string json = """
+            {"shell_command_before":[{"cmd":"root","enter":false}],
+             "windows":[{"shell_command_before":["window"],
+             "panes":[{"enter":true,"shell_command_before":[{"cmd":"pane","enter":true}],
+             "shell_command":["main"]}]}]}
+            """;
+
+        foreach (string document in new[] { yaml, json })
+        {
+            WorkspaceFile file = WorkspaceFile.Parse(document);
+            WorkspaceWindow window = Assert.Single(file.Windows);
+            WorkspacePane pane = Assert.Single(window.Panes);
+            Assert.Equal(["root"], file.ShellCommandsBefore);
+            Assert.Equal(["window"], window.ShellCommandsBefore);
+            Assert.Equal(["pane"], pane.ShellCommandsBefore);
+            Assert.Equal(["main"], pane.ShellCommands);
+            Assert.False(Assert.Single(file.BeforeCommands).Enter);
+            Assert.Null(Assert.Single(window.BeforeCommands).Enter);
+            Assert.True(pane.Enter);
+            Assert.True(Assert.Single(pane.BeforeCommands).Enter);
+            Assert.Null(Assert.Single(pane.Commands).Enter);
+
+            WorkspacePane resolved = Assert.Single(Assert.Single(file.Resolve(Path.GetTempPath()).Windows).Panes);
+            Assert.True(resolved.Enter);
+            Assert.True(Assert.Single(resolved.BeforeCommands).Enter);
+        }
+    }
+
     [Theory]
-    [InlineData("{cmd: echo ready, enter: false}", "enter")]
+    [InlineData("enter: null", "windows[0].panes[0].enter")]
+    [InlineData("enter: 0", "windows[0].panes[0].enter")]
+    [InlineData("enter: \"false\"", "windows[0].panes[0].enter")]
+    [InlineData("enter: [false]", "windows[0].panes[0].enter")]
+    [InlineData("shell_command: [{cmd: echo ready, enter: null}]", "shell_command[0].enter")]
+    [InlineData("shell_command: [{cmd: echo ready, enter: \"false\"}]", "shell_command[0].enter")]
+    public void Invalid_enter_values_report_path_and_source_location(string paneContent, string path)
+    {
+        string yaml = $"windows:\n  - panes:\n      - {paneContent}\n";
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(() => WorkspaceFile.Parse(yaml));
+        Assert.Contains(path, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 3, column", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Duplicate_enter_is_rejected_by_the_yaml_loader()
+    {
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(() =>
+            WorkspaceFile.Parse("windows:\n  - panes:\n      - shell_command: [{cmd: echo ready, enter: false, enter: true}]\n"));
+
+        Assert.Contains("Duplicate key", failure.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Typed_commands_are_copied_and_survive_defaults_and_resolution()
+    {
+        List<WorkspaceCommand> rootBefore = [new("root", false)];
+        List<WorkspaceCommand> paneBefore = [new("pane", true)];
+        List<WorkspaceCommand> commands = [new("main", null)];
+        WorkspacePane pane = new WorkspacePane(commands: commands, enter: false)
+            .WithDefaults(beforeCommands: paneBefore);
+        WorkspaceFile file = new WorkspaceFile(windows: [new WorkspaceWindow(panes: [pane])])
+            .WithDefaults(beforeCommands: rootBefore);
+        rootBefore[0] = new("changed", true);
+        paneBefore.Clear();
+        commands[0] = new("changed", false);
+
+        WorkspaceFile resolved = file.WithDefaults().Resolve(Path.GetTempPath());
+        WorkspacePane copiedPane = Assert.Single(Assert.Single(resolved.Windows).Panes);
+        Assert.Equal(new WorkspaceCommand("root", false), Assert.Single(resolved.BeforeCommands));
+        Assert.Equal(new WorkspaceCommand("pane", true), Assert.Single(copiedPane.BeforeCommands));
+        Assert.Equal(new WorkspaceCommand("main"), Assert.Single(copiedPane.Commands));
+        Assert.False(copiedPane.Enter);
+        Assert.Equal(["root"], resolved.ShellCommandsBefore);
+        Assert.Equal(["pane"], copiedPane.ShellCommandsBefore);
+        Assert.Equal(["main"], copiedPane.ShellCommands);
+        Assert.Throws<NotSupportedException>(() => ((IList<WorkspaceCommand>)copiedPane.Commands).Clear());
+        Assert.Throws<ArgumentException>(() => new WorkspacePane(["plain"], commands: [new("typed")]));
+        Assert.Throws<ArgumentException>(() => pane.WithDefaults(shellCommandsBefore: ["plain"], beforeCommands: [new("typed")]));
+    }
+
+    [Theory]
     [InlineData("{}", "cmd")]
     [InlineData("{cmd: null}", "non-null scalar")]
+    [InlineData("{cmd: echo ready, sleep_before: 1}", "sleep_before")]
     public void Unsupported_command_objects_report_path_and_source_location(
         string command,
         string expectedReason)
@@ -381,6 +480,8 @@ public sealed class WorkspaceFileTests
 
     [Theory]
     [InlineData("plugin: no\nwindows: []\n", "$", "plugin")]
+    [InlineData("enter: false\nwindows: []\n", "$", "enter")]
+    [InlineData("windows:\n  - enter: false\n", "windows[0]", "enter")]
     [InlineData("windows:\n  - panes:\n      - plugin: no\n", "windows[0].panes[0]", "plugin")]
     public void Unsupported_keys_report_their_path(
         string yaml,

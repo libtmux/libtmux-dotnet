@@ -18,7 +18,7 @@ LibTmux.Workspace.WorkspacePane
 LibTmux.Workspace.WorkspacePane.Focus.get -> bool
 LibTmux.Workspace.WorkspacePane.ShellCommands.get -> System.Collections.Generic.IReadOnlyList<string!>!
 LibTmux.Workspace.WorkspacePane.StartDirectory.get -> string?
-LibTmux.Workspace.WorkspacePane.WorkspacePane(System.Collections.Generic.IReadOnlyList<string!>? shellCommands = null, string? startDirectory = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null) -> void
+LibTmux.Workspace.WorkspacePane.WorkspacePane(System.Collections.Generic.IReadOnlyList<string!>? shellCommands = null, string? startDirectory = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>? commands = null, bool? enter = null) -> void
 LibTmux.Workspace.WorkspaceResult
 LibTmux.Workspace.WorkspaceResult.<Clone>$() -> LibTmux.Workspace.WorkspaceResult!
 LibTmux.Workspace.WorkspaceResult.Deconstruct(out LibTmux.Session! Session, out System.Collections.Generic.IReadOnlyList<LibTmux.Window!>! Windows, out System.Collections.Generic.IReadOnlyList<string!>! Unsupported) -> void
@@ -47,13 +47,29 @@ static LibTmux.Workspace.WorkspaceResult.operator !=(LibTmux.Workspace.Workspace
 static LibTmux.Workspace.WorkspaceResult.operator ==(LibTmux.Workspace.WorkspaceResult? left, LibTmux.Workspace.WorkspaceResult? right) -> bool
 LibTmux.Workspace.WorkspacePane.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspacePane.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
-LibTmux.Workspace.WorkspacePane.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspacePane!
+LibTmux.Workspace.WorkspacePane.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>? beforeCommands = null) -> LibTmux.Workspace.WorkspacePane!
 LibTmux.Workspace.WorkspaceWindow.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceWindow.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
-LibTmux.Workspace.WorkspaceWindow.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspaceWindow!
+LibTmux.Workspace.WorkspaceWindow.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>? beforeCommands = null) -> LibTmux.Workspace.WorkspaceWindow!
 LibTmux.Workspace.WorkspaceFile.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceFile.ShellCommandsBefore.get -> System.Collections.Generic.IReadOnlyList<string!>!
-LibTmux.Workspace.WorkspaceFile.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null) -> LibTmux.Workspace.WorkspaceFile!
+LibTmux.Workspace.WorkspaceFile.WithDefaults(System.Collections.Generic.IReadOnlyDictionary<string!, string!>? environment = null, System.Collections.Generic.IReadOnlyList<string!>? shellCommandsBefore = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>? beforeCommands = null) -> LibTmux.Workspace.WorkspaceFile!
+LibTmux.Workspace.WorkspaceCommand
+LibTmux.Workspace.WorkspaceCommand.<Clone>$() -> LibTmux.Workspace.WorkspaceCommand!
+LibTmux.Workspace.WorkspaceCommand.Enter.get -> bool?
+LibTmux.Workspace.WorkspaceCommand.Equals(LibTmux.Workspace.WorkspaceCommand? other) -> bool
+LibTmux.Workspace.WorkspaceCommand.Text.get -> string!
+LibTmux.Workspace.WorkspaceCommand.WorkspaceCommand(string! text, bool? enter = null) -> void
+LibTmux.Workspace.WorkspaceFile.BeforeCommands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>!
+LibTmux.Workspace.WorkspacePane.BeforeCommands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>!
+LibTmux.Workspace.WorkspacePane.Commands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>!
+LibTmux.Workspace.WorkspacePane.Enter.get -> bool?
+LibTmux.Workspace.WorkspaceWindow.BeforeCommands.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceCommand!>!
+override LibTmux.Workspace.WorkspaceCommand.Equals(object? obj) -> bool
+override LibTmux.Workspace.WorkspaceCommand.GetHashCode() -> int
+override LibTmux.Workspace.WorkspaceCommand.ToString() -> string!
+static LibTmux.Workspace.WorkspaceCommand.operator !=(LibTmux.Workspace.WorkspaceCommand? left, LibTmux.Workspace.WorkspaceCommand? right) -> bool
+static LibTmux.Workspace.WorkspaceCommand.operator ==(LibTmux.Workspace.WorkspaceCommand? left, LibTmux.Workspace.WorkspaceCommand? right) -> bool
 LibTmux.Workspace.WorkspaceAction
 LibTmux.Workspace.WorkspaceAction.Kind.get -> LibTmux.Workspace.WorkspaceActionKind
 LibTmux.Workspace.WorkspaceAction.SourceTarget.get -> string?

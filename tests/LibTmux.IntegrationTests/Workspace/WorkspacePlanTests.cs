@@ -89,11 +89,62 @@ public sealed class WorkspacePlanTests
         Assert.Equal("planned", create.Request.Name);
         Assert.Equal("reviewed", create.Request.Environment!["PROJECT"]);
         Assert.Contains(plan.Actions, action => action.Kind == WorkspaceActionKind.UnlinkWindow && action.Target == "bootstrap");
-        Assert.Equal("echo reviewed", Assert.Single(plan.Actions.OfType<WorkspaceAction<string>>(),
-            action => action.Kind == WorkspaceActionKind.SendText).Request);
+        SendKeysRequest send = Assert.Single(plan.Actions.OfType<WorkspaceAction<SendKeysRequest>>(),
+            action => action.Kind == WorkspaceActionKind.SendText).Request;
+        Assert.Equal("echo reviewed", send.Text);
+        Assert.True(send.Enter);
+        Assert.True(send.Literal);
         Assert.Throws<NotSupportedException>(() => ((IList<WorkspaceAction>)plan.Actions).Clear());
         Assert.Throws<NotSupportedException>(() => ((IDictionary<string, string>)create.Request.Environment).Clear());
         Assert.NotEmpty(string.Join('\n', plan.Actions));
+        Assert.Null(await scope.Server.InspectAsync(token));
+    }
+
+    [UnixFact]
+    public async Task Enter_overrides_freeze_effective_requests_across_all_command_scopes()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: planned
+            shell_command_before:
+              - cmd: root
+                enter: false
+              - root-follow
+            windows:
+              - shell_command_before:
+                  - window-follow
+                panes:
+                  - enter: true
+                    shell_command_before:
+                      - cmd: pane-reset
+                        enter: true
+                      - pane-follow
+                    shell_command:
+                      - cmd: main-hold
+                        enter: false
+                      - main-follow
+            """);
+
+        WorkspacePlan plan = await new WorkspaceBuilder(scope.Server).PlanAsync(workspace, cancellationToken: token);
+        SendKeysRequest[] sends = [.. plan.Actions.OfType<WorkspaceAction<SendKeysRequest>>()
+            .Select(action => action.Request)];
+        Assert.Equal(
+            [("root", false), ("root-follow", false), ("window-follow", false),
+                ("pane-reset", true), ("pane-follow", true), ("main-hold", false),
+                ("main-follow", false)],
+            sends.Select(request => (request.Text, request.Enter)));
+        Assert.All(sends, request => Assert.True(request.Literal));
+
+        List<WorkspaceCommand> callerCommands = [new("held")];
+        WorkspaceFile defaults = new("other", windows: [new WorkspaceWindow(panes:
+            [new WorkspacePane(commands: callerCommands, enter: false), new WorkspacePane(["run"])])]);
+        WorkspacePlan defaultPlan = await new WorkspaceBuilder(scope.Server).PlanAsync(defaults, cancellationToken: token);
+        callerCommands[0] = new("changed", true);
+        Assert.Equal(
+            [("held", false), ("run", true)],
+            defaultPlan.Actions.OfType<WorkspaceAction<SendKeysRequest>>()
+                .Select(action => (action.Request.Text, action.Request.Enter)));
         Assert.Null(await scope.Server.InspectAsync(token));
     }
 

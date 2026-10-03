@@ -17,9 +17,11 @@ version.
   already present, new matches, stop patterns, any new output, timeout and pane
   death, and reports event loss, grid loss and polling fallback.
 
-- Workspace command lists accept tmuxp-style `{cmd: ...}` entries alongside
-  scalar commands at session, window and pane scope. Unsupported command
-  modifiers fail with the declaration path and source location.
+- Workspace command lists accept tmuxp-style `{cmd: ..., enter: false}` entries
+  alongside scalar commands at session, window and pane scope. Pane-level
+  `enter` sets the initial state; command overrides remain sticky until reset.
+  Plans expose the effective state in typed `SendKeysRequest` actions. Other
+  command modifiers fail with the declaration path and source location.
 
 - `LibTmux.FSharp.Server` adds `listSessions`, `listWindows`, `listClients`,
   `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return

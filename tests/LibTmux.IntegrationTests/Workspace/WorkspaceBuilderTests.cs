@@ -535,6 +535,45 @@ public sealed class WorkspaceBuilderTests
     }
 
     [UnixFact]
+    public async Task Enter_false_types_a_command_without_running_it_until_explicit_enter()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string directory = Directory.CreateTempSubdirectory("libtmux-workspace-held-").FullName;
+        try
+        {
+            await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+            string received = Path.Combine(directory, "received");
+            string completed = $"workspace-held-{Guid.NewGuid():N}";
+            string tmux = ShellQuote(Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux");
+            string command = $"printf 'held' > {ShellQuote(received)}; {tmux} wait-for -S {completed}";
+            WorkspaceFile workspace = new("libtmux-held-enter", windows:
+                [new WorkspaceWindow(panes: [new WorkspacePane(commands: [new WorkspaceCommand(command, false)])])]);
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
+            Pane pane = Assert.Single(await Assert.Single(result.Windows).GetPanesAsync(token));
+            await using PaneTextObserver observer = new();
+            PaneTextWaitResult pending = await observer.WaitForTextAsync(pane, new PaneTextWaitRequest
+            {
+                Patterns = ["printf 'held'"],
+                SimpleMatch = true,
+                Timeout = TimeSpan.FromSeconds(2),
+            }, token);
+            Assert.True(pending.Outcome is PaneTextWaitOutcome.PresentAtEntry or PaneTextWaitOutcome.Matched);
+            Assert.Contains(pending.Tail, line => line.Contains("printf 'held'", StringComparison.Ordinal));
+            Assert.False(File.Exists(received));
+
+            await using TmuxWaitChannel completion = result.Session.Server.OpenWaitChannel(completed);
+            await pane.EnterAsync(token);
+            Assert.True(await completion.WaitAsync(TimeSpan.FromSeconds(1), token));
+            Assert.Equal("held", await File.ReadAllTextAsync(received, token));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [UnixFact]
     public async Task Session_options_launch_the_real_first_pane()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

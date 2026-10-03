@@ -7,8 +7,10 @@ namespace LibTmux.Workspace;
 public sealed class WorkspacePane
 {
     private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
-    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+    private readonly ReadOnlyCollection<WorkspaceCommand> _beforeCommands;
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore;
 
+    private readonly ReadOnlyCollection<WorkspaceCommand> _commands;
     private readonly ReadOnlyCollection<string> _shellCommands;
     private readonly ReadOnlyDictionary<string, string> _options;
 
@@ -17,26 +19,41 @@ public sealed class WorkspacePane
     /// <param name="startDirectory">The directory the pane starts in.</param>
     /// <param name="focus">Whether the pane is left selected.</param>
     /// <param name="options">The pane options to set.</param>
+    /// <param name="commands">Typed commands; use instead of <paramref name="shellCommands" /> to set Enter overrides.</param>
+    /// <param name="enter">The pane's initial Enter state, or null for the default.</param>
     public WorkspacePane(
         IReadOnlyList<string>? shellCommands = null,
         string? startDirectory = null,
         bool focus = false,
-        IReadOnlyDictionary<string, string>? options = null)
+        IReadOnlyDictionary<string, string>? options = null,
+        IReadOnlyList<WorkspaceCommand>? commands = null,
+        bool? enter = null)
     {
-        _shellCommands = WorkspaceCollections.Copy(shellCommands, nameof(shellCommands));
+        _commands = WorkspaceCollections.CopyCommands(
+            shellCommands, commands, nameof(shellCommands), nameof(commands));
+        _shellCommands = WorkspaceCollections.CommandText(_commands);
+        _beforeCommands = WorkspaceCollections.Copy<WorkspaceCommand>(null, nameof(BeforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
         _options = WorkspaceCollections.Copy(options, nameof(options));
         StartDirectory = startDirectory;
         Focus = focus;
+        Enter = enter;
     }
 
     private WorkspacePane(
         WorkspacePane source,
         IReadOnlyDictionary<string, string> environment,
-        IReadOnlyList<string> shellCommandsBefore)
-        : this(source.ShellCommands, source.StartDirectory, source.Focus, source.Options)
+        IReadOnlyList<string>? shellCommandsBefore,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands)
+        : this(startDirectory: source.StartDirectory, focus: source.Focus,
+            options: source.Options, commands: source.Commands, enter: source.Enter)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
-        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+        _beforeCommands = WorkspaceCollections.CopyCommands(
+            shellCommandsBefore,
+            beforeCommands ?? (shellCommandsBefore is null ? source.BeforeCommands : null),
+            nameof(shellCommandsBefore), nameof(beforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
     }
 
     /// <summary>Gets the environment entries contributed by this declaration.</summary>
@@ -45,18 +62,29 @@ public sealed class WorkspacePane
     /// <summary>Gets the commands prepended at this declaration level.</summary>
     public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
 
+    /// <summary>Gets the typed commands prepended at this declaration level.</summary>
+    public IReadOnlyList<WorkspaceCommand> BeforeCommands => _beforeCommands;
+
     /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
     /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
     /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <param name="beforeCommands">Typed local commands; use instead of <paramref name="shellCommandsBefore" />.</param>
     /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
     /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
     public WorkspacePane WithDefaults(
         IReadOnlyDictionary<string, string>? environment = null,
-        IReadOnlyList<string>? shellCommandsBefore = null) =>
-        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
+        IReadOnlyList<string>? shellCommandsBefore = null,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore, beforeCommands);
 
     /// <summary>Gets the commands to run, in order.</summary>
     public IReadOnlyList<string> ShellCommands => _shellCommands;
+
+    /// <summary>Gets the typed pane commands in declaration order.</summary>
+    public IReadOnlyList<WorkspaceCommand> Commands => _commands;
+
+    /// <summary>Gets the pane's initial Enter state, or null for the default.</summary>
+    public bool? Enter { get; }
 
     /// <summary>Gets the directory the pane starts in.</summary>
     public string? StartDirectory { get; }
@@ -72,7 +100,8 @@ public sealed class WorkspacePane
 public sealed class WorkspaceWindow
 {
     private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
-    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+    private readonly ReadOnlyCollection<WorkspaceCommand> _beforeCommands;
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore;
 
     private readonly ReadOnlyDictionary<string, string> _options;
     private readonly ReadOnlyCollection<WorkspacePane> _panes;
@@ -103,17 +132,24 @@ public sealed class WorkspaceWindow
         WindowIndex = windowIndex;
         _options = WorkspaceCollections.Copy(options, nameof(options));
         _panes = WorkspaceCollections.Copy(panes, nameof(panes));
+        _beforeCommands = WorkspaceCollections.Copy<WorkspaceCommand>(null, nameof(BeforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
     }
 
     private WorkspaceWindow(
         WorkspaceWindow source,
         IReadOnlyDictionary<string, string> environment,
-        IReadOnlyList<string> shellCommandsBefore)
+        IReadOnlyList<string>? shellCommandsBefore,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands)
         : this(source.WindowName, source.StartDirectory, source.Layout, source.Focus, source.Options, source.Panes,
             source.WindowIndex)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
-        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+        _beforeCommands = WorkspaceCollections.CopyCommands(
+            shellCommandsBefore,
+            beforeCommands ?? (shellCommandsBefore is null ? source.BeforeCommands : null),
+            nameof(shellCommandsBefore), nameof(beforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
     }
 
     /// <summary>Gets the environment entries contributed by this declaration.</summary>
@@ -122,15 +158,20 @@ public sealed class WorkspaceWindow
     /// <summary>Gets the commands prepended at this declaration level.</summary>
     public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
 
+    /// <summary>Gets the typed commands prepended at this declaration level.</summary>
+    public IReadOnlyList<WorkspaceCommand> BeforeCommands => _beforeCommands;
+
     /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
     /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
     /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <param name="beforeCommands">Typed local commands; use instead of <paramref name="shellCommandsBefore" />.</param>
     /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
     /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
     public WorkspaceWindow WithDefaults(
         IReadOnlyDictionary<string, string>? environment = null,
-        IReadOnlyList<string>? shellCommandsBefore = null) =>
-        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
+        IReadOnlyList<string>? shellCommandsBefore = null,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore, beforeCommands);
 
     /// <summary>Gets the window name.</summary>
     public string? WindowName { get; }
@@ -162,7 +203,8 @@ public sealed class WorkspaceWindow
 public sealed class WorkspaceFile
 {
     private readonly ReadOnlyDictionary<string, string> _environment = WorkspaceCollections.CopyEnvironment(null, nameof(Environment));
-    private readonly ReadOnlyCollection<string> _shellCommandsBefore = WorkspaceCollections.Copy<string>(null, nameof(ShellCommandsBefore));
+    private readonly ReadOnlyCollection<WorkspaceCommand> _beforeCommands;
+    private readonly ReadOnlyCollection<string> _shellCommandsBefore;
 
     private readonly ReadOnlyDictionary<string, string> _options;
     private readonly ReadOnlyCollection<WorkspaceWindow> _windows;
@@ -191,16 +233,23 @@ public sealed class WorkspaceFile
         BeforeScript = beforeScript;
         _options = WorkspaceCollections.Copy(options, nameof(options));
         _windows = WorkspaceCollections.Copy(windows, nameof(windows));
+        _beforeCommands = WorkspaceCollections.Copy<WorkspaceCommand>(null, nameof(BeforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
     }
 
     private WorkspaceFile(
         WorkspaceFile source,
         IReadOnlyDictionary<string, string> environment,
-        IReadOnlyList<string> shellCommandsBefore)
+        IReadOnlyList<string>? shellCommandsBefore,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands)
         : this(source.SessionName, source.StartDirectory, source.Options, source.Windows, source.BeforeScript)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
-        _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
+        _beforeCommands = WorkspaceCollections.CopyCommands(
+            shellCommandsBefore,
+            beforeCommands ?? (shellCommandsBefore is null ? source.BeforeCommands : null),
+            nameof(shellCommandsBefore), nameof(beforeCommands));
+        _shellCommandsBefore = WorkspaceCollections.CommandText(_beforeCommands);
         DirectoriesAreResolved = source.DirectoriesAreResolved;
         DocumentDirectory = source.DocumentDirectory;
     }
@@ -211,15 +260,20 @@ public sealed class WorkspaceFile
     /// <summary>Gets the commands prepended at this declaration level.</summary>
     public IReadOnlyList<string> ShellCommandsBefore => _shellCommandsBefore;
 
+    /// <summary>Gets the typed commands prepended at this declaration level.</summary>
+    public IReadOnlyList<WorkspaceCommand> BeforeCommands => _beforeCommands;
+
     /// <summary>Returns a declaration with replacement environment and pre-command defaults.</summary>
     /// <param name="environment">The local entries to copy, or null to preserve the existing entries.</param>
     /// <param name="shellCommandsBefore">The local commands to copy, or null to preserve the existing commands.</param>
+    /// <param name="beforeCommands">Typed local commands; use instead of <paramref name="shellCommandsBefore" />.</param>
     /// <returns>A new declaration; empty collections clear the corresponding defaults.</returns>
     /// <exception cref="ArgumentException">An environment name is empty or contains '=' or NUL, or a value contains NUL.</exception>
     public WorkspaceFile WithDefaults(
         IReadOnlyDictionary<string, string>? environment = null,
-        IReadOnlyList<string>? shellCommandsBefore = null) =>
-        new(this, environment ?? Environment, shellCommandsBefore ?? ShellCommandsBefore);
+        IReadOnlyList<string>? shellCommandsBefore = null,
+        IReadOnlyList<WorkspaceCommand>? beforeCommands = null) =>
+        new(this, environment ?? Environment, shellCommandsBefore, beforeCommands);
 
     /// <summary>Gets the session name.</summary>
     public string? SessionName { get; }
@@ -333,6 +387,32 @@ public sealed class WorkspaceFormatException : LibTmuxException
 
 internal static class WorkspaceCollections
 {
+    internal static ReadOnlyCollection<WorkspaceCommand> CopyCommands(
+        IReadOnlyList<string>? shellCommands,
+        IReadOnlyList<WorkspaceCommand>? commands,
+        string shellCommandsParameter,
+        string commandsParameter)
+    {
+        if (shellCommands is not null && commands is not null)
+        {
+            throw new ArgumentException(
+                "Use either string commands or typed commands, not both.",
+                commandsParameter);
+        }
+
+        if (commands is not null)
+        {
+            return Copy(commands, commandsParameter);
+        }
+
+        ReadOnlyCollection<string> text = Copy(shellCommands, shellCommandsParameter);
+        return Array.AsReadOnly(text.Select(command => new WorkspaceCommand(command)).ToArray());
+    }
+
+    internal static ReadOnlyCollection<string> CommandText(
+        IReadOnlyList<WorkspaceCommand> commands) =>
+        Array.AsReadOnly(commands.Select(command => command.Text).ToArray());
+
     internal static bool IsValidEnvironmentName(string name) =>
         name.Length > 0 && !name.Contains('=') && !name.Contains('\0');
 

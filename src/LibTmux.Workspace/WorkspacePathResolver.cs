@@ -29,21 +29,22 @@ internal static class WorkspacePathResolver
             {
                 WorkspacePane pane = window.Panes[paneIndex];
                 panes[paneIndex] = new WorkspacePane(
-                    pane.ShellCommands,
-                    Directory(pane.StartDirectory, windowDirectory, $"{key}.panes[{paneIndex}].start_directory"),
-                    pane.Focus,
-                    ExpandOptions(pane.Options, inputs)).WithDefaults(pane.Environment, pane.ShellCommandsBefore);
+                    startDirectory: Directory(pane.StartDirectory, windowDirectory, $"{key}.panes[{paneIndex}].start_directory"),
+                    focus: pane.Focus,
+                    options: ExpandOptions(pane.Options, inputs),
+                    commands: pane.Commands,
+                    enter: pane.Enter).WithDefaults(environment: pane.Environment, beforeCommands: pane.BeforeCommands);
             }
 
             windows[windowIndex] = new WorkspaceWindow(
                 window.WindowName, windowDirectory, window.Layout, window.Focus, ExpandOptions(window.Options, inputs), panes,
                 window.WindowIndex)
-                .WithDefaults(window.Environment, window.ShellCommandsBefore);
+                .WithDefaults(environment: window.Environment, beforeCommands: window.BeforeCommands);
         }
 
         return new WorkspaceFile(workspace.SessionName, directory, ExpandOptions(workspace.Options, inputs), windows, workspace.BeforeScript)
         { DirectoriesAreResolved = true, DocumentDirectory = documentDirectory }
-            .WithDefaults(workspace.Environment, workspace.ShellCommandsBefore);
+            .WithDefaults(environment: workspace.Environment, beforeCommands: workspace.BeforeCommands);
 
         string Directory(string? value, string inherited, string key)
         {
