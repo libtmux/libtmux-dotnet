@@ -156,7 +156,8 @@ public sealed record ServerConnectionOptions
     /// <see cref="TmuxDispatchState.Unknown" />: tmux may already have acted.
     /// A caller's own cancellation still wins, and reads as cancellation.
     /// Connecting is bounded by it too: reading the version and the server's
-    /// generation are tmux commands like any other.
+    /// generation are tmux commands like any other. A <c>wait-for</c> that waits
+    /// for a signal or a lock is not: it waits for another client by design.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout does not run forward.</exception>
     public TimeSpan? CommandTimeout

@@ -113,15 +113,32 @@ internal sealed class TmuxCommandDispatcher
     }
 
     [UnsupportedOSPlatform("windows")]
-    internal async Task<TmuxCommandResult> ExecuteAsync(
+    internal Task<TmuxCommandResult> ExecuteAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ExecuteWithinAsync(arguments, _context?.CommandTimeout, cancellationToken);
+
+    /// <summary>Runs a command that waits for another client by design, outside the command timeout.</summary>
+    /// <param name="arguments">The command, such as a blocking <c>wait-for</c>.</param>
+    /// <param name="cancellationToken">Cancels the command.</param>
+    /// <returns>The command's result.</returns>
+    [UnsupportedOSPlatform("windows")]
+    internal Task<TmuxCommandResult> ExecuteBlockingAsync(
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken = default) =>
+        ExecuteWithinAsync(arguments, limit: null, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<TmuxCommandResult> ExecuteWithinAsync(
+        IReadOnlyList<string> arguments,
+        TimeSpan? limit,
+        CancellationToken cancellationToken)
     {
         ValidateArguments(arguments);
         string[] copy = [.. arguments];
         string? socket = _context?.Socket;
         using Activity? activity = TmuxInstrumentation.StartCommand(copy, socket);
-        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken);
+        using var deadline = new Deadline(limit, cancellationToken);
         long started = Stopwatch.GetTimestamp();
         TmuxCommandResult result;
         try

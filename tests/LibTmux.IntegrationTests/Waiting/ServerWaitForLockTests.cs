@@ -56,13 +56,41 @@ public sealed class ServerWaitForLockTests
         await server.WaitForAsync(new WaitForRequest(Channel, TmuxWaitMode.Unlock), token);
     }
 
-    private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
+    [UnixFact]
+    public async Task The_command_timeout_ends_neither_a_queued_lock_nor_a_wait()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token, TimeSpan.FromMilliseconds(200));
+        const string Lock = "libtmux-lock-timeout";
+        const string Signal = "libtmux-signal-timeout";
+
+        await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Lock), token);
+        Task queued = server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Lock), token);
+        Task waiting = server.WaitForAsync(new WaitForRequest(Signal, TmuxWaitMode.Wait), token);
+
+        // Three command timeouts pass while both still wait for another client.
+        Task elapsed = Task.Delay(TimeSpan.FromMilliseconds(600), token);
+        Assert.Same(elapsed, await Task.WhenAny(queued, waiting, elapsed));
+
+        await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Unlock), token);
+        await queued.WaitAsync(TimeSpan.FromSeconds(5), token);
+        await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Unlock), token);
+        await server.WaitForAsync(new WaitForRequest(Signal, TmuxWaitMode.Signal), token);
+        await waiting.WaitAsync(TimeSpan.FromSeconds(5), token);
+    }
+
+    private static Task<Server> ConnectAsync(
+        RawTmuxTestContext raw,
+        CancellationToken token,
+        TimeSpan? commandTimeout = null) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
             {
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                CommandTimeout = commandTimeout,
             },
             token);
 }

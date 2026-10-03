@@ -130,15 +130,32 @@ public sealed partial class Server
     /// </param>
     /// <remarks>
     /// Waiting blocks until something else signals the channel, so a call that
-    /// waits does not return on its own.
+    /// waits does not return on its own. A wait or a lock is not bounded by
+    /// <see cref="ServerConnectionOptions.CommandTimeout" />: it waits for another
+    /// client by design, and ending it would leave tmux holding its place.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public Task WaitForAsync(WaitForRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request.Mode == TmuxWaitMode.Lock
-            ? WaitForLockAsync(request, cancellationToken)
-            : RunUtilityAsync(BuildWaitForArguments(request), cancellationToken);
+        return request.Mode switch
+        {
+            TmuxWaitMode.Lock => WaitForLockAsync(request, cancellationToken),
+            TmuxWaitMode.Wait => WaitForSignalAsync(request, cancellationToken),
+            _ => RunUtilityAsync(BuildWaitForArguments(request), cancellationToken),
+        };
+    }
+
+    // A wait blocks until another client signals, so the command timeout
+    // would kill it while tmux keeps its place in the queue.
+    [UnsupportedOSPlatform("windows")]
+    private async Task WaitForSignalAsync(WaitForRequest request, CancellationToken cancellationToken)
+    {
+        List<string> arguments = BuildWaitForArguments(request);
+        TmuxCommandResult result = await _commandDispatcher
+            .ExecuteBlockingAsync(arguments, cancellationToken)
+            .ConfigureAwait(false);
+        TmuxCommandFailure.ThrowIfFailed(result, arguments[0]);
     }
 
     // A killed locker leaves its queue entry behind, and tmux hands the lock
@@ -150,7 +167,7 @@ public sealed partial class Server
     {
         cancellationToken.ThrowIfCancellationRequested();
         List<string> arguments = BuildWaitForArguments(request);
-        Task<TmuxCommandResult> locking = _commandDispatcher.ExecuteAsync(arguments, CancellationToken.None);
+        Task<TmuxCommandResult> locking = _commandDispatcher.ExecuteBlockingAsync(arguments, CancellationToken.None);
         try
         {
             TmuxCommandResult result = await locking.WaitAsync(cancellationToken).ConfigureAwait(false);
