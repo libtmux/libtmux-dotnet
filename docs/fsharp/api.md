@@ -168,6 +168,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val currentCommand: Field<LibTmux.Pane,string>` | Identifies the captured command, including a captured unavailable value. |
 | `val currentPath: Field<LibTmux.Pane,string>` | Identifies the pane's working directory, as the text tmux reported. |
 | `val dead: Field<LibTmux.Pane,bool>` | Identifies whether the pane's program has exited while the pane remains. |
+| `val deadStatus: Field<LibTmux.Pane,int option>` | Identifies the exit status of a dead pane's program; None while it runs, or when a signal ended it. |
 | `val height: Field<LibTmux.Pane,int>` | Identifies the pane's height in cells. |
 | `val historySize: Field<LibTmux.Pane,int>` | Identifies how many lines have scrolled into the pane's history. |
 | `val id: Field<LibTmux.Pane,PaneId>` | Identifies the typed pane ID. |

@@ -4358,6 +4358,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.deadStatus",
+      "package": "LibTmux.FSharp",
+      "name": "deadStatus",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val deadStatus: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "deadStatus",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",

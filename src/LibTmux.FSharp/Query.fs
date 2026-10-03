@@ -54,6 +54,7 @@ module private Nodes =
             | :? string as text -> StringConstant text
             | :? bool as flag -> BooleanConstant flag
             | :? int as number -> Int64Constant(int64 number)
+            | :? (int option) as number -> Int64Constant(int64 number.Value)
             | :? SessionId as id -> TypedIdConstant(QueryTarget.Session, id.ToString())
             | :? WindowId as id -> TypedIdConstant(QueryTarget.Window, id.ToString())
             | :? PaneId as id -> TypedIdConstant(QueryTarget.Pane, id.ToString())
@@ -315,6 +316,7 @@ module PaneFields =
     let processId = Field<LibTmux.Pane, int>("pane_pid")
     let synchronized = Field<LibTmux.Pane, bool>("pane_synchronized")
     let historySize = Field<LibTmux.Pane, int>("history_size")
+    let deadStatus = Field<LibTmux.Pane, int option>("pane_dead_status")
 
 [<RequireQualifiedAccess>]
 module ClientFields =
