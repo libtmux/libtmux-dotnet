@@ -1,8 +1,8 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <RoslynVersion>5.6.0</RoslynVersion>
-    <EngineeringMSBuildVersion>17.11.48</EngineeringMSBuildVersion>
+    <RoslynVersion>5.9.0</RoslynVersion>
+    <EngineeringMSBuildVersion>18.10.1</EngineeringMSBuildVersion>
     <EngineeringNuGetVersion>7.6.0</EngineeringNuGetVersion>
     <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
   </PropertyGroup>
@@ -11,7 +11,7 @@
          gets the FSharp.Core of its own SDK, and a library compiled against a
          newer one fails to load there. 8.0.100 ships with the first .NET 8
          SDK; tests, examples and tools use the current one. -->
-    <PackageVersion Include="FSharp.Core" Version="8.0.100" Condition="'$(MSBuildProjectName)' == 'LibTmux.FSharp'" />
+    <PackageVersion Include="FSharp.Core" Version="10.1.401" Condition="'$(MSBuildProjectName)' == 'LibTmux.FSharp'" />
     <PackageVersion Include="FSharp.Core" Version="10.1.302" Condition="'$(MSBuildProjectName)' != 'LibTmux.FSharp'" />
     <!-- The two analyzer packages read the compiler's own syntax trees, so
          they have to track the Roslyn the SDK ships. Bumping the SDK without
@@ -25,10 +25,10 @@
     <PackageVersion Include="Microsoft.Build.Locator" Version="1.11.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" />
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="$(RoslynVersion)" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.3.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.0" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <PackageVersion Include="ModelContextProtocol.Extensions.Tasks" Version="2.2.0" />

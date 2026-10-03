@@ -1,67 +1,6 @@
 {
   "version": 2,
   "dependencies": {
-    "net10.0": {
-      "FSharp.Core": {
-        "type": "Direct",
-        "requested": "[10.1.302, )",
-        "resolved": "10.1.302",
-        "contentHash": "bN7XMQrAQg1dyHScJ7FcsznERBkvm74LtIo1O6C5mUzgbDqSwNbDpb3+nBGaJAjDmtC/suK5Vx5pFysKY6Hm+Q=="
-      },
-      "libtmux": {
-        "type": "Project",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )"
-        }
-      },
-      "libtmux.fsharp": {
-        "type": "Project",
-        "dependencies": {
-          "FSharp.Core": "[8.0.100, )",
-          "LibTmux": "[0.0.0-alpha.17, )"
-        }
-      },
-      "libtmux.query.json": {
-        "type": "Project",
-        "dependencies": {
-          "LibTmux": "[0.0.0-alpha.17, )"
-        }
-      },
-      "libtmux.testing": {
-        "type": "Project",
-        "dependencies": {
-          "LibTmux": "[0.0.0-alpha.17, )"
-        }
-      },
-      "libtmux.workspace": {
-        "type": "Project",
-        "dependencies": {
-          "LibTmux": "[0.0.0-alpha.17, )",
-          "YamlDotNet": "[18.1.0, )"
-        }
-      },
-      "Microsoft.Extensions.DependencyInjection.Abstractions": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA=="
-      },
-      "Microsoft.Extensions.Logging.Abstractions": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "zkFxGYUvdxAvIKTyXHrmW+Sux53D4SezD9dMyZ6hrwwzPQJNuwCRy1f5W7AvYTqacEGhWF2XderRQG1OvbV8og==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10"
-        }
-      },
-      "YamlDotNet": {
-        "type": "CentralTransitive",
-        "requested": "[18.1.0, )",
-        "resolved": "18.1.0",
-        "contentHash": "5K+9KFg2TdTl7VXv88Qzi/0lqK6JFoNP3lRuImPYGRV7K/QYklDyTrj4+A+KAki1JsQi6qKY+hDyY7d6WRqjrw=="
-      }
-    },
     "net8.0": {
       "FSharp.Core": {
         "type": "Direct",
@@ -78,7 +17,7 @@
       "libtmux.fsharp": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[8.0.100, )",
+          "FSharp.Core": "[10.1.401, )",
           "LibTmux": "[0.0.0-alpha.17, )"
         }
       },
