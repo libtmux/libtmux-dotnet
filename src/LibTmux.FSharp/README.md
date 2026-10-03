@@ -135,13 +135,10 @@ targets `net8.0` and `net10.0`.
 - **Queries:** tmux narrows each listing where it can, and every row is
   rechecked. `Query.atMostOne` and `Query.tryExactlyOne` publish under
   NativeAOT; `Result` does not.
-- **Waits:** `Pane.sendAndWait` ignores the screen before the line and the
-  line's echo; `Pane.waitForText` answers at once when the text is already
-  showing. Each ends early if the pane's program exits during it, and raises
-  `TmuxPaneException` if it had already exited. Match the result with
-  `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut` or `Ended`;
-  [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
-  compares them.
+- **Waits:** `Pane.sendAndWait` ignores the line's echo. Every wait ends early
+  when the program exits, and raises `TmuxPaneException` if it already had.
+  [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
+  compares them and their `PaneWait` outcomes.
 - **Runs:** `Pane.run` needs a POSIX shell prompt.
 - **Bounds:** a handle from `Server.within` shares its bound with the
   sessions, windows and panes taken from it.

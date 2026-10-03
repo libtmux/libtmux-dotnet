@@ -9,8 +9,10 @@ recorded source revision. Every import and helper is present in the displayed
 file.
 
 The F# programs start a server of their own with `Server.createOwned` and work
-through `owned.Value`, and build sessions and windows with the core session
-and window methods or `Server.newSession`. The F# facade supplies the query, wait,
+through `owned.Value`. A program that lays out windows and panes up front
+describes them for `Server.newSession`; one that needs a session running a
+single command calls the core `CreateSessionAsync`, where a spec would add
+nothing ([ADR 0009](../../docs/decisions/0009-fsharp-covers-idioms.md)). The F# facade supplies the query, wait,
 run, mirror, option and snapshot helpers.
 
 | Program | Task |
