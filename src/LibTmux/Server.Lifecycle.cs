@@ -398,7 +398,8 @@ public sealed class OwnedServerScope : IAsyncDisposable
 
     // Read once, by the first attempt that reaches the server: a retry after
     // kill-server finds no server to ask, and still has to wait for this one.
-    private int? _processId;
+    // The start time tells it apart from a process that reuses its ID.
+    private (int Id, DateTime Started)? _process;
 
     internal OwnedServerScope(Server value) => Value = value;
 
@@ -442,11 +443,11 @@ public sealed class OwnedServerScope : IAsyncDisposable
         using CancellationTokenSource cleanup = new(CleanupTimeout);
         try
         {
-            _processId ??= await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
+            _process ??= Identify(await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false));
             await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
-            if (_processId is int id)
+            if (_process is { } process)
             {
-                await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
+                await WaitForExitAsync(process, cleanup.Token).ConfigureAwait(false);
             }
 
             attempt.SetResult();
@@ -472,16 +473,41 @@ public sealed class OwnedServerScope : IAsyncDisposable
                 : null;
     }
 
+    private static (int Id, DateTime Started)? Identify(int? processId)
+    {
+        if (processId is not int id)
+        {
+            return null;
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(id);
+            return (id, process.StartTime);
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        {
+            // Already gone, so there is nothing to wait for.
+            return null;
+        }
+    }
+
     // kill-server answers once tmux has the command; the server may still be
     // ending its panes, with its socket accepting connections.
-    private static async Task WaitForExitAsync(int processId, CancellationToken cancellationToken)
+    internal static async Task WaitForExitAsync((int Id, DateTime Started) process, CancellationToken cancellationToken)
     {
         Process server;
         try
         {
-            server = Process.GetProcessById(processId);
+            server = Process.GetProcessById(process.Id);
+            if (server.StartTime != process.Started)
+            {
+                // Another process took the ID after the server exited.
+                server.Dispose();
+                return;
+            }
         }
-        catch (ArgumentException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
         {
             return;
         }
