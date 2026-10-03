@@ -224,6 +224,15 @@ module Pane =
         pane: LibTmux.Pane ->
             Task<PaneRunResult>
 
+    /// <summary>Types a line into the pane as literal text, then presses Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The line contains NUL.</exception>
+    /// <exception cref="T:LibTmux.LibTmuxException">The text was sent but Enter failed; whether tmux pressed it is unknown, so do not send the line again.</exception>
+    val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Types text into the pane literally, without pressing Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The text contains NUL.</exception>
+    val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task
+
     /// <summary>Sends text or key names according to the request's literal and Enter settings.</summary>
     /// <remarks>Cancellation can occur after dispatch; it does not undo sent keys.</remarks>
     val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task

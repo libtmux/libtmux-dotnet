@@ -41,9 +41,7 @@ let runAsync () =
                 (quoteShell socketName)
                 (quoteShell channel)
 
-        do!
-            pane
-            |> Pane.sendKeys token (SendKeysRequest(Text = command, Literal = true, Enter = false))
+        do! pane |> Pane.sendText token command
 
         do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "Enter", Enter = false))
         let! ready = wait.WaitAsync(TimeSpan.FromSeconds 5., token)

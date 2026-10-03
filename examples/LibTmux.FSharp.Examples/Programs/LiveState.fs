@@ -43,9 +43,7 @@ let runAsync () =
 
         let! panes = session |> Session.panes |> Query.list token
 
-        do!
-            panes[0]
-            |> Pane.sendKeys token (SendKeysRequest(Text = "exec sleep 30", Literal = true))
+        do! panes[0] |> Pane.sendLine token "exec sleep 30"
 
         // tryWaitUntil answers None when no view matched in time.
         let! sleeping =

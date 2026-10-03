@@ -184,7 +184,49 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L218)
+
+<a name="sendLine"></a>
+
+#### <code><span>Pane.sendLine&#32;<span>cancellationToken&#32;line&#32;pane</span></span></code>
+
+Types a line into the pane as literal text, then presses Enter.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**line**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The line contains NUL.
+
+`LibTmuxException` The text was sent but Enter failed; whether tmux pressed it is unknown, so do not send the line again.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L212)
+
+<a name="sendText"></a>
+
+#### <code><span>Pane.sendText&#32;<span>cancellationToken&#32;text&#32;pane</span></span></code>
+
+Types text into the pane literally, without pressing Enter.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**text**: <code>string</code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text contains NUL.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
 
 <a name="split"></a>
 
@@ -204,7 +246,7 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L215)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L221)
 
 <a name="waitFor"></a>
 

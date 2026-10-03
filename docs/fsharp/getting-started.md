@@ -45,9 +45,7 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         let! second =
             panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-        do!
-            second
-            |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready\\n'", Literal = true))
+        do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
         let! found = server |> Server.tryFindPane cancellationToken second.Id
         let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
@@ -108,7 +106,7 @@ let runAsync () =
             |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))
+        do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane
