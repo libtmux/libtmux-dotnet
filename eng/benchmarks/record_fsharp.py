@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import pathlib
 import statistics
 import subprocess
@@ -55,6 +56,30 @@ def git(*arguments: str) -> str:
         raise SystemExit("git failed; source provenance is unavailable") from error
 
 
+def conditions() -> dict:
+    """Read what else shaped the run, where this host says.
+
+    Recorded straight after the run, so the 5- and 15-minute load averages
+    span it. Every value is None where the host does not expose it.
+    """
+    def read(path: str) -> str | None:
+        try:
+            return pathlib.Path(path).read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+
+    cpuinfo = read("/proc/cpuinfo") or ""
+    flags = next((line for line in cpuinfo.splitlines() if line.startswith("flags")), "")
+    load = os.getloadavg() if hasattr(os, "getloadavg") else None
+    affinity = os.sched_getaffinity(0) if hasattr(os, "sched_getaffinity") else None
+    return {
+        "hypervisor": None if not flags else " hypervisor" in f" {flags.split(':', 1)[-1]} ",
+        "governor": read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+        "cpusAvailable": None if affinity is None else len(affinity),
+        "loadAverage": None if load is None else [round(value, 2) for value in load],
+    }
+
+
 def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> dict:
     """Build one record from the full JSON reports of several benchmark classes."""
     if not reports:
@@ -87,6 +112,7 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
             "processor": host.get("ProcessorName"),
             "logicalCores": host.get("LogicalCoreCount"),
             "runtime": host.get("RuntimeVersion"),
+            **conditions(),
         },
         "classes": classes,
     }
@@ -100,6 +126,21 @@ def scaled(value_ns: float, divisor: float) -> str:
     text = f"{value:.3g}"
     # A case far faster than its class's median would otherwise read 4e-05.
     return f"{value:.{2 - math.floor(math.log10(value))}f}" if "e" in text else text
+
+
+def describe_conditions(host: dict) -> str:
+    """Say the run's conditions in words, leaving out what the host did not report."""
+    parts = []
+    if host.get("hypervisor") is not None:
+        parts.append("virtual machine" if host["hypervisor"] else "bare metal")
+    if host.get("cpusAvailable") is not None:
+        parts.append(f"{host['cpusAvailable']} of {host['logicalCores']} logical cores available")
+    if host.get("governor"):
+        parts.append(f"{host['governor']} governor")
+    if host.get("loadAverage"):
+        one, five, fifteen = host["loadAverage"]
+        parts.append(f"load {one} / {five} / {fifteen} (1, 5, 15 min) when recorded")
+    return "; ".join(parts) or "not reported"
 
 
 def render(record: dict) -> str:
@@ -117,6 +158,8 @@ def render(record: dict) -> str:
         f"| **Runtime** | {host['runtime']} |",
         f"| **Host** | {host['processor']}, {host['os']} |",
     ]
+    if "loadAverage" in host:
+        lines.append(f"| **Conditions** | {describe_conditions(host)} |")
     for benchmark_class in record["classes"]:
         median = statistics.median(case["median_ns"] for case in benchmark_class["cases"])
         divisor, unit = next((divisor, unit) for divisor, unit in UNITS if median >= divisor)

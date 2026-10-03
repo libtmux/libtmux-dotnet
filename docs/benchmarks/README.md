@@ -41,6 +41,12 @@ property of the host. Both orders have been measured here.
 **Compare allocations within one workload and runtime.** The records include
 allocated bytes alongside timing; changing the workload changes that count.
 
+**Read each F# record's conditions before comparing two.** A record says
+whether the host was a virtual machine, how many cores the run could use, the
+CPU governor where Linux exposes one, and the load averages when it was
+recorded; the 5- and 15-minute figures span the run. A run under load reads
+slower, and the spread between median and p95 shows how much.
+
 ## Reproducing
 
 ```console
