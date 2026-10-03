@@ -8,13 +8,22 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(ExampleProgram)' != ''">
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <OutputPath>bin/$(Configuration)/programs/$(ExampleProgram)/</OutputPath>
+    <IntermediateOutputPath>obj/$(Configuration)/$(TargetFramework)/$(ExampleProgram)/</IntermediateOutputPath>
+  </PropertyGroup>
+
   <ItemGroup>
+    <Compile Remove="Programs/*.cs" Condition="'$(ExampleProgram)' == ''" />
+    <Compile Include="Programs/$(ExampleProgram).cs" Condition="'$(ExampleProgram)' != ''" />
     <ProjectReference Include="..\..\src\LibTmux\LibTmux.csproj" />
-    <ProjectReference Include="..\..\src\LibTmux.Testing\LibTmux.Testing.csproj" />
-    <ProjectReference Include="..\..\src\LibTmux.Mcp\LibTmux.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\LibTmux.Testing\LibTmux.Testing.csproj" Condition="'$(ExampleProgram)' == ''" />
+    <ProjectReference Include="..\..\src\LibTmux.Mcp\LibTmux.Mcp.csproj" Condition="'$(ExampleProgram)' == ''" />
 
     <!-- Real tmux runs here, so this assembly claims a socket root of its own. -->
     <Compile Include="../../eng/dotnet/WorkspaceSocketRoot.cs"
-             Link="WorkspaceSocketRoot.cs" />
+             Link="WorkspaceSocketRoot.cs" Condition="'$(ExampleProgram)' == ''" />
   </ItemGroup>
 </Project>

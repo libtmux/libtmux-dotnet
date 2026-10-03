@@ -136,6 +136,10 @@ def test_fsharp_example_is_required_in_every_tmux_matrix_cell(
         ("build", "Archive runnable assemblies", "examples/LibTmux.FSharp.Examples/bin/Release/programs"),
         ("matrix", "F# example", "Programs/*.fs"),
         ("matrix", "F# example", 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/'),
+        ("build", "Build C# programs for the tmux matrix", '-p:ExampleProgram="${program}"'),
+        ("build", "Archive runnable assemblies", "examples/LibTmux.Examples/bin/Release/programs"),
+        ("matrix", "C# complete programs", "Programs/*.cs"),
+        ("matrix", "C# complete programs", 'dotnet "examples/LibTmux.Examples/bin/Release/programs/'),
     ],
 )
 def test_query_programs_survive_matrix_build_and_execution(
@@ -152,7 +156,8 @@ def test_query_programs_survive_matrix_build_and_execution(
     step["run"] = step["run"].replace(removed, "")
     path.write_text(yaml.safe_dump(document))
 
-    assert any("every F# query program" in error for error in verify(repository))
+    expected = "every F# query program" if "F#" in step_name or "FSharp" in removed else "every complete C# program"
+    assert any(expected in error for error in verify(repository))
 
 
 def test_commented_dependencies_do_not_gate_publication(

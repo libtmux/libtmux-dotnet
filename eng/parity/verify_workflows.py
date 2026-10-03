@@ -306,6 +306,35 @@ def verify(root: pathlib.Path) -> list[str]:
         in {line.strip() for line in fsharp_example.get("run", "").splitlines()},
         "dotnet-tmux.matrix must execute every F# query program",
     )
+    csharp_build = required_step("dotnet-tmux", "build", "csharp-examples-build")
+    csharp_project = "examples/LibTmux.Examples/LibTmux.Examples.csproj"
+    csharp_loop = "for source in examples/LibTmux.Examples/Programs/*.cs; do"
+    require(
+        csharp_build.get("run", "").count(csharp_project) >= 2
+        and csharp_loop in csharp_build.get("run", "")
+        and '-p:ExampleProgram="${program}"' in csharp_build.get("run", ""),
+        "dotnet-tmux.build must restore and compile every complete C# program",
+    )
+    if len(archives) == 1:
+        require(
+            "examples/LibTmux.Examples/bin/Release/programs" in archives[0].get("run", ""),
+            "dotnet-tmux.build must archive every complete C# program",
+        )
+    csharp_example = required_step("dotnet-tmux", "matrix", "csharp-examples")
+    csharp_env = {**matrix.get("env", {}), **csharp_example.get("env", {})}
+    require(
+        csharp_env.get("LIBTMUX_TMUX") == "${{ steps.tmux.outputs.binary }}"
+        and csharp_env.get("LIBTMUX_EXPECTED_TMUX_VERSION") == "${{ matrix.tmux }}"
+        and csharp_env.get("MATRIX_FRAMEWORK") == "${{ matrix.framework }}",
+        "dotnet-tmux.matrix.csharp-examples must use the selected tmux and framework",
+    )
+    require(
+        csharp_loop in csharp_example.get("run", "")
+        and "LIBTMUX_EXPECTED_TMUX_VERSION" in csharp_example.get("run", "")
+        and 'dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"'
+        in {line.strip() for line in csharp_example.get("run", "").splitlines()},
+        "dotnet-tmux.matrix must execute every complete C# program",
+    )
     aggregate("dotnet-tmux", "compatibility", {"build", "matrix"})
 
     release = documents["release"]

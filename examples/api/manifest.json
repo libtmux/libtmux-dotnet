@@ -5,6 +5,11 @@
       "package": "LibTmux.FSharp",
       "projectFile": "examples/api/fsharp/Example.fsproj",
       "entrypoint": "Program.fs"
+    },
+    "csharp": {
+      "package": "LibTmux",
+      "projectFile": "examples/api/csharp/Example.csproj",
+      "entrypoint": "Program.cs"
     }
   },
   "setupFiles": [
@@ -116,6 +121,109 @@
       "targets": [
         "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
+      ],
+      "output": "api capture ready\n"
+    },
+    {
+      "id": "csharp-ServerConstruction",
+      "profile": "csharp",
+      "title": "Open and connect to an owned server",
+      "description": "Distinguish an endpoint handle from a discovered server. Connection discovery returns an immutable replacement without capturing child relations.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/ServerConstruction.cs",
+      "targets": [
+        "T:LibTmux.Server",
+        "M:LibTmux.Server.Open(LibTmux.ServerConnectionOptions)",
+        "M:LibTmux.Server.ConnectAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.ConnectAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Server.CreateOwnedAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)"
+      ],
+      "output": "Open records an endpoint; Connect discovers the running server.\nThe original handle stays unmaterialized; relations remain uncaptured.\n"
+    },
+    {
+      "id": "csharp-ServerListings",
+      "profile": "csharp",
+      "title": "List sessions, windows, panes and clients",
+      "description": "Read scalar listings from two detached sessions on a private server. Fresh rows do not imply captured child relations.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/ServerListings.cs",
+      "targets": [
+        "M:LibTmux.Server.GetSessionsAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Server.GetPanesAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Server.GetClientsAsync(System.Threading.CancellationToken)"
+      ],
+      "output": "Session: demo ($0)\nSession: worker ($1)\nWindows: 2; panes: 2; clients: 0\n"
+    },
+    {
+      "id": "csharp-CreateWindowPane",
+      "profile": "csharp",
+      "title": "Create a session, window and split pane",
+      "description": "Create entities directly inside an owned server scope, then read the session and window children. The outer scope stops its daemon and all created entities.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/CreateWindowPane.cs",
+      "targets": [
+        "M:LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Session.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Window.GetPanesAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Pane.SplitAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)",
+        "M:LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)"
+      ],
+      "output": "Created session demo and window editor.\nWindows: 2; panes: 3\n"
+    },
+    {
+      "id": "csharp-ServerQueries",
+      "profile": "csharp",
+      "title": "Filter listings and captured relations",
+      "description": "Compare LINQ with translated expression and document predicates, preserve cancellation, and capture the hierarchy before filtering its children.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/ServerQueries.cs",
+      "targets": [
+        "M:LibTmux.Query.QueryExtensions.Translate``1(System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})",
+        "M:LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})",
+        "M:LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument)",
+        "M:LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument,System.Threading.CancellationToken)"
+      ],
+      "output": "Cancelled filtering remains OperationCanceledException.\nLINQ, expression and document filters: demo; captured parent: demo\n"
+    },
+    {
+      "id": "csharp-EntityLookups",
+      "profile": "csharp",
+      "title": "Find entities and distinguish failures",
+      "description": "Use typed required lookups, nullable absence and explicit errors. Cancellation, invalid input and a stopped server remain exceptions.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/EntityLookups.cs",
+      "targets": [
+        "M:LibTmux.Server.GetSessionAsync(LibTmux.SessionId,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.FindSessionAsync(LibTmux.SessionId,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.GetPaneAsync(LibTmux.PaneId,System.Threading.CancellationToken)",
+        "M:LibTmux.Window.FindPaneAsync(System.String,System.Threading.CancellationToken)"
+      ],
+      "output": "A successful lookup can return null.\nRequired lookup reports TmuxObjectNotFoundException.\nCancellation remains OperationCanceledException.\nA blank pane target remains ArgumentException.\nA stopped server remains a LibTmuxException.\n"
+    },
+    {
+      "id": "csharp-SnapshotAccess",
+      "profile": "csharp",
+      "title": "Read captured and uncaptured state",
+      "description": "Capture a new immutable hierarchy, check optional pane state, and distinguish an empty captured relation from one that has not been read.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/SnapshotAccess.cs",
+      "targets": [
+        "M:LibTmux.Server.CaptureSnapshotAsync(LibTmux.SnapshotDepth,System.Threading.CancellationToken)",
+        "P:LibTmux.CapturedRelation`1.IsCaptured",
+        "P:LibTmux.CapturedValue`1.IsCaptured",
+        "P:LibTmux.CapturedValue`1.Value"
+      ],
+      "output": "Sessions have not been captured.\nThe captured active pane has a path and command.\nThe original handle is still uncaptured.\nCaptured sessions can be empty.\n"
+    },
+    {
+      "id": "csharp-InputCapture",
+      "profile": "csharp",
+      "title": "Send input and capture signalled output",
+      "description": "Send literal text and a named Enter key, wait for a private completion signal, then require a whole captured output line. All scopes are disposed after errors or cancellation.",
+      "sourceFile": "examples/LibTmux.Examples/Programs/InputCapture.cs",
+      "targets": [
+        "M:LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Pane.CaptureAsync(LibTmux.CapturePaneRequest,System.Threading.CancellationToken)",
+        "M:LibTmux.Server.OpenWaitChannel(System.String)",
+        "M:LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)"
       ],
       "output": "api capture ready\n"
     }
