@@ -221,6 +221,52 @@ public sealed class PushdownDifferentialTests
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 
+    [UnixFact]
+    public async Task Pane_geometry_titles_paths_and_window_sizes_answer_what_a_snapshot_answers()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await raw.ExecuteAsync(["new-session", "-d", "-s", "geo", "-n", "grid", "-x", "120", "-y", "40", "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-h", "-t", "geo:grid", "-c", Path.GetTempPath(), "sh"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-v", "-t", "geo:grid.0", "sh"], token);
+        await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.1", "-T", "build"], token);
+        await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.2", "-T", "b#uild,x}"], token);
+        Server server = await ConnectAsync(raw, token);
+        Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
+        Pane[] panes = [.. snapshot.Panes];
+        Window[] windows = [.. snapshot.Windows];
+        string path = panes.Single(pane => pane.Left > 0).CurrentPath!;
+        List<string> disagreements = [];
+
+        async Task Agree<T>(Expression<Func<T, bool>> predicate, IEnumerable<T> universe, QueryTarget target, Func<T, string> key)
+        {
+            QueryDocument document = QueryExtensions.Translate(predicate);
+            string[] expected = [.. universe.Where(document.Compile<T>()).Select(key)];
+            string[] actual = [.. (await server.QueryAsync<T>(new ListingRequest(target, Filter: document), token)).Select(key)];
+            if (!expected.SequenceEqual(actual))
+            {
+                disagreements.Add($"{predicate.Body}: expected [{string.Join("|", expected)}], got [{string.Join("|", actual)}]");
+            }
+        }
+
+        string PaneKey(Pane pane) => pane.Id.ToString();
+        await Agree<Pane>(pane => pane.Width > 60, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Height <= 20, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Left == 0 && pane.Top > 0, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Index != 1, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.AtTop && !pane.AtBottom, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.AtLeft || pane.AtRight, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Title == "build", panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Title!.StartsWith("b#uild,", StringComparison.Ordinal), panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.CurrentPath == path, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.CurrentPath!.Contains("tmp", StringComparison.Ordinal), panes, QueryTarget.Pane, PaneKey);
+        await Agree<Window>(window => window.Index == 0 && window.Width >= 120, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => window.Height < 40, windows, QueryTarget.Window, Key);
+
+        Assert.True(panes.Length >= 3 && path.Length > 0);
+        Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
+    }
+
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>
         Server.ConnectAsync(
             new ServerConnectionOptions
