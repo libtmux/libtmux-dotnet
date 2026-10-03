@@ -172,11 +172,11 @@ def verify(root: pathlib.Path) -> list[str]:
     examples_run = examples.get("run", "")
     require(
         "for framework in net8.0 net10.0; do" in examples_run
-        and FSHARP_PROGRAM_LOOP in examples_run
-        and 'program="$(basename "${source}" .fs)"' in examples_run
-        and '-p:ExampleProgram="${program}"' in examples_run
+        and "python3 eng/docs/verify_api_examples.py" in examples_run
+        and "--packages artifacts/packages" in examples_run
+        and '--output "${RUNNER_TEMP}/libtmux-api-examples"' in examples_run
         and examples_run.count("-p:UsePackageReferences=true") >= 2,
-        "dotnet.build.fsharp-packed-examples must execute every query program on both packed frameworks",
+        "dotnet.build.fsharp-packed-examples must execute every complete program on both packed frameworks",
     )
 
     trimmed = required_step("dotnet", "build", "fsharp-trimmed-smoke")

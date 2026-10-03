@@ -4,6 +4,11 @@ Every example here runs against a real tmux server of its own, as a test, on
 every build. Nothing in this directory can quietly stop compiling or stop being
 true — and because the READMEs quote from it, neither can they.
 
+[Complete API programs](api/README.md) have their own imports, entry point,
+package setup and owned-server cleanup. Their manifest attaches whole files
+to native compiler IDs, and the packed-consumer gate runs those files outside
+the repository's build properties.
+
 Two mechanisms sit on top of that, and they catch different failures:
 
 | Check | Where | Fails when |

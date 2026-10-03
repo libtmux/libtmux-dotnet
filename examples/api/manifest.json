@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "fsharp": {
+      "package": "LibTmux.FSharp",
+      "projectFile": "examples/api/fsharp/Example.fsproj",
+      "entrypoint": "Program.fs"
+    }
+  },
+  "setupFiles": [
+    "global.json",
+    "examples/api/NuGet.config"
+  ],
+  "examples": [
+    {
+      "id": "fsharp-ServerListings",
+      "profile": "fsharp",
+      "title": "List sessions, windows, panes and clients",
+      "description": "Read current scalar listings from a private server. Each detached session has one window and pane; no clients are attached.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/ServerListings.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.listSessions(System.Threading.CancellationToken,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.listWindows(System.Threading.CancellationToken,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.listPanes(System.Threading.CancellationToken,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.listClients(System.Threading.CancellationToken,LibTmux.Server)"
+      ],
+      "output": "Session: demo ($0)\nSession: worker ($1)\nWindows: 2; panes: 2; clients: 0\n"
+    },
+    {
+      "id": "fsharp-ServerLookups",
+      "profile": "fsharp",
+      "title": "Look up live entities by identity",
+      "description": "Match successful lookups with Some and missing entities with None. The control connection supplies a client to find and is disposed before the owned server.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/ServerLookups.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.tryFindSession(System.Threading.CancellationToken,LibTmux.SessionId,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.tryFindWindow(System.Threading.CancellationToken,LibTmux.WindowId,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.tryFindPane(System.Threading.CancellationToken,LibTmux.PaneId,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
+      ],
+      "output": "Found session: demo\nFound window, pane and control client; missing lookups returned None.\n"
+    },
+    {
+      "id": "fsharp-ServerFilters",
+      "profile": "fsharp",
+      "title": "Filter scalar listings and captured relations",
+      "description": "Compare native sequence filtering with portable F# filters. Capture the hierarchy before following pane and window relations; listing alone does not capture children.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/ServerFilters.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Query.matching``1(LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
+        "M:LibTmux.FSharp.Query.matchingWithCancellation``1(System.Threading.CancellationToken,LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
+        "M:LibTmux.FSharp.Filter.startsWith``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+        "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
+        "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})"
+      ],
+      "output": "Native and portable session filters: demo\nWindow: shell; panes: 1; parent: demo; control clients: 1\n"
+    },
+    {
+      "id": "fsharp-SnapshotAccess",
+      "profile": "fsharp",
+      "title": "Read captured and uncaptured state",
+      "description": "Pattern match CaptureState before reading relations or active entities, and option before using nullable pane fields. Capturing returns a fresh handle; a captured empty relation is different from an uncaptured one.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/SnapshotAccess.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.capture(System.Threading.CancellationToken,LibTmux.SnapshotDepth,LibTmux.Server)",
+        "M:LibTmux.FSharp.Snapshot.relation``1(LibTmux.CapturedRelation{``0})",
+        "M:LibTmux.FSharp.Snapshot.value``1(LibTmux.CapturedValue{``0})",
+        "M:LibTmux.FSharp.Pane.currentPath(LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.currentCommand(LibTmux.Pane)",
+        "T:LibTmux.FSharp.CaptureState`1"
+      ],
+      "output": "Sessions have not been captured.\nThe captured active pane has a path and command.\nThe original handle is still uncaptured.\nCaptured sessions can be empty.\n"
+    },
+    {
+      "id": "fsharp-SelectionResults",
+      "profile": "fsharp",
+      "title": "Handle zero, one and multiple matches",
+      "description": "Select one session without using exceptions for ordinary cardinality outcomes. Match Ok, Error NoMatches and Error MultipleMatches explicitly.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/SelectionResults.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Selection.exactlyOne``1(System.Collections.Generic.IEnumerable{``0})",
+        "T:LibTmux.FSharp.CardinalityError"
+      ],
+      "output": "One match: demo\nNo match: NoMatches\nTwo matches: MultipleMatches\n"
+    },
+    {
+      "id": "fsharp-LookupFailures",
+      "profile": "fsharp",
+      "title": "Keep absence, cancellation and failure distinct",
+      "description": "None means a successful read found no matching session. A cancelled operation, invalid client name and stopped server still raise exceptions; ownership scopes clean up independently of the caller token.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/LookupFailures.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.tryFindSession(System.Threading.CancellationToken,LibTmux.SessionId,LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
+      ],
+      "output": "A successful lookup can return None.\nCancellation remains OperationCanceledException.\nA blank client name remains ArgumentException.\nA stopped server remains a LibTmuxException.\n"
+    },
+    {
+      "id": "fsharp-CreateWindowPane",
+      "profile": "fsharp",
+      "title": "Create an owned session, window and split pane",
+      "description": "Use core LibTmux ownership scopes for construction, then the F# Pane.split helper. F# has no separate session or window constructor; disposing the owned window also stops its split panes.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs",
+      "targets": [
+        "T:LibTmux.FSharp.Server",
+        "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)"
+      ],
+      "output": "Created session demo and window editor.\nWindows: 2; panes: 3\n"
+    },
+    {
+      "id": "fsharp-InputCapture",
+      "profile": "fsharp",
+      "title": "Send literal input and capture completed output",
+      "description": "Type a shell command literally, press the named Enter key, and wait for its private completion signal before capturing output. Timeout and command failures escape the program after scoped cleanup; cancellation does not undo dispatched input.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
+      ],
+      "output": "api capture ready\n"
+    }
+  ]
+}

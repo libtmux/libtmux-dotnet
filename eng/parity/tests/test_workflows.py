@@ -56,13 +56,14 @@ def test_fsharp_snippet_check_is_required(repository: pathlib.Path) -> None:
 @pytest.mark.parametrize(
     "removed",
     [
-        "Programs/*.fs",
-        '-p:ExampleProgram="${program}"',
+        "python3 eng/docs/verify_api_examples.py",
+        "--packages artifacts/packages",
+        '--output "${RUNNER_TEMP}/libtmux-api-examples"',
         "for framework in net8.0 net10.0; do",
         "-p:UsePackageReferences=true",
     ],
 )
-def test_packed_query_programs_are_required(
+def test_packed_complete_programs_are_required(
     repository: pathlib.Path, removed: str
 ) -> None:
     """A workflow cannot skip a displayed program or substitute source references."""
@@ -75,7 +76,7 @@ def test_packed_query_programs_are_required(
     step["run"] = step["run"].replace(removed, "")
     path.write_text(yaml.safe_dump(document))
 
-    assert any("execute every query program" in error for error in verify(repository))
+    assert any("execute every complete program" in error for error in verify(repository))
 
 
 def test_fsdocs_reference_check_is_required(repository: pathlib.Path) -> None:
