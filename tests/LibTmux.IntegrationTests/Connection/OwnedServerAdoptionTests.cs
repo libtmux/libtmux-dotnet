@@ -64,18 +64,10 @@ public sealed class OwnedServerAdoptionTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = CreateSocketRoot();
-        string refuse = Path.Combine(root, "refuse");
-        string tmux = Path.Combine(root, "tmux");
-        await TestExecutable.WriteAsync(
-            tmux,
-            $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
-            token);
-        ServerConnectionOptions options = Options(root, "owned") with { TmuxBinaryPath = tmux };
         Server observer = Server.Open(Options(root, "owned"));
         try
         {
-            OwnedServerScope owned = await Server.CreateOwnedAsync(options, token);
-            await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, token);
+            (OwnedServerScope owned, string refuse) = await CreateRefusableAsync(root, token);
 
             await File.WriteAllTextAsync(refuse, string.Empty, token);
             await Assert.ThrowsAnyAsync<LibTmuxException>(() => owned.DisposeAsync().AsTask());
@@ -87,9 +79,54 @@ public sealed class OwnedServerAdoptionTests
         }
         finally
         {
-            File.Delete(refuse);
             await CleanUpAsync(observer, root, token);
         }
+    }
+
+    [UnixFact]
+    public async Task Concurrent_disposals_share_one_stop_and_its_failure()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = CreateSocketRoot();
+        Server observer = Server.Open(Options(root, "owned"));
+        try
+        {
+            (OwnedServerScope owned, string refuse) = await CreateRefusableAsync(root, token);
+
+            await File.WriteAllTextAsync(refuse, string.Empty, token);
+            Task first = owned.DisposeAsync().AsTask();
+            Task second = owned.DisposeAsync().AsTask();
+            await Assert.ThrowsAnyAsync<LibTmuxException>(() => first);
+            await Assert.ThrowsAnyAsync<LibTmuxException>(() => second);
+            Assert.True(await observer.IsAliveAsync(token));
+
+            File.Delete(refuse);
+            await owned.DisposeAsync();
+            Assert.False(await observer.IsAliveAsync(token));
+        }
+        finally
+        {
+            await CleanUpAsync(observer, root, token);
+        }
+    }
+
+    // An owned server whose tmux exits 1 while the returned file exists, so a
+    // test can make stopping it fail and then succeed.
+    private static async Task<(OwnedServerScope Owned, string Refuse)> CreateRefusableAsync(
+        string root,
+        CancellationToken cancellationToken)
+    {
+        string refuse = Path.Combine(root, "refuse");
+        string tmux = Path.Combine(root, "tmux");
+        await TestExecutable.WriteAsync(
+            tmux,
+            $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+            cancellationToken);
+        OwnedServerScope owned = await Server.CreateOwnedAsync(
+            Options(root, "owned") with { TmuxBinaryPath = tmux },
+            cancellationToken);
+        await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, cancellationToken);
+        return (owned, refuse);
     }
 
     private static string CreateSocketRoot()

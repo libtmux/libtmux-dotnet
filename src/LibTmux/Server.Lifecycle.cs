@@ -392,7 +392,7 @@ public sealed partial class Server
 public sealed class OwnedServerScope : IAsyncDisposable
 {
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
-    private int _disposed;
+    private Task? _stopping;
 
     internal OwnedServerScope(Server value) => Value = value;
 
@@ -401,16 +401,35 @@ public sealed class OwnedServerScope : IAsyncDisposable
 
     /// <summary>Stops the owned server.</summary>
     /// <returns>A task that completes once the server process has exited.</returns>
-    /// <remarks>A call that fails leaves the scope undisposed, so calling again retries.</remarks>
+    /// <remarks>
+    /// Calls made while a stop is under way share it, and complete or fail with
+    /// it. A call after a failed stop tries again; one after a stop that
+    /// succeeded returns at once.
+    /// </remarks>
     /// <exception cref="LibTmuxException">The server could not be stopped, or had not exited within five seconds.</exception>
     [UnsupportedOSPlatform("windows")]
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        while (true)
         {
-            return;
-        }
+            Task? current = Volatile.Read(ref _stopping);
+            if (current is not null && !current.IsFaulted)
+            {
+                return new ValueTask(current);
+            }
 
+            var attempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (Interlocked.CompareExchange(ref _stopping, attempt.Task, current) == current)
+            {
+                _ = StopAsync(attempt);
+                return new ValueTask(attempt.Task);
+            }
+        }
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task StopAsync(TaskCompletionSource attempt)
+    {
         // Teardown does not inherit the caller's token, because a canceled
         // caller still needs its server gone; it bounds itself instead so a
         // wedged socket cannot hang disposal forever.
@@ -423,12 +442,12 @@ public sealed class OwnedServerScope : IAsyncDisposable
             {
                 await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
             }
+
+            attempt.SetResult();
         }
-        catch
+        catch (Exception error)
         {
-            // The server may still be running, so a later call tries again.
-            Volatile.Write(ref _disposed, 0);
-            throw;
+            attempt.SetException(error);
         }
     }
 
