@@ -31,6 +31,43 @@ public sealed class WorkspaceFileTests
     }
 
     [Fact]
+    public void Resolution_expands_only_supplied_variables_in_option_values()
+    {
+        WorkspaceFile declaration = WorkspaceFile.Parse("""
+            session_name: '${TAG}'
+            environment:
+              TAG_ENV: '${TAG}'
+            options:
+              '@${TAG}': '${TAG}'
+              default-command: 'exec $SHELL'
+            windows:
+              - window_name: '${TAG}'
+                options:
+                  main-pane-height: '${MAIN_PANE_HEIGHT}'
+                panes:
+                  - shell_command: 'printf ${TAG}'
+                    options:
+                      '@pane': '$TAG/$$TAG/${UNKNOWN}'
+            """);
+
+        WorkspaceFile resolved = declaration.Resolve(Path.GetTempPath(), new Dictionary<string, string>
+        {
+            ["TAG"] = "review",
+            ["MAIN_PANE_HEIGHT"] = "8",
+        });
+
+        Assert.Equal("review", resolved.Options["@${TAG}"]);
+        Assert.Equal("exec $SHELL", resolved.Options["default-command"]);
+        Assert.Equal("8", resolved.Windows[0].Options["main-pane-height"]);
+        Assert.Equal("review/$TAG/${UNKNOWN}", resolved.Windows[0].Panes[0].Options["@pane"]);
+        Assert.Equal("${TAG}", resolved.SessionName);
+        Assert.Equal("${TAG}", resolved.Environment["TAG_ENV"]);
+        Assert.Equal("${TAG}", resolved.Windows[0].WindowName);
+        Assert.Equal("printf ${TAG}", Assert.Single(resolved.Windows[0].Panes[0].ShellCommands));
+        Assert.Equal("${TAG}", declaration.Options["@${TAG}"]);
+    }
+
+    [Fact]
     public void Before_script_stays_literal_through_parse_defaults_and_resolution()
     {
         const string command = "./prepare '$UNDEFINED' #{session_name}";
