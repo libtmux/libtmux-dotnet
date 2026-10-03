@@ -236,7 +236,8 @@ public sealed partial class WorkspaceBuilder
                     return window;
                 }
             case WorkspaceActionKind.SendText:
-                await state.Get<Pane>(action.Target).SendTextAsync(((WorkspaceAction<string>)action).Request, cancellationToken: token).ConfigureAwait(false);
+                await state.Get<Pane>(action.Target).SendKeysAsync(
+                    ((WorkspaceAction<SendKeysRequest>)action).Request, token).ConfigureAwait(false);
                 return null;
             case WorkspaceActionKind.ArrangePanes:
             case WorkspaceActionKind.SelectLayout:

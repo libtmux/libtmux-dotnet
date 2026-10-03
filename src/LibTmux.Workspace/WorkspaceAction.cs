@@ -21,7 +21,7 @@ public enum WorkspaceActionKind
     UnlinkWindow,
     /// <summary>Moves the first workspace window to the session's effective base index.</summary>
     MoveToBaseIndex,
-    /// <summary>Sends literal command text followed by one Enter key.</summary>
+    /// <summary>Sends literal command text, followed by Enter when requested.</summary>
     SendText,
     /// <summary>Applies a layout to the created panes.</summary>
     SelectLayout,

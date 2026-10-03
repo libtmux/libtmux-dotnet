@@ -15,7 +15,7 @@ internal static class WorkspaceYamlParser
         ["window_name", "window_index", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
 
     private static readonly string[] PaneKeys =
-        ["shell_command", "start_directory", "focus", "options", "environment", "shell_command_before"];
+        ["shell_command", "start_directory", "focus", "options", "environment", "shell_command_before", "enter"];
 
     public static WorkspaceFile Parse(string yaml)
     {
@@ -57,7 +57,7 @@ internal static class WorkspaceYamlParser
                 beforeScript: ReadBeforeScript(root))
                 .WithDefaults(
                     environment: ReadOptions(root, "environment", "environment"),
-                    shellCommandsBefore: ReadCommands(root, "$", "shell_command_before"));
+                    beforeCommands: ReadCommands(root, "$", "shell_command_before"));
         }
         catch (WorkspaceFormatException)
         {
@@ -101,7 +101,7 @@ internal static class WorkspaceYamlParser
                 windowIndex: ReadOptionalWindowIndex(values, $"{path}.window_index"))
                 .WithDefaults(
                     environment: ReadOptions(values, "environment", $"{path}.environment"),
-                    shellCommandsBefore: ReadCommands(values, path, "shell_command_before"));
+                    beforeCommands: ReadCommands(values, path, "shell_command_before"));
         }
 
         return windows;
@@ -133,16 +133,17 @@ internal static class WorkspaceYamlParser
 
             Dictionary<string, YamlNode> values = ReadMapping(pane, panePath, PaneKeys);
             panes[index] = new WorkspacePane(
-                shellCommands: ReadCommands(values, panePath),
+                commands: ReadCommands(values, panePath),
                 startDirectory: ReadOptionalScalar(
                     values,
                     "start_directory",
                     $"{panePath}.start_directory"),
                 focus: ReadOptionalBoolean(values, "focus", $"{panePath}.focus"),
-                options: ReadOptions(values, "options", $"{panePath}.options"))
+                options: ReadOptions(values, "options", $"{panePath}.options"),
+                enter: ReadOptionalEnter(values, $"{panePath}.enter"))
                 .WithDefaults(
                     environment: ReadOptions(values, "environment", $"{panePath}.environment"),
-                    shellCommandsBefore: ReadCommands(values, panePath, "shell_command_before"));
+                    beforeCommands: ReadCommands(values, panePath, "shell_command_before"));
         }
 
         return panes;
@@ -164,7 +165,7 @@ internal static class WorkspaceYamlParser
         return command;
     }
 
-    private static string[] ReadCommands(
+    private static WorkspaceCommand[] ReadCommands(
         Dictionary<string, YamlNode> pane,
         string panePath,
         string key = "shell_command")
@@ -178,29 +179,31 @@ internal static class WorkspaceYamlParser
         if (node is YamlScalarNode scalar)
         {
             string? command = ReadNullableScalar(scalar);
-            return command is null ? [] : [command];
+            return command is null ? [] : [new WorkspaceCommand(command)];
         }
 
         YamlSequenceNode sequence = RequireSequence(node, path);
-        List<string> commands = new(sequence.Children.Count);
+        List<WorkspaceCommand> commands = new(sequence.Children.Count);
         for (int index = 0; index < sequence.Children.Count; index++)
         {
             YamlNode command = sequence.Children[index];
             string commandPath = $"{path}[{index}]";
             string? commandText;
+            bool? enter = null;
             if (command is YamlScalarNode commandScalar)
             {
                 commandText = ReadNullableScalar(commandScalar);
             }
             else if (command is YamlMappingNode)
             {
-                Dictionary<string, YamlNode> values = ReadMapping(command, commandPath, ["cmd"]);
+                Dictionary<string, YamlNode> values = ReadMapping(command, commandPath, ["cmd", "enter"]);
                 if (!values.TryGetValue("cmd", out YamlNode? value))
                 {
                     throw At(command, $"Workspace path '{commandPath}' requires key 'cmd'.");
                 }
 
                 commandText = ReadScalar(value, $"{commandPath}.cmd");
+                enter = ReadOptionalEnter(values, $"{commandPath}.enter");
             }
             else
             {
@@ -209,11 +212,43 @@ internal static class WorkspaceYamlParser
 
             if (commandText is not null)
             {
-                commands.Add(commandText);
+                commands.Add(new WorkspaceCommand(commandText, enter));
             }
         }
 
         return commands.ToArray();
+    }
+
+    private static bool? ReadOptionalEnter(
+        Dictionary<string, YamlNode> parent,
+        string path)
+    {
+        if (!parent.TryGetValue("enter", out YamlNode? node))
+        {
+            return null;
+        }
+
+        if (node is not YamlScalarNode scalar || scalar.Style != ScalarStyle.Plain)
+        {
+            throw WrongShape(node, path, "an unquoted Boolean");
+        }
+
+        string value = ReadScalar(node, path);
+        if (value.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("on", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (value.Equals("false", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("no", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("off", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        throw WrongShape(node, path, "an unquoted Boolean");
     }
 
     private static Dictionary<string, string> ReadOptions(

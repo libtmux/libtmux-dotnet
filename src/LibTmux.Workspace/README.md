@@ -118,24 +118,37 @@ entries override the same ordinal key; other parent entries remain available.
 then pane-command order. A window with no pane declarations still creates one
 pane and receives the inherited commands.
 
-Each list entry may be a command string or a mapping with one `cmd` scalar:
+Each list entry may be a command string or a mapping with `cmd` and an optional
+Boolean `enter`:
 
 ```yaml
-shell_command_before:
-  - cmd: echo ready
 windows:
   - panes:
-      - shell_command:
-          - cmd: exec /bin/sh
+      - enter: false
+        shell_command_before:
+          - "echo "
+        shell_command:
+          - cmd: ready
+            enter: true
 ```
 
-Both forms preserve literal command text and list order. tmuxp command
-modifiers such as `enter` are unsupported and fail during parsing with the
-declaration path and source location.
+Both forms preserve literal command text and list order. A pane's `enter`
+sets its initial state, which defaults to true. A command mapping overrides
+that state for itself and all later commands in the same pane, including
+commands inherited from `shell_command_before`; another explicit override
+changes it again. With `enter: false`, tmux types the text but does not press
+Enter. Later text is appended to the pending shell line until an Enter is
+requested. Numeric, quoted, null, and collection `enter` values are rejected
+with the declaration path and source location. Other tmuxp command modifiers
+remain unsupported.
 
 For programmatic declarations, `WithDefaults(environment, shellCommandsBefore)`
 returns a new value and copies both inputs. Null preserves the local defaults;
 an empty collection clears them. Resolving directories preserves these values.
+`WorkspaceCommand(text, enter)` and the named `commands:` and `beforeCommands:`
+arguments retain explicit Enter overrides. `WorkspacePane.Enter` preserves the
+pane default; `Commands` and `BeforeCommands` expose the immutable typed entries.
+`ShellCommands` and `ShellCommandsBefore` remain read-only text projections.
 Environment values and command text remain literal until tmux or the receiving
 shell interprets them.
 Environment names must be nonempty and cannot contain `=` or NUL; values cannot
@@ -151,7 +164,7 @@ contain NUL. Invalid declarations fail before dispatch.
 | `ExistingSession = Reuse` | Return the inspected session without changing it. |
 | `ExistingSession = Append` | Add windows while preserving existing children and session options. |
 | `ExistingSession = Replace` | Replace the inspected session while preserving its daemon. |
-| `Readiness = Immediate` (default) | Send each command as literal input followed by one Enter. |
+| `Readiness = Immediate` (default) | Send each command as literal input, pressing Enter according to its effective inherited state. |
 | `Readiness = Cooperative` | Wait for startup to signal its per-pane channel before sending commands. |
 
 The default `ServerStartup = CreateOrJoin` permits creation to start a daemon
