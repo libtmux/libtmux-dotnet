@@ -83,18 +83,20 @@ module PaneRun =
 
 [<RequireQualifiedAccess>]
 module Retry =
-    let ifNotSent (cancellationToken: CancellationToken) (retries: int) (operation: CancellationToken -> Task<'T>) =
-        if retries < 0 then
-            raise (ArgumentOutOfRangeException(nameof retries, retries, "The retry count is negative."))
-
+    let private retrying
+        (cancellationToken: CancellationToken)
+        (delays: TimeSpan list)
+        (operation: CancellationToken -> Task<'T>)
+        =
         backgroundTask {
-            let mutable remaining = retries
+            let mutable remaining = delays
             let mutable result = None
 
             while result.IsNone do
                 // A NotSent failure clears only its own command; anything the
                 // attempt sent before it may have run.
                 let attempt = LibTmux.Internal.TmuxDispatchLedger.Create()
+                let mutable retry = false
 
                 try
                     let! value =
@@ -102,13 +104,35 @@ module Retry =
 
                     result <- Some value
                 with TmuxFailure.NotSent _ when
-                    remaining > 0
+                    not remaining.IsEmpty
                     && not attempt.AnyReached
                     && not cancellationToken.IsCancellationRequested ->
-                    remaining <- remaining - 1
+                    retry <- true
+
+                if retry then
+                    let delay = remaining.Head
+                    remaining <- remaining.Tail
+
+                    if delay > TimeSpan.Zero then
+                        do! Task.Delay(delay, cancellationToken)
 
             return result.Value
         }
+
+    let ifNotSent (cancellationToken: CancellationToken) (retries: int) (operation: CancellationToken -> Task<'T>) =
+        if retries < 0 then
+            raise (ArgumentOutOfRangeException(nameof retries, retries, "The retry count is negative."))
+
+        retrying cancellationToken (List.replicate retries TimeSpan.Zero) operation
+
+    let ifNotSentAfter
+        (cancellationToken: CancellationToken)
+        (delays: TimeSpan list)
+        (operation: CancellationToken -> Task<'T>)
+        =
+        match delays |> List.tryFind (fun delay -> delay < TimeSpan.Zero) with
+        | Some negative -> raise (ArgumentOutOfRangeException(nameof delays, negative, "A delay is negative."))
+        | None -> retrying cancellationToken delays operation
 
 module internal Placement =
     let key (window: LibTmux.Window) =

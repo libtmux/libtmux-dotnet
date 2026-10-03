@@ -201,6 +201,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 |---|---|
 | `Retry` | Runs an operation again only when tmux never saw it. |
 | `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while nothing it sent reached tmux. |
+| `val ifNotSentAfter: cancellationToken: CancellationToken -> delays: TimeSpan list -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux. |
 
 ## ScreenSearch
 

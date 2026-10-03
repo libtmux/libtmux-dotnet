@@ -93,7 +93,7 @@ targets `net8.0` and `net10.0`.
 | Bound every command's time | `Server.within timeout server` | `Server` |
 | Read or set a typed option | `Options.get ct key options` | the key's value type |
 | Tell failures apart | `TmuxFailure.NotSent`, `Ran`, `MayHaveRun` | active patterns |
-| Retry only unsent work | `Retry.ifNotSent ct retries operation` | the operation's result |
+| Retry only unsent work | `Retry.ifNotSent ct retries operation`, or `Retry.ifNotSentAfter ct delays operation` | the operation's result |
 | A whole object graph | `Server.capture ct depth server` | snapshot `Server` |
 | Live server state | `Mirror.start ct session` | `ServerMirror` |
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |

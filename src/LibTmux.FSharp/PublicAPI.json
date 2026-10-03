@@ -2952,6 +2952,53 @@
       "returnType": "LibTmux.FSharp.Query<'T>"
     },
     {
+      "id": "M:LibTmux.FSharp.Retry.ifNotSentAfter``1(System.Threading.CancellationToken,Microsoft.FSharp.Collections.FSharpList{System.TimeSpan},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
+      "package": "LibTmux.FSharp",
+      "name": "ifNotSentAfter",
+      "declaringType": "T:LibTmux.FSharp.Retry",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val ifNotSentAfter: cancellationToken: System.Threading.CancellationToken -> delays: System.TimeSpan Microsoft.FSharp.Collections.list -> operation: (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan Microsoft.FSharp.Collections.list -> (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "delays",
+          "optional": false,
+          "type": "System.TimeSpan Microsoft.FSharp.Collections.list"
+        },
+        {
+          "name": "operation",
+          "optional": false,
+          "type": "System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "ifNotSentAfter",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Retry.ifNotSent``1(System.Threading.CancellationToken,System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
       "package": "LibTmux.FSharp",
       "name": "ifNotSent",

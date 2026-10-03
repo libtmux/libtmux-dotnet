@@ -62,6 +62,11 @@ awaits, and repeats the attempt only if none reached tmux. A read that is safe
 to repeat whatever happened can use any retry policy; a command that changes
 tmux should be retried only this way.
 
+`Retry.ifNotSent` retries at once. To give a server that is still starting
+time to answer, pass the delays instead:
+`Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation`
+retries once after each, under the same rule.
+
 ## Bound how long tmux may take
 
 Bound one call with its token: pass `(new CancellationTokenSource(timeout)).Token`.
