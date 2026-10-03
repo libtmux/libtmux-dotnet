@@ -34,6 +34,10 @@ public sealed partial class Pane
             : null;
 
     /// <summary>Gets how many lines have scrolled into the pane's history.</summary>
+    /// <remarks>
+    /// It changes with output, so a <see cref="ServerMirror" /> does not
+    /// publish a view when only this changes.
+    /// </remarks>
     public int HistorySize => ReadCapturedInt("history_size", "history size");
 
     /// <summary>Gets whether keys typed into the pane go to every synchronized pane in its window.</summary>
