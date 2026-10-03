@@ -164,9 +164,101 @@ running at the timeout keeps running, and the result reports `TimedOut`.
 
 ## Describe a session
 
-`LibTmux.Workspace` builds a session from a description: its windows, their
-panes, and the commands each pane runs, as a tmuxp workspace file does. Add the
-package, describe the session with F# lists, and build it on a server:
+Describe a session as F# records, then create it in one call.
+`Server.newSession` makes the session with its first window, adds each later
+window, and splits each window's panes in order. A chain adds commands tmux
+runs together, each acting on what the one before made, and `Server.within`
+bounds every command a handle sends:
+
+<!-- fsharp-snippet: BuildSession run -->
+```fsharp run
+open System
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let runAsync () =
+    task {
+        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
+        let token = deadline.Token
+
+        let options =
+            ServerConnectionOptions(
+                SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
+                ConfigurationFile = "/dev/null",
+                TmuxBinaryPath =
+                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+                     |> Option.ofObj
+                     |> Option.defaultValue "tmux")
+            )
+
+        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+
+        // Describe the session, then create it in one call: the first window is
+        // the one tmux makes with the session, and each split goes beside the
+        // pane before it.
+        let dev =
+            { SessionSpec.named "dev" with
+                Windows =
+                    [
+                        { WindowSpec.named "editor" with
+                            Command = Some "exec sleep 60"
+                        }
+                        { WindowSpec.named "logs" with
+                            Command = Some "exec sleep 60"
+                            Splits =
+                                [
+                                    { SplitSpec.empty with
+                                        Direction = Some PaneDirection.Right
+                                        Command = Some "exec sleep 60"
+                                    }
+                                    { SplitSpec.empty with
+                                        Command = Some "exec sleep 60"
+                                    }
+                                ]
+                        }
+                    ]
+            }
+
+        let! session = owned.Value |> Server.newSession token dev
+
+        // A chain runs in one tmux invocation; each step acts on what the one
+        // before made.
+        let! _ =
+            owned.Value
+            |> Chain.start
+            |> Chain.newWindow session "watch"
+            |> Chain.splitLeftRight
+            |> Chain.sendLine "exec sleep 60"
+            |> Chain.run token
+
+        // Every command through this handle, and the handles taken from it,
+        // gives tmux five seconds.
+        let bounded = owned.Value |> Server.within (TimeSpan.FromSeconds 5.)
+        let! windows = bounded |> Server.windows |> Query.list token
+
+        for window in windows do
+            let! panes = window |> Window.panes |> Query.list token
+            printfn "%s: %d panes" window.Name panes.Count
+    }
+
+runAsync().GetAwaiter().GetResult()
+```
+<!-- endfsharp-snippet -->
+
+It prints:
+
+<!-- fsharp-output: BuildSession -->
+```text
+editor: 1 panes
+logs: 3 panes
+watch: 2 panes
+```
+<!-- endfsharp-output -->
+
+`LibTmux.Workspace` builds the same kind of session from a tmuxp workspace file,
+and can wait for each shell's prompt before sending it commands. Add the
+package and describe the session, or parse tmuxp YAML:
 
 ```console
 $ dotnet package add LibTmux.Workspace --prerelease

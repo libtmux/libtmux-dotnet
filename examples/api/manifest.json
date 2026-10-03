@@ -182,6 +182,24 @@
       "output": "build: ok\ntest: ok\nended in order given: true\n"
     },
     {
+      "id": "fsharp-BuildSession",
+      "profile": "fsharp",
+      "title": "Describe a session, add a window with a chain, and bound every command",
+      "description": "Create a session from F# records in one call: the first window is the one tmux makes with the session, and each split goes beside the pane before it. Add a window with a command chain, then read through a handle whose commands each get five seconds.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/BuildSession.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.newSession(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,LibTmux.Server)",
+        "T:LibTmux.FSharp.SessionSpec",
+        "M:LibTmux.FSharp.Chain.start(LibTmux.Server)",
+        "M:LibTmux.FSharp.Chain.newWindow(LibTmux.Session,System.String,LibTmux.TmuxChain)",
+        "M:LibTmux.FSharp.Chain.splitLeftRight(LibTmux.TmuxChain)",
+        "M:LibTmux.FSharp.Chain.sendLine(System.String,LibTmux.TmuxChain)",
+        "M:LibTmux.FSharp.Chain.run(System.Threading.CancellationToken,LibTmux.TmuxChain)",
+        "M:LibTmux.FSharp.Server.within(System.TimeSpan,LibTmux.Server)"
+      ],
+      "output": "editor: 1 panes\nlogs: 3 panes\nwatch: 2 panes\n"
+    },
+    {
       "id": "csharp-ServerConstruction",
       "profile": "csharp",
       "title": "Open and connect to an owned server",

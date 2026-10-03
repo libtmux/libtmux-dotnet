@@ -69,10 +69,12 @@ A call cancelled that way raises `TmuxOperationCanceledException`, whose
 `CommandMayHaveExecuted` says whether tmux may already have run it, and which
 `TmuxFailure.MayHaveRun` matches.
 
-Bound every command a handle sends with `ServerConnectionOptions.CommandTimeout`.
+Bound every command a handle sends with `Server.within timeout server`. It
+returns a handle to the same server, over the same connection, whose commands,
+and those of every session, window and pane taken from it, give tmux that long.
 A command that outlasts it raises `TmuxTransportException` with an `Unknown`
-dispatch state. To give some calls a tighter bound than others, connect twice
-to the same socket with different options: both handles reach the same server.
+dispatch state. `ServerConnectionOptions.CommandTimeout` sets the same bound
+for a whole connection.
 
 ## Typed options
 

@@ -63,7 +63,8 @@ returns the cleanup's.
 
 ## Command chains
 
-A core `TmuxChain` stays explicit in F#. Building it makes no I/O; one
+A chain is a core `TmuxChain`, which F# can build directly or through the
+`Chain` module below. Building it makes no I/O; one
 `ExecuteAsync` dispatches the commands in order and returns their combined
 output.
 
@@ -90,6 +91,11 @@ let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server)
 Forty request types, such as `SendKeysRequest`, `SplitPaneRequest` and
 `CapturePaneRequest`, convert to a command with `ToCommand`, so a chain keeps
 their validation; `Then(name, arguments)` takes any other command as text.
+The `Chain` module builds the same chain as a pipeline, with named steps that
+act on what the step before made: `Chain.newWindow`, `Chain.splitLeftRight`,
+`Chain.splitTopBottom`, `Chain.sendLine` and `Chain.arrange`, then
+`Chain.run`; `Chain.add` appends a typed request's command. The
+[session program](getting-started.md#describe-a-session) uses one.
 Use a chain for a known batch. It returns one `TmuxCommandResult`, not a typed
 object for every step. Use one-shot operations when each step needs a refreshed
 entity handle.
