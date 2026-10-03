@@ -36,4 +36,31 @@ Type parameters: 'T
 
 [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The retry count is negative.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L86)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L122)
+
+<a name="ifNotSentAfter"></a>
+
+#### <code><span>Retry.ifNotSentAfter&#32;<span>cancellationToken&#32;delays&#32;operation</span></span></code>
+
+Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux.
+
+Retries as <code>ifNotSent</code> does, once per delay, waiting that long
+ first, so a server still starting has time to answer:
+ <code>Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation</code>.
+ Cancellation during a delay propagates.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**delays**: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a>&#32;list</span></code>
+
+**operation**: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a>&#32;->&#32;<span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;'T&gt;</span></span></code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) A delay is negative.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L128)

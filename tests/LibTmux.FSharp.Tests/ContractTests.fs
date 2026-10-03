@@ -563,6 +563,26 @@ module FailureTests =
         }
 
     [<Fact>]
+    let ``retry after delays waits before each attempt and stops when they run out`` () =
+        task {
+            let mutable attempts = 0
+            let started = Diagnostics.Stopwatch.StartNew()
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSentAfter
+                        CancellationToken.None
+                        [ TimeSpan.FromMilliseconds 20.; TimeSpan.FromMilliseconds 30. ]
+                        (fun _ ->
+                            attempts <- attempts + 1
+                            Task.FromException<int>(failure TmuxDispatchState.NotDispatched))
+                    :> Task)
+
+            Assert.Equal(3, attempts)
+            Assert.True(started.Elapsed >= TimeSpan.FromMilliseconds 50.)
+        }
+
+    [<Fact>]
     let ``retry runs again only while tmux never saw the command`` () =
         task {
             let mutable attempts = 0

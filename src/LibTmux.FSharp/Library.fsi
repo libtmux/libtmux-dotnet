@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -95,6 +96,20 @@ module Retry =
     /// <exception cref="T:System.ArgumentOutOfRangeException">The retry count is negative.</exception>
     val ifNotSent:
         cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>
+
+    /// <summary>Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux.</summary>
+    /// <remarks>
+    /// Retries as <c>ifNotSent</c> does, once per delay, waiting that long
+    /// first, so a server still starting has time to answer:
+    /// <c>Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation</c>.
+    /// Cancellation during a delay propagates.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">A delay is negative.</exception>
+    val ifNotSentAfter:
+        cancellationToken: CancellationToken ->
+        delays: TimeSpan list ->
+        operation: (CancellationToken -> Task<'T>) ->
+            Task<'T>
 
 module internal Placement =
     val key: window: LibTmux.Window -> WindowPlacementKey
