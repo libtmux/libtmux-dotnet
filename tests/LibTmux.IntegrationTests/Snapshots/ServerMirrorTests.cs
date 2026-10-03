@@ -76,6 +76,35 @@ public sealed class ServerMirrorTests
         Assert.IsType<TmuxObjectNotFoundException>(mirror.Failure);
     }
 
+    // Killed without %exit, the client's stream faults while the server and
+    // the anchor live on, so the mirror attaches a new client.
+    [UnixFact]
+    public async Task The_mirror_reattaches_when_its_client_is_killed()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Session anchor = await AnchorAsync(raw, token);
+        await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
+        string[] killed = System.Text.Encoding.UTF8.GetString(
+            (await raw.ExecuteAsync(["list-clients", "-F", "#{client_pid} #{client_name}"], token)).StandardOutput).Trim().Split(' ', 2);
+
+        using (System.Diagnostics.Process client = System.Diagnostics.Process.GetProcessById(int.Parse(killed[0], System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            client.Kill();
+            await client.WaitForExitAsync(token);
+        }
+
+        await raw.ExecuteAsync(["new-window", "-d", "-n", "after", "-t", raw.SessionName], token);
+        ServerMirrorView seen = await mirror.WaitUntilAsync(
+            view => view.Server.Windows.Any(window => window.Name == "after")
+                && view.Clients.Any(client => client.IsControlClient),
+            Arrival,
+            token);
+
+        Assert.False(mirror.IsEnded);
+        Assert.DoesNotContain(seen.Clients, client => client.Name == killed[1]);
+    }
+
     // A waiter whose condition never holds must fail when the server dies
     // under a refreshing mirror, not sleep out its own timeout.
     [UnixFact]

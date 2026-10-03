@@ -72,6 +72,10 @@ public sealed class ServerMirror : IAsyncDisposable
     private TaskCompletionSource _published = NewSignal();
     private TaskCompletionSource _wake = NewSignal();
     private IControlModeSession _control;
+
+    // Set once the listener has taken a client whose events ended to dispose
+    // it, so the mirror's own disposal does not dispose it again.
+    private bool _controlReleased;
     private bool _dirty;
     private bool _ended;
     private Exception? _failure;
@@ -261,13 +265,17 @@ public sealed class ServerMirror : IAsyncDisposable
             // Both loops report their failures through End.
         }
 
-        IControlModeSession control;
+        IControlModeSession? control;
         lock (_gate)
         {
-            control = _control;
+            control = _controlReleased ? null : _control;
         }
 
-        await control.DisposeAsync().ConfigureAwait(false);
+        if (control is not null)
+        {
+            await control.DisposeAsync().ConfigureAwait(false);
+        }
+
         _closing.Dispose();
     }
 
@@ -320,25 +328,46 @@ public sealed class ServerMirror : IAsyncDisposable
                 }
 
                 long listening = Stopwatch.GetTimestamp();
-                await foreach (TmuxEvent item in control.Events.WithCancellation(closing).ConfigureAwait(false))
+                try
                 {
-                    // With detach-on-destroy off, tmux moves a client whose
-                    // session ends to another session rather than ending it.
-                    if (item is TmuxNotificationEvent { Name: "session-changed", Arguments: [string session, ..] }
-                        && !string.Equals(session, anchor, StringComparison.Ordinal))
+                    await foreach (TmuxEvent item in control.Events.WithCancellation(closing).ConfigureAwait(false))
                     {
-                        break;
-                    }
+                        // With detach-on-destroy off, tmux moves a client whose
+                        // session ends to another session rather than ending it.
+                        if (item is TmuxNotificationEvent { Name: "session-changed", Arguments: [string session, ..] }
+                            && !string.Equals(session, anchor, StringComparison.Ordinal))
+                        {
+                            break;
+                        }
 
-                    if (item is TmuxNotificationEvent or TmuxEventsDroppedEvent { OnlyOutput: false })
-                    {
-                        RequestCapture();
+                        if (item is TmuxNotificationEvent or TmuxEventsDroppedEvent { OnlyOutput: false })
+                        {
+                            RequestCapture();
+                        }
                     }
+                }
+                catch (Exception) when (!closing.IsCancellationRequested)
+                {
+                    // A client killed without %exit faults its stream, though
+                    // the server and the anchor may be alive; the lookup below
+                    // reports a server that is not.
                 }
 
                 // The client ended or left the anchor, and tmux has forgotten
-                // what it announced.
-                await control.DisposeAsync().ConfigureAwait(false);
+                // what it announced. Disposing a faulted client raises its
+                // fault again.
+                lock (_gate)
+                {
+                    _controlReleased = true;
+                }
+
+                try
+                {
+                    await control.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception) when (!closing.IsCancellationRequested)
+                {
+                }
                 if (Stopwatch.GetElapsedTime(listening) < LongestReattachDelay)
                 {
                     await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
@@ -361,6 +390,7 @@ public sealed class ServerMirror : IAsyncDisposable
                 lock (_gate)
                 {
                     _control = attached;
+                    _controlReleased = false;
                 }
 
                 RequestCapture();
