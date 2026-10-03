@@ -20,7 +20,7 @@ module internal GuideSnippets =
                     TmuxBinaryPath = binary
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
 
             use! _ownedSession =
                 ownedServer.Value.CreateOwnedSessionAsync(
@@ -202,7 +202,7 @@ module internal GuideSnippets =
                     TmuxBinaryPath = binary
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
             let server = ownedServer.Value
 
             use! ownedSession =

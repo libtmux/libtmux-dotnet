@@ -9,6 +9,19 @@ open LibTmux
 /// <summary>Starts server reads and queries with the caller's cancellation token.</summary>
 [<RequireQualifiedAccess>]
 module Server =
+    /// <summary>Starts a server on the socket the options name and owns it; disposing the scope stops it.</summary>
+    /// <remarks>
+    /// The core's <c>Server.CreateOwnedAsync</c>, named so F# need not qualify
+    /// the type this module shares a name with. A server already listening on
+    /// the default socket is refused rather than owned.
+    /// </remarks>
+    /// <exception cref="T:System.InvalidOperationException">A server is already listening on the default socket.</exception>
+    val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>
+
+    /// <summary>Attaches to a server already listening on the socket the options name.</summary>
+    /// <remarks>The core's <c>Server.ConnectAsync</c>; it never starts a server.</remarks>
+    val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>
+
     /// <summary>Queries every session.</summary>
     /// <remarks>Child windows and panes require an explicit capture at the corresponding depth.</remarks>
     val sessions: server: LibTmux.Server -> Query<LibTmux.Session>

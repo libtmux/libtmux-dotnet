@@ -8,6 +8,12 @@ open LibTmux.Query
 
 [<RequireQualifiedAccess>]
 module Server =
+    let createOwned (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+
+    let connect (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.ConnectAsync(options, cancellationToken)
+
     let sessions (server: LibTmux.Server) =
         Query<LibTmux.Session>.Create(server, QueryTarget.Session, None, None)
 

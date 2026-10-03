@@ -19,7 +19,7 @@ let runAsync () =
                      |> Option.defaultValue "tmux")
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         // Describe the session, then create it in one call: the first window is
         // the one tmux makes with the session, and each split goes beside the

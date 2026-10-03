@@ -16,7 +16,7 @@ let runAsync () =
                 ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         // Each session's one window runs a plain shell.
         for name in [ "build"; "web"; "worker" ] do
@@ -33,7 +33,7 @@ let runAsync () =
             let! _ = owned.Value |> Server.newSession token shell
             ()
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
         // atMostOne is None when nothing matches and raises when several do.

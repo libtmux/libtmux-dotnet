@@ -78,7 +78,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -92,7 +92,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let! server = options |> Server.connect token
         let! sessions = server |> Server.sessions |> Query.list token
 
         let nativeMatches =

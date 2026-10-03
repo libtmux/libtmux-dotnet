@@ -8,9 +8,10 @@ whole files, including their final newline, for API pages to publish from a
 recorded source revision. Every import and helper is present in the displayed
 file.
 
-The F# programs use `LibTmux.Server.CreateOwnedAsync` and the core session and
-window methods for construction. The F# facade supplies task, snapshot, query,
-wait, run, mirror and option helpers; it has no separate server constructor.
+The F# programs start and attach to servers with `Server.createOwned` and
+`Server.connect`, and build sessions and windows with the core session and
+window methods or `Server.newSession`. The F# facade supplies the query, wait,
+run, mirror, option and snapshot helpers.
 
 | Program | Task |
 | --- | --- |

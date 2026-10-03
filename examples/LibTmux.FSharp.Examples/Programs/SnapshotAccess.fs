@@ -20,7 +20,7 @@ let runAsync () =
                 TmuxBinaryPath = binary
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         // A relation is either captured, holding what tmux reported, or not read at all.
         let describe (relation: CapturedRelation<'T>) =
@@ -33,7 +33,7 @@ let runAsync () =
                 use! session =
                     owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
 
-                let! server = LibTmux.Server.ConnectAsync(options, token)
+                let! server = options |> Server.connect token
                 printfn "Connected handle's sessions: %s" (describe server.Sessions)
 
                 let! captured = server |> Server.capture token SnapshotDepth.Panes

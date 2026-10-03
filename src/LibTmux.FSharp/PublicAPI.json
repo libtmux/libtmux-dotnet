@@ -3231,6 +3231,78 @@
       "returnType": "LibTmux.FSharp.Query<LibTmux.Client>"
     },
     {
+      "id": "M:LibTmux.FSharp.Server.connect(System.Threading.CancellationToken,LibTmux.ServerConnectionOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "connect",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val connect: cancellationToken: System.Threading.CancellationToken -> options: LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.Server>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.Server>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.ServerConnectionOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "connect",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Server>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Server.createOwned(System.Threading.CancellationToken,LibTmux.ServerConnectionOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "createOwned",
+      "declaringType": "T:LibTmux.FSharp.Server",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val createOwned: cancellationToken: System.Threading.CancellationToken -> options: LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.ServerConnectionOptions -> System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.ServerConnectionOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "createOwned",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.OwnedServerScope>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Server.newSession(System.Threading.CancellationToken,LibTmux.FSharp.SessionSpec,LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "newSession",
