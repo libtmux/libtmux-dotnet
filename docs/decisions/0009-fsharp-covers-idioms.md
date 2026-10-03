@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted for the prerelease line.
+Accepted for the prerelease line. The session builder, typed chains and
+per-handle timeout it declined are superseded by
+[ADR 0010](0010-fsharp-builds-sessions-and-chains.md).
 
 ## Context
 
