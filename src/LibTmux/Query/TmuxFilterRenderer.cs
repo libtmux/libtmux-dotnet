@@ -26,10 +26,22 @@ internal static class TmuxFilterRenderer
     /// <returns>The filter text, or null when tmux cannot narrow the listing.</returns>
     internal static string? Superset(QueryDocument document)
     {
+        string upper = Bound(document).Upper;
+        return upper == True ? null : upper;
+    }
+
+    /// <summary>Reports whether tmux keeps exactly the rows the document accepts.</summary>
+    internal static bool IsExact(QueryDocument document)
+    {
+        (string upper, string lower) = Bound(document);
+        return upper == lower;
+    }
+
+    private static Bounds Bound(QueryDocument document)
+    {
         ArgumentNullException.ThrowIfNull(document);
         _ = QueryDocumentValidator.Validate(document);
-        string upper = Render(document.Predicate).Upper;
-        return upper == True ? null : upper;
+        return Render(document.Predicate);
     }
 
     /// <summary>Escapes fnmatch metacharacters; tmux passes no FNM_NOESCAPE.</summary>

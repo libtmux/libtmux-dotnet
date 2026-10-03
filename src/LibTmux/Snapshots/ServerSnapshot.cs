@@ -35,11 +35,15 @@ internal sealed class ServerSnapshot
         IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes);
 
     [UnsupportedOSPlatform("windows")]
+    // A session filter selects whole session subtrees: tmux evaluates it in
+    // each window and pane row's own session.
     internal static async Task<Rows> ReadAsync(
         Server server,
-        SnapshotDepth depth = SnapshotDepth.Panes,
-        CancellationToken cancellationToken = default)
+        SnapshotDepth depth,
+        string? sessionFilter,
+        CancellationToken cancellationToken)
     {
+        string[] filter = sessionFilter is null ? [] : ["-f", sessionFilter];
         ArgumentNullException.ThrowIfNull(server);
         cancellationToken.ThrowIfCancellationRequested();
         ServerGeneration generation = server.Generation
@@ -67,7 +71,7 @@ internal sealed class ServerSnapshot
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows =
-            await query.FetchAsync("list-sessions", null, cancellationToken)
+            await query.FetchAsync("list-sessions", filter, cancellationToken)
                 .ConfigureAwait(false);
         if (depth == SnapshotDepth.Sessions)
         {
@@ -76,12 +80,12 @@ internal sealed class ServerSnapshot
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows =
-            await query.FetchAsync("list-windows", ["-a"], cancellationToken)
+            await query.FetchAsync("list-windows", ["-a", .. filter], cancellationToken)
                 .ConfigureAwait(false);
         IReadOnlyList<IReadOnlyDictionary<string, string?>> paneRows =
             depth < SnapshotDepth.Panes
                 ? []
-                : await query.FetchAsync("list-panes", ["-a"], cancellationToken)
+                : await query.FetchAsync("list-panes", ["-a", .. filter], cancellationToken)
                     .ConfigureAwait(false);
         SnapshotTopologyValidator.Validate(depth, generation, sessionRows, windowRows, paneRows, cancellationToken);
         return new Rows(depth, sessionRows, windowRows, paneRows);

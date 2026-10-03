@@ -89,9 +89,17 @@ public sealed partial class Server
         CaptureSnapshotAsync(depth, TimeProvider.System, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]
+    internal Task<Server> CaptureSnapshotAsync(
+        SnapshotDepth depth,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken) =>
+        CaptureSnapshotAsync(depth, timeProvider, sessionFilter: null, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
     internal async Task<Server> CaptureSnapshotAsync(
         SnapshotDepth depth,
         TimeProvider timeProvider,
+        string? sessionFilter,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -106,7 +114,7 @@ public sealed partial class Server
         DateTimeOffset startedAtUtc = timeProvider.GetUtcNow();
         Server live = await ConnectAsync(cancellationToken).ConfigureAwait(false);
         ServerSnapshot.Rows rows = await ServerSnapshot
-            .ReadAsync(live, depth, cancellationToken)
+            .ReadAsync(live, depth, sessionFilter, cancellationToken)
             .ConfigureAwait(false);
 
         // Only the newly constructed root owns these children; earlier captures
