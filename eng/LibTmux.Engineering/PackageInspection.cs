@@ -78,7 +78,7 @@ internal static class PackageInspection
             CheckMetadata(package, project, version, revision);
             CheckReadmeLinks(package);
             CheckReadmeHtml(package);
-            CheckPackedReadme(package, Path.Combine(project.DirectoryPath, "README.md"));
+            CheckPackedReadme(package, Path.Join(project.DirectoryPath, "README.md"));
             CheckSourceFile(package, "icon.png", Path.Combine(project.DirectoryPath, "assets", "logo.png"));
             CheckSourceFile(package, "assets/logo.svg", Path.Combine(project.DirectoryPath, "assets", "logo.svg"));
             var frameworks = project.GetPropertyValue("TargetFrameworks").Split(';');
