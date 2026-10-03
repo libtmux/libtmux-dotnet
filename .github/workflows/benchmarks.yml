@@ -1,0 +1,104 @@
+# F# benchmark records from a hosted runner. A timing means something only
+# next to the host and tmux that produced it, so each run uploads a record in
+# the shape docs/benchmarks/runs keeps, for a maintainer to compare and
+# commit. Timings are not gated; see "Regression gate" in
+# docs/benchmarks/README.md.
+name: benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      tmux:
+        description: tmux version to build and measure against
+        required: true
+        default: '3.7c'
+        type: choice
+        options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
+  # A change to what is measured, or how it is recorded, records a run.
+  pull_request:
+    paths:
+      - 'benchmarks/**'
+      - 'eng/benchmarks/**'
+      - '.github/workflows/benchmarks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+jobs:
+  fsharp:
+    name: F# benchmarks on tmux ${{ inputs.tmux || '3.7c' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TMUX_VERSION: ${{ inputs.tmux || '3.7c' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            autoconf \
+            automake \
+            bison \
+            build-essential \
+            libevent-dev \
+            libncurses-dev \
+            pkg-config
+
+      - name: Restore the tmux build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/tmux
+          key: tmux-${{ env.TMUX_VERSION }}-${{ runner.os }}-${{ hashFiles('eng/tmux/build-version.sh') }}
+
+      - name: Build tmux
+        id: tmux
+        run: eng/tmux/build-version.sh "${TMUX_VERSION}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Run the F# benchmarks
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          TMUX_TMPDIR: /tmp/libtmux-benchmarks
+        run: |
+          mkdir -p "${TMUX_TMPDIR}"
+          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${TMUX_VERSION}"
+          dotnet run \
+            --project benchmarks/LibTmux.Benchmarks \
+            --configuration Release \
+            --framework net10.0 \
+            -- \
+            --filter '*FSharp*' \
+            --artifacts artifacts/benchmarks-fsharp
+
+      - name: Record the run
+        run: |
+          mkdir -p artifacts/benchmark-record
+          python3 eng/benchmarks/record_fsharp.py \
+            --reports artifacts/benchmarks-fsharp/results \
+            --tmux-version "${TMUX_VERSION}" \
+            --collected "$(date -u +%F)" \
+            --out artifacts/benchmark-record
+          cat artifacts/benchmark-record/*.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-record-fsharp-tmux-${{ env.TMUX_VERSION }}
+          path: artifacts/benchmark-record
+          if-no-files-found: error
+          retention-days: 30
