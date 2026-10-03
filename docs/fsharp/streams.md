@@ -60,6 +60,37 @@ let readPaneUntilAsync
 ```
 <!-- endfsharp-snippet -->
 
+A client has one event stream, so watching two panes with `Control.watchPane`
+takes two clients. `Control.watchPanes` follows several through one: each
+output event names its pane, each pane's end arrives as `TmuxPaneGoneEvent`
+after the output buffered before it went, and the stream ends once every pane
+is gone. This collects each pane's output until then:
+
+<!-- fsharp-snippet: WatchPanesOutput -->
+```fsharp
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let collectByPaneAsync (cancellationToken: CancellationToken) (panes: Pane list) (session: IControlModeSession) =
+    session
+    |> Control.watchPanes panes
+    |> Control.foldWhile
+        cancellationToken
+        (fun (printed: Map<string, string>) event ->
+            task {
+                match event with
+                | :? TmuxOutputEvent as output ->
+                    let pane = output.PaneId.ToString()
+                    let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
+                    return StreamStep.Continue(printed |> Map.add pane (sofar + output.Data))
+                | :? TmuxExitEvent -> return StreamStep.Stop printed
+                | _ -> return StreamStep.Continue printed
+            })
+        Map.empty
+```
+<!-- endfsharp-snippet -->
+
 The watch reads the client's only stream, so it consumes and drops events
 for other panes. Attach the client with `Control.enterSession` to the session
 that holds the pane.

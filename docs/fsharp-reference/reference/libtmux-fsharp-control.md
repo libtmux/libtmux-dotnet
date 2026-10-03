@@ -30,7 +30,7 @@ When work and cleanup both fail, the helpers rethrow the work&#39;s exception
 
 Returns: <code><span>exn&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L131)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L134)
 
 <a name="enter"></a>
 
@@ -38,7 +38,8 @@ Returns: <code><span>exn&#32;option</span></code>
 
 Opens a control client attached to the most recently used session.
 
-The caller owns and asynchronously disposes the returned client.
+The caller owns and asynchronously disposes the returned client. On a
+ server with several sessions, <code>enterSession</code> attaches to a chosen one.
 
 **Parameters:**
 
@@ -108,7 +109,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L103)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L106)
 
 <a name="iter"></a>
 
@@ -130,7 +131,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L89)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L92)
 
 <a name="useSession"></a>
 
@@ -163,7 +164,8 @@ Streams one pane&#39;s output from a borrowed control client.
  gone, or with <code>TmuxExitEvent</code> when the client ends.
  <code>TmuxPanePausedEvent</code> and <code>TmuxPaneContinuedEvent</code> bracket output
  a slow reader missed. It reads the client&#39;s single event stream, so other
- events are consumed and dropped.
+ events are consumed and dropped; follow several panes through one client
+ with <code>watchPanes</code>.
  </p><p class='fsdocs-para'>
  tmux discards output it has not yet sent once a pane&#39;s program exits,
  so the last lines of a program that exits at once may never arrive.
@@ -180,6 +182,30 @@ Streams one pane&#39;s output from a borrowed control client.
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L74)
+
+<a name="watchPanes"></a>
+
+#### <code><span>Control.watchPanes&#32;<span>panes&#32;session</span></span></code>
+
+Streams several panes&#39; output from one borrowed control client.
+
+Each output event names its pane. Each pane confirmed gone is reported by
+ a <code>TmuxPaneGoneEvent</code> after the output buffered before it went, and
+ the stream ends once every pane is gone, or with <code>TmuxExitEvent</code>
+ when the client ends. Events after that stay unread for the client&#39;s next
+ reader.
+
+**Parameters:**
+
+**panes**: <code><span>Pane&#32;list</span></code>
+
+**session**: <code>IControlModeSession</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
 
 <a name="withSession"></a>
 

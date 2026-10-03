@@ -149,7 +149,7 @@ screen shows the run: true
 | Wait for output you did not type | `Pane.waitForText`, `Pane.waitFor` | A line contains the text. Text already on screen answers at once with `PresentAtEntry`. |
 | Wait for a condition over the whole screen | `Pane.waitUntil` | The condition holds over the visible rows, including what a full-screen program draws. |
 | Run a command to its exit status | `Pane.run` | The command exits. It returns the status and the lines it printed. |
-| Follow output as it prints | `Control.watchPane` | You stop reading; see [streams](streams.md). |
+| Follow output as it prints | `Control.watchPane`, or `Control.watchPanes` for several panes on one client | You stop reading, or the panes are gone; see [streams](streams.md). |
 
 Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use

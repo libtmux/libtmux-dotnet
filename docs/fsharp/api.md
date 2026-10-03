@@ -48,6 +48,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `val iter: cancellationToken: CancellationToken -> handler: ('T -> Task) -> source: IAsyncEnumerable<'T> -> Task<unit>` | Awaits one handler at a time for each item until the stream ends. |
 | `val useSession: work: (LibTmux.IControlModeSession -> Task<'State>) -> session: LibTmux.IControlModeSession -> Task<'State>` | Runs work with an owned control client and disposes it after the returned task completes. |
 | `val watchPane: pane: LibTmux.Pane -> session: LibTmux.IControlModeSession -> IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams one pane's output from a borrowed control client. |
+| `val watchPanes: panes: LibTmux.Pane list -> session: LibTmux.IControlModeSession -> IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams several panes' output from one borrowed control client. |
 | `val withSession: cancellationToken: CancellationToken -> work: (LibTmux.IControlModeSession -> Task<'State>) -> server: LibTmux.Server -> Task<'State>` | Opens a control client, runs work, and disposes the client after the returned task completes. |
 
 ## Field

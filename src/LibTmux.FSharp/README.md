@@ -215,7 +215,7 @@ explains the configuration order. Code running inside a tmux pane can use
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
 | A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
-| React to events as they happen | `Control.events` or `Control.watchPane` | Cold `IAsyncEnumerable` for a control client |
+| React to events as they happen | `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client |
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
 linked into more than one session has contextual placements; filtering keeps

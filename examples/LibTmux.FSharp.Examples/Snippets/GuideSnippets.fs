@@ -210,6 +210,29 @@ module internal GuideSnippets =
             ""
     // endfsharp-snippet
 
+    // fsharp-snippet: WatchPanesOutput
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let collectByPaneAsync (cancellationToken: CancellationToken) (panes: Pane list) (session: IControlModeSession) =
+        session
+        |> Control.watchPanes panes
+        |> Control.foldWhile
+            cancellationToken
+            (fun (printed: Map<string, string>) event ->
+                task {
+                    match event with
+                    | :? TmuxOutputEvent as output ->
+                        let pane = output.PaneId.ToString()
+                        let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
+                        return StreamStep.Continue(printed |> Map.add pane (sofar + output.Data))
+                    | :? TmuxExitEvent -> return StreamStep.Stop printed
+                    | _ -> return StreamStep.Continue printed
+                })
+            Map.empty
+    // endfsharp-snippet
+
 
     // fsharp-snippet: ChainCommands
     open System.Threading

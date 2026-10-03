@@ -316,6 +316,42 @@
       "returnType": "System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
     },
     {
+      "id": "M:LibTmux.FSharp.Control.watchPanes(Microsoft.FSharp.Collections.FSharpList{LibTmux.Pane},LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "watchPanes",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val watchPanes: panes: LibTmux.Pane Microsoft.FSharp.Collections.list -> session: LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.Pane Microsoft.FSharp.Collections.list -> LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "panes",
+          "optional": false,
+          "type": "LibTmux.Pane Microsoft.FSharp.Collections.list"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "watchPanes",
+      "genericParameters": [],
+      "returnType": "System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Control.withSession``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{LibTmux.IControlModeSession,System.Threading.Tasks.Task{``0}},LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "withSession",

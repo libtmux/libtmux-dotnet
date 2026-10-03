@@ -74,6 +74,9 @@ module Control =
     let watchPane (pane: LibTmux.Pane) (session: IControlModeSession) =
         PaneObservation.WatchAsync(session, pane)
 
+    let watchPanes (panes: LibTmux.Pane list) (session: IControlModeSession) =
+        PaneObservation.WatchAsync(session, (panes :> IReadOnlyCollection<LibTmux.Pane>))
+
     let private consume
         (cancellationToken: CancellationToken)
         (source: IAsyncEnumerable<'T>)

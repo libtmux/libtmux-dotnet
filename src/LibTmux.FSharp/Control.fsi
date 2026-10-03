@@ -23,7 +23,10 @@ type StreamStep<'State> =
 [<RequireQualifiedAccess>]
 module Control =
     /// <summary>Opens a control client attached to the most recently used session.</summary>
-    /// <remarks>The caller owns and asynchronously disposes the returned client.</remarks>
+    /// <remarks>
+    /// The caller owns and asynchronously disposes the returned client. On a
+    /// server with several sessions, <c>enterSession</c> attaches to a chosen one.
+    /// </remarks>
     val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>
 
     /// <summary>Opens a control client attached to a session.</summary>
@@ -54,7 +57,8 @@ module Control =
     /// gone, or with <c>TmuxExitEvent</c> when the client ends.
     /// <c>TmuxPanePausedEvent</c> and <c>TmuxPaneContinuedEvent</c> bracket output
     /// a slow reader missed. It reads the client's single event stream, so other
-    /// events are consumed and dropped.
+    /// events are consumed and dropped; follow several panes through one client
+    /// with <c>watchPanes</c>.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent once a pane's program exits,
@@ -64,6 +68,17 @@ module Control =
     /// </para>
     /// </remarks>
     val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
+
+    /// <summary>Streams several panes' output from one borrowed control client.</summary>
+    /// <remarks>
+    /// Each output event names its pane. Each pane confirmed gone is reported by
+    /// a <c>TmuxPaneGoneEvent</c> after the output buffered before it went, and
+    /// the stream ends once every pane is gone, or with <c>TmuxExitEvent</c>
+    /// when the client ends. Events after that stay unread for the client's next
+    /// reader.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The list is empty.</exception>
+    val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Awaits one handler at a time for each item until the stream ends.</summary>
     /// <remarks>The helper disposes its enumerator but leaves the control client open.</remarks>
