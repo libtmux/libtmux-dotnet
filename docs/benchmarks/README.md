@@ -302,7 +302,7 @@ baseline captures the same server to pane depth, which is what the mirror does
 on each announcement. The difference between the two is the command, tmux's
 announcement and the publish; the capture is the part that grows with the
 server. Setup fails unless the mirror publishes a renamed window, and the
-[regression gate](#regression-gate) bounds the rename at two captures.
+[regression gate](#regression-gate) bounds the rename at 1.65 captures.
 
 In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) a rename seen
 through the mirror took 14.7 ms against 10.9 ms for a capture of one session,
@@ -339,9 +339,10 @@ nothing. Three things are gated instead:
   pushdown stopped narrowing rather than a noisy runner. The rows tmux sends
   are counted by the integration test above, not here.
 - The same workflow fails a run in which a rename seen through a mirror costs
-  more than two snapshot captures of the same server. The workstation and the
-  hosted runner measured 1.2 to 1.35, since each rebuild is one capture;
-  capturing twice per change would pass 2. Records made before the mirror benchmark carry no mirror
+  more than 1.65 snapshot captures of the same server. The workstation and
+  the hosted runner measured 1.17 to 1.35, since each rebuild is one capture;
+  a mirror made to capture twice per change measured 1.86 with sixteen
+  sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
   class and pass this check.
 
 Check a record with:

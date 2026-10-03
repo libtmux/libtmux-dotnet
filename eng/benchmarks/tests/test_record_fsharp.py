@@ -125,6 +125,7 @@ def test_the_gate_passes_a_mirror_that_captures_once_per_change() -> None:
 
 
 def test_the_gate_fails_a_mirror_that_captures_twice_per_change() -> None:
-    assert record_fsharp.gate(mirror_record(101.0, 46.0)) == [
-        "FSharpMirrorBenchmarks Sessions=16: a rename seen through the mirror costs 2.2 captures; the gate allows 2"
+    # The medians a mirror made to capture twice measured with sixteen sessions.
+    assert record_fsharp.gate(mirror_record(93.36, 50.25)) == [
+        "FSharpMirrorBenchmarks Sessions=16: a rename seen through the mirror costs 1.9 captures; the gate allows 1.65"
     ]
