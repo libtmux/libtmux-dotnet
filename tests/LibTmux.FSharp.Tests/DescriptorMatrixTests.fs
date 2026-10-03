@@ -358,6 +358,15 @@ module DescriptorMatrixTests =
                 Document = Filter.gt 1 PaneFields.historySize |> Filter.toDocument
             }
             {
+                Name = "PaneFields.deadStatus"
+                CoreProperty = "Pane.DeadStatus"
+                WireName = "pane_dead_status"
+                ValueType = "int option"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.ne (Some 0) PaneFields.deadStatus |> Filter.toDocument
+            }
+            {
                 Name = "ClientFields.name"
                 CoreProperty = "Client.Name"
                 WireName = "client_name"

@@ -31,7 +31,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L152)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L153)
 
 <a name="allOf"></a>
 
@@ -47,7 +47,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L132)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L133)
 
 <a name="any"></a>
 
@@ -65,7 +65,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L149)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L150)
 
 <a name="anyOf"></a>
 
@@ -81,7 +81,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L138)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L139)
 
 <a name="contains"></a>
 
@@ -99,7 +99,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L108)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L109)
 
 <a name="containsIgnoreCase"></a>
 
@@ -117,7 +117,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L111)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L112)
 
 <a name="endsWith"></a>
 
@@ -135,7 +135,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L102)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L103)
 
 <a name="endsWithIgnoreCase"></a>
 
@@ -153,7 +153,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L105)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L106)
 
 <a name="eq"></a>
 
@@ -171,7 +171,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L77)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L78)
 
 <a name="eqIgnoreCase"></a>
 
@@ -189,7 +189,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L90)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L91)
 
 <a name="ge"></a>
 
@@ -207,7 +207,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L129)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L130)
 
 <a name="gt"></a>
 
@@ -225,7 +225,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L126)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L127)
 
 <a name="isNull"></a>
 
@@ -241,7 +241,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L93)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L94)
 
 <a name="le"></a>
 
@@ -259,7 +259,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L123)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L124)
 
 <a name="lt"></a>
 
@@ -277,7 +277,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L120)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L121)
 
 <a name="matches"></a>
 
@@ -299,7 +299,7 @@ Type parameters: 'T
 
 `UnsupportedQueryExpressionException` The pattern is invalid or longer than 1024 characters.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L114)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L115)
 
 <a name="matchesIgnoreCase"></a>
 
@@ -319,7 +319,7 @@ Type parameters: 'T
 
 `UnsupportedQueryExpressionException` The pattern is invalid or longer than 1024 characters.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L117)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L118)
 
 <a name="ne"></a>
 
@@ -337,7 +337,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L85)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L86)
 
 <a name="negate"></a>
 
@@ -353,7 +353,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L83)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L84)
 
 <a name="none"></a>
 
@@ -371,7 +371,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L155)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L156)
 
 <a name="notOneOf"></a>
 
@@ -389,7 +389,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L147)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L148)
 
 <a name="oneOf"></a>
 
@@ -407,7 +407,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L144)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L145)
 
 <a name="startsWith"></a>
 
@@ -425,7 +425,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L96)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L97)
 
 <a name="startsWithIgnoreCase"></a>
 
@@ -443,7 +443,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L99)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L100)
 
 <a name="toDocument"></a>
 
@@ -459,7 +459,7 @@ Returns: <code>QueryDocument</code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L156)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L157)
 
 <a name="toPredicate"></a>
 
@@ -475,4 +475,4 @@ Returns: <code><span>'T&#32;->&#32;bool</span></code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L157)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L158)

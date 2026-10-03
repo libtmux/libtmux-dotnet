@@ -264,6 +264,9 @@ module PaneFields =
     val synchronized: Field<LibTmux.Pane, bool>
     /// <summary>Identifies how many lines have scrolled into the pane's history.</summary>
     val historySize: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the exit status of a dead pane's program; None while it runs, or when a signal ended it.</summary>
+    /// <remarks>Compare with <c>Filter.eq</c> or <c>Filter.ne</c> and <c>Some</c>; <c>Filter.ne (Some 0)</c> also keeps panes still running.</remarks>
+    val deadStatus: Field<LibTmux.Pane, int option>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

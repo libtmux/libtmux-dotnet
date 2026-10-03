@@ -341,6 +341,15 @@ captured-object properties. They have no portable descriptor.
 - Required depth: `Panes`
 - Schema version: `1`
 
+### `PaneFields.deadStatus`
+
+- Core property: `Pane.DeadStatus`
+- Wire name: `pane_dead_status`
+- Value type: `int option`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
 ## Clients
 
 ### `ClientFields.name`
