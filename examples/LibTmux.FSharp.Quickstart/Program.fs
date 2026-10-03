@@ -19,17 +19,8 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         // One session whose window runs a plain shell.
-        let shell =
-            { WindowSpec.empty with
-                Command = Some "/bin/sh"
-            }
-
-        let build =
-            { SessionSpec.named "build" with
-                Windows = [ shell ]
-            }
-
-        let! session = owned.Value |> Server.newSession token build
+        let! session =
+            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
 
         let! panes = session |> Session.panes |> Query.list token
         let pane = panes[0]
