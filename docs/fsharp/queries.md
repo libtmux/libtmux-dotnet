@@ -20,7 +20,9 @@ publication rejects it.
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace
 `Program.fs` in a console project referencing this revision of
-`LibTmux.FSharp`. Set `LIBTMUX_TMUX` to select a tmux binary outside `PATH`.
+`LibTmux.FSharp`. Each program reads `LIBTMUX_TMUX` itself to pick a tmux
+binary outside `PATH`; the library does not, so code of your own sets
+`ServerConnectionOptions.TmuxBinaryPath`.
 
 Each program creates a uniquely named server. Its `use!` bindings dispose
 the control clients, sessions, and server when the task finishes or fails.

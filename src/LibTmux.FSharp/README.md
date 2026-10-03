@@ -63,9 +63,9 @@ Building a query reads nothing; `Query.list` asks tmux, which drops panes that
 cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
-polling, and ends early if the program exits. `Pane.run` returns the command's
-exit status and the lines it printed. The quick start below runs these steps
-against an isolated tmux server.
+polling, and ends early if the program exits while it waits. `Pane.run` returns
+the command's exit status and the lines it printed. The quick start below runs
+these steps against an isolated tmux server.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -103,7 +103,8 @@ tmux narrows each listing where it can, and every row is rechecked.
 `Query.atMostOne` and `Query.tryExactlyOne` publish under NativeAOT; `Result`
 does not. `Pane.sendAndWait` ignores the screen before the line and the line's
 echo, `Pane.waitForText` answers at once when the text is already showing, and
-every wait ends early if the pane's program exits; [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
+every wait ends early if the pane's program exits during it and raises
+`TmuxPaneException` if it had already exited; [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
 compares them. `Pane.run` needs a POSIX shell prompt. A handle from
 `Server.within` shares its bound with the sessions, windows and panes taken
 from it. `Mirror.start` returns a mirror to `use!`. Inside

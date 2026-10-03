@@ -154,8 +154,9 @@ screen shows the run: true
 Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use
 `Pane.sendAndWait` instead. Every wait also ends early when the pane's program
-exits or a full-screen program takes over, and each sleeps on the pane's own
-output through a control client rather than polling.
+exits during it or a full-screen program takes over, raises
+`TmuxPaneException` on a pane whose program had already exited, and sleeps on
+the pane's own output through a control client rather than polling.
 
 `Pane.run` needs the pane at a prompt of `sh`, `ash`, `bash`, `dash`, `zsh` or
 a Korn shell; fish, PowerShell and a REPL are refused. It runs the command in a
