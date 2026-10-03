@@ -57,22 +57,77 @@ public static class PaneObservation
     /// pane is confirmed gone, without consuming another event.
     /// </exception>
     [UnsupportedOSPlatform("windows")]
-    public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
+    public static IAsyncEnumerable<TmuxEvent> WatchAsync(
         this IControlModeSession session,
         Pane pane,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return session.WatchAsync([pane], cancellationToken);
+    }
+
+    /// <summary>Watches several panes' output through one control client until each has ended.</summary>
+    /// <param name="session">The control client to watch through.</param>
+    /// <param name="panes">The panes to watch; at least one.</param>
+    /// <param name="cancellationToken">Stops watching.</param>
+    /// <returns>
+    /// The panes' own output in the order tmux sent it, with
+    /// <see cref="TmuxPanePausedEvent" /> and <see cref="TmuxPaneContinuedEvent" />
+    /// around output a slow reader missed. Each pane confirmed gone is reported
+    /// by a <see cref="TmuxPaneGoneEvent" /> after the output buffered before
+    /// it went; the stream ends once every pane is gone, or with
+    /// <see cref="TmuxExitEvent" /> when the control client itself ended. The
+    /// client remains borrowed.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// A client has one event stream, so this is how one client serves
+    /// several panes: each output event names its pane. Events after the last
+    /// pane's end stay unread for the client's next reader.
+    /// </para>
+    /// <para>
+    /// tmux discards output it has not yet sent to a control client once a
+    /// pane's program exits, so the last lines of a program that exits at once
+    /// may never arrive. Read final output with
+    /// <see cref="Pane.RunAsync(string, TimeSpan, CancellationToken)" />, or
+    /// capture a pane kept with <c>remain-on-exit</c>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="panes" /> is empty.</exception>
+    /// <exception cref="NotSupportedException">
+    /// A control session without an event watermark cannot establish which
+    /// output was buffered before a pane ended. Its watch fails when a pane is
+    /// confirmed gone, without consuming another event.
+    /// </exception>
+    [UnsupportedOSPlatform("windows")]
+    public static async IAsyncEnumerable<TmuxEvent> WatchAsync(
+        this IControlModeSession session,
+        IReadOnlyCollection<Pane> panes,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(pane);
-        PaneId paneId = pane.Id;
+        ArgumentNullException.ThrowIfNull(panes);
+        Dictionary<PaneId, Pane> alive = [];
+        foreach (Pane pane in panes)
+        {
+            ArgumentNullException.ThrowIfNull(pane, nameof(panes));
+            alive.TryAdd(pane.Id, pane);
+        }
 
+        if (alive.Count == 0)
+        {
+            throw new ArgumentException("Name at least one pane to watch.", nameof(panes));
+        }
+
+        HashSet<PaneId> watched = [.. alive.Keys];
+
+        // Panes confirmed gone, each with the last event written before it went.
+        PriorityQueue<PaneId, long> ending = new();
         using CancellationTokenSource reading =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         IControlModeEventWatermarkSource? source = session as IControlModeEventWatermarkSource;
         ControlModeEventBuffer.Reader? watermarked = source?.CreateEventReader(reading.Token);
         IAsyncEnumerator<TmuxEvent>? events = null;
-        long? watermark = null;
-        bool gone = false;
         Exception? failure = null;
         try
         {
@@ -82,20 +137,44 @@ public static class PaneObservation
                 events = session.Events.GetAsyncEnumerator(reading.Token);
             }
 
-            while (await ReadAsync().ConfigureAwait(false))
+            while (true)
             {
+                ControlModeEventRead read = await ReadAsync().ConfigureAwait(false);
+                if (read == ControlModeEventRead.Boundary)
+                {
+                    // Everything buffered before these panes went has been read.
+                    long boundary = ending.TryPeek(out _, out long first) ? first : long.MaxValue;
+                    while (ending.TryPeek(out PaneId gone, out long watermark) && watermark <= boundary)
+                    {
+                        ending.Dequeue();
+                        yield return new TmuxPaneGoneEvent(gone);
+                    }
+
+                    if (alive.Count == 0 && ending.Count == 0)
+                    {
+                        yield break;
+                    }
+
+                    continue;
+                }
+
+                if (read == ControlModeEventRead.Completed)
+                {
+                    yield break;
+                }
+
                 TmuxEvent current = watermarked?.Current ?? events!.Current;
                 switch (current)
                 {
-                    case TmuxOutputEvent output when output.PaneId == paneId:
+                    case TmuxOutputEvent output when watched.Contains(output.PaneId):
                         yield return output;
                         break;
 
-                    case TmuxPanePausedEvent paused when paused.PaneId == paneId:
+                    case TmuxPanePausedEvent paused when watched.Contains(paused.PaneId):
                         yield return paused;
                         break;
 
-                    case TmuxPaneContinuedEvent continued when continued.PaneId == paneId:
+                    case TmuxPaneContinuedEvent continued when watched.Contains(continued.PaneId):
                         yield return continued;
                         break;
 
@@ -115,11 +194,6 @@ public static class PaneObservation
 
                         break;
                 }
-            }
-
-            if (gone)
-            {
-                yield return new TmuxPaneGoneEvent(paneId);
             }
         }
         finally
@@ -143,9 +217,13 @@ public static class PaneObservation
 
         async Task CheckForGoneAsync()
         {
-            if (!gone && !await CheckAsync().ConfigureAwait(false))
+            foreach (Pane pane in alive.Values.ToArray())
             {
-                gone = true;
+                if (await CheckAsync(pane).ConfigureAwait(false))
+                {
+                    continue;
+                }
+
                 if (source is null)
                 {
                     var error = new NotSupportedException(
@@ -154,11 +232,12 @@ public static class PaneObservation
                     throw error;
                 }
 
-                watermark = source.CaptureEventWatermark();
+                alive.Remove(pane.Id);
+                ending.Enqueue(pane.Id, source.CaptureEventWatermark());
             }
         }
 
-        async Task<bool> CheckAsync()
+        async Task<bool> CheckAsync(Pane pane)
         {
             try
             {
@@ -177,25 +256,26 @@ public static class PaneObservation
             }
         }
 
-        async ValueTask<bool> ReadAsync()
+        async ValueTask<ControlModeEventRead> ReadAsync()
         {
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (reading.IsCancellationRequested)
                 {
-                    return false;
+                    return ControlModeEventRead.Completed;
                 }
 
                 if (watermarked is not null)
                 {
-                    ControlModeEventRead result = watermark is long boundary
+                    return ending.TryPeek(out _, out long boundary)
                         ? await watermarked.MoveNextThroughAsync(boundary).ConfigureAwait(false)
                         : await watermarked.MoveNextAsync().ConfigureAwait(false);
-                    return result == ControlModeEventRead.Item;
                 }
 
-                return await events!.MoveNextAsync().ConfigureAwait(false);
+                return await events!.MoveNextAsync().ConfigureAwait(false)
+                    ? ControlModeEventRead.Item
+                    : ControlModeEventRead.Completed;
             }
             catch (Exception error)
             {

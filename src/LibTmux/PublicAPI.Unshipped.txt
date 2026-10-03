@@ -1646,6 +1646,7 @@ override LibTmux.TmuxPanePausedEvent.GetHashCode() -> int
 override LibTmux.TmuxPanePausedEvent.ToString() -> string!
 override sealed LibTmux.TmuxPaneContinuedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 override sealed LibTmux.TmuxPanePausedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
+static LibTmux.PaneObservation.WatchAsync(this LibTmux.IControlModeSession! session, System.Collections.Generic.IReadOnlyCollection<LibTmux.Pane!>! panes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent!>!
 static LibTmux.PaneRunRequest.operator !=(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
 static LibTmux.PaneRunRequest.operator ==(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
 static LibTmux.PaneRunResult.operator !=(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool

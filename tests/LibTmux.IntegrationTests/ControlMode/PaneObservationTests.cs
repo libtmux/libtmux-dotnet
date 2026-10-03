@@ -244,6 +244,53 @@ public sealed class PaneObservationTests
     }
 
     [UnixFact]
+    public async Task One_client_watches_several_panes_and_ends_each_after_its_output()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Pane first = await server.GetPaneAsync(new PaneId(0), token);
+        Pane second = await first.SplitAsync(cancellationToken: token);
+        await first.SplitAsync(cancellationToken: token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
+        await using var delivery = new WatermarkedSession(control, capacity: 16);
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(first.Id, "first"));
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(new PaneId(999), "unwatched"));
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(second.Id, "second"));
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromMilliseconds(750));
+        await using IAsyncEnumerator<TmuxEvent> reader =
+            delivery.WatchAsync([first, second], watchdog.Token).GetAsyncEnumerator();
+
+        Assert.Equal("first", await NextOutputAsync(reader));
+        Assert.Equal("second", await NextOutputAsync(reader));
+
+        await first.KillAsync(cancellationToken: token);
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(first.Id, "first-last"));
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
+        Assert.Equal("first-last", await NextOutputAsync(reader));
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal(first.Id, Assert.IsType<TmuxPaneGoneEvent>(reader.Current).PaneId);
+
+        // The other pane is still watched after the first one ends.
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(second.Id, "second-still"));
+        Assert.Equal("second-still", await NextOutputAsync(reader));
+
+        await second.KillAsync(cancellationToken: token);
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
+        Assert.True(await reader.MoveNextAsync());
+        Assert.Equal(second.Id, Assert.IsType<TmuxPaneGoneEvent>(reader.Current).PaneId);
+        Assert.False(await reader.MoveNextAsync());
+        Assert.True(control.IsRunning);
+
+        static async Task<string> NextOutputAsync(IAsyncEnumerator<TmuxEvent> events)
+        {
+            Assert.True(await events.MoveNextAsync());
+            return Assert.IsType<TmuxOutputEvent>(events.Current).Data;
+        }
+    }
+
+    [UnixFact]
     public async Task A_lost_arrangement_notification_still_terminates_the_watch()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

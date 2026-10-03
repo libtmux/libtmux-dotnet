@@ -291,6 +291,7 @@ modes differ.
 | `LibTmux.PaneId.op_LessThan(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out before another. |
 | `LibTmux.PaneId.op_LessThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no later than another. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)` | Watches one pane's output until it ends. |
+| `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,System.Collections.Generic.IReadOnlyCollection{LibTmux.Pane},System.Threading.CancellationToken)` | Watches several panes' output through one control client until each has ended. |
 | `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
 | `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
