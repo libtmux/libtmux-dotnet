@@ -12,7 +12,7 @@ internal static class WorkspaceYamlParser
         ["session_name", "start_directory", "options", "windows", "environment", "shell_command_before", "before_script"];
 
     private static readonly string[] WindowKeys =
-        ["window_name", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
+        ["window_name", "window_index", "start_directory", "layout", "focus", "options", "panes", "environment", "shell_command_before"];
 
     private static readonly string[] PaneKeys =
         ["shell_command", "start_directory", "focus", "options", "environment", "shell_command_before"];
@@ -97,7 +97,8 @@ internal static class WorkspaceYamlParser
                 layout: ReadOptionalScalar(values, "layout", $"{path}.layout"),
                 focus: ReadOptionalBoolean(values, "focus", $"{path}.focus"),
                 options: ReadOptions(values, "options", $"{path}.options"),
-                panes: ReadPanes(values, path))
+                panes: ReadPanes(values, path),
+                windowIndex: ReadOptionalWindowIndex(values, $"{path}.window_index"))
                 .WithDefaults(
                     environment: ReadOptions(values, "environment", $"{path}.environment"),
                     shellCommandsBefore: ReadCommands(values, path, "shell_command_before"));
@@ -329,6 +330,19 @@ internal static class WorkspaceYamlParser
         }
 
         throw WrongShape(node, path, "a Boolean");
+    }
+
+    private static int? ReadOptionalWindowIndex(Dictionary<string, YamlNode> parent, string path)
+    {
+        if (!parent.TryGetValue("window_index", out YamlNode? node))
+            return null;
+
+        if (node is not YamlScalarNode scalar
+            || ReadNullableScalar(scalar) is not string value
+            || !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int index))
+            throw WrongShape(node, path, "a nonnegative integer");
+
+        return index;
     }
 
     private static YamlSequenceNode RequireSequence(YamlNode node, string path) =>

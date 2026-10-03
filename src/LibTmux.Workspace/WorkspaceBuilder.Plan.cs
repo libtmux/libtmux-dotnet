@@ -99,11 +99,15 @@ public sealed partial class WorkspaceBuilder
 
             for (int index = 0; index < workspace.Windows.Count; index++)
             {
-                PlanWindow(workspace, workspace.Windows[index], index, policy, actions, compensation);
+                PlanWindow(workspace, workspace.Windows[index], index, index == 0 && !append, policy, actions, compensation);
                 if (index == 0 && !append)
                 {
                     actions.Add(new(WorkspaceActionKind.UnlinkWindow, "bootstrap"));
-                    actions.Add(new(WorkspaceActionKind.MoveToBaseIndex, "window:0", "session"));
+                    if (workspace.Windows[0].WindowIndex is int requestedIndex)
+                        actions.Add(new WorkspaceAction<int>(WorkspaceActionKind.MoveToWindowIndex, "window:0", requestedIndex,
+                            "session"));
+                    else
+                        actions.Add(new(WorkspaceActionKind.MoveToBaseIndex, "window:0", "session"));
                 }
             }
             for (int index = workspace.Windows.Count - 1; index >= 0; index--)
@@ -147,7 +151,7 @@ public sealed partial class WorkspaceBuilder
             ? null : PlanHost(workspace, policy));
     }
 
-    private static void PlanWindow(WorkspaceFile workspace, WorkspaceWindow window, int windowIndex,
+    private static void PlanWindow(WorkspaceFile workspace, WorkspaceWindow window, int windowIndex, bool bootstrapWindow,
         WorkspacePlanOptions policy, List<WorkspaceAction> actions, List<WorkspaceAction> compensation)
     {
         string windowTarget = $"window:{windowIndex}";
@@ -169,6 +173,7 @@ public sealed partial class WorkspaceBuilder
                 actions.Add(new WorkspaceAction<NewWindowRequest>(WorkspaceActionKind.CreateWindow, windowTarget, new()
                 {
                     Name = EscapeWorkspaceName(window.WindowName),
+                    Index = bootstrapWindow ? null : window.WindowIndex?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     StartDirectory = StartDirectoryFor(window, workspace),
                     Environment = EnvironmentFor(workspace, window, pane),
                 }, "session"));
@@ -218,8 +223,11 @@ public sealed partial class WorkspaceBuilder
         ValidateOptions(workspace.Options);
         foreach (string command in workspace.ShellCommandsBefore)
             ValidateText(command);
+        HashSet<int> requestedIndexes = [];
         foreach (WorkspaceWindow window in workspace.Windows)
         {
+            if (window.WindowIndex is int index && !requestedIndexes.Add(index))
+                throw new WorkspaceFormatException($"The workspace declares window_index {index} more than once.");
             ValidateText(window.WindowName);
             ValidateText(window.StartDirectory);
             ValidateText(window.Layout);

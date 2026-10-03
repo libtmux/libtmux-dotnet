@@ -48,6 +48,24 @@ public sealed class WorkspacePlanTests
         Assert.Throws<WorkspaceFormatException>(() => WorkspaceBuilder.Validate(invalid));
     }
 
+    [Fact]
+    public async Task Duplicate_declared_window_indexes_fail_before_endpoint_inspection()
+    {
+        Server absent = Server.Open(new ServerConnectionOptions { TmuxBinaryPath = "/missing-workspace-tmux" });
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: duplicate-indexes
+            windows:
+              - window_index: 5
+              - window_index: 5
+            """);
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
+            () => WorkspaceBuilder.Validate(workspace));
+        Assert.Contains("window_index 5", failure.Message, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<WorkspaceFormatException>(() => new WorkspaceBuilder(absent).PlanAsync(
+            workspace, cancellationToken: TestContext.Current.CancellationToken));
+    }
+
     [UnixFact]
     public async Task Planning_an_absent_endpoint_freezes_actions_without_starting_it()
     {

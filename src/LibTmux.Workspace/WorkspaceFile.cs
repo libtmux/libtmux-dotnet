@@ -84,18 +84,23 @@ public sealed class WorkspaceWindow
     /// <param name="focus">Whether the window is left selected.</param>
     /// <param name="options">The window options to set.</param>
     /// <param name="panes">The panes to create, in order.</param>
+    /// <param name="windowIndex">The session-relative window index, or null for the next free index.</param>
     public WorkspaceWindow(
         string? windowName = null,
         string? startDirectory = null,
         string? layout = null,
         bool focus = false,
         IReadOnlyDictionary<string, string>? options = null,
-        IReadOnlyList<WorkspacePane>? panes = null)
+        IReadOnlyList<WorkspacePane>? panes = null,
+        int? windowIndex = null)
     {
+        if (windowIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(windowIndex), "The window index must be nonnegative.");
         WindowName = windowName;
         StartDirectory = startDirectory;
         Layout = layout;
         Focus = focus;
+        WindowIndex = windowIndex;
         _options = WorkspaceCollections.Copy(options, nameof(options));
         _panes = WorkspaceCollections.Copy(panes, nameof(panes));
     }
@@ -104,7 +109,8 @@ public sealed class WorkspaceWindow
         WorkspaceWindow source,
         IReadOnlyDictionary<string, string> environment,
         IReadOnlyList<string> shellCommandsBefore)
-        : this(source.WindowName, source.StartDirectory, source.Layout, source.Focus, source.Options, source.Panes)
+        : this(source.WindowName, source.StartDirectory, source.Layout, source.Focus, source.Options, source.Panes,
+            source.WindowIndex)
     {
         _environment = WorkspaceCollections.CopyEnvironment(environment, nameof(environment));
         _shellCommandsBefore = WorkspaceCollections.Copy(shellCommandsBefore, nameof(shellCommandsBefore));
@@ -128,6 +134,9 @@ public sealed class WorkspaceWindow
 
     /// <summary>Gets the window name.</summary>
     public string? WindowName { get; }
+
+    /// <summary>Gets the requested session-relative window index, or null for the next free index.</summary>
+    public int? WindowIndex { get; }
 
     /// <summary>Gets the directory its panes start in.</summary>
     public string? StartDirectory { get; }
@@ -260,7 +269,8 @@ public sealed class WorkspaceFile
     /// Repeated links become separate declared windows. Captured pane directories
     /// escape literal dollars for a later explicit <see cref="Resolve" />; captured
     /// null paths remain unspecified. Commands, environment, options, terminal text,
-    /// entity identifiers, indices, and shared-link identity are not reconstructed.
+    /// entity identifiers, pane indices, and shared-link identity are not
+    /// reconstructed.
     /// Foreground command names do not establish shell intent. Restoring a native
     /// custom layout can change which pane occupies a position; see
     /// <see cref="Window.SelectLayoutAsync" />.
@@ -288,7 +298,8 @@ public sealed class WorkspaceFile
             }
 
             windows[windowIndex] = new WorkspaceWindow(
-                windowName: window.Name, layout: window.Layout, focus: window.IsActive, panes: panes);
+                windowName: window.Name, layout: window.Layout, focus: window.IsActive, panes: panes,
+                windowIndex: window.Edge.WindowIndex);
         }
 
         return new WorkspaceFile(sessionName: session.Name, windows: windows);

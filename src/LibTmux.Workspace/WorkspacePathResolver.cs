@@ -36,7 +36,8 @@ internal static class WorkspacePathResolver
             }
 
             windows[windowIndex] = new WorkspaceWindow(
-                window.WindowName, windowDirectory, window.Layout, window.Focus, ExpandOptions(window.Options, inputs), panes)
+                window.WindowName, windowDirectory, window.Layout, window.Focus, ExpandOptions(window.Options, inputs), panes,
+                window.WindowIndex)
                 .WithDefaults(window.Environment, window.ShellCommandsBefore);
         }
 
