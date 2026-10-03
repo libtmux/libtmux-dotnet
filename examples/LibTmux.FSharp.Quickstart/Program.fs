@@ -21,10 +21,19 @@ let runAsync () =
 
         use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
 
+        // Each session's one window runs a plain shell.
         for name in [ "build"; "web"; "worker" ] do
-            let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = name, Command = "/bin/sh"), token)
+            let shell =
+                { SessionSpec.named name with
+                    Windows =
+                        [
+                            { WindowSpec.empty with
+                                Command = Some "/bin/sh"
+                            }
+                        ]
+                }
 
+            let! _ = owned.Value |> Server.newSession token shell
             ()
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
