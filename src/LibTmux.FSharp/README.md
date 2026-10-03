@@ -162,14 +162,11 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
         let token = deadline.Token
 
+        // A socket of its own, and no user configuration.
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
@@ -249,13 +246,14 @@ run: exit 3, output ["ok"]
 ```
 <!-- endfsharp-output -->
 
-`CreateOwnedAsync` starts a server on a unique socket and `use!` stops it when
-the task ends. `ConnectAsync` attaches a second handle to that socket, as an
-application attaches to a server it did not start. `Query.atMostOne` returns
-`None` only when no session matched, so the `match` is where a program would
-create the missing session; several matches raise. The wait succeeds
-whether the line appeared before or after it began, and the run's exit status
-comes from the shell, not from reading the screen.
+`CreateOwnedAsync` starts a server on a unique socket, with the `tmux` on
+`PATH`; set `ServerConnectionOptions.TmuxBinaryPath` to use another. `use!`
+stops it when the task ends. `ConnectAsync` attaches a second handle to that
+socket, as an application attaches to a server it did not start.
+`Query.atMostOne` returns `None` only when no session matched, so the `match`
+is where a program would create the missing session; several matches raise. The
+wait succeeds whether the line appeared before or after it began, and the run's
+exit status comes from the shell, not from reading the screen.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
 is the published block. CI restores only `LibTmux.FSharp` as a direct package

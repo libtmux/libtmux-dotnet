@@ -9,14 +9,11 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
         let token = deadline.Token
 
+        // A socket of its own, and no user configuration.
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
