@@ -244,7 +244,9 @@ their order and multiplicity. An uncaptured relationship raises
 | F# | Requires FSharp.Core 8.0.100 or newer, so an application keeps its SDK's FSharp.Core. Required CI builds and runs a consumer with the .NET 8 SDK's F# compiler and implicit FSharp.Core. |
 | tmux | Required Linux CI runs the repository's F# integration example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
 | Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows tmux is unsupported. |
-| Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
+| Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
-`Selection.exactlyOne` is unsupported under NativeAOT while FSharp.Core 10.1.302
-emits trim and AOT diagnostics for its `Result` return type.
+`Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,
+whose generated `ToString` formats through `printf`, which NativeAOT rejects.
+Under NativeAOT, use `Query.tryExactlyOne` or `Seq.tryExactlyOne`, which the
+NativeAOT consumer runs.

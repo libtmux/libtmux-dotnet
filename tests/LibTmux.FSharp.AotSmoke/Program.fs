@@ -55,6 +55,16 @@ let main _ =
                             ]
                     )
 
+                // FSharp.Core's Result prints itself with printf, which NativeAOT
+                // rejects, so trimmed code reads cardinality as an option.
+                let! sole =
+                    scope.Server |> Server.sessions |> Query.tryExactlyOne CancellationToken.None
+
+                let agree =
+                    match sole, captured.Sessions |> Seq.tryExactlyOne with
+                    | Some live, Some local -> live.Id.Equals(local.Id)
+                    | _ -> false
+
                 Console.WriteLine(
                     "panes "
                     + commands.Length.ToString(CultureInfo.InvariantCulture)
@@ -63,7 +73,7 @@ let main _ =
                 )
 
                 return
-                    if commands.Length.Equals(1) && withPane.Count.Equals(1) then
+                    if commands.Length.Equals(1) && withPane.Count.Equals(1) && agree then
                         0
                     else
                         1
