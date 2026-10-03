@@ -97,6 +97,14 @@ Core handles and request types appear in the
 | `val views: mirror: LibTmux.ServerMirror -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView>` | Streams the current view and each newer one, skipping views published while the reader was busy. |
 | `val waitUntil: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> condition: (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> mirror: LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView>` | Waits until a view satisfies a condition, testing the current view first. |
 
+## Options
+
+| Signature | Summary |
+|---|---|
+| `LibTmux.FSharp.Options` | Reads and writes options through keys that know their value's type. |
+| `val get: cancellationToken: System.Threading.CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> options: LibTmux.TmuxOptions -> System.Threading.Tasks.Task<'T> when 'T: not null` | Reads the value an option has in a scope, set there or inherited, as its key's type. |
+| `val set: cancellationToken: System.Threading.CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> value: 'T -> options: LibTmux.TmuxOptions -> System.Threading.Tasks.Task when 'T: not null` | Sets an option in a scope from a value of its key's type. |
+
 ## Pane
 
 | Signature | Summary |

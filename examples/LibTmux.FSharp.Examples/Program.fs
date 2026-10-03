@@ -246,6 +246,12 @@ let private runAsync () =
         if chained <> [ "fsharp-chain-first"; "fsharp-chain-second" ] then
             failwith "The chaining guide did not preserve command order."
 
+        let! history, stage, _ =
+            GuideSnippets.tuneAsync cancellationToken scope.Session scope.Window
+
+        if history <> 50_000 || stage <> "build" then
+            failwithf "The typed option guide read back %d and %s." history stage
+
         let! indexedOption, inheritedOption, hookIndex, renderedFormat =
             GuideSnippets.inspectCoreSettingsAsync cancellationToken scope.Server scope.Session
 

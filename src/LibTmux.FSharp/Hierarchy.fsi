@@ -147,3 +147,19 @@ module Pane =
     /// <remarks>Cancellation can leave the split applied; do not retry automatically.</remarks>
     val split:
         cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+/// <summary>Reads and writes options through keys that know their value's type.</summary>
+/// <remarks>
+/// Pass the options of the scope the option belongs to, such as
+/// <c>session.Options</c> for <c>TmuxOptionKey.HistoryLimit</c>. Declare other keys
+/// with <c>TmuxOptionKey.Text</c>, <c>Number</c> or <c>Flag</c>.
+/// </remarks>
+[<RequireQualifiedAccess>]
+module Options =
+    /// <summary>Reads the value an option has in a scope, set there or inherited, as its key's type.</summary>
+    /// <exception cref="T:LibTmux.TmuxOptionException">tmux rejected the name, reported no value, or reported one the key cannot read.</exception>
+    val get: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> options: TmuxOptions -> Task<'T>
+
+    /// <summary>Sets an option in a scope from a value of its key's type.</summary>
+    /// <exception cref="T:LibTmux.TmuxOptionException">tmux rejected the name or the value.</exception>
+    val set: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> value: 'T -> options: TmuxOptions -> Task

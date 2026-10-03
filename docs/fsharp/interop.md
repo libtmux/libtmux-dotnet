@@ -24,6 +24,48 @@ expose an `Async` adapter with an unproved cancellation contract.
 cross a process or language boundary. It serializes the core `QueryDocument`;
 the F# package does not define a second format.
 
+## Typed options
+
+`Options.get` and `Options.set` take a `TmuxOptionKey` that knows its value's
+type. The named keys, such as `TmuxOptionKey.HistoryLimit` and
+`TmuxOptionKey.Mouse`, have the same type on every supported tmux; declare
+others with `TmuxOptionKey.Text`, `Number` or `Flag`. A read returns the value
+tmux applies, including one inherited from a parent scope, and raises
+`TmuxOptionException` when tmux reports none or one the key cannot read.
+
+<!-- fsharp-snippet: TypedOptions run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let tuneAsync (cancellationToken: CancellationToken) (session: Session) (window: Window) =
+    task {
+        do!
+            session.Options
+            |> Options.set cancellationToken TmuxOptionKey.HistoryLimit 50_000
+
+        do!
+            session.Options
+            |> Options.set cancellationToken (TmuxOptionKey.Text "@stage") "build"
+
+        let! history =
+            session.Options |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
+
+        let! stage =
+            session.Options |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
+
+        // Never set on the window, so this is tmux's inherited default.
+        let! renames =
+            window.Options |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
+
+        return history, stage, renames
+    }
+```
+<!-- endfsharp-snippet -->
+
+## Configuration, hooks and formats
+
 Core configuration and format APIs remain available on the same handles. This
 function takes an existing server and session, makes scoped changes, and checks
 what tmux reports. The [example runner](../../examples/LibTmux.FSharp.Examples/Program.fs)

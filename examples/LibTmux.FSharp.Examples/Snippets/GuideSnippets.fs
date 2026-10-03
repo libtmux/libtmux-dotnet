@@ -304,6 +304,35 @@ module internal GuideSnippets =
     let decodeFilter json = QueryJson.Deserialize json
     // endfsharp-snippet
 
+    // fsharp-snippet: TypedOptions
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let tuneAsync (cancellationToken: CancellationToken) (session: Session) (window: Window) =
+        task {
+            do!
+                session.Options
+                |> Options.set cancellationToken TmuxOptionKey.HistoryLimit 50_000
+
+            do!
+                session.Options
+                |> Options.set cancellationToken (TmuxOptionKey.Text "@stage") "build"
+
+            let! history =
+                session.Options |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
+
+            let! stage =
+                session.Options |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
+
+            // Never set on the window, so this is tmux's inherited default.
+            let! renames =
+                window.Options |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
+
+            return history, stage, renames
+        }
+    // endfsharp-snippet
+
     // fsharp-snippet: CoreInterop
     open System
     open System.Collections.Generic

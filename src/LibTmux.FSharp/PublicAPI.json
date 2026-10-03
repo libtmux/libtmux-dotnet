@@ -1607,6 +1607,110 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirrorView>"
     },
     {
+      "id": "M:LibTmux.FSharp.Options.get``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},LibTmux.TmuxOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "get",
+      "declaringType": "T:LibTmux.FSharp.Options",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val get: cancellationToken: System.Threading.CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> options: LibTmux.TmuxOptions -> System.Threading.Tasks.Task<'T> when 'T: not null",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.TmuxOptionKey<'T> -> LibTmux.TmuxOptions -> System.Threading.Tasks.Task<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "key",
+          "optional": false,
+          "type": "LibTmux.TmuxOptionKey<'T>"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.TmuxOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "get",
+      "genericParameters": [
+        {
+          "constraints": [
+            "not null"
+          ],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Options.set``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},``0,LibTmux.TmuxOptions)",
+      "package": "LibTmux.FSharp",
+      "name": "set",
+      "declaringType": "T:LibTmux.FSharp.Options",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val set: cancellationToken: System.Threading.CancellationToken -> key: LibTmux.TmuxOptionKey<'T> -> value: 'T -> options: LibTmux.TmuxOptions -> System.Threading.Tasks.Task when 'T: not null",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.TmuxOptionKey<'T> -> 'T -> LibTmux.TmuxOptions -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "key",
+          "optional": false,
+          "type": "LibTmux.TmuxOptionKey<'T>"
+        },
+        {
+          "name": "value",
+          "optional": false,
+          "type": "'T"
+        },
+        {
+          "name": "options",
+          "optional": false,
+          "type": "LibTmux.TmuxOptions"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "set",
+      "genericParameters": [
+        {
+          "constraints": [
+            "not null"
+          ],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "capture",
@@ -3443,6 +3547,33 @@
       "interfaces": [],
       "exposedTypes": [
         "LibTmux.FSharp.Mirror"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.Options",
+      "package": "LibTmux.FSharp",
+      "name": "Options",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.Options",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Options"
       ],
       "attributes": [
         {

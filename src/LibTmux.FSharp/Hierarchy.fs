@@ -99,3 +99,11 @@ module Pane =
 
     let split (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SplitAsync(request, cancellationToken)
+
+[<RequireQualifiedAccess>]
+module Options =
+    let get (cancellationToken: CancellationToken) (key: TmuxOptionKey<'T>) (options: TmuxOptions) =
+        options.GetAsync(key, cancellationToken)
+
+    let set (cancellationToken: CancellationToken) (key: TmuxOptionKey<'T>) (value: 'T) (options: TmuxOptions) =
+        options.SetAsync(key, value, cancellationToken)
