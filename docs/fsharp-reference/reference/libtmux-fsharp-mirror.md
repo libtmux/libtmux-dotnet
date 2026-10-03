@@ -107,6 +107,8 @@ The stream is cold, ends when the mirror ends, and raises the failure that ended
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;ServerMirrorView&gt;</span></code>
 
+`TmuxObjectNotFoundException` The anchor session has gone, so the mirror could not attach again.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L149)
 
 <a name="waitUntil"></a>

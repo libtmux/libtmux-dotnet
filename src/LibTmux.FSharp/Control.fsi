@@ -134,6 +134,7 @@ module Mirror =
 
     /// <summary>Streams the current view and each newer one, skipping views published while the reader was busy.</summary>
     /// <remarks>The stream is cold, ends when the mirror ends, and raises the failure that ended it.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">The anchor session has gone, so the mirror could not attach again.</exception>
     val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>
 
     /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
