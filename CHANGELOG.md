@@ -12,10 +12,10 @@ version.
 
 ### Added
 
-- `Pane.Active`, `Pane.Dead`, `Pane.InMode`, `Pane.ProcessId`, `Window.Active`
-  and `Window.Zoomed` read a pane's and window's state, and queries filter on
-  them through tmux. `LibTmux.FSharp` adds the matching `PaneFields` and
-  `WindowFields`. (#53)
+- `Pane.Active`, `Pane.Dead`, `Pane.InMode`, `Pane.ProcessId`,
+  `Pane.Synchronized`, `Window.Active` and `Window.Zoomed` read a pane's and
+  window's state, and queries filter on them through tmux. `LibTmux.FSharp`
+  adds the matching `PaneFields` and `WindowFields`. (#53)
 - `LibTmux.FSharp.PaneRun.Exited`, `TimedOut` and `NotStarted` match how a
   `Pane.run` ended, and `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut`
   and `Ended` how a wait did. (#53)
@@ -23,6 +23,8 @@ version.
   time, where `Mirror.waitUntil` raises. (#53)
 - `LibTmux.FSharp.Retry.ifNotSentAfter` retries unsent work after each of a
   list of delays, for a server still starting. (#53)
+- `LibTmux.FSharp.Server.createOwned` and `Server.connect` start and attach to
+  a server without qualifying the core `LibTmux.Server` type. (#53)
 - The MCP server's `list_panes`, `list_windows` and `snapshot_pane` advertise
   `anthropic/alwaysLoad`, so a client that defers tool schemas keeps them
   loaded. (#53)
@@ -36,6 +38,9 @@ version.
 - `OwnedServerScope.DisposeAsync` stops the server when called again after a
   failed attempt, and a call made while another is stopping it waits for that
   stop and its outcome; both returned at once. (#53)
+- `ServerMirror` no longer publishes a new view each second a person types
+  in an attached client: client activity times, the saved cursor and
+  synchronized-output toggles no longer count as changes. (#53)
 - Package pages on nuget.org no longer open with the logo's HTML shown as
   text. (#53)
 
