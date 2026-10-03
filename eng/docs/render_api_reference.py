@@ -124,8 +124,7 @@ def fsharp_group(member: dict[str, str]) -> str:
     return member["id"].split(":", 1)[1].split(".")[-1].split("`")[0]
 
 
-# Namespaces an F# reader writes `open` for. Core LibTmux names keep their
-# namespace: LibTmux.Server and the facade's Server module are different things.
+# Namespaces an F# reader writes `open` for.
 OPENED_NAMESPACE = re.compile(
     r"\b(?:Microsoft\.FSharp\.(?:Core|Collections|Control)|System\.Threading\.Tasks"
     r"|System\.Threading|System\.Collections\.Generic|LibTmux\.FSharp)\.(?=[A-Za-z_])"
@@ -134,9 +133,20 @@ OPENED_NAMESPACE = re.compile(
 )
 
 
-def short_names(signature: str) -> str:
-    """Return a signature as F# source spells it after the usual opens."""
-    return OPENED_NAMESPACE.sub("", signature)
+# A type directly in the LibTmux namespace, not one in a namespace below it.
+CORE_TYPE = re.compile(r"\bLibTmux\.(?P<name>[A-Za-z_]\w*)\b(?!\.)")
+
+
+def short_names(signature: str, modules: t.AbstractSet[str] = frozenset()) -> str:
+    """Return a signature as F# source spells it after the usual opens.
+
+    A core type named like a facade module keeps its namespace: LibTmux.Pane
+    and the facade's Pane module are different things.
+    """
+    return CORE_TYPE.sub(
+        lambda match: match.group(0) if match.group("name") in modules else match.group("name"),
+        OPENED_NAMESPACE.sub("", signature),
+    )
 
 
 def render_fsharp(members: list[dict[str, str]]) -> str:
@@ -156,14 +166,15 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "Core handles and request types appear in the",
         "[LibTmux API reference](../api/README.md).",
         "Signatures assume `open System`, `open System.Threading`,",
-        "`open System.Threading.Tasks`, `open System.Collections.Generic` and",
-        "`open LibTmux.FSharp`; core types keep their `LibTmux.` prefix.",
+        "`open System.Threading.Tasks`, `open System.Collections.Generic`,",
+        "`open LibTmux` and `open LibTmux.FSharp`. A core type that shares its name",
+        "with a module here, such as `LibTmux.Pane`, keeps its prefix.",
     ]
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
         for entry in sorted(entries, key=lambda item: item["signature"]):
             lines.append(
-                f"| {code_span(short_names(entry['signature']))} | {entry['summary'].replace('|', '\\|')} |"
+                f"| {code_span(short_names(entry['signature'], grouped.keys()))} | {entry['summary'].replace('|', '\\|')} |"
             )
 
     return "\n".join(lines) + "\n"

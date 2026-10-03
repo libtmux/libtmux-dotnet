@@ -128,18 +128,22 @@ def test_fsharp_renderer_uses_compiled_signatures_and_declaring_modules() -> Non
 
 
 def test_fsharp_renderer_writes_names_as_source_spells_them() -> None:
-    """System and FSharp.Core namespaces are noise; a core handle keeps its own."""
+    """Opened namespaces are noise; a core type named like a facade module keeps its own."""
     short_names = load_renderer()["short_names"]
 
     assert short_names(
         "val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server"
-        " -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
-    ) == "val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<LibTmux.IControlModeSession>"
+        " -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>",
+        {"Server"},
+    ) == "val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>"
+    assert short_names("val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument", {"Query"}) == (
+        "val toDocument: filter: Filter<'T> -> LibTmux.Query.QueryDocument"
+    )
     assert short_names(
         "val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
     ) == "val cleanupFailure: error: exn -> exn option"
     assert short_names("val name: LibTmux.FSharp.Field<LibTmux.Client,System.String>") == (
-        "val name: Field<LibTmux.Client,String>"
+        "val name: Field<Client,String>"
     )
     assert short_names("val p: System.Reflection.PropertyInfo -> System.TimeSpan") == (
         "val p: System.Reflection.PropertyInfo -> TimeSpan"
