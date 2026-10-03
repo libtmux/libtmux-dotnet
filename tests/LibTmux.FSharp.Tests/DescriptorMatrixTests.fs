@@ -364,3 +364,8 @@ module DescriptorMatrixTests =
         let restored = QueryJson.Deserialize(wire)
         Assert.Equal(document, restored)
         Assert.Contains("\"schema\":\"libtmux-query\"", wire, StringComparison.Ordinal)
+
+        // An empty combinator is a Boolean constant, which travels like any other predicate.
+        for empty in [ Filter.allOf<LibTmux.Pane> []; Filter.oneOf [] PaneFields.currentCommand ] do
+            let document = Filter.toDocument empty
+            Assert.Equal(document, QueryJson.Deserialize(QueryJson.Serialize(document)))

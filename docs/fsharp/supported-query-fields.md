@@ -271,6 +271,6 @@ typed client ID, so the F# façade does not invent one. `session_windows` and
 `window_panes` appear as typed relations; the façade does not expose a count
 descriptor because its controlled translator input is the captured relation.
 
-`allOf`, `anyOf` and `oneOf` reject empty inputs. Version one has no public
-construction path for Boolean predicate identities, so the façade does not
-claim that an empty conjunction or disjunction can be serialized.
+`allOf []` matches everything, and `anyOf []`, `oneOf []` match nothing;
+`notOneOf []` matches everything. Each is a Boolean constant predicate, which
+serializes and travels like any other document.
