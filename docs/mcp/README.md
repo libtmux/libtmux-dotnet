@@ -93,6 +93,18 @@ The in-memory task store admits at most 8 active executions and retains at most
 256 results for 15 minutes. Cancellation keeps its active slot until the
 background execution actually stops.
 
+Cancel a plain pane wait with `notifications/cancelled` and its JSON-RPC
+request ID. Cancel a task with `tasks/cancel` and its task ID
+(`McpClient.CancelTaskAsync` in the .NET SDK); cancelling the request that
+created a task does not stop its work. The server releases a plain wait's
+observer as the cancelled wait unwinds. Even without a cancellation
+notification, the observation loop has a deadline.
+
+Cancelling a client-side await alone does not prove the server received
+`notifications/cancelled`. A client that needs prompt server cleanup must
+verify that it sends the notification for the pending request ID, or send it
+explicitly.
+
 A pane text wait subscribes to tmux's own
 [control mode](https://github.com/tmux/tmux/wiki/Control-Mode), so tmux reports
 pane output as it happens and the wait is released the moment there is
@@ -102,8 +114,8 @@ After its initial consistent capture, a wait retains its cursor when the pane
 changes throughout a read and retries on activity within the original deadline.
 Layout and window-close notifications also wake waits in the affected session;
 a resize does not need to produce text for the wait to retry.
-Cancellation still ends the wait. Direct captures and the initial baseline
-keep their bounded refusal when the pane never settles during their attempts.
+Direct captures and the initial baseline keep their bounded refusal when the
+pane never settles during their attempts.
 
 Two details make that safe. The control client attaches with `ignore-size`
 (tmux 3.2+), so it never drags the window down to its own size; and it is
@@ -409,7 +421,7 @@ for the current surface.
 | Positional socket argument, such as `"args": ["my-socket"]` | `LIBTMUX_SOCKET=my-socket` | The executable takes no positional arguments; socket selection is frozen from the environment. |
 | Most retained `tmux_*` tools | The same operation without the `tmux_` prefix | Check the generated list; several operations below were narrowed or renamed. |
 | `tmux_run` | `run_shell_command` | The call remains synchronous and bounded. There are no detached job handles. |
-| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP cancellation | The background-job registry has no replacement. Long-running work stays visible in its pane. |
+| `tmux_start_job`, `tmux_job`, `tmux_list_jobs`, `tmux_cancel_job` | `run_shell_command`, `capture_since`, and MCP wait cancellation | The background-job registry has no replacement. Cancelling a wait does not stop a command already running in the pane. |
 | `tmux_tail_pane` | `capture_since` | The opaque cursor still supports incremental pane reads. |
 | `enter_copy_mode`, `exit_copy_mode` | `capture_pane`, `snapshot_pane`, `search_panes`, `capture_since`, and explicit human interaction | Capture reads visible text and scrollback without changing client state. A human owns entering, driving, and leaving pane modes. |
 | `tmux_display_message` | `get_tmux_variables` | Only validated variable names are accepted; arbitrary tmux formats have no replacement. |

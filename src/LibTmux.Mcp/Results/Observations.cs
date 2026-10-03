@@ -73,17 +73,11 @@ public enum WaitOutcome
     PaneDied = 4,
 
     /// <summary>
-    /// A wanted pattern was already on screen when the wait began, and
-    /// nothing new arrived before time ran out.
+    /// A wanted pattern was already on screen in the initial capture.
     /// </summary>
     /// <remarks>
-    /// This is what a plain <see cref="Timeout" /> would otherwise report
-    /// here, with the returned tail visibly containing the very text the
-    /// wait says it never found: only output arriving after the call counts
-    /// as new, by design, so calling this right after the command that
-    /// produced the text - the first thing most callers try - would time out
-    /// holding a tail that contradicts it. <see cref="WaitResult.MatchedPattern" />
-    /// names what was already there.
+    /// The wait returns this outcome before waiting for new output.
+    /// <see cref="WaitResult.MatchedPattern" /> names the existing match.
     /// </remarks>
     PresentAtEntry = 5,
 }
