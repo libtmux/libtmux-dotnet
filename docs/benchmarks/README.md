@@ -316,10 +316,10 @@ nothing. Two things are gated instead:
   the rows tmux returns through the connection interceptor, and fails when a
   listing stops narrowing.
 - The `benchmarks` workflow compares routes measured in the same run: pushdown
-  must be at least twice as fast as listing everything and filtering locally,
-  and allocate less. Every recorded host clears both by far, 4 to 9 times as
-  fast with 10 to 28 times fewer bytes, so a failure means pushdown stopped
-  narrowing rather than a noisy runner. Check a record with:
+  must be at least three times as fast as listing everything and filtering
+  locally, and allocate less. Every recorded host clears both by far, 4 to 9
+  times as fast with 10 to 28 times fewer bytes, so a failure means pushdown
+  stopped narrowing rather than a noisy runner. Check a record with:
 
 ```console
 $ python3 eng/benchmarks/record_fsharp.py \
