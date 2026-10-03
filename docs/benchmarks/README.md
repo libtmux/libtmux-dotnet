@@ -294,6 +294,16 @@ about 1 µs for every count of panes, and the watch 4.3 µs for one pane, 5.2 µ
 for two and 10.8 µs for eight: about 0.9 µs for each pane checked, on top of a
 fixed 3.4 µs, across 256 events.
 
+## F# live mirror
+
+[`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
+mirrors a server of one or sixteen sessions with four windows each, renames a
+window, and waits with `Mirror.waitUntil` until a view shows the new name. The
+baseline captures the same server to pane depth, which is what the mirror does
+on each announcement. The difference between the two is the command, tmux's
+announcement and the publish; the capture is the part that grows with the
+server. Setup fails unless the mirror publishes a renamed window.
+
 ## Hosted runs
 
 The `benchmarks` workflow runs every F# class on a GitHub-hosted runner
