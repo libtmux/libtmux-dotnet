@@ -217,13 +217,15 @@ jobs:
       # hung, and the dump's log names it instead of the lane timing out mute.
       - name: Name a hung integration test
         if: failure() && steps.integration-tests.outcome == 'failure'
-        run: cat "${RUNNER_TEMP}"/integration-results/*_hang.log 2>/dev/null || echo "No integration test was hung."
+        run: cat "${RUNNER_TEMP}"/integration-results/dotnet_*_hang.log 2>/dev/null || echo "No integration test was hung."
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure() && steps.integration-tests.outcome == 'failure'
         with:
           name: integration-hang-${{ matrix.tmux }}-${{ matrix.framework }}
-          path: ${{ runner.temp }}/integration-results/*_hang.*
+          # Child processes get logs of their own, named for the process; a
+          # tmux client's name has a colon, which artifacts cannot hold.
+          path: ${{ runner.temp }}/integration-results/dotnet_*_hang.*
           if-no-files-found: ignore
           retention-days: 7
 
