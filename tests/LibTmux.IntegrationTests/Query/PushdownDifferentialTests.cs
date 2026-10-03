@@ -226,6 +226,9 @@ public sealed class PushdownDifferentialTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+
+        // A shell starting in a window would otherwise rename it mid-test.
+        await raw.ExecuteAsync(["set-option", "-g", "automatic-rename", "off"], token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", "geo", "-n", "grid", "-x", "120", "-y", "40", "sh"], token);
         await raw.ExecuteAsync(["split-window", "-d", "-h", "-t", "geo:grid", "-c", Path.GetTempPath(), "sh"], token);
         await raw.ExecuteAsync(["split-window", "-d", "-v", "-t", "geo:grid.0", "sh"], token);
