@@ -16,6 +16,7 @@ module Server =
     /// the default socket is refused rather than owned.
     /// </remarks>
     /// <exception cref="T:System.InvalidOperationException">A server is already listening on the default socket.</exception>
+    /// <exception cref="T:LibTmux.TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
     val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>
 
     /// <summary>Attaches to a server already listening on the socket the options name.</summary>

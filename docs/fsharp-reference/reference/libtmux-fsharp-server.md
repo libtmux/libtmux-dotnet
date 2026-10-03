@@ -82,6 +82,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) A server is already listening on the default socket.
 
+`TmuxCommandException`tmux failed to say whether a server is listening, such as on a socket it may not open.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L11)
 
 <a name="newSession"></a>
