@@ -209,8 +209,9 @@ run: exit 3, output ["ok"]
 
 `CreateOwnedAsync` starts a server on a unique socket and `use!` stops it when
 the task ends. `ConnectAsync` attaches a second handle to that socket, as an
-application attaches to a server it did not start. `Query.exactlyOne` returns
-a `Result` that says whether no session or several matched. The wait succeeds
+application attaches to a server it did not start. `Query.atMostOne` returns
+`None` only when no session matched, so the `match` is where a program would
+create the missing session; several matches raise. The wait succeeds
 whether the line appeared before or after it began, and the run's exit status
 comes from the shell, not from reading the screen.
 
