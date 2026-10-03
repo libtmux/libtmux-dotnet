@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
 
 namespace LibTmux.IntegrationTests.Connection;
@@ -65,11 +66,10 @@ public sealed class OwnedServerAdoptionTests
         string root = CreateSocketRoot();
         string refuse = Path.Combine(root, "refuse");
         string tmux = Path.Combine(root, "tmux");
-        await File.WriteAllTextAsync(
+        await TestExecutable.WriteAsync(
             tmux,
             $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
             token);
-        File.SetUnixFileMode(tmux, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         ServerConnectionOptions options = Options(root, "owned") with { TmuxBinaryPath = tmux };
         Server observer = Server.Open(Options(root, "owned"));
         try
