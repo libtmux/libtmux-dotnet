@@ -31,25 +31,19 @@ let runAsync () =
         let! server = LibTmux.Server.ConnectAsync(options, token)
         let! sessions = server |> Server.sessions |> Query.list token
 
-        match
-            sessions
-            |> Seq.filter (fun session -> session.Name = "demo")
-            |> Selection.exactlyOne
-        with
-        | Ok session -> printfn "One match: %s" session.Name
-        | Error error -> failwithf "Expected one demo session, received %A." error
+        // Exactly one match is Ok; none and several are distinct errors.
+        let describe (result: Result<LibTmux.Session, CardinalityError>) =
+            match result with
+            | Ok session -> "Ok " + session.Name
+            | Error NoMatches -> "Error NoMatches"
+            | Error MultipleMatches -> "Error MultipleMatches"
 
-        match
-            sessions
-            |> Seq.filter (fun session -> session.Name = "missing")
-            |> Selection.exactlyOne
-        with
-        | Error NoMatches -> printfn "No match: NoMatches"
-        | result -> failwithf "Expected NoMatches, received %A." result
+        let named name =
+            sessions |> Seq.filter (fun session -> session.Name = name)
 
-        match sessions |> Selection.exactlyOne with
-        | Error MultipleMatches -> printfn "Two matches: MultipleMatches"
-        | result -> failwithf "Expected MultipleMatches, received %A." result
+        printfn "Sessions named demo: %s" (named "demo" |> Selection.exactlyOne |> describe)
+        printfn "Sessions named missing: %s" (named "missing" |> Selection.exactlyOne |> describe)
+        printfn "Every session: %s" (sessions |> Selection.exactlyOne |> describe)
     }
 
 runAsync().GetAwaiter().GetResult()

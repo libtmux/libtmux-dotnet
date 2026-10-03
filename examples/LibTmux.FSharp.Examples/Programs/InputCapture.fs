@@ -46,17 +46,15 @@ let runAsync () =
 
         do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "Enter", Enter = false))
         let! ready = wait.WaitAsync(TimeSpan.FromSeconds 5., token)
-
-        if not ready then
-            failwith "The pane did not signal that its output was ready."
+        printfn "The shell signalled: %b" ready
 
         let! lines = pane |> Pane.capture token (CapturePaneRequest(JoinWrappedLines = true))
 
-        // Joining wrapped lines preserves terminal padding after the output.
-        if not (lines |> Seq.exists (fun line -> line.TrimEnd() = marker)) then
-            failwithf "Capture did not contain the complete output line: %A" lines
-
-        printfn "%s" marker
+        // Joining wrapped lines keeps the terminal's padding after the output,
+        // and only a whole line counts, so the echoed command cannot match.
+        match lines |> Seq.map (fun line -> line.TrimEnd()) |> Seq.tryFind ((=) marker) with
+        | Some line -> printfn "Captured line: %s" line
+        | None -> printfn "Captured line: none"
     }
 
 runAsync().GetAwaiter().GetResult()

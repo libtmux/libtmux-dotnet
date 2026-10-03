@@ -42,11 +42,9 @@ let runAsync () =
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 
-        if windows.Count <> 2 || allPanes.Count <> 3 || added.Id = original.Id then
-            failwith "Expected two windows and three distinct panes."
-
         printfn "Created session demo and window editor."
         printfn "Windows: %d; panes: %d" windows.Count allPanes.Count
+        printfn "The split made a new pane: %b" (added.Id <> original.Id)
     }
 
 runAsync().GetAwaiter().GetResult()

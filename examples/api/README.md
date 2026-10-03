@@ -1,10 +1,12 @@
 # Complete API programs
 
 These programs run as standalone package consumers. Each file contains its
-imports, entry point, owned tmux server, cancellation deadline, assertions and
-cleanup. The manifest identifies whole files, including their final newline,
-for API pages to publish from a recorded source revision. Every import and
-helper is present in the displayed file.
+imports, entry point, owned tmux server, cancellation deadline and cleanup. The
+F# programs print what they observe, and the manifest records that output, so a
+program that observes something else fails its check. The manifest identifies
+whole files, including their final newline, for API pages to publish from a
+recorded source revision. Every import and helper is present in the displayed
+file.
 
 The F# programs use `LibTmux.Server.CreateOwnedAsync` and the core session and
 window methods for construction. The F# facade supplies task, snapshot, query,
@@ -75,8 +77,8 @@ operation; it does not undo input or mutations already sent to tmux. An
 unhandled error exits the program unsuccessfully after cleanup.
 
 `InputCapture.fs` waits for a private signal sent by the pane's shell after
-printing. Its capture assertion compares a whole line after removing terminal
-padding, so the echoed command cannot satisfy it. The wait channel is also
+printing. It looks for a whole captured line after removing terminal padding,
+so the echoed command cannot match it. The wait channel is also
 disposed. `SnapshotAccess.fs` turns off `exit-empty` on its own server to show
 an empty captured relation after disposing the last session; the outer server
 scope still stops that daemon.
