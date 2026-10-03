@@ -6,6 +6,8 @@ import pathlib
 import runpy
 import typing as t
 
+import pytest
+
 
 
 def load_renderer() -> dict[str, t.Any]:
@@ -177,3 +179,35 @@ def test_fsharp_check_rejects_stale_generated_output(tmp_path: pathlib.Path, cap
     output.write_text("stale")
     assert renderer["main"](["--fsharp", "--check"]) == 1
     assert "differs" in capsys.readouterr().err
+
+
+def test_fsharp_renderer_names_fields_and_folds_a_module_into_its_type() -> None:
+    """A record field reads as name and type; NameModule is the Name a reader writes."""
+    render_fsharp = load_renderer()["render_fsharp"]
+
+    rendered = render_fsharp(
+        [
+            {"id": "T:LibTmux.FSharp.SessionSpec", "declaringType": "", "kind": "record",
+             "signature": "SessionSpec", "summary": "Describes a session."},
+            {"id": "P:LibTmux.FSharp.SessionSpec.Name", "declaringType": "T:LibTmux.FSharp.SessionSpec",
+             "kind": "field", "signature": "string", "summary": "The session's name."},
+            {"id": "T:LibTmux.FSharp.SessionSpecModule", "declaringType": "", "kind": "module",
+             "signature": "SessionSpecModule", "summary": "Starts session descriptions."},
+        ]
+    )
+
+    assert "| `Name: string` | The session's name. |" in rendered
+    assert "| `module SessionSpec` | Starts session descriptions. |" in rendered
+    assert "SessionSpecModule" not in rendered
+    assert "[SessionSpec](#sessionspec)" in rendered
+
+
+def test_fsharp_renderer_refuses_a_section_the_task_index_does_not_place() -> None:
+    """A new module must be placed in the page's index before it renders."""
+    render_fsharp = load_renderer()["render_fsharp"]
+
+    with pytest.raises(ValueError, match="Unplaced"):
+        render_fsharp(
+            [{"id": "T:LibTmux.FSharp.Unplaced", "declaringType": "", "kind": "module",
+              "signature": "Unplaced", "summary": "Not in the index."}]
+        )
