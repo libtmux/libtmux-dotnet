@@ -852,6 +852,7 @@ modes differ.
 | `LibTmux.Pane.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Pane.Server` | Gets the server that owns this pane. |
 | `LibTmux.Pane.Session` | Gets the session containing this pane. |
+| `LibTmux.Pane.Synchronized` | Gets whether keys typed into the pane go to every synchronized pane in its window. |
 | `LibTmux.Pane.Title` | Gets the pane title captured with this handle. |
 | `LibTmux.Pane.Top` | Gets the pane's top offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
