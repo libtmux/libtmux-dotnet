@@ -8,16 +8,10 @@ module internal GuideSnippets =
 
     let readOwnedPaneCommandsAsync (cancellationToken: CancellationToken) =
         task {
-            let binary =
-                Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                |> Option.ofObj
-                |> Option.defaultValue "tmux"
-
             let options =
                 ServerConnectionOptions(
                     SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
-                    ConfigurationFile = "/dev/null",
-                    TmuxBinaryPath = binary
+                    ConfigurationFile = "/dev/null"
                 )
 
             use! ownedServer = options |> Server.createOwned cancellationToken
@@ -190,16 +184,10 @@ module internal GuideSnippets =
 
     let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         task {
-            let binary =
-                Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                |> Option.ofObj
-                |> Option.defaultValue "tmux"
-
             let options =
                 ServerConnectionOptions(
                     SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
-                    ConfigurationFile = "/dev/null",
-                    TmuxBinaryPath = binary
+                    ConfigurationFile = "/dev/null"
                 )
 
             use! ownedServer = options |> Server.createOwned cancellationToken

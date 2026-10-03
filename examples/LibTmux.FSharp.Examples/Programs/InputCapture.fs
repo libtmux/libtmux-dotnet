@@ -10,16 +10,10 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let socketName = "fsharp-capture-" + Guid.NewGuid().ToString("N")
 
         let options =
-            ServerConnectionOptions(SocketName = socketName, ConfigurationFile = "/dev/null", TmuxBinaryPath = binary)
+            ServerConnectionOptions(SocketName = socketName, ConfigurationFile = "/dev/null")
 
         use! owned = options |> Server.createOwned token
 
@@ -35,9 +29,8 @@ let runAsync () =
 
         let command =
             sprintf
-                "printf '%%s\\n' %s; %s -L %s wait-for -S %s"
+                "printf '%%s\\n' %s; tmux -L %s wait-for -S %s"
                 (quoteShell marker)
-                (quoteShell binary)
                 (quoteShell socketName)
                 (quoteShell channel)
 

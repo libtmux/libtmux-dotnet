@@ -82,12 +82,7 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = options |> Server.createOwned token
@@ -201,12 +196,7 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-live-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = options |> Server.createOwned token

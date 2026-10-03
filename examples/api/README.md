@@ -55,7 +55,6 @@ $ dotnet pack libtmux-source/src/LibTmux.FSharp/LibTmux.FSharp.fsproj \
     --output "$consumer/libtmux-source/artifacts/api-example-packages"
 $ dotnet restore Example.fsproj --configfile NuGet.config
 $ dotnet build Example.fsproj --configuration Release --no-restore --warnaserror
-$ export LIBTMUX_TMUX="$(command -v tmux)"
 $ export TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
 $ mkdir -p "$TMUX_TMPDIR"
 $ unset TMUX TMUX_PANE

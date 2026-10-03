@@ -22,16 +22,10 @@ open LibTmux.FSharp
 
 let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
     task {
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
 
         use! ownedServer = options |> Server.createOwned cancellationToken
@@ -84,12 +78,7 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-send-wait-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = options |> Server.createOwned token
@@ -210,12 +199,7 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                // LIBTMUX_TMUX picks the tmux CI is testing; without it, the tmux on PATH.
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
         use! owned = options |> Server.createOwned token
