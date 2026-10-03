@@ -52,7 +52,7 @@ module Control =
             Task<'State>
 
     /// <summary>Streams every event a control client reports.</summary>
-    /// <remarks>A client has one event stream; two consumers each see only part of it.</remarks>
+    /// <remarks>A client has one event stream; reading it while another reader is reading raises <c>InvalidOperationException</c>.</remarks>
     val events: session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams one pane's output from a borrowed control client.</summary>

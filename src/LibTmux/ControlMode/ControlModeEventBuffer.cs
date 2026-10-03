@@ -33,6 +33,7 @@ internal sealed class ControlModeEventBuffer
     private long _lastWritten;
     private ExceptionDispatchInfo? _completionError;
     private bool _completed;
+    private bool _reading;
 
     internal ControlModeEventBuffer(
         int capacity,
@@ -136,8 +137,25 @@ internal sealed class ControlModeEventBuffer
         }
     }
 
-    internal Reader CreateReader(CancellationToken cancellationToken = default) =>
-        new(this, cancellationToken);
+    // Reading removes what it reads, so two readers at once would each see
+    // only part of the stream; refuse the second rather than split it.
+    internal Reader CreateReader(CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            if (_reading)
+            {
+                throw new InvalidOperationException(
+                    "This control client's events are already being read. A client has one event "
+                    + "stream, and a second reader would see only part of it; open another control "
+                    + "client to read independently.");
+            }
+
+            _reading = true;
+        }
+
+        return new(this, cancellationToken);
+    }
 
     internal void Complete(Exception? error = null)
     {
@@ -173,6 +191,7 @@ internal sealed class ControlModeEventBuffer
         private readonly CancellationToken _cancellationToken;
         private long _lastConsumed;
         private long? _boundaryLossWatermark;
+        private int _disposed;
 
         internal Reader(ControlModeEventBuffer owner, CancellationToken cancellationToken)
         {
@@ -269,7 +288,18 @@ internal sealed class ControlModeEventBuffer
             }
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                lock (_owner._gate)
+                {
+                    _owner._reading = false;
+                }
+            }
+
+            return ValueTask.CompletedTask;
+        }
     }
 
     private static TaskCompletionSource NewSignal() =>
