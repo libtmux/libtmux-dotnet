@@ -209,6 +209,12 @@ module Pane =
     let run (cancellationToken: CancellationToken) (timeout: TimeSpan) (command: string) (pane: LibTmux.Pane) =
         pane.RunAsync(command, timeout, cancellationToken)
 
+    let sendLine (cancellationToken: CancellationToken) (line: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(line, true, cancellationToken)
+
+    let sendText (cancellationToken: CancellationToken) (text: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(text, false, cancellationToken)
+
     let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SendKeysAsync(request, cancellationToken)
 

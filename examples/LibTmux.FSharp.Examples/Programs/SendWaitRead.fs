@@ -35,7 +35,7 @@ let runAsync () =
             |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))
+        do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane

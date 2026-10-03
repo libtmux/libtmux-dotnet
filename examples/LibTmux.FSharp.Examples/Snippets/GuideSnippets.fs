@@ -213,9 +213,7 @@ module internal GuideSnippets =
             let! second =
                 panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-            do!
-                second
-                |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready\\n'", Literal = true))
+            do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
             let! found = server |> Server.tryFindPane cancellationToken second.Id
             let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes

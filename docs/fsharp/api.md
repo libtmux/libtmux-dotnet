@@ -146,6 +146,8 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
 | `val sendAndWaitFor: cancellationToken: CancellationToken -> keys: SendKeysRequest -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Sends keys as the request describes, then waits as the wait request describes. |
 | `val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task` | Sends text or key names according to the request's literal and Enter settings. |
+| `val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task` | Types a line into the pane as literal text, then presses Enter. |
+| `val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task` | Types text into the pane literally, without pressing Enter. |
 | `val split: cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
 | `val waitFor: cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |
 | `val waitForText: cancellationToken: CancellationToken -> timeout: TimeSpan -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Waits for a line the pane prints to contain the text. |

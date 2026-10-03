@@ -2407,6 +2407,90 @@
       "returnType": "System.Threading.Tasks.Task"
     },
     {
+      "id": "M:LibTmux.FSharp.Pane.sendLine(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendLine",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendLine: cancellationToken: System.Threading.CancellationToken -> line: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "line",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendLine",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Pane.sendText(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
+      "package": "LibTmux.FSharp",
+      "name": "sendText",
+      "declaringType": "T:LibTmux.FSharp.Pane",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val sendText: cancellationToken: System.Threading.CancellationToken -> text: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.string -> LibTmux.Pane -> System.Threading.Tasks.Task"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "text",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "sendText",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "split",
