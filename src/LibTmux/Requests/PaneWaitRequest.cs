@@ -7,7 +7,8 @@ namespace LibTmux;
 /// Patterns are tested line by line, against what the screen shows when the
 /// wait begins and then against every row the pane writes or rewrites. Text
 /// typed into the pane is output too, so wait for something the command line
-/// itself does not contain.
+/// itself does not contain, or run the command with
+/// <see cref="Pane.RunAsync(PaneRunRequest, CancellationToken)" />.
 /// </remarks>
 public sealed record PaneWaitRequest
 {

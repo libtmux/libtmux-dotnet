@@ -1047,11 +1047,7 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.True(PaneId.TryParse("%7", out PaneId pane));
         var route = new RunCommandRoute("/bin/sh", "/tmp/socket'雪", pane);
 
-        string command = WriteTools.TmuxCommandLine(
-            route,
-            "wait-for",
-            "-S",
-            "channel");
+        string command = route.ForRunner().CommandLine("wait-for", "-S", "channel");
 
         Assert.StartsWith("command '/bin/sh' -S ", command, StringComparison.Ordinal);
         Assert.Contains("'/tmp/socket'\\''雪'", command, StringComparison.Ordinal);
@@ -1993,13 +1989,14 @@ public sealed class WriteToolsExecutionSafetyTests
         await using var owner = new ToolFixture { StatusValue = null };
         await using var contender = new ToolFixture();
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+        LibTmuxException failure = await Assert.ThrowsAsync<LibTmuxException>(() =>
             owner.Capabilities.RunShellCommandAsync(
                 "echo once",
                 "%1",
                 cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("exit status", failure.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(TmuxDispatchState.Dispatched, failure.Dispatch);
         try
         {
             await AssertRunReservedAsync(contender);

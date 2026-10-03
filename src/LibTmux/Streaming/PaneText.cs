@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Keeps this server's own bookkeeping out of what a caller reads.</summary>
 /// <remarks>
@@ -285,7 +285,7 @@ internal static partial class PaneText
 
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
-    /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
+    /// Anchored to the exact shape minted by <see cref="PaneRunner.RunToken" />
     /// so that ordinary text mentioning the prefix survives. The begin marker
     /// is spelled in halves in the payload, so the echo carries no ten-digit
     /// form — but it always carries the two quoted halves adjacent, which is

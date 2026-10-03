@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Testing;
 using ModelContextProtocol;
@@ -292,7 +293,7 @@ public sealed class PaneEchoContractTests
                 "run-shell",
                 "-b",
                 $"sleep {delaySeconds.ToString(CultureInfo.InvariantCulture)}; "
-                    + $"printf '%s\\n' {WriteTools.ShellQuote(line)} > {WriteTools.ShellQuote(tty)}",
+                    + $"printf '%s\\n' {PaneRunner.ShellQuote(line)} > {PaneRunner.ShellQuote(tty)}",
             ],
             token);
 }

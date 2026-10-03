@@ -57,6 +57,8 @@ modes differ.
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
 | `LibTmux.PaneObservation` | Narrows a control client's event stream to one pane, and ends it cleanly. |
+| `LibTmux.PaneRunRequest` | Describes a shell command to run in a pane and wait for. |
+| `LibTmux.PaneRunResult` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
 | `LibTmux.PaneSwapDirection` | Names which neighbouring pane a swap uses. |
 | `LibTmux.PaneWaitOutcome` | Names how a wait on a pane's output ended. |
@@ -253,6 +255,8 @@ modes differ.
 | `LibTmux.Pane.ResetAsync(System.Threading.CancellationToken)` | Resets the pane's terminal state and drops its history. |
 | `LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest,System.Threading.CancellationToken)` | Resizes this pane. |
 | `LibTmux.Pane.RespawnAsync(LibTmux.RespawnRequest,System.Threading.CancellationToken)` | Restarts the command running in this pane. |
+| `LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest,System.Threading.CancellationToken)` | Runs a shell command in the pane and waits for its exit status. |
+| `LibTmux.Pane.RunAsync(System.String,System.TimeSpan,System.Threading.CancellationToken)` | Runs a shell command in the pane and waits for its exit status. |
 | `LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest,System.Threading.CancellationToken)` | Selects this pane. |
 | `LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest,System.Threading.CancellationToken)` | Sends keys to the pane. |
 | `LibTmux.Pane.SendPrefixAsync(System.Boolean,System.Threading.CancellationToken)` | Sends the configured prefix key to the pane. |
@@ -278,6 +282,8 @@ modes differ.
 | `LibTmux.PaneId.op_LessThan(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out before another. |
 | `LibTmux.PaneId.op_LessThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no later than another. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)` | Watches one pane's output until it ends. |
+| `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
+| `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
 | `LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
@@ -822,6 +828,16 @@ modes differ.
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
+| `LibTmux.PaneRunRequest.Command` | Gets the shell command. |
+| `LibTmux.PaneRunRequest.KeepOutOfHistory` | Gets whether the line the shell reads starts with a space, which many shells keep out of history. |
+| `LibTmux.PaneRunRequest.Timeout` | Gets how long to wait for the command to finish. |
+| `LibTmux.PaneRunResult.Elapsed` | How long the command ran, or how long it was waited for. |
+| `LibTmux.PaneRunResult.ExitStatus` | The command's exit status, or null when it had not finished. |
+| `LibTmux.PaneRunResult.LinesMissed` | Whether scrollback dropped output before it was read. |
+| `LibTmux.PaneRunResult.Output` | The lines the command printed. |
+| `LibTmux.PaneRunResult.Started` | Whether the pane's shell ran the command at all. |
+| `LibTmux.PaneRunResult.Succeeded` | Gets whether the command finished with exit status 0. |
+| `LibTmux.PaneRunResult.TimedOut` | Whether the time allowed ran out first; the command may still be running. |
 | `LibTmux.PaneWaitRequest.Patterns` | Gets the patterns that end the wait; none means any new output does. |
 | `LibTmux.PaneWaitRequest.StopPatterns` | Gets the patterns meaning the awaited output will never come. |
 | `LibTmux.PaneWaitRequest.Timeout` | Gets how long to wait. |

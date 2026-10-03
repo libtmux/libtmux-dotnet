@@ -591,6 +591,8 @@ LibTmux.Pane.RefreshAsync(System.Threading.CancellationToken cancellationToken =
 LibTmux.Pane.ResetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.RespawnAsync(LibTmux.RespawnRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
+LibTmux.Pane.RunAsync(string! command, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
 LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.SendPrefixAsync(bool secondary = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -623,6 +625,33 @@ LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Disable = 1 -> LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Enable = 0 -> LibTmux.PaneInputMode
 LibTmux.PaneObservation
+LibTmux.PaneRunRequest
+LibTmux.PaneRunRequest.<Clone>$() -> LibTmux.PaneRunRequest!
+LibTmux.PaneRunRequest.Command.get -> string!
+LibTmux.PaneRunRequest.Equals(LibTmux.PaneRunRequest? other) -> bool
+LibTmux.PaneRunRequest.KeepOutOfHistory.get -> bool
+LibTmux.PaneRunRequest.KeepOutOfHistory.init -> void
+LibTmux.PaneRunRequest.PaneRunRequest(string! command) -> void
+LibTmux.PaneRunRequest.Timeout.get -> System.TimeSpan
+LibTmux.PaneRunRequest.Timeout.init -> void
+LibTmux.PaneRunResult
+LibTmux.PaneRunResult.<Clone>$() -> LibTmux.PaneRunResult!
+LibTmux.PaneRunResult.Deconstruct(out int? ExitStatus, out bool TimedOut, out System.Collections.Generic.IReadOnlyList<string!>! Output, out System.TimeSpan Elapsed, out bool Started, out bool LinesMissed) -> void
+LibTmux.PaneRunResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneRunResult.Elapsed.init -> void
+LibTmux.PaneRunResult.Equals(LibTmux.PaneRunResult? other) -> bool
+LibTmux.PaneRunResult.ExitStatus.get -> int?
+LibTmux.PaneRunResult.ExitStatus.init -> void
+LibTmux.PaneRunResult.LinesMissed.get -> bool
+LibTmux.PaneRunResult.LinesMissed.init -> void
+LibTmux.PaneRunResult.Output.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.PaneRunResult.Output.init -> void
+LibTmux.PaneRunResult.PaneRunResult(int? ExitStatus, bool TimedOut, System.Collections.Generic.IReadOnlyList<string!>! Output, System.TimeSpan Elapsed, bool Started, bool LinesMissed) -> void
+LibTmux.PaneRunResult.Started.get -> bool
+LibTmux.PaneRunResult.Started.init -> void
+LibTmux.PaneRunResult.Succeeded.get -> bool
+LibTmux.PaneRunResult.TimedOut.get -> bool
+LibTmux.PaneRunResult.TimedOut.init -> void
 LibTmux.PaneSelectDirection
 LibTmux.PaneSelectDirection.Down = 1 -> LibTmux.PaneSelectDirection
 LibTmux.PaneSelectDirection.Last = 4 -> LibTmux.PaneSelectDirection
@@ -1550,12 +1579,22 @@ override LibTmux.AttachSessionRequest.ToString() -> string!
 override LibTmux.BindKeyRequest.Equals(object? obj) -> bool
 override LibTmux.BindKeyRequest.GetHashCode() -> int
 override LibTmux.BindKeyRequest.ToString() -> string!
+override LibTmux.PaneRunRequest.Equals(object? obj) -> bool
+override LibTmux.PaneRunRequest.GetHashCode() -> int
+override LibTmux.PaneRunRequest.ToString() -> string!
+override LibTmux.PaneRunResult.Equals(object? obj) -> bool
+override LibTmux.PaneRunResult.GetHashCode() -> int
+override LibTmux.PaneRunResult.ToString() -> string!
 override LibTmux.PaneWaitRequest.Equals(object? obj) -> bool
 override LibTmux.PaneWaitRequest.GetHashCode() -> int
 override LibTmux.PaneWaitRequest.ToString() -> string!
 override LibTmux.PaneWaitResult.Equals(object? obj) -> bool
 override LibTmux.PaneWaitResult.GetHashCode() -> int
 override LibTmux.PaneWaitResult.ToString() -> string!
+static LibTmux.PaneRunRequest.operator !=(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
+static LibTmux.PaneRunRequest.operator ==(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
+static LibTmux.PaneRunResult.operator !=(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool
+static LibTmux.PaneRunResult.operator ==(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool
 static LibTmux.PaneWaitRequest.operator !=(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
 static LibTmux.PaneWaitRequest.operator ==(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
 static LibTmux.PaneWaitResult.operator !=(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
