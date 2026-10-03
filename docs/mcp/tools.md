@@ -68,54 +68,57 @@ Earlier tier-era names and removed families are mapped in the
 ## Parameters
 
 Each tool's input schema describes its parameters; `tools/list` returns it.
+A `?` marks a parameter that accepts null, and `=` gives its default.
 
 | Tool | Required | Optional |
 |---|---|---|
-| `call_read_tools_batch` | `operations` | `onError` |
-| `capture_pane` | none | `paneId`, `includeHistory`, `maxLines`, `joinWrappedLines` |
-| `capture_since` | none | `paneId`, `cursor`, `maxLines` |
-| `clear_pane_scrollback` | none | `paneId` |
-| `create_session` | none | `name`, `startDirectory`, `width`, `height` |
-| `create_window` | none | `session`, `name`, `startDirectory` |
-| `find_pane_by_position` | `windowId`, `position` | none |
-| `get_pane_info` | `paneId` | none |
+| `call_read_tools_batch` | `operations`: object[] of 1 to 16 | `onError`: "continue" or "stop" = "stop" |
+| `capture_pane` | none | `paneId`: string?, `includeHistory`: boolean = false, `maxLines`: integer?, `joinWrappedLines`: boolean = false |
+| `capture_since` | none | `paneId`: string?, `cursor`: string?, `maxLines`: integer? |
+| `clear_pane_scrollback` | none | `paneId`: string? |
+| `create_session` | none | `name`: string?, `startDirectory`: string?, `width`: integer?, `height`: integer? |
+| `create_window` | none | `session`: string?, `name`: string?, `startDirectory`: string? |
+| `find_pane_by_position` | `windowId`: string, `position`: integer | none |
+| `get_pane_info` | `paneId`: string | none |
 | `get_server_info` | none | none |
-| `get_session_info` | `session` | none |
-| `get_tmux_variables` | `names` | `paneId` |
-| `get_window_info` | `windowId` | none |
-| `kill_pane` | `paneId` | none |
-| `kill_session` | `session` | none |
-| `kill_window` | `windowId` | none |
-| `list_panes` | none | `session`, `windowId` |
+| `get_session_info` | `session`: string | none |
+| `get_tmux_variables` | `names`: string[] | `paneId`: string? |
+| `get_window_info` | `windowId`: string | none |
+| `kill_pane` | `paneId`: string | none |
+| `kill_session` | `session`: string | none |
+| `kill_window` | `windowId`: string | none |
+| `list_panes` | none | `session`: string?, `windowId`: string? |
 | `list_sessions` | none | none |
-| `list_windows` | none | `session` |
-| `move_window` | `windowId` | `destination`, `session`, `replaceExisting` |
-| `paste_text` | `text` | `paneId`, `bracketed`, `enter` |
-| `rename_session` | `name` | `session` |
-| `rename_window` | `name` | `windowId` |
-| `resize_pane` | none | `paneId`, `width`, `height`, `zoom` |
-| `resize_window` | none | `windowId`, `width`, `height` |
-| `respawn_pane` | none | `paneId`, `startDirectory`, `killExistingProcess` |
-| `run_shell_command` | `command` | `paneId`, `timeoutSeconds`, `maxLines`, `suppressHistory` |
-| `search_panes` | `pattern` | `session`, `includeHistory`, `ignoreCase`, `maxMatchesPerPane` |
-| `select_layout` | none | `windowId`, `layout` |
-| `select_pane` | `paneId` | none |
-| `select_window` | `windowId` | none |
-| `send_keys` | `keys` | `paneId`, `enter`, `literal`, `suppressHistory` |
-| `send_keys_batch` | `operations` | `onError` |
-| `set_history_limit` | `lines`, `session` | none |
-| `set_mouse_enabled` | `enabled` | none |
-| `set_pane_title` | `title` | `paneId` |
-| `set_synchronize_panes` | `enabled` | `windowId` |
-| `show_environment` | none | `name`, `session` |
-| `show_hooks` | none | `scope`, `paneId` |
-| `show_option` | `name` | `scope`, `paneId` |
-| `signal_channel` | `channel` | none |
-| `snapshot_pane` | none | `paneId`, `maxLines` |
-| `split_window` | none | `paneId`, `direction`, `startDirectory`, `percentage` |
-| `swap_pane` | `paneId`, `targetPaneId` | `detach`, `keepZoom` |
-| `wait_for_channel` | `channel` | `timeoutSeconds` |
-| `wait_for_text` | none | `paneId`, `patterns`, `stopPatterns`, `timeoutSeconds`, `ignoreCase` |
+| `list_windows` | none | `session`: string? |
+| `move_window` | `windowId`: string | `destination`: string = "", `session`: string?, `replaceExisting`: boolean = false |
+| `paste_text` | `text`: string | `paneId`: string?, `bracketed`: boolean = true, `enter`: boolean = false |
+| `rename_session` | `name`: string | `session`: string? |
+| `rename_window` | `name`: string | `windowId`: string? |
+| `resize_pane` | none | `paneId`: string?, `width`: integer?, `height`: integer?, `zoom`: boolean = false |
+| `resize_window` | none | `windowId`: string?, `width`: integer?, `height`: integer? |
+| `respawn_pane` | none | `paneId`: string?, `startDirectory`: string?, `killExistingProcess`: boolean = false |
+| `run_shell_command` | `command`: string | `paneId`: string?, `timeoutSeconds`: number?, `maxLines`: integer?, `suppressHistory`: boolean = false |
+| `search_panes` | `pattern`: string | `session`: string?, `includeHistory`: boolean = false, `ignoreCase`: boolean = true, `maxMatchesPerPane`: integer = 20 |
+| `select_layout` | none | `windowId`: string?, `layout`: string? |
+| `select_pane` | `paneId`: string | none |
+| `select_window` | `windowId`: string | none |
+| `send_keys` | `keys`: string | `paneId`: string?, `enter`: boolean = false, `literal`: boolean = true, `suppressHistory`: boolean = false |
+| `send_keys_batch` | `operations`: object[] of 1 to 64 | `onError`: "continue" or "stop" = "stop" |
+| `set_history_limit` | `lines`: integer, `session`: string | none |
+| `set_mouse_enabled` | `enabled`: boolean | none |
+| `set_pane_title` | `title`: string | `paneId`: string? |
+| `set_synchronize_panes` | `enabled`: boolean | `windowId`: string? |
+| `show_environment` | none | `name`: string?, `session`: string? |
+| `show_hooks` | none | `scope`: "Server" or "Session" or "Window" or "Pane" = "Session", `paneId`: string? |
+| `show_option` | `name`: string | `scope`: "Server" or "Session" or "Window" or "Pane" = "Pane", `paneId`: string? |
+| `signal_channel` | `channel`: string | none |
+| `snapshot_pane` | none | `paneId`: string?, `maxLines`: integer? |
+| `split_window` | none | `paneId`: string?, `direction`: "Above" or "Below" or "Left" or "Right" = "Below", `startDirectory`: string?, `percentage`: integer? |
+| `swap_pane` | `paneId`: string, `targetPaneId`: string | `detach`: boolean = false, `keepZoom`: boolean = false |
+| `wait_for_channel` | `channel`: string | `timeoutSeconds`: number? |
+| `wait_for_text` | none | `paneId`: string?, `patterns`: object[]?, `stopPatterns`: object[]?, `timeoutSeconds`: number?, `ignoreCase`: boolean = true |
+
+`call_read_tools_batch` runs any of: `capture_pane`, `capture_since`, `find_pane_by_position`, `get_pane_info`, `get_server_info`, `get_session_info`, `get_tmux_variables`, `get_window_info`, `list_panes`, `list_sessions`, `list_windows`, `search_panes`, `show_environment`, `show_hooks`, `show_option`, `snapshot_pane`.
 
 ## Resources
 

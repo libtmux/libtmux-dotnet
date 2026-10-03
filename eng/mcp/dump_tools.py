@@ -138,8 +138,50 @@ def _one_line(text: str) -> str:
     return flat if stop < 0 else flat[: stop + 1]
 
 
-def _names(names: list[str]) -> str:
-    return ", ".join(f"`{name}`" for name in names) or "none"
+INT32 = (-(2**31), 2**31 - 1)
+
+
+def _parameter(name: str, schema: dict) -> str:
+    """Render one parameter as name: type, with its default and any bound narrower than int32."""
+    types = schema.get("type", "object")
+    types = types if isinstance(types, list) else [types]
+    nullable = "null" in types
+    kind = next((each for each in types if each != "null"), "object")
+    if "enum" in schema:
+        kind = " or ".join(f'"{value}"' for value in schema["enum"] if value is not None)
+    elif kind == "array":
+        item = (schema.get("items") or {}).get("type", "object")
+        kind = f"{item if isinstance(item, str) else 'object'}[]"
+    text = f"`{name}`: {kind}{'?' if nullable else ''}"
+    low, high = schema.get("minimum"), schema.get("maximum")
+    if (low, high) != INT32:
+        if None not in (low, high):
+            text += f" from {low} to {high}"
+        elif low is not None:
+            text += f" at least {low}"
+        elif high is not None:
+            text += f" at most {high}"
+    shortest, longest = schema.get("minItems"), schema.get("maxItems")
+    if None not in (shortest, longest):
+        text += f" of {shortest} to {longest}"
+    if schema.get("default") is not None:
+        text += f" = {json.dumps(schema['default'])}"
+    return text
+
+
+def _parameters(schema: dict, names: list[str]) -> str:
+    properties = schema.get("properties") or {}
+    return ", ".join(_parameter(name, properties[name]) for name in names) or "none"
+
+
+def _batch_tools(tool: dict) -> list[str]:
+    """Return the tools a batch tool's schema lets it run."""
+    items = (((tool.get("inputSchema") or {}).get("properties") or {}).get("operations") or {}).get("items") or {}
+    return sorted(
+        option["properties"]["tool"]["const"]
+        for option in items.get("oneOf", [])
+        if "const" in ((option.get("properties") or {}).get("tool") or {})
+    )
 
 
 def _sentences(text: str) -> list[str]:
@@ -211,6 +253,7 @@ def main() -> int:
         "## Parameters",
         "",
         "Each tool's input schema describes its parameters; `tools/list` returns it.",
+        "A `?` marks a parameter that accepts null, and `=` gives its default.",
         "",
         "| Tool | Required | Optional |",
         "|---|---|---|",
@@ -221,8 +264,14 @@ def main() -> int:
         required = [name for name in names if name in set(schema.get("required") or [])]
         optional = [name for name in names if name not in required]
         lines.append(
-            f"| `{tool['name']}` | {_names(required)} | {_names(optional)} |"
+            f"| `{tool['name']}` | {_parameters(schema, required)} | {_parameters(schema, optional)} |"
         )
+    for tool in tools:
+        if batched := _batch_tools(tool):
+            lines += [
+                "",
+                f"`{tool['name']}` runs any of: " + ", ".join(f"`{name}`" for name in batched) + ".",
+            ]
 
     for label, key, field, uri in (
         ("Resources", 3, "resources", "uri"),
