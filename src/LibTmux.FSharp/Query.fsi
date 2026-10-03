@@ -208,6 +208,10 @@ module WindowFields =
     val width: Field<LibTmux.Window, int>
     /// <summary>Identifies the window's height in cells.</summary>
     val height: Field<LibTmux.Window, int>
+    /// <summary>Identifies whether the window is the current window of the session it was read through.</summary>
+    val active: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether one of the window's panes is zoomed to fill it.</summary>
+    val zoomed: Field<LibTmux.Window, bool>
     /// <summary>Identifies the number of panes in the window.</summary>
     val paneCount: Field<LibTmux.Window, int>
     /// <summary>Identifies panes captured through this window placement.</summary>
@@ -242,6 +246,14 @@ module PaneFields =
     val atLeft: Field<LibTmux.Pane, bool>
     /// <summary>Identifies whether the pane touches the right of its window.</summary>
     val atRight: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane is its window's active pane.</summary>
+    val active: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane's program has exited while the pane remains.</summary>
+    val dead: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane is in a mode, such as copy mode.</summary>
+    val inMode: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies the process ID of the program the pane started.</summary>
+    val processId: Field<LibTmux.Pane, int>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

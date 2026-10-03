@@ -105,6 +105,24 @@ captured-object properties. They have no portable descriptor.
 - Required depth: `Windows`
 - Schema version: `1`
 
+### `WindowFields.active`
+
+- Core property: `Window.Active`
+- Wire name: `window_active`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
+### `WindowFields.zoomed`
+
+- Core property: `Window.Zoomed`
+- Wire name: `window_zoomed_flag`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
 ### `WindowFields.paneCount`
 
 - Core property: `Window.Panes`
@@ -239,6 +257,42 @@ captured-object properties. They have no portable descriptor.
 - Wire name: `pane_at_right`
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.active`
+
+- Core property: `Pane.Active`
+- Wire name: `pane_active`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.dead`
+
+- Core property: `Pane.Dead`
+- Wire name: `pane_dead`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.inMode`
+
+- Core property: `Pane.InMode`
+- Wire name: `pane_in_mode`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.processId`
+
+- Core property: `Pane.ProcessId`
+- Wire name: `pane_pid`
+- Value type: `int`
+- Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
 - Schema version: `1`
 

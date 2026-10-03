@@ -118,6 +118,24 @@ module DescriptorMatrixTests =
                 Document = Filter.gt 1 WindowFields.height |> Filter.toDocument
             }
             {
+                Name = "WindowFields.active"
+                CoreProperty = "Window.Active"
+                WireName = "window_active"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.active |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.zoomed"
+                CoreProperty = "Window.Zoomed"
+                WireName = "window_zoomed_flag"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.eq true WindowFields.zoomed |> Filter.toDocument
+            }
+            {
                 Name = "WindowFields.paneCount"
                 CoreProperty = "Window.Panes"
                 WireName = "window_panes"
@@ -257,6 +275,42 @@ module DescriptorMatrixTests =
                 Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq true PaneFields.atRight |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.active"
+                CoreProperty = "Pane.Active"
+                WireName = "pane_active"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.active |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.dead"
+                CoreProperty = "Pane.Dead"
+                WireName = "pane_dead"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.dead |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.inMode"
+                CoreProperty = "Pane.InMode"
+                WireName = "pane_in_mode"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.inMode |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.processId"
+                CoreProperty = "Pane.ProcessId"
+                WireName = "pane_pid"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.processId |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"

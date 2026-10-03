@@ -146,16 +146,20 @@ Signatures assume `open System`, `open System.Threading`,
 | Signature | Summary |
 |---|---|
 | `PaneFields` | Provides supported pane fields for portable filters. |
+| `val active: Field<LibTmux.Pane,bool>` | Identifies whether the pane is its window's active pane. |
 | `val atBottom: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the bottom of its window. |
 | `val atLeft: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the left of its window. |
 | `val atRight: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the right of its window. |
 | `val atTop: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the top of its window. |
 | `val currentCommand: Field<LibTmux.Pane,string>` | Identifies the captured command, including a captured unavailable value. |
 | `val currentPath: Field<LibTmux.Pane,string>` | Identifies the pane's working directory, as the text tmux reported. |
+| `val dead: Field<LibTmux.Pane,bool>` | Identifies whether the pane's program has exited while the pane remains. |
 | `val height: Field<LibTmux.Pane,int>` | Identifies the pane's height in cells. |
 | `val id: Field<LibTmux.Pane,LibTmux.PaneId>` | Identifies the typed pane ID. |
+| `val inMode: Field<LibTmux.Pane,bool>` | Identifies whether the pane is in a mode, such as copy mode. |
 | `val index: Field<LibTmux.Pane,int>` | Identifies the pane's position in its window. |
 | `val left: Field<LibTmux.Pane,int>` | Identifies the column of the pane's left edge in its window. |
+| `val processId: Field<LibTmux.Pane,int>` | Identifies the process ID of the program the pane started. |
 | `val title: Field<LibTmux.Pane,string>` | Identifies the pane's title, which a program running in it can set. |
 | `val top: Field<LibTmux.Pane,int>` | Identifies the row of the pane's top edge in its window. |
 | `val width: Field<LibTmux.Pane,int>` | Identifies the pane's width in cells. |
@@ -316,6 +320,7 @@ Signatures assume `open System`, `open System.Threading`,
 | Signature | Summary |
 |---|---|
 | `WindowFields` | Provides supported window fields and relations for portable filters. |
+| `val active: Field<LibTmux.Window,bool>` | Identifies whether the window is the current window of the session it was read through. |
 | `val height: Field<LibTmux.Window,int>` | Identifies the window's height in cells. |
 | `val id: Field<LibTmux.Window,LibTmux.WindowId>` | Identifies the typed physical window ID. |
 | `val index: Field<LibTmux.Window,int>` | Identifies where the window sits in its session. |
@@ -323,6 +328,7 @@ Signatures assume `open System`, `open System.Threading`,
 | `val paneCount: Field<LibTmux.Window,int>` | Identifies the number of panes in the window. |
 | `val panes: Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |
 | `val width: Field<LibTmux.Window,int>` | Identifies the window's width in cells. |
+| `val zoomed: Field<LibTmux.Window,bool>` | Identifies whether one of the window's panes is zoomed to fill it. |
 
 ## WindowPlacementKey
 
