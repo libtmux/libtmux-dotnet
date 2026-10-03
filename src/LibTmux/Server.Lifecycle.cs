@@ -217,6 +217,10 @@ public sealed partial class Server
     /// callers that own the default socket at the same moment can both pass
     /// it; give each owned server a socket of its own.
     /// </para>
+    /// <para>
+    /// A call that fails or is cancelled after starting a server stops it, since
+    /// no scope reaches the caller to do so; a server it found running is left.
+    /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
     [UnsupportedOSPlatform("windows")]
@@ -225,9 +229,9 @@ public sealed partial class Server
         CancellationToken cancellationToken = default)
     {
         Server endpoint = Open(options ?? ServerConnectionOptions.Default);
-        if (endpoint.Connection is
-            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } }
-            && await endpoint.IsAliveAsync(cancellationToken).ConfigureAwait(false))
+        bool serving = await endpoint.IsAliveAsync(cancellationToken).ConfigureAwait(false);
+        if (serving && endpoint.Connection is
+            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } })
         {
             throw new InvalidOperationException(
                 "A tmux server is already listening on the default socket. Refusing to own it: "
@@ -236,12 +240,37 @@ public sealed partial class Server
         }
 
         var sequence = new TmuxMutationSequence();
-        await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
-            .ConfigureAwait(false);
-        await sequence
-            .ObserveAsync(() => endpoint.WaitForSettledEndpointAsync(cancellationToken))
-            .ConfigureAwait(false);
+        try
+        {
+            await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
+                .ConfigureAwait(false);
+            await sequence
+                .ObserveAsync(() => endpoint.WaitForSettledEndpointAsync(cancellationToken))
+                .ConfigureAwait(false);
+        }
+        catch (Exception failure) when (!serving)
+        {
+            // No scope reaches the caller to stop a server this call started.
+            await StopStartedServerAsync(endpoint, failure).ConfigureAwait(false);
+            throw;
+        }
+
         return sequence.Observe(() => new OwnedServerScope(endpoint));
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private static async Task StopStartedServerAsync(Server endpoint, Exception failure)
+    {
+        using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+        try
+        {
+            await endpoint.KillAsync(cleanup.Token).ConfigureAwait(false);
+        }
+        catch (Exception cleanupFailure)
+        {
+            // The caller needs the failure that stopped the start, not this one.
+            failure.Data["LibTmux.CleanupFailure"] = cleanupFailure;
+        }
     }
 
     /// <summary>Creates a session and takes ownership of it.</summary>
