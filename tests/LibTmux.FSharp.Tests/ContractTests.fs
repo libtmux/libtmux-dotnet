@@ -257,6 +257,7 @@ module ContractTests =
             let arguments = Assert.Single(sent)
             Assert.Contains("C-c", arguments)
             Assert.DoesNotContain("-l", arguments)
+
             Assert.Throws<ArgumentException>(fun () -> pane |> Pane.pressKey CancellationToken.None " " |> ignore)
             |> ignore
         }
