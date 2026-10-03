@@ -25,6 +25,9 @@ public sealed partial class Pane
     /// <remarks>A pane outlives its program only while <c>remain-on-exit</c> is on.</remarks>
     public bool Dead => ReadSnapshot("pane_dead") == "1";
 
+    /// <summary>Gets whether keys typed into the pane go to every synchronized pane in its window.</summary>
+    public bool Synchronized => ReadSnapshot("pane_synchronized") == "1";
+
     /// <summary>Gets whether the pane is in a mode, such as copy mode.</summary>
     /// <remarks>tmux reports how many modes are stacked on the pane; any number but zero is true.</remarks>
     public bool InMode => ReadSnapshot("pane_in_mode") is not (null or "" or "0");

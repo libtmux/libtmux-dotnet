@@ -301,6 +301,7 @@ public sealed class PushdownDifferentialTests
         await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "zoom", "sh"], token);
         await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:zoom", "sh"], token);
         await raw.ExecuteAsync(["resize-pane", "-Z", "-t", "flags:zoom.0"], token);
+        await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:zoom", "synchronize-panes", "on"], token);
         await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
         await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
         await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
@@ -331,6 +332,7 @@ public sealed class PushdownDifferentialTests
         await Agree<Pane>(pane => pane.InMode, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Dead, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.ProcessId == pid, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.Synchronized && !pane.Active, panes, QueryTarget.Pane, PaneKey);
         await Agree<Window>(window => window.Active, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => window.Zoomed && !window.Active, windows, QueryTarget.Window, Key);
         await Agree<Session>(
@@ -343,6 +345,7 @@ public sealed class PushdownDifferentialTests
         Assert.Equal(2, panes.Count(pane => pane.InMode));
         Assert.Single(panes, pane => pane.Dead);
         Assert.Single(windows, window => window.Zoomed);
+        Assert.Equal(2, panes.Count(pane => pane.Synchronized));
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 

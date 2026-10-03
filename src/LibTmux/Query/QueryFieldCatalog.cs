@@ -122,6 +122,13 @@ internal static class QueryFieldCatalog
             nameof(Pane.ProcessId),
             new(static element => (long)((Pane)element).ProcessId, typeof(long))),
         new(
+            "pane_synchronized",
+            QueryTarget.Pane,
+            QueryValueKind.Boolean,
+            typeof(Pane),
+            nameof(Pane.Synchronized),
+            new(static element => ((Pane)element).Synchronized, typeof(bool))),
+        new(
             "pane_title",
             QueryTarget.Pane,
             QueryValueKind.String,

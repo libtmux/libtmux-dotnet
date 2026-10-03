@@ -557,6 +557,7 @@ LibTmux.Pane.Active.get -> bool
 LibTmux.Pane.Dead.get -> bool
 LibTmux.Pane.InMode.get -> bool
 LibTmux.Pane.ProcessId.get -> int
+LibTmux.Pane.Synchronized.get -> bool
 LibTmux.Pane.BreakAsync(string? windowName = null, bool detach = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
 LibTmux.Pane.CaptureAsync(LibTmux.CapturePaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>!>!
 LibTmux.Pane.CaptureToBufferAsync(string! bufferName, LibTmux.CapturePaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
