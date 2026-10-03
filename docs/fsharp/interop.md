@@ -70,6 +70,22 @@ tmux should be retried only this way.
 `Retry.ifNotSent ct retries operation` retries under the same rule without
 waiting, for a failure that waiting does not change.
 
+Beyond the `LibTmuxException` any tmux call can raise, an F# call raises these,
+each documented on the function that raises it:
+
+| Exception | Raised when |
+| --- | --- |
+| `OperationCanceledException` | The cancellation token fired. |
+| `TmuxPaneException` | A pane wait or `Pane.run` reaches a pane whose program had already exited, or a run reaches a pane in a mode or not at a POSIX shell. |
+| `TmuxWaitTimeoutException` | `Mirror.waitUntil` saw no matching view in time. Pane waits return `TimedOut` instead. |
+| `InvalidOperationException` | `Query.atMostOne` found several matches, a mirror ended before a wait's condition held, a second reader started on a control client, or `Server.createOwned` met a server already on the default socket. |
+| `TmuxSessionExistsException` | `Server.newSession` names a session that already exists. |
+| `TmuxOptionException` | tmux rejected an option name or value, or reported one the key cannot read. |
+| `TmuxVersionTooLowException` | A raw client filter ran on tmux older than 3.4. |
+| `IncompleteSnapshotException` | A captured relation or field was read that the capture did not include. |
+| `UnsupportedQueryExpressionException` | A `Filter.matches` pattern is invalid or longer than 1024 characters. |
+| `ArgumentException` | An argument is wrong before anything reaches tmux, such as an empty wait text or a negative retry count or delay. |
+
 ## Bound how long tmux may take
 
 Bound one call with its token: pass `(new CancellationTokenSource(timeout)).Token`.
