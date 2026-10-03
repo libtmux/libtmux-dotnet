@@ -412,6 +412,7 @@ module internal GuideSnippets =
     // endfsharp-snippet
 
     // fsharp-snippet: SafeRetry
+    open System
     open System.Threading
     open LibTmux
     open LibTmux.FSharp
@@ -419,9 +420,13 @@ module internal GuideSnippets =
     let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
         task {
             try
-                // Runs again only when tmux never received the command.
+                // Runs again only when tmux never received the command, after
+                // each delay in turn, so a server still starting can answer.
                 let! sessions =
-                    Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+                    Retry.ifNotSentAfter
+                        cancellationToken
+                        [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                        (fun token -> server.GetSessionsAsync(token))
 
                 return Ok [ for session in sessions -> session.Name ]
             with

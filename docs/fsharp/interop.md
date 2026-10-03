@@ -31,11 +31,13 @@ Every `LibTmuxException` says whether its command reached tmux. The
 command, so running it again repeats nothing. `Ran` means tmux ran it and then
 reported an error or gave an answer that could not be used. `MayHaveRun`
 covers a failure or cancellation after which tmux may already have acted.
-`Retry.ifNotSent` runs an operation again only for `NotSent`, and only when no
-command the attempt sent before that failure reached tmux:
+`Retry.ifNotSentAfter` runs an operation again only for `NotSent`, and only
+when no command the attempt sent before that failure reached tmux, waiting each
+delay in turn first:
 
 <!-- fsharp-snippet: SafeRetry run -->
 ```fsharp run
+open System
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -43,9 +45,13 @@ open LibTmux.FSharp
 let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
     task {
         try
-            // Runs again only when tmux never received the command.
+            // Runs again only when tmux never received the command, after
+            // each delay in turn, so a server still starting can answer.
             let! sessions =
-                Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+                Retry.ifNotSentAfter
+                    cancellationToken
+                    [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                    (fun token -> server.GetSessionsAsync(token))
 
             return Ok [ for session in sessions -> session.Name ]
         with
@@ -62,10 +68,8 @@ awaits, and repeats the attempt only if none reached tmux. A read that is safe
 to repeat whatever happened can use any retry policy; a command that changes
 tmux should be retried only this way.
 
-`Retry.ifNotSent` retries at once. To give a server that is still starting
-time to answer, pass the delays instead:
-`Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation`
-retries once after each, under the same rule.
+`Retry.ifNotSent ct retries operation` retries under the same rule without
+waiting, for a failure that waiting does not change.
 
 ## Bound how long tmux may take
 
