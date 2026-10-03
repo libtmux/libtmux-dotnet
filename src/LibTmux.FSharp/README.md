@@ -75,14 +75,14 @@ targets `net8.0` and `net10.0`.
 
 | Need | F# call | Returns |
 | --- | --- | --- |
-| List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct` | `IReadOnlyList<Pane>` |
+| List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct`; `Session.panes`, `Window.panes` for one scope | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
 | Exactly one match | `Query.exactlyOne ct query` | `Result<'T, CardinalityError>` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
 | Type keys | `Pane.sendKeys ct request pane` | `Task` |
-| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult` |
-| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult` |
+| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
 | Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |

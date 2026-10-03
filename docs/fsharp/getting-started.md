@@ -119,9 +119,22 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        printfn "ready: %b" ready.Found
-        printfn "counted: %b" counted.Found
-        printfn "run: exit %A, output %A" listing.ExitStatus (List.ofSeq listing.Output)
+        // One case for each way a wait can end; leaving one out draws a warning.
+        let describe wait =
+            match wait with
+            | PaneWait.Found -> "found"
+            | PaneWait.Printed -> "printed"
+            | PaneWait.Stopped pattern -> "stopped by " + pattern
+            | PaneWait.TimedOut -> "timed out"
+            | PaneWait.Ended -> "the pane's program ended"
+
+        printfn "ready: %s" (describe ready)
+        printfn "counted: %s" (describe counted)
+
+        match listing with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | _ -> printfn "run: did not finish"
+
         printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
 
@@ -133,8 +146,8 @@ It prints:
 
 <!-- fsharp-output: SendWaitRead -->
 ```text
-ready: true
-counted: true
+ready: found
+counted: found
 run: exit 4, output ["a"; "b"]
 screen shows the run: true
 ```
@@ -150,6 +163,17 @@ screen shows the run: true
 | Wait for a condition over the whole screen | `Pane.waitUntil` | The condition holds over the visible rows, including what a full-screen program draws. |
 | Run a command to its exit status | `Pane.run` | The command exits. It returns the status and the lines it printed. |
 | Follow output as it prints | `Control.watchPane`, or `Control.watchPanes` for several panes on one client | You stop reading, or the panes are gone; see [streams](streams.md). |
+
+A wait's `PaneWaitResult` falls under one `PaneWait` case, so a match that
+leaves one out draws a compiler warning:
+
+| Case | Outcomes | It means |
+| --- | --- | --- |
+| `PaneWait.Found` | `Matched`, `PresentAtEntry` | The text or a pattern appeared, before or during the wait. |
+| `PaneWait.Printed` | `AnyOutput` | A wait with no pattern saw the pane print something. |
+| `PaneWait.Stopped pattern` | `Stopped` | A stop pattern matched; the case carries it. |
+| `PaneWait.TimedOut` | `TimedOut` | The time allowed ran out. |
+| `PaneWait.Ended` | `PaneExited`, `AlternateScreen` | The pane's program exited, or a full-screen program took over. |
 
 Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use

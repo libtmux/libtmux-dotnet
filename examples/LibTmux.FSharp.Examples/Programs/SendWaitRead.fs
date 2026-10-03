@@ -46,9 +46,22 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        printfn "ready: %b" ready.Found
-        printfn "counted: %b" counted.Found
-        printfn "run: exit %A, output %A" listing.ExitStatus (List.ofSeq listing.Output)
+        // One case for each way a wait can end; leaving one out draws a warning.
+        let describe wait =
+            match wait with
+            | PaneWait.Found -> "found"
+            | PaneWait.Printed -> "printed"
+            | PaneWait.Stopped pattern -> "stopped by " + pattern
+            | PaneWait.TimedOut -> "timed out"
+            | PaneWait.Ended -> "the pane's program ended"
+
+        printfn "ready: %s" (describe ready)
+        printfn "counted: %s" (describe counted)
+
+        match listing with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | _ -> printfn "run: did not finish"
+
         printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
 
