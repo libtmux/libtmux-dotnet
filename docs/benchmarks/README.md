@@ -264,6 +264,28 @@ $ uv run python eng/benchmarks/record_fsharp.py \
     --out docs/benchmarks/runs
 ```
 
+## F# pane watch
+
+[`FSharpPaneWatchBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpPaneWatchBenchmarks.cs)
+reads 256 output events spread over eight panes from a synthetic client and
+keeps one, two or eight panes' output, once by filtering `Control.events` by
+hand and once through `Control.watchPanes`. Both must count the same output
+before timing. The watch also asks whether each watched pane still exists
+when it starts and after each layout change; the synthetic client answers at
+once, and against a real server each answer is one tmux round trip.
+
+## Hosted runs
+
+The `benchmarks` workflow runs every F# class on a GitHub-hosted runner
+against a tmux built from source, records the run with
+`eng/benchmarks/record_fsharp.py`, and uploads the record for comparison with
+those under `runs/`. It runs when a pull request changes what is measured or
+how it is recorded, and on dispatch for a chosen tmux version:
+
+```console
+$ gh workflow run benchmarks.yml -f tmux=3.2a
+```
+
 ## Regression gate
 
 Timings are not gated in CI: the same case moves by more than half between
