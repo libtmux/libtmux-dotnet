@@ -30,6 +30,7 @@ import difflib
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -137,6 +138,21 @@ def _one_line(text: str) -> str:
     return flat if stop < 0 else flat[: stop + 1]
 
 
+def _sentences(text: str) -> list[str]:
+    return [sentence for sentence in re.split(r"(?<=[.!?])\s+", " ".join(text.split())) if sentence]
+
+
+def _does(description: str, shared: set[str]) -> str:
+    """Return the first sentence that says what this tool does.
+
+    Every description opens with a controlled sentence its tool shares with
+    others of the same kind, so the first sentence alone would read the same
+    on many rows.
+    """
+    sentences = _sentences(description)
+    return next((sentence for sentence in sentences if sentence not in shared), sentences[0] if sentences else "")
+
+
 def main() -> int:
     answers = _ask()
     if not answers.get(2):
@@ -144,6 +160,11 @@ def main() -> int:
         return 1
 
     tools = sorted(answers[2]["tools"], key=lambda tool: tool["name"])
+    counts: dict[str, int] = {}
+    for tool in tools:
+        for sentence in set(_sentences(tool.get("description", ""))):
+            counts[sentence] = counts.get(sentence, 0) + 1
+    shared = {sentence for sentence, count in counts.items() if count > 1}
     resources = answers.get(3, {}).get("resources", [])
     templates = answers.get(4, {}).get("resourceTemplates", [])
     prompts = answers.get(5, {}).get("prompts", [])
@@ -178,7 +199,7 @@ def main() -> int:
         lines.append(
             f"| `{tool['name']}` | {capability.get('toolset', 'unknown')} "
             f"| {capability.get('processReach', 'unknown')} | {effects} | {outputs} "
-            f"| {_one_line(tool.get('description', ''))} |"
+            f"| {_does(tool.get('description', ''), shared)} |"
         )
 
     for label, key, field, uri in (
