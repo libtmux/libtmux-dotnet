@@ -41,30 +41,33 @@ internal sealed class TmuxDispatchLedger
         return await work().ConfigureAwait(false);
     }
 
-    /// <summary>Counts a command once its sending has settled, unless it surely never reached tmux.</summary>
+    /// <summary>Counts a command as it is sent, and uncounts it if it never reached tmux.</summary>
     /// <param name="sending">The command in flight.</param>
     /// <returns>The command's result.</returns>
+    /// <remarks>
+    /// Counted before it settles, so a command still in flight when another
+    /// in the same operation is refused keeps the operation from repeating.
+    /// </remarks>
     internal static async Task<T> TrackAsync<T>(Task<T> sending)
     {
-        bool reached = true;
+        TmuxDispatchLedger? ledger = Current.Value;
+        Adjust(ledger, 1);
         try
         {
             return await sending.ConfigureAwait(false);
         }
         catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
         {
-            reached = false;
+            Adjust(ledger, -1);
             throw;
         }
-        finally
+    }
+
+    private static void Adjust(TmuxDispatchLedger? ledger, int delta)
+    {
+        for (; ledger is not null; ledger = ledger._parent)
         {
-            if (reached)
-            {
-                for (TmuxDispatchLedger? ledger = Current.Value; ledger is not null; ledger = ledger._parent)
-                {
-                    _ = Interlocked.Increment(ref ledger._reached);
-                }
-            }
+            _ = Interlocked.Add(ref ledger._reached, delta);
         }
     }
 }
