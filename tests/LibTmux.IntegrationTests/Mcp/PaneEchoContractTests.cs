@@ -52,7 +52,7 @@ public sealed class PaneEchoContractTests
             progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
             cancellationToken: token);
         await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
-        Assert.False(waiting.IsCompleted);
+        AssertStillWaiting(waiting);
         await InjectForeignOutputAsync(scope.Server, tty, "ready", 0, token);
         WaitResult waited = await waiting;
 
@@ -174,7 +174,7 @@ public sealed class PaneEchoContractTests
             progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
             cancellationToken: token);
         await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
-        Assert.False(waiting.IsCompleted);
+        AssertStillWaiting(waiting);
         await scope.Server.ExecuteCommandAsync(["wait-for", "-S", channel], token);
 
         WaitResult waited = await waiting;
@@ -258,7 +258,16 @@ public sealed class PaneEchoContractTests
         Window shell = await scope.Session.CreateWindowAsync(
             new NewWindowRequest { Command = "bash --norc --noprofile -i" },
             token);
-        return (await shell.GetPanesAsync(token))[0];
+        Pane pane = (await shell.GetPanesAsync(token))[0];
+
+        // Keys typed before bash starts are echoed by the tty, not readline,
+        // and its prompt then lands on the same row as the typed text.
+        PaneWaitResult prompt = await pane.WaitUntilAsync(
+            rows => rows.Any(row => row.TrimEnd().EndsWith('$')),
+            TimeSpan.FromSeconds(10),
+            token);
+        Assert.True(prompt.Found, "bash never printed its prompt");
+        return pane;
     }
 
     private static async Task<string> PaneTtyAsync(Pane pane, CancellationToken token)
@@ -296,4 +305,17 @@ public sealed class PaneEchoContractTests
                     + $"printf '%s\\n' {PaneRunner.ShellQuote(line)} > {PaneRunner.ShellQuote(tty)}",
             ],
             token);
+
+    // Says how a wait ended early, which a bare IsCompleted check hides.
+    private static void AssertStillWaiting(Task<WaitResult> waiting)
+    {
+        if (!waiting.IsCompleted)
+        {
+            return;
+        }
+
+        Assert.Fail(waiting.IsCompletedSuccessfully
+            ? $"The wait ended early: {waiting.Result.Outcome} on {waiting.Result.MatchedPattern}; tail: [{string.Join(" | ", waiting.Result.Tail.Lines)}]"
+            : $"The wait failed early: {waiting.Exception?.GetBaseException()}");
+    }
 }
