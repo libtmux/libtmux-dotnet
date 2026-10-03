@@ -10,6 +10,22 @@ public sealed class TmuxFilterRendererTests
         TmuxFilterRenderer.Superset(QueryExtensions.Translate(predicate));
 
     [Fact]
+    public void Identifier_scopes_nest_evenly_and_give_way_to_the_filter_when_long()
+    {
+        Assert.Equal("#{==:#{session_id},$1}", TmuxFilterRenderer.AnyOf("session_id", ["$1"]));
+        Assert.Equal(
+            "#{||:#{==:#{session_id},$1},#{||:#{==:#{session_id},$2},#{==:#{session_id},$3}}}",
+            TmuxFilterRenderer.AnyOf("session_id", ["$1", "$2", "$3"]));
+        Assert.Equal(
+            "#{||:#{||:#{==:#{pane_id},%1},#{==:#{pane_id},%2}},#{||:#{==:#{pane_id},%3},#{==:#{pane_id},%4}}}",
+            TmuxFilterRenderer.AnyOf("pane_id", ["%1", "%2", "%3", "%4"]));
+
+        string[] most = [.. Enumerable.Range(0, TmuxFilterRenderer.MostScopedIdentifiers).Select(id => $"${id}")];
+        Assert.StartsWith("#{||:", TmuxFilterRenderer.ScopeTo("session_id", most, "found"), StringComparison.Ordinal);
+        Assert.Equal("found", TmuxFilterRenderer.ScopeTo("session_id", [.. most, "$999999"], "found"));
+    }
+
+    [Fact]
     public void Operands_escape_format_and_glob_metacharacters()
     {
         Assert.Equal("#{==:#{session_name},a#,b#}c##d(}", Render<Session>(s => s.Name == "a,b}c#d("));

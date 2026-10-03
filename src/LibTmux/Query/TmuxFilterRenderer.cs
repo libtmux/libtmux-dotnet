@@ -168,6 +168,23 @@ internal static class TmuxFilterRenderer
             Balanced(rendered, static bounds => bounds.Lower, combine));
     }
 
+    /// <summary>The most identifiers <see cref="ScopeTo" /> names before it keeps the filter instead.</summary>
+    internal const int MostScopedIdentifiers = 512;
+
+    /// <summary>Scopes rows to the identifiers a filter found, or to the filter itself when they are many.</summary>
+    /// <param name="variable">The format variable, such as <c>session_id</c>.</param>
+    /// <param name="identifiers">The identifiers the filter kept; at least one.</param>
+    /// <param name="filter">The filter that found them.</param>
+    /// <returns>The scope for the rows to read.</returns>
+    /// <remarks>
+    /// Each identifier adds about thirty bytes to one tmux argument, which
+    /// Linux caps at 128 KiB, and a test to every row tmux filters. Past
+    /// <see cref="MostScopedIdentifiers" />, evaluating the filter on each row
+    /// again is the smaller cost.
+    /// </remarks>
+    internal static string? ScopeTo(string variable, IReadOnlyList<string> identifiers, string? filter) =>
+        identifiers.Count <= MostScopedIdentifiers ? AnyOf(variable, identifiers) : filter;
+
     /// <summary>Renders a filter keeping rows whose format variable equals one of several identifiers.</summary>
     /// <param name="variable">The format variable, such as <c>session_id</c>.</param>
     /// <param name="identifiers">The identifiers, which tmux prints without escaping.</param>

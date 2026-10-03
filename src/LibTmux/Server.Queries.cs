@@ -69,7 +69,10 @@ public sealed partial class Server
                 return [];
             }
 
-            scope = TmuxFilterRenderer.AnyOf("session_id", [.. matched.Select(found => found.Id.ToString())]);
+            scope = TmuxFilterRenderer.ScopeTo(
+                "session_id",
+                [.. matched.Select(found => found.Id.ToString())],
+                And(scope, lifted));
         }
 
         // Scoped by identifiers that never change, so the capture's separate
