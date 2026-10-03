@@ -46,7 +46,7 @@ program's. The MCP server reads the socket once, when it starts.
 | `wait_for_text` | `Pane.waitForText` and `Pane.waitFor` |
 | `send_keys` followed by `wait_for_text` | `Pane.sendAndWait` and `Pane.sendAndWaitFor` |
 | `run_shell_command` | `Pane.run` |
-| `send_keys` | `Pane.sendKeys` |
+| `send_keys` | `Pane.sendLine`, `Pane.sendText` and `Pane.pressKey`, or `Pane.sendKeys` with a request |
 | `split_window` | `Pane.split` |
 | `set_history_limit`, `set_mouse_enabled`, `show_option` | `Options.set` and `Options.get` with `TmuxOptionKey` |
 | `set_synchronize_panes` | `Options.set` with `TmuxOptionKey.SynchronizePanes` |

@@ -215,6 +215,10 @@ module Pane =
     let sendText (cancellationToken: CancellationToken) (text: string) (pane: LibTmux.Pane) =
         pane.SendTextAsync(text, false, cancellationToken)
 
+    let pressKey (cancellationToken: CancellationToken) (key: string) (pane: LibTmux.Pane) =
+        ArgumentException.ThrowIfNullOrWhiteSpace(key)
+        pane.SendKeysAsync(SendKeysRequest(Text = key, Enter = false), cancellationToken)
+
     let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SendKeysAsync(request, cancellationToken)
 

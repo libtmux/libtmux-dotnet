@@ -43,7 +43,7 @@ let runAsync () =
 
         do! pane |> Pane.sendText token command
 
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "Enter", Enter = false))
+        do! pane |> Pane.pressKey token "Enter"
         let! ready = wait.WaitAsync(TimeSpan.FromSeconds 5., token)
         printfn "The shell signalled: %b" ready
 

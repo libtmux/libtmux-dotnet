@@ -119,7 +119,7 @@
       "description": "Type a shell command literally, press the named Enter key, and wait for its private completion signal before capturing output. Timeout and command failures escape the program after scoped cleanup; cancellation does not undo dispatched input.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs",
       "targets": [
-        "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.pressKey(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
       "output": "The shell signalled: true\nCaptured line: api capture ready\n"

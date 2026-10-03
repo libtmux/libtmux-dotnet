@@ -217,6 +217,51 @@ module ContractTests =
         }
 
     [<Fact>]
+    let ``pressKey sends one key name and no Enter`` () =
+        task {
+            let sent = System.Collections.Concurrent.ConcurrentQueue<string array>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-press-key"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            sent.Enqueue arguments
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    arguments,
+                                    0,
+                                    ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("17:29\n")),
+                                    ReadOnlyMemory<byte>.Empty,
+                                    [||],
+                                    [||]
+                                )
+                            ))
+                )
+
+            let generation = ServerGeneration(17, 29)
+            let server = LibTmux.Server(connection, generation, "tmux 3.7")
+
+            let pane =
+                LibTmux.Pane(server, connection, generation, PaneId 1, Dictionary<string, string>())
+
+            do! pane |> Pane.pressKey CancellationToken.None "C-c"
+
+            // Each command also carries the server generation check, so look
+            // for the key; a following Enter would be a second command.
+            let arguments = Assert.Single(sent)
+            Assert.Contains("C-c", arguments)
+            Assert.DoesNotContain("-l", arguments)
+            Assert.Throws<ArgumentException>(fun () -> pane |> Pane.pressKey CancellationToken.None " " |> ignore)
+            |> ignore
+        }
+
+    [<Fact>]
     let ``send keys keeps post-dispatch cancellation token and diagnostics`` () =
         task {
             use source = new CancellationTokenSource()
