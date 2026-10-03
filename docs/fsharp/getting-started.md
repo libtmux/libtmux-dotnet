@@ -229,7 +229,7 @@ let readPaneCommandsAsync (cancellationToken: CancellationToken) (server: Server
 snapshot. A null command becomes `None`; an uncaptured command still raises
 `IncompleteSnapshotException`.
 
-Use [portable filters](queries.md) when the condition must become a
+Use [portable filters](filters.md) when the condition must become a
 `QueryDocument`; use `Seq.filter` for application-specific snapshot work.
 The [F# API reference](api.md) is generated from compiled signatures and XML
 summaries.
