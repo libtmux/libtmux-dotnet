@@ -356,6 +356,19 @@ startup and reported through `tmux://capabilities`.
 | OS | Linux, macOS. The bounded [`Psmux*` native-Windows and WSL query preview](docs/psmux.md) is experimental; its release gate runs both paths on net8.0 and net10.0 |
 | Trimming / NativeAOT | `LibTmux` core is analyzer-gated and its smoke app is published and run for `linux-x64` on net8.0 and net10.0. `Compile` and `Matching` resolve properties by name, so they warn trimmed callers to preserve the filtered types' public properties. The proof does not cover the other packages, macOS, or native Windows/psmux |
 
+## Attribution
+
+Please use the following BibTeX template to cite libtmux-dotnet in scientific discourse:
+
+```bibtex
+@misc{libtmux-dotnet,
+   author = {Tony Narlock},
+   year = {2026},
+   note = {https://libtmux.org/en/dotnet/},
+   title = {libtmux-dotnet: .NET wrapper for tmux}
+}
+```
+
 ## License
 
 [MIT](LICENSE). Practical parity with Python
