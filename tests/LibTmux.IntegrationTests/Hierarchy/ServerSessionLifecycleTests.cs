@@ -58,6 +58,35 @@ public sealed class ServerSessionLifecycleTests
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),
         SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    public async Task Disposing_an_owned_server_returns_once_its_process_has_exited()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        OwnedServerScope owned = await Server.CreateOwnedAsync(IsolatedOptions(), token);
+        int processId;
+        try
+        {
+            // Many panes make the server take longer to end after kill-server answers.
+            Session session = await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "busy", Command = "exec sleep 60" }, token);
+            for (int index = 0; index < 40; index++)
+            {
+                _ = await session.CreateWindowAsync(new NewWindowRequest { Command = "exec sleep 60" }, token);
+            }
+
+            TmuxCommandResult answer = await owned.Value.ExecuteCommandAsync(["display-message", "-p", "#{pid}"], token);
+            processId = int.Parse(answer.StandardOutputLines[0], System.Globalization.CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            await owned.DisposeAsync();
+        }
+
+        Assert.Throws<ArgumentException>(() => System.Diagnostics.Process.GetProcessById(processId));
+    }
+
+    [Fact(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
     public async Task Owned_server_handle_lists_what_it_started()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

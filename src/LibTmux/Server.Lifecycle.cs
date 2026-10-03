@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
 
@@ -380,8 +382,8 @@ public sealed class OwnedServerScope : IAsyncDisposable
     public Server Value { get; }
 
     /// <summary>Stops the owned server.</summary>
-    /// <returns>A task that completes once the server is gone.</returns>
-    /// <exception cref="LibTmuxException">The server could not be stopped.</exception>
+    /// <returns>A task that completes once the server process has exited.</returns>
+    /// <exception cref="LibTmuxException">The server could not be stopped, or had not exited within five seconds.</exception>
     [UnsupportedOSPlatform("windows")]
     public async ValueTask DisposeAsync()
     {
@@ -394,6 +396,55 @@ public sealed class OwnedServerScope : IAsyncDisposable
         // caller still needs its server gone; it bounds itself instead so a
         // wedged socket cannot hang disposal forever.
         using CancellationTokenSource cleanup = new(CleanupTimeout);
+        int? processId = await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
         await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
+        if (processId is int id)
+        {
+            await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
+        }
+    }
+
+    // The scope's handle stays unmaterialized, so ask the server itself; one
+    // already gone answers nothing and leaves nothing to wait for.
+    [UnsupportedOSPlatform("windows")]
+    private static async Task<int?> ReadProcessIdAsync(Server server, CancellationToken cancellationToken)
+    {
+        TmuxCommandResult result = await server
+            .ExecuteCommandAsync(["display-message", "-p", "#{pid}"], cancellationToken)
+            .ConfigureAwait(false);
+        return result.ExitCode == 0
+            && result.StandardOutputLines is [string line, ..]
+            && int.TryParse(line, NumberStyles.None, CultureInfo.InvariantCulture, out int processId)
+                ? processId
+                : null;
+    }
+
+    // kill-server answers once tmux has the command; the server may still be
+    // ending its panes, with its socket accepting connections.
+    private static async Task WaitForExitAsync(int processId, CancellationToken cancellationToken)
+    {
+        Process server;
+        try
+        {
+            server = Process.GetProcessById(processId);
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        using (server)
+        {
+            try
+            {
+                await server.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException error) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new LibTmuxException(
+                    "The owned tmux server was told to exit but had not within " + CleanupTimeout.TotalSeconds + " seconds.",
+                    error);
+            }
+        }
     }
 }
