@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open LibTmux
@@ -12,12 +13,22 @@ type StreamStep<'State> =
     /// <summary>Retains state and stops before reading another event.</summary>
     | Stop of state: 'State
 
-/// <summary>Provides scoped access to core control-mode event streams.</summary>
+/// <summary>Opens control clients and reads their event streams.</summary>
+/// <remarks>
+/// Streams are cold: nothing is read until a consumer enumerates one, and the
+/// consumer supplies the cancellation token. Any <c>IAsyncEnumerable</c>
+/// library composes them, including FSharp.Control.TaskSeq.
+/// </remarks>
 [<RequireQualifiedAccess>]
 module Control =
-    /// <summary>Opens a core control client with the caller's cancellation token.</summary>
+    /// <summary>Opens a control client attached to the most recently used session.</summary>
     /// <remarks>The caller owns and asynchronously disposes the returned client.</remarks>
     val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>
+
+    /// <summary>Opens a control client attached to a session.</summary>
+    /// <remarks>The caller owns and asynchronously disposes the returned client.</remarks>
+    /// <exception cref="T:LibTmux.IncompleteSnapshotException">The session was not read through a server.</exception>
+    val enterSession: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IControlModeSession>
 
     /// <summary>Runs work with an owned control client and disposes it after the returned task completes.</summary>
     /// <remarks>The work function receives the client and must forward its own cancellation token.</remarks>
@@ -31,19 +42,43 @@ module Control =
         server: LibTmux.Server ->
             Task<'State>
 
-    /// <summary>Awaits one handler at a time for each event from a borrowed control client.</summary>
-    /// <remarks>The helper disposes its enumerator but leaves the control client open.</remarks>
-    val iterEvents:
-        cancellationToken: CancellationToken ->
-        handler: (TmuxEvent -> Task) ->
-        session: IControlModeSession ->
-            Task<unit>
+    /// <summary>Streams every event a control client reports.</summary>
+    /// <remarks>A client has one event stream; two consumers each see only part of it.</remarks>
+    val events: session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
-    /// <summary>Folds events until the source ends or the folder returns Stop.</summary>
+    /// <summary>Streams one pane's output from a borrowed control client.</summary>
+    /// <remarks>
+    /// <para>
+    /// The stream ends with <c>TmuxPaneGoneEvent</c> once the pane is confirmed
+    /// gone, or with <c>TmuxExitEvent</c> when the client ends. It reads the
+    /// client's single event stream, so other events are consumed and dropped.
+    /// </para>
+    /// <para>
+    /// tmux discards output it has not yet sent once a pane's program exits,
+    /// so the last lines of a program that exits at once may never arrive.
+    /// Read final output with <c>Pane.run</c>, or capture a pane kept with
+    /// <c>remain-on-exit</c>.
+    /// </para>
+    /// </remarks>
+    val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
+
+    /// <summary>Awaits one handler at a time for each item until the stream ends.</summary>
     /// <remarks>The helper disposes its enumerator but leaves the control client open.</remarks>
-    val foldEventsWhile:
+    val iter:
+        cancellationToken: CancellationToken -> handler: ('T -> Task) -> source: IAsyncEnumerable<'T> -> Task<unit>
+
+    /// <summary>Folds items until the stream ends or the folder returns Stop.</summary>
+    /// <remarks>The helper disposes its enumerator but leaves the control client open.</remarks>
+    val foldWhile:
         cancellationToken: CancellationToken ->
-        folder: ('State -> TmuxEvent -> Task<StreamStep<'State>>) ->
+        folder: ('State -> 'T -> Task<StreamStep<'State>>) ->
         initial: 'State ->
-        session: IControlModeSession ->
+        source: IAsyncEnumerable<'T> ->
             Task<'State>
+
+    /// <summary>Returns the cleanup failure attached to the exception a helper rethrew.</summary>
+    /// <remarks>
+    /// When work and cleanup both fail, the helpers rethrow the work's exception
+    /// unchanged and attach the cleanup's; this reads it back.
+    /// </remarks>
+    val cleanupFailure: error: exn -> exn option

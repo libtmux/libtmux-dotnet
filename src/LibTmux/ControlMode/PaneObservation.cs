@@ -42,6 +42,13 @@ public static class PaneObservation
     /// buffered output precedes pane termination for watermark-backed control
     /// sessions. The client remains borrowed.
     /// </returns>
+    /// <remarks>
+    /// tmux discards output it has not yet sent to a control client once the
+    /// pane's program exits, so the last lines of a program that exits at once
+    /// may never arrive. Read final output with
+    /// <see cref="Pane.RunAsync(string, TimeSpan, CancellationToken)" />, or
+    /// capture a pane kept with <c>remain-on-exit</c>.
+    /// </remarks>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
     /// output was buffered before pane termination. Its watch fails when the

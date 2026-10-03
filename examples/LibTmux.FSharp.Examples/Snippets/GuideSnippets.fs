@@ -146,7 +146,8 @@ module internal GuideSnippets =
 
     let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
         session
-        |> Control.foldEventsWhile
+        |> Control.events
+        |> Control.foldWhile
             cancellationToken
             (fun events event ->
                 task {
@@ -162,6 +163,39 @@ module internal GuideSnippets =
     let observeUntilTerminalAsync cancellationToken server =
         server
         |> Control.withSession cancellationToken (readUntilTerminalAsync cancellationToken)
+    // endfsharp-snippet
+
+    // fsharp-snippet: WatchPaneOutput
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let readPaneUntilAsync
+        (cancellationToken: CancellationToken)
+        (marker: string)
+        (pane: Pane)
+        (session: IControlModeSession)
+        =
+        session
+        |> Control.watchPane pane
+        |> Control.foldWhile
+            cancellationToken
+            (fun output event ->
+                task {
+                    match event with
+                    | :? TmuxOutputEvent as printed ->
+                        let output = output + printed.Data
+
+                        if output.Contains(marker, StringComparison.Ordinal) then
+                            return StreamStep.Stop output
+                        else
+                            return StreamStep.Continue output
+                    | :? TmuxPaneGoneEvent
+                    | :? TmuxExitEvent -> return StreamStep.Stop output
+                    | _ -> return StreamStep.Continue output
+                })
+            ""
     // endfsharp-snippet
 
 

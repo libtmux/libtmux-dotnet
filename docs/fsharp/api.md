@@ -36,11 +36,15 @@ Core handles and request types appear in the
 
 | Signature | Summary |
 |---|---|
-| `LibTmux.FSharp.Control` | Provides scoped access to core control-mode event streams. |
-| `val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>` | Opens a core control client with the caller's cancellation token. |
-| `val foldEventsWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>` | Folds events until the source ends or the folder returns Stop. |
-| `val iterEvents: cancellationToken: System.Threading.CancellationToken -> handler: (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>` | Awaits one handler at a time for each event from a borrowed control client. |
+| `LibTmux.FSharp.Control` | Opens control clients and reads their event streams. |
+| `val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option` | Returns the cleanup failure attached to the exception a helper rethrew. |
+| `val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>` | Opens a control client attached to the most recently used session. |
+| `val enterSession: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>` | Opens a control client attached to a session. |
+| `val events: session: LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams every event a control client reports. |
+| `val foldWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> 'T -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> source: System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<'State>` | Folds items until the stream ends or the folder returns Stop. |
+| `val iter: cancellationToken: System.Threading.CancellationToken -> handler: ('T -> System.Threading.Tasks.Task) -> source: System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>` | Awaits one handler at a time for each item until the stream ends. |
 | `val useSession: work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>` | Runs work with an owned control client and disposes it after the returned task completes. |
+| `val watchPane: pane: LibTmux.Pane -> session: LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>` | Streams one pane's output from a borrowed control client. |
 | `val withSession: cancellationToken: System.Threading.CancellationToken -> work: (LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>) -> server: LibTmux.Server -> System.Threading.Tasks.Task<'State>` | Opens a control client, runs work, and disposes the client after the returned task completes. |
 
 ## Field

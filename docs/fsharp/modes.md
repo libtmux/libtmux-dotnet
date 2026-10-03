@@ -12,8 +12,9 @@ chain remains an explicit core value.
 `Control.withSession` opens and owns a core control client. It ends the client
 after its task finishes. `readUntilTerminalAsync` borrows a client, so it
 disposes only its event enumerator. `Control.enter` returns an owned client
-when its lifetime must extend beyond one function; pass that client to
-`Control.useSession` to transfer ownership to a task scope.
+when its lifetime must extend beyond one function, and `Control.enterSession`
+attaches one to a chosen session; pass either to `Control.useSession` to
+transfer ownership to a task scope.
 
 <!-- fsharp-snippet: ObserveControlEvents run -->
 ```fsharp run
@@ -23,7 +24,8 @@ open LibTmux.FSharp
 
 let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
     session
-    |> Control.foldEventsWhile
+    |> Control.events
+    |> Control.foldWhile
         cancellationToken
         (fun events event ->
             task {
@@ -42,16 +44,20 @@ let observeUntilTerminalAsync cancellationToken server =
 ```
 <!-- endfsharp-snippet -->
 
-`Control.foldEventsWhile` reads and awaits one event handler at a time. It
-stops before reading another event when the folder returns `StreamStep.Stop`.
+`Control.events` is the client's event stream; nothing is read until a
+consumer enumerates it. `Control.foldWhile` reads and awaits one folder call at
+a time. It stops before reading another event when the folder returns
+`StreamStep.Stop`.
 It preserves unknown event types. `TmuxEventsDroppedEvent` means the caller
 must resynchronize from a capture; the example returns it to the caller and
 stops. `TmuxExitEvent` is a normal terminal event. A failed control stream
 raises after its buffered events.
 
-`Control.iterEvents` is the same borrowed-client pattern when no accumulator
-is needed. It completes when the stream ends or propagates the handler,
-stream, and cancellation errors unchanged.
+`Control.iter` is the same borrowed-client pattern when no accumulator is
+needed. It completes when the stream ends or propagates the handler, stream,
+and cancellation errors unchanged. When a handler and the enumerator's cleanup
+both fail, the handler's exception propagates and `Control.cleanupFailure`
+returns the cleanup's.
 
 
 ## Command chains

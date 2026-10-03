@@ -85,7 +85,7 @@ public class FSharpControlFoldBenchmarks : IDisposable
     /// <summary>Consumes the core async event sequence through the F# fold.</summary>
     [Benchmark]
     public Task<FoldResult> FSharpFold() =>
-        Control.foldEventsWhile(_cancellation.Token, _folder, default, _session);
+        Control.foldWhile(_cancellation.Token, _folder, default, Control.events(_session));
 
     private static FoldResult NextState(FoldResult state, TmuxEvent item)
     {

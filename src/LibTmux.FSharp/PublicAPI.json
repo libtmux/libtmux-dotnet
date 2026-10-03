@@ -3,6 +3,36 @@
   "version": 1,
   "members": [
     {
+      "id": "M:LibTmux.FSharp.Control.cleanupFailure(System.Exception)",
+      "package": "LibTmux.FSharp",
+      "name": "cleanupFailure",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "error",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.exn"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "cleanupFailure",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+    },
+    {
       "id": "M:LibTmux.FSharp.Control.enter(System.Threading.CancellationToken,LibTmux.Server)",
       "package": "LibTmux.FSharp",
       "name": "enter",
@@ -39,19 +69,85 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
     },
     {
-      "id": "M:LibTmux.FSharp.Control.foldEventsWhile``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{LibTmux.TmuxEvent,System.Threading.Tasks.Task{LibTmux.FSharp.StreamStep{``0}}}},``0,LibTmux.IControlModeSession)",
+      "id": "M:LibTmux.FSharp.Control.enterSession(System.Threading.CancellationToken,LibTmux.Session)",
       "package": "LibTmux.FSharp",
-      "name": "foldEventsWhile",
+      "name": "enterSession",
       "declaringType": "T:LibTmux.FSharp.Control",
       "visibility": "public",
       "kind": "member",
-      "signature": "val foldEventsWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>",
+      "signature": "val enterSession: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
       "interfaces": [],
       "exposedTypes": [
-        "System.Threading.CancellationToken -> ('State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> 'State -> LibTmux.IControlModeSession -> System.Threading.Tasks.Task<'State>"
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "enterSession",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.events(LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "events",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val events: session: LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "events",
+      "genericParameters": [],
+      "returnType": "System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.foldWhile``2(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Threading.Tasks.Task{LibTmux.FSharp.StreamStep{``0}}}},``0,System.Collections.Generic.IAsyncEnumerable{``1})",
+      "package": "LibTmux.FSharp",
+      "name": "foldWhile",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val foldWhile: cancellationToken: System.Threading.CancellationToken -> folder: ('State -> 'T -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> initial: 'State -> source: System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<'State>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> ('State -> 'T -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>) -> 'State -> System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<'State>"
       ],
       "attributes": [],
       "parameters": [
@@ -63,7 +159,7 @@
         {
           "name": "folder",
           "optional": false,
-          "type": "'State -> LibTmux.TmuxEvent -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>"
+          "type": "'State -> 'T -> System.Threading.Tasks.Task<LibTmux.FSharp.StreamStep<'State>>"
         },
         {
           "name": "initial",
@@ -71,9 +167,9 @@
           "type": "'State"
         },
         {
-          "name": "session",
+          "name": "source",
           "optional": false,
-          "type": "LibTmux.IControlModeSession"
+          "type": "System.Collections.Generic.IAsyncEnumerable<'T>"
         }
       ],
       "argumentGroups": [
@@ -82,29 +178,33 @@
         1,
         1
       ],
-      "compiledName": "foldEventsWhile",
+      "compiledName": "foldWhile",
       "genericParameters": [
         {
           "constraints": [],
           "name": "State"
+        },
+        {
+          "constraints": [],
+          "name": "T"
         }
       ],
       "returnType": "System.Threading.Tasks.Task<'State>"
     },
     {
-      "id": "M:LibTmux.FSharp.Control.iterEvents(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{LibTmux.TmuxEvent,System.Threading.Tasks.Task},LibTmux.IControlModeSession)",
+      "id": "M:LibTmux.FSharp.Control.iter``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,System.Threading.Tasks.Task},System.Collections.Generic.IAsyncEnumerable{``0})",
       "package": "LibTmux.FSharp",
-      "name": "iterEvents",
+      "name": "iter",
       "declaringType": "T:LibTmux.FSharp.Control",
       "visibility": "public",
       "kind": "member",
-      "signature": "val iterEvents: cancellationToken: System.Threading.CancellationToken -> handler: (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> session: LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>",
+      "signature": "val iter: cancellationToken: System.Threading.CancellationToken -> handler: ('T -> System.Threading.Tasks.Task) -> source: System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
       "interfaces": [],
       "exposedTypes": [
-        "System.Threading.CancellationToken -> (LibTmux.TmuxEvent -> System.Threading.Tasks.Task) -> LibTmux.IControlModeSession -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>"
+        "System.Threading.CancellationToken -> ('T -> System.Threading.Tasks.Task) -> System.Collections.Generic.IAsyncEnumerable<'T> -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>"
       ],
       "attributes": [],
       "parameters": [
@@ -116,12 +216,12 @@
         {
           "name": "handler",
           "optional": false,
-          "type": "LibTmux.TmuxEvent -> System.Threading.Tasks.Task"
+          "type": "'T -> System.Threading.Tasks.Task"
         },
         {
-          "name": "session",
+          "name": "source",
           "optional": false,
-          "type": "LibTmux.IControlModeSession"
+          "type": "System.Collections.Generic.IAsyncEnumerable<'T>"
         }
       ],
       "argumentGroups": [
@@ -129,8 +229,13 @@
         1,
         1
       ],
-      "compiledName": "iterEvents",
-      "genericParameters": [],
+      "compiledName": "iter",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
       "returnType": "System.Threading.Tasks.Task<Microsoft.FSharp.Core.unit>"
     },
     {
@@ -173,6 +278,42 @@
         }
       ],
       "returnType": "System.Threading.Tasks.Task<'State>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Control.watchPane(LibTmux.Pane,LibTmux.IControlModeSession)",
+      "package": "LibTmux.FSharp",
+      "name": "watchPane",
+      "declaringType": "T:LibTmux.FSharp.Control",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val watchPane: pane: LibTmux.Pane -> session: LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.Pane -> LibTmux.IControlModeSession -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "pane",
+          "optional": false,
+          "type": "LibTmux.Pane"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.IControlModeSession"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "watchPane",
+      "genericParameters": [],
+      "returnType": "System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent>"
     },
     {
       "id": "M:LibTmux.FSharp.Control.withSession``1(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{LibTmux.IControlModeSession,System.Threading.Tasks.Task{``0}},LibTmux.Server)",

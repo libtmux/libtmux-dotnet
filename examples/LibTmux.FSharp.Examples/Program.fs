@@ -302,6 +302,31 @@ let private runAsync () =
         then
             failwith "The portable filter did not match the native captured-pane query."
 
+        let! watchedPane =
+            scope.Pane
+            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+        let! watcher = scope.Session |> Control.enterSession cancellationToken
+
+        let! watched =
+            watcher
+            |> Control.useSession (fun control ->
+                task {
+                    let reading =
+                        GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
+
+                    do!
+                        watchedPane
+                        |> Pane.sendKeys
+                            cancellationToken
+                            (SendKeysRequest(Text = "printf 'watch''ed\\n'", Literal = true))
+
+                    return! reading
+                })
+
+        if not (watched.Contains "watched") then
+            failwithf "The pane watch guide did not read the pane's output: %A" watched
+
         let! observed =
             scope.Server
             |> Control.withSession cancellationToken (fun control ->

@@ -71,16 +71,36 @@ module ControlTests =
                 EventSession([ TmuxNotificationEvent("first", []); TmuxNotificationEvent("second", []) ])
 
             let! count =
-                Control.foldEventsWhile
+                session
+                |> Control.events
+                |> Control.foldWhile
                     CancellationToken.None
                     (fun state _ -> Task.FromResult(StreamStep.Stop(state + 1)))
                     0
-                    session
 
             Assert.Equal(1, count)
             Assert.Equal(1, session.Reads)
             Assert.True(session.ReaderDisposed)
             Assert.Equal(0, session.DisposeCalls)
+        }
+
+    [<Fact>]
+    let ``fold carries each state to the next event until the stream ends`` () =
+        task {
+            let session =
+                EventSession([ TmuxNotificationEvent("first", []); TmuxNotificationEvent("second", []) ])
+
+            let! names =
+                session
+                |> Control.events
+                |> Control.foldWhile
+                    CancellationToken.None
+                    (fun names event ->
+                        Task.FromResult(StreamStep.Continue((event :?> TmuxNotificationEvent).Name :: names)))
+                    []
+
+            Assert.Equal<string list>([ "second"; "first" ], names)
+            Assert.True(session.ReaderDisposed)
         }
 
     [<Fact>]
@@ -94,17 +114,16 @@ module ControlTests =
             let mutable maximumInFlight = 0
 
             do!
-                Control.iterEvents
-                    CancellationToken.None
-                    (fun event ->
-                        task {
-                            inFlight <- inFlight + 1
-                            maximumInFlight <- max maximumInFlight inFlight
-                            observed.Add((event :?> TmuxNotificationEvent).Name)
-                            do! Task.Yield()
-                            inFlight <- inFlight - 1
-                        })
-                    session
+                session
+                |> Control.events
+                |> Control.iter CancellationToken.None (fun event ->
+                    task {
+                        inFlight <- inFlight + 1
+                        maximumInFlight <- max maximumInFlight inFlight
+                        observed.Add((event :?> TmuxNotificationEvent).Name)
+                        do! Task.Yield()
+                        inFlight <- inFlight - 1
+                    })
 
             Assert.Equal([ "first"; "second" ], observed)
             Assert.Equal(1, maximumInFlight)
@@ -120,7 +139,7 @@ module ControlTests =
 
             let! thrown =
                 Assert.ThrowsAsync<InvalidOperationException>(fun () ->
-                    Control.iterEvents CancellationToken.None (fun _ -> Task.FromException(failure)) session)
+                    Control.iter CancellationToken.None (fun _ -> Task.FromException(failure)) (Control.events session))
 
             Assert.Same(failure, thrown)
             Assert.True(session.ReaderDisposed)
@@ -138,10 +157,10 @@ module ControlTests =
 
             let! thrown =
                 Assert.ThrowsAsync<InvalidOperationException>(fun () ->
-                    Control.iterEvents CancellationToken.None (fun _ -> Task.FromException(primary)) session)
+                    Control.iter CancellationToken.None (fun _ -> Task.FromException(primary)) (Control.events session))
 
             Assert.Same(primary, thrown)
-            Assert.Same(cleanup, thrown.Data["LibTmux.ControlModeEventCleanupFailure"])
+            Assert.Equal(Some(cleanup :> exn), Control.cleanupFailure thrown)
             Assert.True(session.ReaderDisposed)
             Assert.Equal(0, session.DisposeCalls)
         }
@@ -154,7 +173,7 @@ module ControlTests =
 
             let! thrown =
                 Assert.ThrowsAsync<IOException>(fun () ->
-                    Control.iterEvents CancellationToken.None (fun _ -> Task.CompletedTask) session)
+                    Control.iter CancellationToken.None (fun _ -> Task.CompletedTask) (Control.events session))
 
             Assert.Same(cleanup, thrown)
             Assert.True(session.ReaderDisposed)
@@ -185,7 +204,7 @@ module ControlTests =
                     Control.useSession (fun _ -> Task.FromException<string>(primary)) session)
 
             Assert.Same(primary, thrown)
-            Assert.Same(cleanup, thrown.Data["LibTmux.ControlModeClientCleanupFailure"])
+            Assert.Equal(Some(cleanup :> exn), Control.cleanupFailure thrown)
             Assert.True(session.ReaderDisposed |> not)
             Assert.Equal(1, session.DisposeCalls)
         }
@@ -206,7 +225,7 @@ module ControlTests =
 
             Assert.True(operation.IsCanceled)
             Assert.Equal(canceled.Token, thrown.CancellationToken)
-            Assert.Same(cleanup, thrown.Data["LibTmux.ControlModeClientCleanupFailure"])
+            Assert.Equal(Some(cleanup :> exn), Control.cleanupFailure thrown)
             Assert.Equal(1, session.DisposeCalls)
         }
 
@@ -289,12 +308,12 @@ module ControlTests =
 
             let! thrown =
                 Assert.ThrowsAsync<IOException>(fun () ->
-                    Control.iterEvents
-                        CancellationToken.None
-                        (fun event ->
-                            observed.Add((event :?> TmuxNotificationEvent).Name)
-                            Task.CompletedTask)
-                        session)
+                    session
+                    |> Control.events
+                    |> Control.iter CancellationToken.None (fun event ->
+                        observed.Add((event :?> TmuxNotificationEvent).Name)
+                        Task.CompletedTask)
+                    :> Task)
 
             Assert.Same(failure, thrown)
             Assert.Equal([ "retained" ], observed)
@@ -311,7 +330,7 @@ module ControlTests =
 
             let! _ =
                 Assert.ThrowsAsync<OperationCanceledException>(fun () ->
-                    Control.iterEvents canceled.Token (fun _ -> Task.CompletedTask) session)
+                    Control.iter canceled.Token (fun _ -> Task.CompletedTask) (Control.events session))
 
             Assert.True(session.ReaderDisposed)
             Assert.Equal(0, session.DisposeCalls)
@@ -391,14 +410,15 @@ module ContextTests =
         | "tryFindWindow" -> fun () -> Server.tryFindWindow token (WindowId 7) (server ())
         | "tryFindPane" -> fun () -> Server.tryFindPane token (PaneId 7) (server ())
         | "tryFindClient" -> fun () -> Server.tryFindClient token "client-7" (server ())
-        | "iterEvents" -> fun () -> Control.iterEvents token (fun _ -> Task.Run(fun () -> ())) (PendingEventSession 3)
-        | "foldEventsWhile" ->
+        | "iter" ->
+            fun () -> Control.iter token (fun _ -> Task.Run(fun () -> ())) (Control.events (PendingEventSession 3))
+        | "foldWhile" ->
             fun () ->
-                Control.foldEventsWhile
+                Control.foldWhile
                     token
                     (fun count _ -> Task.Run(fun () -> StreamStep.Continue(count + 1)))
                     0
-                    (PendingEventSession 3)
+                    (Control.events (PendingEventSession 3))
         | "useSession" -> fun () -> Control.useSession (fun _ -> Task.Run(fun () -> 1)) (PendingEventSession 0)
         | _ -> invalidArg (nameof name) name
 
@@ -407,8 +427,8 @@ module ContextTests =
     [<InlineData("tryFindWindow")>]
     [<InlineData("tryFindPane")>]
     [<InlineData("tryFindClient")>]
-    [<InlineData("iterEvents")>]
-    [<InlineData("foldEventsWhile")>]
+    [<InlineData("iter")>]
+    [<InlineData("foldWhile")>]
     [<InlineData("useSession")>]
     let ``continuations never resume on the caller's synchronization context`` name =
         task {
