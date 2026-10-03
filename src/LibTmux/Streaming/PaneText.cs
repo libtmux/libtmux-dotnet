@@ -283,23 +283,6 @@ internal static partial class PaneText
         return lines;
     }
 
-    /// <summary>Matches the channel and option names a run leaves behind.</summary>
-    /// <remarks>
-    /// Anchored to the exact shape minted by <see cref="PaneRunner.RunToken" />
-    /// so that ordinary text mentioning the prefix survives. The begin marker
-    /// is spelled in halves in the payload, so the echo carries no ten-digit
-    /// form — but it always carries the two quoted halves adjacent, which is
-    /// a shape a caller's own output does not have. Matching that rather than
-    /// widening the digit count keeps a line like <c>lt_b_abcde</c> in a
-    /// user's build log, which a five-digit minimum would have deleted.
-    /// <para>
-    /// The status assignment is matched too, because rejoining wrapped rows
-    /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
-    /// row is not always exactly the pane's width and the join stops early.
-    /// That left the payload's tail row — the one naming set-option and
-    /// wait-for — orphaned from the marker below it, on every read path.
-    /// </para>
-    /// </remarks>
     private static bool IsWordChar(char character) => char.IsLetterOrDigit(character) || character == '_';
 
     /// <summary>Removes every standalone occurrence of <paramref name="echo" /> from <paramref name="text" />.</summary>
@@ -361,35 +344,137 @@ internal static partial class PaneText
         return result;
     }
 
-    /// <summary>Removes typed text from screen rows, including where the pane wrapped it.</summary>
-    /// <param name="rows">Screen rows, top to bottom.</param>
-    /// <param name="typed">The lines that were typed.</param>
-    /// <returns>The rows with every standalone occurrence of a typed line removed.</returns>
+    /// <summary>Builds what removes typed text from the rows a pane shows afterwards.</summary>
+    /// <param name="typed">The text typed; each of its lines is removed on its own.</param>
+    /// <returns>A function from screen rows to the same rows without the typed lines.</returns>
     /// <remarks>
-    /// A typed line longer than the pane continues on the next row, and
-    /// tmux trims the spaces a row ends with, so a wrap can fall between any
-    /// two characters and swallow a space. The rows are searched as one text
-    /// in which a row break may stand inside an occurrence; removing one keeps
-    /// its row breaks, so the rows stay in place. As in
-    /// <see cref="WithoutEcho" />, an occurrence counts only where it is not
-    /// part of a longer word.
+    /// <para>
+    /// A typed line longer than the pane continues on the next row, and tmux
+    /// trims the spaces a row ends with, so a wrap can fall between any two
+    /// characters and swallow a space. The rows are searched as one text in
+    /// which a row break may stand inside an occurrence, and removing one keeps
+    /// its row breaks, so the rows stay in place.
+    /// </para>
+    /// <para>
+    /// A shell still echoing a line shows only its start, at the end of the
+    /// screen; that start is removed too. As in <see cref="WithoutEcho" />, an
+    /// occurrence counts only where it is not part of a longer word, so output
+    /// identical to a typed line is removed with it.
+    /// </para>
     /// </remarks>
-    internal static IReadOnlyList<string> WithoutTypedEcho(IReadOnlyList<string> rows, IEnumerable<string> typed)
+    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed)
     {
-        string text = string.Join('\n', rows);
-        foreach (string line in typed.Where(line => line.Length > 0))
+        (string Line, Regex Occurrence)[] lines =
+        [
+            .. typed.Split(['\r', '\n'])
+                .Select(line => line.TrimEnd(' '))
+                .Where(line => line.Length > 0)
+                .Select(line => (line, WrappedOccurrence(line))),
+        ];
+        return rows =>
         {
-            string source = text;
-            text = WrappedOccurrence(line).Replace(source, occurrence =>
+            string text = string.Join('\n', rows);
+            foreach ((string line, Regex occurrence) in lines)
             {
-                int end = occurrence.Index + occurrence.Length;
-                bool opens = occurrence.Index == 0 || !IsWordChar(source[occurrence.Index - 1]) || !IsWordChar(line[0]);
-                bool closes = end == source.Length || !IsWordChar(source[end]) || !IsWordChar(line[^1]);
-                return opens && closes ? new string('\n', occurrence.Value.Count(character => character == '\n')) : occurrence.Value;
-            });
+                text = WithoutWrapped(text, line, occurrence);
+            }
+
+            foreach ((string line, _) in lines)
+            {
+                text = WithoutEchoInProgress(text, line);
+            }
+
+            return text.Split('\n');
+        };
+    }
+
+    private static string WithoutWrapped(string text, string line, Regex occurrence)
+    {
+        StringBuilder? result = null;
+        int cursor = 0;
+        Match match = occurrence.Match(text);
+        while (match.Success)
+        {
+            int end = match.Index + match.Length;
+            bool opens = match.Index == 0 || !IsWordChar(text[match.Index - 1]) || !IsWordChar(line[0]);
+            bool closes = end == text.Length || !IsWordChar(text[end]) || !IsWordChar(line[^1]);
+            if (opens && closes)
+            {
+                result ??= new StringBuilder(text.Length);
+                result.Append(text, cursor, match.Index - cursor).Append('\n', match.ValueSpan.Count('\n'));
+                cursor = end;
+                match = occurrence.Match(text, end);
+            }
+            else
+            {
+                match = occurrence.Match(text, match.Index + 1);
+            }
         }
 
-        return text.Split('\n');
+        return result is null ? text : result.Append(text, cursor, text.Length - cursor).ToString();
+    }
+
+    // The longest start of the line that ends the text, past trailing spaces
+    // and blank rows, is the part the shell has echoed so far.
+    private static string WithoutEchoInProgress(string text, string line)
+    {
+        int end = text.Length;
+        while (end > 0 && text[end - 1] is ' ' or '\n')
+        {
+            end--;
+        }
+
+        for (int length = line.Length - 1; length > 0; length--)
+        {
+            int start = StartOfWrapped(text, end, line, length);
+            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
+            {
+                int breaks = text.AsSpan(start, end - start).Count('\n');
+                return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
+            }
+        }
+
+        return text;
+    }
+
+    // Reads backwards from end for the line's first length characters, across
+    // row breaks and the spaces a wrapped row loses; -1 when they are not there.
+    private static int StartOfWrapped(string text, int end, string line, int length)
+    {
+        int at = end - 1;
+        int typed = length - 1;
+        while (typed >= 0 && line[typed] == ' ')
+        {
+            typed--;
+        }
+
+        while (typed >= 0)
+        {
+            if (at < 0)
+            {
+                return -1;
+            }
+
+            if (text[at] == line[typed])
+            {
+                at--;
+                typed--;
+            }
+            else if (text[at] == '\n')
+            {
+                at--;
+                while (typed >= 0 && line[typed] == ' ')
+                {
+                    typed--;
+                }
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
+        return at + 1;
     }
 
     // Each character may be followed by a wrap; a run of spaces may be cut
@@ -417,6 +502,23 @@ internal static partial class PaneText
         return new Regex(pattern.ToString(), RegexOptions.CultureInvariant);
     }
 
+    /// <summary>Matches the channel and option names a run leaves behind.</summary>
+    /// <remarks>
+    /// Anchored to the exact shape minted by <see cref="PaneRunner.RunToken" />
+    /// so that ordinary text mentioning the prefix survives. The begin marker
+    /// is spelled in halves in the payload, so the echo carries no ten-digit
+    /// form — but it always carries the two quoted halves adjacent, which is
+    /// a shape a caller's own output does not have. Matching that rather than
+    /// widening the digit count keeps a line like <c>lt_b_abcde</c> in a
+    /// user's build log, which a five-digit minimum would have deleted.
+    /// <para>
+    /// The status assignment is matched too, because rejoining wrapped rows
+    /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
+    /// row is not always exactly the pane's width and the join stops early.
+    /// That left the payload's tail row — the one naming set-option and
+    /// wait-for — orphaned from the marker below it, on every read path.
+    /// </para>
+    /// </remarks>
     [GeneratedRegex(
         @"@?lt_[rsbe]_[0-9a-f]{10}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
         RegexOptions.CultureInvariant)]

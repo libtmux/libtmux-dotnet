@@ -103,7 +103,7 @@ public sealed partial class Pane
     /// <summary>Types a line, presses Enter, and waits for a later line to contain the text.</summary>
     /// <param name="line">The line to type, sent verbatim.</param>
     /// <param name="text">The text to wait for, matched literally.</param>
-    /// <param name="timeout">How long to wait once the line is sent.</param>
+    /// <param name="timeout">How long to wait, counted from the call.</param>
     /// <param name="cancellationToken">Stops the wait; a line already sent stays sent.</param>
     /// <returns>How the wait ended.</returns>
     /// <remarks>
@@ -111,19 +111,27 @@ public sealed partial class Pane
     /// keys: the screen before the line is typed never ends the wait, and the
     /// line's echo is discounted.
     /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="line" /> is null.</exception>
     /// <exception cref="ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="LibTmuxException">
+    /// The line was typed but Enter failed. The pane may already have acted
+    /// on it; do not retry the whole call.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneWaitResult> SendTextAndWaitAsync(
         string line,
         string text,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default) =>
-        SendKeysAndWaitAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        return SendKeysAndWaitAsync(
             new SendKeysRequest { Text = line, Literal = true },
             new PaneWaitRequest { Patterns = [Containing(text)], Timeout = timeout },
             cancellationToken);
+    }
 
     /// <summary>Sends keys to the pane and waits for what it prints in response.</summary>
     /// <param name="keys">What to type.</param>
@@ -136,10 +144,17 @@ public sealed partial class Pane
     /// once is not missed, and judges only what the pane prints afterwards:
     /// text already on screen never ends it. A shell echoes typed text back, so
     /// literal text (<see cref="SendKeysRequest.Literal" />, as
-    /// <see cref="SendTextAsync" /> sends) is removed from each line before
-    /// matching; key names are not. Waiting for <c>done</c> after typing
-    /// <c>echo done</c> therefore waits for the command's output, not for the
-    /// line that was typed.
+    /// <see cref="SendTextAsync" /> sends) is removed from what the pane shows
+    /// before matching, including the part of a line the shell has echoed so
+    /// far. Waiting for <c>done</c> after typing <c>echo done</c> therefore
+    /// waits for the command's output, not for the line that was typed.
+    /// </para>
+    /// <para>
+    /// The removal is by text: output identical to a typed line, as a whole
+    /// word, is removed too. Key names, and text sent with
+    /// <see cref="SendKeysRequest.ExpandFormats" />,
+    /// <see cref="SendKeysRequest.Repeat" /> or a copy-mode command, are not
+    /// removed.
     /// </para>
     /// <para>
     /// A typed line the pane wrapped onto a second row is still recognised.
@@ -150,6 +165,10 @@ public sealed partial class Pane
     /// <exception cref="ArgumentException">The request has no patterns; the echo alone would answer it.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="LibTmuxException">
+    /// The text was sent but a requested Enter failed. The pane may already
+    /// have acted on the text; do not retry the whole call.
+    /// </exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneWaitResult> SendKeysAndWaitAsync(
         SendKeysRequest keys,
@@ -169,7 +188,7 @@ public sealed partial class Pane
             .WaitAsync(
                 this,
                 PaneActivityHub.Shared,
-                AfterSending(wait, keys.Literal ? keys.Text : null),
+                AfterSending(wait, PlainText(keys)),
                 wait.Timeout,
                 PaneReader.Failure,
                 progress: null,
@@ -221,7 +240,8 @@ public sealed partial class Pane
     {
         Regex[] wanted = [.. wait.Patterns];
         Regex[] stops = [.. wait.StopPatterns];
-        string[] echoes = typed is { Length: > 0 } ? typed.Split(['\r', '\n']) : [];
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            typed is { Length: > 0 } ? PaneText.TypedEchoRemover(typed) : rows => rows;
         return (rows, atEntry) =>
         {
             if (atEntry)
@@ -229,7 +249,7 @@ public sealed partial class Pane
                 return null;
             }
 
-            IReadOnlyList<string> lines = PaneText.WithoutTypedEcho(rows, echoes);
+            IReadOnlyList<string> lines = withoutEcho(rows);
             if (Match(stops, lines) is { } stopped)
             {
                 return new(PaneWaitOutcome.Stopped, stopped);
@@ -238,6 +258,10 @@ public sealed partial class Pane
             return Match(wanted, lines) is { } matched ? new(PaneWaitOutcome.Matched, matched) : null;
         };
     }
+
+    // Only text tmux types exactly as given has a predictable echo.
+    private static string? PlainText(SendKeysRequest keys) =>
+        keys is { Literal: true, ExpandFormats: false, Repeat: null, CopyModeCommand: null } ? keys.Text : null;
 
     private static Regex Containing(string text, [CallerArgumentExpression(nameof(text))] string? name = null)
     {

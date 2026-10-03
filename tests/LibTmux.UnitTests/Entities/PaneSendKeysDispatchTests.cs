@@ -32,6 +32,26 @@ public sealed class PaneSendKeysDispatchTests
     }
 
     [Fact]
+    public void A_send_and_wait_discounts_an_echo_in_progress_or_with_trailing_spaces()
+    {
+        var wait = new PaneWaitRequest { Patterns = [new Regex("done")] };
+        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, "echo done; sleep 5 ");
+
+        // The shell has echoed only part of the line, which already holds the pattern.
+        Assert.Null(classify(["$ echo done; sl"], false));
+        Assert.Null(classify(["$ echo done; sleep 5", ""], false));
+        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "done"), classify(["$ echo done; sleep 5", "done"], false));
+    }
+
+    [Fact]
+    public void Echo_removal_retries_after_an_occurrence_inside_a_longer_word()
+    {
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho = PaneText.TypedEchoRemover("x x");
+
+        Assert.Equal(["ax  ok"], withoutEcho(["ax x x ok"]));
+    }
+
+    [Fact]
     public void A_composite_request_cannot_be_reduced_to_one_command()
     {
         Pane pane = CreatePane((_, _) => throw new InvalidOperationException("Building reached tmux."));
