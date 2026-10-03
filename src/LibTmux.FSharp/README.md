@@ -83,6 +83,7 @@ targets `net8.0` and `net10.0`.
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
 | A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
 | React to events as they happen | `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client |
+| Let an assistant drive the same tmux | The `LibTmux.Mcp` server on a shared socket | [Which F# call each MCP tool matches](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
 linked into more than one session has contextual placements; filtering keeps
