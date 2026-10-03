@@ -172,13 +172,13 @@ module DescriptorMatrixTests =
             Assert.Equal(descriptor.Depth, descriptor.Document.RequiredSnapshotDepth)
 
     [<Fact>]
-    let ``descriptor guide names only translated v1 fields`` () =
+    let ``descriptor guide names only translated current fields`` () =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
         validateFields (File.ReadAllText(path))
 
     [<Theory>]
     [<InlineData("pane_command", "pane_current_path")>]
-    [<InlineData("- Schema version: `1`", "- Schema version: `2`")>]
+    [<InlineData("- Schema version: `2`", "- Schema version: `1`")>]
     [<InlineData("- Required depth: `Panes`", "- Required depth: `Windows`")>]
     let ``descriptor guide rejects field contract drift`` (original: string) (replacement: string) =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
