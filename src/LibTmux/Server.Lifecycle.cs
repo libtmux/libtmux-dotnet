@@ -284,7 +284,7 @@ public sealed partial class Server
         {
             await endpoint.KillAsync(cleanup.Token).ConfigureAwait(false);
         }
-        catch (Exception cleanupFailure)
+        catch (Exception cleanupFailure) when (cleanupFailure is LibTmuxException or OperationCanceledException)
         {
             // The caller needs the failure that stopped the start, not this one.
             failure.Data["LibTmux.CleanupFailure"] = cleanupFailure;
