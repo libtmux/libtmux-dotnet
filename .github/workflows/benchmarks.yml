@@ -14,14 +14,18 @@ on:
         default: '3.7c'
         type: choice
         options: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7a', '3.7b', '3.7c']
-  # A push that changes what is measured, or how it is recorded, records a
-  # run. A pull_request filter would match the whole pull request's diff and
-  # record again on every later push to it.
+  # A push that changes what is measured, the query code the pushdown gate
+  # times, or how a run is recorded, records and gates a run. A pull_request
+  # filter would match the whole pull request's diff and record again on
+  # every later push to it.
   push:
     paths:
       - 'benchmarks/**'
       - 'eng/benchmarks/**'
       - '.github/workflows/benchmarks.yml'
+      - 'src/LibTmux/Query/**'
+      - 'src/LibTmux/Server.Queries.cs'
+      - 'src/LibTmux.FSharp/Query.fs'
 
 permissions:
   contents: read
