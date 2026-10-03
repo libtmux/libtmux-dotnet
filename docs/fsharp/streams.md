@@ -73,7 +73,8 @@ client. Read final output with `Pane.run`, or capture a pane kept with
 `Mirror.start` keeps a current copy of a server's sessions, windows, panes and
 clients. Each change tmux announces starts a fresh capture, and a capture that
 finds nothing different publishes nothing, so `Mirror.waitUntil` and
-`Mirror.views` see each distinct state once. tmux does not announce a pane's
+`Mirror.views` see each distinct state once. Activity times, cursor positions
+and history sizes change with every keystroke and do not count. tmux does not announce a pane's
 running command or working directory, nor a layout change in a session the
 mirror is not attached to; `Mirror.startRefreshing` also captures whenever the
 mirror has been quiet for an interval:
@@ -159,14 +160,15 @@ Use `Control.withSession` to own a client for one task, or pass a client from
 
 A client buffers 512 events by default
 (`ServerConnectionOptions.ControlModeEventBufferCapacity`). When a reader falls
-behind, the buffer discards the oldest pane output first, so notifications
-about sessions, windows and layout survive a flooding pane.
+behind, the buffer discards the oldest output of the pane with the most output
+waiting, so a flooding pane loses its own output rather than a quieter pane's,
+and notifications about sessions, windows and layout survive it.
 `TmuxEventsDroppedEvent` reports the loss; its `OnlyOutput` is true when no
 notification was discarded, so state derived from notifications is still
 exact. The client then pauses the flooding pane in tmux until the reader
 catches up: `TmuxPanePausedEvent` and `TmuxPaneContinuedEvent` bracket output
-the pane printed that the reader never receives. Capture the pane to read its
-screen after a gap. `TmuxExitEvent` precedes normal stream
+the pane printed that the reader never receives, and a client nobody reads
+keeps the pane paused. Capture the pane to read its screen after a gap. `TmuxExitEvent` precedes normal stream
 completion. A stream fault arrives after buffered events. Cancellation stops
 waiting and disposes the reader; it does not undo a command tmux already
 received.

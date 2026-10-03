@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
@@ -21,8 +23,10 @@ public sealed record ServerMirrorView(long Epoch, Server Server, IReadOnlyList<C
 /// announcement, or the loss of one, starts a fresh capture, never a patch of the
 /// last one, since an announcement says that something changed, not everything
 /// that did. Announcements that arrive during a capture collapse into one more,
-/// and a capture that finds nothing different publishes nothing. Each published
-/// view carries an epoch one above the last, counted by this mirror.
+/// and a capture that finds nothing different publishes nothing; activity
+/// times, cursor positions and history sizes, which change with every
+/// keystroke, do not count as different. Each published view carries an epoch
+/// one above the last, counted by this mirror.
 /// </para>
 /// <para>
 /// tmux announces only some changes to a client: not a pane's running command or
@@ -40,6 +44,17 @@ public sealed record ServerMirrorView(long Epoch, Server Server, IReadOnlyList<C
 [UnsupportedOSPlatform("windows")]
 public sealed class ServerMirror : IAsyncDisposable
 {
+    // Fields that move with every keystroke or line of output.
+    private static readonly FrozenSet<string> Restless = FrozenSet.ToFrozenSet(
+        [
+            "client_activity", "cursor_character", "cursor_x", "cursor_y", "history_bytes",
+            "history_size", "session_activity", "window_activity",
+        ],
+        StringComparer.Ordinal);
+
+    private static readonly TimeSpan FirstReattachDelay = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan LongestReattachDelay = TimeSpan.FromSeconds(5);
+
     private readonly Server _server;
     private readonly SessionId _anchor;
     private readonly TimeSpan _refreshEvery;
@@ -171,7 +186,7 @@ public sealed class ServerMirror : IAsyncDisposable
 
     /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
     /// <param name="condition">Judges each view.</param>
-    /// <param name="timeout">How long to wait.</param>
+    /// <param name="timeout">How long to wait, or <see cref="Timeout.InfiniteTimeSpan" />.</param>
     /// <param name="cancellationToken">Stops waiting.</param>
     /// <returns>The first view the condition accepts.</returns>
     /// <exception cref="TmuxWaitTimeoutException">No view satisfied the condition in time.</exception>
@@ -182,7 +197,11 @@ public sealed class ServerMirror : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(condition);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        if (timeout != Timeout.InfiniteTimeSpan)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        }
+
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
         ServerMirrorView view = Current;
@@ -281,6 +300,8 @@ public sealed class ServerMirror : IAsyncDisposable
     private async Task ListenAsync()
     {
         CancellationToken closing = _closing.Token;
+        string anchor = _anchor.ToString();
+        TimeSpan reattachDelay = FirstReattachDelay;
         try
         {
             while (true)
@@ -291,16 +312,36 @@ public sealed class ServerMirror : IAsyncDisposable
                     control = _control;
                 }
 
+                long listening = Stopwatch.GetTimestamp();
                 await foreach (TmuxEvent item in control.Events.WithCancellation(closing).ConfigureAwait(false))
                 {
+                    // With detach-on-destroy off, tmux moves a client whose
+                    // session ends to another session rather than ending it.
+                    if (item is TmuxNotificationEvent { Name: "session-changed", Arguments: [string session, ..] }
+                        && !string.Equals(session, anchor, StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
                     if (item is TmuxNotificationEvent or TmuxEventsDroppedEvent { OnlyOutput: false })
                     {
                         RequestCapture();
                     }
                 }
 
-                // The client ended, and tmux has forgotten what it announced.
+                // The client ended or left the anchor, and tmux has forgotten
+                // what it announced.
                 await control.DisposeAsync().ConfigureAwait(false);
+                if (Stopwatch.GetElapsedTime(listening) < LongestReattachDelay)
+                {
+                    await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
+                    reattachDelay = reattachDelay * 2 < LongestReattachDelay ? reattachDelay * 2 : LongestReattachDelay;
+                }
+                else
+                {
+                    reattachDelay = FirstReattachDelay;
+                }
+
                 if (await _server.FindSessionAsync(_anchor, closing).ConfigureAwait(false) is null)
                 {
                     End(new TmuxObjectNotFoundException(
@@ -377,13 +418,15 @@ public sealed class ServerMirror : IAsyncDisposable
             return false;
         }
 
-        Task refresh = Task.Delay(_refreshEvery, closing);
+        using var timer = CancellationTokenSource.CreateLinkedTokenSource(closing);
+        Task refresh = Task.Delay(_refreshEvery, timer.Token);
         if (await Task.WhenAny(wake, refresh).ConfigureAwait(false) == refresh)
         {
             await refresh.ConfigureAwait(false);
             return true;
         }
 
+        await timer.CancelAsync().ConfigureAwait(false);
         return false;
     }
 
@@ -484,7 +527,9 @@ public sealed class ServerMirror : IAsyncDisposable
     private static void Append(StringBuilder text, char kind, IReadOnlyDictionary<string, string?> fields)
     {
         text.Append(kind);
-        foreach (KeyValuePair<string, string?> field in fields.OrderBy(field => field.Key, StringComparer.Ordinal))
+        foreach (KeyValuePair<string, string?> field in fields
+            .Where(field => !Restless.Contains(field.Key))
+            .OrderBy(field => field.Key, StringComparer.Ordinal))
         {
             text.Append('\u001f').Append(field.Key).Append('=').Append(field.Value);
         }

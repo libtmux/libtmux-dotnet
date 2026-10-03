@@ -48,11 +48,19 @@ public sealed class ServerMirrorTests
         Assert.True(running.Epoch > 0);
     }
 
-    [UnixFact]
-    public async Task The_mirror_ends_when_its_anchor_session_is_gone()
+    // With detach-on-destroy off, tmux moves the mirror's client to another
+    // session instead of ending it.
+    [Theory(
+        Skip = "Requires a Unix process environment.",
+        SkipType = typeof(UnixTestEnvironment),
+        SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData("on")]
+    [InlineData("off")]
+    public async Task The_mirror_ends_when_its_anchor_session_is_gone(string detachOnDestroy)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        await raw.ExecuteAsync(["set-option", "-g", "detach-on-destroy", detachOnDestroy], token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", raw.SessionName + "-other"], token);
         Session anchor = await AnchorAsync(raw, token);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
