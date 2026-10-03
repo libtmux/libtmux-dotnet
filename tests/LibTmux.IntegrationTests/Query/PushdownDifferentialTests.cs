@@ -117,7 +117,8 @@ public sealed class PushdownDifferentialTests
 
         // A pane names its command once the program has started; the snapshot
         // and the later listings must see the same one.
-        foreach (string shell in (string[])["ops:logs.0", "ops:logs.1", "dev:edit"])
+        string[] shells = ["ops:logs.0", "ops:logs.1", "dev:edit"];
+        foreach (string shell in shells)
         {
             await ReportsAsync(raw, shell, "#{==:#{pane_current_command},sh}", token);
         }
