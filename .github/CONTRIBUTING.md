@@ -219,11 +219,12 @@ $ mise exec -- dotnet eng/LibTmux.Engineering/bin/Release/net10.0/LibTmux.Engine
 ```
 
 The inspector evaluates package IDs, frameworks and dependency versions with
-MSBuild. It reads NuGet archives, compares packaged README bytes and public XML
-content, refuses a README link nuget.org cannot resolve, and checks portable
-PDB identity and SourceLink against `HEAD`. The
-compiler inventory travels with the packages so the publisher repeats this
-inspection without rebuilding the libraries.
+MSBuild. It reads NuGet archives and compares public XML content. A package
+README is its source without the centered logo block, because nuget.org shows
+HTML elements as text; the inspector compares those bytes and refuses an HTML
+line or a link nuget.org cannot resolve. It also checks portable PDB identity
+and SourceLink against `HEAD`. The compiler inventory travels with the packages
+so the publisher repeats this inspection without rebuilding the libraries.
 
 The F# inventory uses the compiler service bundled with the pinned SDK. It
 reads both compiled target frameworks, including curried argument groups,

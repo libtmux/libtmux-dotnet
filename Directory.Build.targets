@@ -21,4 +21,42 @@
     <None Include="assets/logo.png" Pack="true" PackagePath="icon.png" />
     <None Include="assets/logo.svg" Pack="true" PackagePath="assets/logo.svg" />
   </ItemGroup>
+
+  <!-- nuget.org renders Markdown but shows HTML elements as text, so the
+       packed README leaves out the centered logo block the GitHub page uses;
+       nuget.org shows the package icon beside the title instead. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <BeforePack>$(BeforePack);PackReadmeWithoutLogo</BeforePack>
+  </PropertyGroup>
+
+  <UsingTask
+    TaskName="WriteReadmeWithoutLogo"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Source ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        string text = System.IO.File.ReadAllText(Source);
+        string packed = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"<!-- libtmux-logo -->.*?<!-- /libtmux-logo -->\r?\n(\r?\n)?",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Destination));
+        System.IO.File.WriteAllText(Destination, packed, new System.Text.UTF8Encoding(false));
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PackReadmeWithoutLogo">
+    <WriteReadmeWithoutLogo
+      Source="$(MSBuildProjectDirectory)/README.md"
+      Destination="$(MSBuildProjectDirectory)/$(IntermediateOutputPath)nuget/README.md" />
+    <ItemGroup>
+      <None Include="$(MSBuildProjectDirectory)/$(IntermediateOutputPath)nuget/README.md" Pack="true" PackagePath="/" />
+    </ItemGroup>
+  </Target>
 </Project>
