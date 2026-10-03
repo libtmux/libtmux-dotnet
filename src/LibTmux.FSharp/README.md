@@ -80,7 +80,9 @@ targets `net8.0` and `net10.0`.
 | Exactly one match | `Query.exactlyOne ct query` | `Result<'T, CardinalityError>` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
-| Type keys | `Pane.sendKeys ct request pane` | `Task` |
+| Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
+| Attach to a running server | `options \|> Server.connect ct` | `Server` |
+| Type a line, or keys | `Pane.sendLine ct line pane`; `Pane.sendKeys` for key names | `Task` |
 | Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
@@ -246,9 +248,9 @@ run: exit 3, output ["ok"]
 ```
 <!-- endfsharp-output -->
 
-`CreateOwnedAsync` starts a server on a unique socket, with the `tmux` on
+`Server.createOwned` starts a server on a unique socket, with the `tmux` on
 `PATH`; set `ServerConnectionOptions.TmuxBinaryPath` to use another. `use!`
-stops it when the task ends. `ConnectAsync` attaches a second handle to that
+stops it when the task ends. `Server.connect` attaches a second handle to that
 socket, as an application attaches to a server it did not start.
 `Query.atMostOne` returns `None` only when no session matched, so the `match`
 is where a program would create the missing session; several matches raise. The
@@ -262,10 +264,10 @@ on both target frameworks, and compares what it prints with the block above.
 
 ## Existing tmux
 
-The quickstart's `ConnectAsync(options, ct)` attaches to a running server by
+The quickstart's `options |> Server.connect ct` attaches to a running server by
 socket name. In an application, use your server's socket name and omit the
-owned setup. `ConnectAsync` never starts tmux. A bare `ConnectAsync()` resolves
-the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
+owned setup. `Server.connect` never starts tmux. Default options resolve the
+default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
 explains the configuration order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to locate that pane's server.
 
