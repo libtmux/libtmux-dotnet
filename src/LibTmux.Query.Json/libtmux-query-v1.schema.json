@@ -62,6 +62,7 @@
             "pane_command",
             "pane_current_path",
             "pane_dead",
+            "pane_dead_status",
             "pane_height",
             "pane_id",
             "pane_in_mode",
@@ -140,6 +141,7 @@
                     "pane_command",
                     "pane_current_path",
                     "pane_dead",
+                    "pane_dead_status",
                     "pane_height",
                     "pane_id",
                     "pane_in_mode",
@@ -221,6 +223,7 @@
             "wireName": {
               "enum": [
                 "history_size",
+                "pane_dead_status",
                 "pane_height",
                 "pane_index",
                 "pane_left",

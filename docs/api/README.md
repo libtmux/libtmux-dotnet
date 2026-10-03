@@ -840,6 +840,7 @@ modes differ.
 | `LibTmux.Pane.CurrentCommand` | Gets the foreground command captured with this pane. |
 | `LibTmux.Pane.CurrentPath` | Gets the current working directory captured with this pane. |
 | `LibTmux.Pane.Dead` | Gets whether the pane's program has exited and the pane remains. |
+| `LibTmux.Pane.DeadStatus` | Gets the exit status of a dead pane's program. |
 | `LibTmux.Pane.Generation` | Gets the server generation captured with this pane. |
 | `LibTmux.Pane.Height` | Gets the pane height captured with this handle. |
 | `LibTmux.Pane.HistorySize` | Gets how many lines have scrolled into the pane's history. |

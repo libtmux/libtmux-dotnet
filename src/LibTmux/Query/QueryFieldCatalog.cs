@@ -87,6 +87,13 @@ internal static class QueryFieldCatalog
             nameof(Pane.Dead),
             new(static element => ((Pane)element).Dead, typeof(bool))),
         new(
+            "pane_dead_status",
+            QueryTarget.Pane,
+            QueryValueKind.Int64,
+            typeof(Pane),
+            nameof(Pane.DeadStatus),
+            new(static element => (long?)((Pane)element).DeadStatus, typeof(long?))),
+        new(
             "pane_height",
             QueryTarget.Pane,
             QueryValueKind.Int64,
@@ -307,6 +314,9 @@ internal static class QueryFieldCatalog
         return format is not null;
     }
 
+    internal static bool CanBeAbsent(string wireName) =>
+        FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) && field.CanBeAbsent;
+
     internal static bool TryGetWireName(Type owner, string property, out string wireName)
     {
         foreach (FieldDefinition field in Fields)
@@ -376,6 +386,10 @@ internal static class QueryFieldCatalog
         QueryFieldAccessor? Scalar = null,
         QueryFieldAccessor? Relation = null)
     {
+        // Whether the value can be absent, which tmux prints as empty.
+        internal bool CanBeAbsent =>
+            Scalar is { ValueType: { } type } && Nullable.GetUnderlyingType(type) is not null;
+
         // The tmux format variable a -f filter reads, when tmux has one.
         internal string? TmuxFormat => WireName switch
         {

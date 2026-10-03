@@ -310,7 +310,7 @@ public sealed class PushdownDifferentialTests
         await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
         await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
         await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
-        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:dead", "true"], token);
+        await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:dead", "exit 3"], token);
         await raw.ExecuteAsync(["wait-for", "died"], token);
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
@@ -337,6 +337,11 @@ public sealed class PushdownDifferentialTests
         await Agree<Pane>(pane => pane.InMode, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Dead, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.ProcessId == pid, panes, QueryTarget.Pane, PaneKey);
+
+        // tmux reads a running pane's empty status as 0; these keep it.
+        await Agree<Pane>(pane => pane.DeadStatus != 0, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => !(pane.DeadStatus == 0), panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.DeadStatus > 0, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.HistorySize == 0 && !pane.Dead, panes, QueryTarget.Pane, PaneKey);
         await Agree<Window>(window => window.BellAlert, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => !window.ActivityAlert && !window.SilenceAlert, windows, QueryTarget.Window, Key);
@@ -351,7 +356,7 @@ public sealed class PushdownDifferentialTests
 
         Assert.Contains(panes, pane => pane.RawFormatFields["pane_in_mode"] == "2");
         Assert.Equal(2, panes.Count(pane => pane.InMode));
-        Assert.Single(panes, pane => pane.Dead);
+        Assert.Single(panes, pane => pane.Dead && pane.DeadStatus == 3);
         Assert.Single(windows, window => window.Zoomed);
         Assert.Single(windows, window => window.BellAlert);
         Assert.Equal(2, panes.Count(pane => pane.Synchronized));
