@@ -31,8 +31,8 @@ public sealed record TmuxNotificationEvent(
 /// <param name="TotalDropped">The events discarded over this control client's lifetime.</param>
 /// <remarks>
 /// LibTmux synthesizes this event before the next retained event. A full buffer
-/// discards the oldest pane output first, and a notification only when it holds
-/// no output. Command replies use a separate queue and are never discarded.
+/// discards the oldest output of the pane with the most output waiting, and a
+/// notification only when it holds no output. Command replies use a separate queue and are never discarded.
 /// </remarks>
 public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent
 {
@@ -49,7 +49,9 @@ public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : Tmu
 /// A control session pauses a pane whose output its full event buffer had to
 /// discard, so a flooding pane stops costing either side anything. Output the
 /// pane prints while paused is never sent; capture the pane to read its
-/// screen. The session resumes the pane once the reader catches up.
+/// screen. The session resumes the pane once the reader catches up, and a
+/// reader that never reads leaves it paused. tmux's own <c>%pause</c>, from a
+/// client with <c>pause-after</c> set, arrives as this event too.
 /// </remarks>
 public sealed record TmuxPanePausedEvent(PaneId PaneId) : TmuxEvent;
 

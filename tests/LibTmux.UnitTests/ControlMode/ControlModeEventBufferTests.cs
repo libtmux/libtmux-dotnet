@@ -69,6 +69,27 @@ public sealed class ControlModeEventBufferTests
     }
 
     [Fact]
+    public async Task A_flooding_pane_loses_its_own_output_before_a_quieter_pane_does()
+    {
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(capacity: 3, outputDiscarded: discarded.Add);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "quiet")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-1")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-2")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-3")));
+        buffer.Complete();
+
+        var observed = new List<string>();
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item is TmuxOutputEvent output ? $"{output.PaneId}: {output.Data}" : "dropped");
+        }
+
+        Assert.Equal([new PaneId(2)], discarded);
+        Assert.Equal(["dropped", "%1: quiet", "%2: flood-2", "%2: flood-3"], observed);
+    }
+
+    [Fact]
     public async Task Stopping_after_loss_leaves_the_first_retained_event_for_the_next_reader()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

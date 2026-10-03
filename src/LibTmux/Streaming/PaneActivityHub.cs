@@ -463,6 +463,18 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                         case TmuxOutputEvent output:
                             OnPaneOutput(output.PaneId);
                             break;
+
+                        // A paused pane's output never arrives, so its pause,
+                        // resume, or any loss is the only sign it printed.
+                        case TmuxPanePausedEvent paused:
+                            OnPaneOutput(paused.PaneId);
+                            break;
+                        case TmuxPaneContinuedEvent continued:
+                            OnPaneOutput(continued.PaneId);
+                            break;
+                        case TmuxEventsDroppedEvent:
+                            OnSessionChanged();
+                            break;
                         case TmuxNotificationEvent { Name: "subscription-changed" } changed
                             when changed.Arguments is [PaneDeadSubscription, ..]:
                             foreach (string argument in changed.Arguments)

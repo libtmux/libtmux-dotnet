@@ -28,9 +28,9 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     /// <remarks>
     /// A pane can outpace any reader, and a caller may never read
     /// <see cref="Events"/> at all, so unbounded buffering has no ceiling.
-    /// The buffer drops the oldest pane output instead of blocking, since
-    /// blocking would also stall the reader that completes commands, and the
-    /// session then pauses that pane in tmux until the reader catches up.
+    /// The buffer drops the flooding pane's oldest output instead of blocking,
+    /// since blocking would also stall the reader that completes commands, and
+    /// the session then pauses that pane in tmux until the reader catches up.
     /// </remarks>
     internal const int EventBufferCapacity = 512;
 
@@ -694,7 +694,10 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 TmuxDispatchState.Unknown);
         }
 
-        if (!failed && string.Equals(pending.Command.Name, "refresh-client", StringComparison.Ordinal))
+        // tmux accepts refresh and any unique prefix as refresh-client.
+        if (!failed
+            && pending.Command.Name.Length >= 3
+            && "refresh-client".StartsWith(pending.Command.Name, StringComparison.Ordinal))
         {
             PublishPaneFlow(lines);
         }

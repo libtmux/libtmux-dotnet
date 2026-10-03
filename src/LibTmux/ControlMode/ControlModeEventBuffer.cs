@@ -12,9 +12,11 @@ internal enum ControlModeEventRead
 
 /// <summary>Buffers notifications without allowing a slow consumer to stall commands.</summary>
 /// <remarks>
-/// When full it discards the oldest pane output first, so a flooding pane cannot
-/// push out the notifications that describe sessions, windows and layout. Only
-/// a buffer holding no output discards its oldest notification.
+/// When full it discards the oldest output of the pane with the most output
+/// waiting, so a flooding pane loses its own output rather than a quieter
+/// pane's, and cannot push out the notifications that describe sessions,
+/// windows and layout. Only a buffer holding no output discards its oldest
+/// notification.
 /// </remarks>
 internal sealed class ControlModeEventBuffer
 {
@@ -23,7 +25,7 @@ internal sealed class ControlModeEventBuffer
     private readonly Action<PaneId>? _outputDiscarded;
     private readonly object _gate = new();
     private readonly LinkedList<(long Sequence, TmuxEvent Item)> _items = new();
-    private readonly Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> _outputs = new();
+    private readonly Dictionary<PaneId, Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>> _outputs = [];
     private TaskCompletionSource _changed = NewSignal();
     private long _dropped;
     private long _reported;
@@ -62,9 +64,15 @@ internal sealed class ControlModeEventBuffer
             }
 
             LinkedListNode<(long Sequence, TmuxEvent Item)> node = _items.AddLast((++_lastWritten, item));
-            if (item is TmuxOutputEvent)
+            if (item is TmuxOutputEvent output)
             {
-                _outputs.Enqueue(node);
+                if (!_outputs.TryGetValue(output.PaneId, out Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>? pane))
+                {
+                    pane = new Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>();
+                    _outputs.Add(output.PaneId, pane);
+                }
+
+                pane.Enqueue(node);
             }
 
             if (wasEmpty)
@@ -82,15 +90,38 @@ internal sealed class ControlModeEventBuffer
     private void Discard()
     {
         _dropped++;
-        if (_outputs.TryDequeue(out LinkedListNode<(long Sequence, TmuxEvent Item)>? output))
+        PaneId? flooding = null;
+        int most = 0;
+        foreach ((PaneId pane, Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> waiting) in _outputs)
         {
-            _items.Remove(output);
-            _outputDiscarded?.Invoke(((TmuxOutputEvent)output.Value.Item).PaneId);
+            if (waiting.Count > most)
+            {
+                (flooding, most) = (pane, waiting.Count);
+            }
+        }
+
+        if (flooding is { } loud)
+        {
+            _items.Remove(TakeOutput(loud));
+            _outputDiscarded?.Invoke(loud);
             return;
         }
 
         _items.RemoveFirst();
         _notificationDropped = true;
+    }
+
+    // Called under the gate: a pane's outputs leave in the order they arrived.
+    private LinkedListNode<(long Sequence, TmuxEvent Item)> TakeOutput(PaneId pane)
+    {
+        Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> waiting = _outputs[pane];
+        LinkedListNode<(long Sequence, TmuxEvent Item)> oldest = waiting.Dequeue();
+        if (waiting.Count == 0)
+        {
+            _outputs.Remove(pane);
+        }
+
+        return oldest;
     }
 
     internal long CaptureWatermark()
@@ -191,10 +222,9 @@ internal sealed class ControlModeEventBuffer
                         }
 
                         _owner._items.RemoveFirst();
-                        if (_owner._outputs.TryPeek(out LinkedListNode<(long Sequence, TmuxEvent Item)>? output)
-                            && ReferenceEquals(output, head))
+                        if (item is TmuxOutputEvent output)
                         {
-                            _owner._outputs.Dequeue();
+                            _ = _owner.TakeOutput(output.PaneId);
                         }
 
                         _owner._afterDequeue?.Invoke(_owner._items.Count);

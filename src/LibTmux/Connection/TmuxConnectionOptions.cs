@@ -203,10 +203,11 @@ public sealed record ServerConnectionOptions
 
     /// <summary>Gets how many control-mode events are buffered before pane output is dropped.</summary>
     /// <remarks>
-    /// Defaults to 512. A consumer slower than its panes loses the oldest pane
-    /// output first and is told so by <see cref="TmuxEventsDroppedEvent" />;
-    /// the pane is then paused for that client until the consumer catches up.
-    /// Raising this buys time rather than memory without bound.
+    /// Defaults to 512. A consumer slower than its panes loses the oldest output
+    /// of the pane with the most waiting, and is told so by
+    /// <see cref="TmuxEventsDroppedEvent" />; the pane is then paused for that
+    /// client until the consumer catches up. Raising this buys time rather than
+    /// memory without bound.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The capacity holds no events.</exception>
     public int? ControlModeEventBufferCapacity
