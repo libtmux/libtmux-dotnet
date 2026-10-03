@@ -18,7 +18,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Session.Name`
 - Wire name: `session_name`
 - Value type: `string`
-- Operators: `eq`, `isNull`, `startsWith`, `oneOf`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
 - Schema version: `1`
 
@@ -27,7 +27,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Session.Id`
 - Wire name: `session_id`
 - Value type: `SessionId`
-- Operators: `eq`, `oneOf`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
 - Schema version: `1`
 
@@ -36,8 +36,17 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Session.Attached`
 - Wire name: `session_attached`
 - Value type: `bool`
-- Operators: `eq`, `oneOf`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
+- Schema version: `1`
+
+### `SessionFields.windowCount`
+
+- Core property: `Session.Windows`
+- Wire name: `session_windows`
+- Value type: `int`
+- Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
 - Schema version: `1`
 
 ### `SessionFields.windows`
@@ -56,7 +65,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Window.Name`
 - Wire name: `window_name`
 - Value type: `string`
-- Operators: `eq`, `isNull`, `startsWith`, `oneOf`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
 - Schema version: `1`
 
@@ -65,8 +74,17 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Window.Id`
 - Wire name: `window_id`
 - Value type: `WindowId`
-- Operators: `eq`, `oneOf`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
+- Schema version: `1`
+
+### `WindowFields.paneCount`
+
+- Core property: `Window.Panes`
+- Wire name: `window_panes`
+- Value type: `int`
+- Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
 - Schema version: `1`
 
 ### `WindowFields.panes`
@@ -85,7 +103,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Pane.CurrentCommand`
 - Wire name: `pane_command`
 - Value type: `string`
-- Operators: `eq`, `isNull`, `startsWith`, `oneOf`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
 - Schema version: `1`
 
@@ -94,7 +112,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Pane.Id`
 - Wire name: `pane_id`
 - Value type: `PaneId`
-- Operators: `eq`, `oneOf`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
 - Schema version: `1`
 
@@ -105,7 +123,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Client.Name`
 - Wire name: `client_name`
 - Value type: `string`
-- Operators: `eq`, `isNull`, `startsWith`, `oneOf`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
 - Schema version: `1`
 
@@ -114,7 +132,7 @@ remain native captured-object properties. They have no portable descriptor.
 - Core property: `Client.IsControlClient`
 - Wire name: `client_control_mode`
 - Value type: `bool`
-- Operators: `eq`, `oneOf`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
 - Schema version: `1`
 

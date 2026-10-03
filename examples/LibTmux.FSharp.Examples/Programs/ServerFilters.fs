@@ -44,8 +44,7 @@ let runAsync () =
             |> Seq.toList
 
         let portableMatches =
-            sessions
-            |> Query.matchingWithCancellation token (Filter.startsWith "de" SessionFields.name)
+            sessions |> Query.matching (Filter.startsWith "de" SessionFields.name)
 
         let! windows = server |> Server.listWindows token
 

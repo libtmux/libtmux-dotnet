@@ -41,9 +41,32 @@ let main _ =
 
                 let commands = captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
 
-                Console.WriteLine("panes " + commands.Length.ToString(CultureInfo.InvariantCulture))
+                // Portable filters bind catalog accessors, so trimming keeps them.
+                let withPane =
+                    captured.Sessions
+                    |> Query.matching (
+                        Filter.allOf
+                            [
+                                SessionFields.name |> Filter.containsIgnoreCase ""
+                                PaneFields.currentCommand
+                                |> Filter.matches "."
+                                |> Filter.any WindowFields.panes
+                                |> Filter.any SessionFields.windows
+                            ]
+                    )
 
-                return if commands.Length.Equals(1) then 0 else 1
+                Console.WriteLine(
+                    "panes "
+                    + commands.Length.ToString(CultureInfo.InvariantCulture)
+                    + " matched "
+                    + withPane.Count.ToString(CultureInfo.InvariantCulture)
+                )
+
+                return
+                    if commands.Length.Equals(1) && withPane.Count.Equals(1) then
+                        0
+                    else
+                        1
         }
 
     run.GetAwaiter().GetResult()

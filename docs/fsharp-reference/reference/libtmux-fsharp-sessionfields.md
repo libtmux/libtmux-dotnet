@@ -26,17 +26,27 @@ Identifies the typed session ID.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Session,&#32;SessionId</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L160)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L164)
 
 <a name="name"></a>
 
 #### <code><span>SessionFields.name&#32;<span></span></span></code>
 
-Identifies the session name for ordinal string and null comparisons.
+Identifies the session name.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Session,&#32;string</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L155)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L163)
+
+<a name="windowCount"></a>
+
+#### <code><span>SessionFields.windowCount&#32;<span></span></span></code>
+
+Identifies the number of windows linked into the session.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Session,&#32;int</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L166)
 
 <a name="windows"></a>
 
@@ -46,4 +56,4 @@ Identifies captured window placements within the session.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-relation-2.md">Relation</a>&lt;<span>Session,&#32;Window</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L170)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L167)

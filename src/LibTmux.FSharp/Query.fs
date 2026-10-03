@@ -1,214 +1,184 @@
 namespace LibTmux.FSharp
 
 open System
-open System.Linq
-open System.Linq.Expressions
-open System.Reflection
+open System.Collections.Generic
+open System.Text.RegularExpressions
 open System.Threading
 open LibTmux
 open LibTmux.Query
 
+module internal Targets =
+    let ofType<'T> () =
+        if typeof<'T> = typeof<LibTmux.Session> then
+            QueryTarget.Session
+        elif typeof<'T> = typeof<LibTmux.Window> then
+            QueryTarget.Window
+        elif typeof<'T> = typeof<LibTmux.Pane> then
+            QueryTarget.Pane
+        elif typeof<'T> = typeof<LibTmux.Client> then
+            QueryTarget.Client
+        else
+            invalidArg "T" $"Type '{typeof<'T>.Name}' is not a session, window, pane or client."
+
 [<Sealed>]
-type Filter<'T> internal (expression: Expression<Func<'T, bool>>, document: QueryDocument) =
+type Filter<'T> internal (node: QueryNode) =
+    let document =
+        let document =
+            QueryDocument(QueryDocument.CurrentSchema, QueryDocument.CurrentVersion, Targets.ofType<'T>(), node)
+
+        QueryDocumentValidator.Validate(document) |> ignore
+        document
+
     let predicate =
         lazy
-            let compiled = QueryExtensions.Compile<'T>(document)
+            let compiled = QueryInterpreter.CompileEntity<'T>(document, CancellationToken.None)
             fun value -> compiled.Invoke(value)
 
-    member internal _.Expression = expression
+    member internal _.Node = node
     member internal _.Document = document
     member internal _.Predicate = predicate.Value
 
 [<Sealed>]
-type Field<'T, 'Value> internal (property: PropertyInfo) =
-    member internal _.Property = property
+type Field<'T, 'Value> internal (wireName: string) =
+    member internal _.Node = FieldNode(Targets.ofType<'T>(), wireName)
 
 [<Sealed>]
-type Relation<'Parent, 'Child> internal (property: PropertyInfo) =
-    member internal _.Property = property
+type Relation<'Parent, 'Child> internal (wireName: string) =
+    member internal _.Node = FieldNode(Targets.ofType<'Parent>(), wireName)
 
-module private Required =
-    // nonNull needs FSharp.Core 9, above this library's FSharp.Core floor.
-    let property (owner: Type) (name: string) =
-        match owner.GetProperty(name) with
-        | null -> invalidOp $"Type '{owner.Name}' has no public property '{name}'."
-        | property -> property
+module private Nodes =
+    let constant (value: obj) : QueryNode =
+        let literal: QueryConstant =
+            match value with
+            | null -> NullConstant()
+            | :? string as text -> StringConstant text
+            | :? bool as flag -> BooleanConstant flag
+            | :? int as number -> Int64Constant(int64 number)
+            | :? SessionId as id -> TypedIdConstant(QueryTarget.Session, id.ToString())
+            | :? WindowId as id -> TypedIdConstant(QueryTarget.Window, id.ToString())
+            | :? PaneId as id -> TypedIdConstant(QueryTarget.Pane, id.ToString())
+            | other -> invalidArg "value" $"A constant of type '{other.GetType().Name}' has no query form."
 
-module private Construction =
-    let make<'T> parameter body =
-        let expression = Expression.Lambda<Func<'T, bool>>(body, [| parameter |])
-        Filter<'T>(expression, QueryExtensions.Translate(expression))
+        ConstantNode literal
 
-    let replace (parameter: ParameterExpression) (filter: Filter<'T>) =
-        let visitor =
-            { new ExpressionVisitor() with
-                override _.VisitParameter(node) =
-                    if obj.ReferenceEquals(node, filter.Expression.Parameters[0]) then
-                        parameter
-                    else
-                        node
-            }
+    let text operation (value: string) (field: Field<'T, string>) =
+        ArgumentNullException.ThrowIfNull(value)
+        Filter<'T>(StringNode(operation, field.Node, constant value))
 
-        match visitor.Visit(filter.Expression.Body) with
-        | null -> invalidOp "Replacing a filter parameter produced no expression."
-        | body -> body
+    let regex (pattern: string) options (field: Field<'T, string>) =
+        ArgumentNullException.ThrowIfNull(pattern)
+        Filter<'T>(RegexNode(field.Node, "dotnet", pattern, options ||| RegexOptions.CultureInvariant))
 
-    let combine operation (filters: Filter<'T> list) =
-        match filters with
-        | [] -> invalidArg "filters" "The filters list must contain at least one predicate."
-        | [ filter ] -> filter
-        | _ ->
-            let parameter = Expression.Parameter(typeof<'T>, "entity")
-            let operands = filters |> List.map (replace parameter) |> List.toArray
-            // Balance the expression tree before the core flattens it, avoiding
-            // a linear recursion depth for a large caller-supplied operand list.
-            let rec build first count =
-                if count = 1 then
-                    operands[first]
-                else
-                    let leftCount = count / 2
-                    operation (build first leftCount) (build (first + leftCount) (count - leftCount)) :> Expression
-
-            make<'T> parameter (build 0 operands.Length)
-
-    let quantify methodName (relation: Relation<'Parent, 'Child>) (predicate: Filter<'Child>) =
-        let parameter = Expression.Parameter(typeof<'Parent>, "parent")
-        let children = Expression.Property(parameter, relation.Property)
-
-        let body =
-            Expression.Call(typeof<Enumerable>, methodName, [| typeof<'Child> |], children, predicate.Expression)
-
-        make<'Parent> parameter body
+    let compare operation (value: int) (field: Field<'T, int>) =
+        Filter<'T>(ComparisonNode(operation, field.Node, constant value))
 
 [<RequireQualifiedAccess>]
 module Filter =
     let eq (value: 'Value) (field: Field<'T, 'Value>) =
-        let parameter = Expression.Parameter(typeof<'T>, "entity")
+        match box value with
+        | :? string as text ->
+            Filter<'T>(StringNode(QueryStringOperation.EqualsOrdinal, field.Node, Nodes.constant text))
+        | boxed -> Filter<'T>(ComparisonNode(QueryComparison.Equal, field.Node, Nodes.constant boxed))
 
-        let body =
-            Expression.Equal(Expression.Property(parameter, field.Property), Expression.Constant(value, typeof<'Value>))
+    let negate (filter: Filter<'T>) = Filter<'T>(NotNode filter.Node)
+    let ne value field = eq value field |> negate
 
-        Construction.make<'T> parameter body
+    let eqIgnoreCase value field =
+        Nodes.text QueryStringOperation.EqualsOrdinalIgnoreCase value field
 
     let isNull (field: Field<'T, string>) =
-        let parameter = Expression.Parameter(typeof<'T>, "entity")
+        Filter<'T>(ComparisonNode(QueryComparison.Equal, field.Node, Nodes.constant null))
 
-        let body =
-            Expression.Equal(Expression.Property(parameter, field.Property), Expression.Constant(null, typeof<string>))
+    let startsWith prefix field =
+        Nodes.text QueryStringOperation.StartsWithOrdinal prefix field
 
-        Construction.make<'T> parameter body
+    let startsWithIgnoreCase prefix field =
+        Nodes.text QueryStringOperation.StartsWithOrdinalIgnoreCase prefix field
 
-    let startsWith (prefix: string) (field: Field<'T, string>) =
-        let parameter = Expression.Parameter(typeof<'T>, "entity")
+    let endsWith suffix field =
+        Nodes.text QueryStringOperation.EndsWithOrdinal suffix field
 
-        let method' =
-            match typeof<string>.GetMethod("StartsWith", [| typeof<string>; typeof<StringComparison> |]) with
-            | null -> invalidOp "String.StartsWith(string, StringComparison) is missing."
-            | method' -> method'
+    let endsWithIgnoreCase suffix field =
+        Nodes.text QueryStringOperation.EndsWithOrdinalIgnoreCase suffix field
 
-        let body =
-            Expression.Call(
-                Expression.Property(parameter, field.Property),
-                method',
-                Expression.Constant(prefix, typeof<string>),
-                Expression.Constant(StringComparison.Ordinal)
-            )
+    let contains text field =
+        Nodes.text QueryStringOperation.ContainsOrdinal text field
 
-        Construction.make<'T> parameter body
+    let containsIgnoreCase text field =
+        Nodes.text QueryStringOperation.ContainsOrdinalIgnoreCase text field
 
-    let allOf filters =
-        Construction.combine (fun left right -> Expression.AndAlso(left, right)) filters
+    let matches pattern field =
+        Nodes.regex pattern RegexOptions.None field
 
-    let anyOf filters =
-        Construction.combine (fun left right -> Expression.OrElse(left, right)) filters
+    let matchesIgnoreCase pattern field =
+        Nodes.regex pattern RegexOptions.IgnoreCase field
+
+    let lt value field =
+        Nodes.compare QueryComparison.LessThan value field
+
+    let le value field =
+        Nodes.compare QueryComparison.LessThanOrEqual value field
+
+    let gt value field =
+        Nodes.compare QueryComparison.GreaterThan value field
+
+    let ge value field =
+        Nodes.compare QueryComparison.GreaterThanOrEqual value field
+
+    let allOf (filters: Filter<'T> list) =
+        match filters with
+        | [] -> Filter<'T>(ConstantNode(BooleanConstant true))
+        | [ filter ] -> filter
+        | _ -> Filter<'T>(AndNode([ for filter in filters -> filter.Node ]))
+
+    let anyOf (filters: Filter<'T> list) =
+        match filters with
+        | [] -> Filter<'T>(ConstantNode(BooleanConstant false))
+        | [ filter ] -> filter
+        | _ -> Filter<'T>(OrNode([ for filter in filters -> filter.Node ]))
 
     let oneOf values field =
-        if List.isEmpty values then
-            invalidArg "values" "The values list must contain at least one constant."
-
         values |> List.map (fun value -> eq value field) |> anyOf
 
-    let negate (filter: Filter<'T>) =
-        Construction.make<'T> filter.Expression.Parameters[0] (Expression.Not(filter.Expression.Body))
+    let notOneOf values field = oneOf values field |> negate
 
-    let any relation predicate =
-        Construction.quantify "Any" relation predicate
+    let any (relation: Relation<'Parent, 'Child>) (predicate: Filter<'Child>) =
+        Filter<'Parent>(QuantifierNode(QueryQuantifier.Any, relation.Node, predicate.Node))
 
-    let all relation predicate =
-        Construction.quantify "All" relation predicate
+    let all (relation: Relation<'Parent, 'Child>) (predicate: Filter<'Child>) =
+        Filter<'Parent>(QuantifierNode(QueryQuantifier.All, relation.Node, predicate.Node))
 
     let none relation predicate = any relation predicate |> negate
     let toDocument (filter: Filter<'T>) = filter.Document
-
     let toPredicate (filter: Filter<'T>) = filter.Predicate
 
 [<RequireQualifiedAccess>]
 module Query =
-    let matching (filter: Filter<'T>) (source: seq<'T>) =
-        QueryExtensions.Matching(source, filter.Document)
-
-    let matchingWithCancellation cancellationToken (filter: Filter<'T>) (source: seq<'T>) =
-        QueryExtensions.Matching(source, filter.Document, cancellationToken)
+    let matching (filter: Filter<'T>) (source: seq<'T>) : IReadOnlyList<'T> =
+        ArgumentNullException.ThrowIfNull(source)
+        ResizeArray(Seq.filter filter.Predicate source)
 
 [<RequireQualifiedAccess>]
 module SessionFields =
-    let name =
-        Field<LibTmux.Session, string>(
-            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Name))
-        )
-
-    let id =
-        Field<LibTmux.Session, SessionId>(
-            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Id))
-        )
-
-    let attached =
-        Field<LibTmux.Session, bool>(
-            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Attached))
-        )
-
-    let windows =
-        Relation<LibTmux.Session, LibTmux.Window>(
-            Required.property typeof<LibTmux.Session> (nameof (Unchecked.defaultof<LibTmux.Session>.Windows))
-        )
+    let name = Field<LibTmux.Session, string>("session_name")
+    let id = Field<LibTmux.Session, SessionId>("session_id")
+    let attached = Field<LibTmux.Session, bool>("session_attached")
+    let windowCount = Field<LibTmux.Session, int>("session_windows")
+    let windows = Relation<LibTmux.Session, LibTmux.Window>("session_windows")
 
 [<RequireQualifiedAccess>]
 module WindowFields =
-    let name =
-        Field<LibTmux.Window, string>(
-            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Name))
-        )
-
-    let id =
-        Field<LibTmux.Window, WindowId>(
-            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Id))
-        )
-
-    let panes =
-        Relation<LibTmux.Window, LibTmux.Pane>(
-            Required.property typeof<LibTmux.Window> (nameof (Unchecked.defaultof<LibTmux.Window>.Panes))
-        )
+    let name = Field<LibTmux.Window, string>("window_name")
+    let id = Field<LibTmux.Window, WindowId>("window_id")
+    let paneCount = Field<LibTmux.Window, int>("window_panes")
+    let panes = Relation<LibTmux.Window, LibTmux.Pane>("window_panes")
 
 [<RequireQualifiedAccess>]
 module PaneFields =
-    let currentCommand =
-        Field<LibTmux.Pane, string>(
-            Required.property typeof<LibTmux.Pane> (nameof (Unchecked.defaultof<LibTmux.Pane>.CurrentCommand))
-        )
-
-    let id =
-        Field<LibTmux.Pane, PaneId>(
-            Required.property typeof<LibTmux.Pane> (nameof (Unchecked.defaultof<LibTmux.Pane>.Id))
-        )
+    let currentCommand = Field<LibTmux.Pane, string>("pane_command")
+    let id = Field<LibTmux.Pane, PaneId>("pane_id")
 
 [<RequireQualifiedAccess>]
 module ClientFields =
-    let name =
-        Field<LibTmux.Client, string>(
-            Required.property typeof<LibTmux.Client> (nameof (Unchecked.defaultof<LibTmux.Client>.Name))
-        )
-
-    let controlMode =
-        Field<LibTmux.Client, bool>(
-            Required.property typeof<LibTmux.Client> (nameof (Unchecked.defaultof<LibTmux.Client>.IsControlClient))
-        )
+    let name = Field<LibTmux.Client, string>("client_name")
+    let controlMode = Field<LibTmux.Client, bool>("client_control_mode")

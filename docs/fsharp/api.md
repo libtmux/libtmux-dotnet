@@ -30,7 +30,7 @@ Core handles and request types appear in the
 |---|---|
 | `LibTmux.FSharp.ClientFields` | Provides supported client fields for portable filters. |
 | `val controlMode: LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.bool>` | Identifies whether the captured client uses control mode. |
-| `val name: LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.string>` | Identifies the captured client name for ordinal string and null comparisons. |
+| `val name: LibTmux.FSharp.Field<LibTmux.Client,Microsoft.FSharp.Core.string>` | Identifies the client name. |
 
 ## Control
 
@@ -53,20 +53,34 @@ Core handles and request types appear in the
 
 | Signature | Summary |
 |---|---|
-| `LibTmux.FSharp.Filter` | Constructs portable predicates through the core query translator. |
+| `LibTmux.FSharp.Filter` | Constructs portable predicates without reflection. |
 | ``LibTmux.FSharp.Filter`1`` | Describes a validated portable predicate over one entity type. |
 | `val all: relation: LibTmux.FSharp.Relation<'Parent,'Child> -> predicate: LibTmux.FSharp.Filter<'Child> -> LibTmux.FSharp.Filter<'Parent>` | Requires every child to match, returning true for an empty captured relation. |
-| `val allOf: filters: LibTmux.FSharp.Filter<'T> Microsoft.FSharp.Collections.list -> LibTmux.FSharp.Filter<'T>` | Requires every predicate in a nonempty list, in input order. |
+| `val allOf: filters: LibTmux.FSharp.Filter<'T> Microsoft.FSharp.Collections.list -> LibTmux.FSharp.Filter<'T>` | Requires every predicate in order; an empty list matches everything. |
 | `val any: relation: LibTmux.FSharp.Relation<'Parent,'Child> -> predicate: LibTmux.FSharp.Filter<'Child> -> LibTmux.FSharp.Filter<'Parent>` | Requires a matching child, returning false for an empty captured relation. |
-| `val anyOf: filters: LibTmux.FSharp.Filter<'T> Microsoft.FSharp.Collections.list -> LibTmux.FSharp.Filter<'T>` | Requires at least one predicate in a nonempty list, in input order. |
-| `val eq: value: 'Value -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches a field against a constant using the core's equality semantics. |
+| `val anyOf: filters: LibTmux.FSharp.Filter<'T> Microsoft.FSharp.Collections.list -> LibTmux.FSharp.Filter<'T>` | Requires at least one predicate in order; an empty list matches nothing. |
+| `val contains: text: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string containing a substring. |
+| `val containsIgnoreCase: text: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string containing a substring ignoring case. |
+| `val endsWith: suffix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string suffix. |
+| `val endsWithIgnoreCase: suffix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string suffix ignoring case. |
+| `val eq: value: 'Value -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches a field equal to a constant. |
+| `val eqIgnoreCase: value: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string equal to a constant ignoring case. |
+| `val ge: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>` | Matches a count at least a constant. |
+| `val gt: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>` | Matches a count above a constant. |
 | `val isNull: field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a captured null string without treating an uncaptured field as absent. |
+| `val le: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>` | Matches a count at most a constant. |
+| `val lt: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>` | Matches a count below a constant. |
+| `val matches: pattern: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string against a culture-invariant .NET regular expression. |
+| `val matchesIgnoreCase: pattern: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string against a culture-invariant .NET regular expression ignoring case. |
+| `val ne: value: 'Value -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches a field not equal to a constant. |
 | `val negate: filter: LibTmux.FSharp.Filter<'T> -> LibTmux.FSharp.Filter<'T>` | Negates a portable predicate. |
 | `val none: relation: LibTmux.FSharp.Relation<'Parent,'Child> -> predicate: LibTmux.FSharp.Filter<'Child> -> LibTmux.FSharp.Filter<'Parent>` | Requires no matching child, returning true for an empty captured relation. |
-| `val oneOf: values: 'Value Microsoft.FSharp.Collections.list -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches any constant in a nonempty list, preserving operand order. |
-| `val startsWith: prefix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string prefix using ordinal comparison. |
+| `val notOneOf: values: 'Value Microsoft.FSharp.Collections.list -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches no constant in a list; an empty list matches everything. |
+| `val oneOf: values: 'Value Microsoft.FSharp.Collections.list -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>` | Matches any constant in a list; an empty list matches nothing. |
+| `val startsWith: prefix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string prefix. |
+| `val startsWithIgnoreCase: prefix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>` | Matches a string prefix ignoring case. |
 | `val toDocument: filter: LibTmux.FSharp.Filter<'T> -> LibTmux.Query.QueryDocument` | Returns the core document validated when the filter was constructed. |
-| `val toPredicate: filter: LibTmux.FSharp.Filter<'T> -> ('T -> Microsoft.FSharp.Core.bool)` | Compiles once and returns a predicate for native lazy filtering. |
+| `val toPredicate: filter: LibTmux.FSharp.Filter<'T> -> ('T -> Microsoft.FSharp.Core.bool)` | Returns a predicate compiled once for native lazy filtering. |
 
 ## Pane
 
@@ -93,7 +107,6 @@ Core handles and request types appear in the
 |---|---|
 | `LibTmux.FSharp.Query` | Applies portable filters locally to captured objects. |
 | `val matching: filter: LibTmux.FSharp.Filter<'T> -> source: 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>` | Materializes matching elements, preserving input order and multiplicity. |
-| `val matchingWithCancellation: cancellationToken: System.Threading.CancellationToken -> filter: LibTmux.FSharp.Filter<'T> -> source: 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>` | Materializes matches with cancellation between elements and predicate nodes. |
 
 ## Relation
 
@@ -130,7 +143,8 @@ Core handles and request types appear in the
 | `LibTmux.FSharp.SessionFields` | Provides supported session fields and relations for portable filters. |
 | `val attached: LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.bool>` | Identifies whether the captured session has attached clients. |
 | `val id: LibTmux.FSharp.Field<LibTmux.Session,LibTmux.SessionId>` | Identifies the typed session ID. |
-| `val name: LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.string>` | Identifies the session name for ordinal string and null comparisons. |
+| `val name: LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.string>` | Identifies the session name. |
+| `val windowCount: LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.int>` | Identifies the number of windows linked into the session. |
 | `val windows: LibTmux.FSharp.Relation<LibTmux.Session,LibTmux.Window>` | Identifies captured window placements within the session. |
 
 ## Snapshot
@@ -162,7 +176,8 @@ Core handles and request types appear in the
 |---|---|
 | `LibTmux.FSharp.WindowFields` | Provides supported window fields and relations for portable filters. |
 | `val id: LibTmux.FSharp.Field<LibTmux.Window,LibTmux.WindowId>` | Identifies the typed physical window ID. |
-| `val name: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>` | Identifies the window name for ordinal string and null comparisons. |
+| `val name: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>` | Identifies the window name. |
+| `val paneCount: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>` | Identifies the number of panes in the window. |
 | `val panes: LibTmux.FSharp.Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |
 
 ## WindowPlacementKey

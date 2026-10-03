@@ -382,6 +382,211 @@
       "returnType": "LibTmux.FSharp.Filter<'Parent>"
     },
     {
+      "id": "M:LibTmux.FSharp.Filter.containsIgnoreCase``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "containsIgnoreCase",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val containsIgnoreCase: text: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "text",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "containsIgnoreCase",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.contains``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "contains",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val contains: text: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "text",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "contains",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.endsWithIgnoreCase``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "endsWithIgnoreCase",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val endsWithIgnoreCase: suffix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "suffix",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "endsWithIgnoreCase",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.endsWith``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "endsWith",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val endsWith: suffix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "suffix",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "endsWith",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.eqIgnoreCase``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "eqIgnoreCase",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val eqIgnoreCase: value: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "eqIgnoreCase",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
       "package": "LibTmux.FSharp",
       "name": "eq",
@@ -427,6 +632,88 @@
       "returnType": "LibTmux.FSharp.Filter<'T>"
     },
     {
+      "id": "M:LibTmux.FSharp.Filter.ge``1(System.Int32,LibTmux.FSharp.Field{``0,System.Int32})",
+      "package": "LibTmux.FSharp",
+      "name": "ge",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val ge: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.int -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.int"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "ge",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.gt``1(System.Int32,LibTmux.FSharp.Field{``0,System.Int32})",
+      "package": "LibTmux.FSharp",
+      "name": "gt",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val gt: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.int -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.int"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "gt",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Filter.isNull``1(LibTmux.FSharp.Field{``0,System.String})",
       "package": "LibTmux.FSharp",
       "name": "isNull",
@@ -454,6 +741,215 @@
       ],
       "compiledName": "isNull",
       "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.le``1(System.Int32,LibTmux.FSharp.Field{``0,System.Int32})",
+      "package": "LibTmux.FSharp",
+      "name": "le",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val le: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.int -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.int"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "le",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.lt``1(System.Int32,LibTmux.FSharp.Field{``0,System.Int32})",
+      "package": "LibTmux.FSharp",
+      "name": "lt",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val lt: value: Microsoft.FSharp.Core.int -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.int -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.int"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.int>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "lt",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.matchesIgnoreCase``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "matchesIgnoreCase",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val matchesIgnoreCase: pattern: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "pattern",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "matchesIgnoreCase",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.matches``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "matches",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val matches: pattern: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "pattern",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "matches",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.ne``2(``0,LibTmux.FSharp.Field{``1,``0})",
+      "package": "LibTmux.FSharp",
+      "name": "ne",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val ne: value: 'Value -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "'Value -> LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "value",
+          "optional": false,
+          "type": "'Value"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,'Value>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "ne",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "Value"
+        },
         {
           "constraints": [],
           "name": "T"
@@ -542,6 +1038,51 @@
       "returnType": "LibTmux.FSharp.Filter<'Parent>"
     },
     {
+      "id": "M:LibTmux.FSharp.Filter.notOneOf``2(Microsoft.FSharp.Collections.FSharpList{``0},LibTmux.FSharp.Field{``1,``0})",
+      "package": "LibTmux.FSharp",
+      "name": "notOneOf",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val notOneOf: values: 'Value Microsoft.FSharp.Collections.list -> field: LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "'Value Microsoft.FSharp.Collections.list -> LibTmux.FSharp.Field<'T,'Value> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "values",
+          "optional": false,
+          "type": "'Value Microsoft.FSharp.Collections.list"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,'Value>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "notOneOf",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "Value"
+        },
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Filter.oneOf``2(Microsoft.FSharp.Collections.FSharpList{``0},LibTmux.FSharp.Field{``1,``0})",
       "package": "LibTmux.FSharp",
       "name": "oneOf",
@@ -579,6 +1120,47 @@
           "constraints": [],
           "name": "Value"
         },
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "LibTmux.FSharp.Filter<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Filter.startsWithIgnoreCase``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
+      "package": "LibTmux.FSharp",
+      "name": "startsWithIgnoreCase",
+      "declaringType": "T:LibTmux.FSharp.Filter",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val startsWithIgnoreCase: prefix: Microsoft.FSharp.Core.string -> field: LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string> -> LibTmux.FSharp.Filter<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "prefix",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "field",
+          "optional": false,
+          "type": "LibTmux.FSharp.Field<'T,Microsoft.FSharp.Core.string>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "startsWithIgnoreCase",
+      "genericParameters": [
         {
           "constraints": [],
           "name": "T"
@@ -677,15 +1259,7 @@
       "exposedTypes": [
         "LibTmux.FSharp.Filter<'T> -> 'T -> Microsoft.FSharp.Core.bool"
       ],
-      "attributes": [
-        {
-          "arguments": [
-            "Query compilation uses reflection over queried public properties."
-          ],
-          "signature": "[<System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode (\"Query compilation uses reflection over queried public properties.\")>]",
-          "type": "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
-        }
-      ],
+      "attributes": [],
       "parameters": [
         {
           "name": "filter",
@@ -892,61 +1466,6 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
     },
     {
-      "id": "M:LibTmux.FSharp.Query.matchingWithCancellation``1(System.Threading.CancellationToken,LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
-      "package": "LibTmux.FSharp",
-      "name": "matchingWithCancellation",
-      "declaringType": "T:LibTmux.FSharp.Query",
-      "visibility": "public",
-      "kind": "member",
-      "signature": "val matchingWithCancellation: cancellationToken: System.Threading.CancellationToken -> filter: LibTmux.FSharp.Filter<'T> -> source: 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>",
-      "language": "F#",
-      "implicitDeclaration": false,
-      "accessor": false,
-      "interfaces": [],
-      "exposedTypes": [
-        "System.Threading.CancellationToken -> LibTmux.FSharp.Filter<'T> -> 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>"
-      ],
-      "attributes": [
-        {
-          "arguments": [
-            "Query compilation uses reflection over queried public properties."
-          ],
-          "signature": "[<System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode (\"Query compilation uses reflection over queried public properties.\")>]",
-          "type": "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
-        }
-      ],
-      "parameters": [
-        {
-          "name": "cancellationToken",
-          "optional": false,
-          "type": "System.Threading.CancellationToken"
-        },
-        {
-          "name": "filter",
-          "optional": false,
-          "type": "LibTmux.FSharp.Filter<'T>"
-        },
-        {
-          "name": "source",
-          "optional": false,
-          "type": "'T Microsoft.FSharp.Collections.seq"
-        }
-      ],
-      "argumentGroups": [
-        1,
-        1,
-        1
-      ],
-      "compiledName": "matchingWithCancellation",
-      "genericParameters": [
-        {
-          "constraints": [],
-          "name": "T"
-        }
-      ],
-      "returnType": "System.Collections.Generic.IReadOnlyList<'T>"
-    },
-    {
       "id": "M:LibTmux.FSharp.Query.matching``1(LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
       "package": "LibTmux.FSharp",
       "name": "matching",
@@ -961,15 +1480,7 @@
       "exposedTypes": [
         "LibTmux.FSharp.Filter<'T> -> 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>"
       ],
-      "attributes": [
-        {
-          "arguments": [
-            "Query compilation uses reflection over queried public properties."
-          ],
-          "signature": "[<System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode (\"Query compilation uses reflection over queried public properties.\")>]",
-          "type": "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
-        }
-      ],
+      "attributes": [],
       "parameters": [
         {
           "name": "filter",
@@ -1642,6 +2153,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.string>"
     },
     {
+      "id": "P:LibTmux.FSharp.SessionFields.windowCount",
+      "package": "LibTmux.FSharp",
+      "name": "windowCount",
+      "declaringType": "T:LibTmux.FSharp.SessionFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val windowCount: LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "windowCount",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Session,Microsoft.FSharp.Core.int>"
+    },
+    {
       "id": "P:LibTmux.FSharp.SessionFields.windows",
       "package": "LibTmux.FSharp",
       "name": "windows",
@@ -1706,6 +2239,28 @@
       "compiledName": "name",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.paneCount",
+      "package": "LibTmux.FSharp",
+      "name": "paneCount",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val paneCount: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "paneCount",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowFields.panes",

@@ -256,8 +256,7 @@ let runAsync () =
             |> Seq.toList
 
         let portableMatches =
-            sessions
-            |> Query.matchingWithCancellation token (Filter.startsWith "de" SessionFields.name)
+            sessions |> Query.matching (Filter.startsWith "de" SessionFields.name)
 
         let! windows = server |> Server.listWindows token
 
@@ -312,8 +311,7 @@ Both session predicates select `demo`. The other filters select the
 
 [`Query.matching`](../fsharp-reference/reference/libtmux-fsharp-query.md#matching)
 materializes its result locally. It preserves input order and placement
-multiplicity. `Query.matchingWithCancellation` also checks cancellation
-between elements and predicate nodes. Neither sends a tmux format filter.
+multiplicity, and sends no tmux format filter.
 
 Capture to the filter document's `RequiredSnapshotDepth` before matching
 relations. Uncaptured relationships raise `IncompleteSnapshotException`.

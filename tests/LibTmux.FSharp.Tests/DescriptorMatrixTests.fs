@@ -27,7 +27,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Name"
                 WireName = "session_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq "build" SessionFields.name |> Filter.toDocument
             }
@@ -36,7 +37,7 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Id"
                 WireName = "session_id"
                 ValueType = "SessionId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq (SessionId 1) SessionFields.id |> Filter.toDocument
             }
@@ -45,9 +46,18 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Attached"
                 WireName = "session_attached"
                 ValueType = "bool"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq true SessionFields.attached |> Filter.toDocument
+            }
+            {
+                Name = "SessionFields.windowCount"
+                CoreProperty = "Session.Windows"
+                WireName = "session_windows"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 SessionFields.windowCount |> Filter.toDocument
             }
             {
                 Name = "SessionFields.windows"
@@ -66,7 +76,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Window.Name"
                 WireName = "window_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Windows
                 Document = Filter.eq "build" WindowFields.name |> Filter.toDocument
             }
@@ -75,9 +86,18 @@ module DescriptorMatrixTests =
                 CoreProperty = "Window.Id"
                 WireName = "window_id"
                 ValueType = "WindowId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Windows
                 Document = Filter.eq (WindowId 1) WindowFields.id |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.paneCount"
+                CoreProperty = "Window.Panes"
+                WireName = "window_panes"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 WindowFields.paneCount |> Filter.toDocument
             }
             {
                 Name = "WindowFields.panes"
@@ -96,7 +116,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Pane.CurrentCommand"
                 WireName = "pane_command"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq "nvim" PaneFields.currentCommand |> Filter.toDocument
             }
@@ -105,7 +126,7 @@ module DescriptorMatrixTests =
                 CoreProperty = "Pane.Id"
                 WireName = "pane_id"
                 ValueType = "PaneId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq (PaneId 1) PaneFields.id |> Filter.toDocument
             }
@@ -114,7 +135,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Client.Name"
                 WireName = "client_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq "client" ClientFields.name |> Filter.toDocument
             }
@@ -123,7 +145,7 @@ module DescriptorMatrixTests =
                 CoreProperty = "Client.IsControlClient"
                 WireName = "client_control_mode"
                 ValueType = "bool"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq true ClientFields.controlMode |> Filter.toDocument
             }
@@ -175,6 +197,19 @@ module DescriptorMatrixTests =
     let ``descriptor guide names only translated v1 fields`` () =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
         validateFields (File.ReadAllText(path))
+
+    [<Fact>]
+    let ``every exposed field and relation has a descriptor row`` () =
+        let exposed =
+            [ typeof<Field<LibTmux.Session, string>>.Assembly.GetTypes() ]
+            |> Seq.concat
+            |> Seq.filter (fun moduleType -> moduleType.Name.EndsWith("Fields", StringComparison.Ordinal))
+            |> Seq.collect (fun moduleType ->
+                moduleType.GetProperties(Reflection.BindingFlags.Public ||| Reflection.BindingFlags.Static)
+                |> Seq.map (fun property -> $"{moduleType.Name}.{property.Name}"))
+            |> Set.ofSeq
+
+        Assert.Equal<Set<string>>(exposed, descriptors |> List.map (fun descriptor -> descriptor.Name) |> Set.ofList)
 
     [<Theory>]
     [<InlineData("pane_command", "pane_current_path")>]
