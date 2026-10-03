@@ -91,6 +91,8 @@ modes differ.
 | `LibTmux.ServerAccessRequest` | Describes one server-access invocation. |
 | `LibTmux.ServerConnectionOptions` | Configures a tmux server connection without mutating process-wide state. |
 | `LibTmux.ServerGeneration` | Identifies one tmux daemon generation. |
+| `LibTmux.ServerMirror` | A live copy of one tmux server's sessions, windows, panes and clients, rebuilt whenever tmux announces a change. |
+| `LibTmux.ServerMirrorView` | One state of a mirrored server. |
 | `LibTmux.Session` | Represents an immutable session handle and snapshot. |
 | `LibTmux.SessionId` | Represents a generation-independent tmux session identifier. |
 | `LibTmux.SessionWindowEdge` | Places one window at one index inside one session. |
@@ -381,6 +383,12 @@ modes differ.
 | `LibTmux.ServerAccessRequest.ToCommand(LibTmux.Server)` | Returns an access request as one tmux command. |
 | `LibTmux.ServerGeneration.#ctor(System.Int32,System.Int64)` | Initializes a server generation. |
 | `LibTmux.ServerGeneration.Parse(System.String)` | Parses a generation reported in . |
+| `LibTmux.ServerMirror.DisposeAsync` | Stops listening and detaches the control client; the last view stays readable. |
+| `LibTmux.ServerMirror.OpenAsync(LibTmux.Session,System.TimeSpan,System.Threading.CancellationToken)` | Mirrors the server an anchor session belongs to. |
+| `LibTmux.ServerMirror.WaitForNewerAsync(System.Int64,System.Threading.CancellationToken)` | Waits for a view newer than an epoch. |
+| `LibTmux.ServerMirror.WaitUntilAsync(System.Func{LibTmux.ServerMirrorView,System.Boolean},System.TimeSpan,System.Threading.CancellationToken)` | Waits until a view satisfies a condition, testing the current view first. |
+| `LibTmux.ServerMirror.WatchAsync(System.Threading.CancellationToken)` | Streams the current view and then each newer one, skipping any published while the reader was busy. |
+| `LibTmux.ServerMirrorView.#ctor(System.Int64,LibTmux.Server,System.Collections.Generic.IReadOnlyList{LibTmux.Client})` | One state of a mirrored server. |
 | `LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to this session. |
 | `LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session and takes ownership of it. |
 | `LibTmux.Session.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session. |
@@ -972,6 +980,12 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.TmuxBinaryPath` | Gets the tmux executable path. |
 | `LibTmux.ServerGeneration.ProcessId` | Gets the tmux daemon process identifier. |
 | `LibTmux.ServerGeneration.StartTime` | Gets the tmux daemon start time. |
+| `LibTmux.ServerMirror.Current` | Gets the latest published view. |
+| `LibTmux.ServerMirror.Failure` | Gets why the mirror ended, when something other than disposal ended it. |
+| `LibTmux.ServerMirror.IsEnded` | Gets whether the mirror has stopped publishing, because it was disposed or its anchor has gone. |
+| `LibTmux.ServerMirrorView.Clients` | The clients attached when it was captured. |
+| `LibTmux.ServerMirrorView.Epoch` | How many views the mirror published before this one. |
+| `LibTmux.ServerMirrorView.Server` | The server as the rebuild captured it, down to its panes. |
 | `LibTmux.Session.ActivePane` | Gets the captured active pane, or an uncaptured relation. |
 | `LibTmux.Session.ActiveWindow` | Gets the captured active window, or an uncaptured relation. |
 | `LibTmux.Session.Attached` | Gets whether a client was attached when this session was read. |

@@ -1037,6 +1037,25 @@ LibTmux.ServerGeneration.ProcessId.get -> int
 LibTmux.ServerGeneration.ServerGeneration() -> void
 LibTmux.ServerGeneration.ServerGeneration(int processId, long startTime) -> void
 LibTmux.ServerGeneration.StartTime.get -> long
+LibTmux.ServerMirror
+LibTmux.ServerMirror.Current.get -> LibTmux.ServerMirrorView!
+LibTmux.ServerMirror.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.ServerMirror.Failure.get -> System.Exception?
+LibTmux.ServerMirror.IsEnded.get -> bool
+LibTmux.ServerMirror.WaitForNewerAsync(long epoch, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView?>!
+LibTmux.ServerMirror.WaitUntilAsync(System.Func<LibTmux.ServerMirrorView!, bool>! condition, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView!>!
+LibTmux.ServerMirror.WatchAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView!>!
+LibTmux.ServerMirrorView
+LibTmux.ServerMirrorView.<Clone>$() -> LibTmux.ServerMirrorView!
+LibTmux.ServerMirrorView.Clients.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Client!>!
+LibTmux.ServerMirrorView.Clients.init -> void
+LibTmux.ServerMirrorView.Deconstruct(out long Epoch, out LibTmux.Server! Server, out System.Collections.Generic.IReadOnlyList<LibTmux.Client!>! Clients) -> void
+LibTmux.ServerMirrorView.Epoch.get -> long
+LibTmux.ServerMirrorView.Epoch.init -> void
+LibTmux.ServerMirrorView.Equals(LibTmux.ServerMirrorView? other) -> bool
+LibTmux.ServerMirrorView.Server.get -> LibTmux.Server!
+LibTmux.ServerMirrorView.Server.init -> void
+LibTmux.ServerMirrorView.ServerMirrorView(long Epoch, LibTmux.Server! Server, System.Collections.Generic.IReadOnlyList<LibTmux.Client!>! Clients) -> void
 LibTmux.Session
 LibTmux.Session.ActivePane.get -> LibTmux.CapturedValue<LibTmux.Pane!>!
 LibTmux.Session.ActiveWindow.get -> LibTmux.CapturedValue<LibTmux.Window!>!
@@ -1606,6 +1625,9 @@ override LibTmux.PaneWaitRequest.ToString() -> string!
 override LibTmux.PaneWaitResult.Equals(object? obj) -> bool
 override LibTmux.PaneWaitResult.GetHashCode() -> int
 override LibTmux.PaneWaitResult.ToString() -> string!
+override LibTmux.ServerMirrorView.Equals(object? obj) -> bool
+override LibTmux.ServerMirrorView.GetHashCode() -> int
+override LibTmux.ServerMirrorView.ToString() -> string!
 override LibTmux.TmuxPaneContinuedEvent.<Clone>$() -> LibTmux.TmuxPaneContinuedEvent!
 override LibTmux.TmuxPaneContinuedEvent.Equals(object? obj) -> bool
 override LibTmux.TmuxPaneContinuedEvent.GetHashCode() -> int
@@ -1624,6 +1646,9 @@ static LibTmux.PaneWaitRequest.operator !=(LibTmux.PaneWaitRequest? left, LibTmu
 static LibTmux.PaneWaitRequest.operator ==(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
 static LibTmux.PaneWaitResult.operator !=(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
 static LibTmux.PaneWaitResult.operator ==(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
+static LibTmux.ServerMirror.OpenAsync(LibTmux.Session! anchor, System.TimeSpan refreshEvery = default(System.TimeSpan), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirror!>!
+static LibTmux.ServerMirrorView.operator !=(LibTmux.ServerMirrorView? left, LibTmux.ServerMirrorView? right) -> bool
+static LibTmux.ServerMirrorView.operator ==(LibTmux.ServerMirrorView? left, LibTmux.ServerMirrorView? right) -> bool
 static LibTmux.TmuxPaneContinuedEvent.operator !=(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
 static LibTmux.TmuxPaneContinuedEvent.operator ==(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
 static LibTmux.TmuxPanePausedEvent.operator !=(LibTmux.TmuxPanePausedEvent? left, LibTmux.TmuxPanePausedEvent? right) -> bool
