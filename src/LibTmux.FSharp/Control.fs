@@ -79,9 +79,12 @@ module Control =
         (source: IAsyncEnumerable<'T>)
         (work: IAsyncEnumerator<'T> -> Task<'Result>)
         =
-        let reader = source.GetAsyncEnumerator(cancellationToken)
+        backgroundTask {
+            let reader = source.GetAsyncEnumerator(cancellationToken)
 
-        AsyncCleanup.run CleanupFailureKey (fun () -> work reader) (fun () -> reader.DisposeAsync().AsTask())
+            return!
+                AsyncCleanup.run CleanupFailureKey (fun () -> work reader) (fun () -> reader.DisposeAsync().AsTask())
+        }
 
     let iter (cancellationToken: CancellationToken) (handler: 'T -> Task) (source: IAsyncEnumerable<'T>) =
         consume cancellationToken source (fun reader ->

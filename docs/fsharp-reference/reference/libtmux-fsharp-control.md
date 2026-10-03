@@ -27,7 +27,7 @@ When work and cleanup both fail, the helpers rethrow the work&#39;s exception
 
 Returns: <code><span>exn&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L128)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L131)
 
 <a name="enter"></a>
 
@@ -105,7 +105,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'State, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L100)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L103)
 
 <a name="iter"></a>
 
@@ -127,7 +127,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L86)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L89)
 
 <a name="useSession"></a>
 
