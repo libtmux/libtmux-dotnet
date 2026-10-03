@@ -51,7 +51,9 @@ module Selection =
 /// <remarks>
 /// Every <c>LibTmuxException</c> says whether its command reached tmux, so match
 /// on that rather than on the exception type. <c>NotSent</c> is the only failure
-/// after which running the same operation again is always safe.
+/// after which running the same command again is always safe. It says nothing
+/// about commands sent before it: an operation that ran one command and then
+/// failed to send another has already acted.
 /// </remarks>
 [<RequireQualifiedAccess>]
 module TmuxFailure =
@@ -68,10 +70,15 @@ module TmuxFailure =
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =
-    /// <summary>Runs an operation, and again up to <c>retries</c> times while it fails before reaching tmux.</summary>
+    /// <summary>Runs an operation, and again up to <c>retries</c> times while nothing it sent reached tmux.</summary>
     /// <remarks>
-    /// Any other failure, and cancellation, propagates at once. A read that is
-    /// safe to repeat whatever happened belongs in the caller's own retry policy.
+    /// An attempt is repeated only when it fails with <c>NotSent</c> and no
+    /// command it sent before that failure reached tmux, counting every command
+    /// the operation awaits, including through nested retries. An operation of
+    /// several steps whose first step ran is therefore not repeated because a
+    /// later step was refused before dispatch. Any other failure, and
+    /// cancellation, propagates at once. A read that is safe to repeat whatever
+    /// happened belongs in the caller's own retry policy.
     /// </remarks>
     /// <exception cref="T:System.ArgumentOutOfRangeException">The retry count is negative.</exception>
     val ifNotSent:

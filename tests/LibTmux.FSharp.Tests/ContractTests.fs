@@ -358,6 +358,80 @@ module FailureTests =
         )
 
     [<Fact>]
+    let ``retry does not repeat an operation once any command it sent reached tmux`` () =
+        task {
+            let sent = ResizeArray<string>()
+            let mutable flaky = 0
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-retry-ledger"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let name = request.LogicalArguments |> Seq.last
+                        sent.Add name
+
+                        if name = "flaky" then
+                            flaky <- flaky + 1
+
+                        if name = "refused" || (name = "flaky" && flaky = 1) then
+                            Task.FromException<TmuxCommandResult>(
+                                TmuxTransportException(
+                                    "refused",
+                                    request.LogicalArguments,
+                                    TmuxDispatchState.NotDispatched
+                                )
+                            )
+                        else
+                            // The connection asks the version first; any other command echoes its name.
+                            let line = if name = "-V" then "tmux 3.7" else name
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    request.LogicalArguments,
+                                    0,
+                                    ReadOnlyMemory(Encoding.UTF8.GetBytes(line + "\n")),
+                                    ReadOnlyMemory.Empty,
+                                    [ line ],
+                                    []
+                                )
+                            ))
+                )
+
+            let server = Server(connection, ServerGeneration(95, 905), "tmux 3.7")
+
+            let run name token =
+                server.ExecuteCommandAsync([ name ], token)
+
+            let count name =
+                sent |> Seq.filter ((=) name) |> Seq.length
+
+            // The first step ran, so the second step's NotSent does not make the whole safe to repeat.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let! _ = run "first" token
+                            return! run "refused" token
+                        })
+                    :> Task)
+
+            // A command an inner retry ran counts for the outer retry too.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let! _ = Retry.ifNotSent token 2 (run "nested")
+                            return! run "refused" token
+                        })
+                    :> Task)
+
+            // A lone command refused before dispatch is still repeated.
+            let! recovered = Retry.ifNotSent CancellationToken.None 2 (run "flaky")
+
+            Assert.Equal((1, 1, 2, 0), (count "first", count "nested", count "flaky", recovered.ExitCode))
+        }
+
+    [<Fact>]
     let ``retry runs again only while tmux never saw the command`` () =
         task {
             let mutable attempts = 0

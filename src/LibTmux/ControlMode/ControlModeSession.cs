@@ -199,11 +199,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         }
 
         // Newlines expand fourfold, so enforce the byte budget before rendering.
-        return SendCoreAsync(
+        return TmuxDispatchLedger.TrackAsync(SendCoreAsync(
             command,
             renderedCommand: null,
             ControlModeCommandRenderer.GetRenderedByteCount(command),
-            cancellationToken);
+            cancellationToken));
     }
 
     private Task<IReadOnlyList<string>> SendFlowCommandAsync(TmuxCommand command) =>

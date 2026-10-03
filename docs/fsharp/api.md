@@ -171,7 +171,7 @@ Signatures assume `open System`, `open System.Threading`,
 | Signature | Summary |
 |---|---|
 | `Retry` | Runs an operation again only when tmux never saw it. |
-| `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while it fails before reaching tmux. |
+| `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while nothing it sent reached tmux. |
 
 ## ScreenSearch
 

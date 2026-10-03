@@ -42,6 +42,11 @@ internal sealed class TmuxConnection
             execute is null
                 ? CreateProcessTransports(resolved)
                 : (execute, execute);
+
+        // Counted below the interceptor, as tmux receives each command. The
+        // version probe answers from the client and changes nothing.
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> transport = send;
+        send = (request, cancellationToken) => TmuxDispatchLedger.TrackAsync(transport(request, cancellationToken));
         if (Options.Interceptor is TmuxInterceptor interceptor)
         {
             // Wrapped below both dialects and the generation guard, so it sees

@@ -31,7 +31,8 @@ Every `LibTmuxException` says whether its command reached tmux. The
 command, so running it again repeats nothing. `Ran` means tmux ran it and then
 reported an error or gave an answer that could not be used. `MayHaveRun`
 covers a failure or cancellation after which tmux may already have acted.
-`Retry.ifNotSent` runs an operation again only for `NotSent`:
+`Retry.ifNotSent` runs an operation again only for `NotSent`, and only when no
+command the attempt sent before that failure reached tmux:
 
 <!-- fsharp-snippet: SafeRetry run -->
 ```fsharp run
@@ -54,8 +55,12 @@ let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server
 ```
 <!-- endfsharp-snippet -->
 
-A read that is safe to repeat whatever happened can use any retry policy; a
-command that changes tmux should be retried only on `NotSent`.
+`NotSent` speaks for one command. An operation that creates a window and then
+fails to send a second command has already created the window, so
+`Retry.ifNotSent` counts every command an attempt sends, through whatever it
+awaits, and repeats the attempt only if none reached tmux. A read that is safe
+to repeat whatever happened can use any retry policy; a command that changes
+tmux should be retried only this way.
 
 ## Bound how long tmux may take
 

@@ -12,10 +12,15 @@ Runs an operation again only when tmux never saw it.
 
 #### <code><span>Retry.ifNotSent&#32;<span>cancellationToken&#32;retries&#32;operation</span></span></code>
 
-Runs an operation, and again up to <code>retries</code> times while it fails before reaching tmux.
+Runs an operation, and again up to <code>retries</code> times while nothing it sent reached tmux.
 
-Any other failure, and cancellation, propagates at once. A read that is
- safe to repeat whatever happened belongs in the caller&#39;s own retry policy.
+An attempt is repeated only when it fails with <code>NotSent</code> and no
+ command it sent before that failure reached tmux, counting every command
+ the operation awaits, including through nested retries. An operation of
+ several steps whose first step ran is therefore not repeated because a
+ later step was refused before dispatch. Any other failure, and
+ cancellation, propagates at once. A read that is safe to repeat whatever
+ happened belongs in the caller&#39;s own retry policy.
 
 **Parameters:**
 

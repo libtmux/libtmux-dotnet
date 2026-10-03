@@ -83,10 +83,19 @@ module Retry =
             let mutable result = None
 
             while result.IsNone do
+                // A NotSent failure clears only its own command; anything the
+                // attempt sent before it may have run.
+                let attempt = LibTmux.Internal.TmuxDispatchLedger.Create()
+
                 try
-                    let! value = operation cancellationToken
+                    let! value =
+                        LibTmux.Internal.TmuxDispatchLedger.CountAsync(attempt, (fun () -> operation cancellationToken))
+
                     result <- Some value
-                with TmuxFailure.NotSent _ when remaining > 0 && not cancellationToken.IsCancellationRequested ->
+                with TmuxFailure.NotSent _ when
+                    remaining > 0
+                    && not attempt.AnyReached
+                    && not cancellationToken.IsCancellationRequested ->
                     remaining <- remaining - 1
 
             return result.Value

@@ -8,7 +8,9 @@ Recognises tmux failures by whether running the operation again could repeat wha
 
 Every <code>LibTmuxException</code> says whether its command reached tmux, so match
  on that rather than on the exception type. <code>NotSent</code> is the only failure
- after which running the same operation again is always safe.
+ after which running the same command again is always safe. It says nothing
+ about commands sent before it: an operation that ran one command and then
+ failed to send another has already acted.
 
 ### Active patterns
 
