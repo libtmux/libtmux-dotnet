@@ -53,6 +53,7 @@
             "client_control_mode",
             "client_id",
             "client_name",
+            "history_size",
             "pane_active",
             "pane_at_bottom",
             "pane_at_left",
@@ -76,11 +77,14 @@
             "session_name",
             "session_windows",
             "window_active",
+            "window_activity_flag",
+            "window_bell_flag",
             "window_height",
             "window_id",
             "window_index",
             "window_name",
             "window_panes",
+            "window_silence_flag",
             "window_width",
             "window_zoomed_flag"
           ]
@@ -108,11 +112,14 @@
                 "wireName": {
                   "enum": [
                     "window_active",
+                    "window_activity_flag",
+                    "window_bell_flag",
                     "window_height",
                     "window_id",
                     "window_index",
                     "window_name",
                     "window_panes",
+                    "window_silence_flag",
                     "window_width",
                     "window_zoomed_flag"
                   ]
@@ -124,6 +131,7 @@
                 "target": { "const": "pane" },
                 "wireName": {
                   "enum": [
+                    "history_size",
                     "pane_active",
                     "pane_at_bottom",
                     "pane_at_left",
@@ -176,6 +184,9 @@
                 "pane_synchronized",
                 "session_attached",
                 "window_active",
+                "window_activity_flag",
+                "window_bell_flag",
+                "window_silence_flag",
                 "window_zoomed_flag"
               ]
             }
@@ -209,6 +220,7 @@
           "properties": {
             "wireName": {
               "enum": [
+                "history_size",
                 "pane_height",
                 "pane_index",
                 "pane_left",

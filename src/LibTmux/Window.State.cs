@@ -27,6 +27,17 @@ public sealed partial class Window
     /// </remarks>
     public bool Active => ReadSnapshot("window_active") == "1";
 
+    /// <summary>Gets whether a bell rang in the window since it was last the current window.</summary>
+    /// <remarks>tmux sets it only while <c>monitor-bell</c> is on, which it is by default.</remarks>
+    public bool BellAlert => ReadSnapshot("window_bell_flag") == "1";
+
+    /// <summary>Gets whether the window printed since it was last the current window.</summary>
+    /// <remarks>tmux sets it only while <c>monitor-activity</c> is on.</remarks>
+    public bool ActivityAlert => ReadSnapshot("window_activity_flag") == "1";
+
+    /// <summary>Gets whether the window has been silent for <c>monitor-silence</c> seconds.</summary>
+    public bool SilenceAlert => ReadSnapshot("window_silence_flag") == "1";
+
     /// <summary>Gets whether one of the window's panes is zoomed to fill it.</summary>
     public bool Zoomed => ReadSnapshot("window_zoomed_flag") == "1";
 
