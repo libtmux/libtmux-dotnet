@@ -409,6 +409,27 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
+    // fsharp-snippet: CiTestOptions
+    open System
+    open LibTmux
+    open LibTmux.Testing
+
+    // Options that name a connection replace the private socket a test gets
+    // by default, so name a socket of the test's own as well as the binary.
+    let ciTestOptions () =
+        let binary =
+            Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+            |> Option.ofObj
+            |> Option.defaultValue "tmux"
+
+        TmuxTestOptions(
+            ServerConnectionOptions(
+                SocketName = "libtmux-test-" + Guid.NewGuid().ToString("N"),
+                TmuxBinaryPath = binary
+            )
+        )
+    // endfsharp-snippet
+
     // fsharp-snippet: SafeRetry
     open System
     open System.Threading
