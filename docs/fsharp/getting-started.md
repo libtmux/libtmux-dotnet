@@ -9,8 +9,8 @@ Both packages are maintained in the `libtmux` organization by the same primary
 author.
 
 It keeps the core handles and task-based I/O. This example creates a server on
-a unique socket, creates one session, lists its pane, splits it, sends literal
-text, and reads the resulting pane IDs. Both owned scopes dispose at the end of
+a unique socket, creates one session, lists its pane, splits it, types a line
+into the new pane, and reads the resulting pane IDs. Both owned scopes dispose at the end of
 the task.
 
 <!-- fsharp-snippet: OwnedWorkflow run -->
@@ -56,8 +56,9 @@ let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
 ```
 <!-- endfsharp-snippet -->
 
-`Pane.sendKeys` completes after tmux accepts the keys; it does not wait for the
-shell to print. To wait for what it prints, use `Pane.sendAndWait` below. `Server.capture` performs I/O, then the ID projection is local.
+`Pane.sendLine` completes after tmux accepts the line; it does not wait for the
+shell to print. To wait for what it prints, use `Pane.sendAndWait` below.
+`Server.capture` performs I/O, then the ID projection is local.
 `Server.tryFindPane` returns `Some pane` after a successful lookup or `None`
 when the pane is absent. This example returns two pane IDs and `Some` of the
 new pane's ID. Failures and cancellation still propagate.
@@ -174,7 +175,7 @@ leaves one out draws a compiler warning:
 | `PaneWait.TimedOut` | `TimedOut` | The time allowed ran out. |
 | `PaneWait.Ended` | `PaneExited`, `AlternateScreen` | The pane's program exited, or a full-screen program took over. |
 
-Calling `Pane.sendKeys` and then `Pane.waitForText` for text the typed line
+Calling `Pane.sendLine` and then `Pane.waitForText` for text the typed line
 contains can end on the shell's echo before the command runs; use
 `Pane.sendAndWait` instead. Every wait also ends early when the pane's program
 exits during it or a full-screen program takes over, raises
