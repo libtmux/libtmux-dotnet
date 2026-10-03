@@ -26,7 +26,7 @@ let runAsync () =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), token)
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! panes = server |> Server.listPanes token
+        let! panes = server |> Server.panes |> Query.list token
         let pane = panes |> Seq.exactlyOne
         let channel = "capture-" + Guid.NewGuid().ToString("N")
         use wait = server.OpenWaitChannel(channel)

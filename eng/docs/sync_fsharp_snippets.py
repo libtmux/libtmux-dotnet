@@ -1,13 +1,16 @@
 """Materialize compiled F# guide blocks into the documents that publish them.
 
-A document may also show what a program prints in an output block; CI pipes
-the program's real output to ``--expect-output NAME`` to keep it true.
+A document may also show what a program prints in an output block. A program
+in the API example manifest has its output recorded there, and its block is
+written from that record; any other program's block is its own record. CI
+pipes the program's real output to ``--expect-output NAME`` to keep it true.
 """
 
 from __future__ import annotations
 
 import argparse
 import difflib
+import json
 import pathlib
 import re
 import sys
@@ -17,6 +20,7 @@ import typing as t
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
 SNIPPETS = REPOSITORY / "examples"
+MANIFEST = REPOSITORY / "examples" / "api" / "manifest.json"
 DOCUMENTS = (
     REPOSITORY / "src" / "LibTmux.FSharp" / "README.md",
     *sorted((REPOSITORY / "docs" / "fsharp").glob("*.md")),
@@ -40,6 +44,16 @@ OUTPUT = re.compile(
     r"<!-- endfsharp-output -->",
     re.DOTALL,
 )
+
+
+def recorded_outputs(manifest: pathlib.Path) -> dict[str, str]:
+    """Return each F# program's output as the API example manifest records it."""
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    return {
+        example["id"].removeprefix("fsharp-"): example["output"]
+        for example in document["examples"]
+        if example["profile"] == "fsharp"
+    }
 
 
 def read_regions(sources: pathlib.Path) -> dict[str, str]:
@@ -73,6 +87,18 @@ def materialize(text: str, regions: dict[str, str], used: list[str]) -> str:
     return ANCHOR.sub(replace, text)
 
 
+def materialize_outputs(text: str, recorded: dict[str, str]) -> str:
+    """Return a document whose output blocks show the outputs the manifest records."""
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group("name")
+        if name not in recorded:
+            return match.group(0)
+        return f"<!-- fsharp-output: {name} -->\n```text\n{recorded[name]}```\n<!-- endfsharp-output -->"
+
+    return OUTPUT.sub(replace, text)
+
+
 def validate_fences(path: pathlib.Path, text: str) -> list[str]:
     """Reject an F# fence that is not exactly the body of an F# anchor."""
     errors: list[str] = []
@@ -91,20 +117,21 @@ def run(
     documents: t.Iterable[pathlib.Path],
     *,
     check: bool,
+    recorded: dict[str, str] | None = None,
 ) -> list[str]:
-    """Synchronize F# guide snippets and return every contract violation."""
+    """Synchronize F# guide snippets and outputs and return every contract violation."""
     errors: list[str] = []
     regions = read_regions(sources)
     used: list[str] = []
 
     for path in documents:
         before = path.read_text(encoding="utf-8")
-        after = materialize(before, regions, used)
+        after = materialize_outputs(materialize(before, regions, used), recorded or {})
         errors.extend(validate_fences(path, after))
         if before == after:
             continue
         if check:
-            errors.append(f"{path}: differs from its F# snippet source")
+            errors.append(f"{path}: differs from its F# snippet source or recorded output")
             continue
         path.write_text(after, encoding="utf-8")
 
@@ -141,17 +168,25 @@ def lines(text: str) -> list[str]:
     return result
 
 
-def compare_output(documents: t.Iterable[pathlib.Path], name: str, actual: str) -> list[str]:
-    """Return why a program's output differs from the one block that documents it."""
-    blocks = [
-        match.group("body")
-        for path in documents
-        for match in OUTPUT.finditer(path.read_text(encoding="utf-8"))
-        if match.group("name") == name
-    ]
-    if len(blocks) != 1:
-        return [f"F# output {name} is documented {len(blocks)} times; expected once"]
-    expected = lines(blocks[0])
+def compare_output(
+    documents: t.Iterable[pathlib.Path],
+    name: str,
+    actual: str,
+    recorded: dict[str, str] | None = None,
+) -> list[str]:
+    """Return why a program's output differs from its recorded or documented output."""
+    if recorded and name in recorded:
+        expected = lines(recorded[name])
+    else:
+        blocks = [
+            match.group("body")
+            for path in documents
+            for match in OUTPUT.finditer(path.read_text(encoding="utf-8"))
+            if match.group("name") == name
+        ]
+        if len(blocks) != 1:
+            return [f"F# output {name} is documented {len(blocks)} times; expected once"]
+        expected = lines(blocks[0])
     printed = lines(actual)
     if expected == printed:
         return []
@@ -172,13 +207,14 @@ def main(arguments: t.Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--expect-output",
         metavar="NAME",
-        help="compare standard input with the output documented for NAME",
+        help="compare standard input with the output recorded or documented for NAME",
     )
     parsed = parser.parse_args(arguments)
+    recorded = recorded_outputs(MANIFEST)
     errors = (
-        compare_output(DOCUMENTS, parsed.expect_output, sys.stdin.read())
+        compare_output(DOCUMENTS, parsed.expect_output, sys.stdin.read(), recorded)
         if parsed.expect_output
-        else run(SNIPPETS, DOCUMENTS, check=parsed.check)
+        else run(SNIPPETS, DOCUMENTS, check=parsed.check, recorded=recorded)
     )
     if errors:
         print("\n".join(errors), file=sys.stderr)

@@ -73,6 +73,29 @@ def test_program_output_must_match_its_one_documented_block(tmp_path: pathlib.Pa
     assert compare([document], "Other", "") == ["F# output Other is documented 0 times; expected once"]
 
 
+def test_recorded_output_rewrites_its_block_and_answers_the_comparison(tmp_path: pathlib.Path) -> None:
+    """A program the manifest records has one output, which its guide block shows."""
+    sources = tmp_path / "snippets"
+    sources.mkdir()
+    write_region(sources / "Guides.fs", "Demo", "let demo = 1")
+    document = tmp_path / "guide.md"
+    document.write_text(
+        "<!-- fsharp-snippet: Demo -->\n```fsharp\nlet demo = 1\n```\n<!-- endfsharp-snippet -->\n"
+        "<!-- fsharp-output: Demo -->\n```text\nstale\n```\n<!-- endfsharp-output -->\n",
+        encoding="utf-8",
+    )
+    sync = synchronizer()
+    recorded = {"Demo": "ready: true\n"}
+
+    assert sync["run"](sources, [document], check=True, recorded=recorded) == [
+        f"{document}: differs from its F# snippet source or recorded output"
+    ]
+    assert sync["run"](sources, [document], check=False, recorded=recorded) == []
+    assert "```text\nready: true\n```" in document.read_text(encoding="utf-8")
+    assert sync["compare_output"]([], "Demo", "ready: true\n", recorded) == []
+    assert sync["compare_output"]([], "Demo", "ready: false\n", recorded)[0].startswith("F# output Demo differs")
+
+
 def test_output_block_must_name_a_source_block(tmp_path: pathlib.Path) -> None:
     """A renamed program cannot leave its documented output behind."""
     sources = tmp_path / "snippets"

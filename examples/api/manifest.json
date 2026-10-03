@@ -24,10 +24,11 @@
       "description": "Read current scalar listings from a private server. Each detached session has one window and pane; no clients are attached.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/ServerListings.fs",
       "targets": [
-        "M:LibTmux.FSharp.Server.listSessions(System.Threading.CancellationToken,LibTmux.Server)",
-        "M:LibTmux.FSharp.Server.listWindows(System.Threading.CancellationToken,LibTmux.Server)",
-        "M:LibTmux.FSharp.Server.listPanes(System.Threading.CancellationToken,LibTmux.Server)",
-        "M:LibTmux.FSharp.Server.listClients(System.Threading.CancellationToken,LibTmux.Server)"
+        "M:LibTmux.FSharp.Server.sessions(LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.windows(LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.panes(LibTmux.Server)",
+        "M:LibTmux.FSharp.Server.clients(LibTmux.Server)",
+        "M:LibTmux.FSharp.Query.list``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})"
       ],
       "output": "Session: demo ($0)\nSession: worker ($1)\nWindows: 2; panes: 2; clients: 0\n"
     },
@@ -43,7 +44,7 @@
         "M:LibTmux.FSharp.Server.tryFindPane(System.Threading.CancellationToken,LibTmux.PaneId,LibTmux.Server)",
         "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
       ],
-      "output": "Found session: demo\nFound window, pane and control client; missing lookups returned None.\n"
+      "output": "session: Some \"demo\"\nwindow: Some \"shell\"\npane: Some true\nclient: Some true\nmissing: [false; false; false; false]\n"
     },
     {
       "id": "fsharp-ServerFilters",
@@ -53,12 +54,11 @@
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/ServerFilters.fs",
       "targets": [
         "M:LibTmux.FSharp.Query.matching``1(LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
-        "M:LibTmux.FSharp.Query.matchingWithCancellation``1(System.Threading.CancellationToken,LibTmux.FSharp.Filter{``0},System.Collections.Generic.IEnumerable{``0})",
         "M:LibTmux.FSharp.Filter.startsWith``1(System.String,LibTmux.FSharp.Field{``0,System.String})",
         "M:LibTmux.FSharp.Filter.eq``2(``0,LibTmux.FSharp.Field{``1,``0})",
         "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})"
       ],
-      "output": "Native and portable session filters: demo\nWindow: shell; panes: 1; parent: demo; control clients: 1\n"
+      "output": "native: [\"demo\"]\nportable: [\"demo\"]\nwindows: [\"shell\"]\npanes: 1\nparents: [\"demo\"]\ncontrol clients: 1\n"
     },
     {
       "id": "fsharp-SnapshotAccess",
@@ -123,6 +123,49 @@
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
       "output": "api capture ready\n"
+    },
+    {
+      "id": "fsharp-Queries",
+      "profile": "fsharp",
+      "title": "Query every level and let tmux narrow the listing",
+      "description": "Read sessions, windows and panes through one query vocabulary. tmux drops rows a filter cannot keep, every returned row is rechecked, and a screen search finds the pane showing a line.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/Queries.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Server.sessions(LibTmux.Server)",
+        "M:LibTmux.FSharp.Query.where``1(LibTmux.FSharp.Filter{``0},LibTmux.FSharp.Query{``0})",
+        "M:LibTmux.FSharp.Query.list``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
+        "M:LibTmux.FSharp.Query.exactlyOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
+        "M:LibTmux.FSharp.Query.tryExactlyOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
+        "M:LibTmux.FSharp.Query.showing(LibTmux.FSharp.ScreenSearch,LibTmux.FSharp.Query{LibTmux.Pane})",
+        "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})"
+      ],
+      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: 1\nerror row: Some 1\nactive panes: 2\n"
+    },
+    {
+      "id": "fsharp-SendWaitRead",
+      "profile": "fsharp",
+      "title": "Send a command, wait for its output and run to an exit status",
+      "description": "Type a line and wait for what it prints, not for its echo. Wait for a condition over the whole screen, then run a command and read its exit status and output.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/SendWaitRead.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Pane.sendAndWait(System.Threading.CancellationToken,System.TimeSpan,System.String,System.String,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.waitUntil(System.Threading.CancellationToken,System.TimeSpan,Microsoft.FSharp.Core.FSharpFunc{System.Collections.Generic.IReadOnlyList{System.String},System.Boolean},LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.run(System.Threading.CancellationToken,System.TimeSpan,System.String,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
+      ],
+      "output": "ready: true\ncounted: true\nrun: exit 4, output [\"a\"; \"b\"]\nscreen shows the run: true\n"
+    },
+    {
+      "id": "fsharp-LiveState",
+      "profile": "fsharp",
+      "title": "Follow live server state",
+      "description": "Keep a current copy of a server's sessions, windows and panes as tmux announces changes, and wait until it shows a state instead of polling.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/LiveState.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Mirror.startRefreshing(System.Threading.CancellationToken,System.TimeSpan,LibTmux.Session)",
+        "M:LibTmux.FSharp.Mirror.waitUntil(System.Threading.CancellationToken,System.TimeSpan,Microsoft.FSharp.Core.FSharpFunc{LibTmux.ServerMirrorView,System.Boolean},LibTmux.ServerMirror)"
+      ],
+      "output": "windows: shell, logs\nsleeping panes: 1\nnewer view: true\n"
     },
     {
       "id": "csharp-ServerConstruction",

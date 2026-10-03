@@ -39,8 +39,8 @@ let runAsync () =
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! windows = server |> Server.listWindows token
-        let! allPanes = server |> Server.listPanes token
+        let! windows = server |> Server.windows |> Query.list token
+        let! allPanes = server |> Server.panes |> Query.list token
 
         if windows.Count <> 2 || allPanes.Count <> 3 || added.Id = original.Id then
             failwith "Expected two windows and three distinct panes."
