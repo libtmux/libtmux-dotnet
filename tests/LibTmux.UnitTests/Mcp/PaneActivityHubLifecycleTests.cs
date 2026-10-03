@@ -1,7 +1,7 @@
 using System.Runtime.Versioning;
 using System.Threading.Channels;
-using LibTmux.Mcp;
 using LibTmux.Internal;
+using LibTmux.Mcp;
 
 namespace LibTmux.UnitTests.Mcp;
 

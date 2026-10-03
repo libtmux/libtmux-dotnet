@@ -112,6 +112,7 @@ internal static class PaneRunner
     private static readonly TimeSpan RetainedRunProbeInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan StatusCleanupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(1);
+    private static readonly Action Nothing = static () => { };
 
     /// <summary>Runs one command.</summary>
     /// <param name="server">The server that owns the pane.</param>
@@ -434,7 +435,7 @@ internal static class PaneRunner
             // Recorded before dispatch, so a concurrent wait never sees the
             // sourcing line's own echo before a record that discounts it.
             (Action Rollback, Action Settle) note = hooks.NoteDispatch?.Invoke(dispatch.Pane, payload)
-                ?? (static () => { }, static () => { });
+                ?? (Nothing, Nothing);
             try
             {
                 await dispatch.Pane.PasteBufferAsync(

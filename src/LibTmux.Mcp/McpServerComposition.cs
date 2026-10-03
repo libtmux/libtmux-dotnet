@@ -1,12 +1,11 @@
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Extensions.Tasks;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-
-using LibTmux.Internal;
 
 namespace LibTmux.Mcp;
 
