@@ -164,7 +164,7 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
         let token = deadline.Token
 
-        // A socket of its own, and no user configuration.
+        // A server of its own on a private socket, without user configuration.
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
@@ -173,59 +173,45 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // Each session's one window runs a plain shell.
-        for name in [ "build"; "web"; "worker" ] do
-            let shell =
-                { SessionSpec.named name with
-                    Windows =
-                        [
-                            { WindowSpec.empty with
-                                Command = Some "/bin/sh"
-                            }
-                        ]
-                }
+        // One session whose window runs a plain shell.
+        let shell =
+            { WindowSpec.empty with
+                Command = Some "/bin/sh"
+            }
 
-            let! _ = owned.Value |> Server.newSession token shell
-            ()
+        let build =
+            { SessionSpec.named "build" with
+                Windows = [ shell ]
+            }
 
-        let! server = options |> Server.connect token
+        let! session = owned.Value |> Server.newSession token build
+
+        let! panes = session |> Session.panes |> Query.list token
+        let pane = panes[0]
+
+        // Type a command and wait for what it prints, not for its echo.
+        let! started =
+            pane
+            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
+
+        printfn "wait found: %b" started.Found
+
+        // Run a command to its exit status and read what it printed.
+        let! result =
+            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
+
+        match result with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+        | _ -> printfn "run: did not finish"
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
-        // atMostOne is None when nothing matches and raises when several do.
-        let! build =
-            server
+        let! found =
+            owned.Value
             |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.eq "build")
-            |> Query.atMostOne token
-
-        let! others =
-            server
-            |> Server.sessions
-            |> Query.where (SessionFields.name |> Filter.ne "build")
+            |> Query.where (SessionFields.name |> Filter.startsWith "bu")
             |> Query.list token
 
-        printfn "other sessions: %s" (String.Join(", ", [ for session in others -> session.Name ]))
-
-        match build with
-        | None -> printfn "no build session"
-        | Some session ->
-            let! panes = session |> Session.panes |> Query.list token
-            let pane = panes[0]
-
-            // Type a command and wait for what it prints, not for its echo.
-            let! started =
-                pane
-                |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
-
-            // Run a command to its exit status and read what it printed.
-            let! result =
-                pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
-
-            printfn "wait found: %b" started.Found
-
-            match result with
-            | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
-            | _ -> printfn "run: did not finish"
+        printfn "sessions: %s" (String.Join(", ", [ for listed in found -> listed.Name ]))
     }
 
 runAsync().GetAwaiter().GetResult()
@@ -242,20 +228,18 @@ It prints:
 
 <!-- fsharp-output: Quickstart -->
 ```text
-other sessions: web, worker
 wait found: true
 run: exit 3, output ["ok"]
+sessions: build
 ```
 <!-- endfsharp-output -->
 
 `Server.createOwned` starts a server on a unique socket, with the `tmux` on
 `PATH`; set `ServerConnectionOptions.TmuxBinaryPath` to use another. `use!`
-stops it when the task ends. `Server.connect` attaches a second handle to that
-socket, as an application attaches to a server it did not start.
-`Query.atMostOne` returns `None` only when no session matched, so the `match`
-is where a program would create the missing session; several matches raise. The
-wait succeeds whether the line appeared before or after it began, and the run's
-exit status comes from the shell, not from reading the screen.
+stops it when the task ends. The wait succeeds whether the line appeared
+before or after it began, and the run's exit status comes from the shell, not
+from reading the screen. The listing reaches tmux as a filter, so tmux returns
+only the sessions that match.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
 is the published block. CI restores only `LibTmux.FSharp` as a direct package
@@ -264,10 +248,10 @@ on both target frameworks, and compares what it prints with the block above.
 
 ## Existing tmux
 
-The quickstart's `options |> Server.connect ct` attaches to a running server by
-socket name. In an application, use your server's socket name and omit the
-owned setup. `Server.connect` never starts tmux. Default options resolve the
-default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
+`options |> Server.connect ct` attaches to a server already running on the
+socket the options name; use it in place of `Server.createOwned` for a server
+your program did not start. `Server.connect` never starts tmux. Default options
+resolve the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux/README.md#where-a-bare-connect-lands)
 explains the configuration order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to locate that pane's server.
 
