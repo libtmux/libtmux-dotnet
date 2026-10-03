@@ -147,9 +147,10 @@ def main() -> int:
         return 1
 
     record = collect(sorted(parsed.reports.glob("*-report-full.json")), parsed.tmux_version, parsed.collected)
-    stem = parsed.out / f"{parsed.collected}-tmux-{parsed.tmux_version}-fsharp"
-    stem.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
-    stem.with_suffix(".md").write_text(render(record), encoding="utf-8")
+    # Appended, not substituted: a tmux version such as 3.7d has a dot of its own.
+    stem = f"{parsed.collected}-tmux-{parsed.tmux_version}-fsharp"
+    (parsed.out / f"{stem}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    (parsed.out / f"{stem}.md").write_text(render(record), encoding="utf-8")
     return 0
 
 
