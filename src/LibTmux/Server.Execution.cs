@@ -36,8 +36,9 @@ public sealed partial class Server
         ServerUtilities.AddValue(
             arguments,
             "-d",
+            // tmux reads the delay as a decimal number of seconds.
             request.Delay is TimeSpan delay
-                ? ((long)delay.TotalSeconds).ToString(CultureInfo.InvariantCulture)
+                ? delay.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture)
                 : null);
         ServerUtilities.AddValue(arguments, "-t", request.TargetPane);
         ServerUtilities.EndOptions(arguments);
