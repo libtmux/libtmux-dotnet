@@ -145,3 +145,13 @@ module Mirror =
         condition: (ServerMirrorView -> bool) ->
         mirror: ServerMirror ->
             Task<ServerMirrorView>
+
+    /// <summary>Waits until a view satisfies a condition, or returns None when none did in time.</summary>
+    /// <remarks>As <c>waitUntil</c>, for a caller to whom running out of time is an ordinary outcome.</remarks>
+    /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
+    val tryWaitUntil:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        condition: (ServerMirrorView -> bool) ->
+        mirror: ServerMirror ->
+            Task<ServerMirrorView option>

@@ -113,6 +113,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val current: mirror: ServerMirror -> ServerMirrorView` | Returns the latest published view. |
 | `val start: cancellationToken: CancellationToken -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors the server an anchor session belongs to, capturing on each announcement. |
 | `val startRefreshing: cancellationToken: CancellationToken -> every: TimeSpan -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors a server, also capturing whenever it has been quiet for an interval. |
+| `val tryWaitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (ServerMirrorView -> bool) -> mirror: ServerMirror -> Task<ServerMirrorView option>` | Waits until a view satisfies a condition, or returns None when none did in time. |
 | `val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>` | Streams the current view and each newer one, skipping views published while the reader was busy. |
 | `val waitUntil: cancellationToken: CancellationToken -> timeout: TimeSpan -> condition: (ServerMirrorView -> bool) -> mirror: ServerMirror -> Task<ServerMirrorView>` | Waits until a view satisfies a condition, testing the current view first. |
 
@@ -173,6 +174,17 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val (|Exited|_|) : result: PaneRunResult -> int option` | Matches a command that exited, with its exit status. |
 | `val (|NotStarted|_|) : result: PaneRunResult -> unit option` | Matches a command the pane's shell never ran. |
 | `val (|TimedOut|_|) : result: PaneRunResult -> unit option` | Matches a command still running when the time allowed ran out. |
+
+## PaneWait
+
+| Signature | Summary |
+|---|---|
+| `PaneWait` | Recognises how a wait on a pane's output ended. |
+| `val (|Ended|_|) : result: PaneWaitResult -> unit option` | Matches a wait that ended because the pane's program exited or a full-screen program took over. |
+| `val (|Found|_|) : result: PaneWaitResult -> unit option` | Matches a wait whose text or pattern appeared, before or during it. |
+| `val (|Printed|_|) : result: PaneWaitResult -> unit option` | Matches a wait with no pattern that ended because the pane printed something. |
+| `val (|Stopped|_|) : result: PaneWaitResult -> string option` | Matches a wait a stop pattern ended, with the pattern that matched. |
+| `val (|TimedOut|_|) : result: PaneWaitResult -> unit option` | Matches a wait whose time ran out. |
 
 ## Query
 

@@ -46,20 +46,24 @@ let runAsync () =
             panes[0]
             |> Pane.sendKeys token (SendKeysRequest(Text = "exec sleep 30", Literal = true))
 
+        // tryWaitUntil answers None when no view matched in time.
         let! sleeping =
             mirror
-            |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
+            |> Mirror.tryWaitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
                 view.Server.Panes |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
 
         printfn "windows: %s" (String.Join(", ", [ for window in withLogs.Server.Windows -> window.Name ]))
 
-        printfn
-            "sleeping panes: %d"
-            (sleeping.Server.Panes
-             |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
-             |> Seq.length)
+        match sleeping with
+        | Some sleeping ->
+            printfn
+                "sleeping panes: %d"
+                (sleeping.Server.Panes
+                 |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
+                 |> Seq.length)
 
-        printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+            printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+        | None -> printfn "no pane ran sleep within five seconds"
     }
 
 runAsync().GetAwaiter().GetResult()

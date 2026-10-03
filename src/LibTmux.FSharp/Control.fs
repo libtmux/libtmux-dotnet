@@ -155,3 +155,17 @@ module Mirror =
         (mirror: ServerMirror)
         =
         mirror.WaitUntilAsync(Func<_, _> condition, timeout, cancellationToken)
+
+    let tryWaitUntil
+        (cancellationToken: CancellationToken)
+        (timeout: TimeSpan)
+        (condition: ServerMirrorView -> bool)
+        (mirror: ServerMirror)
+        =
+        backgroundTask {
+            try
+                let! view = mirror.WaitUntilAsync(Func<_, _> condition, timeout, cancellationToken)
+                return Some view
+            with :? TmuxWaitTimeoutException ->
+                return None
+        }

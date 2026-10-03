@@ -345,6 +345,46 @@ module PaneRunTests =
         Assert.Equal("timed out", describe (run (Nullable()) true true))
         Assert.Equal("not started", describe (run (Nullable()) false false))
 
+module PaneWaitTests =
+    let private describe result =
+        match result with
+        | PaneWait.Found -> "found"
+        | PaneWait.Printed -> "printed"
+        | PaneWait.Stopped pattern -> "stopped by " + pattern
+        | PaneWait.TimedOut -> "timed out"
+        | PaneWait.Ended -> "ended"
+        | _ -> "other"
+
+    [<Fact>]
+    let ``every wait outcome has one pattern`` () =
+        let wait outcome (pattern: string | null) =
+            PaneWaitResult(outcome, pattern, TimeSpan.Zero) |> describe
+
+        Assert.Equal<string list>(
+            [
+                "found"
+                "found"
+                "printed"
+                "stopped by FAIL"
+                "timed out"
+                "ended"
+                "ended"
+            ],
+            [
+                wait PaneWaitOutcome.Matched "ok"
+                wait PaneWaitOutcome.PresentAtEntry "ok"
+                wait PaneWaitOutcome.AnyOutput null
+                wait PaneWaitOutcome.Stopped "FAIL"
+                wait PaneWaitOutcome.TimedOut null
+                wait PaneWaitOutcome.PaneExited null
+                wait PaneWaitOutcome.AlternateScreen null
+            ]
+        )
+
+        // An outcome added later must not fall through every pattern.
+        for outcome in Enum.GetValues<PaneWaitOutcome>() do
+            Assert.NotEqual<string>("other", wait outcome "pattern")
+
 module FailureTests =
     let private failure dispatch =
         LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn
