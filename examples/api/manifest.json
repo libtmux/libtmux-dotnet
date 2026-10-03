@@ -104,7 +104,7 @@
       "id": "fsharp-CreateWindowPane",
       "profile": "fsharp",
       "title": "Create an owned session, window and split pane",
-      "description": "Use core LibTmux ownership scopes for construction, then the F# Pane.split helper. F# has no separate session or window constructor; disposing the owned window also stops its split panes.",
+      "description": "Create owned session and window scopes with the core LibTmux API, then split a pane with the F# Pane.split helper. Disposing the owned window also stops its split panes. For F# session descriptions, use Server.newSession with SessionSpec.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs",
       "targets": [
         "T:LibTmux.FSharp.Server",
