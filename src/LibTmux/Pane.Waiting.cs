@@ -14,11 +14,10 @@ public sealed partial class Pane
     /// <returns>How the wait ended.</returns>
     /// <remarks>
     /// Text already on screen ends the wait at once as
-    /// <see cref="PaneWaitOutcome.PresentAtEntry" />. While the wait runs, a
-    /// control-mode client attaches with <c>ignore-size</c> and shows in
-    /// <c>list-clients</c>.
+    /// <see cref="PaneWaitOutcome.PresentAtEntry" />. Matching is line by line,
+    /// so the text cannot span lines.
     /// </remarks>
-    /// <exception cref="ArgumentException">The text is empty.</exception>
+    /// <exception cref="ArgumentException">The text is empty or contains a line break.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneWaitResult> WaitForTextAsync(
@@ -27,6 +26,11 @@ public sealed partial class Pane
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(text);
+        if (text.AsSpan().IndexOfAny('\r', '\n') >= 0)
+        {
+            throw new ArgumentException("Matching is line by line, so the text cannot contain a line break.", nameof(text));
+        }
+
         return WaitForTextAsync(
             new PaneWaitRequest { Patterns = [new Regex(Regex.Escape(text), RegexOptions.CultureInvariant)], Timeout = timeout },
             cancellationToken);
@@ -37,9 +41,16 @@ public sealed partial class Pane
     /// <param name="cancellationToken">Stops the wait.</param>
     /// <returns>How the wait ended.</returns>
     /// <remarks>
-    /// The wait sleeps on the pane's output through a control-mode client,
-    /// which attaches with <c>ignore-size</c> and shows in
-    /// <c>list-clients</c> while any wait on its session runs.
+    /// <para>
+    /// The wait sleeps on the pane's output through a control-mode client. It
+    /// attaches with <c>ignore-size</c> while any wait on its session runs, so
+    /// it shows in <c>list-clients</c> and counts in <c>session_attached</c>.
+    /// </para>
+    /// <para>
+    /// A pane whose program exits or closes during the wait ends it as
+    /// <see cref="PaneWaitOutcome.PaneExited" />; one that had already exited
+    /// raises <see cref="TmuxPaneException" />.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>

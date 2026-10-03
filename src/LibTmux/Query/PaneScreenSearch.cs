@@ -23,12 +23,13 @@ internal sealed record PaneScreenSearch(string Text, bool IsPattern, bool Ignore
             _ => string.Empty,
         };
 
-        // [#] matches the same # without starting a style marker.
-        string term = IsPattern
-            ? Text.Replace("#[", "[#][", StringComparison.Ordinal)
-            : TmuxFilterRenderer.Glob(Text);
+        // tmux copies a # run before [ verbatim as a style marker, so a pattern
+        // must spell a literal # before [ as [#] or escape the bracket.
+        string term = IsPattern ? Text : TmuxFilterRenderer.Glob(Text);
         string literal = TmuxFilterRenderer.Literal(term)
-            ?? throw new ArgumentException($"tmux cannot search for '{Text}'.", nameof(Text));
+            ?? throw new ArgumentException(
+                $"tmux cannot search for '{Text}': write # before [ as [#] or the bracket as \\[.",
+                nameof(Text));
         return $"#{{C{flags}:{literal}}}";
     }
 }

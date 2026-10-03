@@ -90,6 +90,47 @@ internal static class TmuxFilterRenderer
         return escaped.ToString();
     }
 
+    /// <summary>Rejects raw filter text that cannot be combined with another filter.</summary>
+    /// <remarks>
+    /// Combined text becomes one operand of <c>#{&amp;&amp;:}</c>, so a comma
+    /// outside any <c>#{}</c> or an unmatched brace would split or close it.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The text is not one balanced expression.</exception>
+    internal static void RequireSingleExpression(string filter)
+    {
+        int depth = 0;
+        for (int index = 0; index < filter.Length; index++)
+        {
+            switch (filter[index])
+            {
+                case '#' when index + 1 < filter.Length && filter[index + 1] == '{':
+                    depth++;
+                    index++;
+                    break;
+                case '#' when index + 1 < filter.Length && filter[index + 1] is ',' or '}' or '#':
+                    index++;
+                    break;
+                case '}' when depth > 0:
+                    depth--;
+                    break;
+                case '}':
+                case ',' when depth == 0:
+                    throw NotSingle(filter);
+                default:
+                    break;
+            }
+        }
+
+        if (depth != 0)
+        {
+            throw NotSingle(filter);
+        }
+
+        static ArgumentException NotSingle(string filter) => new(
+            $"The raw tmux filter '{filter}' is combined with another filter, so it must be one balanced expression with no comma outside #{{}}.",
+            nameof(filter));
+    }
+
     private readonly record struct Bounds(string Upper, string Lower)
     {
         internal static Bounds Unknown { get; } = new(True, False);
@@ -101,8 +142,8 @@ internal static class TmuxFilterRenderer
     {
         ConstantNode { Value: BooleanConstant { Value: true } } => Bounds.Exact(True),
         ConstantNode { Value: BooleanConstant { Value: false } } => Bounds.Exact(False),
-        AndNode and => Fold(and.Operands, And),
-        OrNode or => Fold(or.Operands, Or),
+        AndNode and => Fold(and.Operands, And, True),
+        OrNode or => Fold(or.Operands, Or, False),
         NotNode not => Negate(Render(not.Operand)),
         FieldNode field => Format(field) is { } token ? Bounds.Exact(Truthy(field, token)) : Bounds.Unknown,
         ComparisonNode comparison => Comparison(comparison),
@@ -111,8 +152,16 @@ internal static class TmuxFilterRenderer
         _ => Bounds.Unknown,
     };
 
-    private static Bounds Fold(IReadOnlyList<QueryNode> operands, Func<string, string, string> combine)
+    private static Bounds Fold(
+        IReadOnlyList<QueryNode> operands,
+        Func<string, string, string> combine,
+        string identity)
     {
+        if (operands.Count == 0)
+        {
+            return Bounds.Exact(identity);
+        }
+
         Bounds[] rendered = [.. operands.Select(Render)];
         return new(
             Balanced(rendered, static bounds => bounds.Upper, combine),

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
@@ -69,12 +70,14 @@ internal static class PaneTextWaiter
             catch (Exception error) when (error is not OperationCanceledException)
             {
                 // Without remain-on-exit a pane closes with its program, and
-                // a closed pane has no state to read.
-                if (await pane.Server.FindPaneAsync(pane.Id, cancellationToken).ConfigureAwait(false) is null)
+                // a closed pane has no state to read. Any other failure, or one
+                // the lookup cannot settle, is the read's own.
+                if (await PaneIsGoneAsync(pane, cancellationToken).ConfigureAwait(false))
                 {
                     return (PaneWaitOutcome.PaneExited, null, elapsed.Elapsed);
                 }
 
+                ExceptionDispatchInfo.Capture(error).Throw();
                 throw;
             }
 
@@ -103,6 +106,18 @@ internal static class PaneTextWaiter
                     budget - elapsed.Elapsed,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<bool> PaneIsGoneAsync(Pane pane, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await pane.Server.FindPaneAsync(pane.Id, cancellationToken).ConfigureAwait(false) is null;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            return false;
         }
     }
 }

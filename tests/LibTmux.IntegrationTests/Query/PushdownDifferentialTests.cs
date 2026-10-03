@@ -175,6 +175,25 @@ public sealed class PushdownDifferentialTests
             opsPanes,
             p => p.Id.ToString());
 
+        // A raw filter selects among the target's own rows, also beside a
+        // relation filter that captures whole sessions.
+        await Agree<Window>(
+            w => w.Panes.Any(p => p.Id != first),
+            snapshot.Windows.Where(w => w.Name == "logs"),
+            windows with { Unsafe = new UnsafeTmuxFilter("#{==:#{window_name},logs}") },
+            w => w.Id.ToString());
+        await Agree<Session>(
+            s => s.Windows.Any(w => w.Name == "edit"),
+            snapshot.Sessions.Where(s => s.Name == "dev"),
+            sessions with { Unsafe = new UnsafeTmuxFilter("#{==:#{session_name},dev}") },
+            s => s.Name);
+        await Assert.ThrowsAsync<ArgumentException>(() => server.QueryAsync<Window>(
+            new ListingRequest(
+                QueryTarget.Window,
+                Filter: QueryExtensions.Translate<Window>(w => w.Name == "edit"),
+                Unsafe: new UnsafeTmuxFilter("1,0")),
+            token));
+
         string sleeper = snapshot.Panes.Single(pane => pane.CurrentCommand == "sleep").Id.ToString();
         (PaneScreenSearch Search, bool Found)[] searches =
         [
@@ -183,8 +202,9 @@ public sealed class PushdownDifferentialTests
             (new("needle A,B", IsPattern: false, IgnoreCase: true), true),
             (new("needle", IsPattern: false, IgnoreCase: false), false),
             (new("NE+DLE [a-z],b", IsPattern: true, IgnoreCase: false), true),
-            (new("c#[d]", IsPattern: true, IgnoreCase: false), true),
+            (new("c[#][d]", IsPattern: true, IgnoreCase: false), true),
         ];
+        Assert.Throws<ArgumentException>(() => new PaneScreenSearch("c#[d]", IsPattern: true, IgnoreCase: false).Render());
         foreach ((PaneScreenSearch search, bool found) in searches)
         {
             string[] matched =

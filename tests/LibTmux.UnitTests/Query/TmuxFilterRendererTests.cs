@@ -82,4 +82,31 @@ public sealed class TmuxFilterRendererTests
             "#{W:#{?#{P:#{?#{m:vi*,#{pane_current_command}},1,}},1,}}",
             Render<Session>(s => s.Windows.Any(w => w.Panes.Any(p => p.CurrentCommand!.StartsWith("vi", StringComparison.Ordinal)))));
     }
+
+    [Fact]
+    public void Empty_conjunctions_and_disjunctions_render_as_their_identities()
+    {
+        static QueryDocument Of(QueryNode node) =>
+            new(QueryDocument.CurrentSchema, QueryDocument.CurrentVersion, QueryTarget.Session, node);
+
+        Assert.Null(TmuxFilterRenderer.Superset(Of(new AndNode([]))));
+        Assert.Equal("0", TmuxFilterRenderer.Superset(Of(new OrNode([]))));
+        Assert.Null(TmuxFilterRenderer.Superset(Of(new NotNode(new OrNode([])))));
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("#{pane_active}")]
+    [InlineData("#{&&:#{pane_active},#{==:#{pane_index},0}}")]
+    [InlineData("x#,y#}")]
+    public void A_single_raw_expression_may_be_combined(string filter) =>
+        TmuxFilterRenderer.RequireSingleExpression(filter);
+
+    [Theory]
+    [InlineData("1,x")]
+    [InlineData("#{pane_active")]
+    [InlineData("a}")]
+    [InlineData("#{==:a,b},1")]
+    public void A_raw_filter_that_would_split_a_combination_is_refused(string filter) =>
+        Assert.Throws<ArgumentException>(() => TmuxFilterRenderer.RequireSingleExpression(filter));
 }

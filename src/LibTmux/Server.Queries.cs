@@ -25,10 +25,16 @@ public sealed partial class Server
         Func<T, bool> keep = request.Filter is null
             ? static _ => true
             : QueryInterpreter.CompileEntity<T>(request.Filter, cancellationToken);
-        string? narrowed = And(
-            request.Screen?.Render(),
-            And(request.Unsafe?.Value, request.Filter is null ? null : TmuxFilterRenderer.Superset(request.Filter)));
+        string? typed = request.Filter is null ? null : TmuxFilterRenderer.Superset(request.Filter);
+        string? screen = request.Screen?.Render();
+        string? raw = request.Unsafe?.Value;
+        if (raw is not null && (typed is not null || screen is not null))
+        {
+            TmuxFilterRenderer.RequireSingleExpression(raw);
+        }
+
         Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
+        string? narrowed = And(screen, And(raw, typed));
         if (request.Target == QueryTarget.Client)
         {
             IReadOnlyList<Client> clients = await owner
@@ -38,26 +44,82 @@ public sealed partial class Server
         }
 
         SnapshotDepth required = request.Filter?.RequiredSnapshotDepth ?? SnapshotDepth.Server;
-        if (required > ListedDepth(request.Target))
+        if (required <= ListedDepth(request.Target))
         {
-            string? scope = request.Session is { } session ? $"#{{==:#{{session_id}},{session}}}" : null;
-            Server captured = await owner
-                .CaptureSnapshotAsync(required, TimeProvider.System, And(scope, Lift(narrowed, request.Target)), cancellationToken)
+            IReadOnlyList<T> listed = await owner.ListAsync<T>(request, narrowed, cancellationToken)
                 .ConfigureAwait(false);
-            IEnumerable<T> candidates = request.Target switch
-            {
-                QueryTarget.Session => captured.Sessions.Cast<T>(),
-                _ => captured.Windows.Where(window => request.Session is null || window.Edge.SessionId == request.Session).Cast<T>(),
-            };
-            return [.. candidates.Where(keep)];
+            return [.. listed.Where(keep)];
         }
 
+        // Only sessions and windows hold relations. The snapshot keeps whole
+        // session subtrees, so a raw filter, written for the target's own
+        // rows, is answered by a listing of its own and intersected.
+        string? scope = request.Session is { } session ? $"#{{==:#{{session_id}},{session}}}" : null;
+        Server captured = await owner
+            .CaptureSubtreesAsync(required, scope, Lift(typed, request.Target), cancellationToken)
+            .ConfigureAwait(false);
+        HashSet<string>? kept = raw is null
+            ? null
+            : [.. (await owner.ListAsync<T>(request, raw, cancellationToken).ConfigureAwait(false)).Select(Key)];
+        IEnumerable<T> candidates = request.Target switch
+        {
+            QueryTarget.Session => captured.Sessions.Cast<T>(),
+            QueryTarget.Window => captured.Windows
+                .Where(window => request.Session is null || window.Edge.SessionId == request.Session)
+                .Cast<T>(),
+            _ => throw new InvalidOperationException($"A {request.Target} listing has no relations to capture."),
+        };
+        return [.. candidates.Where(candidate => kept is null || kept.Contains(Key(candidate))).Where(keep)];
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyList<T>> ListAsync<T>(
+        ListingRequest request,
+        string? filter,
+        CancellationToken cancellationToken)
+    {
         (string command, string[] arguments) = ListCommand(request);
         IReadOnlyList<IReadOnlyDictionary<string, string?>> rows = await RelationReader
-            .ListAsync(owner, command, narrowed is null ? arguments : [.. arguments, "-f", narrowed], cancellationToken)
+            .ListAsync(this, command, filter is null ? arguments : [.. arguments, "-f", filter], cancellationToken)
             .ConfigureAwait(false);
-        return [.. rows.Select(row => Materialize<T>(owner, request.Target, row)).Where(keep)];
+        return [.. rows.Select(row => Materialize<T>(this, request.Target, row))];
     }
+
+    // Each list command filters on its own, so a filtered field changing
+    // between them leaves rows that disagree. One more try, then the scope
+    // alone, which only a structural change can make inconsistent.
+    [UnsupportedOSPlatform("windows")]
+    private async Task<Server> CaptureSubtreesAsync(
+        SnapshotDepth depth,
+        string? scope,
+        string? filter,
+        CancellationToken cancellationToken)
+    {
+        if (filter is not null)
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    return await CaptureSnapshotAsync(depth, TimeProvider.System, And(scope, filter), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (InconsistentSnapshotException)
+                {
+                }
+            }
+        }
+
+        return await CaptureSnapshotAsync(depth, TimeProvider.System, scope, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static string Key<T>(T item) => item switch
+    {
+        Session session => session.Id.ToString(),
+        Window window => $"{window.Edge.SessionId}:{window.Edge.WindowIndex}:{window.Id}",
+        _ => throw new InvalidOperationException($"A {typeof(T).Name} has no listing key."),
+    };
 
     private static (string Command, string[] Arguments) ListCommand(ListingRequest request) =>
         (request.Target, request.Session, request.Window) switch
@@ -108,15 +170,9 @@ public sealed partial class Server
         _ => SnapshotDepth.Sessions,
     };
 
-    // A session keeps its subtree when one of its windows, or panes, matches.
-    private static string? Lift(string? filter, QueryTarget target) => filter is null
-        ? null
-        : target switch
-        {
-            QueryTarget.Window => $"#{{W:#{{?{filter},1,}}}}",
-            QueryTarget.Pane => $"#{{W:#{{?#{{P:#{{?{filter},1,}}}},1,}}}}",
-            _ => filter,
-        };
+    // A session keeps its subtree when one of its windows matches.
+    private static string? Lift(string? filter, QueryTarget target) =>
+        filter is not null && target == QueryTarget.Window ? $"#{{W:#{{?{filter},1,}}}}" : filter;
 
     private static string? And(string? left, string? right) =>
         left is null ? right : right is null ? left : $"#{{&&:{left},{right}}}";
