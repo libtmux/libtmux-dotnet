@@ -6,6 +6,39 @@ built from the fields in [supported query fields](supported-query-fields.md).
 [queries](queries.md). `Query.matching` and `Filter.toPredicate` apply the same
 filter to objects you already hold, which is what this page covers.
 
+## At a glance
+
+Each binding's annotation is the type the compiler checks.
+
+<!-- fsharp-snippet: FilterAtAGlance -->
+```fsharp
+open System.Collections.Generic
+open LibTmux
+open LibTmux.FSharp
+
+let filterShapes (panes: Pane list) (capturedSessions: Session list) =
+    // A filter is a value; building one makes no tmux call.
+    let editor: Filter<Pane> =
+        PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ]
+
+    // The same filter applies to objects already in hand.
+    let editors: IReadOnlyList<Pane> = panes |> Query.matching editor
+    let isEditor: Pane -> bool = Filter.toPredicate editor
+    let firstEditor: Pane option = panes |> List.tryFind isEditor
+
+    // A relation filter reads captured children; its document says how deep.
+    let hasEditor: Filter<Session> =
+        editor |> Filter.any WindowFields.panes |> Filter.any SessionFields.windows
+
+    let depth: SnapshotDepth = (Filter.toDocument hasEditor).RequiredSnapshotDepth
+
+    let withEditor: IReadOnlyList<Session> =
+        capturedSessions |> Query.matching hasEditor
+
+    editors, firstEditor, depth, withEditor
+```
+<!-- endfsharp-snippet -->
+
 ## Captured objects and relations
 
 Use a listing for scalar predicates, such as matching a session name.
