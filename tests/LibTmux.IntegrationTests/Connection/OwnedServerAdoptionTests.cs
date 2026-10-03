@@ -110,6 +110,54 @@ public sealed class OwnedServerAdoptionTests
         }
     }
 
+    [UnixFact]
+    public async Task A_retried_stop_still_waits_for_the_process_the_first_attempt_found()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = CreateSocketRoot();
+        string pid = Path.Combine(root, "pid");
+        string hidePid = Path.Combine(root, "hide-pid");
+        string refuseKill = Path.Combine(root, "refuse-kill");
+        string tmux = Path.Combine(root, "tmux");
+        using System.Diagnostics.Process stand = System.Diagnostics.Process.Start("sleep", "30");
+        Server observer = Server.Open(Options(root, "owned"));
+        try
+        {
+            // Reports the stand-in's process as the server's, and can refuse
+            // kill-server or hide the process ID, as a socket already gone does.
+            await TestExecutable.WriteAsync(
+                tmux,
+                "#!/bin/sh\n"
+                + $"case \" $* \" in *\" display-message \"*) [ -e '{hidePid}' ] && exit 1; [ -e '{pid}' ] && {{ cat '{pid}'; exit 0; }} ;; esac\n"
+                + $"case \" $* \" in *\" kill-server \"*) [ -e '{refuseKill}' ] && exit 1 ;; esac\n"
+                + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+                token);
+            OwnedServerScope owned = await Server.CreateOwnedAsync(Options(root, "owned") with { TmuxBinaryPath = tmux }, token);
+            await owned.Value.CreateSessionAsync(new NewSessionRequest { Name = "kept" }, token);
+            await File.WriteAllTextAsync(pid, stand.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), token);
+            await File.WriteAllTextAsync(refuseKill, string.Empty, token);
+            await Assert.ThrowsAnyAsync<LibTmuxException>(() => owned.DisposeAsync().AsTask());
+
+            File.Delete(refuseKill);
+            await File.WriteAllTextAsync(hidePid, string.Empty, token);
+            Task retry = owned.DisposeAsync().AsTask();
+            Assert.NotSame(retry, await Task.WhenAny(retry, Task.Delay(TimeSpan.FromMilliseconds(500), token)));
+
+            stand.Kill();
+            await retry;
+            Assert.False(await observer.IsAliveAsync(token));
+        }
+        finally
+        {
+            if (!stand.HasExited)
+            {
+                stand.Kill();
+            }
+
+            await CleanUpAsync(observer, root, token);
+        }
+    }
+
     // An owned server whose tmux exits 1 while the returned file exists, so a
     // test can make stopping it fail and then succeed.
     private static async Task<(OwnedServerScope Owned, string Refuse)> CreateRefusableAsync(
