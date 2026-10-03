@@ -22,7 +22,10 @@ let runAsync () =
         use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
+            owned.Value.CreateSessionAsync(
+                NewSessionRequest(Name = "work", WindowName = "shell", Command = "/bin/sh"),
+                token
+            )
 
         // Captures again on each change tmux announces, and every 200 ms for
         // changes it does not, such as the command a pane runs.

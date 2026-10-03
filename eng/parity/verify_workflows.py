@@ -319,11 +319,17 @@ def verify(root: pathlib.Path) -> list[str]:
         and "LIBTMUX_EXPECTED_TMUX_VERSION" in fsharp_example.get("run", ""),
         "dotnet-tmux.matrix.fsharp-examples must verify and run the selected cell",
     )
+    example_lines = {line.strip() for line in fsharp_example.get("run", "").splitlines()}
     require(
         FSHARP_PROGRAM_LOOP in fsharp_example.get("run", "")
-        and 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"'
-        in {line.strip() for line in fsharp_example.get("run", "").splitlines()},
+        and 'printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"'
+        in example_lines,
         "dotnet-tmux.matrix must execute every F# query program",
+    )
+    require(
+        'printf \'%s\\n\' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"'
+        in example_lines,
+        "dotnet-tmux.matrix must compare every F# program's output with its guide",
     )
     csharp_build = required_step("dotnet-tmux", "build", "csharp-examples-build")
     csharp_project = "examples/LibTmux.Examples/LibTmux.Examples.csproj"

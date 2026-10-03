@@ -46,13 +46,6 @@ let runAsync () =
 
         printfn "Windows: %d; panes: %d; clients: %d" windows.Count panes.Count clients.Count
 
-        if
-            sessions.Count <> 2
-            || windows.Count <> 2
-            || panes.Count <> 2
-            || clients.Count <> 0
-        then
-            failwith "Expected two detached sessions, each with one window and pane."
     }
 
 runAsync().GetAwaiter().GetResult()

@@ -75,19 +75,15 @@ let runAsync () =
         let controlClients =
             clients |> Query.matching (Filter.eq true ClientFields.controlMode)
 
-        if
-            (nativeMatches |> List.map (fun session -> session.Id)) <> [ demo.Value.Id ]
-            || (portableMatches |> Seq.map (fun session -> session.Id) |> Seq.toList)
-               <> [ demo.Value.Id ]
-            || matchingWindows.Count <> 1
-            || matchingPanes.Count <> 1
-            || (matchingParents |> Seq.exactlyOne).Id <> demo.Value.Id
-            || controlClients.Count <> 1
-        then
-            failwith "The native, portable and relation filters selected unexpected entities."
+        let names (sessions: seq<LibTmux.Session>) =
+            [ for session in sessions -> session.Name ]
 
-        printfn "Native and portable session filters: demo"
-        printfn "Window: shell; panes: %d; parent: demo; control clients: %d" matchingPanes.Count controlClients.Count
+        printfn "native: %A" (names nativeMatches)
+        printfn "portable: %A" (names portableMatches)
+        printfn "windows: %A" [ for window in matchingWindows -> window.Name ]
+        printfn "panes: %d" matchingPanes.Count
+        printfn "parents: %A" (names matchingParents)
+        printfn "control clients: %d" controlClients.Count
     }
 
 runAsync().GetAwaiter().GetResult()

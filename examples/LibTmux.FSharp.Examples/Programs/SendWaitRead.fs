@@ -47,18 +47,10 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        printfn "ready: %A" ready.Outcome
-        printfn "counted: %A" counted.Outcome
+        printfn "ready: %b" ready.Found
+        printfn "counted: %b" counted.Found
         printfn "run: exit %A, output %A" listing.ExitStatus (List.ofSeq listing.Output)
-        printfn "screen rows: %d" (screen |> Seq.filter (String.IsNullOrWhiteSpace >> not) |> Seq.length)
-
-        if
-            not ready.Found
-            || not counted.Found
-            || listing.ExitStatus <> Nullable 4
-            || List.ofSeq listing.Output <> [ "a"; "b" ]
-        then
-            failwith "The pane did not print what the commands sent to it."
+        printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
 
 runAsync().GetAwaiter().GetResult()

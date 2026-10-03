@@ -225,7 +225,9 @@ jobs:
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
-            dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+            # Each program prints what it found; its guide shows what it must print.
+            printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
+            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"
           done
 
       - name: C# complete programs

@@ -85,8 +85,6 @@ let runAsync () =
 
         let! logged = logPane[0] |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
 
-        if not logged.Found then
-            failwith "The log pane never printed its error."
 
         // tmux narrows each listing itself; every row is then rechecked.
         let! named =
@@ -131,25 +129,31 @@ let runAsync () =
             |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
             |> Query.list token
 
+        printfn "logged: %b" logged.Found
         printfn "named: %A" (named |> Result.map (fun session -> session.Name))
         printfn "tailing: %A" [ for session in tailing -> session.Name ]
         printfn "make panes: %d" makePanes.Count
         printfn "error row: %A" errorRow
         printfn "active panes: %d" active.Count
 
-        if
-            (named |> Result.map (fun session -> session.Id)) <> Ok build.Id
-            || [ for session in tailing -> session.Name ] <> [ "logs" ]
-            || makePanes.Count <> 1
-            || errorRow <> Some 1
-            || active.Count <> 2
-        then
-            failwith "The queries disagreed with the sessions they created."
     }
 
 runAsync().GetAwaiter().GetResult()
 ```
 <!-- endfsharp-snippet -->
+
+It prints:
+
+<!-- fsharp-output: Queries -->
+```text
+logged: true
+named: Ok "build"
+tailing: ["logs"]
+make panes: 1
+error row: Some 1
+active panes: 2
+```
+<!-- endfsharp-output -->
 
 `Query.showing` and `Pane.findOnScreen` search only the rows on screen, as
 `find-window -C` does. To search history, capture the pane with
@@ -220,22 +224,25 @@ let runAsync () =
 
         printfn "Windows: %d; panes: %d; clients: %d" windows.Count panes.Count clients.Count
 
-        if
-            sessions.Count <> 2
-            || windows.Count <> 2
-            || panes.Count <> 2
-            || clients.Count <> 0
-        then
-            failwith "Expected two detached sessions, each with one window and pane."
     }
 
 runAsync().GetAwaiter().GetResult()
 ```
 <!-- endfsharp-snippet -->
 
-The output names `demo` and `worker`, then reports two windows, two panes,
-and zero clients. Window listings preserve placements: a window linked into
-several sessions can appear several times.
+It prints:
+
+<!-- fsharp-output: ServerListings -->
+```text
+Session: demo ($0)
+Session: worker ($1)
+Windows: 2; panes: 2; clients: 0
+```
+<!-- endfsharp-output -->
+
+The two sessions each hold one window and one pane, and no client is attached.
+Window listings preserve placements: a window linked into several sessions
+can appear several times.
 
 ## Look up an object and handle absence
 
@@ -298,14 +305,6 @@ let runAsync () =
         let! foundPane = server |> Server.tryFindPane token pane.Id
         let! foundClient = server |> Server.tryFindClient token client.Name
 
-        if
-            (foundSession |> Option.map (fun value -> value.Id)) <> Some demo.Value.Id
-            || (foundWindow |> Option.map (fun value -> value.Id)) <> Some window.Id
-            || (foundPane |> Option.map (fun value -> value.Id)) <> Some pane.Id
-            || (foundClient |> Option.map (fun value -> value.Name)) <> Some client.Name
-        then
-            failwith "A lookup did not return its requested entity."
-
         let! missingSession =
             server |> Server.tryFindSession token (SessionId Int32.MaxValue)
 
@@ -313,27 +312,39 @@ let runAsync () =
         let! missingPane = server |> Server.tryFindPane token (PaneId Int32.MaxValue)
         let! missingClient = server |> Server.tryFindClient token (client.Name + "-missing")
 
-        if
-            Option.isSome missingSession
-            || Option.isSome missingWindow
-            || Option.isSome missingPane
-            || Option.isSome missingClient
-        then
-            failwith "A missing entity must return None after a successful read."
+        printfn "session: %A" (foundSession |> Option.map (fun found -> found.Name))
+        printfn "window: %A" (foundWindow |> Option.map (fun found -> found.Name))
+        printfn "pane: %A" (foundPane |> Option.map (fun found -> found.Id = pane.Id))
+        printfn "client: %A" (foundClient |> Option.map (fun found -> found.Name = client.Name))
 
-        match foundSession with
-        | Some session -> printfn "Found session: %s" session.Name
-        | None -> failwith "The owned session disappeared."
-
-        printfn "Found window, pane and control client; missing lookups returned None."
+        printfn
+            "missing: %A"
+            [
+                missingSession.IsSome
+                missingWindow.IsSome
+                missingPane.IsSome
+                missingClient.IsSome
+            ]
     }
 
 runAsync().GetAwaiter().GetResult()
 ```
 <!-- endfsharp-snippet -->
 
-The program prints `Found session: demo` and verifies successful and absent
-lookups for all four object kinds. `None` means a successful read found no
+It prints:
+
+<!-- fsharp-output: ServerLookups -->
+```text
+session: Some "demo"
+window: Some "shell"
+pane: Some true
+client: Some true
+missing: [false; false; false; false]
+```
+<!-- endfsharp-output -->
+
+Each lookup finds the object it was given, and each lookup of an ID or name
+that does not exist returns `None`. `None` means a successful read found no
 matching object. Connection failures, command failures, stale server
 generations, and cancellation propagate as errors.
 
@@ -430,27 +441,37 @@ let runAsync () =
         let controlClients =
             clients |> Query.matching (Filter.eq true ClientFields.controlMode)
 
-        if
-            (nativeMatches |> List.map (fun session -> session.Id)) <> [ demo.Value.Id ]
-            || (portableMatches |> Seq.map (fun session -> session.Id) |> Seq.toList)
-               <> [ demo.Value.Id ]
-            || matchingWindows.Count <> 1
-            || matchingPanes.Count <> 1
-            || (matchingParents |> Seq.exactlyOne).Id <> demo.Value.Id
-            || controlClients.Count <> 1
-        then
-            failwith "The native, portable and relation filters selected unexpected entities."
+        let names (sessions: seq<LibTmux.Session>) =
+            [ for session in sessions -> session.Name ]
 
-        printfn "Native and portable session filters: demo"
-        printfn "Window: shell; panes: %d; parent: demo; control clients: %d" matchingPanes.Count controlClients.Count
+        printfn "native: %A" (names nativeMatches)
+        printfn "portable: %A" (names portableMatches)
+        printfn "windows: %A" [ for window in matchingWindows -> window.Name ]
+        printfn "panes: %d" matchingPanes.Count
+        printfn "parents: %A" (names matchingParents)
+        printfn "control clients: %d" controlClients.Count
     }
 
 runAsync().GetAwaiter().GetResult()
 ```
 <!-- endfsharp-snippet -->
 
-Both session predicates select `demo`. The other filters select the
-`shell` window, its pane, the pane's parent session, and one control client.
+It prints:
+
+<!-- fsharp-output: ServerFilters -->
+```text
+native: ["demo"]
+portable: ["demo"]
+windows: ["shell"]
+panes: 1
+parents: ["demo"]
+control clients: 1
+```
+<!-- endfsharp-output -->
+
+The native and portable session predicates agree on `demo`. The other filters
+select the `shell` window, its pane, the pane's parent session, and the one
+control client the program opened.
 
 [`Query.matching`](../fsharp-reference/reference/libtmux-fsharp-query.md#matching)
 materializes its result locally. It preserves input order and placement
