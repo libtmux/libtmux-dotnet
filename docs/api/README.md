@@ -842,6 +842,7 @@ modes differ.
 | `LibTmux.Pane.Dead` | Gets whether the pane's program has exited and the pane remains. |
 | `LibTmux.Pane.Generation` | Gets the server generation captured with this pane. |
 | `LibTmux.Pane.Height` | Gets the pane height captured with this handle. |
+| `LibTmux.Pane.HistorySize` | Gets how many lines have scrolled into the pane's history. |
 | `LibTmux.Pane.Hooks` | Gets the hooks of this pane. |
 | `LibTmux.Pane.Id` | Gets the pane identifier. |
 | `LibTmux.Pane.InMode` | Gets whether the pane is in a mode, such as copy mode. |
@@ -1160,6 +1161,8 @@ modes differ.
 | `LibTmux.WaitForRequest.Mode` | Gets what to do with it. |
 | `LibTmux.Window.Active` | Gets whether this is the current window of the session it was read through. |
 | `LibTmux.Window.ActivePane` | Gets the captured active pane, or an uncaptured relation. |
+| `LibTmux.Window.ActivityAlert` | Gets whether the window printed since it was last the current window. |
+| `LibTmux.Window.BellAlert` | Gets whether a bell rang in the window since it was last the current window. |
 | `LibTmux.Window.Edge` | Gets where this window sits in the session it was read from. |
 | `LibTmux.Window.EntityKey` | Gets the session, window and index this handle names together. |
 | `LibTmux.Window.Generation` | Gets the server generation captured with this window. |
@@ -1175,6 +1178,7 @@ modes differ.
 | `LibTmux.Window.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Window.Server` | Gets the server that owns this window. |
 | `LibTmux.Window.Session` | Gets the session this window was read through. |
+| `LibTmux.Window.SilenceAlert` | Gets whether the window has been silent for monitor-silence seconds. |
 | `LibTmux.Window.Width` | Gets the window width captured with this handle. |
 | `LibTmux.Window.Zoomed` | Gets whether one of the window's panes is zoomed to fill it. |
 | `LibTmux.WindowEntityKey.SessionId` | The session the window is linked into. |

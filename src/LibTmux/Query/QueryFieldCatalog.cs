@@ -24,6 +24,13 @@ internal static class QueryFieldCatalog
             nameof(Client.Name),
             new(static element => ((Client)element).Name, typeof(string))),
         new(
+            "history_size",
+            QueryTarget.Pane,
+            QueryValueKind.Int64,
+            typeof(Pane),
+            nameof(Pane.HistorySize),
+            new(static element => (long)((Pane)element).HistorySize, typeof(long))),
+        new(
             "pane_active",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
@@ -188,6 +195,20 @@ internal static class QueryFieldCatalog
             nameof(Window.Active),
             new(static element => ((Window)element).Active, typeof(bool))),
         new(
+            "window_activity_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.ActivityAlert),
+            new(static element => ((Window)element).ActivityAlert, typeof(bool))),
+        new(
+            "window_bell_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.BellAlert),
+            new(static element => ((Window)element).BellAlert, typeof(bool))),
+        new(
             "window_height",
             QueryTarget.Window,
             QueryValueKind.Int64,
@@ -223,6 +244,13 @@ internal static class QueryFieldCatalog
             nameof(Window.Panes),
             new(static element => checked((long)((Window)element).Panes.Count), typeof(long)),
             new(static element => ((Window)element).Panes, typeof(CapturedRelation<Pane>))),
+        new(
+            "window_silence_flag",
+            QueryTarget.Window,
+            QueryValueKind.Boolean,
+            typeof(Window),
+            nameof(Window.SilenceAlert),
+            new(static element => ((Window)element).SilenceAlert, typeof(bool))),
         new(
             "window_width",
             QueryTarget.Window,

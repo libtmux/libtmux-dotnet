@@ -302,6 +302,11 @@ public sealed class PushdownDifferentialTests
         await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:zoom", "sh"], token);
         await raw.ExecuteAsync(["resize-pane", "-Z", "-t", "flags:zoom.0"], token);
         await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:zoom", "synchronize-panes", "on"], token);
+
+        // A bell rung in a window that is not current; tmux takes it from the
+        // pane's output, so wait until it says so.
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "bell", "printf '\\a'; exec sleep 60"], token);
+        await ReportsAsync(raw, "flags:bell", "#{window_bell_flag}", token);
         await raw.ExecuteAsync(["new-window", "-d", "-t", "flags", "-n", "dead", "sh"], token);
         await raw.ExecuteAsync(["set-option", "-w", "-t", "flags:dead", "remain-on-exit", "on"], token);
         await raw.ExecuteAsync(["set-hook", "-g", "pane-died", "wait-for -S died"], token);
@@ -332,6 +337,9 @@ public sealed class PushdownDifferentialTests
         await Agree<Pane>(pane => pane.InMode, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.Dead, panes, QueryTarget.Pane, PaneKey);
         await Agree<Pane>(pane => pane.ProcessId == pid, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.HistorySize == 0 && !pane.Dead, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Window>(window => window.BellAlert, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => !window.ActivityAlert && !window.SilenceAlert, windows, QueryTarget.Window, Key);
         await Agree<Pane>(pane => pane.Synchronized && !pane.Active, panes, QueryTarget.Pane, PaneKey);
         await Agree<Window>(window => window.Active, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => window.Zoomed && !window.Active, windows, QueryTarget.Window, Key);
@@ -345,6 +353,7 @@ public sealed class PushdownDifferentialTests
         Assert.Equal(2, panes.Count(pane => pane.InMode));
         Assert.Single(panes, pane => pane.Dead);
         Assert.Single(windows, window => window.Zoomed);
+        Assert.Single(windows, window => window.BellAlert);
         Assert.Equal(2, panes.Count(pane => pane.Synchronized));
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
@@ -418,6 +427,19 @@ public sealed class PushdownDifferentialTests
             token);
 
     private static string Key(Window window) => window.Id + "=" + window.Name;
+
+    // Waits until tmux reports 1 for a format of a target, as it does once it
+    // has read the pane output that sets it.
+    private static async Task ReportsAsync(RawTmuxTestContext raw, string target, string format, CancellationToken token)
+    {
+        using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TestBudget.Settle);
+        while (System.Text.Encoding.UTF8.GetString(
+            (await raw.ExecuteAsync(["display-message", "-p", "-t", target, format], deadline.Token)).StandardOutput).Trim() != "1")
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20), deadline.Token);
+        }
+    }
 
     private static IEnumerable<Expression<Func<Window, bool>>> Predicates(string[] names, WindowId last)
     {

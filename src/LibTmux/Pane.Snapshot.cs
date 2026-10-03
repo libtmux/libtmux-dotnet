@@ -25,6 +25,9 @@ public sealed partial class Pane
     /// <remarks>A pane outlives its program only while <c>remain-on-exit</c> is on.</remarks>
     public bool Dead => ReadSnapshot("pane_dead") == "1";
 
+    /// <summary>Gets how many lines have scrolled into the pane's history.</summary>
+    public int HistorySize => ReadCapturedInt("history_size", "history size");
+
     /// <summary>Gets whether keys typed into the pane go to every synchronized pane in its window.</summary>
     public bool Synchronized => ReadSnapshot("pane_synchronized") == "1";
 

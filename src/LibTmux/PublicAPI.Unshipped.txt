@@ -556,6 +556,7 @@ LibTmux.Pane.AtTop.get -> bool
 LibTmux.Pane.Active.get -> bool
 LibTmux.Pane.Dead.get -> bool
 LibTmux.Pane.InMode.get -> bool
+LibTmux.Pane.HistorySize.get -> int
 LibTmux.Pane.ProcessId.get -> int
 LibTmux.Pane.Synchronized.get -> bool
 LibTmux.Pane.BreakAsync(string? windowName = null, bool detach = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Window!>!
@@ -1585,6 +1586,9 @@ LibTmux.Window.SwapAsync(LibTmux.WindowId target, bool detach = false, System.Th
 LibTmux.Window.UnlinkAsync(bool killIfLast = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Window.Width.get -> int
 LibTmux.Window.Active.get -> bool
+LibTmux.Window.ActivityAlert.get -> bool
+LibTmux.Window.BellAlert.get -> bool
+LibTmux.Window.SilenceAlert.get -> bool
 LibTmux.Window.Zoomed.get -> bool
 LibTmux.WindowDirection
 LibTmux.WindowDirection.After = 1 -> LibTmux.WindowDirection
