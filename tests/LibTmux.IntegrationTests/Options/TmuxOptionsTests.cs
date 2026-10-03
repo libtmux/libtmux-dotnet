@@ -7,6 +7,44 @@ namespace LibTmux.IntegrationTests.Options;
 [UnsupportedOSPlatform("windows")]
 public sealed class TmuxOptionsTests
 {
+    [UnixFact]
+    public async Task Typed_keys_write_and_read_numbers_flags_text_and_inherited_values()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window window = await TestHierarchy.RequireFirstWindowAsync(session, token);
+
+        await session.Options.SetAsync(TmuxOptionKey.HistoryLimit, 50_000, token);
+        await session.Options.SetAsync(TmuxOptionKey.Mouse, true, token);
+        await session.Options.SetAsync(TmuxOptionKey.Text("@stage"), "build", token);
+
+        Assert.Equal(50_000, await session.Options.GetAsync(TmuxOptionKey.HistoryLimit, token));
+        Assert.True(await session.Options.GetAsync(TmuxOptionKey.Mouse, token));
+        Assert.Equal("build", await session.Options.GetAsync(TmuxOptionKey.Text("@stage"), token));
+
+        // Never set on the window, so tmux's global default is what applies.
+        Assert.True(await window.Options.GetAsync(TmuxOptionKey.AutomaticRename, token));
+    }
+
+    [UnixFact]
+    public async Task A_value_a_key_cannot_read_and_a_missing_value_are_option_failures()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session session = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        await session.Options.SetAsync(TmuxOptionKey.Text("@count"), "many", token);
+
+        TmuxOptionException unreadable = await Assert.ThrowsAsync<TmuxOptionException>(
+            () => session.Options.GetAsync(TmuxOptionKey.Number("@count"), token));
+        TmuxOptionException missing = await Assert.ThrowsAsync<TmuxOptionException>(
+            () => session.Options.GetAsync(TmuxOptionKey.Flag("@never-set"), token));
+
+        Assert.Equal(("@count", "@never-set"), (unreadable.OptionName, missing.OptionName));
+    }
+
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),

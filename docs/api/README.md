@@ -134,6 +134,8 @@ modes differ.
 | `LibTmux.TmuxOperationCanceledException` | Reports cancellation after a tmux client started. |
 | `LibTmux.TmuxOption` | One option, with its array index when tmux gave it one. |
 | `LibTmux.TmuxOptionException` | Thrown when tmux refuses an option name or value. |
+| `LibTmux.TmuxOptionKey` | Declares typed option keys, and names the ones whose type every supported tmux shares. |
+| ``LibTmux.TmuxOptionKey`1`` | A tmux option and the .NET type its value reads as. |
 | `LibTmux.TmuxOptionState` | What tmux reported for an option. |
 | `LibTmux.TmuxOptionValue` | One option value as tmux reported it. |
 | `LibTmux.TmuxOptions` | The options of one server, session, window, or pane. |
@@ -501,10 +503,16 @@ modes differ.
 | `LibTmux.TmuxOperationCanceledException.#ctor(System.String,System.Threading.CancellationToken,System.Boolean,System.Int32,System.Exception)` | Initializes a tmux cancellation exception. |
 | `LibTmux.TmuxOption.#ctor(System.String,LibTmux.TmuxOptionValue,System.Nullable{System.Int32},System.Boolean)` | Initializes an option. |
 | `LibTmux.TmuxOptionException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one rejected option. |
+| `LibTmux.TmuxOptionKey.Flag(System.String)` | Declares an option tmux holds as a flag, which it reports as on or off. |
+| `LibTmux.TmuxOptionKey.Number(System.String)` | Declares an option tmux holds as a whole number. |
+| `LibTmux.TmuxOptionKey.Text(System.String)` | Declares an option read as the text tmux reports, which suits a string, a choice, a style or a colour. |
+| ``LibTmux.TmuxOptionKey`1.ToString`` | Inherits the base member contract. |
 | `LibTmux.TmuxOptionValue.#ctor(System.String,LibTmux.TmuxOptionState,System.Nullable{System.Boolean},System.Nullable{System.Int64})` | Initializes an option value. |
 | `LibTmux.TmuxOptions.GetAllAsync(LibTmux.GetOptionsRequest,System.Threading.CancellationToken)` | Reads every option in the scope. |
 | `LibTmux.TmuxOptions.GetAsync(LibTmux.GetOptionRequest,System.Threading.CancellationToken)` | Reads one option. |
+| ```LibTmux.TmuxOptions.GetAsync``1(LibTmux.TmuxOptionKey{``0},System.Threading.CancellationToken)``` | Reads the value an option has in this scope, as its key's type. |
 | `LibTmux.TmuxOptions.SetAsync(LibTmux.SetOptionRequest,System.Threading.CancellationToken)` | Sets one option. |
+| ```LibTmux.TmuxOptions.SetAsync``1(LibTmux.TmuxOptionKey{``0},``0,System.Threading.CancellationToken)``` | Sets an option in this scope from a value of its key's type. |
 | `LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest,System.Threading.CancellationToken)` | Unsets one option, returning it to what it inherits. |
 | `LibTmux.TmuxOutputEvent.#ctor(LibTmux.PaneId,System.String)` | Bytes a pane wrote. |
 | `LibTmux.TmuxPaneContinuedEvent.#ctor(LibTmux.PaneId)` | tmux resumed sending a pane's output to this client. |
@@ -1096,6 +1104,13 @@ modes differ.
 | `LibTmux.TmuxOption.Name` | Gets the option name, without index or inheritance marker. |
 | `LibTmux.TmuxOption.Value` | Gets the value tmux reported. |
 | `LibTmux.TmuxOptionException.OptionName` | Gets the option tmux was asked about. |
+| `LibTmux.TmuxOptionKey.AutomaticRename` | Gets whether a window renames itself after what its pane runs; a window option. |
+| `LibTmux.TmuxOptionKey.BaseIndex` | Gets the index a session's first window gets; a session option. |
+| `LibTmux.TmuxOptionKey.EscapeTime` | Gets how many milliseconds tmux waits after an escape for a key sequence; a server option. |
+| `LibTmux.TmuxOptionKey.HistoryLimit` | Gets how many lines of scrollback a pane keeps; a session option. |
+| `LibTmux.TmuxOptionKey.Mouse` | Gets whether tmux captures the mouse; a session option. |
+| `LibTmux.TmuxOptionKey.SynchronizePanes` | Gets whether keys typed into one pane go to every pane in its window; a window or pane option. |
+| ``LibTmux.TmuxOptionKey`1.Name`` | Gets the option's name, as tmux spells it. |
 | `LibTmux.TmuxOptionValue.Boolean` | Gets the flag reading, or null when the value is not a flag. |
 | `LibTmux.TmuxOptionValue.Integer` | Gets the whole-number reading, or null when the value is not one. |
 | `LibTmux.TmuxOptionValue.Raw` | Gets the unescaped text tmux reported, or null when it reported none. |
