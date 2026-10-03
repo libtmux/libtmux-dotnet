@@ -308,11 +308,23 @@ $ gh workflow run benchmarks.yml -f tmux=3.2a
 
 ## Regression gate
 
-Timings are not gated in CI: the same case moves by more than half between
-runs on one machine, so a threshold loose enough to pass would catch nothing.
-What is gated is what does not vary. An integration test counts the tmux
-processes a pushed-down query starts and the rows tmux returns through the
-connection interceptor, and fails when a listing stops narrowing.
+Absolute timings are not gated in CI: the same case moves by more than half
+between runs on one machine, so a threshold loose enough to pass would catch
+nothing. Two things are gated instead:
+
+- An integration test counts the tmux processes a pushed-down query starts and
+  the rows tmux returns through the connection interceptor, and fails when a
+  listing stops narrowing.
+- The `benchmarks` workflow compares routes measured in the same run: pushdown
+  must be at least twice as fast as listing everything and filtering locally,
+  and allocate less. Every recorded host clears both by far, 4 to 9 times as
+  fast with 10 to 28 times fewer bytes, so a failure means pushdown stopped
+  narrowing rather than a noisy runner. Check a record with:
+
+```console
+$ python3 eng/benchmarks/record_fsharp.py \
+    --gate docs/benchmarks/runs/2026-10-03-tmux-3.7c-fsharp.json
+```
 
 ## Control stream probe
 

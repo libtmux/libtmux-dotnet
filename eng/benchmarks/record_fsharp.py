@@ -183,14 +183,60 @@ def render(record: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+# Absolute times move by more than half between runs on one host, so the gate
+# compares routes measured in the same run. Every recorded host shows pushdown
+# 4 to 9 times faster than listing everything and filtering locally, with 10 to
+# 28 times fewer bytes allocated, so missing either bar means pushdown stopped
+# narrowing the listing rather than a noisy runner.
+PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
+MINIMUM_SPEEDUP = 2.0
+
+
+def gate(record: dict) -> list[str]:
+    """Return why pushdown did not beat listing everything in this run, if it did not."""
+    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == PUSHDOWN_CLASS), None)
+    if cases is None:
+        return [f"{PUSHDOWN_CLASS} is not in the record"]
+    routes = {(case["method"], case["parameters"]): case for case in cases}
+    failures = []
+    for method in sorted({case["method"] for case in cases}):
+        pushed = routes.get((method, "Route=pushdown"))
+        listed = routes.get((method, "Route=list-then-filter"))
+        if pushed is None or listed is None:
+            failures.append(f"{method}: the pushdown or list-then-filter route is missing")
+            continue
+        speedup = listed["median_ns"] / pushed["median_ns"]
+        if speedup < MINIMUM_SPEEDUP:
+            failures.append(
+                f"{method}: pushdown is {speedup:.1f} times as fast as listing everything; the gate needs {MINIMUM_SPEEDUP:g}"
+            )
+        if None not in (pushed["allocated_bytes"], listed["allocated_bytes"]) and (
+            pushed["allocated_bytes"] >= listed["allocated_bytes"]
+        ):
+            failures.append(
+                f"{method}: pushdown allocates {pushed['allocated_bytes']:,} bytes, "
+                f"no fewer than listing everything ({listed['allocated_bytes']:,})"
+            )
+    return failures
+
+
 def main() -> int:
     """Write the record's JSON and Markdown, refusing a tree HEAD does not describe."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--reports", type=pathlib.Path, required=True)
-    parser.add_argument("--tmux-version", required=True)
-    parser.add_argument("--collected", required=True, help="ISO date of the run")
-    parser.add_argument("--out", type=pathlib.Path, required=True)
+    parser.add_argument("--reports", type=pathlib.Path)
+    parser.add_argument("--tmux-version")
+    parser.add_argument("--collected", help="ISO date of the run")
+    parser.add_argument("--out", type=pathlib.Path)
+    parser.add_argument("--gate", type=pathlib.Path, metavar="RECORD", help="check a written record instead")
     parsed = parser.parse_args()
+    if parsed.gate is not None:
+        failures = gate(json.loads(parsed.gate.read_text(encoding="utf-8")))
+        for failure in failures:
+            print(failure, file=sys.stderr)
+        return 1 if failures else 0
+
+    if None in (parsed.reports, parsed.tmux_version, parsed.collected, parsed.out):
+        parser.error("--reports, --tmux-version, --collected and --out are required to record")
     if git("status", "--porcelain", "--untracked-files=no"):
         print("refusing to record from a tree with uncommitted changes", file=sys.stderr)
         return 1

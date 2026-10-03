@@ -104,3 +104,7 @@ jobs:
           path: artifacts/benchmark-record
           if-no-files-found: error
           retention-days: 30
+
+      # After the upload, so a run that fails the gate is still recorded.
+      - name: Gate pushdown against listing everything
+        run: python3 eng/benchmarks/record_fsharp.py --gate artifacts/benchmark-record/*.json
