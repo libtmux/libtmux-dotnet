@@ -82,7 +82,10 @@ module Control =
     /// <summary>Returns the cleanup failure attached to the exception a helper rethrew.</summary>
     /// <remarks>
     /// When work and cleanup both fail, the helpers rethrow the work's exception
-    /// unchanged and attach the cleanup's; this reads it back.
+    /// unchanged and attach the cleanup's; this reads it back. The work's
+    /// exception keeps its type so that a handler written for it, such as
+    /// <c>:? TmuxPaneException</c> or a <c>when</c> filter, still matches;
+    /// an <c>AggregateException</c> of both would slip past those handlers.
     /// </remarks>
     val cleanupFailure: error: exn -> exn option
 

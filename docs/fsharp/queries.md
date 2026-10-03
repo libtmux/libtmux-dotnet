@@ -6,7 +6,9 @@ it with `Query.where`, `Query.showing` or `Query.whereUnsafe`, and read it with
 `Query.list`, `Query.exactlyOne` or `Query.tryExactlyOne`. tmux drops rows that
 cannot match before they are read, and every row is rechecked against the
 portable filter. Use `Seq.filter` for application predicates over objects you
-already hold.
+already hold. In an application published with NativeAOT, read one row with
+`Query.tryExactlyOne`: `Query.exactlyOne` returns FSharp.Core's `Result`,
+which formats itself through `printf`, and NativeAOT rejects that.
 
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace

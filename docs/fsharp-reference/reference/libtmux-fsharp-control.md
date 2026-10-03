@@ -19,7 +19,10 @@ Streams are cold: nothing is read until a consumer enumerates one, and the
 Returns the cleanup failure attached to the exception a helper rethrew.
 
 When work and cleanup both fail, the helpers rethrow the work&#39;s exception
- unchanged and attach the cleanup&#39;s; this reads it back.
+ unchanged and attach the cleanup&#39;s; this reads it back. The work&#39;s
+ exception keeps its type so that a handler written for it, such as
+ <code>:? TmuxPaneException</code> or a <code>when</code> filter, still matches;
+ an <code>AggregateException</code> of both would slip past those handlers.
 
 **Parameters:**
 

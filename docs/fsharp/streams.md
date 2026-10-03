@@ -189,4 +189,6 @@ received.
 
 When a callback and the enumerator's cleanup both fail, the callback's
 exception propagates unchanged and `Control.cleanupFailure` returns the
-cleanup's.
+cleanup's. The callback's exception keeps its type, so a handler that matches
+`:? TmuxPaneException` still catches it; an `AggregateException` of both would
+not be caught there.
