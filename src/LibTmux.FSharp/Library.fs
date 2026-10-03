@@ -1,7 +1,9 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 
 type CardinalityError =
@@ -51,6 +53,44 @@ module Selection =
                 Error MultipleMatches
             else
                 Ok first
+
+[<RequireQualifiedAccess>]
+module TmuxFailure =
+    let (|NotSent|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.NotDispatched -> Some failure
+        | _ -> None
+
+    let (|Refused|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Dispatched -> Some failure
+        | _ -> None
+
+    let (|MayHaveRun|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Unknown -> Some error
+        | :? TmuxOperationCanceledException as canceled when canceled.CommandMayHaveExecuted -> Some error
+        | _ -> None
+
+[<RequireQualifiedAccess>]
+module Retry =
+    let ifNotSent (cancellationToken: CancellationToken) (retries: int) (operation: CancellationToken -> Task<'T>) =
+        if retries < 0 then
+            raise (ArgumentOutOfRangeException(nameof retries, retries, "The retry count is negative."))
+
+        backgroundTask {
+            let mutable remaining = retries
+            let mutable result = None
+
+            while result.IsNone do
+                try
+                    let! value = operation cancellationToken
+                    result <- Some value
+                with TmuxFailure.NotSent _ when remaining > 0 && not cancellationToken.IsCancellationRequested ->
+                    remaining <- remaining - 1
+
+            return result.Value
+        }
 
 module internal Placement =
     let key (window: LibTmux.Window) =

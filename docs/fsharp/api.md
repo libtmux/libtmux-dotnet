@@ -163,6 +163,12 @@ Signatures assume `open System`, `open System.Threading`,
 |---|---|
 | ``Relation`2`` | Identifies a supported captured relation between two entity types. |
 
+## Retry
+
+| Signature | Summary |
+|---|---|
+| `Retry` | Runs an operation again only when tmux never saw it. |
+| `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while it fails before reaching tmux. |
 
 ## ScreenSearch
 
@@ -231,6 +237,14 @@ Signatures assume `open System`, `open System.Threading`,
 | ``StreamStep`1`` | Represents a decision to continue or stop an event fold. |
 | `Stop of state: 'State` | Retains state and stops before reading another event. |
 
+## TmuxFailure
+
+| Signature | Summary |
+|---|---|
+| `TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
+| `val (|MayHaveRun|_|) : error: exn -> exn option` | Matches a failure, or a cancellation, after which tmux may already have acted. |
+| `val (|NotSent|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure whose command never reached tmux; running it again repeats nothing. |
+| `val (|Refused|_|) : error: exn -> LibTmux.LibTmuxException option` | Matches a failure tmux answered: it ran the command, which refused or reported an error. |
 
 ## Window
 

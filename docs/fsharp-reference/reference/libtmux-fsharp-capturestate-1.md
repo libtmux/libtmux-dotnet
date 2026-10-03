@@ -46,7 +46,7 @@ Names the unread relation and the depth the snapshot reached.
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L12)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L14)
 
 <a name="IsUncaptured"></a>
 
@@ -54,4 +54,4 @@ Returns: <code>bool</code>
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L13)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L15)

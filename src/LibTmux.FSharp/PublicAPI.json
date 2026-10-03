@@ -2407,6 +2407,53 @@
       "returnType": "LibTmux.FSharp.Query<'T>"
     },
     {
+      "id": "M:LibTmux.FSharp.Retry.ifNotSent``1(System.Threading.CancellationToken,System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
+      "package": "LibTmux.FSharp",
+      "name": "ifNotSent",
+      "declaringType": "T:LibTmux.FSharp.Retry",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val ifNotSent: cancellationToken: System.Threading.CancellationToken -> retries: Microsoft.FSharp.Core.int -> operation: (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> Microsoft.FSharp.Core.int -> (System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>) -> System.Threading.Tasks.Task<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "retries",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.int"
+        },
+        {
+          "name": "operation",
+          "optional": false,
+          "type": "System.Threading.CancellationToken -> System.Threading.Tasks.Task<'T>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "ifNotSent",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'T>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Selection.exactlyOne``1(System.Collections.Generic.IEnumerable{``0})",
       "package": "LibTmux.FSharp",
       "name": "exactlyOne",
@@ -2903,6 +2950,96 @@
         }
       ],
       "returnType": "LibTmux.FSharp.CaptureState<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.TmuxFailure.|MayHaveRun|_|(System.Exception)",
+      "package": "LibTmux.FSharp",
+      "name": "(|MayHaveRun|_|)",
+      "declaringType": "T:LibTmux.FSharp.TmuxFailure",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|MayHaveRun|_|) : error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "error",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.exn"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|MayHaveRun|_|",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.TmuxFailure.|NotSent|_|(System.Exception)",
+      "package": "LibTmux.FSharp",
+      "name": "(|NotSent|_|)",
+      "declaringType": "T:LibTmux.FSharp.TmuxFailure",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|NotSent|_|) : error: Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "error",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.exn"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|NotSent|_|",
+      "genericParameters": [],
+      "returnType": "LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.TmuxFailure.|Refused|_|(System.Exception)",
+      "package": "LibTmux.FSharp",
+      "name": "(|Refused|_|)",
+      "declaringType": "T:LibTmux.FSharp.TmuxFailure",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val (|Refused|_|) : error: Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.exn -> LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "error",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.exn"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "|Refused|_|",
+      "genericParameters": [],
+      "returnType": "LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
     },
     {
       "id": "M:LibTmux.FSharp.Window.panes(LibTmux.Window)",
@@ -4045,6 +4182,33 @@
       "publicRepresentation": true
     },
     {
+      "id": "T:LibTmux.FSharp.Retry",
+      "package": "LibTmux.FSharp",
+      "name": "Retry",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.Retry",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Retry"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
       "id": "T:LibTmux.FSharp.ScreenSearch",
       "package": "LibTmux.FSharp",
       "name": "ScreenSearch",
@@ -4367,6 +4531,33 @@
       "parameters": [],
       "argumentGroups": [],
       "caseIndex": 1
+    },
+    {
+      "id": "T:LibTmux.FSharp.TmuxFailure",
+      "package": "LibTmux.FSharp",
+      "name": "TmuxFailure",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.TmuxFailure",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.TmuxFailure"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
     },
     {
       "id": "T:LibTmux.FSharp.Window",

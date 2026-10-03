@@ -36,7 +36,7 @@ No element matched.
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L9)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L11)
 
 <a name="IsNoMatches"></a>
 
@@ -44,4 +44,4 @@ Returns: <code>bool</code>
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L8)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L10)

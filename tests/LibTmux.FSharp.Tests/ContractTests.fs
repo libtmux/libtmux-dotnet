@@ -327,3 +327,66 @@ module ContractTests =
             Assert.Equal(token, observed.CancellationToken)
             Assert.Equal(0, mutations)
         }
+
+module FailureTests =
+    let private failure dispatch =
+        LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn
+
+    let private describe error =
+        match error with
+        | TmuxFailure.NotSent _ -> "not sent"
+        | TmuxFailure.Refused _ -> "refused"
+        | TmuxFailure.MayHaveRun _ -> "may have run"
+        | _ -> "other"
+
+    [<Fact>]
+    let ``failures are told apart by whether tmux saw the command`` () =
+        let canceled ran =
+            TmuxOperationCanceledException("canceled", CancellationToken.None, ran, 7) :> exn
+
+        Assert.Equal<string list>(
+            [ "not sent"; "refused"; "may have run"; "may have run"; "other"; "other" ],
+            [
+                failure TmuxDispatchState.NotDispatched
+                failure TmuxDispatchState.Dispatched
+                failure TmuxDispatchState.Unknown
+                canceled true
+                canceled false
+                InvalidOperationException("not tmux") :> exn
+            ]
+            |> List.map describe
+        )
+
+    [<Fact>]
+    let ``retry runs again only while tmux never saw the command`` () =
+        task {
+            let mutable attempts = 0
+
+            let failingWith dispatch _ =
+                attempts <- attempts + 1
+                Task.FromException<int>(failure dispatch)
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (failingWith TmuxDispatchState.NotDispatched) :> Task)
+
+            let notSentAttempts = attempts
+            attempts <- 0
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (failingWith TmuxDispatchState.Unknown) :> Task)
+
+            let mutable calls = 0
+
+            let! recovered =
+                Retry.ifNotSent CancellationToken.None 1 (fun _ ->
+                    calls <- calls + 1
+
+                    if calls = 1 then
+                        Task.FromException<int>(failure TmuxDispatchState.NotDispatched)
+                    else
+                        Task.FromResult 42)
+
+            Assert.Equal((3, 1, 42), (notSentAttempts, attempts, recovered))
+        }

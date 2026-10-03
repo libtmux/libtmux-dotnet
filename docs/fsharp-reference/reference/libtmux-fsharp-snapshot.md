@@ -22,7 +22,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-capturestate-1.md">Cap
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L28)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L30)
 
 <a name="value"></a>
 
@@ -38,4 +38,4 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-capturestate-1.md">Cap
 
 Type parameters: 'T (requires not struct)
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L34)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L36)
