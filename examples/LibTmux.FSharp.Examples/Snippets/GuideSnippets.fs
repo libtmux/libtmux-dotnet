@@ -34,6 +34,39 @@ module internal GuideSnippets =
             return captured.Panes |> Seq.choose Pane.currentCommand |> Seq.toList
         }
 
+    // fsharp-snippet: SendWaitList
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
+        task {
+            // List and filter: tmux narrows the listing, then every row is rechecked.
+            let! shells =
+                server
+                |> Server.panes
+                |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+                |> Query.list cancellationToken
+
+            let pane = shells[0]
+
+            // Send keys, then wait for what the program prints instead of sleeping.
+            do!
+                pane
+                |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready %s\\n' now", Literal = true))
+
+            let! ready =
+                pane
+                |> Pane.waitForText cancellationToken (TimeSpan.FromSeconds 10.) "ready now"
+
+            // Run a command to its exit status and read what it printed.
+            let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
+
+            return ready.Found, listing.Succeeded, listing.Output
+        }
+    // endfsharp-snippet
+
     // fsharp-snippet: RelationFilter
     open LibTmux.FSharp
 

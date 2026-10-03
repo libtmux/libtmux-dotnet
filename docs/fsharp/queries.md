@@ -456,8 +456,27 @@ Both session predicates select `demo`. The other filters select the
 materializes its result locally. It preserves input order and placement
 multiplicity, and sends no tmux format filter.
 
-Capture to the filter document's `RequiredSnapshotDepth` before matching
-relations. Uncaptured relationships raise `IncompleteSnapshotException`.
+A filter is an F# value; building one makes no tmux call:
+
+<!-- fsharp-snippet: RelationFilter run -->
+```fsharp run
+open LibTmux.FSharp
+
+let sessionsWithCommands commands =
+    Filter.oneOf commands PaneFields.currentCommand
+    |> Filter.any WindowFields.panes
+    |> Filter.any SessionFields.windows
+
+let editorFilter = sessionsWithCommands [ "nvim"; "vim" ]
+
+printfn "capture depth: %A" (Filter.toDocument editorFilter).RequiredSnapshotDepth
+```
+<!-- endfsharp-snippet -->
+
+This prints `capture depth: Panes`: the filter matches sessions containing an
+editor pane, so it needs panes captured. Capture to the filter document's
+`RequiredSnapshotDepth` before matching relations. Uncaptured relationships
+raise `IncompleteSnapshotException`.
 
 Only descriptors in [supported query fields](supported-query-fields.md) are
 portable. `Pane.currentPath`, window placement, geometry, and parent links are

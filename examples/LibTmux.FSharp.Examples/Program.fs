@@ -178,6 +178,31 @@ let private runAsync () =
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
 
+        let! tour =
+            task {
+                use! owned =
+                    LibTmux.Server.CreateOwnedAsync(
+                        ServerConnectionOptions(
+                            SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
+                            ConfigurationFile = "/dev/null",
+                            TmuxBinaryPath = tmuxBinary
+                        ),
+                        cancellationToken
+                    )
+
+                let! _ =
+                    owned.Value.CreateSessionAsync(
+                        NewSessionRequest(Name = "tour", Command = "/bin/sh"),
+                        cancellationToken
+                    )
+
+                return! GuideSnippets.runInShellAsync cancellationToken owned.Value
+            }
+
+        match tour with
+        | true, true, listing when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
+        | unexpected -> failwithf "The README tour did not send, wait and run: %A" unexpected
+
         let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken
 
         match ownedCommands with
