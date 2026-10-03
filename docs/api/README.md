@@ -854,9 +854,11 @@ modes differ.
 | `LibTmux.Pane.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Pane.Server` | Gets the server that owns this pane. |
 | `LibTmux.Pane.Session` | Gets the session containing this pane. |
+| `LibTmux.Pane.StartCommand` | Gets the command the pane started, as tmux prints it, or empty for the default shell. |
 | `LibTmux.Pane.Synchronized` | Gets whether keys typed into the pane go to every synchronized pane in its window. |
 | `LibTmux.Pane.Title` | Gets the pane title captured with this handle. |
 | `LibTmux.Pane.Top` | Gets the pane's top offset, in cells, from its window's edge. |
+| `LibTmux.Pane.Tty` | Gets the terminal device the pane's program reads and writes, such as /dev/pts/3. |
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
@@ -1166,6 +1168,7 @@ modes differ.
 | `LibTmux.Window.BellAlert` | Gets whether a bell rang in the window since it was last the current window. |
 | `LibTmux.Window.Edge` | Gets where this window sits in the session it was read from. |
 | `LibTmux.Window.EntityKey` | Gets the session, window and index this handle names together. |
+| `LibTmux.Window.Flags` | Gets the window's flags as its status line shows them, such as * for the current window. |
 | `LibTmux.Window.Generation` | Gets the server generation captured with this window. |
 | `LibTmux.Window.Height` | Gets the window height captured with this handle. |
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |

@@ -79,6 +79,15 @@ public sealed partial class Pane
     /// <exception cref="IncompleteSnapshotException">The path field was not captured.</exception>
     public string? CurrentPath => ReadCapturedText("pane_current_path", "current path");
 
+    /// <summary>Gets the terminal device the pane's program reads and writes, such as <c>/dev/pts/3</c>.</summary>
+    /// <exception cref="IncompleteSnapshotException">The terminal was not captured.</exception>
+    public string? Tty => ReadCapturedText("pane_tty", "terminal");
+
+    /// <summary>Gets the command the pane started, as tmux prints it, or empty for the default shell.</summary>
+    /// <remarks>tmux quotes a command given as one string, so <c>sleep 60</c> reads <c>"sleep 60"</c>.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The start command was not captured.</exception>
+    public string? StartCommand => ReadCapturedText("pane_start_command", "start command");
+
     private string? ReadCapturedText(string wireName, string relation) =>
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)
             ? value

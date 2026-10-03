@@ -41,6 +41,14 @@ public sealed partial class Window
     /// <summary>Gets whether one of the window's panes is zoomed to fill it.</summary>
     public bool Zoomed => ReadSnapshot("window_zoomed_flag") == "1";
 
+    /// <summary>Gets the window's flags as its status line shows them, such as <c>*</c> for the current window.</summary>
+    /// <remarks>Empty for a window with no flags.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The flags were not captured.</exception>
+    public string Flags =>
+        _snapshot is not null && _snapshot.TryGetValue("window_flags", out string? flags)
+            ? flags ?? string.Empty
+            : throw new IncompleteSnapshotException("flags", SnapshotDepth.Windows);
+
     /// <summary>Gets the window height captured with this handle.</summary>
     public int Height => ReadCapturedInt("window_height", "height");
 

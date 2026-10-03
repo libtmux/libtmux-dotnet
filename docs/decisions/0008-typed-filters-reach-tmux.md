@@ -43,7 +43,8 @@ The version 1 catalog grows during the prerelease line. It adds `pane_index`,
 `pane_active`, `pane_dead`, `pane_in_mode`, `pane_pid`, `pane_synchronized`,
 `window_index`, `window_width`, `window_height`, `window_active`,
 `window_zoomed_flag`, `history_size`, `window_bell_flag`,
-`window_activity_flag`, `window_silence_flag` and `pane_dead_status`. The
+`window_activity_flag`, `window_silence_flag`, `pane_dead_status`,
+`window_flags`, `window_layout`, `pane_tty` and `pane_start_command`. The
 wire grammar stays closed: a reader rejects a name it does not know.
 
 ## Alternatives

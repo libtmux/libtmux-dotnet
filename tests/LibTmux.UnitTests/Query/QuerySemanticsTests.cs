@@ -122,9 +122,9 @@ public sealed class QuerySemanticsTests
     {
         UnsupportedQueryExpressionException error =
             Assert.Throws<UnsupportedQueryExpressionException>(
-                () => QueryExtensions.Translate<Window>(window => window.Layout == "x"));
+                () => QueryExtensions.Translate<Window>(window => window.Edge == null));
 
-        Assert.Contains("layout", error.Message, StringComparison.Ordinal);
+        Assert.Contains("edge", error.Message, StringComparison.Ordinal);
     }
 
     private static string Field(QueryDocument document) => document.Predicate switch
@@ -247,8 +247,8 @@ public sealed class QuerySemanticsTests
         // translating it would build a document tmux could never answer.
         UnsupportedQueryExpressionException error =
             Assert.Throws<UnsupportedQueryExpressionException>(
-                () => QueryExtensions.Translate<Unknown>(row => row.PaneTty == "x"));
-        Assert.Contains("pane_tty", error.Message, StringComparison.Ordinal);
+                () => QueryExtensions.Translate<Unknown>(row => row.PaneMode == "x"));
+        Assert.Contains("pane_mode", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -434,7 +434,7 @@ public sealed class QuerySemanticsTests
         Assert.Equal(SnapshotDepth.Windows, any.RequiredSnapshotDepth);
     }
 
-    private sealed record Unknown(string PaneTty);
+    private sealed record Unknown(string PaneMode);
 
     private sealed record Child(string WindowName);
 
