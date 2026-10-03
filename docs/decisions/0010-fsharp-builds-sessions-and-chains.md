@@ -24,9 +24,8 @@ the JVM ports give by name:
   socket, which starts and verifies a second transport. Java's
   `Server.within(Duration)` returns a handle over the same transport.
 
-Adoption reviews of the branch scored F# idiom and tmux coverage below the
-other dimensions for exactly these three, and found nothing else holding them
-there.
+These three were the places left where F# code took a C# shape for something
+the JVM facades name, and the gap a reader comparing the ports would notice.
 
 ## Decision
 

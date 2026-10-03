@@ -62,8 +62,9 @@ the duplication drifts.
 ## Consequences
 
 - `docs/fsharp/interop.md` and `modes.md` show the core calls the facade
-  does not wrap: configuration, hooks, formats, layouts, buffers, chains and
-  timeouts.
+  does not wrap: configuration, hooks, formats, layouts and buffers. Chains
+  and timeouts were here too until [ADR 0010](0010-fsharp-builds-sessions-and-chains.md)
+  wrapped them.
 - A new facade function needs an F# shape the core call lacks, stated in its
   commit.
 - Revisit if F# users repeatedly write the same wrapper around a core call.
