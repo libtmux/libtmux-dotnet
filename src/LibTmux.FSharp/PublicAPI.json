@@ -4380,6 +4380,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.historySize",
+      "package": "LibTmux.FSharp",
+      "name": "historySize",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val historySize: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "historySize",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.id",
       "package": "LibTmux.FSharp",
       "name": "id",
@@ -4912,6 +4934,50 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
     },
     {
+      "id": "P:LibTmux.FSharp.WindowFields.activityAlert",
+      "package": "LibTmux.FSharp",
+      "name": "activityAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val activityAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "activityAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.bellAlert",
+      "package": "LibTmux.FSharp",
+      "name": "bellAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val bellAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "bellAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.WindowFields.height",
       "package": "LibTmux.FSharp",
       "name": "height",
@@ -5042,6 +5108,28 @@
       "compiledName": "panes",
       "genericParameters": [],
       "returnType": "LibTmux.FSharp.Relation<LibTmux.Window,LibTmux.Pane>"
+    },
+    {
+      "id": "P:LibTmux.FSharp.WindowFields.silenceAlert",
+      "package": "LibTmux.FSharp",
+      "name": "silenceAlert",
+      "declaringType": "T:LibTmux.FSharp.WindowFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val silenceAlert: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "silenceAlert",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.bool>"
     },
     {
       "id": "P:LibTmux.FSharp.WindowFields.width",

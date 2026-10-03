@@ -18,6 +18,26 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L289)
 
+<a name="activityAlert"></a>
+
+#### <code><span>WindowFields.activityAlert&#32;<span></span></span></code>
+
+Identifies whether the window printed since it was last the current window, while monitor-activity is on.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L292)
+
+<a name="bellAlert"></a>
+
+#### <code><span>WindowFields.bellAlert&#32;<span></span></span></code>
+
+Identifies whether a bell rang in the window since it was last the current window.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L291)
+
 <a name="height"></a>
 
 #### <code><span>WindowFields.height&#32;<span></span></span></code>
@@ -66,7 +86,7 @@ Identifies the number of panes in the window.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L291)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L294)
 
 <a name="panes"></a>
 
@@ -76,7 +96,17 @@ Identifies panes captured through this window placement.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-relation-2.md">Relation</a>&lt;<span>Window,&#32;Pane</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L292)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L295)
+
+<a name="silenceAlert"></a>
+
+#### <code><span>WindowFields.silenceAlert&#32;<span></span></span></code>
+
+Identifies whether the window has been silent for monitor-silence seconds.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L293)
 
 <a name="width"></a>
 

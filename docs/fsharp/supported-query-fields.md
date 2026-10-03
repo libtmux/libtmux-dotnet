@@ -123,6 +123,33 @@ captured-object properties. They have no portable descriptor.
 - Required depth: `Windows`
 - Schema version: `1`
 
+### `WindowFields.bellAlert`
+
+- Core property: `Window.BellAlert`
+- Wire name: `window_bell_flag`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
+### `WindowFields.activityAlert`
+
+- Core property: `Window.ActivityAlert`
+- Wire name: `window_activity_flag`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
+### `WindowFields.silenceAlert`
+
+- Core property: `Window.SilenceAlert`
+- Wire name: `window_silence_flag`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
 ### `WindowFields.paneCount`
 
 - Core property: `Window.Panes`
@@ -302,6 +329,15 @@ captured-object properties. They have no portable descriptor.
 - Wire name: `pane_synchronized`
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.historySize`
+
+- Core property: `Pane.HistorySize`
+- Wire name: `history_size`
+- Value type: `int`
+- Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
 - Schema version: `1`
 

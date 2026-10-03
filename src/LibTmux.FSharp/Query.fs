@@ -288,6 +288,9 @@ module WindowFields =
     let height = Field<LibTmux.Window, int>("window_height")
     let active = Field<LibTmux.Window, bool>("window_active")
     let zoomed = Field<LibTmux.Window, bool>("window_zoomed_flag")
+    let bellAlert = Field<LibTmux.Window, bool>("window_bell_flag")
+    let activityAlert = Field<LibTmux.Window, bool>("window_activity_flag")
+    let silenceAlert = Field<LibTmux.Window, bool>("window_silence_flag")
     let paneCount = Field<LibTmux.Window, int>("window_panes")
     let panes = Relation<LibTmux.Window, LibTmux.Pane>("window_panes")
 
@@ -311,6 +314,7 @@ module PaneFields =
     let inMode = Field<LibTmux.Pane, bool>("pane_in_mode")
     let processId = Field<LibTmux.Pane, int>("pane_pid")
     let synchronized = Field<LibTmux.Pane, bool>("pane_synchronized")
+    let historySize = Field<LibTmux.Pane, int>("history_size")
 
 [<RequireQualifiedAccess>]
 module ClientFields =
