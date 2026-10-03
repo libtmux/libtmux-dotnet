@@ -79,14 +79,17 @@ targets `net8.0` and `net10.0`.
 | Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
 | Find, or create when absent | `Query.atMostOne ct query` | `option`: `None` only when nothing matched; several raise. Publishes under NativeAOT |
 | A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
-| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
-| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
+| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo. `Pane.sendAndWaitFor` takes a keys request and patterns |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once. [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait) compares them all |
+| Wait for a condition over the whole screen | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult`; the condition sees every visible row, including what a full-screen program draws |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
 | Create a session with windows and splits | `Server.newSession ct spec server` | The `Session`; describe it with `SessionSpec`, `WindowSpec` and `SplitSpec` records |
 | Run several commands in one tmux call | `Chain.start server \|> Chain.newWindow session name \|> … \|> Chain.run ct` | One `TmuxCommandResult`; each step acts on what the one before made |
 | Bound every command a handle sends | `Server.within timeout server` | A handle to the same server; its sessions, windows and panes share the bound |
+| Read or set an option as its type | `Options.get ct TmuxOptionKey.HistoryLimit session.Options` | The value as the key's type; `Options.set` writes one |
 | A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
-| React to events as they happen | `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client |
+| Follow live server state | `Mirror.start ct session` | A `ServerMirror` to `use!`, updated from tmux's announcements; `Mirror.waitUntil` waits for a view |
+| React to events as they happen | `Control.withSession ct work server`, then `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client, which `withSession` disposes |
 | Let an assistant drive the same tmux | The `LibTmux.Mcp` server on a shared socket | [Which F# call each MCP tool matches](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
