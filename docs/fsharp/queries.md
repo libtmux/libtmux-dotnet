@@ -19,6 +19,58 @@ Each program creates a uniquely named server. Its `use!` bindings dispose
 the control clients, sessions, and server when the task finishes or fails.
 Your existing tmux sessions are unaffected.
 
+## At a glance
+
+Each binding is one task; its annotation is the type the compiler checks.
+
+<!-- fsharp-snippet: QueryAtAGlance -->
+```fsharp
+open System.Collections.Generic
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session) (held: Pane list) =
+    task {
+        // Describing a listing reads nothing.
+        let named =
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.startsWith "bu")
+
+        let! (all: IReadOnlyList<Session>) = named |> Query.list ct
+        let! (one: Result<Session, CardinalityError>) = named |> Query.exactlyOne ct
+        let! (maybe: Session option) = named |> Query.tryExactlyOne ct
+        let! (inSession: IReadOnlyList<Pane>) = session |> Session.panes |> Query.list ct
+
+        let! (showingError: IReadOnlyList<Pane>) =
+            server
+            |> Server.panes
+            |> Query.showing (ScreenSearch.Text "ERROR:")
+            |> Query.list ct
+
+        let! (withTail: IReadOnlyList<Session>) =
+            server
+            |> Server.sessions
+            |> Query.where (WindowFields.name |> Filter.eq "tail" |> Filter.any SessionFields.windows)
+            |> Query.list ct
+
+        let! (active: IReadOnlyList<Pane>) =
+            server
+            |> Server.panes
+            |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
+            |> Query.list ct
+
+        // Objects already in hand are filtered locally.
+        let editors: IReadOnlyList<Pane> =
+            held
+            |> Query.matching (PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ])
+
+        return all, one, maybe, inSession, showingError, withTail, active, editors
+    }
+```
+<!-- endfsharp-snippet -->
+
 ## Query every level the same way
 
 This program creates a `build` session and a `logs` session whose pane prints
