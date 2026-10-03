@@ -1,6 +1,6 @@
 # F# portable query fields
 
-`LibTmux.FSharp.Filter` creates version-one `QueryDocument` values. These are
+`LibTmux.FSharp.Filter` creates version-two `QueryDocument` values. These are
 the descriptors it exposes. `Query.matching` is local and materialized; it
 does not send a native tmux filter.
 
@@ -20,7 +20,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `SessionFields.id`
 
@@ -29,7 +29,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `SessionId`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `SessionFields.attached`
 
@@ -38,7 +38,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `SessionFields.windowCount`
 
@@ -47,7 +47,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `SessionFields.windows`
 
@@ -56,7 +56,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `Relation<Session, Window>`
 - Operators: `any`, `all`, `none`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ## Windows
 
@@ -67,7 +67,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.id`
 
@@ -76,7 +76,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `WindowId`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.index`
 
@@ -85,7 +85,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.width`
 
@@ -94,7 +94,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.height`
 
@@ -103,7 +103,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.active`
 
@@ -112,7 +112,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.zoomed`
 
@@ -121,7 +121,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.bellAlert`
 
@@ -130,7 +130,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.activityAlert`
 
@@ -139,7 +139,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.silenceAlert`
 
@@ -148,7 +148,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.layout`
 
@@ -157,7 +157,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.flags`
 
@@ -166,7 +166,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Windows`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.paneCount`
 
@@ -175,7 +175,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `WindowFields.panes`
 
@@ -184,7 +184,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `Relation<Window, Pane>`
 - Operators: `any`, `all`, `none`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ## Panes
 
@@ -195,7 +195,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.id`
 
@@ -204,7 +204,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `PaneId`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.index`
 
@@ -213,7 +213,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.title`
 
@@ -222,7 +222,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.currentPath`
 
@@ -231,7 +231,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.width`
 
@@ -240,7 +240,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.height`
 
@@ -249,7 +249,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.left`
 
@@ -258,7 +258,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.top`
 
@@ -267,7 +267,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.atTop`
 
@@ -276,7 +276,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.atBottom`
 
@@ -285,7 +285,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.atLeft`
 
@@ -294,7 +294,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.atRight`
 
@@ -303,7 +303,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.active`
 
@@ -312,7 +312,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.dead`
 
@@ -321,7 +321,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.inMode`
 
@@ -330,7 +330,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.processId`
 
@@ -339,7 +339,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.synchronized`
 
@@ -348,7 +348,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.historySize`
 
@@ -357,7 +357,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int`
 - Operators: `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.deadStatus`
 
@@ -366,7 +366,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `int option`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.tty`
 
@@ -375,7 +375,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `PaneFields.startCommand`
 
@@ -384,7 +384,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
-- Schema version: `1`
+- Schema version: `2`
 
 ## Clients
 
@@ -395,7 +395,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `string`
 - Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
-- Schema version: `1`
+- Schema version: `2`
 
 ### `ClientFields.controlMode`
 
@@ -404,7 +404,7 @@ captured-object properties. They have no portable descriptor.
 - Value type: `bool`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
 - Required depth: `Sessions`
-- Schema version: `1`
+- Schema version: `2`
 
 <!-- descriptor-fields-end -->
 
