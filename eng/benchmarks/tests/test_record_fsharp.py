@@ -104,3 +104,27 @@ def test_the_gate_fails_pushdown_that_no_longer_narrows() -> None:
 
 def test_the_gate_fails_a_record_without_the_pushdown_class() -> None:
     assert record_fsharp.gate({"classes": []}) == ["FSharpQueryPushdownBenchmarks is not in the record"]
+
+
+def mirror_record(seen_ns: float, captured_ns: float) -> dict:
+    record = pushdown_record(9.0, 82.0, 1_000_000, 30_000_000)
+    record["classes"].append(
+        {
+            "name": "FSharpMirrorBenchmarks",
+            "cases": [
+                {"method": method, "parameters": "Sessions=16", "median_ns": median_ns, "allocated_bytes": 1}
+                for method, median_ns in (("RenameUntilSeen", seen_ns), ("CaptureSnapshot", captured_ns))
+            ],
+        }
+    )
+    return record
+
+
+def test_the_gate_passes_a_mirror_that_captures_once_per_change() -> None:
+    assert record_fsharp.gate(mirror_record(55.0, 46.0)) == []
+
+
+def test_the_gate_fails_a_mirror_that_captures_twice_per_change() -> None:
+    assert record_fsharp.gate(mirror_record(101.0, 46.0)) == [
+        "FSharpMirrorBenchmarks Sessions=16: a rename seen through the mirror costs 2.2 captures; the gate allows 2"
+    ]

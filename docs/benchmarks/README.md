@@ -302,7 +302,8 @@ window, and waits with `Mirror.waitUntil` until a view shows the new name. The
 baseline captures the same server to pane depth, which is what the mirror does
 on each announcement. The difference between the two is the command, tmux's
 announcement and the publish; the capture is the part that grows with the
-server. Setup fails unless the mirror publishes a renamed window.
+server. Setup fails unless the mirror publishes a renamed window, and the
+[regression gate](#regression-gate) bounds the rename at two captures.
 
 ## Hosted runs
 
@@ -320,7 +321,7 @@ $ gh workflow run benchmarks.yml -f tmux=3.2a
 
 Absolute timings are not gated in CI: the same case moves by more than half
 between runs on one machine, so a threshold loose enough to pass would catch
-nothing. Two things are gated instead:
+nothing. Three things are gated instead:
 
 - An integration test counts the tmux processes a pushed-down query starts and
   the rows tmux returns through the connection interceptor, and fails when a
@@ -331,7 +332,14 @@ nothing. Two things are gated instead:
   memory diagnoser counts it. Every recorded host clears both by far, 4 to 9
   times as fast with 10 to 28 times fewer bytes allocated, so a failure means
   pushdown stopped narrowing rather than a noisy runner. The rows tmux sends
-  are counted by the integration test above, not here. Check a record with:
+  are counted by the integration test above, not here.
+- The same workflow fails a run in which a rename seen through a mirror costs
+  more than two snapshot captures of the same server. The workstation measured
+  1.2 to 1.3, since each rebuild is one capture; capturing twice per change
+  would pass 2. Records made before the mirror benchmark carry no mirror
+  class and pass this check.
+
+Check a record with:
 
 ```console
 $ python3 eng/benchmarks/record_fsharp.py \
