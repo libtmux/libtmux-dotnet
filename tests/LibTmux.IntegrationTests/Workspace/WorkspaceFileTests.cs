@@ -68,6 +68,30 @@ public sealed class WorkspaceFileTests
     }
 
     [Fact]
+    public void Resolution_unescapes_option_dollars_without_variables()
+    {
+        WorkspaceFile declaration = WorkspaceFile.Parse("""
+            options:
+              '@literal': '$$TAG'
+              '@unknown': '$TAG'
+            windows:
+              - options:
+                  '@literal': '$$TAG'
+                panes:
+                  - options:
+                      '@literal': '$$TAG'
+            """);
+
+        WorkspaceFile resolved = declaration.Resolve(Path.GetTempPath());
+
+        Assert.Equal("$TAG", resolved.Options["@literal"]);
+        Assert.Equal("$TAG", resolved.Options["@unknown"]);
+        Assert.Equal("$TAG", resolved.Windows[0].Options["@literal"]);
+        Assert.Equal("$TAG", resolved.Windows[0].Panes[0].Options["@literal"]);
+        Assert.Equal("$$TAG", declaration.Options["@literal"]);
+    }
+
+    [Fact]
     public void Before_script_stays_literal_through_parse_defaults_and_resolution()
     {
         const string command = "./prepare '$UNDEFINED' #{session_name}";

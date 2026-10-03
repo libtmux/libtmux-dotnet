@@ -72,7 +72,7 @@ internal static class WorkspacePathResolver
         IReadOnlyDictionary<string, string> options,
         IReadOnlyDictionary<string, string> variables)
     {
-        if (options.Count == 0 || variables.Count == 0)
+        if (options.Count == 0)
         {
             return options;
         }
