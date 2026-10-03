@@ -26,7 +26,7 @@ let runAsync () =
         use! _session =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/sh"), token)
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! panes = server |> Server.panes |> Query.list token
         let pane = panes |> Seq.exactlyOne
         let channel = "capture-" + Guid.NewGuid().ToString("N")

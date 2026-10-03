@@ -8,9 +8,9 @@ whole files, including their final newline, for API pages to publish from a
 recorded source revision. Every import and helper is present in the displayed
 file.
 
-The F# programs start and attach to servers with `Server.createOwned` and
-`Server.connect`, and build sessions and windows with the core session and
-window methods or `Server.newSession`. The F# facade supplies the query, wait,
+The F# programs start a server of their own with `Server.createOwned` and work
+through `owned.Value`, and build sessions and windows with the core session
+and window methods or `Server.newSession`. The F# facade supplies the query, wait,
 run, mirror, option and snapshot helpers.
 
 | Program | Task |

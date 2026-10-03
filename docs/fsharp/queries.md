@@ -138,7 +138,7 @@ let runAsync () =
                 token
             )
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
 
         let! logs =
             server
@@ -314,7 +314,7 @@ let runAsync () =
                 token
             )
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
@@ -392,7 +392,7 @@ let runAsync () =
                 token
             )
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne

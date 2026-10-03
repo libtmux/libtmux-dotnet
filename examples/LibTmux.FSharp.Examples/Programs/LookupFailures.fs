@@ -42,7 +42,7 @@ let runAsync () =
                 use! session =
                     owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
 
-                let! server = options |> Server.connect token
+                let server = owned.Value
 
                 let! missing =
                     failure (fun () -> server |> Server.tryFindSession token (SessionId Int32.MaxValue))

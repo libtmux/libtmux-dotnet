@@ -93,7 +93,7 @@ let runAsync () =
                 token
             )
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
 
         let nativeMatches =

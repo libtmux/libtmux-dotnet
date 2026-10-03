@@ -29,7 +29,7 @@ let runAsync () =
         use! _worker =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "worker", Command = "/bin/cat"), token)
 
-        let! server = options |> Server.connect token
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
 
         // Exactly one match is Ok; none and several are distinct errors.
