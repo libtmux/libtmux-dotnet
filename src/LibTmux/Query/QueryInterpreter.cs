@@ -40,11 +40,34 @@ internal static class QueryInterpreter
     private static Func<T, bool> Compile<T>(
         QueryDocument document,
         out QueryBindingMetrics metrics,
-        Action? check)
+        Action? check) =>
+        Compile<T>(document, out metrics, check, entityOnly: false);
+
+    /// <summary>Compiles a document for a tmux entity type without reflection.</summary>
+    /// <remarks>
+    /// A type the catalog has no accessors for is refused rather than read by
+    /// name. Cancellation is observed between predicate nodes.
+    /// </remarks>
+    internal static Func<T, bool> CompileEntity<T>(
+        QueryDocument document,
+        CancellationToken cancellationToken = default)
+    {
+        return Compile<T>(
+            document,
+            out _,
+            cancellationToken.CanBeCanceled ? cancellationToken.ThrowIfCancellationRequested : null,
+            entityOnly: true);
+    }
+
+    private static Func<T, bool> Compile<T>(
+        QueryDocument document,
+        out QueryBindingMetrics metrics,
+        Action? check,
+        bool entityOnly)
     {
         ArgumentNullException.ThrowIfNull(document);
         QueryValidationResult validation = QueryDocumentValidator.Validate(document, check);
-        QueryPlanBindings bindings = new(validation);
+        QueryPlanBindings bindings = new(validation, entityOnly);
         Func<object, bool> predicate = BindPredicate(
             document.Predicate,
             typeof(T),

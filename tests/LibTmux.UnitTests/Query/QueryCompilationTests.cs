@@ -81,4 +81,33 @@ public sealed class QueryCompilationTests
 
         Assert.True(sessions.Compile<Session>()(session));
     }
+
+    [Fact]
+    public void Entity_compilation_binds_catalog_accessors_and_relations()
+    {
+        var dispatcher = new TmuxCommandDispatcher(
+            static (_, _) => throw new InvalidOperationException("No command expected."));
+        var session = new Session(dispatcher, "$1").WithCaptured(
+            CapturedRelation.Capture([new Window(dispatcher, "@1"), new Window(dispatcher, "@2")], "windows", SnapshotDepth.Windows),
+            CapturedRelation.Capture<Pane>([], "panes", SnapshotDepth.Panes));
+        WindowId captured = session.Windows[0].Id;
+        var absent = new WindowId(captured.Value + 9);
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        Assert.True(QueryInterpreter.CompileEntity<Session>(
+            QueryExtensions.Translate<SessionCountRow>(row => row.SessionWindows > 1), token)(session));
+        Assert.True(QueryInterpreter.CompileEntity<Session>(
+            QueryExtensions.Translate<Session>(candidate => candidate.Windows.All(window => window.Id == captured)), token)(session));
+        Assert.False(QueryInterpreter.CompileEntity<Session>(
+            QueryExtensions.Translate<Session>(candidate => candidate.Windows.Any(window => window.Id == absent)), token)(session));
+    }
+
+    [Fact]
+    public void Entity_compilation_refuses_a_projection()
+    {
+        QueryDocument document = QueryEdgeParser.ParseNameContains(QueryTarget.Session, "dev");
+
+        Assert.Throws<UnsupportedQueryExpressionException>(
+            () => QueryInterpreter.CompileEntity<Row>(document, TestContext.Current.CancellationToken));
+    }
 }
