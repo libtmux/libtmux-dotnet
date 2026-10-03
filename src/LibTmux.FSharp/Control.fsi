@@ -138,6 +138,11 @@ module Mirror =
     val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>
 
     /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
+    /// <remarks>
+    /// A view is published only when something besides activity times, cursor
+    /// positions and history sizes changes, so a condition on those alone can
+    /// wait for an unrelated change. Wait on output with the pane waits.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxWaitTimeoutException">No view satisfied the condition in time.</exception>
     /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
     val waitUntil:
