@@ -76,7 +76,8 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Result |
 | --- | --- | --- |
 | List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
-| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several; under NativeAOT use `Query.tryExactlyOne`, which returns an `option` |
+| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
+| Find, or create when absent | `Query.atMostOne ct query` | `option`: `None` only when nothing matched; several raise. Publishes under NativeAOT |
 | A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
 | Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once |
@@ -244,6 +245,8 @@ explains the configuration order. Code running inside a tmux pane can use
 | Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
 `Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,
-whose generated `ToString` formats through `printf`, which NativeAOT rejects.
-Under NativeAOT, use `Query.tryExactlyOne` or `Seq.tryExactlyOne`, which the
-NativeAOT consumer runs.
+whose compiler-generated `ToString` formats through `printf`; with
+FSharp.Core 10.1.302, which the NativeAOT consumer builds with, NativeAOT
+publication rejects it. Under NativeAOT, read one row with `Query.atMostOne`,
+which still raises on several matches, or with `Query.tryExactlyOne` where
+none and several may be treated alike. The NativeAOT consumer runs both.

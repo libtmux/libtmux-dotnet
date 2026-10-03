@@ -325,8 +325,10 @@ tmux. Keep it outside the solution: it consumes freshly packed artifacts.
 
 `LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
 native binary for both target frameworks. It covers the static snapshot and
-native sequence route. `Selection.exactlyOne` is not a NativeAOT route while
-FSharp.Core emits linker diagnostics for its `Result` return type.
+native sequence route, and a tmux query read with `Query.tryExactlyOne` and
+`Query.atMostOne`. `Selection.exactlyOne` and `Query.exactlyOne` are not
+NativeAOT routes while FSharp.Core 10.1.302 emits linker diagnostics for their
+`Result` return type.
 
 The required F# trimmed smoke step publishes and runs the same static route
 with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:

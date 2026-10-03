@@ -128,7 +128,7 @@
       "id": "fsharp-Queries",
       "profile": "fsharp",
       "title": "Query every level and let tmux narrow the listing",
-      "description": "Read sessions, windows and panes through one query vocabulary. tmux drops rows a filter cannot keep, every returned row is rechecked, and a screen search finds the pane showing a line.",
+      "description": "Read sessions, windows and panes through one query vocabulary. tmux drops rows a filter cannot keep, every returned row is rechecked, and a screen search finds the pane showing a line. atMostOne finds an object or reports it absent, and refuses several.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/Queries.fs",
       "targets": [
         "M:LibTmux.FSharp.Server.sessions(LibTmux.Server)",
@@ -137,9 +137,10 @@
         "M:LibTmux.FSharp.Query.exactlyOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
         "M:LibTmux.FSharp.Query.tryExactlyOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
         "M:LibTmux.FSharp.Query.showing(LibTmux.FSharp.ScreenSearch,LibTmux.FSharp.Query{LibTmux.Pane})",
-        "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})"
+        "M:LibTmux.FSharp.Filter.any``2(LibTmux.FSharp.Relation{``0,``1},LibTmux.FSharp.Filter{``1})",
+        "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})"
       ],
-      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: 1\nerror row: Some 1\nactive panes: 2\n"
+      "output": "logged: true\nnamed: Ok \"build\"\ntailing: [\"logs\"]\nmake panes: 1\nerror row: Some 1\nactive panes: 2\ndeploy: absent true, then found true\nat most one of every session: refused\n"
     },
     {
       "id": "fsharp-SendWaitRead",

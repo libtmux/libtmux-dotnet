@@ -2263,6 +2263,47 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
     },
     {
+      "id": "M:LibTmux.FSharp.Query.atMostOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
+      "package": "LibTmux.FSharp",
+      "name": "atMostOne",
+      "declaringType": "T:LibTmux.FSharp.Query",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val atMostOne: cancellationToken: System.Threading.CancellationToken -> query: LibTmux.FSharp.Query<'T> -> System.Threading.Tasks.Task<'T Microsoft.FSharp.Core.option>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.FSharp.Query<'T> -> System.Threading.Tasks.Task<'T Microsoft.FSharp.Core.option>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "query",
+          "optional": false,
+          "type": "LibTmux.FSharp.Query<'T>"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "atMostOne",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "System.Threading.Tasks.Task<'T Microsoft.FSharp.Core.option>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Query.exactlyOne``1(System.Threading.CancellationToken,LibTmux.FSharp.Query{``0})",
       "package": "LibTmux.FSharp",
       "name": "exactlyOne",

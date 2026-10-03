@@ -152,6 +152,7 @@ Signatures assume `open System`, `open System.Threading`,
 |---|---|
 | `Query` | Narrows and runs tmux queries, and filters captured objects locally. |
 | ``Query`1`` | Describes a tmux listing: a scope, filters and text panes must show. |
+| `val atMostOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>` | Reads the sole match, or None when nothing matches; several matches raise. |
 | `val exactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<Result<'T,CardinalityError>>` | Reads the sole match, or why there is not exactly one. |
 | `val list: cancellationToken: CancellationToken -> query: Query<'T> -> Task<IReadOnlyList<'T>>` | Reads the matching objects in tmux's listing order. |
 | `val matching: filter: Filter<'T> -> source: 'T seq -> IReadOnlyList<'T>` | Filters captured objects locally, preserving input order and multiplicity. |

@@ -80,6 +80,7 @@ module internal GuideSnippets =
             let! (all: IReadOnlyList<Session>) = named |> Query.list ct
             let! (one: Result<Session, CardinalityError>) = named |> Query.exactlyOne ct
             let! (maybe: Session option) = named |> Query.tryExactlyOne ct
+            let! (atMost: Session option) = named |> Query.atMostOne ct
             let! (inSession: IReadOnlyList<Pane>) = session |> Session.panes |> Query.list ct
 
             let! (showingError: IReadOnlyList<Pane>) =
@@ -105,7 +106,7 @@ module internal GuideSnippets =
                 held
                 |> Query.matching (PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ])
 
-            return all, one, maybe, inSession, showingError, withTail, active, editors
+            return all, one, maybe, atMost, inSession, showingError, withTail, active, editors
         }
     // endfsharp-snippet
 

@@ -3,13 +3,19 @@
 Describe a listing with `Server.sessions`, `Server.windows`, `Server.panes`,
 `Server.clients`, `Session.windows`, `Session.panes` or `Window.panes`, narrow
 it with `Query.where`, `Query.showing` or `Query.whereUnsafe`, and read it with
-`Query.list`, `Query.exactlyOne` or `Query.tryExactlyOne`. tmux drops rows that
-cannot match before they are read, and every row is rechecked against the
-portable filter. Use `Seq.filter` for application predicates over objects you
-already hold, and [filters](filters.md) to apply a portable filter to captured
-objects and their relations. In an application published with NativeAOT, read one row with
-`Query.tryExactlyOne`: `Query.exactlyOne` returns FSharp.Core's `Result`,
-which formats itself through `printf`, and NativeAOT rejects that.
+`Query.list`, `Query.exactlyOne`, `Query.atMostOne` or `Query.tryExactlyOne`.
+tmux drops rows that cannot match before they are read, and every row is
+rechecked against the portable filter. Use `Seq.filter` for application
+predicates over objects you already hold, and [filters](filters.md) to apply a
+portable filter to captured objects and their relations.
+
+`Query.atMostOne` returns `None` only when nothing matched and raises when
+several did, so it suits finding an object or creating it when absent;
+`Query.tryExactlyOne`, like FSharp.Core's `Seq.tryExactlyOne`, returns `None`
+for both. In an application published with NativeAOT, use either of them:
+`Query.exactlyOne` returns FSharp.Core's `Result`, whose compiler-generated
+`ToString` formats through `printf`, and with FSharp.Core 10.1.302 NativeAOT
+publication rejects it.
 
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace
@@ -42,6 +48,7 @@ let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session)
         let! (all: IReadOnlyList<Session>) = named |> Query.list ct
         let! (one: Result<Session, CardinalityError>) = named |> Query.exactlyOne ct
         let! (maybe: Session option) = named |> Query.tryExactlyOne ct
+        let! (atMost: Session option) = named |> Query.atMostOne ct
         let! (inSession: IReadOnlyList<Pane>) = session |> Session.panes |> Query.list ct
 
         let! (showingError: IReadOnlyList<Pane>) =
@@ -67,7 +74,7 @@ let queryShapesAsync (ct: CancellationToken) (server: Server) (session: Session)
             held
             |> Query.matching (PaneFields.currentCommand |> Filter.oneOf [ "nvim"; "vim" ])
 
-        return all, one, maybe, inSession, showingError, withTail, active, editors
+        return all, one, maybe, atMost, inSession, showingError, withTail, active, editors
     }
 ```
 <!-- endfsharp-snippet -->
@@ -184,12 +191,40 @@ let runAsync () =
             |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
             |> Query.list token
 
+        // Find a session or create it: atMostOne is None only when nothing
+        // matched, and raises when several do.
+        let deploy =
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.eq "deploy")
+
+        let! existing = deploy |> Query.atMostOne token
+
+        if existing.IsNone then
+            let! _ =
+                owned.Value.CreateSessionAsync(NewSessionRequest(Name = "deploy", Command = "exec sleep 60"), token)
+
+            ()
+
+        let! found = deploy |> Query.atMostOne token
+
+        let! several =
+            task {
+                try
+                    let! _ = server |> Server.sessions |> Query.atMostOne token
+                    return "one or none"
+                with :? InvalidOperationException ->
+                    return "refused"
+            }
+
         printfn "logged: %b" logged.Found
         printfn "named: %A" (named |> Result.map (fun session -> session.Name))
         printfn "tailing: %A" [ for session in tailing -> session.Name ]
         printfn "make panes: %d" makePanes.Count
         printfn "error row: %A" errorRow
         printfn "active panes: %d" active.Count
+        printfn "deploy: absent %b, then found %b" existing.IsNone found.IsSome
+        printfn "at most one of every session: %s" several
 
     }
 
@@ -207,6 +242,8 @@ tailing: ["logs"]
 make panes: 1
 error row: Some 1
 active panes: 2
+deploy: absent true, then found true
+at most one of every session: refused
 ```
 <!-- endfsharp-output -->
 

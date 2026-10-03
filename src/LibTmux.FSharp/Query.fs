@@ -249,6 +249,24 @@ module Query =
             return if items.Count = 1 then Some items[0] else None
         }
 
+    let atMostOne cancellationToken (query: Query<'T>) =
+        backgroundTask {
+            let! items = list cancellationToken query
+
+            return
+                match items.Count with
+                | 0 -> None
+                | 1 -> Some items[0]
+                | count ->
+                    raise (
+                        InvalidOperationException(
+                            "Expected at most one match; tmux reported "
+                            + count.ToString(Globalization.CultureInfo.InvariantCulture)
+                            + "."
+                        )
+                    )
+        }
+
     let matching (filter: Filter<'T>) (source: seq<'T>) : IReadOnlyList<'T> =
         ArgumentNullException.ThrowIfNull(source)
         ResizeArray(Seq.filter filter.Predicate source)

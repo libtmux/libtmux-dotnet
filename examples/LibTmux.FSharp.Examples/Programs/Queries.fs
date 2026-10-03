@@ -93,12 +93,40 @@ let runAsync () =
             |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
             |> Query.list token
 
+        // Find a session or create it: atMostOne is None only when nothing
+        // matched, and raises when several do.
+        let deploy =
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.eq "deploy")
+
+        let! existing = deploy |> Query.atMostOne token
+
+        if existing.IsNone then
+            let! _ =
+                owned.Value.CreateSessionAsync(NewSessionRequest(Name = "deploy", Command = "exec sleep 60"), token)
+
+            ()
+
+        let! found = deploy |> Query.atMostOne token
+
+        let! several =
+            task {
+                try
+                    let! _ = server |> Server.sessions |> Query.atMostOne token
+                    return "one or none"
+                with :? InvalidOperationException ->
+                    return "refused"
+            }
+
         printfn "logged: %b" logged.Found
         printfn "named: %A" (named |> Result.map (fun session -> session.Name))
         printfn "tailing: %A" [ for session in tailing -> session.Name ]
         printfn "make panes: %d" makePanes.Count
         printfn "error row: %A" errorRow
         printfn "active panes: %d" active.Count
+        printfn "deploy: absent %b, then found %b" existing.IsNone found.IsSome
+        printfn "at most one of every session: %s" several
 
     }
 

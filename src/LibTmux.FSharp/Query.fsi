@@ -163,7 +163,20 @@ module Query =
     val exactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<Result<'T, CardinalityError>>
 
     /// <summary>Reads the sole match, or None when there are none or several.</summary>
+    /// <remarks>
+    /// As FSharp.Core's <c>Seq.tryExactlyOne</c>, None does not say nothing
+    /// matched. To find an object or create it when absent, use <c>atMostOne</c>.
+    /// </remarks>
     val tryExactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>
+
+    /// <summary>Reads the sole match, or None when nothing matches; several matches raise.</summary>
+    /// <remarks>
+    /// None means tmux reported no match, so it suits finding an object or
+    /// creating it when absent. It returns an option rather than a
+    /// <c>Result</c>, so it publishes under NativeAOT.
+    /// </remarks>
+    /// <exception cref="T:System.InvalidOperationException">tmux reported more than one match.</exception>
+    val atMostOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>
 
     /// <summary>Filters captured objects locally, preserving input order and multiplicity.</summary>
     val matching: filter: Filter<'T> -> source: seq<'T> -> IReadOnlyList<'T>

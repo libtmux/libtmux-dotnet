@@ -60,9 +60,12 @@ let main _ =
                 let! sole =
                     scope.Server |> Server.sessions |> Query.tryExactlyOne CancellationToken.None
 
+                let! atMost =
+                    scope.Server |> Server.sessions |> Query.atMostOne CancellationToken.None
+
                 let agree =
-                    match sole, captured.Sessions |> Seq.tryExactlyOne with
-                    | Some live, Some local -> live.Id.Equals(local.Id)
+                    match sole, atMost, captured.Sessions |> Seq.tryExactlyOne with
+                    | Some live, Some bounded, Some local -> live.Id.Equals(local.Id) && bounded.Id.Equals(local.Id)
                     | _ -> false
 
                 Console.WriteLine(
