@@ -238,12 +238,13 @@ query tmux narrows with `-f`, a full listing filtered locally, and a snapshot
 filtered locally. Every route must return the same objects before timing.
 
 In the [2026-10-03 record](runs/2026-10-03-tmux-3.7d-fsharp.md) the pane query
-took a median of 34 ms pushed down against 157 ms for a full listing and
-475 ms for a snapshot, allocating 26 times less than the listing. The session
-query, a relation, allocated 12 times less pushed down but took about as long
-as a snapshot: tmux evaluates the nested window and pane loops for every
-session itself. Two identical local routes for that query differ by 60%, which
-is the run-to-run noise of a process start under load.
+took a median of 39 ms pushed down against 254 ms for a full listing and
+497 ms for a snapshot, allocating 26 times less than the listing. The session
+query, a relation, took 163 ms pushed down against 428 ms and more for the
+local routes, allocating 10 times less: tmux evaluates the relation once per
+session, and only the matching sessions are captured. Two identical local
+routes for that query differ by half, which is the run-to-run noise of a
+process start under load.
 
 ```console
 $ dotnet run \
