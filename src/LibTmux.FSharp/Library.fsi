@@ -67,6 +67,18 @@ module TmuxFailure =
     /// <summary>Matches a failure, or a cancellation, after which tmux may already have acted.</summary>
     val (|MayHaveRun|_|): error: exn -> exn option
 
+/// <summary>Recognises how a command run with <c>Pane.run</c> ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneRun =
+    /// <summary>Matches a command that exited, with its exit status.</summary>
+    val (|Exited|_|): result: PaneRunResult -> int option
+
+    /// <summary>Matches a command still running when the time allowed ran out.</summary>
+    val (|TimedOut|_|): result: PaneRunResult -> unit option
+
+    /// <summary>Matches a command the pane's shell never ran.</summary>
+    val (|NotStarted|_|): result: PaneRunResult -> unit option
+
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =

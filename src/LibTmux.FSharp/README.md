@@ -82,7 +82,7 @@ targets `net8.0` and `net10.0`.
 | Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo. `Pane.sendAndWaitFor` takes a keys request and patterns |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once. [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait) compares them all |
 | Wait for a condition over the whole screen | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult`; the condition sees every visible row, including what a full-screen program draws |
-| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the printed lines; match `PaneRun.Exited status`. POSIX shells only |
 | Create a session with windows and splits | `Server.newSession ct spec server` | The `Session`; describe it with `SessionSpec`, `WindowSpec` and `SplitSpec` records |
 | Run several commands in one tmux call | `Chain.start server \|> Chain.newWindow session name \|> … \|> Chain.run ct` | One `TmuxCommandResult`; each step acts on what the one before made |
 | Bound every command a handle sends | `Server.within timeout server` | A handle to the same server; its sessions, windows and panes share the bound |
@@ -187,7 +187,10 @@ let runAsync () =
                 pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
 
             printfn "wait found: %b" started.Found
-            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
+
+            match result with
+            | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+            | _ -> printfn "run: did not finish"
     }
 
 runAsync().GetAwaiter().GetResult()

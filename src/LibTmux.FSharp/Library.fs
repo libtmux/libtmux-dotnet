@@ -73,6 +73,15 @@ module TmuxFailure =
         | _ -> None
 
 [<RequireQualifiedAccess>]
+module PaneRun =
+    let (|Exited|_|) (result: PaneRunResult) = Option.ofNullable result.ExitStatus
+
+    let (|TimedOut|_|) (result: PaneRunResult) =
+        if result.TimedOut then Some() else None
+
+    let (|NotStarted|_|) (result: PaneRunResult) = if result.Started then None else Some()
+
+[<RequireQualifiedAccess>]
 module Retry =
     let ifNotSent (cancellationToken: CancellationToken) (retries: int) (operation: CancellationToken -> Task<'T>) =
         if retries < 0 then

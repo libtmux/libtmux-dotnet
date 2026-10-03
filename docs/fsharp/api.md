@@ -164,6 +164,15 @@ Signatures assume `open System`, `open System.Threading`,
 | `val top: Field<LibTmux.Pane,int>` | Identifies the row of the pane's top edge in its window. |
 | `val width: Field<LibTmux.Pane,int>` | Identifies the pane's width in cells. |
 
+## PaneRun
+
+| Signature | Summary |
+|---|---|
+| `PaneRun` | Recognises how a command run with Pane.run ended. |
+| `val (|Exited|_|) : result: LibTmux.PaneRunResult -> int option` | Matches a command that exited, with its exit status. |
+| `val (|NotStarted|_|) : result: LibTmux.PaneRunResult -> unit option` | Matches a command the pane's shell never ran. |
+| `val (|TimedOut|_|) : result: LibTmux.PaneRunResult -> unit option` | Matches a command still running when the time allowed ran out. |
+
 ## Query
 
 | Signature | Summary |

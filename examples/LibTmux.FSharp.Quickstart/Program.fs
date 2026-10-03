@@ -61,7 +61,10 @@ let runAsync () =
                 pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
 
             printfn "wait found: %b" started.Found
-            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
+
+            match result with
+            | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
+            | _ -> printfn "run: did not finish"
     }
 
 runAsync().GetAwaiter().GetResult()

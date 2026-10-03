@@ -328,6 +328,23 @@ module ContractTests =
             Assert.Equal(0, mutations)
         }
 
+module PaneRunTests =
+    let private describe result =
+        match result with
+        | PaneRun.Exited status -> "exited " + string status
+        | PaneRun.TimedOut -> "timed out"
+        | PaneRun.NotStarted -> "not started"
+        | _ -> "other"
+
+    [<Fact>]
+    let ``runs are told apart by how they ended`` () =
+        let run status timedOut started =
+            PaneRunResult(status, timedOut, [], TimeSpan.Zero, started, false)
+
+        Assert.Equal("exited 3", describe (run (Nullable 3) false true))
+        Assert.Equal("timed out", describe (run (Nullable()) true true))
+        Assert.Equal("not started", describe (run (Nullable()) false false))
+
 module FailureTests =
     let private failure dispatch =
         LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn
