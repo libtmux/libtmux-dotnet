@@ -180,11 +180,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Signature | Summary |
 |---|---|
 | `PaneWait` | Recognises how a wait on a pane's output ended. |
-| `val (|Ended|_|) : result: PaneWaitResult -> unit option` | Matches a wait that ended because the pane's program exited or a full-screen program took over. |
-| `val (|Found|_|) : result: PaneWaitResult -> unit option` | Matches a wait whose text or pattern appeared, before or during it. |
-| `val (|Printed|_|) : result: PaneWaitResult -> unit option` | Matches a wait with no pattern that ended because the pane printed something. |
-| `val (|Stopped|_|) : result: PaneWaitResult -> string option` | Matches a wait a stop pattern ended, with the pattern that matched. |
-| `val (|TimedOut|_|) : result: PaneWaitResult -> unit option` | Matches a wait whose time ran out. |
+| `val (|Found|Printed|Stopped|TimedOut|Ended|) : result: PaneWaitResult -> Choice<unit,unit,string,unit,unit>` | Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning. |
 
 ## Query
 

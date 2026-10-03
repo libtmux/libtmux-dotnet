@@ -19,7 +19,7 @@ Type/Module | Description | Source
 [Query](../reference/libtmux-fsharp-query.md) | Narrows and runs tmux queries, and filters captured objects locally. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L146)
 [Query<'T>](../reference/libtmux-fsharp-query-1.md) | Describes a tmux listing: a scope, filters and text panes must show. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L140)
 [Relation<'Parent, 'Child>](../reference/libtmux-fsharp-relation-2.md) | Identifies a supported captured relation between two entity types. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L19)
-[Retry](../reference/libtmux-fsharp-retry.md) | Runs an operation again only when tmux never saw it. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L103)
+[Retry](../reference/libtmux-fsharp-retry.md) | Runs an operation again only when tmux never saw it. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L99)
 [ScreenSearch](../reference/libtmux-fsharp-screensearch.md) | Describes text tmux searches for on a pane&#39;s visible rows. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L120)
 [Selection](../reference/libtmux-fsharp-selection.md) | Selects values from ordinary F# sequences. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L46)
 [Server](../reference/libtmux-fsharp-server.md) | Starts server reads and queries with the caller's cancellation token. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fsi#L11)
