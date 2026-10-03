@@ -80,6 +80,24 @@ module PaneRun =
     /// <summary>Matches a command the pane's shell never ran.</summary>
     val (|NotStarted|_|): result: PaneRunResult -> unit option
 
+/// <summary>Recognises how a wait on a pane's output ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneWait =
+    /// <summary>Matches a wait whose text or pattern appeared, before or during it.</summary>
+    val (|Found|_|): result: PaneWaitResult -> unit option
+
+    /// <summary>Matches a wait with no pattern that ended because the pane printed something.</summary>
+    val (|Printed|_|): result: PaneWaitResult -> unit option
+
+    /// <summary>Matches a wait a stop pattern ended, with the pattern that matched.</summary>
+    val (|Stopped|_|): result: PaneWaitResult -> string option
+
+    /// <summary>Matches a wait whose time ran out.</summary>
+    val (|TimedOut|_|): result: PaneWaitResult -> unit option
+
+    /// <summary>Matches a wait that ended because the pane's program exited or a full-screen program took over.</summary>
+    val (|Ended|_|): result: PaneWaitResult -> unit option
+
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =

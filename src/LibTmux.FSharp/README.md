@@ -99,17 +99,25 @@ targets `net8.0` and `net10.0`.
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
 | An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
 
-tmux narrows each listing where it can, and every row is rechecked.
-`Query.atMostOne` and `Query.tryExactlyOne` publish under NativeAOT; `Result`
-does not. `Pane.sendAndWait` ignores the screen before the line and the line's
-echo, `Pane.waitForText` answers at once when the text is already showing, and
-every wait ends early if the pane's program exits during it and raises
-`TmuxPaneException` if it had already exited; [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
-compares them. `Pane.run` needs a POSIX shell prompt. A handle from
-`Server.within` shares its bound with the sessions, windows and panes taken
-from it. `Mirror.start` returns a mirror to `use!`. Inside
-`Control.withSession`, `Control.events`, `Control.watchPane` and
-`Control.watchPanes` read the client it opens, one reader at a time.
+- **Queries:** tmux narrows each listing where it can, and every row is
+  rechecked. `Query.atMostOne` and `Query.tryExactlyOne` publish under
+  NativeAOT; `Result` does not.
+- **Waits:** `Pane.sendAndWait` ignores the screen before the line and the
+  line's echo; `Pane.waitForText` answers at once when the text is already
+  showing. Each ends early if the pane's program exits during it, and raises
+  `TmuxPaneException` if it had already exited. Match the result with
+  `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut` or `Ended`;
+  [which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
+  compares them.
+- **Runs:** `Pane.run` needs a POSIX shell prompt.
+- **Bounds:** a handle from `Server.within` shares its bound with the
+  sessions, windows and panes taken from it.
+- **Live state:** `Mirror.start` returns a mirror to `use!`.
+  `Mirror.waitUntil` raises when no view matches in time;
+  `Mirror.tryWaitUntil` returns `None`.
+- **Events:** inside `Control.withSession`, `Control.events`,
+  `Control.watchPane` and `Control.watchPanes` read the client it opens, one
+  reader at a time.
 
 Captured sessions, windows, panes, and IDs are the core .NET types. A window
 linked into more than one session has contextual placements; filtering keeps

@@ -82,6 +82,34 @@ module PaneRun =
     let (|NotStarted|_|) (result: PaneRunResult) = if result.Started then None else Some()
 
 [<RequireQualifiedAccess>]
+module PaneWait =
+    let (|Found|_|) (result: PaneWaitResult) = if result.Found then Some() else None
+
+    let (|Printed|_|) (result: PaneWaitResult) =
+        if result.Outcome = PaneWaitOutcome.AnyOutput then
+            Some()
+        else
+            None
+
+    let (|Stopped|_|) (result: PaneWaitResult) =
+        if result.Outcome = PaneWaitOutcome.Stopped then
+            Some(Option.ofObj result.Pattern |> Option.defaultValue "")
+        else
+            None
+
+    let (|TimedOut|_|) (result: PaneWaitResult) =
+        if result.Outcome = PaneWaitOutcome.TimedOut then
+            Some()
+        else
+            None
+
+    let (|Ended|_|) (result: PaneWaitResult) =
+        match result.Outcome with
+        | PaneWaitOutcome.PaneExited
+        | PaneWaitOutcome.AlternateScreen -> Some()
+        | _ -> None
+
+[<RequireQualifiedAccess>]
 module Retry =
     let private retrying
         (cancellationToken: CancellationToken)
