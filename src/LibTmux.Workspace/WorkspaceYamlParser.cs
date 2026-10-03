@@ -185,12 +185,27 @@ internal static class WorkspaceYamlParser
         for (int index = 0; index < sequence.Children.Count; index++)
         {
             YamlNode command = sequence.Children[index];
-            if (command is not YamlScalarNode commandScalar)
+            string commandPath = $"{path}[{index}]";
+            string? commandText;
+            if (command is YamlScalarNode commandScalar)
             {
-                throw WrongShape(command, $"{path}[{index}]", "a scalar");
+                commandText = ReadNullableScalar(commandScalar);
+            }
+            else if (command is YamlMappingNode)
+            {
+                Dictionary<string, YamlNode> values = ReadMapping(command, commandPath, ["cmd"]);
+                if (!values.TryGetValue("cmd", out YamlNode? value))
+                {
+                    throw At(command, $"Workspace path '{commandPath}' requires key 'cmd'.");
+                }
+
+                commandText = ReadScalar(value, $"{commandPath}.cmd");
+            }
+            else
+            {
+                throw WrongShape(command, commandPath, "a scalar or a mapping with 'cmd'");
             }
 
-            string? commandText = ReadNullableScalar(commandScalar);
             if (commandText is not null)
             {
                 commands.Add(commandText);

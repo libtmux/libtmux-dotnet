@@ -12,6 +12,10 @@ version.
 
 ### Added
 
+- Workspace command lists accept tmuxp-style `{cmd: ...}` entries alongside
+  scalar commands at session, window and pane scope. Unsupported command
+  modifiers fail with the declaration path and source location.
+
 - `LibTmux.FSharp.Server` adds `listSessions`, `listWindows`, `listClients`,
   `tryFindSession`, `tryFindWindow`, and `tryFindClient`. Lookups return
   `None` for absent objects and propagate read errors and cancellation.

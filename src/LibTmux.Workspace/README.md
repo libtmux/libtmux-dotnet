@@ -118,6 +118,21 @@ entries override the same ordinal key; other parent entries remain available.
 then pane-command order. A window with no pane declarations still creates one
 pane and receives the inherited commands.
 
+Each list entry may be a command string or a mapping with one `cmd` scalar:
+
+```yaml
+shell_command_before:
+  - cmd: echo ready
+windows:
+  - panes:
+      - shell_command:
+          - cmd: exec /bin/sh
+```
+
+Both forms preserve literal command text and list order. tmuxp command
+modifiers such as `enter` are unsupported and fail during parsing with the
+declaration path and source location.
+
 For programmatic declarations, `WithDefaults(environment, shellCommandsBefore)`
 returns a new value and copies both inputs. Null preserves the local defaults;
 an empty collection clears them. Resolving directories preserves these values.

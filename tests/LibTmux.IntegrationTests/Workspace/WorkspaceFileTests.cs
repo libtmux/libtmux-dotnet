@@ -289,6 +289,61 @@ public sealed class WorkspaceFileTests
         Assert.Equal([string.Empty], panes[4].ShellCommands);
     }
 
+    [Fact]
+    public void Command_objects_preserve_literal_text_and_scope_order()
+    {
+        const string yaml = """
+            shell_command_before:
+              - cmd: echo session
+              - echo second
+            windows:
+              - shell_command_before:
+                  - cmd: echo window
+                panes:
+                  - shell_command_before:
+                      - cmd: echo pane
+                    shell_command:
+                      - cmd: echo main
+                      - echo tail
+            """;
+        const string json = """
+            {"shell_command_before":[{"cmd":"echo session"},"echo second"],
+             "windows":[{"shell_command_before":[{"cmd":"echo window"}],
+             "panes":[{"shell_command_before":[{"cmd":"echo pane"}],
+             "shell_command":[{"cmd":"echo main"},"echo tail"]}]}]}
+            """;
+
+        foreach (string document in new[] { yaml, json })
+        {
+            WorkspaceFile file = WorkspaceFile.Parse(document);
+            WorkspaceWindow window = Assert.Single(file.Windows);
+            WorkspacePane pane = Assert.Single(window.Panes);
+
+            Assert.Equal(["echo session", "echo second"], file.ShellCommandsBefore);
+            Assert.Equal(["echo window"], window.ShellCommandsBefore);
+            Assert.Equal(["echo pane"], pane.ShellCommandsBefore);
+            Assert.Equal(["echo main", "echo tail"], pane.ShellCommands);
+        }
+    }
+
+    [Theory]
+    [InlineData("{cmd: echo ready, enter: false}", "enter")]
+    [InlineData("{}", "cmd")]
+    [InlineData("{cmd: null}", "non-null scalar")]
+    public void Unsupported_command_objects_report_path_and_source_location(
+        string command,
+        string expectedReason)
+    {
+        string yaml = $"windows:\n  - panes:\n      - shell_command:\n          - {command}\n";
+
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(
+            () => WorkspaceFile.Parse(yaml));
+
+        Assert.Contains("shell_command[0]", failure.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedReason, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 4, column", failure.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [MemberData(nameof(InvalidShapes))]
     public void Wrong_value_shapes_are_refused(string yaml) =>
