@@ -4,7 +4,7 @@ namespace LibTmux;
 /// <remarks>
 /// tmux names a notification and then a version-dependent list of words after
 /// it. Modelling every name as its own type would freeze a set that moves
-/// between 3.2a and 3.7b, so the two a caller reacts to are typed and the rest
+/// between 3.2a and 3.7b, so the ones a caller reacts to are typed and the rest
 /// arrive named but unparsed.
 /// </remarks>
 public abstract record TmuxEvent;
@@ -30,10 +30,33 @@ public sealed record TmuxNotificationEvent(
 /// <param name="Count">The events discarded since the previous loss report.</param>
 /// <param name="TotalDropped">The events discarded over this control client's lifetime.</param>
 /// <remarks>
-/// LibTmux synthesizes this event before the next retained event. Command
-/// replies use a separate queue and are never discarded by this buffer.
+/// LibTmux synthesizes this event before the next retained event. A full buffer
+/// discards the oldest pane output first, and a notification only when it holds
+/// no output. Command replies use a separate queue and are never discarded.
 /// </remarks>
-public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent;
+public sealed record TmuxEventsDroppedEvent(long Count, long TotalDropped) : TmuxEvent
+{
+    /// <summary>
+    /// Gets whether every discarded event was pane output, so notifications about
+    /// sessions, windows and layout since the previous report all arrived.
+    /// </summary>
+    public bool OnlyOutput { get; init; }
+}
+
+/// <summary>tmux stopped sending a pane's output to this client.</summary>
+/// <param name="PaneId">The paused pane.</param>
+/// <remarks>
+/// A control session pauses a pane whose output its full event buffer had to
+/// discard, so a flooding pane stops costing either side anything. Output the
+/// pane prints while paused is never sent; capture the pane to read its
+/// screen. The session resumes the pane once the reader catches up.
+/// </remarks>
+public sealed record TmuxPanePausedEvent(PaneId PaneId) : TmuxEvent;
+
+/// <summary>tmux resumed sending a pane's output to this client.</summary>
+/// <param name="PaneId">The resumed pane.</param>
+/// <remarks>Output resumes with what the pane prints next.</remarks>
+public sealed record TmuxPaneContinuedEvent(PaneId PaneId) : TmuxEvent;
 
 /// <summary>The control client ended.</summary>
 /// <param name="Reason">

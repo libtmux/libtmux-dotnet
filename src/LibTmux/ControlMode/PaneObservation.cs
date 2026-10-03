@@ -36,7 +36,9 @@ public static class PaneObservation
     /// <param name="pane">The pane to watch.</param>
     /// <param name="cancellationToken">Stops watching.</param>
     /// <returns>
-    /// The pane's own output, ending with <see cref="TmuxExitEvent" /> when the
+    /// The pane's own output, with <see cref="TmuxPanePausedEvent" /> and
+    /// <see cref="TmuxPaneContinuedEvent" /> around output a slow reader missed,
+    /// ending with <see cref="TmuxExitEvent" /> when the
     /// control client itself ended, or with <see cref="TmuxPaneGoneEvent" />
     /// once the pane is confirmed gone. Loss reports require resynchronization;
     /// buffered output precedes pane termination for watermark-backed control
@@ -87,6 +89,14 @@ public static class PaneObservation
                 {
                     case TmuxOutputEvent output when output.PaneId == paneId:
                         yield return output;
+                        break;
+
+                    case TmuxPanePausedEvent paused when paused.PaneId == paneId:
+                        yield return paused;
+                        break;
+
+                    case TmuxPaneContinuedEvent continued when continued.PaneId == paneId:
+                        yield return continued;
                         break;
 
                     case TmuxEventsDroppedEvent loss:

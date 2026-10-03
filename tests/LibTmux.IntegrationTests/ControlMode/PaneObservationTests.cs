@@ -224,7 +224,7 @@ public sealed class PaneObservationTests
         await pane.SplitAsync(cancellationToken: token);
         await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: token);
         await using var delivery = new WatermarkedSession(control, capacity: 2);
-        delivery.Buffer.TryWrite(new TmuxNotificationEvent("discarded", []));
+        delivery.Buffer.TryWrite(new TmuxOutputEvent(new PaneId(999), "discarded"));
         delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "first"));
         delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last"));
         await pane.KillAsync(cancellationToken: token);
@@ -260,15 +260,14 @@ public sealed class PaneObservationTests
         Assert.True(await reader.MoveNextAsync());
         Assert.Equal("ready", Assert.IsType<TmuxOutputEvent>(reader.Current).Data);
         await pane.KillAsync(cancellationToken: token);
+
+        // Output is discarded first, so a notification is lost only from a
+        // buffer holding none.
         delivery.Buffer.TryWrite(new TmuxNotificationEvent("layout-change", []));
-        delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "first"));
-        delivery.Buffer.TryWrite(new TmuxOutputEvent(pane.Id, "last"));
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("window-renamed", []));
+        delivery.Buffer.TryWrite(new TmuxNotificationEvent("session-changed", []));
         Assert.True(await reader.MoveNextAsync());
-        Assert.IsType<TmuxEventsDroppedEvent>(reader.Current);
-        Assert.True(await reader.MoveNextAsync());
-        Assert.Equal("first", Assert.IsType<TmuxOutputEvent>(reader.Current).Data);
-        Assert.True(await reader.MoveNextAsync());
-        Assert.Equal("last", Assert.IsType<TmuxOutputEvent>(reader.Current).Data);
+        Assert.False(Assert.IsType<TmuxEventsDroppedEvent>(reader.Current).OnlyOutput);
         Assert.True(await reader.MoveNextAsync());
         Assert.IsType<TmuxPaneGoneEvent>(reader.Current);
         Assert.False(await reader.MoveNextAsync());

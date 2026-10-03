@@ -11,25 +11,38 @@ internal enum ControlModeEventRead
 }
 
 /// <summary>Buffers notifications without allowing a slow consumer to stall commands.</summary>
+/// <remarks>
+/// When full it discards the oldest pane output first, so a flooding pane cannot
+/// push out the notifications that describe sessions, windows and layout. Only
+/// a buffer holding no output discards its oldest notification.
+/// </remarks>
 internal sealed class ControlModeEventBuffer
 {
     private readonly int _capacity;
-    private readonly Action? _afterDequeue;
+    private readonly Action<int>? _afterDequeue;
+    private readonly Action<PaneId>? _outputDiscarded;
     private readonly object _gate = new();
-    private readonly Queue<(long Sequence, TmuxEvent Item)> _items = new();
+    private readonly LinkedList<(long Sequence, TmuxEvent Item)> _items = new();
+    private readonly Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> _outputs = new();
     private TaskCompletionSource _changed = NewSignal();
     private long _dropped;
     private long _reported;
+    private bool _notificationDropped;
     private long _lastWritten;
     private ExceptionDispatchInfo? _completionError;
     private bool _completed;
 
-    internal ControlModeEventBuffer(int capacity, Action? afterDequeue = null)
+    internal ControlModeEventBuffer(
+        int capacity,
+        Action<int>? afterDequeue = null,
+        Action<PaneId>? outputDiscarded = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         _capacity = capacity;
         _afterDequeue = afterDequeue;
+        _outputDiscarded = outputDiscarded;
     }
+
 
     internal bool TryWrite(TmuxEvent item)
     {
@@ -45,11 +58,15 @@ internal sealed class ControlModeEventBuffer
             bool wasEmpty = _items.Count == 0;
             if (_items.Count == _capacity)
             {
-                _items.Dequeue();
-                _dropped++;
+                Discard();
             }
 
-            _items.Enqueue((++_lastWritten, item));
+            LinkedListNode<(long Sequence, TmuxEvent Item)> node = _items.AddLast((++_lastWritten, item));
+            if (item is TmuxOutputEvent)
+            {
+                _outputs.Enqueue(node);
+            }
+
             if (wasEmpty)
             {
                 changed = _changed;
@@ -59,6 +76,21 @@ internal sealed class ControlModeEventBuffer
 
         changed?.TrySetResult();
         return true;
+    }
+
+    // Called under the gate with the buffer full.
+    private void Discard()
+    {
+        _dropped++;
+        if (_outputs.TryDequeue(out LinkedListNode<(long Sequence, TmuxEvent Item)>? output))
+        {
+            _items.Remove(output);
+            _outputDiscarded?.Invoke(((TmuxOutputEvent)output.Value.Item).PaneId);
+            return;
+        }
+
+        _items.RemoveFirst();
+        _notificationDropped = true;
     }
 
     internal long CaptureWatermark()
@@ -133,9 +165,9 @@ internal sealed class ControlModeEventBuffer
                 ControlModeEventRead result;
                 lock (_owner._gate)
                 {
-                    if (_owner._items.Count > 0)
+                    if (_owner._items.First is { } head)
                     {
-                        (long sequence, TmuxEvent item) = _owner._items.Peek();
+                        (long sequence, TmuxEvent item) = head.Value;
                         long dropped = _owner._dropped - _owner._reported;
                         if (sequence > watermark)
                         {
@@ -150,12 +182,22 @@ internal sealed class ControlModeEventBuffer
                         if (dropped > 0)
                         {
                             _owner._reported = _owner._dropped;
-                            Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped);
+                            Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped)
+                            {
+                                OnlyOutput = !_owner._notificationDropped,
+                            };
+                            _owner._notificationDropped = false;
                             return ControlModeEventRead.Item;
                         }
 
-                        _owner._items.Dequeue();
-                        _owner._afterDequeue?.Invoke();
+                        _owner._items.RemoveFirst();
+                        if (_owner._outputs.TryPeek(out LinkedListNode<(long Sequence, TmuxEvent Item)>? output)
+                            && ReferenceEquals(output, head))
+                        {
+                            _owner._outputs.Dequeue();
+                        }
+
+                        _owner._afterDequeue?.Invoke(_owner._items.Count);
                         Current = item;
                         _lastConsumed = sequence;
 

@@ -136,8 +136,10 @@ modes differ.
 | `LibTmux.TmuxOptionValue` | One option value as tmux reported it. |
 | `LibTmux.TmuxOptions` | The options of one server, session, window, or pane. |
 | `LibTmux.TmuxOutputEvent` | Bytes a pane wrote. |
+| `LibTmux.TmuxPaneContinuedEvent` | tmux resumed sending a pane's output to this client. |
 | `LibTmux.TmuxPaneException` | Thrown when a pane operation is refused before tmux sees it. |
 | `LibTmux.TmuxPaneGoneEvent` | The pane a stream was watching left its window's arrangement. |
+| `LibTmux.TmuxPanePausedEvent` | tmux stopped sending a pane's output to this client. |
 | `LibTmux.TmuxProtocolException` | Reports an answer from tmux this library could not read. |
 | `LibTmux.TmuxSessionExistsException` | Thrown when a session name is already taken. |
 | `LibTmux.TmuxTransportException` | Reports a process-transport failure. |
@@ -497,8 +499,10 @@ modes differ.
 | `LibTmux.TmuxOptions.SetAsync(LibTmux.SetOptionRequest,System.Threading.CancellationToken)` | Sets one option. |
 | `LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest,System.Threading.CancellationToken)` | Unsets one option, returning it to what it inherits. |
 | `LibTmux.TmuxOutputEvent.#ctor(LibTmux.PaneId,System.String)` | Bytes a pane wrote. |
+| `LibTmux.TmuxPaneContinuedEvent.#ctor(LibTmux.PaneId)` | tmux resumed sending a pane's output to this client. |
 | `LibTmux.TmuxPaneException.#ctor(System.String,LibTmux.PaneId,System.Exception)` | Initializes the exception for one pane. |
 | `LibTmux.TmuxPaneGoneEvent.#ctor(LibTmux.PaneId)` | The pane a stream was watching left its window's arrangement. |
+| `LibTmux.TmuxPanePausedEvent.#ctor(LibTmux.PaneId)` | tmux stopped sending a pane's output to this client. |
 | `LibTmux.TmuxProtocolException.#ctor(System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes the exception for an unreadable answer. |
 | `LibTmux.TmuxProtocolException.#ctor(System.String,System.String,LibTmux.TmuxDispatchState,System.Exception)` | Initializes the exception naming what tmux sent. |
 | `LibTmux.TmuxSessionExistsException.#ctor(System.String,System.String,System.Exception)` | Initializes the exception for one taken session name. |
@@ -956,7 +960,7 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.ColorMode` | Gets the requested tmux color mode. |
 | `LibTmux.ServerConnectionOptions.CommandTimeout` | Gets how long one tmux command may run, or null to wait indefinitely. |
 | `LibTmux.ServerConnectionOptions.ConfigurationFile` | Gets the tmux configuration file. |
-| `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before the oldest are dropped. |
+| `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before pane output is dropped. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
 | `LibTmux.ServerConnectionOptions.Interceptor` | Gets what every tmux invocation on this connection passes through, or null. |
@@ -1056,6 +1060,7 @@ modes differ.
 | `LibTmux.TmuxEnvironmentEntry.Name` | Gets the variable name. |
 | `LibTmux.TmuxEnvironmentEntry.Value` | Gets the value, or null when the variable is marked removed. |
 | `LibTmux.TmuxEventsDroppedEvent.Count` | The events discarded since the previous loss report. |
+| `LibTmux.TmuxEventsDroppedEvent.OnlyOutput` | Gets whether every discarded event was pane output, so notifications about sessions, windows and layout since the previous report all arrived. |
 | `LibTmux.TmuxEventsDroppedEvent.TotalDropped` | The events discarded over this control client's lifetime. |
 | `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null there is tmux's own silence, not something this library failed to capture. |
 | `LibTmux.TmuxHook.Name` | Gets the hook name, without an index. |
@@ -1084,8 +1089,10 @@ modes differ.
 | `LibTmux.TmuxOptions.Scope` | Gets the scope these options are read and written in by default. |
 | `LibTmux.TmuxOutputEvent.Data` | The text, with tmux's escaping already decoded. It is a fragment of a stream rather than a line: tmux sends whatever it has, so a single write by the program in the pane can arrive split across events and one event can carry several lines. |
 | `LibTmux.TmuxOutputEvent.PaneId` | The pane that produced the output. |
+| `LibTmux.TmuxPaneContinuedEvent.PaneId` | The resumed pane. |
 | `LibTmux.TmuxPaneException.PaneId` | Gets the pane the request named. |
 | `LibTmux.TmuxPaneGoneEvent.PaneId` | The pane that is gone. |
+| `LibTmux.TmuxPanePausedEvent.PaneId` | The paused pane. |
 | `LibTmux.TmuxProtocolException.Payload` | Gets what tmux sent that could not be read. |
 | `LibTmux.TmuxSessionExistsException.SessionName` | Gets the session name that is already in use. |
 | `LibTmux.TmuxTransportException.Arguments` | Gets the logical tmux arguments. |

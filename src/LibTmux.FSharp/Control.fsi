@@ -50,8 +50,10 @@ module Control =
     /// <remarks>
     /// <para>
     /// The stream ends with <c>TmuxPaneGoneEvent</c> once the pane is confirmed
-    /// gone, or with <c>TmuxExitEvent</c> when the client ends. It reads the
-    /// client's single event stream, so other events are consumed and dropped.
+    /// gone, or with <c>TmuxExitEvent</c> when the client ends.
+    /// <c>TmuxPanePausedEvent</c> and <c>TmuxPaneContinuedEvent</c> bracket output
+    /// a slow reader missed. It reads the client's single event stream, so other
+    /// events are consumed and dropped.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent once a pane's program exits,

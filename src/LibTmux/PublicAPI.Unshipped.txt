@@ -1297,6 +1297,8 @@ LibTmux.TmuxEventsDroppedEvent.Count.get -> long
 LibTmux.TmuxEventsDroppedEvent.Count.init -> void
 LibTmux.TmuxEventsDroppedEvent.Deconstruct(out long Count, out long TotalDropped) -> void
 LibTmux.TmuxEventsDroppedEvent.Equals(LibTmux.TmuxEventsDroppedEvent? other) -> bool
+LibTmux.TmuxEventsDroppedEvent.OnlyOutput.get -> bool
+LibTmux.TmuxEventsDroppedEvent.OnlyOutput.init -> void
 LibTmux.TmuxEventsDroppedEvent.TmuxEventsDroppedEvent(long Count, long TotalDropped) -> void
 LibTmux.TmuxEventsDroppedEvent.TotalDropped.get -> long
 LibTmux.TmuxEventsDroppedEvent.TotalDropped.init -> void
@@ -1394,6 +1396,12 @@ LibTmux.TmuxOutputEvent.Equals(LibTmux.TmuxOutputEvent? other) -> bool
 LibTmux.TmuxOutputEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxOutputEvent.PaneId.init -> void
 LibTmux.TmuxOutputEvent.TmuxOutputEvent(LibTmux.PaneId PaneId, string! Data) -> void
+LibTmux.TmuxPaneContinuedEvent
+LibTmux.TmuxPaneContinuedEvent.Deconstruct(out LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPaneContinuedEvent.Equals(LibTmux.TmuxPaneContinuedEvent? other) -> bool
+LibTmux.TmuxPaneContinuedEvent.PaneId.get -> LibTmux.PaneId
+LibTmux.TmuxPaneContinuedEvent.PaneId.init -> void
+LibTmux.TmuxPaneContinuedEvent.TmuxPaneContinuedEvent(LibTmux.PaneId PaneId) -> void
 LibTmux.TmuxPaneException
 LibTmux.TmuxPaneException.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneException.TmuxPaneException(string! message, LibTmux.PaneId paneId, System.Exception? innerException = null) -> void
@@ -1403,6 +1411,12 @@ LibTmux.TmuxPaneGoneEvent.Equals(LibTmux.TmuxPaneGoneEvent? other) -> bool
 LibTmux.TmuxPaneGoneEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneGoneEvent.PaneId.init -> void
 LibTmux.TmuxPaneGoneEvent.TmuxPaneGoneEvent(LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPanePausedEvent
+LibTmux.TmuxPanePausedEvent.Deconstruct(out LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPanePausedEvent.Equals(LibTmux.TmuxPanePausedEvent? other) -> bool
+LibTmux.TmuxPanePausedEvent.PaneId.get -> LibTmux.PaneId
+LibTmux.TmuxPanePausedEvent.PaneId.init -> void
+LibTmux.TmuxPanePausedEvent.TmuxPanePausedEvent(LibTmux.PaneId PaneId) -> void
 LibTmux.TmuxProtocolException
 LibTmux.TmuxProtocolException.Payload.get -> string!
 LibTmux.TmuxProtocolException.TmuxProtocolException(string! message, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
@@ -1592,6 +1606,16 @@ override LibTmux.PaneWaitRequest.ToString() -> string!
 override LibTmux.PaneWaitResult.Equals(object? obj) -> bool
 override LibTmux.PaneWaitResult.GetHashCode() -> int
 override LibTmux.PaneWaitResult.ToString() -> string!
+override LibTmux.TmuxPaneContinuedEvent.<Clone>$() -> LibTmux.TmuxPaneContinuedEvent!
+override LibTmux.TmuxPaneContinuedEvent.Equals(object? obj) -> bool
+override LibTmux.TmuxPaneContinuedEvent.GetHashCode() -> int
+override LibTmux.TmuxPaneContinuedEvent.ToString() -> string!
+override LibTmux.TmuxPanePausedEvent.<Clone>$() -> LibTmux.TmuxPanePausedEvent!
+override LibTmux.TmuxPanePausedEvent.Equals(object? obj) -> bool
+override LibTmux.TmuxPanePausedEvent.GetHashCode() -> int
+override LibTmux.TmuxPanePausedEvent.ToString() -> string!
+override sealed LibTmux.TmuxPaneContinuedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
+override sealed LibTmux.TmuxPanePausedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
 static LibTmux.PaneRunRequest.operator !=(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
 static LibTmux.PaneRunRequest.operator ==(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
 static LibTmux.PaneRunResult.operator !=(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool
@@ -1600,6 +1624,10 @@ static LibTmux.PaneWaitRequest.operator !=(LibTmux.PaneWaitRequest? left, LibTmu
 static LibTmux.PaneWaitRequest.operator ==(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
 static LibTmux.PaneWaitResult.operator !=(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
 static LibTmux.PaneWaitResult.operator ==(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
+static LibTmux.TmuxPaneContinuedEvent.operator !=(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
+static LibTmux.TmuxPaneContinuedEvent.operator ==(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
+static LibTmux.TmuxPanePausedEvent.operator !=(LibTmux.TmuxPanePausedEvent? left, LibTmux.TmuxPanePausedEvent? right) -> bool
+static LibTmux.TmuxPanePausedEvent.operator ==(LibTmux.TmuxPanePausedEvent? left, LibTmux.TmuxPanePausedEvent? right) -> bool
 ~override LibTmux.CapturePanePosition.Equals(object obj) -> bool
 override LibTmux.CapturePanePosition.GetHashCode() -> int
 ~override LibTmux.CapturePanePosition.ToString() -> string

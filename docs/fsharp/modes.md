@@ -49,8 +49,9 @@ consumer enumerates it. `Control.foldWhile` reads and awaits one folder call at
 a time. It stops before reading another event when the folder returns
 `StreamStep.Stop`.
 It preserves unknown event types. `TmuxEventsDroppedEvent` means the caller
-must resynchronize from a capture; the example returns it to the caller and
-stops. `TmuxExitEvent` is a normal terminal event. A failed control stream
+must resynchronize from a capture; when its `OnlyOutput` is true, only pane
+output was lost and every notification arrived. The example returns it to the
+caller and stops. `TmuxExitEvent` is a normal terminal event. A failed control stream
 raises after its buffered events.
 
 `Control.iter` is the same borrowed-client pattern when no accumulator is

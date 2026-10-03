@@ -76,8 +76,16 @@ Use `Control.withSession` to own a client for one task, or pass a client from
 
 ## Loss, ends and failures
 
-`TmuxEventsDroppedEvent` reports a bounded-buffer overflow; capture again
-before deriving state from later events. `TmuxExitEvent` precedes normal stream
+A client buffers 512 events by default
+(`ServerConnectionOptions.ControlModeEventBufferCapacity`). When a reader falls
+behind, the buffer discards the oldest pane output first, so notifications
+about sessions, windows and layout survive a flooding pane.
+`TmuxEventsDroppedEvent` reports the loss; its `OnlyOutput` is true when no
+notification was discarded, so state derived from notifications is still
+exact. The client then pauses the flooding pane in tmux until the reader
+catches up: `TmuxPanePausedEvent` and `TmuxPaneContinuedEvent` bracket output
+the pane printed that the reader never receives. Capture the pane to read its
+screen after a gap. `TmuxExitEvent` precedes normal stream
 completion. A stream fault arrives after buffered events. Cancellation stops
 waiting and disposes the reader; it does not undo a command tmux already
 received.

@@ -157,8 +157,10 @@ Streams one pane&#39;s output from a borrowed control client.
 
 <p class='fsdocs-para'>
  The stream ends with <code>TmuxPaneGoneEvent</code> once the pane is confirmed
- gone, or with <code>TmuxExitEvent</code> when the client ends. It reads the
- client&#39;s single event stream, so other events are consumed and dropped.
+ gone, or with <code>TmuxExitEvent</code> when the client ends.
+ <code>TmuxPanePausedEvent</code> and <code>TmuxPaneContinuedEvent</code> bracket output
+ a slow reader missed. It reads the client&#39;s single event stream, so other
+ events are consumed and dropped.
  </p><p class='fsdocs-para'>
  tmux discards output it has not yet sent once a pane&#39;s program exits,
  so the last lines of a program that exits at once may never arrive.

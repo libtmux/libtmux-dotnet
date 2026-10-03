@@ -24,16 +24,18 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     private readonly ControlModeLimits _limits;
     private readonly Func<string> _sentinelFactory;
     private readonly TimeProvider _timeProvider;
-    /// <summary>How many unread events are held before the oldest are dropped.</summary>
+    /// <summary>How many unread events are held before the oldest output is dropped.</summary>
     /// <remarks>
     /// A pane can outpace any reader, and a caller may never read
     /// <see cref="Events"/> at all, so unbounded buffering has no ceiling.
-    /// The buffer drops the oldest event instead of blocking, since blocking
-    /// would also stall the reader that completes commands.
+    /// The buffer drops the oldest pane output instead of blocking, since
+    /// blocking would also stall the reader that completes commands, and the
+    /// session then pauses that pane in tmux until the reader catches up.
     /// </remarks>
     internal const int EventBufferCapacity = 512;
 
     private readonly ControlModeEventBuffer _events;
+    private readonly ControlModePaneFlow _flow;
 
     private readonly Queue<PendingControlModeCommand> _pending = new();
     private readonly SemaphoreSlim _pendingSlots;
@@ -64,7 +66,9 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         int? eventBufferCapacity = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
-        _events = new ControlModeEventBuffer(eventBufferCapacity ?? EventBufferCapacity);
+        int capacity = eventBufferCapacity ?? EventBufferCapacity;
+        _flow = new ControlModePaneFlow(SendFlowCommandAsync, capacity);
+        _events = new ControlModeEventBuffer(capacity, _flow.Dequeued, _flow.OutputDiscarded);
         _generation = generation;
         _limits = limits ?? new ControlModeLimits();
         _pendingSlots = new SemaphoreSlim(
@@ -201,6 +205,13 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             ControlModeCommandRenderer.GetRenderedByteCount(command),
             cancellationToken);
     }
+
+    private Task<IReadOnlyList<string>> SendFlowCommandAsync(TmuxCommand command) =>
+        SendCoreAsync(
+            command,
+            renderedCommand: null,
+            ControlModeCommandRenderer.GetRenderedByteCount(command),
+            CancellationToken.None);
 
     private static bool IsUnsupportedRunShell(TmuxCommand command)
     {
@@ -486,6 +497,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             disposal = _disposeTask ??= DisposeCoreAsync();
         }
 
+        _flow.Stop();
+
         await disposal.ConfigureAwait(false);
     }
 
@@ -564,6 +577,7 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 _events.TryWrite(new TmuxExitEvent(exitReason));
             }
 
+            _flow.Stop();
             _events.Complete(pumpFailure);
             string terminalMessage = _ready.Task.IsCompletedSuccessfully
                 ? "The tmux control client exited before answering a pending command."
@@ -680,7 +694,31 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 TmuxDispatchState.Unknown);
         }
 
+        if (!failed && string.Equals(pending.Command.Name, "refresh-client", StringComparison.Ordinal))
+        {
+            PublishPaneFlow(lines);
+        }
+
         pending.AddBlock(lines, blockBytes, failed, _limits);
+    }
+
+    // tmux writes the %pause or %continue a refresh-client -A causes inside
+    // that command's own reply block, not as a notification of its own.
+    private void PublishPaneFlow(List<string> lines)
+    {
+        foreach (string line in lines)
+        {
+            if (!line.StartsWith('%'))
+            {
+                continue;
+            }
+
+            (string name, IReadOnlyList<string> arguments) = SplitNotification(line);
+            if (ToEvent(name, arguments) is TmuxPanePausedEvent or TmuxPaneContinuedEvent)
+            {
+                _events.TryWrite(ToEvent(name, arguments));
+            }
+        }
     }
 
     private void CompletePending(PendingControlModeCommand pending)
@@ -712,6 +750,17 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
 
     private static TmuxEvent ToEvent(string name, IReadOnlyList<string> arguments)
     {
+        if (arguments is [string paneText] && PaneId.TryParse(paneText, out PaneId flowPane))
+        {
+            switch (name)
+            {
+                case "pause":
+                    return new TmuxPanePausedEvent(flowPane);
+                case "continue":
+                    return new TmuxPaneContinuedEvent(flowPane);
+            }
+        }
+
         if (!string.Equals(name, "output", StringComparison.Ordinal)
             || arguments.Count == 0
             || !PaneId.TryParse(arguments[0], out PaneId pane))
