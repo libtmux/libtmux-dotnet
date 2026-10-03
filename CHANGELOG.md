@@ -12,6 +12,25 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.18] — 2026-10-03
+
+`LibTmux.FSharp` reads every level of a server through one query shape whose
+filters tmux narrows with `-f`, and gains waits, send-and-wait and runs that
+the core now exposes, a live server mirror, typed options, session
+descriptions and command chains. Owned servers are gone when their disposal
+returns, and `LibTmux.FSharp` loads in projects built with the .NET 8 SDK. A
+few F# functions are replaced by queries and streams; see Removed.
+
+### Added
+
 - `LibTmux.FSharp.Server` adds `tryFindSession`, `tryFindWindow`, and
   `tryFindClient`. Lookups return `None` for absent objects and propagate
   read errors and cancellation.
@@ -1321,7 +1340,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.17...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.18...HEAD
+[0.0.0-alpha.18]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.18
 [0.0.0-alpha.17]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.17
 [0.0.0-alpha.16]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.16
 [0.0.0-alpha.15]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.15

@@ -37,7 +37,7 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.17, )",
+          "LibTmux": "[0.0.0-alpha.18, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
@@ -93,7 +93,7 @@
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.17, )",
+          "LibTmux": "[0.0.0-alpha.18, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },

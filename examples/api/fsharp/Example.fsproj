@@ -10,6 +10,6 @@
   <ItemGroup>
     <Compile Include="Program.fs" />
     <PackageReference Include="FSharp.Core" Version="[10.1.302]" />
-    <PackageReference Include="LibTmux.FSharp" Version="[0.0.0-alpha.17]" />
+    <PackageReference Include="LibTmux.FSharp" Version="[0.0.0-alpha.18]" />
   </ItemGroup>
 </Project>
