@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LibTmux.Query;
 
@@ -125,6 +126,12 @@ internal static class QueryFieldCatalog
         return false;
     }
 
+    internal static bool TryGetTmuxFormat(string wireName, [NotNullWhen(true)] out string? format)
+    {
+        format = FieldsByWireName.TryGetValue(wireName, out FieldDefinition field) ? field.TmuxFormat : null;
+        return format is not null;
+    }
+
     internal static bool TryGetWireName(Type owner, string property, out string wireName)
     {
         foreach (FieldDefinition field in Fields)
@@ -192,5 +199,14 @@ internal static class QueryFieldCatalog
         Type? Owner = null,
         string? Property = null,
         QueryFieldAccessor? Scalar = null,
-        QueryFieldAccessor? Relation = null);
+        QueryFieldAccessor? Relation = null)
+    {
+        // The tmux format variable a -f filter reads, when tmux has one.
+        internal string? TmuxFormat => WireName switch
+        {
+            "client_id" => null,
+            "pane_command" => "pane_current_command",
+            _ => WireName,
+        };
+    }
 }
