@@ -128,7 +128,9 @@ def fsharp_group(member: dict[str, str]) -> str:
 # namespace: LibTmux.Server and the facade's Server module are different things.
 OPENED_NAMESPACE = re.compile(
     r"\b(?:Microsoft\.FSharp\.(?:Core|Collections|Control)|System\.Threading\.Tasks"
-    r"|System\.Threading|System\.Collections\.Generic|System|LibTmux\.FSharp)\.(?=[A-Za-z_])"
+    r"|System\.Threading|System\.Collections\.Generic|LibTmux\.FSharp)\.(?=[A-Za-z_])"
+    # Bare System only before a type, so System.Reflection.X keeps its namespace.
+    r"|\bSystem\.(?=[A-Za-z_]\w*(?![\w.]))"
 )
 
 

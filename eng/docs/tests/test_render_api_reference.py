@@ -141,6 +141,9 @@ def test_fsharp_renderer_writes_names_as_source_spells_them() -> None:
     assert short_names("val name: LibTmux.FSharp.Field<LibTmux.Client,System.String>") == (
         "val name: Field<LibTmux.Client,String>"
     )
+    assert short_names("val p: System.Reflection.PropertyInfo -> System.TimeSpan") == (
+        "val p: System.Reflection.PropertyInfo -> TimeSpan"
+    )
 
 
 def test_fsharp_check_rejects_stale_generated_output(tmp_path: pathlib.Path, capsys) -> None:

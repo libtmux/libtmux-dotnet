@@ -44,7 +44,8 @@ let greetingAsync (cancellationToken: CancellationToken) =
 ```
 <!-- endfsharp-snippet -->
 
-A test asserts on what this returns, in any test framework: with xUnit,
+A test asserts on what this returns, in any test framework. With xUnit, bind
+`let! greeting = greetingAsync cancellationToken` and check
 `Assert.Equal<string list>([ "hello" ], greeting)`.
 
 `CreateServerAsync`, `CreateSessionAsync` and `CreateWindowAsync` create less
@@ -61,8 +62,8 @@ sending keys races the program. Wait for the result instead:
   test expects, or report `TimedOut`.
 - `Mirror.waitUntil` waits for sessions, windows and panes to reach a state.
 
-Each of these sleeps on tmux's own notifications, so a passing test finishes
-as soon as tmux does, and a failing one at its timeout.
+Each returns when tmux reports the state rather than after a fixed sleep, so a
+passing test finishes as soon as tmux does, and a failing one at its timeout.
 
 ## Run tests in CI
 

@@ -205,8 +205,9 @@ let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) 
 ```
 <!-- endfsharp-snippet -->
 
-By default `WorkspaceBuilder` waits for each pane's shell prompt before sending
-its commands, and `BuildAsync` returns the session and windows it created.
+`WorkspaceBuilder` sends each pane its commands as soon as the pane exists; pass
+`PaneReadiness.Always` to wait for each shell's prompt first (the default waits
+only for zsh). `BuildAsync` returns the session and windows it created.
 `WorkspaceFile.Parse` reads the same description from tmuxp YAML text.
 
 ## Read a snapshot

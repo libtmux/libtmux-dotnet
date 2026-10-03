@@ -263,6 +263,20 @@ public sealed class PushdownDifferentialTests
         await Agree<Window>(window => window.Index == 0 && window.Width >= 120, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => window.Height < 40, windows, QueryTarget.Window, Key);
 
+        // Escaped operands inside tmux's window and pane loops.
+        Session[] sessions = [.. snapshot.Sessions];
+        string SessionKey(Session session) => session.Id.ToString();
+        await Agree<Session>(
+            session => session.Windows.Any(window => window.Panes.Any(pane => pane.Title == "b#uild,x}")),
+            sessions,
+            QueryTarget.Session,
+            SessionKey);
+        await Agree<Session>(
+            session => session.Windows.Any(window => window.Panes.Any(pane => pane.CurrentPath == path)),
+            sessions,
+            QueryTarget.Session,
+            SessionKey);
+
         Assert.True(panes.Length >= 3 && path.Length > 0);
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
