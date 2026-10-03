@@ -238,9 +238,21 @@ public static class PaneObservation
 
         async Task CheckForGoneAsync()
         {
-            foreach (Pane pane in alive.ToArray())
+            Pane[] watched = [.. alive];
+            if (watched.Length == 0)
             {
-                if (await CheckAsync(pane).ConfigureAwait(false))
+                return;
+            }
+
+            // One listing answers for every watched pane of one server; panes
+            // from different server generations are checked one by one, so a
+            // stale one still fails as stale.
+            IReadOnlySet<string>? listed = watched.All(pane => pane.Generation == watched[0].Generation)
+                ? await ListAsync(watched[0].Generation).ConfigureAwait(false)
+                : null;
+            foreach (Pane pane in watched)
+            {
+                if (listed?.Contains(pane.Id.ToString()) ?? await CheckAsync(pane).ConfigureAwait(false))
                 {
                     continue;
                 }
@@ -255,6 +267,34 @@ public static class PaneObservation
 
                 alive.Remove(pane);
                 ending.Enqueue(pane.Id, (source.CaptureEventWatermark(), found++));
+            }
+        }
+
+        async Task<IReadOnlySet<string>?> ListAsync(ServerGeneration generation)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<string> reply = await session.SendAsync(
+                        TmuxCommand.Create("list-panes", "-a", "-F", "#{pane_id}") with
+                        {
+                            RequiredGeneration = generation,
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return reply.ToHashSet(StringComparer.Ordinal);
+            }
+            catch (InvalidOperationException error) when (
+                error is not StaleServerGenerationException && !session.IsRunning)
+            {
+                // The client is ending, and its exit ends the watch; every
+                // pane counts as present until then, as one by one.
+                return alive.Select(pane => pane.Id.ToString()).ToHashSet(StringComparer.Ordinal);
+            }
+            catch (Exception error)
+            {
+                failure = error;
+                throw;
             }
         }
 

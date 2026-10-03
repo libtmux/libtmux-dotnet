@@ -11,8 +11,8 @@ namespace LibTmux.Benchmarks;
 /// <remarks>
 /// A synthetic client delivers output spread over eight panes and answers the
 /// watch's liveness checks, so the timing is the stream, not tmux. The watch
-/// also asks once per watched pane whether it still exists, which the filter
-/// does not; against a real server each of those is one tmux round trip.
+/// also lists the server's panes to see which watched panes remain, which the
+/// filter does not; against a real server that is one tmux round trip.
 /// </remarks>
 [MemoryDiagnoser]
 [Config(typeof(FSharpControlFoldBenchmarkConfig))]
@@ -108,12 +108,10 @@ public class FSharpPaneWatchBenchmarks : IAsyncDisposable
         public IAsyncEnumerator<TmuxEvent> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
             new Reader(events);
 
-        // The watch asks display-message for each pane's id; every pane is alive.
-        public Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default)
-        {
-            int target = command.Arguments.ToList().IndexOf("-t") + 1;
-            return Task.FromResult<IReadOnlyList<string>>([command.Arguments[target]]);
-        }
+        // The watch lists the server's panes; every pane is alive.
+        public Task<IReadOnlyList<string>> SendAsync(TmuxCommand command, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(
+                [.. Enumerable.Range(0, PaneCount).Select(id => new PaneId(id).ToString())]);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

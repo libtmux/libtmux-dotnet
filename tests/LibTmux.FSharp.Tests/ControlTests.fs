@@ -63,20 +63,22 @@ type private EventSession(events: TmuxEvent list, ?failure: exn, ?cleanupFailure
             | Some error -> ValueTask(Task.FromException(error))
             | None -> ValueTask()
 
-// A pane watch asks display-message for each watched pane's id; this
-// answers only for the panes it was told are alive.
+// A pane watch lists the server's panes; this lists only the panes it was
+// told are alive.
 type private LivePaneSession(events: TmuxEvent list, alive: Set<string>) =
     let source = EventSession(events) :> IControlModeSession
+    let mutable probes = 0
+
+    member _.Probes = probes
 
     interface IControlModeSession with
         member _.Events = source.Events
         member _.IsRunning = true
 
         member _.SendAsync(command, _) =
-            let target =
-                command.Arguments |> Seq.skipWhile ((<>) "-t") |> Seq.skip 1 |> Seq.head
-
-            Task.FromResult<IReadOnlyList<string>>(if alive.Contains target then [ target ] else [])
+            Assert.Equal("list-panes", command.Name)
+            probes <- probes + 1
+            Task.FromResult<IReadOnlyList<string>>(List.ofSeq alive)
 
         member _.DisposeAsync() = ValueTask()
 
@@ -102,6 +104,7 @@ module ControlTests =
                 LivePaneSession(
                     [
                         TmuxOutputEvent(PaneId 17, "build")
+                        TmuxNotificationEvent("layout-change", [ "@1" ])
                         TmuxOutputEvent(PaneId 99, "other")
                         TmuxOutputEvent(PaneId 18, "test")
                     ],
@@ -122,6 +125,9 @@ module ControlTests =
                     []
 
             Assert.Equal<string list>([ "build"; "test" ], printed)
+            // One listing answers for both panes when the watch starts, and
+            // one after the layout change; asking pane by pane takes four.
+            Assert.Equal(2, session.Probes)
 
             Assert.Throws<ArgumentException>(fun () -> session |> Control.watchPanes [] |> ignore)
             |> ignore

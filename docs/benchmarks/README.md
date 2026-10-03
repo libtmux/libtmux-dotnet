@@ -284,14 +284,16 @@ $ uv run python eng/benchmarks/record_fsharp.py \
 reads 256 output events spread over eight panes from a synthetic client and
 keeps one, two or eight panes' output, once by filtering `Control.events` by
 hand and once through `Control.watchPanes`. Both must count the same output
-before timing. The watch also asks whether each watched pane still exists
-when it starts and after each layout change; the synthetic client answers at
-once, and against a real server each answer is one tmux round trip.
+before timing. The watch also lists the server's panes when it starts and
+after each layout change, to see which watched panes remain; the synthetic
+client answers at once, and against a real server each listing is one tmux
+round trip whatever the number of panes.
 
 In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
 1.5 to 1.7 µs for every count of panes, and the watch 5.1 µs for one pane,
 5.9 µs for two and 11.4 µs for eight: about 0.9 µs for each pane checked, on
-top of a fixed 4.2 µs, across 256 events.
+top of a fixed 4.2 µs, across 256 events. That run checked each pane with a
+command of its own, before the watch listed them in one.
 
 ## F# live mirror
 
