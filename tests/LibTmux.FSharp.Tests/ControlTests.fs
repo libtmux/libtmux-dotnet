@@ -469,7 +469,9 @@ module ContextTests =
         // Interpolated strings and the printf family reach FSharp.Core's
         // reflection-based formatter, which NativeAOT rejects.
         let printf =
-            Text.RegularExpressions.Regex(@"\$""|(?<![A-Za-z])(sprintf|printfn?|failwithf|kprintf)\b")
+            Text.RegularExpressions.Regex(
+                @"\$@?""|@\$""|\b(e?printfn?|fprintfn?|sprintf|bprintf|k[sfb]?printf|failwithf)\b"
+            )
 
         for source in sources do
             Assert.DoesNotMatch(printf, IO.File.ReadAllText(source))
