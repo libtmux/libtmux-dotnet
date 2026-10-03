@@ -1,11 +1,13 @@
 # Execution modes
 
-The F# companion forwards task-based core operations. The caller chooses the
-subprocess, control client, or command chain.
+The caller chooses how commands reach tmux: one tmux process per command, a
+control client that stays attached, or a chain that runs several commands in
+one tmux call.
 
-Use one-shot core operations when one task describes the work. Use a control
-client when tmux must report work that nobody explicitly requested. A command
-chain remains an explicit core value.
+Use one-shot operations when one task describes the work. Use a control client
+when tmux must report work that nobody explicitly requested. Use the `Chain`
+module when several commands should run together, each acting on what the one
+before made.
 
 ## Control mode
 
