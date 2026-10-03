@@ -120,7 +120,9 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
         pytest.skip("outer loop: set LIBTMUX_PACKAGE_ARTIFACTS after Release pack")
     native = shutil.which(os.environ.get("LIBTMUX_TMUX", "tmux"))
     assert native, "the native failure control requires tmux"
-    wrapper = tmp_path / "tmux-fail-capture"
+    # F# programs run the tmux on PATH and C# ones LIBTMUX_TMUX; both reach this.
+    wrapper = tmp_path / "bin" / "tmux"
+    wrapper.parent.mkdir()
     wrapper.write_text(
         "#!/bin/sh\n"
         'case "$*" in\n'
@@ -130,6 +132,7 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     )
     wrapper.chmod(0o755)
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
+    monkeypatch.setenv("PATH", f"{wrapper.parent}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test")
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
     manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"]
