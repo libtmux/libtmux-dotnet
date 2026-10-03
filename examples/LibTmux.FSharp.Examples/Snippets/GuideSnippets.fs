@@ -43,17 +43,18 @@ module internal GuideSnippets =
                 |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
                 |> Query.list cancellationToken
 
-            let pane = shells[0]
+            match shells |> Seq.tryHead with
+            | None -> return None
+            | Some pane ->
+                // Type a command and wait for what it prints, not for its echo.
+                let! ready =
+                    pane
+                    |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
 
-            // Type a command and wait for what it prints, not for its echo.
-            let! ready =
-                pane
-                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+                // Run a command to its exit status and read what it printed.
+                let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
 
-            // Run a command to its exit status and read what it printed.
-            let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
-
-            return ready.Found, listing.Succeeded, listing.Output
+                return Some(ready.Found, listing.Succeeded, listing.Output)
         }
     // endfsharp-snippet
 
