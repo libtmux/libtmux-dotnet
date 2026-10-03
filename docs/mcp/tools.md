@@ -65,6 +65,58 @@ Earlier tier-era names and removed families are mapped in the
 | `wait_for_channel` | manage | none | change | tmux-metadata | Block until something signals a tmux wait-for channel with 'tmux wait-for -S <channel>'. |
 | `wait_for_text` | inspect | none | observe | terminal-content, tmux-metadata | Wait until a pane prints something matching one of these patterns, then return. |
 
+## Parameters
+
+Each tool's input schema describes its parameters; `tools/list` returns it.
+
+| Tool | Required | Optional |
+|---|---|---|
+| `call_read_tools_batch` | `operations` | `onError` |
+| `capture_pane` | none | `paneId`, `includeHistory`, `maxLines`, `joinWrappedLines` |
+| `capture_since` | none | `paneId`, `cursor`, `maxLines` |
+| `clear_pane_scrollback` | none | `paneId` |
+| `create_session` | none | `name`, `startDirectory`, `width`, `height` |
+| `create_window` | none | `session`, `name`, `startDirectory` |
+| `find_pane_by_position` | `windowId`, `position` | none |
+| `get_pane_info` | `paneId` | none |
+| `get_server_info` | none | none |
+| `get_session_info` | `session` | none |
+| `get_tmux_variables` | `names` | `paneId` |
+| `get_window_info` | `windowId` | none |
+| `kill_pane` | `paneId` | none |
+| `kill_session` | `session` | none |
+| `kill_window` | `windowId` | none |
+| `list_panes` | none | `session`, `windowId` |
+| `list_sessions` | none | none |
+| `list_windows` | none | `session` |
+| `move_window` | `windowId` | `destination`, `session`, `replaceExisting` |
+| `paste_text` | `text` | `paneId`, `bracketed`, `enter` |
+| `rename_session` | `name` | `session` |
+| `rename_window` | `name` | `windowId` |
+| `resize_pane` | none | `paneId`, `width`, `height`, `zoom` |
+| `resize_window` | none | `windowId`, `width`, `height` |
+| `respawn_pane` | none | `paneId`, `startDirectory`, `killExistingProcess` |
+| `run_shell_command` | `command` | `paneId`, `timeoutSeconds`, `maxLines`, `suppressHistory` |
+| `search_panes` | `pattern` | `session`, `includeHistory`, `ignoreCase`, `maxMatchesPerPane` |
+| `select_layout` | none | `windowId`, `layout` |
+| `select_pane` | `paneId` | none |
+| `select_window` | `windowId` | none |
+| `send_keys` | `keys` | `paneId`, `enter`, `literal`, `suppressHistory` |
+| `send_keys_batch` | `operations` | `onError` |
+| `set_history_limit` | `lines`, `session` | none |
+| `set_mouse_enabled` | `enabled` | none |
+| `set_pane_title` | `title` | `paneId` |
+| `set_synchronize_panes` | `enabled` | `windowId` |
+| `show_environment` | none | `name`, `session` |
+| `show_hooks` | none | `scope`, `paneId` |
+| `show_option` | `name` | `scope`, `paneId` |
+| `signal_channel` | `channel` | none |
+| `snapshot_pane` | none | `paneId`, `maxLines` |
+| `split_window` | none | `paneId`, `direction`, `startDirectory`, `percentage` |
+| `swap_pane` | `paneId`, `targetPaneId` | `detach`, `keepZoom` |
+| `wait_for_channel` | `channel` | `timeoutSeconds` |
+| `wait_for_text` | none | `paneId`, `patterns`, `stopPatterns`, `timeoutSeconds`, `ignoreCase` |
+
 ## Resources
 
 | URI | Does |
