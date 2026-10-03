@@ -22,7 +22,7 @@ Retains state and reads the next event.
 
 **state**: <code>'State</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L12)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L13)
 
 <a name="Stop"></a>
 
@@ -34,7 +34,7 @@ Retains state and stops before reading another event.
 
 **state**: <code>'State</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L14)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L15)
 
 ### Instance members
 

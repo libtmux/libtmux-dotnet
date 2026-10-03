@@ -132,3 +132,23 @@ module Control =
         match error.Data[CleanupFailureKey] with
         | :? exn as cleanup -> Some cleanup
         | _ -> None
+
+[<RequireQualifiedAccess>]
+module Mirror =
+    let start (cancellationToken: CancellationToken) (anchor: LibTmux.Session) =
+        ServerMirror.OpenAsync(anchor, cancellationToken = cancellationToken)
+
+    let startRefreshing (cancellationToken: CancellationToken) (every: TimeSpan) (anchor: LibTmux.Session) =
+        ServerMirror.OpenAsync(anchor, every, cancellationToken)
+
+    let current (mirror: ServerMirror) = mirror.Current
+
+    let views (mirror: ServerMirror) = mirror.WatchAsync()
+
+    let waitUntil
+        (cancellationToken: CancellationToken)
+        (timeout: TimeSpan)
+        (condition: ServerMirrorView -> bool)
+        (mirror: ServerMirror)
+        =
+        mirror.WaitUntilAsync(Func<_, _> condition, timeout, cancellationToken)

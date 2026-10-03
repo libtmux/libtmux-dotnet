@@ -1421,6 +1421,192 @@
       "returnType": "'T -> Microsoft.FSharp.Core.bool"
     },
     {
+      "id": "M:LibTmux.FSharp.Mirror.current(LibTmux.ServerMirror)",
+      "package": "LibTmux.FSharp",
+      "name": "current",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val current: mirror: LibTmux.ServerMirror -> LibTmux.ServerMirrorView",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.ServerMirror -> LibTmux.ServerMirrorView"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "mirror",
+          "optional": false,
+          "type": "LibTmux.ServerMirror"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "current",
+      "genericParameters": [],
+      "returnType": "LibTmux.ServerMirrorView"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Mirror.start(System.Threading.CancellationToken,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "start",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val start: cancellationToken: System.Threading.CancellationToken -> anchor: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "anchor",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "start",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirror>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Mirror.startRefreshing(System.Threading.CancellationToken,System.TimeSpan,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "startRefreshing",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val startRefreshing: cancellationToken: System.Threading.CancellationToken -> every: System.TimeSpan -> anchor: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "every",
+          "optional": false,
+          "type": "System.TimeSpan"
+        },
+        {
+          "name": "anchor",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1
+      ],
+      "compiledName": "startRefreshing",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirror>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Mirror.views(LibTmux.ServerMirror)",
+      "package": "LibTmux.FSharp",
+      "name": "views",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val views: mirror: LibTmux.ServerMirror -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.ServerMirror -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "mirror",
+          "optional": false,
+          "type": "LibTmux.ServerMirror"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "views",
+      "genericParameters": [],
+      "returnType": "System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Mirror.waitUntil(System.Threading.CancellationToken,System.TimeSpan,Microsoft.FSharp.Core.FSharpFunc{LibTmux.ServerMirrorView,System.Boolean},LibTmux.ServerMirror)",
+      "package": "LibTmux.FSharp",
+      "name": "waitUntil",
+      "declaringType": "T:LibTmux.FSharp.Mirror",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val waitUntil: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> condition: (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> mirror: LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> System.TimeSpan -> (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "timeout",
+          "optional": false,
+          "type": "System.TimeSpan"
+        },
+        {
+          "name": "condition",
+          "optional": false,
+          "type": "LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool"
+        },
+        {
+          "name": "mirror",
+          "optional": false,
+          "type": "LibTmux.ServerMirror"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "compiledName": "waitUntil",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.ServerMirrorView>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)",
       "package": "LibTmux.FSharp",
       "name": "capture",
@@ -3241,6 +3427,33 @@
           "name": "T"
         }
       ],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.Mirror",
+      "package": "LibTmux.FSharp",
+      "name": "Mirror",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.Mirror",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Mirror"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
       "publicRepresentation": true
     },
     {

@@ -86,6 +86,17 @@ Core handles and request types appear in the
 | `val toDocument: filter: LibTmux.FSharp.Filter<'T> -> LibTmux.Query.QueryDocument` | Returns the core document validated when the filter was constructed. |
 | `val toPredicate: filter: LibTmux.FSharp.Filter<'T> -> ('T -> Microsoft.FSharp.Core.bool)` | Returns a predicate compiled once for native lazy filtering. |
 
+## Mirror
+
+| Signature | Summary |
+|---|---|
+| `LibTmux.FSharp.Mirror` | Follows a server's sessions, windows, panes and clients as tmux announces changes. |
+| `val current: mirror: LibTmux.ServerMirror -> LibTmux.ServerMirrorView` | Returns the latest published view. |
+| `val start: cancellationToken: System.Threading.CancellationToken -> anchor: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>` | Mirrors the server an anchor session belongs to, capturing on each announcement. |
+| `val startRefreshing: cancellationToken: System.Threading.CancellationToken -> every: System.TimeSpan -> anchor: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.ServerMirror>` | Mirrors a server, also capturing whenever it has been quiet for an interval. |
+| `val views: mirror: LibTmux.ServerMirror -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView>` | Streams the current view and each newer one, skipping views published while the reader was busy. |
+| `val waitUntil: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> condition: (LibTmux.ServerMirrorView -> Microsoft.FSharp.Core.bool) -> mirror: LibTmux.ServerMirror -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView>` | Waits until a view satisfies a condition, testing the current view first. |
+
 ## Pane
 
 | Signature | Summary |

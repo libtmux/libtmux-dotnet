@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -84,3 +85,40 @@ module Control =
     /// unchanged and attach the cleanup's; this reads it back.
     /// </remarks>
     val cleanupFailure: error: exn -> exn option
+
+/// <summary>Follows a server's sessions, windows, panes and clients as tmux announces changes.</summary>
+/// <remarks>
+/// Each announcement starts a fresh capture; a capture that finds nothing
+/// different publishes nothing. tmux does not announce a pane's running command
+/// or working directory, nor layout changes in other sessions; use
+/// <c>startRefreshing</c> to see those within an interval.
+/// </remarks>
+[<RequireQualifiedAccess>]
+module Mirror =
+    /// <summary>Mirrors the server an anchor session belongs to, capturing on each announcement.</summary>
+    /// <remarks>The caller owns and asynchronously disposes the returned mirror.</remarks>
+    /// <exception cref="T:LibTmux.IncompleteSnapshotException">The session was not read through a server.</exception>
+    val start: cancellationToken: CancellationToken -> anchor: LibTmux.Session -> Task<ServerMirror>
+
+    /// <summary>Mirrors a server, also capturing whenever it has been quiet for an interval.</summary>
+    /// <remarks>The caller owns and asynchronously disposes the returned mirror.</remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The interval is negative.</exception>
+    val startRefreshing:
+        cancellationToken: CancellationToken -> every: TimeSpan -> anchor: LibTmux.Session -> Task<ServerMirror>
+
+    /// <summary>Returns the latest published view.</summary>
+    val current: mirror: ServerMirror -> ServerMirrorView
+
+    /// <summary>Streams the current view and each newer one, skipping views published while the reader was busy.</summary>
+    /// <remarks>The stream is cold, ends when the mirror ends, and raises the failure that ended it.</remarks>
+    val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>
+
+    /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
+    /// <exception cref="T:LibTmux.TmuxWaitTimeoutException">No view satisfied the condition in time.</exception>
+    /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
+    val waitUntil:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        condition: (ServerMirrorView -> bool) ->
+        mirror: ServerMirror ->
+            Task<ServerMirrorView>

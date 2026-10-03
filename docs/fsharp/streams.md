@@ -68,6 +68,87 @@ last lines of a program that exits at once may never arrive on any control
 client. Read final output with `Pane.run`, or capture a pane kept with
 `remain-on-exit`.
 
+## Follow live state
+
+`Mirror.start` keeps a current copy of a server's sessions, windows, panes and
+clients. Each change tmux announces starts a fresh capture, and a capture that
+finds nothing different publishes nothing, so `Mirror.waitUntil` and
+`Mirror.views` see each distinct state once. tmux does not announce a pane's
+running command or working directory, nor a layout change in a session the
+mirror is not attached to; `Mirror.startRefreshing` also captures whenever the
+mirror has been quiet for an interval:
+
+<!-- fsharp-snippet: LiveState run -->
+```fsharp run
+open System
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let runAsync () =
+    task {
+        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 20.)
+        let token = deadline.Token
+
+        let options =
+            ServerConnectionOptions(
+                SocketName = "fsharp-live-" + Guid.NewGuid().ToString("N"),
+                ConfigurationFile = "/dev/null",
+                TmuxBinaryPath =
+                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+                     |> Option.ofObj
+                     |> Option.defaultValue "tmux")
+            )
+
+        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+
+        let! session =
+            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
+
+        // Captures again on each change tmux announces, and every 200 ms for
+        // changes it does not, such as the command a pane runs.
+        use! mirror =
+            session |> Mirror.startRefreshing token (TimeSpan.FromMilliseconds 200.)
+
+        let! _ =
+            session.CreateWindowAsync(NewWindowRequest(Name = "logs", Command = "/bin/sh"), token)
+
+        let! withLogs =
+            mirror
+            |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
+                view.Server.Windows |> Seq.exists (fun window -> window.Name = "logs"))
+
+        let! panes = session |> Session.panes |> Query.list token
+
+        do!
+            panes[0]
+            |> Pane.sendKeys token (SendKeysRequest(Text = "exec sleep 30", Literal = true))
+
+        let! sleeping =
+            mirror
+            |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
+                view.Server.Panes |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
+
+        printfn "windows: %s" (String.Join(", ", [ for window in withLogs.Server.Windows -> window.Name ]))
+
+        printfn
+            "sleeping panes: %d"
+            (sleeping.Server.Panes
+             |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
+             |> Seq.length)
+
+        printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+    }
+
+runAsync().GetAwaiter().GetResult()
+```
+<!-- endfsharp-snippet -->
+
+The mirror's control client receives notifications only, never pane output,
+and does not change window sizes. If its client ends, the mirror attaches
+again through the anchor session; once that session is gone, the mirror ends
+and `Mirror.views` raises `TmuxObjectNotFoundException`.
+
 ## Ownership
 
 Use `Control.withSession` to own a client for one task, or pass a client from
