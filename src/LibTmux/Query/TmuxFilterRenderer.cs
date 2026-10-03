@@ -168,6 +168,20 @@ internal static class TmuxFilterRenderer
             Balanced(rendered, static bounds => bounds.Lower, combine));
     }
 
+    /// <summary>Renders a filter keeping rows whose format variable equals one of several identifiers.</summary>
+    /// <param name="variable">The format variable, such as <c>session_id</c>.</param>
+    /// <param name="identifiers">The identifiers, which tmux prints without escaping.</param>
+    /// <returns>A balanced disjunction of equality tests.</returns>
+    internal static string AnyOf(string variable, IReadOnlyList<string> identifiers)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(identifiers.Count);
+        string Build(int first, int count) => count == 1
+            ? $"#{{==:#{{{variable}}},{identifiers[first]}}}"
+            : Or(Build(first, count / 2), Build(first + (count / 2), count - (count / 2)));
+
+        return Build(0, identifiers.Count);
+    }
+
     // Before tmux 3.6, && and || take exactly two operands, and a right fold
     // of a long list would approach the format nesting limit.
     private static string Balanced(

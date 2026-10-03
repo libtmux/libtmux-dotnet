@@ -336,7 +336,7 @@ public sealed class PushdownDifferentialTests
         Assert.Equal(["target"], windows);
         Assert.Equal(["beta"], sessions);
         Assert.Equal((1, 2), (windowProcesses, windowRows));
-        Assert.Equal((2, 4), (relationProcesses, relationRows));
+        Assert.Equal((3, 6), (relationProcesses, relationRows));
     }
 
     private static Task<Server> ConnectAsync(RawTmuxTestContext raw, CancellationToken token) =>

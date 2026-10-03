@@ -55,8 +55,27 @@ public sealed partial class Server
         // session subtrees, so a raw filter, written for the target's own
         // rows, is answered by a listing of its own and intersected.
         string? scope = request.Session is { } session ? $"#{{==:#{{session_id}},{session}}}" : null;
+        string? lifted = Lift(typed, request.Target);
+        if (lifted is not null)
+        {
+            // tmux runs a relation filter's window and pane loops for every row
+            // it filters. Run them once per session, then capture only the
+            // sessions kept, by an identifier test each row answers at once.
+            IReadOnlyList<Session> matched = await owner
+                .ListAsync<Session>(new ListingRequest(QueryTarget.Session), And(scope, lifted), cancellationToken)
+                .ConfigureAwait(false);
+            if (matched.Count == 0)
+            {
+                return [];
+            }
+
+            scope = TmuxFilterRenderer.AnyOf("session_id", [.. matched.Select(found => found.Id.ToString())]);
+        }
+
+        // Scoped by identifiers that never change, so the capture's separate
+        // list commands can disagree only if a session ends between them.
         Server captured = await owner
-            .CaptureSubtreesAsync(required, scope, Lift(typed, request.Target), cancellationToken)
+            .CaptureSnapshotAsync(required, TimeProvider.System, scope, cancellationToken)
             .ConfigureAwait(false);
         HashSet<string>? kept = raw is null
             ? null
@@ -83,35 +102,6 @@ public sealed partial class Server
             .ListAsync(this, command, filter is null ? arguments : [.. arguments, "-f", filter], cancellationToken)
             .ConfigureAwait(false);
         return [.. rows.Select(row => Materialize<T>(this, request.Target, row))];
-    }
-
-    // Each list command filters on its own, so a filtered field changing
-    // between them leaves rows that disagree. One more try, then the scope
-    // alone, which only a structural change can make inconsistent.
-    [UnsupportedOSPlatform("windows")]
-    private async Task<Server> CaptureSubtreesAsync(
-        SnapshotDepth depth,
-        string? scope,
-        string? filter,
-        CancellationToken cancellationToken)
-    {
-        if (filter is not null)
-        {
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                try
-                {
-                    return await CaptureSnapshotAsync(depth, TimeProvider.System, And(scope, filter), cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (InconsistentSnapshotException)
-                {
-                }
-            }
-        }
-
-        return await CaptureSnapshotAsync(depth, TimeProvider.System, scope, cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private static string Key<T>(T item) => item switch

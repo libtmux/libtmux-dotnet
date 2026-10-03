@@ -27,9 +27,10 @@ A typed filter renders as a tmux format that keeps every row the filter keeps:
 a superset, exact where tmux can evaluate the predicate exactly. tmux narrows
 the listing, and every returned row is checked against the same document
 locally, so the result is the local result whatever tmux kept. A predicate
-tmux cannot express renders as no filter at all, and a relation filter
-narrows which sessions are captured. Operands are escaped as format text, and
-`#[` is refused rather than rewritten.
+tmux cannot express renders as no filter at all. A relation filter is
+evaluated once per session, and only the sessions it keeps are captured.
+Operands are escaped as format text, and `#[` is refused rather than
+rewritten.
 
 Raw `UnsafeTmuxFilter` strings remain separate: tmux evaluates them and
 nothing rechecks them.
