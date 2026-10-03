@@ -149,11 +149,51 @@ def short_names(signature: str, modules: t.AbstractSet[str] = frozenset()) -> st
     )
 
 
+# Where each module or type sits in the page's index. A module or type not
+# listed here fails the render, so a new one is placed before it ships.
+FSHARP_TASKS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Find and filter", ("Query", "Filter", "Field", "Relation", "SessionFields", "WindowFields",
+                         "PaneFields", "ClientFields", "ScreenSearch", "Selection", "CardinalityError")),
+    ("Servers, sessions, windows and panes", ("Server", "Session", "Window", "Pane", "SessionSpec",
+                                              "WindowSpec", "SplitSpec", "Chain", "Options",
+                                              "WindowPlacementKey")),
+    ("Wait, run and read results", ("PaneWait", "PaneRun")),
+    ("Live state and events", ("Control", "Mirror", "StreamStep", "Snapshot", "CaptureState")),
+    ("Failures and retries", ("TmuxFailure", "Retry")),
+)
+
+
+def fsharp_section(member: dict[str, str], types: set[str]) -> str:
+    """Return the section an entry belongs to, folding Name and NameModule together.
+
+    F# compiles a module that shares its name with a type as NameModule; a
+    reader writes Name for both.
+    """
+    group = fsharp_group(member)
+    base = group.removesuffix("Module")
+    return base if group != base and base in types else group
+
+
+def fsharp_signature(member: dict[str, str]) -> str:
+    """Return the signature a reader writes, naming a record field before its type."""
+    signature = member["signature"]
+    if member.get("kind") == "field":
+        return f"{member['id'].rsplit('.', 1)[-1]}: {signature}"
+    if member.get("kind") == "module":
+        return f"module {signature.removesuffix('Module')}"
+    return signature
+
+
 def render_fsharp(members: list[dict[str, str]]) -> str:
     """Render the F# companion reference from compiler inventory entries."""
+    types = {fsharp_group(member) for member in members}
     grouped: dict[str, list[dict[str, str]]] = {}
     for member in members:
-        grouped.setdefault(fsharp_group(member), []).append(member)
+        grouped.setdefault(fsharp_section(member, types), []).append(member)
+
+    placed = {name for _, names in FSHARP_TASKS for name in names}
+    if unplaced := sorted(grouped.keys() - placed):
+        raise ValueError(f"F# API sections missing from FSHARP_TASKS: {', '.join(unplaced)}")
 
     lines = [
         "# F# API reference",
@@ -169,12 +209,18 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "`open System.Threading.Tasks`, `open System.Collections.Generic`,",
         "`open LibTmux` and `open LibTmux.FSharp`. A core type that shares its name",
         "with a module here, such as `LibTmux.Pane`, keeps its prefix.",
+        "",
+        "## By task",
+        "",
     ]
+    for task, names in FSHARP_TASKS:
+        links = ", ".join(f"[{name}](#{name.lower()})" for name in names if name in grouped)
+        lines.append(f"- **{task}:** {links}")
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
-        for entry in sorted(entries, key=lambda item: item["signature"]):
+        for entry in sorted(entries, key=fsharp_signature):
             lines.append(
-                f"| {code_span(short_names(entry['signature'], grouped.keys()))} | {entry['summary'].replace('|', '\\|')} |"
+                f"| {code_span(short_names(fsharp_signature(entry), grouped.keys()))} | {entry['summary'].replace('|', '\\|')} |"
             )
 
     return "\n".join(lines) + "\n"

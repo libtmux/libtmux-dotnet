@@ -12,6 +12,14 @@ Signatures assume `open System`, `open System.Threading`,
 `open LibTmux` and `open LibTmux.FSharp`. A core type that shares its name
 with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
+## By task
+
+- **Find and filter:** [Query](#query), [Filter](#filter), [Field](#field), [Relation](#relation), [SessionFields](#sessionfields), [WindowFields](#windowfields), [PaneFields](#panefields), [ClientFields](#clientfields), [ScreenSearch](#screensearch), [Selection](#selection), [CardinalityError](#cardinalityerror)
+- **Servers, sessions, windows and panes:** [Server](#server), [Session](#session), [Window](#window), [Pane](#pane), [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [Chain](#chain), [Options](#options), [WindowPlacementKey](#windowplacementkey)
+- **Wait, run and read results:** [PaneWait](#panewait), [PaneRun](#panerun)
+- **Live state and events:** [Control](#control), [Mirror](#mirror), [StreamStep](#streamstep), [Snapshot](#snapshot), [CaptureState](#capturestate)
+- **Failures and retries:** [TmuxFailure](#tmuxfailure), [Retry](#retry)
+
 ## CaptureState
 
 | Signature | Summary |
@@ -32,7 +40,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Chain` | Builds commands tmux runs together, each acting on what the one before made. |
+| `module Chain` | Builds commands tmux runs together, each acting on what the one before made. |
 | `val add: command: TmuxCommand -> chain: TmuxChain -> TmuxChain` | Appends any command, such as a typed request's ToCommand. |
 | `val arrange: layout: string -> chain: TmuxChain -> TmuxChain` | Arranges the current window with a tmux layout; the chain checks the name before tmux sees it. |
 | `val newWindow: session: LibTmux.Session -> name: string -> chain: TmuxChain -> TmuxChain` | Adds a window to a session and makes it the one following steps act on. |
@@ -46,7 +54,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `ClientFields` | Provides supported client fields for portable filters. |
+| `module ClientFields` | Provides supported client fields for portable filters. |
 | `val controlMode: Field<Client,bool>` | Identifies whether the captured client uses control mode. |
 | `val name: Field<Client,string>` | Identifies the client name. |
 
@@ -54,7 +62,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Control` | Opens control clients and reads their event streams. |
+| `module Control` | Opens control clients and reads their event streams. |
 | `val cleanupFailure: error: exn -> exn option` | Returns the cleanup failure attached to the exception a helper rethrew. |
 | `val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<IControlModeSession>` | Opens a control client attached to the most recently used session. |
 | `val enterSession: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IControlModeSession>` | Opens a control client attached to a session. |
@@ -76,8 +84,8 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Filter` | Constructs portable predicates without reflection. |
 | ``Filter`1`` | Describes a validated portable predicate over one entity type. |
+| `module Filter` | Constructs portable predicates without reflection. |
 | `val all: relation: Relation<'Parent,'Child> -> predicate: Filter<'Child> -> Filter<'Parent>` | Requires every child to match, returning true for an empty captured relation. |
 | `val allOf: filters: Filter<'T> list -> Filter<'T>` | Requires every predicate in order; an empty list matches everything. |
 | `val any: relation: Relation<'Parent,'Child> -> predicate: Filter<'Child> -> Filter<'Parent>` | Requires a matching child, returning false for an empty captured relation. |
@@ -109,7 +117,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Mirror` | Follows a server's sessions, windows, panes and clients as tmux announces changes. |
+| `module Mirror` | Follows a server's sessions, windows, panes and clients as tmux announces changes. |
 | `val current: mirror: ServerMirror -> ServerMirrorView` | Returns the latest published view. |
 | `val start: cancellationToken: CancellationToken -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors the server an anchor session belongs to, capturing on each announcement. |
 | `val startRefreshing: cancellationToken: CancellationToken -> every: TimeSpan -> anchor: LibTmux.Session -> Task<ServerMirror>` | Mirrors a server, also capturing whenever it has been quiet for an interval. |
@@ -121,7 +129,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Options` | Reads and writes options through keys that know their value's type. |
+| `module Options` | Reads and writes options through keys that know their value's type. |
 | `val get: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> options: TmuxOptions -> Task<'T> when 'T: not null` | Reads the value an option has in a scope, set there or inherited, as its key's type. |
 | `val set: cancellationToken: CancellationToken -> key: TmuxOptionKey<'T> -> value: 'T -> options: TmuxOptions -> Task when 'T: not null` | Sets an option in a scope from a value of its key's type. |
 
@@ -129,7 +137,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Pane` | Reads captured pane fields and starts explicit pane operations. |
+| `module Pane` | Reads captured pane fields and starts explicit pane operations. |
 | `val capture: cancellationToken: CancellationToken -> request: CapturePaneRequest -> pane: LibTmux.Pane -> Task<IReadOnlyList<string>>` | Captures pane contents using the supplied core request. |
 | `val currentCommand: pane: LibTmux.Pane -> string option` | Reads the captured command name, preserving an empty string. |
 | `val currentPath: pane: LibTmux.Pane -> string option` | Reads the captured working directory, preserving an empty string. |
@@ -147,7 +155,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `PaneFields` | Provides supported pane fields for portable filters. |
+| `module PaneFields` | Provides supported pane fields for portable filters. |
 | `val active: Field<LibTmux.Pane,bool>` | Identifies whether the pane is its window's active pane. |
 | `val atBottom: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the bottom of its window. |
 | `val atLeft: Field<LibTmux.Pane,bool>` | Identifies whether the pane touches the left of its window. |
@@ -170,7 +178,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `PaneRun` | Recognises how a command run with Pane.run ended. |
+| `module PaneRun` | Recognises how a command run with Pane.run ended. |
 | `val (|Exited|_|) : result: PaneRunResult -> int option` | Matches a command that exited, with its exit status. |
 | `val (|NotStarted|_|) : result: PaneRunResult -> unit option` | Matches a command the pane's shell never ran. |
 | `val (|TimedOut|_|) : result: PaneRunResult -> unit option` | Matches a command still running when the time allowed ran out. |
@@ -179,15 +187,15 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `PaneWait` | Recognises how a wait on a pane's output ended. |
+| `module PaneWait` | Recognises how a wait on a pane's output ended. |
 | `val (|Found|Printed|Stopped|TimedOut|Ended|) : result: PaneWaitResult -> Choice<unit,unit,string,unit,unit>` | Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning. |
 
 ## Query
 
 | Signature | Summary |
 |---|---|
-| `Query` | Narrows and runs tmux queries, and filters captured objects locally. |
 | ``Query`1`` | Describes a tmux listing: a scope, filters and text panes must show. |
+| `module Query` | Narrows and runs tmux queries, and filters captured objects locally. |
 | `val atMostOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>` | Reads the sole match, or None when nothing matches; several matches raise. |
 | `val exactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<Result<'T,CardinalityError>>` | Reads the sole match, or why there is not exactly one. |
 | `val list: cancellationToken: CancellationToken -> query: Query<'T> -> Task<IReadOnlyList<'T>>` | Reads the matching objects in tmux's listing order. |
@@ -207,7 +215,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Retry` | Runs an operation again only when tmux never saw it. |
+| `module Retry` | Runs an operation again only when tmux never saw it. |
 | `val ifNotSent: cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and again up to retries times while nothing it sent reached tmux. |
 | `val ifNotSentAfter: cancellationToken: CancellationToken -> delays: TimeSpan list -> operation: (CancellationToken -> Task<'T>) -> Task<'T>` | Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux. |
 
@@ -225,14 +233,14 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Selection` | Selects values from ordinary F# sequences. |
+| `module Selection` | Selects values from ordinary F# sequences. |
 | `val exactlyOne: source: 'T seq -> Result<'T,CardinalityError>` | Returns the sole match, examining at most two elements. |
 
 ## Server
 
 | Signature | Summary |
 |---|---|
-| `Server` | Starts server reads and queries with the caller's cancellation token. |
+| `module Server` | Starts server reads and queries with the caller's cancellation token. |
 | `val capture: cancellationToken: CancellationToken -> depth: SnapshotDepth -> server: LibTmux.Server -> Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
 | `val clients: server: LibTmux.Server -> Query<Client>` | Queries attached clients. |
 | `val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>` | Attaches to a server already listening on the socket the options name. |
@@ -251,7 +259,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Session` | Starts queries confined to one session. |
+| `module Session` | Starts queries confined to one session. |
 | `val panes: session: LibTmux.Session -> Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
 | `val windows: session: LibTmux.Session -> Query<LibTmux.Window>` | Queries the window placements in a session. |
 
@@ -259,7 +267,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `SessionFields` | Provides supported session fields and relations for portable filters. |
+| `module SessionFields` | Provides supported session fields and relations for portable filters. |
 | `val attached: Field<LibTmux.Session,bool>` | Identifies whether the captured session has attached clients. |
 | `val id: Field<LibTmux.Session,SessionId>` | Identifies the typed session ID. |
 | `val name: Field<LibTmux.Session,string>` | Identifies the session name. |
@@ -270,25 +278,20 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
+| `Directory: string option` | The working directory of the session and its first window. |
+| `Environment: Map<string,string>` | Variables added to the session's environment. |
 | `SessionSpec` | Describes a session and its windows, for Server.newSession. |
-| `WindowSpec list` | The windows, in order; the first is the one tmux creates with the session. |
-| `Map<string,string>` | Variables added to the session's environment. |
-| `string` | The session's name. |
-| `string option` | The working directory of the session and its first window. |
+| `Name: string` | The session's name. |
+| `Windows: WindowSpec list` | The windows, in order; the first is the one tmux creates with the session. |
+| `module SessionSpec` | Starts session descriptions. |
 | `override ToString: unit -> string` | Names the session, without formatting through printf. |
-
-## SessionSpecModule
-
-| Signature | Summary |
-|---|---|
-| `SessionSpecModule` | Starts session descriptions. |
 | `val named: name: string -> SessionSpec` | A named session with tmux's single default window. |
 
 ## Snapshot
 
 | Signature | Summary |
 |---|---|
-| `Snapshot` | Reads captured values without contacting tmux. |
+| `module Snapshot` | Reads captured values without contacting tmux. |
 | `val relation: relation: CapturedRelation<'T> -> CaptureState<IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
 | `val value: value: CapturedValue<'T> -> CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
 
@@ -296,19 +299,14 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
+| `Command: string option` | The command the pane runs instead of the default shell. |
+| `Direction: PaneDirection option` | Where the new pane goes, beside the pane before it; tmux puts it below when None. |
+| `Directory: string option` | The pane's working directory. |
+| `Environment: Map<string,string>` | Variables added to the pane's environment. |
 | `SplitSpec` | Describes a pane split off the pane created before it. |
-| `PaneDirection option` | Where the new pane goes, beside the pane before it; tmux puts it below when None. |
-| `Map<string,string>` | Variables added to the pane's environment. |
-| `string option` | The command the pane runs instead of the default shell. |
-| `string option` | The pane's working directory. |
-| `string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `Size: string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `module SplitSpec` | Starts split descriptions. |
 | `override ToString: unit -> string` | Names the split by its command, without formatting through printf. |
-
-## SplitSpecModule
-
-| Signature | Summary |
-|---|---|
-| `SplitSpecModule` | Starts split descriptions. |
 | `val empty: SplitSpec` | A split below the pane before it, running the default shell. |
 
 ## StreamStep
@@ -323,7 +321,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
+| `module TmuxFailure` | Recognises tmux failures by whether running the operation again could repeat what it did. |
 | `val (|MayHaveRun|_|) : error: exn -> exn option` | Matches a failure, or a cancellation, after which tmux may already have acted. |
 | `val (|NotSent|_|) : error: exn -> LibTmuxException option` | Matches a failure whose command never reached tmux; running it again repeats nothing. |
 | `val (|Ran|_|) : error: exn -> LibTmuxException option` | Matches a failure after tmux ran the command: tmux reported an error, or its answer could not be used. |
@@ -332,7 +330,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `Window` | Identifies window placements and starts queries confined to one window. |
+| `module Window` | Identifies window placements and starts queries confined to one window. |
 | `val panes: window: LibTmux.Window -> Query<LibTmux.Pane>` | Queries the panes in a window. |
 | `val placementKey: window: LibTmux.Window -> WindowPlacementKey` | Returns a comparable key including the captured session and window index. |
 
@@ -340,7 +338,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `WindowFields` | Provides supported window fields and relations for portable filters. |
+| `module WindowFields` | Provides supported window fields and relations for portable filters. |
 | `val active: Field<LibTmux.Window,bool>` | Identifies whether the window is the current window of the session it was read through. |
 | `val height: Field<LibTmux.Window,int>` | Identifies the window's height in cells. |
 | `val id: Field<LibTmux.Window,WindowId>` | Identifies the typed physical window ID. |
@@ -361,18 +359,13 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 
 | Signature | Summary |
 |---|---|
-| `SplitSpec list` | The panes split off in order, each beside the pane before it. |
+| `Command: string option` | The command the first pane runs instead of the default shell. |
+| `Directory: string option` | The first pane's working directory. |
+| `Environment: Map<string,string>` | Variables added to the first pane's environment; a session's first window takes them from the session instead. |
 | `WindowSpec` | Describes a window: its first pane, then each pane split off the one before. |
-| `Map<string,string>` | Variables added to the first pane's environment; a session's first window takes them from the session instead. |
-| `string option` | The command the first pane runs instead of the default shell. |
-| `string option` | The first pane's working directory. |
-| `string option` | The window's name; tmux names it after its command when None. |
+| `Name: string option` | The window's name; tmux names it after its command when None. |
+| `Splits: SplitSpec list` | The panes split off in order, each beside the pane before it. |
+| `module WindowSpec` | Starts window descriptions. |
 | `override ToString: unit -> string` | Names the window, without formatting through printf. |
-
-## WindowSpecModule
-
-| Signature | Summary |
-|---|---|
-| `WindowSpecModule` | Starts window descriptions. |
 | `val empty: WindowSpec` | A window tmux names after its command, running the default shell. |
 | `val named: name: string -> WindowSpec` | A named window running the default shell. |
