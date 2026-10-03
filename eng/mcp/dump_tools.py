@@ -138,6 +138,10 @@ def _one_line(text: str) -> str:
     return flat if stop < 0 else flat[: stop + 1]
 
 
+def _names(names: list[str]) -> str:
+    return ", ".join(f"`{name}`" for name in names) or "none"
+
+
 def _sentences(text: str) -> list[str]:
     return [sentence for sentence in re.split(r"(?<=[.!?])\s+", " ".join(text.split())) if sentence]
 
@@ -200,6 +204,24 @@ def main() -> int:
             f"| `{tool['name']}` | {capability.get('toolset', 'unknown')} "
             f"| {capability.get('processReach', 'unknown')} | {effects} | {outputs} "
             f"| {_does(tool.get('description', ''), shared)} |"
+        )
+
+    lines += [
+        "",
+        "## Parameters",
+        "",
+        "Each tool's input schema describes its parameters; `tools/list` returns it.",
+        "",
+        "| Tool | Required | Optional |",
+        "|---|---|---|",
+    ]
+    for tool in tools:
+        schema = tool.get("inputSchema") or {}
+        names = list((schema.get("properties") or {}).keys())
+        required = [name for name in names if name in set(schema.get("required") or [])]
+        optional = [name for name in names if name not in required]
+        lines.append(
+            f"| `{tool['name']}` | {_names(required)} | {_names(optional)} |"
         )
 
     for label, key, field, uri in (
