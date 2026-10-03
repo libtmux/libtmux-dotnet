@@ -24,6 +24,39 @@ expose an `Async` adapter with an unproved cancellation contract.
 cross a process or language boundary. It serializes the core `QueryDocument`;
 the F# package does not define a second format.
 
+## Failures and retries
+
+Every `LibTmuxException` says whether its command reached tmux. The
+`TmuxFailure` patterns match on that: `NotSent` means tmux never saw the
+command, so running it again repeats nothing; `Refused` means tmux ran it and
+reported an error; `MayHaveRun` covers a failure or cancellation after which
+tmux may already have acted. `Retry.ifNotSent` runs an operation again only
+for `NotSent`:
+
+<!-- fsharp-snippet: SafeRetry run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
+    task {
+        try
+            // Runs again only when tmux never received the command.
+            let! sessions =
+                Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+
+            return Ok [ for session in sessions -> session.Name ]
+        with
+        | TmuxFailure.Refused failure -> return Error $"tmux refused: {failure.Message}"
+        | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+    }
+```
+<!-- endfsharp-snippet -->
+
+A read that is safe to repeat whatever happened can use any retry policy; a
+command that changes tmux should be retried only on `NotSent`.
+
 ## Typed options
 
 `Options.get` and `Options.set` take a `TmuxOptionKey` that knows its value's

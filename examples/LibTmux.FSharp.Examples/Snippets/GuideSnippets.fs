@@ -304,6 +304,78 @@ module internal GuideSnippets =
     let decodeFilter json = QueryJson.Deserialize json
     // endfsharp-snippet
 
+    // fsharp-snippet: DescribeSession
+    open System.Threading
+    open LibTmux
+    open LibTmux.Workspace
+
+    let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) =
+        task {
+            let description =
+                WorkspaceFile(
+                    sessionName = "build",
+                    windows =
+                        [
+                            WorkspaceWindow(
+                                windowName = "editor",
+                                panes = [ WorkspacePane([ "printf 'editing\\n'" ]); WorkspacePane() ]
+                            )
+                            WorkspaceWindow(windowName = "logs", panes = [ WorkspacePane([ "printf 'tailing\\n'" ]) ])
+                        ]
+                )
+
+            // Creates the session, its windows and panes, and sends each pane its
+            // commands once its shell is ready.
+            let! built = WorkspaceBuilder(server).BuildAsync(description, cancellationToken)
+            return built.Session.Name, [ for window in built.Windows -> window.Name ]
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: TestWithScope
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+    open LibTmux.Testing
+
+    let greetingAsync (cancellationToken: CancellationToken) =
+        task {
+            // A private tmux server, session, window and pane, removed even if
+            // the test fails.
+            use! scope =
+                TmuxTestFactory().CreateHierarchyAsync(cancellationToken = cancellationToken)
+
+            let! shell =
+                scope.Pane
+                |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+            let! result =
+                shell
+                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'hello\\n'"
+
+            return List.ofSeq result.Output
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: SafeRetry
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
+        task {
+            try
+                // Runs again only when tmux never received the command.
+                let! sessions =
+                    Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+
+                return Ok [ for session in sessions -> session.Name ]
+            with
+            | TmuxFailure.Refused failure -> return Error $"tmux refused: {failure.Message}"
+            | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+        }
+    // endfsharp-snippet
+
     // fsharp-snippet: TypedOptions
     open System.Threading
     open LibTmux

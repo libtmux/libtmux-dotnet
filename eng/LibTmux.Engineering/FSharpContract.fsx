@@ -17,16 +17,18 @@ type Contract =
 
 let arguments = fsi.CommandLineArgs |> Array.skip 1
 
-if arguments.Length <> 5 then
+if arguments.Length <> 7 then
     invalidArg
         "arguments"
-        "Expected the LibTmux, LibTmux.FSharp, LibTmux.Query.Json, README and F# documentation paths."
+        "Expected the LibTmux, LibTmux.FSharp, LibTmux.Query.Json, LibTmux.Testing, LibTmux.Workspace, README and F# documentation paths."
 
 let coreAssembly = Path.GetFullPath(arguments[0])
 let facadeAssembly = Path.GetFullPath(arguments[1])
 let queryJsonAssembly = Path.GetFullPath(arguments[2])
-let readme = Path.GetFullPath(arguments[3])
-let documentation = Path.GetFullPath(arguments[4])
+let testingAssembly = Path.GetFullPath(arguments[3])
+let workspaceAssembly = Path.GetFullPath(arguments[4])
+let readme = Path.GetFullPath(arguments[5])
+let documentation = Path.GetFullPath(arguments[6])
 let checker = FSharpChecker.Create()
 
 let fsharpCoreAssembly =
@@ -58,6 +60,8 @@ let prelude =
     $"""#r @"{coreAssembly}"
 #r @"{facadeAssembly}"
 #r @"{queryJsonAssembly}"
+#r @"{testingAssembly}"
+#r @"{workspaceAssembly}"
 """
 
 let opens =

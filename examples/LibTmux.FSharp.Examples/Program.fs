@@ -246,6 +246,20 @@ let private runAsync () =
         if chained <> [ "fsharp-chain-first"; "fsharp-chain-second" ] then
             failwith "The chaining guide did not preserve command order."
 
+        let! built = GuideSnippets.buildWorkspaceAsync cancellationToken scope.Server
+
+        if built <> ("build", [ "editor"; "logs" ]) then
+            failwithf "The workspace guide built %A." built
+
+        match! GuideSnippets.readSessionNamesAsync cancellationToken scope.Server with
+        | Ok names when names |> List.contains scope.Session.Name -> ()
+        | other -> failwithf "The retry guide read %A." other
+
+        let! greeting = GuideSnippets.greetingAsync cancellationToken
+
+        if greeting <> [ "hello" ] then
+            failwithf "The testing guide read %A." greeting
+
         let! history, stage, _ =
             GuideSnippets.tuneAsync cancellationToken scope.Session scope.Window
 

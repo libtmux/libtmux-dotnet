@@ -163,6 +163,49 @@ it returns the command's exit status and the lines it printed, and reports
 `TimedOut` for a command that is still running. The waits sleep on the pane's
 own output through a control client rather than polling.
 
+## Describe a session
+
+`LibTmux.Workspace` builds a session from a description: its windows, their
+panes, and the commands each pane runs, as a tmuxp workspace file does. Add the
+package, describe the session with F# lists, and build it on a server:
+
+```console
+$ dotnet package add LibTmux.Workspace --prerelease
+```
+
+<!-- fsharp-snippet: DescribeSession run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.Workspace
+
+let buildWorkspaceAsync (cancellationToken: CancellationToken) (server: Server) =
+    task {
+        let description =
+            WorkspaceFile(
+                sessionName = "build",
+                windows =
+                    [
+                        WorkspaceWindow(
+                            windowName = "editor",
+                            panes = [ WorkspacePane([ "printf 'editing\\n'" ]); WorkspacePane() ]
+                        )
+                        WorkspaceWindow(windowName = "logs", panes = [ WorkspacePane([ "printf 'tailing\\n'" ]) ])
+                    ]
+            )
+
+        // Creates the session, its windows and panes, and sends each pane its
+        // commands once its shell is ready.
+        let! built = WorkspaceBuilder(server).BuildAsync(description, cancellationToken)
+        return built.Session.Name, [ for window in built.Windows -> window.Name ]
+    }
+```
+<!-- endfsharp-snippet -->
+
+By default `WorkspaceBuilder` waits for each pane's shell prompt before sending
+its commands, and `BuildAsync` returns the session and windows it created.
+`WorkspaceFile.Parse` reads the same description from tmuxp YAML text.
+
 ## Read a snapshot
 
 For a server the caller already owns, capture once and use F# sequences:
