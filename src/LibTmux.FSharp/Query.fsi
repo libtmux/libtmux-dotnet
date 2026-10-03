@@ -254,6 +254,8 @@ module PaneFields =
     val inMode: Field<LibTmux.Pane, bool>
     /// <summary>Identifies the process ID of the program the pane started.</summary>
     val processId: Field<LibTmux.Pane, int>
+    /// <summary>Identifies whether keys typed into the pane go to every synchronized pane in its window.</summary>
+    val synchronized: Field<LibTmux.Pane, bool>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

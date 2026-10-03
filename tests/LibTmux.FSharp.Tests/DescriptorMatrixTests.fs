@@ -313,6 +313,15 @@ module DescriptorMatrixTests =
                 Document = Filter.gt 1 PaneFields.processId |> Filter.toDocument
             }
             {
+                Name = "PaneFields.synchronized"
+                CoreProperty = "Pane.Synchronized"
+                WireName = "pane_synchronized"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.synchronized |> Filter.toDocument
+            }
+            {
                 Name = "ClientFields.name"
                 CoreProperty = "Client.Name"
                 WireName = "client_name"

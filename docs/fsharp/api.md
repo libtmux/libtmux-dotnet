@@ -170,6 +170,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val index: Field<LibTmux.Pane,int>` | Identifies the pane's position in its window. |
 | `val left: Field<LibTmux.Pane,int>` | Identifies the column of the pane's left edge in its window. |
 | `val processId: Field<LibTmux.Pane,int>` | Identifies the process ID of the program the pane started. |
+| `val synchronized: Field<LibTmux.Pane,bool>` | Identifies whether keys typed into the pane go to every synchronized pane in its window. |
 | `val title: Field<LibTmux.Pane,string>` | Identifies the pane's title, which a program running in it can set. |
 | `val top: Field<LibTmux.Pane,int>` | Identifies the row of the pane's top edge in its window. |
 | `val width: Field<LibTmux.Pane,int>` | Identifies the pane's width in cells. |

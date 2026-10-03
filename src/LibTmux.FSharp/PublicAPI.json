@@ -4406,6 +4406,28 @@
       "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>"
     },
     {
+      "id": "P:LibTmux.FSharp.PaneFields.synchronized",
+      "package": "LibTmux.FSharp",
+      "name": "synchronized",
+      "declaringType": "T:LibTmux.FSharp.PaneFields",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val synchronized: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "compiledName": "synchronized",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>"
+    },
+    {
       "id": "P:LibTmux.FSharp.PaneFields.title",
       "package": "LibTmux.FSharp",
       "name": "title",
