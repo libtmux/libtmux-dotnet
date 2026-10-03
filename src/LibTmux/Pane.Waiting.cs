@@ -18,6 +18,7 @@ public sealed partial class Pane
     /// so the text cannot span lines.
     /// </remarks>
     /// <exception cref="ArgumentException">The text is empty or contains a line break.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneWaitResult> WaitForTextAsync(
@@ -52,7 +53,7 @@ public sealed partial class Pane
     /// raises <see cref="TmuxPaneException" />.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
     /// <exception cref="RegexMatchTimeoutException">A pattern exceeded its own match timeout.</exception>
     [UnsupportedOSPlatform("windows")]
@@ -69,6 +70,7 @@ public sealed partial class Pane
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThan(request.Timeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(request.Timeout, PaneTextWaiter.LongestTimeout);
         Regex[] wanted = [.. request.Patterns];
         Regex[] stops = [.. request.StopPatterns];
 
@@ -118,9 +120,12 @@ public sealed partial class Pane
     /// wait at once as <see cref="PaneWaitOutcome.PresentAtEntry" />. Unlike
     /// <see cref="WaitForTextAsync(PaneWaitRequest, CancellationToken)" />, it
     /// sees the whole screen, including rows a full-screen program redraws.
+    /// A program that exits leaving a screen the condition accepts ends the
+    /// wait as <see cref="PaneWaitOutcome.Matched" />, not
+    /// <see cref="PaneWaitOutcome.PaneExited" />.
     /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or another program replaced it during the wait.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneWaitResult> WaitUntilAsync(
         Func<IReadOnlyList<string>, bool> condition,
@@ -129,6 +134,7 @@ public sealed partial class Pane
     {
         ArgumentNullException.ThrowIfNull(condition);
         ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(timeout, PaneTextWaiter.LongestTimeout);
         (PaneWaitOutcome outcome, TimeSpan elapsed) = await PaneTextWaiter
             .WaitForScreenAsync(this, PaneActivityHub.Shared, condition, timeout, PaneReader.Failure, cancellationToken)
             .ConfigureAwait(false);

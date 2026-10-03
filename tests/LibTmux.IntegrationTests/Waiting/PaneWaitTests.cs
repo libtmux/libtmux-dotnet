@@ -101,6 +101,30 @@ public sealed class PaneWaitTests
         Assert.Null(drawn.Pattern);
     }
 
+    [UnixFact]
+    public async Task A_condition_wait_fails_when_another_program_replaces_the_pane()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane pane = await NewPaneAsync(raw, "never", "true", token);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<PaneWaitResult> waiting = pane.WaitUntilAsync(
+            _ =>
+            {
+                entered.TrySetResult();
+                return false;
+            },
+            Arrival,
+            token);
+        await entered.Task.WaitAsync(token);
+        await raw.ExecuteAsync(
+            ["respawn-pane", "-k", "-t", pane.Id.ToString(), "printf 'replaced\\n'; exec sleep 60"],
+            token);
+
+        await Assert.ThrowsAsync<TmuxPaneException>(() => waiting);
+    }
+
     // Starts the wait, lets the pane run its gated command only once the wait
     // has read the screen it began with, and returns how the wait ended.
     private static async Task<PaneWaitResult> AfterEntryAsync(

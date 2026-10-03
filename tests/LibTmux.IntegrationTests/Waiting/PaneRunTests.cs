@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 
 namespace LibTmux.IntegrationTests.Waiting;
 
@@ -39,6 +40,38 @@ public sealed class PaneRunTests
         Assert.Null(slow.ExitStatus);
         PaneWaitResult finished = await shell.WaitForTextAsync("late", Allowed, token);
         Assert.True(finished.Found);
+
+        // Following the run removes its status option when it ends, long
+        // before tmux's own scheduled removal a minute after the timeout.
+        await TmuxWait.UntilAsync(
+            async ct => !(await StatusOptionsAsync(raw, shell, ct)).Any(),
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromMilliseconds(50),
+            cancellationToken: token);
+    }
+
+    [UnixFact]
+    public async Task A_run_that_never_finishes_is_followed_only_until_its_limit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token);
+        var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        PaneRunOutcome endless = await PaneRunner.RunAsync(
+            shell.Server,
+            shell,
+            PaneRunRoute.From(shell),
+            "sleep 60",
+            TimeSpan.FromMilliseconds(100),
+            suppressHistory: true,
+            statusMarkerLifetime: TimeSpan.FromMinutes(1),
+            new PaneRunHooks { Completed = () => released.TrySetResult(), FollowLimit = TimeSpan.FromMilliseconds(300) },
+            PaneReader.Failure,
+            token);
+
+        Assert.True(endless.TimedOut);
+        await released.Task.WaitAsync(Allowed, token);
     }
 
     [UnixFact]
@@ -54,6 +87,15 @@ public sealed class PaneRunTests
         Assert.Equal(busy.Id, refusal.PaneId);
         RawTmuxResult buffers = await raw.ExecuteAsync(["list-buffers"], token);
         Assert.Empty(buffers.StandardOutputLines);
+    }
+
+    private static async Task<IEnumerable<string>> StatusOptionsAsync(
+        RawTmuxTestContext raw,
+        Pane pane,
+        CancellationToken token)
+    {
+        RawTmuxResult options = await raw.ExecuteAsync(["show-options", "-p", "-t", pane.Id.ToString()], token);
+        return options.StandardOutputLines.Where(line => line.StartsWith("@lt_s_", StringComparison.Ordinal));
     }
 
     // Several words run the program directly, with no shell in between.

@@ -70,6 +70,12 @@ internal sealed record PaneRunHooks
     /// <summary>Gets a callback told once the run is known to have finished, however long after the call that is.</summary>
     internal Action? Completed { get; init; }
 
+    /// <summary>
+    /// Gets how long to follow a run that outlasts its wait; after that it is
+    /// treated as finished. Null follows it until the run, pane or server ends.
+    /// </summary>
+    internal TimeSpan? FollowLimit { get; init; }
+
     /// <summary>Gets a callback told, about once a second, how long the run has gone on.</summary>
     internal Action<TimeSpan>? Progress { get; init; }
 
@@ -109,7 +115,8 @@ internal sealed record PaneRunOutcome(
 internal static class PaneRunner
 {
     private const int MaximumInheritedTrapBytes = 64 * 1024;
-    private static readonly TimeSpan RetainedRunProbeInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan RetainedRunFirstProbe = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan RetainedRunLongestProbe = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StatusCleanupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(1);
     private static readonly Action Nothing = static () => { };
@@ -244,7 +251,8 @@ internal static class PaneRunner
                         token,
                         dispatch.Directory,
                         daemonProcessStart,
-                        hooks.Completed);
+                        hooks.Completed,
+                        hooks.FollowLimit);
                     completionOwnershipTransferred = true;
                 }
                 else
@@ -496,15 +504,47 @@ internal static class PaneRunner
         RunToken token,
         string? directory,
         long? daemonProcessStart,
-        Action? completed) =>
-        _ = CompleteRetainedRunAsync(
+        Action? completed,
+        TimeSpan? followLimit) =>
+        _ = FollowRetainedRunAsync(
             server,
             wait,
             pane,
             token,
             directory,
             daemonProcessStart,
-            completed);
+            completed,
+            followLimit);
+
+    // Nothing awaits the follow, so nothing it throws may escape it.
+    private static async Task FollowRetainedRunAsync(
+        Server server,
+        TmuxWaitChannel? wait,
+        Pane pane,
+        RunToken token,
+        string? directory,
+        long? daemonProcessStart,
+        Action? completed,
+        TimeSpan? followLimit)
+    {
+        try
+        {
+            await CompleteRetainedRunAsync(
+                    server,
+                    wait,
+                    pane,
+                    token,
+                    directory,
+                    daemonProcessStart,
+                    completed,
+                    followLimit)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            DeleteRunDirectory(directory);
+        }
+    }
 
     private static async Task CompleteRetainedRunAsync(
         Server server,
@@ -513,15 +553,18 @@ internal static class PaneRunner
         RunToken token,
         string? directory,
         long? daemonProcessStart,
-        Action? completed)
+        Action? completed,
+        TimeSpan? followLimit)
     {
+        Stopwatch followed = Stopwatch.StartNew();
+        TimeSpan probe = RetainedRunFirstProbe;
         Task? waitTask = wait?.WaitUntilSignalledAsync(CancellationToken.None);
         while (true)
         {
             bool intervalElapsed = false;
             if (waitTask is { IsCompleted: false })
             {
-                Task interval = Task.Delay(RetainedRunProbeInterval);
+                Task interval = Task.Delay(probe);
                 intervalElapsed = await Task.WhenAny(waitTask, interval).ConfigureAwait(false)
                     == interval;
             }
@@ -563,6 +606,17 @@ internal static class PaneRunner
                 return;
             }
 
+            // A command that never reaches the wrapper's tail, interrupted or
+            // endless, sets no status. Past the limit it is left to run, and
+            // tmux removes a status it sets later on its own schedule.
+            if (followed.Elapsed >= followLimit)
+            {
+                completed?.Invoke();
+                await DisposeRetainedWaitAsync(wait).ConfigureAwait(false);
+                DeleteRunDirectory(directory);
+                return;
+            }
+
             if (wait is null)
             {
                 try
@@ -579,8 +633,10 @@ internal static class PaneRunner
 
             if (!intervalElapsed)
             {
-                await Task.Delay(RetainedRunProbeInterval).ConfigureAwait(false);
+                await Task.Delay(probe).ConfigureAwait(false);
             }
+
+            probe = probe * 2 < RetainedRunLongestProbe ? probe * 2 : RetainedRunLongestProbe;
         }
     }
 
@@ -925,7 +981,7 @@ internal static class PaneRunner
         while (true)
         {
             Task beat = Task.Delay(ProgressInterval, cancellationToken);
-            if (await Task.WhenAny(waiting, beat).ConfigureAwait(false) == waiting)
+            if (await Task.WhenAny(waiting, beat).ConfigureAwait(false) == waiting || beat.IsCanceled)
             {
                 return await waiting.ConfigureAwait(false);
             }

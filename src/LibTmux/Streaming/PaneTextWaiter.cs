@@ -20,6 +20,9 @@ internal readonly record struct PaneWaitVerdict(PaneWaitOutcome Outcome, string?
 [UnsupportedOSPlatform("windows")]
 internal static class PaneTextWaiter
 {
+    /// <summary>The longest wait a timer can represent, with room for a run's cleanup delay.</summary>
+    internal static readonly TimeSpan LongestTimeout = TimeSpan.FromDays(49);
+
     /// <summary>Runs one wait.</summary>
     /// <param name="pane">The pane to watch.</param>
     /// <param name="activity">Wakes the wait when the pane prints.</param>
@@ -53,11 +56,6 @@ internal static class PaneTextWaiter
 
         while (true)
         {
-            if (budget - elapsed.Elapsed <= TimeSpan.Zero)
-            {
-                return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
-            }
-
             // Taken before the read, so output arriving during the read wakes
             // the next sleep instead of being slept through.
             object? signal = activity.CaptureSignal(pane);
@@ -97,6 +95,13 @@ internal static class PaneTextWaiter
             if (!alternate && read.State.AlternateScreen)
             {
                 return (PaneWaitOutcome.AlternateScreen, null, elapsed.Elapsed);
+            }
+
+            // Checked after the read, so output that woke the last sleep as
+            // the budget ran out is still judged.
+            if (budget - elapsed.Elapsed <= TimeSpan.Zero)
+            {
+                return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
             }
 
             progress?.Invoke(elapsed.Elapsed, read.Lines.Count > 0 ? read.Lines[^1] : string.Empty);
@@ -146,6 +151,11 @@ internal static class PaneTextWaiter
 
                 ExceptionDispatchInfo.Capture(error).Throw();
                 throw;
+            }
+
+            if (pid is not null && !string.Equals(read.State.PanePid, pid, StringComparison.Ordinal))
+            {
+                throw fail(PaneReadFailure.Replaced, pane);
             }
 
             if (condition(read.Lines))

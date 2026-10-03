@@ -6,6 +6,8 @@ namespace LibTmux;
 // Runs a shell command in a pane and learns its exit status.
 public sealed partial class Pane
 {
+    private static readonly TimeSpan FollowAfterTimeout = TimeSpan.FromMinutes(1);
+
     private static readonly HashSet<string> PosixShells =
         new(["sh", "ash", "bash", "dash", "ksh", "ksh93", "mksh", "pdksh", "zsh"], StringComparer.Ordinal);
 
@@ -36,12 +38,13 @@ public sealed partial class Pane
     /// option and signals a private <c>wait-for</c> channel.
     /// </para>
     /// <para>
-    /// A command that outlasts the timeout keeps running and is followed until it
-    /// finishes, so its option and file are removed. Do not start another
-    /// command in the same pane before it ends: the shell would read both.
+    /// A command that outlasts the timeout keeps running. It is followed for up
+    /// to a minute longer, so its option and file are removed when it ends;
+    /// after that tmux removes the option itself. Do not start another command
+    /// in the same pane before it ends: the shell would read both.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
     /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
@@ -51,6 +54,7 @@ public sealed partial class Pane
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfLessThan(request.Timeout, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(request.Timeout, PaneTextWaiter.LongestTimeout);
 
         // Pasted text goes to whatever owns the pane, so nothing is sent
         // unless that is an idle shell this payload is written for.
@@ -73,8 +77,8 @@ public sealed partial class Pane
                 request.Command,
                 request.Timeout,
                 request.KeepOutOfHistory,
-                request.Timeout + TimeSpan.FromMinutes(1),
-                new PaneRunHooks(),
+                request.Timeout + FollowAfterTimeout,
+                new PaneRunHooks { FollowLimit = request.Timeout + FollowAfterTimeout },
                 PaneReader.Failure,
                 cancellationToken)
             .ConfigureAwait(false);
