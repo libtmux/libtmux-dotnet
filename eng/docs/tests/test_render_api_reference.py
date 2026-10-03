@@ -9,7 +9,6 @@ import typing as t
 import pytest
 
 
-
 def load_renderer() -> dict[str, t.Any]:
     """Load the renderer as an import-free test namespace."""
     return runpy.run_path(
@@ -211,3 +210,21 @@ def test_fsharp_renderer_refuses_a_section_the_task_index_does_not_place() -> No
             [{"id": "T:LibTmux.FSharp.Unplaced", "declaringType": "", "kind": "module",
               "signature": "Unplaced", "summary": "Not in the index."}]
         )
+
+
+def test_fsharp_renderer_refuses_a_task_call_the_facade_lacks() -> None:
+    """The task index names calls; one that was renamed or removed fails the render."""
+    render_fsharp = load_renderer()["render_fsharp"]
+
+    with pytest.raises(ValueError, match="Retry.ifNotSent, Retry.ifNotSentAfter"):
+        render_fsharp(
+            [{"id": "M:LibTmux.FSharp.Retry.retrying``1(System.Int32)", "declaringType": "T:LibTmux.FSharp.Retry",
+              "kind": "member", "signature": "val retrying: int -> unit", "summary": "Not a task's call."}]
+        )
+
+    rendered = render_fsharp(
+        [{"id": f"M:LibTmux.FSharp.Retry.{name}``1(System.Int32)", "declaringType": "T:LibTmux.FSharp.Retry",
+          "kind": "member", "signature": f"val {name}: int -> unit", "summary": "Retries."}
+         for name in ("ifNotSent", "ifNotSentAfter")]
+    )
+    assert "| Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) |" in rendered

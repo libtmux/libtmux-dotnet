@@ -149,17 +149,27 @@ def short_names(signature: str, modules: t.AbstractSet[str] = frozenset()) -> st
     )
 
 
-# Where each module or type sits in the page's index. A module or type not
-# listed here fails the render, so a new one is placed before it ships.
-FSHARP_TASKS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Find and filter", ("Query", "Filter", "Field", "Relation", "SessionFields", "WindowFields",
-                         "PaneFields", "ClientFields", "ScreenSearch", "Selection", "CardinalityError")),
-    ("Servers, sessions, windows and panes", ("Server", "Session", "Window", "Pane", "SessionSpec",
-                                              "WindowSpec", "SplitSpec", "Chain", "Options",
-                                              "WindowPlacementKey")),
-    ("Wait, run and read results", ("PaneWait", "PaneRun")),
-    ("Live state and events", ("Control", "Mirror", "StreamStep", "Snapshot", "CaptureState")),
-    ("Failures and retries", ("TmuxFailure", "Retry")),
+# Where each module or type sits in the page's index, after the calls a task
+# starts with. A module or type not listed here fails the render, so a new one
+# is placed before it ships; so does a listed call the facade does not have.
+FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("Find and filter",
+     ("Server.panes", "Query.where", "Query.list", "Query.exactlyOne", "Server.tryFindPane"),
+     ("Query", "Filter", "Field", "Relation", "SessionFields", "WindowFields", "PaneFields",
+      "ClientFields", "ScreenSearch", "Selection", "CardinalityError")),
+    ("Servers, sessions, windows and panes",
+     ("Server.createOwned", "Server.connect", "Server.newSession", "Pane.sendLine", "Pane.sendKeys",
+      "Pane.split"),
+     ("Server", "Session", "Window", "Pane", "SessionSpec", "WindowSpec", "SplitSpec", "Chain",
+      "Options", "WindowPlacementKey")),
+    ("Wait, run and read results",
+     ("Pane.sendAndWait", "Pane.waitForText", "Pane.waitFor", "Pane.run", "Pane.capture"),
+     ("PaneWait", "PaneRun")),
+    ("Live state and events",
+     ("Control.withSession", "Control.watchPane", "Mirror.start", "Mirror.tryWaitUntil",
+      "Server.capture"),
+     ("Control", "Mirror", "StreamStep", "Snapshot", "CaptureState")),
+    ("Failures and retries", ("Retry.ifNotSent", "Retry.ifNotSentAfter"), ("TmuxFailure", "Retry")),
 )
 
 
@@ -191,9 +201,21 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
     for member in members:
         grouped.setdefault(fsharp_section(member, types), []).append(member)
 
-    placed = {name for _, names in FSHARP_TASKS for name in names}
+    placed = {name for _, _, names in FSHARP_TASKS for name in names}
     if unplaced := sorted(grouped.keys() - placed):
         raise ValueError(f"F# API sections missing from FSHARP_TASKS: {', '.join(unplaced)}")
+    calls = {
+        f"{section}.{member['id'].split('(', 1)[0].rsplit('.', 1)[-1].split('``', 1)[0]}"
+        for section, entries in grouped.items()
+        for member in entries
+    }
+    # A call is checked only where its section renders, so a partial inventory
+    # still renders the sections it has.
+    if missing := sorted(
+        call for _, starts, _ in FSHARP_TASKS for call in starts
+        if call.split(".", 1)[0] in grouped and call not in calls
+    ):
+        raise ValueError(f"FSHARP_TASKS names calls the facade lacks: {', '.join(missing)}")
 
     lines = [
         "# F# API reference",
@@ -212,10 +234,18 @@ def render_fsharp(members: list[dict[str, str]]) -> str:
         "",
         "## By task",
         "",
+        "| Task | Start with | Sections |",
+        "|---|---|---|",
     ]
-    for task, names in FSHARP_TASKS:
-        links = ", ".join(f"[{name}](#{name.lower()})" for name in names if name in grouped)
-        lines.append(f"- **{task}:** {links}")
+    for task, starts, names in FSHARP_TASKS:
+        if not (sections := [name for name in names if name in grouped]):
+            continue
+        start = ", ".join(
+            f"[`{call}`](#{call.split('.', 1)[0].lower()})" for call in starts
+            if call.split(".", 1)[0] in grouped
+        )
+        links = ", ".join(f"[{name}](#{name.lower()})" for name in sections)
+        lines.append(f"| {task} | {start} | {links} |")
     for group, entries in sorted(grouped.items()):
         lines.extend(["", f"## {group}", "", "| Signature | Summary |", "|---|---|"])
         for entry in sorted(entries, key=fsharp_signature):
