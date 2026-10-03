@@ -64,6 +64,17 @@ jobs:
               -p:ExampleProgram="${program}"
           done
 
+      - name: Build C# programs for the tmux matrix
+        id: csharp-examples-build
+        run: |
+          dotnet restore examples/LibTmux.Examples/LibTmux.Examples.csproj --locked-mode
+          for source in examples/LibTmux.Examples/Programs/*.cs; do
+            program="$(basename "${source}" .cs)"
+            dotnet build examples/LibTmux.Examples/LibTmux.Examples.csproj \
+              --configuration Release --no-restore --warnaserror \
+              -p:ExampleProgram="${program}"
+          done
+
       - name: Archive runnable assemblies
         run: |
           mkdir -p artifacts
@@ -77,6 +88,7 @@ jobs:
             examples/LibTmux.FSharp.Examples/bin/Release/net8.0 \
             examples/LibTmux.FSharp.Examples/bin/Release/net10.0 \
             examples/LibTmux.FSharp.Examples/bin/Release/programs \
+            examples/LibTmux.Examples/bin/Release/programs \
             src/LibTmux.Workspace.Cli/bin/Release/net8.0 \
             src/LibTmux.Workspace.Cli/bin/Release/net10.0 \
             tests/LibTmux.TestChild/bin/Release/net8.0 \
@@ -214,6 +226,23 @@ jobs:
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
             dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+          done
+
+      - name: C# complete programs
+        id: csharp-examples
+        env:
+          LIBTMUX_TMUX: ${{ steps.tmux.outputs.binary }}
+          LIBTMUX_EXPECTED_TMUX_VERSION: ${{ matrix.tmux }}
+          MATRIX_FRAMEWORK: ${{ matrix.framework }}
+          TMUX_TMPDIR: /tmp/libtmux-dotnet-test
+        run: |
+          mkdir -p "${TMUX_TMPDIR}"
+          test "$("${LIBTMUX_TMUX}" -V)" = "tmux ${LIBTMUX_EXPECTED_TMUX_VERSION}"
+          PATH="$(dirname "${LIBTMUX_TMUX}"):${PATH}"
+          export PATH
+          for source in examples/LibTmux.Examples/Programs/*.cs; do
+            program="$(basename "${source}" .cs)"
+            dotnet "examples/LibTmux.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.Examples.dll"
           done
 
   advisory:

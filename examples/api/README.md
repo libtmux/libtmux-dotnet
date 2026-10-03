@@ -76,9 +76,71 @@ disposed. `SnapshotAccess.fs` turns off `exit-empty` on its own server to show
 an empty captured relation after disposing the last session; the outer server
 scope still stops that daemon.
 
+## Run a complete C# program
+
+The C# programs use the same Linux/macOS, tmux and .NET prerequisites as the
+F# setup. They contain explicit `using` directives and a top-level async entry
+point. Each file rejects Windows before calling the Unix tmux APIs.
+
+| Program | Task |
+| --- | --- |
+| [ServerConstruction.cs](../LibTmux.Examples/Programs/ServerConstruction.cs) | Open an endpoint and discover its live server |
+| [ServerListings.cs](../LibTmux.Examples/Programs/ServerListings.cs) | Read sessions, windows, panes and clients |
+| [CreateWindowPane.cs](../LibTmux.Examples/Programs/CreateWindowPane.cs) | Create a session and window, then split a pane |
+| [ServerQueries.cs](../LibTmux.Examples/Programs/ServerQueries.cs) | Compare LINQ, portable predicates and captured hierarchy queries |
+| [EntityLookups.cs](../LibTmux.Examples/Programs/EntityLookups.cs) | Distinguish nullable absence, required lookup, cancellation and failed reads |
+| [SnapshotAccess.cs](../LibTmux.Examples/Programs/SnapshotAccess.cs) | Distinguish uncaptured, captured and empty state |
+| [InputCapture.cs](../LibTmux.Examples/Programs/InputCapture.cs) | Send literal text and Enter, then capture signalled output |
+
+From a checkout containing these files, create an external consumer:
+
+```console
+$ consumer=$(mktemp -d)
+$ git clone --no-hardlinks . "$consumer/libtmux-source"
+$ git -C "$consumer/libtmux-source" checkout --detach "$(git rev-parse HEAD)"
+$ cd "$consumer"
+$ cp libtmux-source/global.json .
+$ cp libtmux-source/examples/api/NuGet.config .
+$ cp libtmux-source/examples/api/csharp/Example.csproj .
+$ cp libtmux-source/examples/LibTmux.Examples/Programs/InputCapture.cs Program.cs
+$ export NUGET_PACKAGES="$consumer/packages"
+$ dotnet restore libtmux-source/src/LibTmux/LibTmux.csproj --locked-mode
+$ dotnet pack libtmux-source/src/LibTmux/LibTmux.csproj \
+    --configuration Release --no-restore -p:ContinuousIntegrationBuild=true \
+    --output "$consumer/libtmux-source/artifacts/api-example-packages"
+$ dotnet restore Example.csproj --configfile NuGet.config
+$ dotnet build Example.csproj --configuration Release --no-restore --warnaserror
+$ export LIBTMUX_TMUX="$(command -v tmux)"
+$ export TMUX_TMPDIR=/tmp/libtmux-dotnet-dev
+$ mkdir -p "$TMUX_TMPDIR"
+$ unset TMUX TMUX_PANE
+$ dotnet bin/Release/net8.0/Example.dll
+api capture ready
+$ dotnet bin/Release/net10.0/Example.dll
+api capture ready
+```
+
+Copy another complete program to `Program.cs` and rebuild to run it with the
+same setup. This project compiles only that file, disables implicit imports,
+and references only the source-built `LibTmux` package. API pages must provide
+an HTTPS clone and exact checkout revision in place of the local clone above.
+
+`await using` disposes ownership scopes after success, cancellation or an
+exception. The directly created entities in `CreateWindowPane.cs` belong to
+its outer private server scope; disposing it stops the daemon and those
+entities. The wait channel in `InputCapture.cs` is also asynchronously
+disposed. Its whole-line assertion and signal use the same semantics as the
+F# capture program.
+
+`ServerQueries.cs` runs predicates on already read rows. Translating an
+expression does no tmux I/O. Predicates that traverse children need an
+explicitly captured hierarchy. Portable query evaluation uses reflection and
+is not presented as a trimmed or Native AOT example; the repository's separate
+AOT programs cover that deployment mode.
+
 ## Attachment and execution checks
 
-[manifest.json](manifest.json) binds each complete program to exact public F#
+[manifest.json](manifest.json) binds each complete program to exact public C# and F#
 compiler IDs. The verifier rejects unknown targets, repeated targets within
 one example, omitted programs, paths outside the repository, hidden project
 imports and changed package mappings. Descriptions and expected output belong

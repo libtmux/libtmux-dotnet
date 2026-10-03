@@ -17,6 +17,10 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS = ("net8.0", "net10.0")
+PROFILE_SOURCES = {
+    "fsharp": "examples/LibTmux.FSharp.Examples/Programs/*.fs",
+    "csharp": "examples/LibTmux.Examples/Programs/*.cs",
+}
 
 
 def unique_object(pairs: list[tuple[str, object]]) -> dict:
@@ -82,7 +86,11 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
     version = f"{version}-{suffix}" if suffix else version
     for name, profile in manifest["profiles"].items():
         keys(profile, {"package", "projectFile", "entrypoint"}, f"profile {name}")
-        if name != "fsharp" or profile["package"] != "LibTmux.FSharp" or profile["entrypoint"] != "Program.fs":
+        expected = {
+            "fsharp": {"package": "LibTmux.FSharp", "projectFile": "examples/api/fsharp/Example.fsproj", "entrypoint": "Program.fs"},
+            "csharp": {"package": "LibTmux", "projectFile": "examples/api/csharp/Example.csproj", "entrypoint": "Program.cs"},
+        }
+        if name not in expected or profile != expected[name]:
             raise ValueError(f"Unsupported example profile: {name}")
         project = ElementTree.parse(source_path(root, profile["projectFile"]))
         allowed = {
@@ -90,6 +98,8 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             "LangVersion", "TreatWarningsAsErrors", "DisableImplicitFSharpCoreReference",
             "DisableImplicitLibraryPacksFolder", "Compile", "PackageReference",
         }
+        if name == "csharp":
+            allowed |= {"Nullable", "ImplicitUsings", "EnableDefaultCompileItems", "AnalysisLevel"}
         if any(node.tag not in allowed for node in project.iter()):
             raise ValueError(f"Profile {name} must not import hidden source or build properties")
         if project.findtext(".//TargetFrameworks") != ";".join(FRAMEWORKS):
@@ -99,8 +109,14 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         if project.findall(".//ProjectReference") or project.findall(".//Import"):
             raise ValueError(f"Profile {name} must not import hidden source or build properties")
         references = {node.get("Include"): node.get("Version") for node in project.findall(".//PackageReference")}
-        if references != {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.302]"}:
-            raise ValueError(f"Profile {name} must use the exact library and FSharp.Core versions")
+        dependencies = {"LibTmux.FSharp": f"[{version}]", "FSharp.Core": "[10.1.302]"} if name == "fsharp" else {"LibTmux": f"[{version}]"}
+        if references != dependencies:
+            raise ValueError(f"Profile {name} must use the exact library and language dependencies")
+        if name == "csharp" and any(
+            project.findtext(f".//{key}") != value
+            for key, value in {"Nullable": "enable", "ImplicitUsings": "disable", "EnableDefaultCompileItems": "false"}.items()
+        ):
+            raise ValueError("The C# profile must declare nullability, imports and its sole entrypoint")
 
     members = {
         (member["package"], member["id"])
@@ -122,6 +138,8 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
         sources.add(entry["sourceFile"])
         if entry["profile"] not in manifest["profiles"]:
             raise ValueError(f"Unknown example profile: {entry['profile']}")
+        if not entry["id"].startswith(entry["profile"] + "-"):
+            raise ValueError(f"Example ID does not match its language profile: {entry['id']}")
         for field in ("title", "description", "output"):
             if not isinstance(entry[field], str) or not entry[field].strip():
                 raise ValueError(f"Example {entry['id']} needs {field}")
@@ -140,12 +158,11 @@ def validate(root: Path, manifest: dict, inventory: dict) -> None:
             if (package, target) not in members:
                 raise ValueError(f"Example {entry['id']} has no public compiler target: {target}")
 
-    complete = {
-        path.relative_to(root).as_posix()
-        for path in (root / "examples/LibTmux.FSharp.Examples/Programs").glob("*.fs")
-    }
-    if sources != complete:
-        raise ValueError(f"Manifest must cover every complete program: {sorted(sources ^ complete)}")
+    for name, pattern in PROFILE_SOURCES.items():
+        complete = {path.relative_to(root).as_posix() for path in root.glob(pattern)}
+        declared = {entry["sourceFile"] for entry in manifest["examples"] if entry["profile"] == name}
+        if declared != complete:
+            raise ValueError(f"Manifest must cover every complete program for {name}: {sorted(declared ^ complete)}")
 
 
 def digest(path: Path) -> str:
@@ -227,7 +244,8 @@ def run_consumers(
             command(["dotnet", "restore", project, "--configfile", "NuGet.config"], consumer, 120)
             command(["dotnet", "build", project, "--configuration", "Release", "--no-restore", "--warnaserror"], consumer, 60)
             for framework in FRAMEWORKS:
-                for name in ("LibTmux.dll", "LibTmux.FSharp.dll"):
+                deployed_libraries = ("LibTmux.dll", "LibTmux.FSharp.dll") if entry["profile"] == "fsharp" else ("LibTmux.dll",)
+                for name in deployed_libraries:
                     deployed = consumer / f"bin/Release/{framework}/{name}"
                     if digest(deployed) != assemblies[framework, name]:
                         raise ValueError(f"Consumer assembly differs from the native pack: {deployed}")

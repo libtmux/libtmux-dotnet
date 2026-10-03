@@ -32,8 +32,12 @@ def example_tree(tmp_path: Path):
 def test_native_manifest_covers_every_complete_program(example_tree):
     root, manifest, inventory = example_tree
     validate(root, manifest, inventory)
-    assert len(manifest["examples"]) == 8
-    assert len({target for entry in manifest["examples"] for target in entry["targets"]}) == 25
+    fsharp = [entry for entry in manifest["examples"] if entry["profile"] == "fsharp"]
+    csharp = [entry for entry in manifest["examples"] if entry["profile"] == "csharp"]
+    assert len(fsharp) == 8
+    assert len({target for entry in fsharp for target in entry["targets"]}) == 25
+    assert len(csharp) == 7
+    assert len({target for entry in csharp for target in entry["targets"]}) == 33
 
 
 def test_duplicate_json_fields_are_rejected():
@@ -108,7 +112,8 @@ def test_symlink_cannot_supply_an_external_program(example_tree, tmp_path_factor
 
 
 @pytest.mark.packaging
-def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, monkeypatch):
+@pytest.mark.parametrize("profile", ["fsharp", "csharp"])
+def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, monkeypatch, profile):
     """A real capture failure must fail the gate after the owned server is stopped."""
     packages = os.environ.get("LIBTMUX_PACKAGE_ARTIFACTS")
     if packages is None:
@@ -127,7 +132,7 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
     monkeypatch.setenv("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test")
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
-    manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == "fsharp-InputCapture"]
+    manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"]
     output = tmp_path / "consumer"
     with pytest.raises(RuntimeError, match="intentional capture failure"):
         run_consumers(ROOT, manifest, Path(packages), output, ROOT / "artifacts/api-inventory.json")
@@ -137,3 +142,43 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     assert not Path(receipt["programs"][0]["socketRoot"]).exists()
     assert receipt["commands"][-1]["exitCode"] != 0
     assert "intentional capture failure" in receipt["commands"][-1]["stderr"]
+
+
+@pytest.mark.parametrize("profile", ["fsharp", "csharp"])
+def test_each_language_rejects_an_omitted_program(example_tree, profile):
+    root, manifest, inventory = example_tree
+    entry = next(entry for entry in manifest["examples"] if entry["profile"] == profile)
+    manifest["examples"].remove(entry)
+    with pytest.raises(ValueError, match=f"every complete program for {profile}"):
+        validate(root, manifest, inventory)
+
+
+def test_csharp_source_cannot_claim_a_fsharp_profile(example_tree):
+    root, manifest, inventory = example_tree
+    entry = next(entry for entry in manifest["examples"] if entry["profile"] == "csharp")
+    entry["profile"] = "fsharp"
+    with pytest.raises(ValueError, match="does not match its language profile"):
+        validate(root, manifest, inventory)
+
+
+def test_csharp_targets_must_belong_to_the_core_package(example_tree):
+    root, manifest, inventory = example_tree
+    entry = next(entry for entry in manifest["examples"] if entry["profile"] == "csharp")
+    entry["targets"] = manifest["examples"][0]["targets"]
+    with pytest.raises(ValueError, match="no public compiler target"):
+        validate(root, manifest, inventory)
+
+
+@pytest.mark.parametrize("old, new, message", [
+    ('<Compile Include="Program.cs" />', '<Compile Include="Helper.cs" />', "displayed entrypoint"),
+    ("<ImplicitUsings>disable", "<ImplicitUsings>enable", "declare nullability, imports"),
+    ("<EnableDefaultCompileItems>false", "<EnableDefaultCompileItems>true", "sole entrypoint"),
+    ("[0.0.0-alpha.17]", "[0.0.0-alpha.16]", "exact library"),
+    ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
+])
+def test_csharp_standalone_setup_cannot_hide_context(example_tree, old, new, message):
+    root, manifest, inventory = example_tree
+    project = root / manifest["profiles"]["csharp"]["projectFile"]
+    project.write_text(project.read_text().replace(old, new))
+    with pytest.raises(ValueError, match=message):
+        validate(root, manifest, inventory)
