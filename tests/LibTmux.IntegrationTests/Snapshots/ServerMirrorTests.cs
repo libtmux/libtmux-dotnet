@@ -76,6 +76,26 @@ public sealed class ServerMirrorTests
         Assert.IsType<TmuxObjectNotFoundException>(mirror.Failure);
     }
 
+    // A waiter whose condition never holds must fail when the server dies
+    // under a refreshing mirror, not sleep out its own timeout.
+    [UnixFact]
+    public async Task A_waiter_fails_when_the_server_dies_under_a_refreshing_mirror()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Session anchor = await AnchorAsync(raw, token);
+        await using ServerMirror mirror = await ServerMirror.OpenAsync(
+            anchor,
+            TimeSpan.FromMilliseconds(50),
+            token);
+        Task<ServerMirrorView> waiting = mirror.WaitUntilAsync(_ => false, TimeSpan.FromMinutes(10), token);
+
+        await raw.ExecuteAsync(["kill-server"], token);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => waiting.WaitAsync(Arrival, token));
+        Assert.True(mirror.IsEnded);
+    }
+
     private static async Task<Session> AnchorAsync(RawTmuxTestContext raw, CancellationToken token)
     {
         Server server = await Server.ConnectAsync(
