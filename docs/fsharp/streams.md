@@ -2,7 +2,8 @@
 
 Captured snapshots are replayable local observations. Control-mode events are
 live, ordered, destructive observations. They are not a replayable `seq`, and
-a control client has one event stream with one consumer.
+a control client has one event stream with one consumer: a second reader
+started while the first is reading raises `InvalidOperationException`.
 
 ## Choose a wait or a stream
 

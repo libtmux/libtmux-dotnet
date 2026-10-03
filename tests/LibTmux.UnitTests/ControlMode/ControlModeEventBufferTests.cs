@@ -133,6 +133,30 @@ public sealed class ControlModeEventBufferTests
     }
 
     [Fact]
+    public async Task A_second_reader_is_refused_while_the_first_is_reading()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 4);
+        Assert.True(buffer.TryWrite(Notification("first")));
+        Assert.True(buffer.TryWrite(Notification("second")));
+        buffer.Complete();
+
+        await using (IAsyncEnumerator<TmuxEvent> reading =
+            buffer.ReadAllAsync(token).GetAsyncEnumerator(token))
+        {
+            Assert.True(await reading.MoveNextAsync());
+            await using IAsyncEnumerator<TmuxEvent> competing =
+                buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await competing.MoveNextAsync());
+        }
+
+        await using IAsyncEnumerator<TmuxEvent> after =
+            buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+        Assert.True(await after.MoveNextAsync());
+        Assert.Equal("second", Assert.IsType<TmuxNotificationEvent>(after.Current).Name);
+    }
+
+    [Fact]
     public async Task A_drop_after_dequeue_is_reported_after_the_held_event()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
