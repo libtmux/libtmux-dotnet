@@ -90,20 +90,15 @@ open LibTmux.Testing
 
 // Options that name a connection replace the private socket a test gets
 // by default, so name a socket of the test's own as well as the binary.
-let ciTestOptions () =
-    let binary =
-        Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-        |> Option.ofObj
-        |> Option.defaultValue "tmux"
-
+let testOptionsWith (tmuxBinary: string) =
     TmuxTestOptions(
         ServerConnectionOptions(
             SocketName = "libtmux-test-" + Guid.NewGuid().ToString("N"),
-            TmuxBinaryPath = binary
+            TmuxBinaryPath = tmuxBinary
         )
     )
 ```
 <!-- endfsharp-snippet -->
 
 Pass the options to each scope, such as
-`TmuxTestFactory().CreateHierarchyAsync(ciTestOptions (), cancellationToken)`.
+`TmuxTestFactory().CreateHierarchyAsync(testOptionsWith "/opt/tmux/bin/tmux", cancellationToken)`.

@@ -164,16 +164,8 @@ let private runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let cancellationToken = deadline.Token
 
-        let tmuxBinary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let connection =
-            ServerConnectionOptions(
-                SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"),
-                TmuxBinaryPath = tmuxBinary
-            )
+            ServerConnectionOptions(SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"))
 
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
@@ -183,8 +175,7 @@ let private runAsync () =
                 use! owned =
                     ServerConnectionOptions(
                         SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
-                        ConfigurationFile = "/dev/null",
-                        TmuxBinaryPath = tmuxBinary
+                        ConfigurationFile = "/dev/null"
                     )
                     |> Server.createOwned cancellationToken
 
@@ -258,7 +249,7 @@ let private runAsync () =
         if greeting <> [ "hello" ] then
             failwithf "The testing guide read %A." greeting
 
-        let ciOptions = GuideSnippets.ciTestOptions ()
+        let ciOptions = GuideSnippets.testOptionsWith "tmux"
 
         do!
             task {
