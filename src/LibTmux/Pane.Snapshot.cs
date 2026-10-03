@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 
 using LibTmux.Internal;
@@ -24,6 +25,13 @@ public sealed partial class Pane
     /// <summary>Gets whether the pane's program has exited and the pane remains.</summary>
     /// <remarks>A pane outlives its program only while <c>remain-on-exit</c> is on.</remarks>
     public bool Dead => ReadSnapshot("pane_dead") == "1";
+
+    /// <summary>Gets the exit status of a dead pane's program.</summary>
+    /// <remarks>Null while the program runs, and when a signal ended it instead.</remarks>
+    public int? DeadStatus =>
+        int.TryParse(ReadSnapshot("pane_dead_status"), NumberStyles.None, CultureInfo.InvariantCulture, out int status)
+            ? status
+            : null;
 
     /// <summary>Gets how many lines have scrolled into the pane's history.</summary>
     public int HistorySize => ReadCapturedInt("history_size", "history size");

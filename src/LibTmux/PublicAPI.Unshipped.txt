@@ -555,6 +555,7 @@ LibTmux.Pane.AtRight.get -> bool
 LibTmux.Pane.AtTop.get -> bool
 LibTmux.Pane.Active.get -> bool
 LibTmux.Pane.Dead.get -> bool
+LibTmux.Pane.DeadStatus.get -> int?
 LibTmux.Pane.InMode.get -> bool
 LibTmux.Pane.HistorySize.get -> int
 LibTmux.Pane.ProcessId.get -> int

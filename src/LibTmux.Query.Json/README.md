@@ -124,7 +124,8 @@ Windows: `window_name`, `window_id`, `window_index`, `window_width`,
 `pane_id`, `pane_command`, `pane_index`, `pane_title`, `pane_current_path`,
 `pane_width`, `pane_height`, `pane_left`, `pane_top`, `pane_at_top`,
 `pane_at_bottom`, `pane_at_left`, `pane_at_right`, `pane_active`, `pane_dead`,
-`pane_in_mode`, `pane_pid`, `pane_synchronized`, `history_size`. Clients:
+`pane_dead_status`, `pane_in_mode`, `pane_pid`, `pane_synchronized`,
+`history_size`. Clients:
 `client_id`, `client_name`, `client_control_mode`.
 
 You write these as the properties they are, such as `Session.Name`,
