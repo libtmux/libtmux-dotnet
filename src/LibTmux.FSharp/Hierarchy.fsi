@@ -147,6 +147,7 @@ module Pane =
     /// Text already on screen ends the wait at once as <c>PresentAtEntry</c>.
     /// The wait sleeps on the pane's own output rather than polling, and ends
     /// early when the pane's program exits or a full-screen program starts.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -158,6 +159,7 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits as the request describes: patterns, stop patterns, or any output.</summary>
+    /// <remarks>Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.</remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
     val waitFor:
         cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
@@ -169,6 +171,7 @@ module Pane =
     /// typing <c>echo done</c> waits for the command's output. Prefer this to
     /// <c>sendKeys</c> followed by <c>waitForText</c>, which can match the
     /// typed line itself.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -184,6 +187,7 @@ module Pane =
     /// <remarks>
     /// As <c>sendAndWait</c>: only output after the keys counts, and literal
     /// text is discounted from it. Key names are not.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
@@ -195,7 +199,10 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits until a condition holds over the rows the pane shows, top to bottom.</summary>
-    /// <remarks>The condition sees the whole screen each time the pane prints or changes state.</remarks>
+    /// <remarks>
+    /// The condition sees the whole screen each time the pane prints or changes state.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
     val waitUntil:
         cancellationToken: CancellationToken ->

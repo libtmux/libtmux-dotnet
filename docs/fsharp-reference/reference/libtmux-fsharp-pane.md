@@ -116,6 +116,7 @@ The screen before the line is typed never ends the wait, and the
  typing <code>echo done</code> waits for the command&#39;s output. Prefer this to
  <code>sendKeys</code> followed by <code>waitForText</code>, which can match the
  typed line itself.
+ Running out of time returns the outcome <code>TimedOut</code>; only <code>Mirror.waitUntil</code> raises instead.
 
 **Parameters:**
 
@@ -145,6 +146,7 @@ Sends keys as the request describes, then waits as the wait request describes.
 
 As <code>sendAndWait</code>: only output after the keys counts, and literal
  text is discounted from it. Key names are not.
+ Running out of time returns the outcome <code>TimedOut</code>; only <code>Mirror.waitUntil</code> raises instead.
 
 **Parameters:**
 
@@ -210,6 +212,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Waits as the request describes: patterns, stop patterns, or any output.
 
+Running out of time returns the outcome <code>TimedOut</code>; only <code>Mirror.waitUntil</code> raises instead.
+
 **Parameters:**
 
 **cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
@@ -233,6 +237,7 @@ Waits for a line the pane prints to contain the text.
 Text already on screen ends the wait at once as <code>PresentAtEntry</code>.
  The wait sleeps on the pane&#39;s own output rather than polling, and ends
  early when the pane&#39;s program exits or a full-screen program starts.
+ Running out of time returns the outcome <code>TimedOut</code>; only <code>Mirror.waitUntil</code> raises instead.
 
 **Parameters:**
 
@@ -259,6 +264,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 Waits until a condition holds over the rows the pane shows, top to bottom.
 
 The condition sees the whole screen each time the pane prints or changes state.
+ Running out of time returns the outcome <code>TimedOut</code>; only <code>Mirror.waitUntil</code> raises instead.
 
 **Parameters:**
 
