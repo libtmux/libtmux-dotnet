@@ -38,9 +38,11 @@ version.
 - `OwnedServerScope.DisposeAsync` stops the server when called again after a
   failed attempt, and a call made while another is stopping it waits for that
   stop and its outcome; both returned at once. (#53)
-- `ServerMirror` no longer publishes a new view each second a person types
-  in an attached client: client activity times, the saved cursor and
+- `ServerMirror` no longer publishes a view when nothing changed: client
+  activity times and write counts, the saved cursor, window offsets and
   synchronized-output toggles no longer count as changes. (#53)
+- `RunShellRequest.Delay` keeps its fraction of a second; half a second ran
+  at once. (#53)
 - Package pages on nuget.org no longer open with the logo's HTML shown as
   text. (#53)
 
