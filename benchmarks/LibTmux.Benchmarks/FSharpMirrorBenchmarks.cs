@@ -63,9 +63,11 @@ public class FSharpMirrorBenchmarks : IAsyncDisposable
             .Single(session => session.Name == "s00");
         _mirror = await LibTmux.FSharp.Mirror.start(cancellationToken, anchor).ConfigureAwait(false);
 
-        if (!await RenameUntilSeen().ConfigureAwait(false))
+        // Mirror.waitUntil raises unless a view shows the rename in time.
+        long first = _mirror.Current.Epoch;
+        if (await RenameUntilSeen().ConfigureAwait(false) <= first)
         {
-            throw new InvalidOperationException("The mirror did not publish a renamed window.");
+            throw new InvalidOperationException("The mirror showed the rename in a view it had already published.");
         }
     }
 
@@ -94,8 +96,9 @@ public class FSharpMirrorBenchmarks : IAsyncDisposable
     }
 
     /// <summary>Renames a window and waits until a mirror view shows the new name.</summary>
+    /// <returns>The epoch of the view that showed it.</returns>
     [Benchmark]
-    public async Task<bool> RenameUntilSeen()
+    public async Task<long> RenameUntilSeen()
     {
         string name = $"r{++_renames}";
         await _server.Chain()
@@ -108,6 +111,6 @@ public class FSharpMirrorBenchmarks : IAsyncDisposable
                 FuncConvert.FromFunc((ServerMirrorView seen) => seen.Server.Windows.Any(window => window.Name == name)),
                 _mirror)
             .ConfigureAwait(false);
-        return view.Epoch > 0;
+        return view.Epoch;
     }
 }
