@@ -19,15 +19,23 @@ public sealed partial class Server
         CancellationToken cancellationToken = default)
     {
         Server owner = await ListingOwnerAsync(cancellationToken).ConfigureAwait(false);
-        ServerGeneration generation = owner._generation
+        return await owner.ReadClientsAsync([], cancellationToken).ConfigureAwait(false);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<IReadOnlyList<Client>> ReadClientsAsync(
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        ServerGeneration generation = _generation
             ?? throw new IncompleteSnapshotException("clients", SnapshotDepth.Server);
-        TmuxConnection connection = owner.Connection
+        TmuxConnection connection = Connection
             ?? throw new InvalidOperationException("The server handle has no connection.");
         IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
-            await new MaterializationQuery(new MaterializationContext(owner, owner.ParsedVersion()))
-                .FetchAsync("list-clients", [], cancellationToken)
+            await new MaterializationQuery(new MaterializationContext(this, ParsedVersion()))
+                .FetchAsync("list-clients", arguments, cancellationToken)
                 .ConfigureAwait(false);
-        return [.. rows.Select(row => new Client(owner, connection, generation, row))];
+        return [.. rows.Select(row => new Client(this, connection, generation, row))];
     }
 
     /// <summary>Detaches one client.</summary>

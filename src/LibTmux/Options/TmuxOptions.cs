@@ -98,6 +98,41 @@ public sealed class TmuxOptions
         return arguments;
     }
 
+    /// <summary>Reads the value an option has in this scope, as its key's type.</summary>
+    /// <typeparam name="T">What the value reads as.</typeparam>
+    /// <param name="key">The option and how to read it.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>The value tmux applies here, set in this scope or inherited from a parent.</returns>
+    /// <exception cref="TmuxOptionException">
+    /// tmux rejected the name, reported no value, or reported one the key cannot read.
+    /// </exception>
+    public async Task<T> GetAsync<T>(TmuxOptionKey<T> key, CancellationToken cancellationToken = default)
+        where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        IReadOnlyList<TmuxOption> options = await GetAsync(
+                new GetOptionRequest(key.Name) { IncludeInherited = true },
+                cancellationToken)
+            .ConfigureAwait(false);
+        string reported = options.FirstOrDefault(option => option.Index is null)?.Value.Raw
+            ?? throw new TmuxOptionException($"tmux reported no value for option {key.Name}.", key.Name);
+        return key.Read(reported);
+    }
+
+    /// <summary>Sets an option in this scope from a value of its key's type.</summary>
+    /// <typeparam name="T">What the value reads as.</typeparam>
+    /// <param name="key">The option and how to write it.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="cancellationToken">Cancels the tmux command.</param>
+    /// <returns>A task that completes when tmux has set the option.</returns>
+    /// <exception cref="TmuxOptionException">tmux rejected the name or the value.</exception>
+    public Task SetAsync<T>(TmuxOptionKey<T> key, T value, CancellationToken cancellationToken = default)
+        where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return SetAsync(new SetOptionRequest(key.Name, key.Write(value)), cancellationToken);
+    }
+
     /// <summary>Reads every option in the scope.</summary>
     /// <param name="request">How to read them, or null for the plain reading.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>

@@ -38,33 +38,9 @@ internal static partial class Log
     internal static partial void ServerUnreachable(ILogger logger, Exception error, string? socket);
 
     [LoggerMessage(
-        EventId = 4,
-        Level = LogLevel.Debug,
-        Message = "Control client for socket {Socket} ended: {Reason}")]
-    internal static partial void ControlClientEnded(ILogger logger, string? socket, string? reason);
-
-    [LoggerMessage(
-        EventId = 5,
-        Level = LogLevel.Debug,
-        Message = "Control client for socket {Socket} could not start; falling back to polling.")]
-    internal static partial void ControlClientUnavailable(
-        ILogger logger,
-        Exception error,
-        string? socket);
-
-    [LoggerMessage(
         EventId = 7,
         Level = LogLevel.Warning,
         Message = "Tool {Tool} failed.")]
     internal static partial void ToolFailed(ILogger logger, Exception error, string tool);
-
-    [LoggerMessage(
-        EventId = 8,
-        Level = LogLevel.Debug,
-        Message = "Control client for socket {Socket} could not be cleaned up.")]
-    internal static partial void ControlClientCleanupFailed(
-        ILogger logger,
-        Exception error,
-        string? socket);
 
 }

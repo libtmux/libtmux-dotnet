@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Tells a waiter the moment a pane prints something.</summary>
 /// <remarks>
@@ -28,7 +28,7 @@ namespace LibTmux.Mcp;
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-public sealed class PaneActivityHub : IAsyncDisposable
+internal sealed partial class PaneActivityHub : IAsyncDisposable
 {
     /// <summary>How long a poll-based wait sleeps between reads.</summary>
     internal static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(60);
@@ -42,6 +42,12 @@ public sealed class PaneActivityHub : IAsyncDisposable
     /// <summary>Initializes the hub.</summary>
     /// <param name="logger">Records why a control client could not start.</param>
     public PaneActivityHub(ILogger? logger = null) => _logger = logger;
+
+    private const string PaneDeadSubscription = "libtmux-pane-dead";
+
+    /// <summary>Gets the hub the library's own pane waits share.</summary>
+    /// <remarks>Each watch is released when its wait ends, so nothing stays attached.</remarks>
+    internal static PaneActivityHub Shared { get; } = new();
 
     internal PaneActivityHub(
         Func<Pane, CancellationToken, Task<IControlModeSession>> startPaneSession,
@@ -351,6 +357,14 @@ public sealed class PaneActivityHub : IAsyncDisposable
                     cancellationToken)
                     .ConfigureAwait(false);
 
+                // A program exiting writes nothing, so output alone would let
+                // a wait on a dead pane sleep to its deadline. tmux re-checks
+                // subscriptions once a second and reports each change.
+                await starting.SendAsync(
+                    TmuxCommand.Create("refresh-client", "-B", $"{PaneDeadSubscription}:%*:#{{pane_dead}}"),
+                    cancellationToken)
+                    .ConfigureAwait(false);
+
                 // Recorded so a client listing can tell this observer apart
                 // from one a human actually attached - tmux counts both the
                 // same way, and a wait or a capture must never read as a
@@ -402,7 +416,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
 
                 if (hub._logger is not null)
                 {
-                    Log.ControlClientUnavailable(hub._logger, error, key.SessionId);
+                    LogControlClientUnavailable(hub._logger, error, key.SessionId);
                 }
 
                 _retired = true;
@@ -449,8 +463,35 @@ public sealed class PaneActivityHub : IAsyncDisposable
                         case TmuxOutputEvent output:
                             OnPaneOutput(output.PaneId);
                             break;
+
+                        // A paused pane's output never arrives, so its pause,
+                        // resume, or any loss is the only sign it printed.
+                        case TmuxPanePausedEvent paused:
+                            OnPaneOutput(paused.PaneId);
+                            break;
+                        case TmuxPaneContinuedEvent continued:
+                            OnPaneOutput(continued.PaneId);
+                            break;
+                        case TmuxEventsDroppedEvent:
+                            OnSessionChanged();
+                            break;
+                        case TmuxNotificationEvent { Name: "subscription-changed" } changed
+                            when changed.Arguments is [PaneDeadSubscription, ..]:
+                            foreach (string argument in changed.Arguments)
+                            {
+                                if (argument.StartsWith('%') && PaneId.TryParse(argument, out PaneId pane))
+                                {
+                                    OnPaneOutput(pane);
+                                }
+                            }
+
+                            break;
+                        case TmuxNotificationEvent { Name: "layout-change" or "window-close" or "unlinked-window-close" }:
+                            // A closed pane leaves no subscription value behind to change.
+                            OnSessionChanged();
+                            break;
                         case TmuxExitEvent exit when hub._logger is not null:
-                            Log.ControlClientEnded(hub._logger, key.SessionId, exit.Reason);
+                            LogControlClientEnded(hub._logger, key.SessionId, exit.Reason);
                             break;
                         default:
                             break;
@@ -495,7 +536,7 @@ public sealed class PaneActivityHub : IAsyncDisposable
                 if (hub._logger is not null
                     && Interlocked.Exchange(ref run.CleanupReported, 1) == 0)
                 {
-                    Log.ControlClientCleanupFailed(hub._logger, error, key.SessionId);
+                    LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
                 }
             }
         }
@@ -601,6 +642,17 @@ public sealed class PaneActivityHub : IAsyncDisposable
             }
         }
 
+        private void OnSessionChanged()
+        {
+            lock (_signalGate)
+            {
+                foreach (PaneSignal signal in _signals.Values)
+                {
+                    signal.Fire();
+                }
+            }
+        }
+
         private void StopSignaling()
         {
             lock (_signalGate)
@@ -668,4 +720,22 @@ public sealed class PaneActivityHub : IAsyncDisposable
         internal static SessionWatchKey ForTest(string endpointId, string sessionId) =>
             new(Server: null, Generation: null, endpointId, sessionId);
     }
+
+    [LoggerMessage(
+        EventId = 42,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} ended: {Reason}")]
+    private static partial void LogControlClientEnded(ILogger logger, string? session, string? reason);
+
+    [LoggerMessage(
+        EventId = 43,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} could not start; falling back to polling.")]
+    private static partial void LogControlClientUnavailable(ILogger logger, Exception error, string? session);
+
+    [LoggerMessage(
+        EventId = 44,
+        Level = LogLevel.Debug,
+        Message = "Control client for session {Session} could not be cleaned up.")]
+    private static partial void LogControlClientCleanupFailed(ILogger logger, Exception error, string? session);
 }

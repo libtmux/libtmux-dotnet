@@ -24,6 +24,100 @@ expose an `Async` adapter with an unproved cancellation contract.
 cross a process or language boundary. It serializes the core `QueryDocument`;
 the F# package does not define a second format.
 
+## Failures and retries
+
+Every `LibTmuxException` says whether its command reached tmux. The
+`TmuxFailure` patterns match on that. `NotSent` means tmux never saw the
+command, so running it again repeats nothing. `Ran` means tmux ran it and then
+reported an error or gave an answer that could not be used. `MayHaveRun`
+covers a failure or cancellation after which tmux may already have acted.
+`Retry.ifNotSent` runs an operation again only for `NotSent`, and only when no
+command the attempt sent before that failure reached tmux:
+
+<!-- fsharp-snippet: SafeRetry run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
+    task {
+        try
+            // Runs again only when tmux never received the command.
+            let! sessions =
+                Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+
+            return Ok [ for session in sessions -> session.Name ]
+        with
+        | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
+        | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+    }
+```
+<!-- endfsharp-snippet -->
+
+`NotSent` speaks for one command. An operation that creates a window and then
+fails to send a second command has already created the window, so
+`Retry.ifNotSent` counts every command an attempt sends, through whatever it
+awaits, and repeats the attempt only if none reached tmux. A read that is safe
+to repeat whatever happened can use any retry policy; a command that changes
+tmux should be retried only this way.
+
+## Bound how long tmux may take
+
+Bound one call with its token: pass `(new CancellationTokenSource(timeout)).Token`.
+A call cancelled that way raises `TmuxOperationCanceledException`, whose
+`CommandMayHaveExecuted` says whether tmux may already have run it, and which
+`TmuxFailure.MayHaveRun` matches.
+
+Bound every command a handle sends with `Server.within timeout server`. It
+returns a handle to the same server, over the same connection, whose commands,
+and those of every session, window and pane taken from it, give tmux that long.
+A command that outlasts it raises `TmuxTransportException` with an `Unknown`
+dispatch state. `ServerConnectionOptions.CommandTimeout` sets the same bound
+for a whole connection.
+
+## Typed options
+
+`Options.get` and `Options.set` take a `TmuxOptionKey` that knows its value's
+type. The named keys, such as `TmuxOptionKey.HistoryLimit` and
+`TmuxOptionKey.Mouse`, have the same type on every supported tmux; declare
+others with `TmuxOptionKey.Text`, `Number` or `Flag`. A read returns the value
+tmux applies, including one inherited from a parent scope, and raises
+`TmuxOptionException` when tmux reports none or one the key cannot read.
+
+<!-- fsharp-snippet: TypedOptions run -->
+```fsharp run
+open System.Threading
+open LibTmux
+open LibTmux.FSharp
+
+let tuneAsync (cancellationToken: CancellationToken) (session: Session) (window: Window) =
+    task {
+        do!
+            session.Options
+            |> Options.set cancellationToken TmuxOptionKey.HistoryLimit 50_000
+
+        do!
+            session.Options
+            |> Options.set cancellationToken (TmuxOptionKey.Text "@stage") "build"
+
+        let! history =
+            session.Options |> Options.get cancellationToken TmuxOptionKey.HistoryLimit
+
+        let! stage =
+            session.Options |> Options.get cancellationToken (TmuxOptionKey.Text "@stage")
+
+        // Never set on the window, so this is tmux's inherited default.
+        let! renames =
+            window.Options |> Options.get cancellationToken TmuxOptionKey.AutomaticRename
+
+        return history, stage, renames
+    }
+```
+<!-- endfsharp-snippet -->
+
+## Configuration, hooks and formats
+
 Core configuration and format APIs remain available on the same handles. This
 function takes an existing server and session, makes scoped changes, and checks
 what tmux reports. The [example runner](../../examples/LibTmux.FSharp.Examples/Program.fs)
@@ -38,6 +132,8 @@ open LibTmux
 
 let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Server) (session: Session) =
     task {
+        // A global value, overridden locally, shows through again once the
+        // local value is unset.
         let! _ =
             session.Options.SetAsync(SetOptionRequest("status-keys", "vi", Global = true), cancellationToken)
 
@@ -46,16 +142,10 @@ let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Ser
 
         do! session.Options.UnsetAsync(UnsetOptionRequest("status-keys"), cancellationToken)
 
-        let! inherited =
+        let! statusKeys =
             session.Options.GetAsync(GetOptionRequest("status-keys", IncludeInherited = true), cancellationToken)
 
-        if
-            inherited.Count <> 1
-            || inherited[0].Value.Raw <> "vi"
-            || not inherited[0].Inherited
-        then
-            failwith "Unsetting the local option did not restore the inherited value."
-
+        // An array option and a hook keep each entry's index.
         let! _ =
             server.Options.SetAsync(
                 SetOptionRequest("command-alias[40]", "fsharp-window=new-window"),
@@ -65,36 +155,17 @@ let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Ser
         let! aliases =
             server.Options.GetAsync(GetOptionRequest("command-alias"), cancellationToken)
 
-        let indexed =
-            aliases
-            |> Seq.tryFind (fun alias -> alias.Index = Nullable 40)
-            |> Option.defaultWith (fun () -> failwith "The indexed option was not reported.")
-
-        if indexed.Value.Raw <> "fsharp-window=new-window" then
-            failwith "The indexed option lost its raw value."
-
         let entries = Dictionary<int, string>()
         entries[3] <- "display-message fsharp-hook"
 
         let! hook =
             server.Hooks.SetAsync(SetHooksRequest("alert-bell", entries, ClearExisting = true), cancellationToken)
 
-        if hook.Values.Count <> 1 || hook.Values[0].Index <> 3 then
-            failwith "The hook lost its command index."
-
-        let! stored =
+        let! _ =
             session.Environment.SetAsync("LIBTMUX_FSHARP_EXAMPLE", "ready", cancellationToken = cancellationToken)
 
-        let! observed =
+        let! variable =
             session.Environment.GetAsync("LIBTMUX_FSHARP_EXAMPLE", cancellationToken)
-
-        let observedValue =
-            match observed with
-            | null -> failwith "The session environment value was absent."
-            | entry -> entry.Value
-
-        if stored.Value <> "ready" || observedValue <> "ready" then
-            failwith "The session environment did not retain its value."
 
         let! rendered =
             server.DisplayMessageAsync(
@@ -102,16 +173,17 @@ let inspectCoreSettingsAsync (cancellationToken: CancellationToken) (server: Ser
                 cancellationToken
             )
 
-        let formatText =
-            match rendered with
-            | null -> failwith "tmux returned no format text."
-            | lines when lines.Count = 1 -> lines[0]
-            | _ -> failwith "tmux returned more than one format line."
-
-        if not (formatText.StartsWith("fsharp-", StringComparison.Ordinal)) then
-            failwith "tmux did not render the format."
-
-        return indexed.Index.Value, inherited[0].Value.Raw, hook.Values[0].Index, formatText
+        return
+            {|
+                StatusKeys = [ for option in statusKeys -> option.Value.Raw, option.Inherited ]
+                Alias =
+                    aliases
+                    |> Seq.tryFind (fun alias -> alias.Index = Nullable 40)
+                    |> Option.map (fun alias -> alias.Value.Raw)
+                HookIndexes = [ for value in hook.Values -> value.Index ]
+                Variable = variable |> Option.ofObj |> Option.map (fun entry -> entry.Value)
+                Rendered = rendered |> Option.ofObj |> Option.map List.ofSeq
+            |}
     }
 ```
 <!-- endfsharp-snippet -->
@@ -138,6 +210,8 @@ let exerciseCoreOperationsAsync
     (pane: Pane)
     =
     task {
+        // Link the window at index 5 as well, move that placement to 3,
+        // then unlink it; the original placement stays.
         do!
             window.LinkAsync(
                 LinkWindowRequest(session.Id.ToString(), TargetIndex = "5", Detach = true),
@@ -152,15 +226,10 @@ let exerciseCoreOperationsAsync
         let! moved =
             linked.MoveAsync(MoveWindowRequest(Destination = "3", NoSelect = true), cancellationToken)
 
-        if moved.Id <> window.Id || moved.Index <> 3 then
-            failwith "Moving the link did not return its new placement."
-
         do! moved.UnlinkAsync(cancellationToken = cancellationToken)
         let! remaining = session.GetWindowsAsync(cancellationToken)
 
-        if remaining.Count <> 1 || remaining[0].Id <> window.Id then
-            failwith "Unlinking the moved placement also removed the original."
-
+        // Layout and resize return the handle they changed.
         let! split = window.SplitPaneAsync(cancellationToken = cancellationToken)
 
         let! laidOut =
@@ -168,27 +237,26 @@ let exerciseCoreOperationsAsync
 
         let! resized = split.ResizeAsync(ResizePaneRequest(Height = "10"), cancellationToken)
 
-        if laidOut.Id <> window.Id || resized.Id <> split.Id || resized.Height < 1 then
-            failwith "Layout or resize did not return the affected handle."
-
         do! server.Buffers.SetAsync("fsharp-ready", "fsharp-guide", cancellationToken = cancellationToken)
         let! contents = server.Buffers.GetAsync("fsharp-guide", cancellationToken)
-
-        if contents <> "fsharp-ready" then
-            failwith "The named buffer lost its contents."
-
         do! server.Buffers.DeleteAsync("fsharp-guide", cancellationToken)
+
         do! pane.EnterCopyModeAsync(cancellationToken = cancellationToken)
         let! copying = pane.RefreshAsync(cancellationToken)
-
-        if copying.RawFormatFields["pane_in_mode"] <> "1" then
-            failwith "The pane did not enter copy mode."
-
         do! pane.EnterCopyModeAsync(CopyModeRequest(Cancel = true), cancellationToken)
         let! normal = pane.RefreshAsync(cancellationToken)
 
-        if normal.RawFormatFields["pane_in_mode"] <> "0" then
-            failwith "The pane did not leave copy mode."
+        return
+            {|
+                Moved = moved
+                Remaining = remaining
+                Split = split
+                LaidOut = laidOut
+                Resized = resized
+                Buffer = contents
+                InModeWhileCopying = copying.RawFormatFields["pane_in_mode"]
+                InModeAfter = normal.RawFormatFields["pane_in_mode"]
+            |}
     }
 ```
 <!-- endfsharp-snippet -->
@@ -216,40 +284,34 @@ let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Se
             )
 
         let! panes = window.GetPanesAsync(cancellationToken)
-
-        if window.Name <> "fsharp-input" || panes.Count <> 1 then
-            failwith "The new window did not contain one pane."
-
         let pane = panes[0]
+
+        // Literal text is typed as written; a key name is pressed. Text
+        // followed by Enter is two commands: the text, then the key.
         let literal = SendKeysRequest(Text = "Enter", Literal = true, Enter = false)
         let keyName = SendKeysRequest(Text = "Enter", Literal = false, Enter = false)
 
         let textThenEnter =
             SendKeysRequest(Text = "fsharp-input", Literal = true, Enter = true)
 
-        let literalCommands = literal.ToCommands(pane)
-        let keyCommands = keyName.ToCommands(pane)
-        let textCommands = textThenEnter.ToCommands(pane)
-
-        let hasLiteral (command: TmuxCommand) =
-            command.ToArguments() |> Seq.contains "-l"
-
-        if
-            literalCommands.Count <> 1
-            || not (hasLiteral literalCommands[0])
-            || keyCommands.Count <> 1
-            || hasLiteral keyCommands[0]
-            || textCommands.Count <> 2
-            || not (hasLiteral textCommands[0])
-            || hasLiteral textCommands[1]
-            || (textCommands[1].ToArguments() |> Seq.last) <> "Enter"
-        then
-            failwith "Literal text and the Enter key were not separate commands."
-
         do! pane |> Pane.sendKeys cancellationToken literal
         do! pane |> Pane.sendKeys cancellationToken keyName
         do! pane |> Pane.sendKeys cancellationToken textThenEnter
         do! window.KillAsync(cancellationToken = cancellationToken)
+
+        let arguments (request: SendKeysRequest) =
+            [
+                for command in request.ToCommands(pane) -> List.ofSeq (command.ToArguments())
+            ]
+
+        return
+            {|
+                Window = window
+                Panes = panes.Count
+                Literal = arguments literal
+                KeyName = arguments keyName
+                TextThenEnter = arguments textThenEnter
+            |}
     }
 ```
 <!-- endfsharp-snippet -->

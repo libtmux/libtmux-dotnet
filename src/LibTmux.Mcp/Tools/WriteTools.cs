@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
-using System.Text;
+
+using LibTmux.Internal;
 
 namespace LibTmux.Mcp;
 
@@ -103,41 +104,5 @@ internal sealed partial class WriteTools : IAsyncDisposable
         None = 0,
         Connection = 1,
         Activity = 2,
-    }
-
-    /// <summary>Quotes a word so a POSIX shell reads it as exactly that word.</summary>
-    /// <param name="value">The word.</param>
-    /// <returns>The quoted word.</returns>
-    /// <remarks>
-    /// Single quotes end every special meaning a shell has except their own, so
-    /// the only thing to handle is a single quote in the input.
-    /// </remarks>
-    internal static string ShellQuote(string value) =>
-        "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
-
-    /// <summary>Builds the tmux command line that reaches this same server.</summary>
-    /// <param name="route">The startup and preflight-authenticated route.</param>
-    /// <param name="arguments">The tmux command and its arguments.</param>
-    /// <returns>A shell-safe command line.</returns>
-    /// <remarks>
-    /// A command run from inside a pane inherits <c>TMUX</c> and would reach the
-    /// ambient server, which is not necessarily the one this tool is driving.
-    /// Naming the absolute socket is what makes the two the same server, and
-    /// <c>command</c> keeps a shell function from replacing the tmux executable.
-    /// </remarks>
-    internal static string TmuxCommandLine(
-        RunCommandRoute route,
-        params string[] arguments)
-    {
-        StringBuilder line = new("command ");
-        line.Append(ShellQuote(route.TmuxBinaryPath));
-        line.Append(" -S ").Append(ShellQuote(route.SocketPath));
-
-        foreach (string argument in arguments)
-        {
-            line.Append(' ').Append(ShellQuote(argument));
-        }
-
-        return line.ToString();
     }
 }

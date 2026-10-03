@@ -14,7 +14,7 @@ type StreamStep<'State> =
 
 module private AsyncCleanup =
     let run (cleanupKey: string) (work: unit -> Task<'T>) (cleanup: unit -> Task) =
-        task {
+        backgroundTask {
             let mutable outcome: Result<'T, exn> option = None
 
             try
@@ -45,43 +45,57 @@ module private AsyncCleanup =
             | None, _ -> return invalidOp "The asynchronous resource scope did not finish its work."
         }
 
-module private EventReader =
-    let consume
-        (cancellationToken: CancellationToken)
-        (session: IControlModeSession)
-        (work: IAsyncEnumerator<TmuxEvent> -> Task<'T>)
-        =
-        let reader = session.Events.GetAsyncEnumerator(cancellationToken)
-
-        AsyncCleanup.run "LibTmux.ControlModeEventCleanupFailure" (fun () -> work reader) (fun () ->
-            reader.DisposeAsync().AsTask())
-
 [<RequireQualifiedAccess>]
 module Control =
+    [<Literal>]
+    let private CleanupFailureKey = "LibTmux.FSharp.CleanupFailure"
+
     let enter (cancellationToken: CancellationToken) (server: LibTmux.Server) =
         server.EnterControlModeAsync(cancellationToken = cancellationToken)
 
+    let enterSession (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.Server.EnterControlModeAsync(session.Id.ToString(), cancellationToken)
+
     let useSession (work: IControlModeSession -> Task<'State>) (session: IControlModeSession) =
-        AsyncCleanup.run "LibTmux.ControlModeClientCleanupFailure" (fun () -> work session) (fun () ->
-            session.DisposeAsync().AsTask())
+        AsyncCleanup.run CleanupFailureKey (fun () -> work session) (fun () -> session.DisposeAsync().AsTask())
 
     let withSession
         (cancellationToken: CancellationToken)
         (work: IControlModeSession -> Task<'State>)
         (server: LibTmux.Server)
         =
-        task {
+        backgroundTask {
             let! session = enter cancellationToken server
             return! useSession work session
         }
 
-    let iterEvents (cancellationToken: CancellationToken) (handler: TmuxEvent -> Task) (session: IControlModeSession) =
-        EventReader.consume cancellationToken session (fun reader ->
-            task {
+    let events (session: IControlModeSession) = session.Events
+
+    let watchPane (pane: LibTmux.Pane) (session: IControlModeSession) =
+        PaneObservation.WatchAsync(session, pane)
+
+    let watchPanes (panes: LibTmux.Pane list) (session: IControlModeSession) =
+        PaneObservation.WatchAsync(session, (panes :> IReadOnlyCollection<LibTmux.Pane>))
+
+    let private consume
+        (cancellationToken: CancellationToken)
+        (source: IAsyncEnumerable<'T>)
+        (work: IAsyncEnumerator<'T> -> Task<'Result>)
+        =
+        backgroundTask {
+            let reader = source.GetAsyncEnumerator(cancellationToken)
+
+            return!
+                AsyncCleanup.run CleanupFailureKey (fun () -> work reader) (fun () -> reader.DisposeAsync().AsTask())
+        }
+
+    let iter (cancellationToken: CancellationToken) (handler: 'T -> Task) (source: IAsyncEnumerable<'T>) =
+        consume cancellationToken source (fun reader ->
+            backgroundTask {
                 let mutable reading = true
 
                 while reading do
-                    let! next = reader.MoveNextAsync().AsTask()
+                    let! next = reader.MoveNextAsync()
 
                     if next then
                         do! handler reader.Current
@@ -89,19 +103,19 @@ module Control =
                         reading <- false
             })
 
-    let foldEventsWhile
+    let foldWhile
         (cancellationToken: CancellationToken)
-        (folder: 'State -> TmuxEvent -> Task<StreamStep<'State>>)
+        (folder: 'State -> 'T -> Task<StreamStep<'State>>)
         (initial: 'State)
-        (session: IControlModeSession)
+        (source: IAsyncEnumerable<'T>)
         =
-        EventReader.consume cancellationToken session (fun reader ->
-            task {
+        consume cancellationToken source (fun reader ->
+            backgroundTask {
                 let mutable state = initial
                 let mutable reading = true
 
                 while reading do
-                    let! next = reader.MoveNextAsync().AsTask()
+                    let! next = reader.MoveNextAsync()
 
                     if next then
                         let! step = folder state reader.Current
@@ -116,3 +130,28 @@ module Control =
 
                 return state
             })
+
+    let cleanupFailure (error: exn) =
+        match error.Data[CleanupFailureKey] with
+        | :? exn as cleanup -> Some cleanup
+        | _ -> None
+
+[<RequireQualifiedAccess>]
+module Mirror =
+    let start (cancellationToken: CancellationToken) (anchor: LibTmux.Session) =
+        ServerMirror.OpenAsync(anchor, cancellationToken = cancellationToken)
+
+    let startRefreshing (cancellationToken: CancellationToken) (every: TimeSpan) (anchor: LibTmux.Session) =
+        ServerMirror.OpenAsync(anchor, every, cancellationToken)
+
+    let current (mirror: ServerMirror) = mirror.Current
+
+    let views (mirror: ServerMirror) = mirror.WatchAsync()
+
+    let waitUntil
+        (cancellationToken: CancellationToken)
+        (timeout: TimeSpan)
+        (condition: ServerMirrorView -> bool)
+        (mirror: ServerMirror)
+        =
+        mirror.WaitUntilAsync(Func<_, _> condition, timeout, cancellationToken)

@@ -29,7 +29,7 @@ let runAsync () =
             owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "worker", Command = "/bin/cat"), token)
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! sessions = server |> Server.listSessions token
+        let! sessions = server |> Server.sessions |> Query.list token
 
         match
             sessions

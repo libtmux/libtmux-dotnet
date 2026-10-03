@@ -121,38 +121,51 @@ internal static class QueryTranslator
             return TranslateQuantifier(call, parameter);
         }
 
-        QueryStringOperation operation = call.Method.Name switch
-        {
-            "StartsWith" => QueryStringOperation.StartsWithOrdinal,
-            "EndsWith" => QueryStringOperation.EndsWithOrdinal,
-            "Contains" => QueryStringOperation.ContainsOrdinal,
-            _ => throw Unsupported(call),
-        };
-        if (call.Method.DeclaringType != typeof(string) || call.Object is null)
+        if (call.Method.DeclaringType != typeof(string))
         {
             throw Unsupported(call);
         }
 
-        if (call.Arguments.Count == 1)
-        {
-            // Contains(string) is ordinal. The one-argument StartsWith and
-            // EndsWith overloads use the current culture and have no v1 wire form.
-            if (operation != QueryStringOperation.ContainsOrdinal)
+        (Expression left, Expression right, Expression? comparisonArgument) =
+            (call.Object, call.Arguments.Count) switch
             {
-                throw Unsupported(call);
-            }
-        }
-        else if (call.Arguments.Count != 2
-            || !TryConstant(call.Arguments[1], out object? comparison)
-            || comparison is not StringComparison.Ordinal)
+                (null, 2) => (call.Arguments[0], call.Arguments[1], null),
+                (null, 3) => (call.Arguments[0], call.Arguments[1], call.Arguments[2]),
+                ({ } instance, 1) => (instance, call.Arguments[0], null),
+                ({ } instance, 2) => (instance, call.Arguments[0], call.Arguments[1]),
+                _ => throw Unsupported(call),
+            };
+        bool? ignoreCase = comparisonArgument is null
+            ? null
+            : TryConstant(comparisonArgument, out object? comparison)
+                ? comparison switch
+                {
+                    StringComparison.Ordinal => false,
+                    StringComparison.OrdinalIgnoreCase => true,
+                    _ => throw Unsupported(call),
+                }
+                : throw Unsupported(call);
+
+        // Contains(string) and Equals(string) are ordinal. The one-argument
+        // StartsWith and EndsWith overloads use the current culture, which
+        // has no wire form.
+        QueryStringOperation operation = (call.Method.Name, ignoreCase) switch
         {
-            throw Unsupported(call);
-        }
+            ("Equals", null or false) => QueryStringOperation.EqualsOrdinal,
+            ("Equals", true) => QueryStringOperation.EqualsOrdinalIgnoreCase,
+            ("Contains", null or false) => QueryStringOperation.ContainsOrdinal,
+            ("Contains", true) => QueryStringOperation.ContainsOrdinalIgnoreCase,
+            ("StartsWith", false) => QueryStringOperation.StartsWithOrdinal,
+            ("StartsWith", true) => QueryStringOperation.StartsWithOrdinalIgnoreCase,
+            ("EndsWith", false) => QueryStringOperation.EndsWithOrdinal,
+            ("EndsWith", true) => QueryStringOperation.EndsWithOrdinalIgnoreCase,
+            _ => throw Unsupported(call),
+        };
 
         return new StringNode(
             operation,
-            TranslateOperand(call.Object, parameter),
-            TranslateOperand(call.Arguments[0], parameter));
+            TranslateOperand(left, parameter),
+            TranslateOperand(right, parameter));
     }
 
     private static RegexNode TranslateRegex(

@@ -59,7 +59,7 @@ public sealed partial class Server
         ServerGeneration? generation,
         CancellationToken cancellationToken) =>
         ValidateLayoutsCoreAsync(
-            [.. commands.Where(static command => command.LayoutWindowId is not null)
+            [.. commands.Where(static command => command.LayoutWindowId is not null || command.ChecksLayout)
                 .Select(static command => (command.Arguments[^1], 1, command.LayoutWindowId))],
             generation,
             cancellationToken);

@@ -122,9 +122,9 @@ public sealed class QuerySemanticsTests
     {
         UnsupportedQueryExpressionException error =
             Assert.Throws<UnsupportedQueryExpressionException>(
-                () => QueryExtensions.Translate<Pane>(pane => pane.Title == "x"));
+                () => QueryExtensions.Translate<Window>(window => window.Layout == "x"));
 
-        Assert.Contains("title", error.Message, StringComparison.Ordinal);
+        Assert.Contains("layout", error.Message, StringComparison.Ordinal);
     }
 
     private static string Field(QueryDocument document) => document.Predicate switch
@@ -180,6 +180,30 @@ public sealed class QuerySemanticsTests
     }
 
     [Fact]
+    public void Ordinal_string_calls_translate_with_their_case_rule()
+    {
+        (System.Linq.Expressions.Expression<Func<Row, bool>> Predicate, QueryStringOperation Operation, bool Matches)[] cases =
+        [
+            (row => row.SessionName.Equals("BUILDBOX", StringComparison.OrdinalIgnoreCase), QueryStringOperation.EqualsOrdinalIgnoreCase, true),
+            (row => string.Equals(row.SessionName, "buildbox", StringComparison.Ordinal), QueryStringOperation.EqualsOrdinal, false),
+            (row => row.SessionName.StartsWith("BUILD", StringComparison.OrdinalIgnoreCase), QueryStringOperation.StartsWithOrdinalIgnoreCase, true),
+            (row => row.SessionName.EndsWith("BOX", StringComparison.OrdinalIgnoreCase), QueryStringOperation.EndsWithOrdinalIgnoreCase, true),
+            (row => row.SessionName.Contains("LDB", StringComparison.OrdinalIgnoreCase), QueryStringOperation.ContainsOrdinalIgnoreCase, true),
+            (row => row.SessionName.Contains("LDB", StringComparison.Ordinal), QueryStringOperation.ContainsOrdinal, false),
+        ];
+
+        foreach ((var predicate, QueryStringOperation operation, bool matches) in cases)
+        {
+            QueryDocument document = QueryExtensions.Translate(predicate);
+            Assert.Equal(operation, Assert.IsType<StringNode>(document.Predicate).Operator);
+            Assert.Equal(matches, document.Compile<Row>()(new Row("BuildBox", false)));
+        }
+
+        Assert.Throws<UnsupportedQueryExpressionException>(() => QueryExtensions.Translate<Row>(
+            row => row.SessionName.StartsWith("b", StringComparison.CurrentCultureIgnoreCase)));
+    }
+
+    [Fact]
     public void Matching_stops_between_predicate_nodes()
     {
         using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -223,8 +247,8 @@ public sealed class QuerySemanticsTests
         // translating it would build a document tmux could never answer.
         UnsupportedQueryExpressionException error =
             Assert.Throws<UnsupportedQueryExpressionException>(
-                () => QueryExtensions.Translate<Unknown>(row => row.PaneTitle == "x"));
-        Assert.Contains("pane_title", error.Message, StringComparison.Ordinal);
+                () => QueryExtensions.Translate<Unknown>(row => row.PaneTty == "x"));
+        Assert.Contains("pane_tty", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -410,7 +434,7 @@ public sealed class QuerySemanticsTests
         Assert.Equal(SnapshotDepth.Windows, any.RequiredSnapshotDepth);
     }
 
-    private sealed record Unknown(string PaneTitle);
+    private sealed record Unknown(string PaneTty);
 
     private sealed record Child(string WindowName);
 

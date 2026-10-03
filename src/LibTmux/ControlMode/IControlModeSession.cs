@@ -23,7 +23,10 @@ public interface IControlModeSession : IAsyncDisposable
     /// may be enumerated once; a second enumeration reads only what has not
     /// already been taken. A slow reader receives
     /// <see cref="TmuxEventsDroppedEvent" /> instead of silently missing data
-    /// when the bounded buffer overflows.
+    /// when the bounded buffer overflows. Pane output is discarded before any
+    /// notification, and a pane whose output was discarded is paused until the
+    /// reader catches up, between <see cref="TmuxPanePausedEvent" /> and
+    /// <see cref="TmuxPaneContinuedEvent" />.
     /// </remarks>
     public IAsyncEnumerable<TmuxEvent> Events { get; }
 

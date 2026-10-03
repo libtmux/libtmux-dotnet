@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Testing;
 

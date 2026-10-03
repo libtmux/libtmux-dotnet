@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Threading.Channels;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 
 namespace LibTmux.UnitTests.Mcp;
@@ -71,10 +72,10 @@ public sealed class PaneActivityHubLifecycleTests
         Assert.True(hub.IsStreaming);
         Assert.Equal(2, starts);
         Assert.Equal(
-            ["refresh-client -f ignore-size", "display-message -p #{client_name}"],
+            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}", "display-message -p #{client_name}"],
             first.Commands);
         Assert.Equal(
-            ["refresh-client -f ignore-size", "display-message -p #{client_name}"],
+            ["refresh-client -f ignore-size", "refresh-client -B libtmux-pane-dead:%*:#{pane_dead}", "display-message -p #{client_name}"],
             second.Commands);
 
         await firstLease.DisposeAsync();

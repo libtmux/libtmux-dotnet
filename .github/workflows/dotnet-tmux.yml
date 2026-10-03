@@ -207,7 +207,27 @@ jobs:
           dotnet test \
             --test-modules "tests/LibTmux.IntegrationTests/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.IntegrationTests.dll" \
             --filter-not-class LibTmux.IntegrationTests.Documentation.ReadmeExampleTests \
-            --minimum-expected-tests 800
+            --minimum-expected-tests 800 \
+            --hangdump \
+            --hangdump-timeout 5m \
+            --hangdump-type Mini \
+            --results-directory "${RUNNER_TEMP}/integration-results"
+
+      # The suite takes about two minutes; a test still running after five is
+      # hung, and the dump's log names it instead of the lane timing out mute.
+      - name: Name a hung integration test
+        if: failure() && steps.integration-tests.outcome == 'failure'
+        run: cat "${RUNNER_TEMP}"/integration-results/dotnet_*_hang.log 2>/dev/null || echo "No integration test was hung."
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure() && steps.integration-tests.outcome == 'failure'
+        with:
+          name: integration-hang-${{ matrix.tmux }}-${{ matrix.framework }}
+          # Child processes get logs of their own, named for the process; a
+          # tmux client's name has a colon, which artifacts cannot hold.
+          path: ${{ runner.temp }}/integration-results/dotnet_*_hang.*
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: F# example
         id: fsharp-examples
@@ -225,7 +245,9 @@ jobs:
           dotnet "examples/LibTmux.FSharp.Examples/bin/Release/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
           for source in examples/LibTmux.FSharp.Examples/Programs/*.fs; do
             program="$(basename "${source}" .fs)"
-            dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"
+            # Each program prints what it found; its guide shows what it must print.
+            printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"
+            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"
           done
 
       - name: C# complete programs

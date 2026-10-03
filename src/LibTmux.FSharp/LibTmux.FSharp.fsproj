@@ -19,6 +19,10 @@
     <Compile Include="Control.fs" />
     <Compile Include="Query.fsi" />
     <Compile Include="Query.fs" />
+    <Compile Include="Spec.fsi" />
+    <Compile Include="Spec.fs" />
+    <Compile Include="Hierarchy.fsi" />
+    <Compile Include="Hierarchy.fs" />
     <ProjectReference Include="../LibTmux/LibTmux.csproj" />
     <PackageReference Include="FSharp.Core" />
     <None Include="README.md" Pack="true" PackagePath="\" />

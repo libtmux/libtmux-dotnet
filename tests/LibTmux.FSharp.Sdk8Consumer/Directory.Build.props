@@ -1,0 +1,5 @@
+<Project>
+  <!-- Stops the repository's props from applying: this consumer builds the
+       way an F# 8 application outside this repository does, with its SDK's
+       implicit FSharp.Core and default language version. -->
+</Project>

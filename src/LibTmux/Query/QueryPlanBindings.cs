@@ -23,8 +23,15 @@ internal sealed class QueryPlanBindings
     private readonly Dictionary<FieldKey, QueryFieldAccessor> _fields = [];
     private readonly QueryValidationResult _validation;
 
-    internal QueryPlanBindings(QueryValidationResult validation) =>
+    private readonly bool _entityOnly;
+
+    // An entity-only plan binds catalog accessors and never reads a member
+    // by name, so it needs no trimming annotation.
+    internal QueryPlanBindings(QueryValidationResult validation, bool entityOnly = false)
+    {
         _validation = validation;
+        _entityOnly = entityOnly;
+    }
 
     internal QueryBindingMetrics Metrics => new(_fields.Count, _validation.RegexCount);
 
@@ -41,7 +48,7 @@ internal sealed class QueryPlanBindings
             return accessor;
         }
 
-        accessor = ResolveField(field, elementType, role);
+        accessor = ResolveField(field, elementType, role, _entityOnly);
         _fields.Add(key, accessor);
         return accessor;
     }
@@ -53,7 +60,8 @@ internal sealed class QueryPlanBindings
     private static QueryFieldAccessor ResolveField(
         FieldNode field,
         Type elementType,
-        QueryFieldRole role)
+        QueryFieldRole role,
+        bool entityOnly)
     {
         if (!QueryFieldCatalog.TryGetTarget(field.WireName, out _))
         {
@@ -72,6 +80,12 @@ internal sealed class QueryPlanBindings
                 out QueryFieldAccessor relation) => relation,
             _ => null,
         };
+        if (accessor is null && entityOnly)
+        {
+            throw Unsupported(
+                $"Type '{elementType.Name}' has no catalog accessor for field '{field.WireName}'.");
+        }
+
         if (accessor is null)
         {
             string property =
@@ -110,7 +124,9 @@ internal sealed class QueryPlanBindings
     }
 
     internal static Type RelationElementType(FieldNode field, Type relationType) =>
-        SequenceElementType(relationType)
+        (relationType.IsGenericType && relationType.GetGenericTypeDefinition() == typeof(CapturedRelation<>)
+            ? relationType.GetGenericArguments()[0]
+            : SequenceElementType(relationType))
         ?? throw Unsupported($"Field '{field.WireName}' is not a typed relation.");
 
     [UnconditionalSuppressMessage(

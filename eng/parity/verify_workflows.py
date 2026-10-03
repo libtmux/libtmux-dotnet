@@ -161,7 +161,7 @@ def verify(root: pathlib.Path) -> list[str]:
         require("if" not in required, f"dotnet.{name}.if may not skip a required build")
     for identifier in (
         "fsharp-format", "fsharp-unit-net8", "fsharp-unit-net10",
-        "fsharp-package-consumer", "fsharp-readme-quickstart",
+        "fsharp-package-consumer", "fsharp-sdk8-consumer", "fsharp-readme-quickstart",
         "fsharp-aot-smoke", "fsharp-examples",
         "fsharp-packed-examples", "fsharp-trimmed-smoke",
         "fsharp-fsdocs",
@@ -177,6 +177,25 @@ def verify(root: pathlib.Path) -> list[str]:
         and '--output "${RUNNER_TEMP}/libtmux-api-examples"' in examples_run
         and examples_run.count("-p:UsePackageReferences=true") >= 2,
         "dotnet.build.fsharp-packed-examples must execute every complete program on both packed frameworks",
+    )
+
+    quickstart = required_step("dotnet", "build", "fsharp-readme-quickstart")
+    require(
+        "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart"
+        in quickstart.get("run", ""),
+        "dotnet.build.fsharp-readme-quickstart must compare its output with the README",
+    )
+
+    sdk8 = required_step("dotnet", "build", "fsharp-sdk8-consumer")
+    sdk8_run = sdk8.get("run", "")
+    require(
+        sdk8.get("env", {}).get("NUGET_PACKAGES")
+        == "${{ runner.temp }}/libtmux-fsharp-sdk8-consumer"
+        and sdk8.get("working-directory") == "tests/LibTmux.FSharp.Sdk8Consumer"
+        and "dotnet --version | grep --quiet '^8\\.0\\.4'" in sdk8_run
+        and "dotnet restore" in sdk8_run
+        and "dotnet run" in sdk8_run,
+        "dotnet.build.fsharp-sdk8-consumer must build and run with the .NET 8 SDK",
     )
 
     trimmed = required_step("dotnet", "build", "fsharp-trimmed-smoke")
@@ -300,11 +319,17 @@ def verify(root: pathlib.Path) -> list[str]:
         and "LIBTMUX_EXPECTED_TMUX_VERSION" in fsharp_example.get("run", ""),
         "dotnet-tmux.matrix.fsharp-examples must verify and run the selected cell",
     )
+    example_lines = {line.strip() for line in fsharp_example.get("run", "").splitlines()}
     require(
         FSHARP_PROGRAM_LOOP in fsharp_example.get("run", "")
-        and 'dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll"'
-        in {line.strip() for line in fsharp_example.get("run", "").splitlines()},
+        and 'printed="$(dotnet "examples/LibTmux.FSharp.Examples/bin/Release/programs/${program}/${MATRIX_FRAMEWORK}/LibTmux.FSharp.Examples.dll")"'
+        in example_lines,
         "dotnet-tmux.matrix must execute every F# query program",
+    )
+    require(
+        'printf \'%s\\n\' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output "${program}"'
+        in example_lines,
+        "dotnet-tmux.matrix must compare every F# program's output with its guide",
     )
     csharp_build = required_step("dotnet-tmux", "build", "csharp-examples-build")
     csharp_project = "examples/LibTmux.Examples/LibTmux.Examples.csproj"

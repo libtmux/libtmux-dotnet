@@ -117,27 +117,28 @@ Console.WriteLine($"depth {QueryJsonLimits.V1.MaximumDepth}, nodes {QueryJsonLim
 
 ## The field catalog is closed
 
-`session_name`, `session_attached`, `session_id`, `session_windows`,
-`window_name`, `window_id`, `window_panes`, `pane_id`, `pane_command`,
-`client_id`, `client_name`, `client_control_mode`.
+Sessions: `session_name`, `session_attached`, `session_id`, `session_windows`.
+Windows: `window_name`, `window_id`, `window_index`, `window_width`,
+`window_height`, `window_panes`. Panes: `pane_id`, `pane_command`,
+`pane_index`, `pane_title`, `pane_current_path`, `pane_width`, `pane_height`,
+`pane_left`, `pane_top`, `pane_at_top`, `pane_at_bottom`, `pane_at_left`,
+`pane_at_right`. Clients: `client_id`, `client_name`, `client_control_mode`.
 
-You write these as the properties they are: `Session.Name`,
-`Client.IsControlClient` and `Pane.CurrentCommand`. The v1 name `pane_command`
-binds to the captured tmux `pane_current_command` value.
+You write these as the properties they are, such as `Session.Name`,
+`Pane.Width`, `Client.IsControlClient` and `Pane.CurrentCommand`. The v1 name
+`pane_command` binds to the captured tmux `pane_current_command` value; every
+other name is the tmux format it reads.
 
-`Pane.CurrentPath` reads the captured working directory and works with native
-LINQ `Where` predicates. It has no field in the closed v1 schema, so
-`Translate` and `Matching` reject a predicate over that property. A versioned
-schema extension is required before it can appear in a query document.
-
-Both pane properties read captured state without I/O. They throw
+Pane properties read captured state without I/O. They throw
 `IncompleteSnapshotException` when the field was never captured; captured
 null and empty-string values remain distinct during local matching.
 
+The catalog grows between alpha releases. A reader rejects a name it does not
+know, so pin the same LibTmux version on both sides of a process boundary.
+
 A field outside it throws `UnsupportedQueryExpressionException` at translation
 rather than falling back. The document is interpreted locally or by an
-application that deliberately accepts this wire contract; LibTmux does not
-turn it into a native tmux filter.
+application that deliberately accepts this wire contract.
 
 ## Related packages
 

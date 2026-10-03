@@ -53,15 +53,29 @@
             "client_control_mode",
             "client_id",
             "client_name",
+            "pane_at_bottom",
+            "pane_at_left",
+            "pane_at_right",
+            "pane_at_top",
             "pane_command",
+            "pane_current_path",
+            "pane_height",
             "pane_id",
+            "pane_index",
+            "pane_left",
+            "pane_title",
+            "pane_top",
+            "pane_width",
             "session_attached",
             "session_id",
             "session_name",
             "session_windows",
+            "window_height",
             "window_id",
+            "window_index",
             "window_name",
-            "window_panes"
+            "window_panes",
+            "window_width"
           ]
         }
       },
@@ -85,14 +99,37 @@
               "properties": {
                 "target": { "const": "window" },
                 "wireName": {
-                  "enum": ["window_id", "window_name", "window_panes"]
+                  "enum": [
+                    "window_height",
+                    "window_id",
+                    "window_index",
+                    "window_name",
+                    "window_panes",
+                    "window_width"
+                  ]
                 }
               }
             },
             {
               "properties": {
                 "target": { "const": "pane" },
-                "wireName": { "enum": ["pane_command", "pane_id"] }
+                "wireName": {
+                  "enum": [
+                    "pane_at_bottom",
+                    "pane_at_left",
+                    "pane_at_right",
+                    "pane_at_top",
+                    "pane_command",
+                    "pane_current_path",
+                    "pane_height",
+                    "pane_id",
+                    "pane_index",
+                    "pane_left",
+                    "pane_title",
+                    "pane_top",
+                    "pane_width"
+                  ]
+                }
               }
             },
             {
@@ -112,7 +149,16 @@
         { "$ref": "#/$defs/field" },
         {
           "properties": {
-            "wireName": { "enum": ["client_control_mode", "session_attached"] }
+            "wireName": {
+              "enum": [
+                "client_control_mode",
+                "pane_at_bottom",
+                "pane_at_left",
+                "pane_at_right",
+                "pane_at_top",
+                "session_attached"
+              ]
+            }
           }
         }
       ]
@@ -126,6 +172,8 @@
               "enum": [
                 "client_name",
                 "pane_command",
+                "pane_current_path",
+                "pane_title",
                 "session_name",
                 "window_name"
               ]
@@ -139,7 +187,20 @@
         { "$ref": "#/$defs/field" },
         {
           "properties": {
-            "wireName": { "enum": ["session_windows", "window_panes"] }
+            "wireName": {
+              "enum": [
+                "pane_height",
+                "pane_index",
+                "pane_left",
+                "pane_top",
+                "pane_width",
+                "session_windows",
+                "window_height",
+                "window_index",
+                "window_panes",
+                "window_width"
+              ]
+            }
           }
         }
       ]
@@ -560,8 +621,11 @@
                 "stringEqualOrdinal",
                 "stringEqualOrdinalIgnoreCase",
                 "startsWithOrdinal",
+                "startsWithOrdinalIgnoreCase",
                 "endsWithOrdinal",
-                "containsOrdinal"
+                "endsWithOrdinalIgnoreCase",
+                "containsOrdinal",
+                "containsOrdinalIgnoreCase"
               ]
             },
             "left": { "$ref": "#/$defs/stringField" },

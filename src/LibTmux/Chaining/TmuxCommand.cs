@@ -35,6 +35,7 @@ public sealed record TmuxCommand
             ValidateToken(value, nameof(Name));
             _name = value;
             LayoutWindowId = null;
+            ChecksLayout = false;
         }
     }
 
@@ -58,6 +59,7 @@ public sealed record TmuxCommand
 
             _arguments = Array.AsReadOnly(copy);
             LayoutWindowId = null;
+            ChecksLayout = false;
         }
     }
 
@@ -92,6 +94,10 @@ public sealed record TmuxCommand
     // A raw replacement of Name or Arguments leaves the typed request behind.
     internal WindowId? LayoutWindowId { get; init; }
 
+    // A select-layout whose window is whatever a chain made current: its
+    // layout is still checked before tmux, which some versions crash on.
+    internal bool ChecksLayout { get; init; }
+
     internal IEnumerable<IReadOnlyList<string>> ToDispatchCommands()
     {
         if (RequiredWindowPlacement is WindowEntityKey placement)
@@ -117,6 +123,7 @@ public sealed record TmuxCommand
         && RequiredGeneration == other.RequiredGeneration
         && RequiredWindowPlacement == other.RequiredWindowPlacement
         && LayoutWindowId == other.LayoutWindowId
+        && ChecksLayout == other.ChecksLayout
         && Arguments.SequenceEqual(other.Arguments, StringComparer.Ordinal);
 
     /// <inheritdoc />
@@ -127,6 +134,7 @@ public sealed record TmuxCommand
         hash.Add(RequiredGeneration);
         hash.Add(RequiredWindowPlacement);
         hash.Add(LayoutWindowId);
+        hash.Add(ChecksLayout);
         foreach (string argument in Arguments)
         {
             hash.Add(argument, StringComparer.Ordinal);

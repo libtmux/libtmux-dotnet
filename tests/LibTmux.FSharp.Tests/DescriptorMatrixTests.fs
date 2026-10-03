@@ -27,7 +27,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Name"
                 WireName = "session_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq "build" SessionFields.name |> Filter.toDocument
             }
@@ -36,7 +37,7 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Id"
                 WireName = "session_id"
                 ValueType = "SessionId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq (SessionId 1) SessionFields.id |> Filter.toDocument
             }
@@ -45,9 +46,18 @@ module DescriptorMatrixTests =
                 CoreProperty = "Session.Attached"
                 WireName = "session_attached"
                 ValueType = "bool"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq true SessionFields.attached |> Filter.toDocument
+            }
+            {
+                Name = "SessionFields.windowCount"
+                CoreProperty = "Session.Windows"
+                WireName = "session_windows"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 SessionFields.windowCount |> Filter.toDocument
             }
             {
                 Name = "SessionFields.windows"
@@ -66,7 +76,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Window.Name"
                 WireName = "window_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Windows
                 Document = Filter.eq "build" WindowFields.name |> Filter.toDocument
             }
@@ -75,9 +86,45 @@ module DescriptorMatrixTests =
                 CoreProperty = "Window.Id"
                 WireName = "window_id"
                 ValueType = "WindowId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Windows
                 Document = Filter.eq (WindowId 1) WindowFields.id |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.index"
+                CoreProperty = "Window.Index"
+                WireName = "window_index"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.index |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.width"
+                CoreProperty = "Window.Width"
+                WireName = "window_width"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.width |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.height"
+                CoreProperty = "Window.Height"
+                WireName = "window_height"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.height |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.paneCount"
+                CoreProperty = "Window.Panes"
+                WireName = "window_panes"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 WindowFields.paneCount |> Filter.toDocument
             }
             {
                 Name = "WindowFields.panes"
@@ -96,7 +143,8 @@ module DescriptorMatrixTests =
                 CoreProperty = "Pane.CurrentCommand"
                 WireName = "pane_command"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq "nvim" PaneFields.currentCommand |> Filter.toDocument
             }
@@ -105,16 +153,118 @@ module DescriptorMatrixTests =
                 CoreProperty = "Pane.Id"
                 WireName = "pane_id"
                 ValueType = "PaneId"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq (PaneId 1) PaneFields.id |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.index"
+                CoreProperty = "Pane.Index"
+                WireName = "pane_index"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.index |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.title"
+                CoreProperty = "Pane.Title"
+                WireName = "pane_title"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "x" PaneFields.title |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.currentPath"
+                CoreProperty = "Pane.CurrentPath"
+                WireName = "pane_current_path"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "x" PaneFields.currentPath |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.width"
+                CoreProperty = "Pane.Width"
+                WireName = "pane_width"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.width |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.height"
+                CoreProperty = "Pane.Height"
+                WireName = "pane_height"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.height |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.left"
+                CoreProperty = "Pane.Left"
+                WireName = "pane_left"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.left |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.top"
+                CoreProperty = "Pane.Top"
+                WireName = "pane_top"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.top |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atTop"
+                CoreProperty = "Pane.AtTop"
+                WireName = "pane_at_top"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atTop |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atBottom"
+                CoreProperty = "Pane.AtBottom"
+                WireName = "pane_at_bottom"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atBottom |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atLeft"
+                CoreProperty = "Pane.AtLeft"
+                WireName = "pane_at_left"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atLeft |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atRight"
+                CoreProperty = "Pane.AtRight"
+                WireName = "pane_at_right"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atRight |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"
                 CoreProperty = "Client.Name"
                 WireName = "client_name"
                 ValueType = "string"
-                Operators = "eq, isNull, startsWith, oneOf"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq "client" ClientFields.name |> Filter.toDocument
             }
@@ -123,7 +273,7 @@ module DescriptorMatrixTests =
                 CoreProperty = "Client.IsControlClient"
                 WireName = "client_control_mode"
                 ValueType = "bool"
-                Operators = "eq, oneOf"
+                Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Sessions
                 Document = Filter.eq true ClientFields.controlMode |> Filter.toDocument
             }
@@ -176,6 +326,19 @@ module DescriptorMatrixTests =
         let path = Path.Combine(AppContext.BaseDirectory, "supported-query-fields.md")
         validateFields (File.ReadAllText(path))
 
+    [<Fact>]
+    let ``every exposed field and relation has a descriptor row`` () =
+        let exposed =
+            [ typeof<Field<LibTmux.Session, string>>.Assembly.GetTypes() ]
+            |> Seq.concat
+            |> Seq.filter (fun moduleType -> moduleType.Name.EndsWith("Fields", StringComparison.Ordinal))
+            |> Seq.collect (fun moduleType ->
+                moduleType.GetProperties(Reflection.BindingFlags.Public ||| Reflection.BindingFlags.Static)
+                |> Seq.map (fun property -> $"{moduleType.Name}.{property.Name}"))
+            |> Set.ofSeq
+
+        Assert.Equal<Set<string>>(exposed, descriptors |> List.map (fun descriptor -> descriptor.Name) |> Set.ofList)
+
     [<Theory>]
     [<InlineData("pane_command", "pane_current_path")>]
     [<InlineData("- Schema version: `1`", "- Schema version: `2`")>]
@@ -201,3 +364,8 @@ module DescriptorMatrixTests =
         let restored = QueryJson.Deserialize(wire)
         Assert.Equal(document, restored)
         Assert.Contains("\"schema\":\"libtmux-query\"", wire, StringComparison.Ordinal)
+
+        // An empty combinator is a Boolean constant, which travels like any other predicate.
+        for empty in [ Filter.allOf<LibTmux.Pane> []; Filter.oneOf [] PaneFields.currentCommand ] do
+            let document = Filter.toDocument empty
+            Assert.Equal(document, QueryJson.Deserialize(QueryJson.Serialize(document)))

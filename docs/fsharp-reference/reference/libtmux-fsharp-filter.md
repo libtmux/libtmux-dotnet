@@ -4,7 +4,14 @@ Namespace: [LibTmux.FSharp](../reference/libtmux-fsharp.md)
 
 Assembly: LibTmux.FSharp.dll
 
-Constructs portable predicates through the core query translator.
+Constructs portable predicates without reflection.
+
+<p class='fsdocs-para'>
+ String operations compare ordinally; the <code>IgnoreCase</code> forms use ordinal
+ case-insensitive comparison. tmux evaluates the case-sensitive string,
+ equality, flag, identifier and count operations itself when a listing
+ pushes the filter down; every result is rechecked with these semantics.
+ </p>
 
 ### Functions and values
 
@@ -24,13 +31,13 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L127)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L152)
 
 <a name="allOf"></a>
 
 #### <code><span>Filter.allOf&#32;<span>filters</span></span></code>
 
-Requires every predicate in a nonempty list, in input order.
+Requires every predicate in order; an empty list matches everything.
 
 **Parameters:**
 
@@ -40,9 +47,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The filters list is empty.
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L109)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L132)
 
 <a name="any"></a>
 
@@ -60,13 +65,13 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L124)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L149)
 
 <a name="anyOf"></a>
 
 #### <code><span>Filter.anyOf&#32;<span>filters</span></span></code>
 
-Requires at least one predicate in a nonempty list, in input order.
+Requires at least one predicate in order; an empty list matches nothing.
 
 **Parameters:**
 
@@ -76,15 +81,85 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The filters list is empty.
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L138)
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L112)
+<a name="contains"></a>
+
+#### <code><span>Filter.contains&#32;<span>text&#32;field</span></span></code>
+
+Matches a string containing a substring.
+
+**Parameters:**
+
+**text**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L108)
+
+<a name="containsIgnoreCase"></a>
+
+#### <code><span>Filter.containsIgnoreCase&#32;<span>text&#32;field</span></span></code>
+
+Matches a string containing a substring ignoring case.
+
+**Parameters:**
+
+**text**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L111)
+
+<a name="endsWith"></a>
+
+#### <code><span>Filter.endsWith&#32;<span>suffix&#32;field</span></span></code>
+
+Matches a string suffix.
+
+**Parameters:**
+
+**suffix**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L102)
+
+<a name="endsWithIgnoreCase"></a>
+
+#### <code><span>Filter.endsWithIgnoreCase&#32;<span>suffix&#32;field</span></span></code>
+
+Matches a string suffix ignoring case.
+
+**Parameters:**
+
+**suffix**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L105)
 
 <a name="eq"></a>
 
 #### <code><span>Filter.eq&#32;<span>value&#32;field</span></span></code>
 
-Matches a field against a constant using the core's equality semantics.
+Matches a field equal to a constant.
 
 **Parameters:**
 
@@ -96,7 +171,61 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L76)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L77)
+
+<a name="eqIgnoreCase"></a>
+
+#### <code><span>Filter.eqIgnoreCase&#32;<span>value&#32;field</span></span></code>
+
+Matches a string equal to a constant ignoring case.
+
+**Parameters:**
+
+**value**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L90)
+
+<a name="ge"></a>
+
+#### <code><span>Filter.ge&#32;<span>value&#32;field</span></span></code>
+
+Matches a count at least a constant.
+
+**Parameters:**
+
+**value**: <code>int</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;int</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L129)
+
+<a name="gt"></a>
+
+#### <code><span>Filter.gt&#32;<span>value&#32;field</span></span></code>
+
+Matches a count above a constant.
+
+**Parameters:**
+
+**value**: <code>int</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;int</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L126)
 
 <a name="isNull"></a>
 
@@ -112,7 +241,103 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L84)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L93)
+
+<a name="le"></a>
+
+#### <code><span>Filter.le&#32;<span>value&#32;field</span></span></code>
+
+Matches a count at most a constant.
+
+**Parameters:**
+
+**value**: <code>int</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;int</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L123)
+
+<a name="lt"></a>
+
+#### <code><span>Filter.lt&#32;<span>value&#32;field</span></span></code>
+
+Matches a count below a constant.
+
+**Parameters:**
+
+**value**: <code>int</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;int</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L120)
+
+<a name="matches"></a>
+
+#### <code><span>Filter.matches&#32;<span>pattern&#32;field</span></span></code>
+
+Matches a string against a culture-invariant .NET regular expression.
+
+The pattern is unanchored, as <code>Regex.IsMatch</code> is; one match may run for one second.
+
+**Parameters:**
+
+**pattern**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+`UnsupportedQueryExpressionException` The pattern is invalid or longer than 1024 characters.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L114)
+
+<a name="matchesIgnoreCase"></a>
+
+#### <code><span>Filter.matchesIgnoreCase&#32;<span>pattern&#32;field</span></span></code>
+
+Matches a string against a culture-invariant .NET regular expression ignoring case.
+
+**Parameters:**
+
+**pattern**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+`UnsupportedQueryExpressionException` The pattern is invalid or longer than 1024 characters.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L117)
+
+<a name="ne"></a>
+
+#### <code><span>Filter.ne&#32;<span>value&#32;field</span></span></code>
+
+Matches a field not equal to a constant.
+
+**Parameters:**
+
+**value**: <code>'Value</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;'Value</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'Value, 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L85)
 
 <a name="negate"></a>
 
@@ -128,7 +353,7 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L121)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L83)
 
 <a name="none"></a>
 
@@ -146,13 +371,13 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Parent, 'Child
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L130)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L155)
 
-<a name="oneOf"></a>
+<a name="notOneOf"></a>
 
-#### <code><span>Filter.oneOf&#32;<span>values&#32;field</span></span></code>
+#### <code><span>Filter.notOneOf&#32;<span>values&#32;field</span></span></code>
 
-Matches any constant in a nonempty list, preserving operand order.
+Matches no constant in a list; an empty list matches everything.
 
 **Parameters:**
 
@@ -164,15 +389,31 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'Value, 'T
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The values list is empty.
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L147)
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L115)
+<a name="oneOf"></a>
+
+#### <code><span>Filter.oneOf&#32;<span>values&#32;field</span></span></code>
+
+Matches any constant in a list; an empty list matches nothing.
+
+**Parameters:**
+
+**values**: <code><span>'Value&#32;list</span></code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;'Value</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'Value, 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L144)
 
 <a name="startsWith"></a>
 
 #### <code><span>Filter.startsWith&#32;<span>prefix&#32;field</span></span></code>
 
-Matches a string prefix using ordinal comparison.
+Matches a string prefix.
 
 **Parameters:**
 
@@ -184,7 +425,25 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L92)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L96)
+
+<a name="startsWithIgnoreCase"></a>
+
+#### <code><span>Filter.startsWithIgnoreCase&#32;<span>prefix&#32;field</span></span></code>
+
+Matches a string prefix ignoring case.
+
+**Parameters:**
+
+**prefix**: <code>string</code>
+
+**field**: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>'T,&#32;string</span>&gt;</span></code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-filter-1.md">Filter</a>&lt;'T&gt;</span></code>
+
+Type parameters: 'T
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L99)
 
 <a name="toDocument"></a>
 
@@ -200,15 +459,13 @@ Returns: <code>QueryDocument</code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L131)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L156)
 
 <a name="toPredicate"></a>
 
 #### <code><span>Filter.toPredicate&#32;<span>filter</span></span></code>
 
-Compiles once and returns a predicate for native lazy filtering.
-
-The predicate has no node-level cancellation token.
+Returns a predicate compiled once for native lazy filtering.
 
 **Parameters:**
 
@@ -218,4 +475,4 @@ Returns: <code><span>'T&#32;->&#32;bool</span></code>
 
 Type parameters: 'T
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L133)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L157)

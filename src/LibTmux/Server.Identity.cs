@@ -35,6 +35,34 @@ public sealed partial class Server : IEquatable<Server>
 
     internal TmuxConnection? Connection => _connection;
 
+    /// <summary>Returns this server with every command bounded by a timeout of the caller's choosing.</summary>
+    /// <param name="timeout">How long tmux may take to answer each command.</param>
+    /// <returns>
+    /// A handle to the same server. Every session, window, pane and client
+    /// taken from it gives tmux the same bound.
+    /// </returns>
+    /// <remarks>
+    /// The handle shares this one's connection, so nothing is started or
+    /// verified again, and it compares equal to this one. A command that
+    /// outlasts the bound throws <see cref="TmuxTransportException" /> whose
+    /// <see cref="LibTmuxException.Dispatch" /> is
+    /// <see cref="TmuxDispatchState.Unknown" />, as with
+    /// <see cref="ServerConnectionOptions.CommandTimeout" />. A caller's own
+    /// cancellation still reads as cancellation.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">This server has no connection identity.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The timeout does not run forward.</exception>
+    public Server Within(TimeSpan timeout)
+    {
+        if (_connection is null)
+        {
+            throw new InvalidOperationException("This server has no connection identity.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        return new Server(_connection.WithCommandTimeout(timeout), _generation, _rawVersion);
+    }
+
     /// <summary>Opens an unmaterialized server connection handle.</summary>
     public static Server Open(ServerConnectionOptions? options = null)
     {

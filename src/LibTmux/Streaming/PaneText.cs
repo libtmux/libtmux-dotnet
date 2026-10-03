@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>Keeps this server's own bookkeeping out of what a caller reads.</summary>
 /// <remarks>
@@ -283,9 +283,228 @@ internal static partial class PaneText
         return lines;
     }
 
+    private static bool IsWordChar(char character) => char.IsLetterOrDigit(character) || character == '_';
+
+    /// <summary>Removes every standalone occurrence of <paramref name="echo" /> from <paramref name="text" />.</summary>
+    /// <remarks>
+    /// An occurrence counts only where it is not part of a longer run of word
+    /// characters on either side - what tells a short typed answer apart from
+    /// a longer word that merely contains it: <c>y</c> comes off <c>$ y</c>
+    /// and stays inside <c>ready</c>. This is what lets a whole recorded line
+    /// (<c>echo MARKER</c>) be removed as the exact thing that was typed,
+    /// without also erasing an unrelated later line whose real output happens
+    /// to repeat one of its words.
+    /// </remarks>
+    internal static string WithoutEcho(string text, string echo)
+    {
+        if (echo.Length == 0 || text.Length == 0)
+        {
+            return text;
+        }
+
+        StringBuilder result = new(text.Length);
+        int cursor = 0;
+        int from = 0;
+        while (true)
+        {
+            int at = text.IndexOf(echo, from, StringComparison.Ordinal);
+            if (at < 0)
+            {
+                break;
+            }
+
+            int end = at + echo.Length;
+            bool opens = at == 0 || !IsWordChar(text[at - 1]) || !IsWordChar(echo[0]);
+            bool closes = end == text.Length || !IsWordChar(text[end]) || !IsWordChar(echo[^1]);
+            if (opens && closes)
+            {
+                result.Append(text, cursor, at - cursor);
+                cursor = end;
+                from = end;
+            }
+            else
+            {
+                from = at + 1;
+            }
+        }
+
+        result.Append(text, cursor, text.Length - cursor);
+        return result.ToString();
+    }
+
+    /// <summary><see cref="WithoutEcho" />, applied for every text in <paramref name="echoes" />.</summary>
+    internal static string WithoutEchoes(string text, IEnumerable<string> echoes)
+    {
+        string result = text;
+        foreach (string echo in echoes.Where(echo => echo.Length > 0))
+        {
+            result = WithoutEcho(result, echo);
+        }
+
+        return result;
+    }
+
+    /// <summary>Builds what removes typed text from the rows a pane shows afterwards.</summary>
+    /// <param name="typed">The text typed; each of its lines is removed on its own.</param>
+    /// <returns>A function from screen rows to the same rows without the typed lines.</returns>
+    /// <remarks>
+    /// <para>
+    /// A typed line longer than the pane continues on the next row, and tmux
+    /// trims the spaces a row ends with, so a wrap can fall between any two
+    /// characters and swallow a space. The rows are searched as one text in
+    /// which a row break may stand inside an occurrence, and removing one keeps
+    /// its row breaks, so the rows stay in place.
+    /// </para>
+    /// <para>
+    /// A shell still echoing a line shows only its start, at the end of the
+    /// screen; that start is removed too. As in <see cref="WithoutEcho" />, an
+    /// occurrence counts only where it is not part of a longer word, so output
+    /// identical to a typed line is removed with it.
+    /// </para>
+    /// </remarks>
+    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed)
+    {
+        (string Line, Regex Occurrence)[] lines =
+        [
+            .. typed.Split(['\r', '\n'])
+                .Select(line => line.TrimEnd(' '))
+                .Where(line => line.Length > 0)
+                .Select(line => (line, WrappedOccurrence(line))),
+        ];
+        return rows =>
+        {
+            string text = string.Join('\n', rows);
+            foreach ((string line, Regex occurrence) in lines)
+            {
+                text = WithoutWrapped(text, line, occurrence);
+            }
+
+            foreach ((string line, _) in lines)
+            {
+                text = WithoutEchoInProgress(text, line);
+            }
+
+            return text.Split('\n');
+        };
+    }
+
+    private static string WithoutWrapped(string text, string line, Regex occurrence)
+    {
+        StringBuilder? result = null;
+        int cursor = 0;
+        Match match = occurrence.Match(text);
+        while (match.Success)
+        {
+            int end = match.Index + match.Length;
+            bool opens = match.Index == 0 || !IsWordChar(text[match.Index - 1]) || !IsWordChar(line[0]);
+            bool closes = end == text.Length || !IsWordChar(text[end]) || !IsWordChar(line[^1]);
+            if (opens && closes)
+            {
+                result ??= new StringBuilder(text.Length);
+                result.Append(text, cursor, match.Index - cursor).Append('\n', match.ValueSpan.Count('\n'));
+                cursor = end;
+                match = occurrence.Match(text, end);
+            }
+            else
+            {
+                match = occurrence.Match(text, match.Index + 1);
+            }
+        }
+
+        return result is null ? text : result.Append(text, cursor, text.Length - cursor).ToString();
+    }
+
+    // The longest start of the line that ends the text, past trailing spaces
+    // and blank rows, is the part the shell has echoed so far.
+    private static string WithoutEchoInProgress(string text, string line)
+    {
+        int end = text.Length;
+        while (end > 0 && text[end - 1] is ' ' or '\n')
+        {
+            end--;
+        }
+
+        for (int length = line.Length - 1; length > 0; length--)
+        {
+            int start = StartOfWrapped(text, end, line, length);
+            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
+            {
+                int breaks = text.AsSpan(start, end - start).Count('\n');
+                return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
+            }
+        }
+
+        return text;
+    }
+
+    // Reads backwards from end for the line's first length characters, across
+    // row breaks and the spaces a wrapped row loses; -1 when they are not there.
+    private static int StartOfWrapped(string text, int end, string line, int length)
+    {
+        int at = end - 1;
+        int typed = length - 1;
+        while (typed >= 0 && line[typed] == ' ')
+        {
+            typed--;
+        }
+
+        while (typed >= 0)
+        {
+            if (at < 0)
+            {
+                return -1;
+            }
+
+            if (text[at] == line[typed])
+            {
+                at--;
+                typed--;
+            }
+            else if (text[at] == '\n')
+            {
+                at--;
+                while (typed >= 0 && line[typed] == ' ')
+                {
+                    typed--;
+                }
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
+        return at + 1;
+    }
+
+    // Each character may be followed by a wrap; a run of spaces may be cut
+    // short by one, since tmux drops the spaces a wrapped row ends with.
+    private static Regex WrappedOccurrence(string line)
+    {
+        StringBuilder pattern = new(line.Length * 4);
+        for (int index = 0; index < line.Length; index++)
+        {
+            if (line[index] == ' ')
+            {
+                while (index + 1 < line.Length && line[index + 1] == ' ')
+                {
+                    index++;
+                }
+
+                pattern.Append("(?: +| *\n *)");
+            }
+            else
+            {
+                pattern.Append(Regex.Escape(line[index].ToString())).Append(index + 1 < line.Length ? "\n?" : string.Empty);
+            }
+        }
+
+        return new Regex(pattern.ToString(), RegexOptions.CultureInvariant);
+    }
+
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
-    /// Anchored to the exact shape minted by <see cref="WriteTools.RunToken" />
+    /// Anchored to the exact shape minted by <see cref="PaneRunner.RunToken" />
     /// so that ordinary text mentioning the prefix survives. The begin marker
     /// is spelled in halves in the payload, so the echo carries no ten-digit
     /// form — but it always carries the two quoted halves adjacent, which is

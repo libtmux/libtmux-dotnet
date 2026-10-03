@@ -207,6 +207,22 @@ jobs:
               --no-restore
           done
 
+      # An F# application compiles against its own SDK's FSharp.Core, so the
+      # package has to load with the oldest one a supported SDK supplies.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.4xx'
+
+      - name: F# SDK 8 consumer
+        id: fsharp-sdk8-consumer
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/libtmux-fsharp-sdk8-consumer
+        working-directory: tests/LibTmux.FSharp.Sdk8Consumer
+        run: |
+          dotnet --version | grep --quiet '^8\.0\.4'
+          dotnet restore --configfile ../NuGet.config
+          env -u TMUX -u TMUX_PANE dotnet run --configuration Release --no-restore
+
       - name: F# README quickstart
         id: fsharp-readme-quickstart
         env:
@@ -216,12 +232,17 @@ jobs:
           mkdir -p "${TMUX_TMPDIR}"
           dotnet restore examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
             --configfile tests/NuGet.config
+          dotnet build examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
+            --configuration Release \
+            --no-restore
           for framework in net8.0 net10.0; do
-            env -u TMUX -u TMUX_PANE dotnet run \
+            # Built above, so only what the program prints reaches the comparison.
+            printed="$(env -u TMUX -u TMUX_PANE dotnet run \
               --project examples/LibTmux.FSharp.Quickstart/LibTmux.FSharp.Quickstart.fsproj \
               --configuration Release \
               --framework "${framework}" \
-              --no-restore
+              --no-build)"
+            printf '%s\n' "${printed}" | python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart
           done
 
       - name: F# packed example console

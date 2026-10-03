@@ -305,6 +305,19 @@ separate empty cache. It also stays outside the solution. Its executable
 checks the loaded F# package version and bytes before exercising the task
 helpers, captured state and cleanup against an owned tmux server.
 
+`LibTmux.FSharp.Sdk8Consumer` is the oldest supported F# application: its own
+`global.json` selects the .NET 8 SDK, and its empty `Directory.*` files keep
+this repository's language version and package pins out, so it compiles with
+F# 8 and the SDK's implicit FSharp.Core. Run it from its directory, which is
+where the SDK reads `global.json`:
+
+```console
+$ cd tests/LibTmux.FSharp.Sdk8Consumer && \
+    NUGET_PACKAGES="$(mktemp -d)" mise exec dotnet@8.0 -- bash -euc '
+        dotnet restore --configfile ../NuGet.config
+        dotnet run --configuration Release --no-restore'
+```
+
 `examples/LibTmux.FSharp.Quickstart/Program.fs` is the F# package README's
 complete owned-server example. The CI package step restores only `LibTmux.FSharp`
 into a separate cache and runs the exact program on .NET 8 and 10 against real
@@ -312,8 +325,10 @@ tmux. Keep it outside the solution: it consumes freshly packed artifacts.
 
 `LibTmux.FSharp.AotSmoke` restores from the same mapped feed and publishes its
 native binary for both target frameworks. It covers the static snapshot and
-native sequence route. `Selection.exactlyOne` is not a NativeAOT route while
-FSharp.Core emits linker diagnostics for its `Result` return type.
+native sequence route, and a tmux query read with `Query.tryExactlyOne` and
+`Query.atMostOne`. `Selection.exactlyOne` and `Query.exactlyOne` are not
+NativeAOT routes while FSharp.Core 10.1.302 emits linker diagnostics for their
+`Result` return type.
 
 The required F# trimmed smoke step publishes and runs the same static route
 with NativeAOT disabled. Reproduce it against a fresh local pack on Linux:

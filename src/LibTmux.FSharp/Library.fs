@@ -1,7 +1,9 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 
 type CardinalityError =
@@ -53,8 +55,54 @@ module Selection =
                 Ok first
 
 [<RequireQualifiedAccess>]
-module Window =
-    let placementKey (window: LibTmux.Window) =
+module TmuxFailure =
+    let (|NotSent|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.NotDispatched -> Some failure
+        | _ -> None
+
+    let (|Ran|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Dispatched -> Some failure
+        | _ -> None
+
+    let (|MayHaveRun|_|) (error: exn) =
+        match error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Unknown -> Some error
+        | :? TmuxOperationCanceledException as canceled when canceled.CommandMayHaveExecuted -> Some error
+        | _ -> None
+
+[<RequireQualifiedAccess>]
+module Retry =
+    let ifNotSent (cancellationToken: CancellationToken) (retries: int) (operation: CancellationToken -> Task<'T>) =
+        if retries < 0 then
+            raise (ArgumentOutOfRangeException(nameof retries, retries, "The retry count is negative."))
+
+        backgroundTask {
+            let mutable remaining = retries
+            let mutable result = None
+
+            while result.IsNone do
+                // A NotSent failure clears only its own command; anything the
+                // attempt sent before it may have run.
+                let attempt = LibTmux.Internal.TmuxDispatchLedger.Create()
+
+                try
+                    let! value =
+                        LibTmux.Internal.TmuxDispatchLedger.CountAsync(attempt, (fun () -> operation cancellationToken))
+
+                    result <- Some value
+                with TmuxFailure.NotSent _ when
+                    remaining > 0
+                    && not attempt.AnyReached
+                    && not cancellationToken.IsCancellationRequested ->
+                    remaining <- remaining - 1
+
+            return result.Value
+        }
+
+module internal Placement =
+    let key (window: LibTmux.Window) =
         let edge = window.Edge
 
         {
@@ -64,59 +112,3 @@ module Window =
             WindowId = edge.WindowId.Value
             WindowIndex = edge.WindowIndex
         }
-
-[<RequireQualifiedAccess>]
-module Server =
-    let listSessions (cancellationToken: CancellationToken) (server: LibTmux.Server) =
-        server.GetSessionsAsync(cancellationToken)
-
-    let listWindows (cancellationToken: CancellationToken) (server: LibTmux.Server) =
-        server.GetWindowsAsync(cancellationToken)
-
-    let listPanes (cancellationToken: CancellationToken) (server: LibTmux.Server) =
-        server.GetPanesAsync(cancellationToken)
-
-    let listClients (cancellationToken: CancellationToken) (server: LibTmux.Server) =
-        server.GetClientsAsync(cancellationToken)
-
-    let capture (cancellationToken: CancellationToken) depth (server: LibTmux.Server) =
-        server.CaptureSnapshotAsync(depth, cancellationToken)
-
-    let tryFindSession (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
-            let! session = server.FindSessionAsync(id, cancellationToken)
-            return Option.ofObj session
-        }
-
-    let tryFindWindow (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
-            let! window = server.FindWindowAsync(id, cancellationToken)
-            return Option.ofObj window
-        }
-
-    let tryFindPane (cancellationToken: CancellationToken) id (server: LibTmux.Server) =
-        task {
-            let! pane = server.FindPaneAsync(id, cancellationToken)
-            return Option.ofObj pane
-        }
-
-    let tryFindClient (cancellationToken: CancellationToken) name (server: LibTmux.Server) =
-        task {
-            System.ArgumentException.ThrowIfNullOrWhiteSpace(name)
-            let! clients = server.GetClientsAsync(cancellationToken)
-            return clients |> Seq.tryFind (fun client -> client.Name = name)
-        }
-
-[<RequireQualifiedAccess>]
-module Pane =
-    let currentPath (pane: LibTmux.Pane) = Option.ofObj pane.CurrentPath
-    let currentCommand (pane: LibTmux.Pane) = Option.ofObj pane.CurrentCommand
-
-    let capture (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
-        pane.CaptureAsync(request, cancellationToken)
-
-    let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
-        pane.SendKeysAsync(request, cancellationToken)
-
-    let split (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
-        pane.SplitAsync(request, cancellationToken)

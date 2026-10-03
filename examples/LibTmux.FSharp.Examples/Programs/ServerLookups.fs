@@ -30,27 +30,19 @@ let runAsync () =
             )
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! windows = server |> Server.listWindows token
-        let! panes = server |> Server.listPanes token
+        let! windows = server |> Server.windows |> Query.list token
+        let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne
         let pane = panes |> Seq.exactlyOne
 
         use! _control = server |> Control.enter token
-        let! clients = server |> Server.listClients token
+        let! clients = server |> Server.clients |> Query.list token
         let client = clients |> Seq.exactlyOne
 
         let! foundSession = server |> Server.tryFindSession token demo.Value.Id
         let! foundWindow = server |> Server.tryFindWindow token window.Id
         let! foundPane = server |> Server.tryFindPane token pane.Id
         let! foundClient = server |> Server.tryFindClient token client.Name
-
-        if
-            (foundSession |> Option.map (fun value -> value.Id)) <> Some demo.Value.Id
-            || (foundWindow |> Option.map (fun value -> value.Id)) <> Some window.Id
-            || (foundPane |> Option.map (fun value -> value.Id)) <> Some pane.Id
-            || (foundClient |> Option.map (fun value -> value.Name)) <> Some client.Name
-        then
-            failwith "A lookup did not return its requested entity."
 
         let! missingSession =
             server |> Server.tryFindSession token (SessionId Int32.MaxValue)
@@ -59,19 +51,19 @@ let runAsync () =
         let! missingPane = server |> Server.tryFindPane token (PaneId Int32.MaxValue)
         let! missingClient = server |> Server.tryFindClient token (client.Name + "-missing")
 
-        if
-            Option.isSome missingSession
-            || Option.isSome missingWindow
-            || Option.isSome missingPane
-            || Option.isSome missingClient
-        then
-            failwith "A missing entity must return None after a successful read."
+        printfn "session: %A" (foundSession |> Option.map (fun found -> found.Name))
+        printfn "window: %A" (foundWindow |> Option.map (fun found -> found.Name))
+        printfn "pane: %A" (foundPane |> Option.map (fun found -> found.Id = pane.Id))
+        printfn "client: %A" (foundClient |> Option.map (fun found -> found.Name = client.Name))
 
-        match foundSession with
-        | Some session -> printfn "Found session: %s" session.Name
-        | None -> failwith "The owned session disappeared."
-
-        printfn "Found window, pane and control client; missing lookups returned None."
+        printfn
+            "missing: %A"
+            [
+                missingSession.IsSome
+                missingWindow.IsSome
+                missingPane.IsSome
+                missingClient.IsSome
+            ]
     }
 
 runAsync().GetAwaiter().GetResult()

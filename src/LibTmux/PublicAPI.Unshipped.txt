@@ -591,9 +591,13 @@ LibTmux.Pane.RefreshAsync(System.Threading.CancellationToken cancellationToken =
 LibTmux.Pane.ResetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.RespawnAsync(LibTmux.RespawnRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Pane.RunAsync(LibTmux.PaneRunRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
+LibTmux.Pane.RunAsync(string! command, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneRunResult!>!
 LibTmux.Pane.SelectAsync(LibTmux.SelectPaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
+LibTmux.Pane.SendKeysAndWaitAsync(LibTmux.SendKeysRequest! keys, LibTmux.PaneWaitRequest! wait, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.SendKeysAsync(LibTmux.SendKeysRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.SendPrefixAsync(bool secondary = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+LibTmux.Pane.SendTextAndWaitAsync(string! line, string! text, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.SendTextAsync(string! text, bool enter = true, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.Server.get -> LibTmux.Server!
 LibTmux.Pane.Session.get -> LibTmux.Session!
@@ -604,6 +608,9 @@ LibTmux.Pane.SplitAsync(LibTmux.SplitPaneRequest? request = null, System.Threadi
 LibTmux.Pane.SwapAsync(LibTmux.SwapPaneRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.Title.get -> string?
 LibTmux.Pane.Top.get -> int
+LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
+LibTmux.Pane.WaitForTextAsync(string! text, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
+LibTmux.Pane.WaitUntilAsync(System.Func<System.Collections.Generic.IReadOnlyList<string!>!, bool>! condition, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.Width.get -> int
 LibTmux.Pane.Window.get -> LibTmux.Window!
 LibTmux.PaneDirection
@@ -621,6 +628,33 @@ LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Disable = 1 -> LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Enable = 0 -> LibTmux.PaneInputMode
 LibTmux.PaneObservation
+LibTmux.PaneRunRequest
+LibTmux.PaneRunRequest.<Clone>$() -> LibTmux.PaneRunRequest!
+LibTmux.PaneRunRequest.Command.get -> string!
+LibTmux.PaneRunRequest.Equals(LibTmux.PaneRunRequest? other) -> bool
+LibTmux.PaneRunRequest.KeepOutOfHistory.get -> bool
+LibTmux.PaneRunRequest.KeepOutOfHistory.init -> void
+LibTmux.PaneRunRequest.PaneRunRequest(string! command) -> void
+LibTmux.PaneRunRequest.Timeout.get -> System.TimeSpan
+LibTmux.PaneRunRequest.Timeout.init -> void
+LibTmux.PaneRunResult
+LibTmux.PaneRunResult.<Clone>$() -> LibTmux.PaneRunResult!
+LibTmux.PaneRunResult.Deconstruct(out int? ExitStatus, out bool TimedOut, out System.Collections.Generic.IReadOnlyList<string!>! Output, out System.TimeSpan Elapsed, out bool Started, out bool LinesMissed) -> void
+LibTmux.PaneRunResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneRunResult.Elapsed.init -> void
+LibTmux.PaneRunResult.Equals(LibTmux.PaneRunResult? other) -> bool
+LibTmux.PaneRunResult.ExitStatus.get -> int?
+LibTmux.PaneRunResult.ExitStatus.init -> void
+LibTmux.PaneRunResult.LinesMissed.get -> bool
+LibTmux.PaneRunResult.LinesMissed.init -> void
+LibTmux.PaneRunResult.Output.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.PaneRunResult.Output.init -> void
+LibTmux.PaneRunResult.PaneRunResult(int? ExitStatus, bool TimedOut, System.Collections.Generic.IReadOnlyList<string!>! Output, System.TimeSpan Elapsed, bool Started, bool LinesMissed) -> void
+LibTmux.PaneRunResult.Started.get -> bool
+LibTmux.PaneRunResult.Started.init -> void
+LibTmux.PaneRunResult.Succeeded.get -> bool
+LibTmux.PaneRunResult.TimedOut.get -> bool
+LibTmux.PaneRunResult.TimedOut.init -> void
 LibTmux.PaneSelectDirection
 LibTmux.PaneSelectDirection.Down = 1 -> LibTmux.PaneSelectDirection
 LibTmux.PaneSelectDirection.Last = 4 -> LibTmux.PaneSelectDirection
@@ -630,6 +664,36 @@ LibTmux.PaneSelectDirection.Up = 0 -> LibTmux.PaneSelectDirection
 LibTmux.PaneSwapDirection
 LibTmux.PaneSwapDirection.Down = 1 -> LibTmux.PaneSwapDirection
 LibTmux.PaneSwapDirection.Up = 0 -> LibTmux.PaneSwapDirection
+LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.AlternateScreen = 6 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.AnyOutput = 2 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.Matched = 0 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.PaneExited = 5 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.PresentAtEntry = 1 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.Stopped = 3 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.TimedOut = 4 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitRequest
+LibTmux.PaneWaitRequest.<Clone>$() -> LibTmux.PaneWaitRequest!
+LibTmux.PaneWaitRequest.Equals(LibTmux.PaneWaitRequest? other) -> bool
+LibTmux.PaneWaitRequest.PaneWaitRequest() -> void
+LibTmux.PaneWaitRequest.Patterns.get -> System.Collections.Generic.IReadOnlyList<System.Text.RegularExpressions.Regex!>!
+LibTmux.PaneWaitRequest.Patterns.init -> void
+LibTmux.PaneWaitRequest.StopPatterns.get -> System.Collections.Generic.IReadOnlyList<System.Text.RegularExpressions.Regex!>!
+LibTmux.PaneWaitRequest.StopPatterns.init -> void
+LibTmux.PaneWaitRequest.Timeout.get -> System.TimeSpan
+LibTmux.PaneWaitRequest.Timeout.init -> void
+LibTmux.PaneWaitResult
+LibTmux.PaneWaitResult.<Clone>$() -> LibTmux.PaneWaitResult!
+LibTmux.PaneWaitResult.Deconstruct(out LibTmux.PaneWaitOutcome Outcome, out string? Pattern, out System.TimeSpan Elapsed) -> void
+LibTmux.PaneWaitResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneWaitResult.Elapsed.init -> void
+LibTmux.PaneWaitResult.Equals(LibTmux.PaneWaitResult? other) -> bool
+LibTmux.PaneWaitResult.Found.get -> bool
+LibTmux.PaneWaitResult.Outcome.get -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitResult.Outcome.init -> void
+LibTmux.PaneWaitResult.PaneWaitResult(LibTmux.PaneWaitOutcome Outcome, string? Pattern, System.TimeSpan Elapsed) -> void
+LibTmux.PaneWaitResult.Pattern.get -> string?
+LibTmux.PaneWaitResult.Pattern.init -> void
 LibTmux.PasteBufferRequest
 LibTmux.PasteBufferRequest.<Clone>$() -> LibTmux.PasteBufferRequest!
 LibTmux.PasteBufferRequest.Bracketed.get -> bool
@@ -907,6 +971,7 @@ LibTmux.Server.Options.get -> LibTmux.TmuxOptions!
 LibTmux.Server.Panes.get -> LibTmux.CapturedRelation<LibTmux.Pane!>!
 LibTmux.Server.RefreshClientAsync(string? targetClient = null, bool requestClipboard = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.RunShellAsync(LibTmux.RunShellRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string!>?>!
+LibTmux.Server.SearchClientsAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Client!>!>!
 LibTmux.Server.SearchPanesAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane!>!>!
 LibTmux.Server.SearchSessionsAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session!>!>!
 LibTmux.Server.SearchWindowsAsync(LibTmux.UnsafeTmuxFilter! filter, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Window!>!>!
@@ -923,6 +988,7 @@ LibTmux.Server.ValidateLayoutsAsync(System.Collections.Generic.IEnumerable<(stri
 LibTmux.Server.Version.get -> LibTmux.TmuxVersion?
 LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
+LibTmux.Server.Within(System.TimeSpan timeout) -> LibTmux.Server!
 LibTmux.ServerAccessRequest
 LibTmux.ServerAccessRequest.<Clone>$() -> LibTmux.ServerAccessRequest!
 LibTmux.ServerAccessRequest.AllowUser.get -> string?
@@ -974,6 +1040,25 @@ LibTmux.ServerGeneration.ProcessId.get -> int
 LibTmux.ServerGeneration.ServerGeneration() -> void
 LibTmux.ServerGeneration.ServerGeneration(int processId, long startTime) -> void
 LibTmux.ServerGeneration.StartTime.get -> long
+LibTmux.ServerMirror
+LibTmux.ServerMirror.Current.get -> LibTmux.ServerMirrorView!
+LibTmux.ServerMirror.DisposeAsync() -> System.Threading.Tasks.ValueTask
+LibTmux.ServerMirror.Failure.get -> System.Exception?
+LibTmux.ServerMirror.IsEnded.get -> bool
+LibTmux.ServerMirror.WaitForNewerAsync(long epoch, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView?>!
+LibTmux.ServerMirror.WaitUntilAsync(System.Func<LibTmux.ServerMirrorView!, bool>! condition, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirrorView!>!
+LibTmux.ServerMirror.WatchAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<LibTmux.ServerMirrorView!>!
+LibTmux.ServerMirrorView
+LibTmux.ServerMirrorView.<Clone>$() -> LibTmux.ServerMirrorView!
+LibTmux.ServerMirrorView.Clients.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Client!>!
+LibTmux.ServerMirrorView.Clients.init -> void
+LibTmux.ServerMirrorView.Deconstruct(out long Epoch, out LibTmux.Server! Server, out System.Collections.Generic.IReadOnlyList<LibTmux.Client!>! Clients) -> void
+LibTmux.ServerMirrorView.Epoch.get -> long
+LibTmux.ServerMirrorView.Epoch.init -> void
+LibTmux.ServerMirrorView.Equals(LibTmux.ServerMirrorView? other) -> bool
+LibTmux.ServerMirrorView.Server.get -> LibTmux.Server!
+LibTmux.ServerMirrorView.Server.init -> void
+LibTmux.ServerMirrorView.ServerMirrorView(long Epoch, LibTmux.Server! Server, System.Collections.Generic.IReadOnlyList<LibTmux.Client!>! Clients) -> void
 LibTmux.Session
 LibTmux.Session.ActivePane.get -> LibTmux.CapturedValue<LibTmux.Pane!>!
 LibTmux.Session.ActiveWindow.get -> LibTmux.CapturedValue<LibTmux.Window!>!
@@ -1234,6 +1319,8 @@ LibTmux.TmuxEventsDroppedEvent.Count.get -> long
 LibTmux.TmuxEventsDroppedEvent.Count.init -> void
 LibTmux.TmuxEventsDroppedEvent.Deconstruct(out long Count, out long TotalDropped) -> void
 LibTmux.TmuxEventsDroppedEvent.Equals(LibTmux.TmuxEventsDroppedEvent? other) -> bool
+LibTmux.TmuxEventsDroppedEvent.OnlyOutput.get -> bool
+LibTmux.TmuxEventsDroppedEvent.OnlyOutput.init -> void
 LibTmux.TmuxEventsDroppedEvent.TmuxEventsDroppedEvent(long Count, long TotalDropped) -> void
 LibTmux.TmuxEventsDroppedEvent.TotalDropped.get -> long
 LibTmux.TmuxEventsDroppedEvent.TotalDropped.init -> void
@@ -1304,6 +1391,9 @@ LibTmux.TmuxOption.Value.get -> LibTmux.TmuxOptionValue!
 LibTmux.TmuxOptionException
 LibTmux.TmuxOptionException.OptionName.get -> string!
 LibTmux.TmuxOptionException.TmuxOptionException(string! message, string! optionName, System.Exception? innerException = null) -> void
+LibTmux.TmuxOptionKey
+LibTmux.TmuxOptionKey<T>
+LibTmux.TmuxOptionKey<T>.Name.get -> string!
 LibTmux.TmuxOptionState
 LibTmux.TmuxOptionState.Absent = 0 -> LibTmux.TmuxOptionState
 LibTmux.TmuxOptionState.Off = 1 -> LibTmux.TmuxOptionState
@@ -1320,8 +1410,10 @@ LibTmux.TmuxOptionValue.TmuxOptionValue(string? raw, LibTmux.TmuxOptionState sta
 LibTmux.TmuxOptions
 LibTmux.TmuxOptions.GetAllAsync(LibTmux.GetOptionsRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.TmuxOption!>!>!
 LibTmux.TmuxOptions.GetAsync(LibTmux.GetOptionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.TmuxOption!>!>!
+LibTmux.TmuxOptions.GetAsync<T>(LibTmux.TmuxOptionKey<T>! key, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
 LibTmux.TmuxOptions.Scope.get -> LibTmux.OptionScope
 LibTmux.TmuxOptions.SetAsync(LibTmux.SetOptionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.TmuxOptionValue!>!
+LibTmux.TmuxOptions.SetAsync<T>(LibTmux.TmuxOptionKey<T>! key, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.TmuxOptions.UnsetAsync(LibTmux.UnsetOptionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.TmuxOutputEvent
 LibTmux.TmuxOutputEvent.Data.get -> string!
@@ -1331,6 +1423,12 @@ LibTmux.TmuxOutputEvent.Equals(LibTmux.TmuxOutputEvent? other) -> bool
 LibTmux.TmuxOutputEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxOutputEvent.PaneId.init -> void
 LibTmux.TmuxOutputEvent.TmuxOutputEvent(LibTmux.PaneId PaneId, string! Data) -> void
+LibTmux.TmuxPaneContinuedEvent
+LibTmux.TmuxPaneContinuedEvent.Deconstruct(out LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPaneContinuedEvent.Equals(LibTmux.TmuxPaneContinuedEvent? other) -> bool
+LibTmux.TmuxPaneContinuedEvent.PaneId.get -> LibTmux.PaneId
+LibTmux.TmuxPaneContinuedEvent.PaneId.init -> void
+LibTmux.TmuxPaneContinuedEvent.TmuxPaneContinuedEvent(LibTmux.PaneId PaneId) -> void
 LibTmux.TmuxPaneException
 LibTmux.TmuxPaneException.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneException.TmuxPaneException(string! message, LibTmux.PaneId paneId, System.Exception? innerException = null) -> void
@@ -1340,6 +1438,12 @@ LibTmux.TmuxPaneGoneEvent.Equals(LibTmux.TmuxPaneGoneEvent? other) -> bool
 LibTmux.TmuxPaneGoneEvent.PaneId.get -> LibTmux.PaneId
 LibTmux.TmuxPaneGoneEvent.PaneId.init -> void
 LibTmux.TmuxPaneGoneEvent.TmuxPaneGoneEvent(LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPanePausedEvent
+LibTmux.TmuxPanePausedEvent.Deconstruct(out LibTmux.PaneId PaneId) -> void
+LibTmux.TmuxPanePausedEvent.Equals(LibTmux.TmuxPanePausedEvent? other) -> bool
+LibTmux.TmuxPanePausedEvent.PaneId.get -> LibTmux.PaneId
+LibTmux.TmuxPanePausedEvent.PaneId.init -> void
+LibTmux.TmuxPanePausedEvent.TmuxPanePausedEvent(LibTmux.PaneId PaneId) -> void
 LibTmux.TmuxProtocolException
 LibTmux.TmuxProtocolException.Payload.get -> string!
 LibTmux.TmuxProtocolException.TmuxProtocolException(string! message, LibTmux.TmuxDispatchState dispatch, System.Exception? innerException = null) -> void
@@ -1517,6 +1621,57 @@ override LibTmux.AttachSessionRequest.ToString() -> string!
 override LibTmux.BindKeyRequest.Equals(object? obj) -> bool
 override LibTmux.BindKeyRequest.GetHashCode() -> int
 override LibTmux.BindKeyRequest.ToString() -> string!
+override LibTmux.PaneRunRequest.Equals(object? obj) -> bool
+override LibTmux.PaneRunRequest.GetHashCode() -> int
+override LibTmux.PaneRunRequest.ToString() -> string!
+override LibTmux.PaneRunResult.Equals(object? obj) -> bool
+override LibTmux.PaneRunResult.GetHashCode() -> int
+override LibTmux.PaneRunResult.ToString() -> string!
+override LibTmux.PaneWaitRequest.Equals(object? obj) -> bool
+override LibTmux.PaneWaitRequest.GetHashCode() -> int
+override LibTmux.PaneWaitRequest.ToString() -> string!
+override LibTmux.PaneWaitResult.Equals(object? obj) -> bool
+override LibTmux.PaneWaitResult.GetHashCode() -> int
+override LibTmux.PaneWaitResult.ToString() -> string!
+override LibTmux.ServerMirrorView.Equals(object? obj) -> bool
+override LibTmux.ServerMirrorView.GetHashCode() -> int
+override LibTmux.ServerMirrorView.ToString() -> string!
+override LibTmux.TmuxOptionKey<T>.ToString() -> string!
+override LibTmux.TmuxPaneContinuedEvent.<Clone>$() -> LibTmux.TmuxPaneContinuedEvent!
+override LibTmux.TmuxPaneContinuedEvent.Equals(object? obj) -> bool
+override LibTmux.TmuxPaneContinuedEvent.GetHashCode() -> int
+override LibTmux.TmuxPaneContinuedEvent.ToString() -> string!
+override LibTmux.TmuxPanePausedEvent.<Clone>$() -> LibTmux.TmuxPanePausedEvent!
+override LibTmux.TmuxPanePausedEvent.Equals(object? obj) -> bool
+override LibTmux.TmuxPanePausedEvent.GetHashCode() -> int
+override LibTmux.TmuxPanePausedEvent.ToString() -> string!
+override sealed LibTmux.TmuxPaneContinuedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
+override sealed LibTmux.TmuxPanePausedEvent.Equals(LibTmux.TmuxEvent? other) -> bool
+static LibTmux.PaneObservation.WatchAsync(this LibTmux.IControlModeSession! session, System.Collections.Generic.IReadOnlyCollection<LibTmux.Pane!>! panes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent!>!
+static LibTmux.PaneRunRequest.operator !=(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
+static LibTmux.PaneRunRequest.operator ==(LibTmux.PaneRunRequest? left, LibTmux.PaneRunRequest? right) -> bool
+static LibTmux.PaneRunResult.operator !=(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool
+static LibTmux.PaneRunResult.operator ==(LibTmux.PaneRunResult? left, LibTmux.PaneRunResult? right) -> bool
+static LibTmux.PaneWaitRequest.operator !=(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
+static LibTmux.PaneWaitRequest.operator ==(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
+static LibTmux.PaneWaitResult.operator !=(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
+static LibTmux.PaneWaitResult.operator ==(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
+static LibTmux.ServerMirror.OpenAsync(LibTmux.Session! anchor, System.TimeSpan refreshEvery = default(System.TimeSpan), System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.ServerMirror!>!
+static LibTmux.ServerMirrorView.operator !=(LibTmux.ServerMirrorView? left, LibTmux.ServerMirrorView? right) -> bool
+static LibTmux.ServerMirrorView.operator ==(LibTmux.ServerMirrorView? left, LibTmux.ServerMirrorView? right) -> bool
+static LibTmux.TmuxOptionKey.AutomaticRename.get -> LibTmux.TmuxOptionKey<bool>!
+static LibTmux.TmuxOptionKey.BaseIndex.get -> LibTmux.TmuxOptionKey<int>!
+static LibTmux.TmuxOptionKey.EscapeTime.get -> LibTmux.TmuxOptionKey<int>!
+static LibTmux.TmuxOptionKey.Flag(string! name) -> LibTmux.TmuxOptionKey<bool>!
+static LibTmux.TmuxOptionKey.HistoryLimit.get -> LibTmux.TmuxOptionKey<int>!
+static LibTmux.TmuxOptionKey.Mouse.get -> LibTmux.TmuxOptionKey<bool>!
+static LibTmux.TmuxOptionKey.Number(string! name) -> LibTmux.TmuxOptionKey<int>!
+static LibTmux.TmuxOptionKey.SynchronizePanes.get -> LibTmux.TmuxOptionKey<bool>!
+static LibTmux.TmuxOptionKey.Text(string! name) -> LibTmux.TmuxOptionKey<string!>!
+static LibTmux.TmuxPaneContinuedEvent.operator !=(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
+static LibTmux.TmuxPaneContinuedEvent.operator ==(LibTmux.TmuxPaneContinuedEvent? left, LibTmux.TmuxPaneContinuedEvent? right) -> bool
+static LibTmux.TmuxPanePausedEvent.operator !=(LibTmux.TmuxPanePausedEvent? left, LibTmux.TmuxPanePausedEvent? right) -> bool
+static LibTmux.TmuxPanePausedEvent.operator ==(LibTmux.TmuxPanePausedEvent? left, LibTmux.TmuxPanePausedEvent? right) -> bool
 ~override LibTmux.CapturePanePosition.Equals(object obj) -> bool
 override LibTmux.CapturePanePosition.GetHashCode() -> int
 ~override LibTmux.CapturePanePosition.ToString() -> string

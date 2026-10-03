@@ -178,6 +178,31 @@ let private runAsync () =
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
 
+        let! tour =
+            task {
+                use! owned =
+                    LibTmux.Server.CreateOwnedAsync(
+                        ServerConnectionOptions(
+                            SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
+                            ConfigurationFile = "/dev/null",
+                            TmuxBinaryPath = tmuxBinary
+                        ),
+                        cancellationToken
+                    )
+
+                let! _ =
+                    owned.Value.CreateSessionAsync(
+                        NewSessionRequest(Name = "tour", Command = "/bin/sh"),
+                        cancellationToken
+                    )
+
+                return! GuideSnippets.runInShellAsync cancellationToken owned.Value
+            }
+
+        match tour with
+        | true, true, listing when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
+        | unexpected -> failwithf "The README tour did not send, wait and run: %A" unexpected
+
         let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken
 
         match ownedCommands with
@@ -221,17 +246,41 @@ let private runAsync () =
         if chained <> [ "fsharp-chain-first"; "fsharp-chain-second" ] then
             failwith "The chaining guide did not preserve command order."
 
-        let! indexedOption, inheritedOption, hookIndex, renderedFormat =
+        let! built = GuideSnippets.buildWorkspaceAsync cancellationToken scope.Server
+
+        if built <> ("build", [ "editor"; "logs" ]) then
+            failwithf "The workspace guide built %A." built
+
+        match! GuideSnippets.readSessionNamesAsync cancellationToken scope.Server with
+        | Ok names when names |> List.contains scope.Session.Name -> ()
+        | other -> failwithf "The retry guide read %A." other
+
+        let! greeting = GuideSnippets.greetingAsync cancellationToken
+
+        if greeting <> [ "hello" ] then
+            failwithf "The testing guide read %A." greeting
+
+        let! history, stage, _ =
+            GuideSnippets.tuneAsync cancellationToken scope.Session scope.Window
+
+        if history <> 50_000 || stage <> "build" then
+            failwithf "The typed option guide read back %d and %s." history stage
+
+        let! settings =
             GuideSnippets.inspectCoreSettingsAsync cancellationToken scope.Server scope.Session
 
-        printfn
-            "Core interop: command-alias[%d], inherited status-keys=%s, hook[%d], %s"
-            indexedOption
-            inheritedOption
-            hookIndex
-            renderedFormat
+        match settings.Rendered with
+        | Some [ rendered ] when
+            settings.StatusKeys = [ "vi", true ]
+            && settings.Alias = Some "fsharp-window=new-window"
+            && settings.HookIndexes = [ 3 ]
+            && settings.Variable = Some "ready"
+            && rendered.StartsWith("fsharp-", StringComparison.Ordinal)
+            ->
+            printfn "Core interop: command-alias[40], inherited status-keys=vi, hook[3], %s" rendered
+        | _ -> failwithf "The core interop guide observed %A." settings
 
-        do!
+        let! operations =
             GuideSnippets.exerciseCoreOperationsAsync
                 cancellationToken
                 scope.Server
@@ -239,7 +288,36 @@ let private runAsync () =
                 scope.Window
                 scope.Pane
 
-        do! GuideSnippets.exerciseWindowInputAsync cancellationToken scope.Session
+        if
+            operations.Moved.Id <> scope.Window.Id
+            || operations.Moved.Index <> 3
+            || operations.Remaining.Count <> 1
+            || operations.Remaining[0].Id <> scope.Window.Id
+            || operations.LaidOut.Id <> scope.Window.Id
+            || operations.Resized.Id <> operations.Split.Id
+            || operations.Resized.Height < 1
+            || operations.Buffer <> "fsharp-ready"
+            || operations.InModeWhileCopying <> "1"
+            || operations.InModeAfter <> "0"
+        then
+            failwith "The core operations guide did not link, move, lay out, buffer and copy as shown."
+
+        let! input = GuideSnippets.exerciseWindowInputAsync cancellationToken scope.Session
+
+        let literal (command: string list) = List.contains "-l" command
+
+        match input.Literal, input.KeyName, input.TextThenEnter with
+        | [ typed ], [ pressed ], [ text; enter ] when
+            input.Window.Name = "fsharp-input"
+            && input.Panes = 1
+            && literal typed
+            && not (literal pressed)
+            && literal text
+            && not (literal enter)
+            && List.last enter = "Enter"
+            ->
+            ()
+        | _ -> failwithf "The window input guide built %A." input
 
         let encodedFilter = GuideSnippets.encodeEditorPaneFilter ()
         let decodedFilter = GuideSnippets.decodeFilter encodedFilter
@@ -301,6 +379,31 @@ let private runAsync () =
                |> Seq.exists2 (fun (left: Pane) (right: Pane) -> left.Id <> right.Id) native
         then
             failwith "The portable filter did not match the native captured-pane query."
+
+        let! watchedPane =
+            scope.Pane
+            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+        let! watcher = scope.Session |> Control.enterSession cancellationToken
+
+        let! watched =
+            watcher
+            |> Control.useSession (fun control ->
+                task {
+                    let reading =
+                        GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
+
+                    do!
+                        watchedPane
+                        |> Pane.sendKeys
+                            cancellationToken
+                            (SendKeysRequest(Text = "printf 'watch''ed\\n'", Literal = true))
+
+                    return! reading
+                })
+
+        if not (watched.Contains "watched") then
+            failwithf "The pane watch guide did not read the pane's output: %A" watched
 
         let! observed =
             scope.Server

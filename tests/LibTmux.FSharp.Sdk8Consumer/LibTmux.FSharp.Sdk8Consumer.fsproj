@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+    <!-- Source mapping in tests/NuGet.config resolves this from the local pack. -->
+    <PackageReference Include="LibTmux.FSharp" Version="*-*" />
+  </ItemGroup>
+</Project>

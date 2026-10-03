@@ -39,6 +39,7 @@ internal static class TmuxCapabilities
         "confirm_before_acceptance",
         "display_menu_styles",
         "display_message_literal",
+        "list_clients_filter",
         "run_shell_working_directory",
         "send_keys_client_keys",
     ];

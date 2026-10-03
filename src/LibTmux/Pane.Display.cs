@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Query;
 using Microsoft.Extensions.Logging;
 
 namespace LibTmux;
@@ -292,6 +293,26 @@ public sealed partial class Pane
         }
 
         return request.ReturnText ? result.StandardOutputLines : null;
+    }
+
+    /// <summary>Finds the first visible row showing the searched text.</summary>
+    /// <returns>The row counted from 1 at the top of the screen, or null.</returns>
+    /// <remarks>tmux searches only the rows on screen, never the history.</remarks>
+    [UnsupportedOSPlatform("windows")]
+    internal async Task<int?> FindOnScreenAsync(
+        PaneScreenSearch search,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(search);
+        IReadOnlyList<string>? lines = await DisplayMessageAsync(
+                new DisplayMessageRequest { Message = search.Render(), ReturnText = true },
+                cancellationToken)
+            .ConfigureAwait(false);
+        return lines is [string line]
+            && int.TryParse(line, NumberStyles.None, CultureInfo.InvariantCulture, out int row)
+            && row > 0
+                ? row
+                : null;
     }
 
     /// <summary>Puts the pane into copy mode.</summary>

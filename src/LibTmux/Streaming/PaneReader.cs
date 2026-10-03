@@ -1,7 +1,6 @@
 using System.Runtime.Versioning;
-using ModelContextProtocol;
 
-namespace LibTmux.Mcp;
+namespace LibTmux.Internal;
 
 /// <summary>What a pane has printed, and what is new since last time.</summary>
 /// <param name="State">The grid state the read saw.</param>
@@ -16,6 +15,22 @@ internal sealed record PaneRead(
     IReadOnlyList<string> CursorRows,
     bool LinesMissed,
     bool AnchorLost);
+
+/// <summary>Names why a pane could not be read consistently.</summary>
+internal enum PaneReadFailure
+{
+    /// <summary>The pane's program has exited.</summary>
+    Dead,
+
+    /// <summary>The pane changed during every read attempt.</summary>
+    Unstable,
+
+    /// <summary>tmux reported no state for the pane.</summary>
+    Unreported,
+
+    /// <summary>The pane runs a different process than the cursor recorded.</summary>
+    Replaced,
+}
 
 /// <summary>Reads a pane so that two reads do not overlap or skip.</summary>
 /// <remarks>
@@ -39,30 +54,44 @@ internal static class PaneReader
 {
     private const int StableReadAttempts = 3;
 
+    /// <summary>Describes a read failure without naming any caller's tools.</summary>
+    internal static Exception Failure(PaneReadFailure failure, Pane pane) => new TmuxPaneException(
+        failure switch
+        {
+            PaneReadFailure.Dead =>
+                $"Pane {pane.Id} is dead: the program in it has exited. Respawn the pane to start it again.",
+            PaneReadFailure.Unstable =>
+                $"Pane {pane.Id} changed during every snapshot attempt. Try again when its output is less busy.",
+            PaneReadFailure.Replaced =>
+                $"Pane {pane.Id} is running a different process than when the read began.",
+            _ => $"tmux did not report the state of pane {pane.Id}. It may have just closed.",
+        },
+        pane.Id);
+
     /// <summary>Reads what is on screen now, with no previous position.</summary>
     /// <param name="pane">The pane to read.</param>
     /// <param name="baselinePid">The pid the caller last saw, or null on a first read.</param>
+    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadVisibleAsync(
         Pane pane,
         string? baselinePid,
+        Func<PaneReadFailure, Pane, Exception> fail,
         CancellationToken cancellationToken)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
-            PaneGridState before = await RequireStateAsync(pane, cancellationToken)
+            PaneGridState before = await RequireStateAsync(pane, fail, cancellationToken)
                 .ConfigureAwait(false);
             if (baselinePid is null && before.Dead)
             {
-                throw new McpException(
-                    $"Pane {pane.Id} is dead: the program in it has exited. "
-                    + "Use respawn_pane to start it again.");
+                throw fail(PaneReadFailure.Dead, pane);
             }
 
             IReadOnlyList<string> lines = await CaptureAsync(pane, null, cancellationToken)
                 .ConfigureAwait(false);
-            PaneGridState after = await RequireStateAsync(pane, cancellationToken)
+            PaneGridState after = await RequireStateAsync(pane, fail, cancellationToken)
                 .ConfigureAwait(false);
 
             if (before == after)
@@ -72,30 +101,30 @@ internal static class PaneReader
             }
         }
 
-        throw new McpException(
-            $"Pane {pane.Id} changed during every snapshot attempt. Try again when "
-            + "its output is less busy.");
+        throw fail(PaneReadFailure.Unstable, pane);
     }
 
     /// <summary>Reads what a pane has printed since a cursor was issued.</summary>
     /// <param name="pane">The pane to read.</param>
     /// <param name="cursor">Where the last read finished.</param>
+    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadSinceAsync(
         Pane pane,
-        TailCursor cursor,
+        PaneCursor cursor,
+        Func<PaneReadFailure, Pane, Exception> fail,
         CancellationToken cancellationToken)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
-            PaneGridState before = await RequireStateAsync(pane, cancellationToken)
+            PaneGridState before = await RequireStateAsync(pane, fail, cancellationToken)
                 .ConfigureAwait(false);
-            RaiseIfPaneReplaced(pane, before, cursor);
+            RaiseIfPaneReplaced(pane, before, cursor, fail);
 
             if (AnchorLost(cursor, before))
             {
-                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, cancellationToken)
+                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
                     .ConfigureAwait(false);
                 return missed with { LinesMissed = true, AnchorLost = true };
             }
@@ -111,9 +140,9 @@ internal static class PaneReader
                     ? []
                     : await CaptureAsync(pane, captureStart, cancellationToken).ConfigureAwait(false);
 
-            PaneGridState after = await RequireStateAsync(pane, cancellationToken)
+            PaneGridState after = await RequireStateAsync(pane, fail, cancellationToken)
                 .ConfigureAwait(false);
-            RaiseIfPaneReplaced(pane, after, cursor);
+            RaiseIfPaneReplaced(pane, after, cursor, fail);
 
             if (before != after)
             {
@@ -126,7 +155,7 @@ internal static class PaneReader
                 int? match = FindUniqueAnchor(capturedRows, cursor, cancellationToken);
                 if (match is null)
                 {
-                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, cancellationToken)
+                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
                         .ConfigureAwait(false);
                     return missed with { LinesMissed = true, AnchorLost = true };
                 }
@@ -149,7 +178,7 @@ internal static class PaneReader
             return new PaneRead(after, reported, cursorRows, false, false);
         }
 
-        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, cancellationToken)
+        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
             .ConfigureAwait(false);
         return busy with { LinesMissed = true, AnchorLost = true };
     }
@@ -202,7 +231,7 @@ internal static class PaneReader
         IReadOnlyList<string> capturedRows,
         int previousOffset,
         int cursorOffset,
-        TailCursor cursor)
+        PaneCursor cursor)
     {
         IReadOnlyList<string> previousRows = RowsFromOffset(capturedRows, previousOffset);
         List<string> reported = DropAlreadySeen(previousRows, cursor);
@@ -220,26 +249,27 @@ internal static class PaneReader
 
     private static async Task<PaneGridState> RequireStateAsync(
         Pane pane,
+        Func<PaneReadFailure, Pane, Exception> fail,
         CancellationToken cancellationToken)
     {
         PaneGridState? state = await PaneGridState.ReadAsync(pane, cancellationToken)
             .ConfigureAwait(false);
-        return state ?? throw new McpException(
-            $"tmux did not report the state of pane {pane.Id}. It may have just closed.");
+        return state ?? throw fail(PaneReadFailure.Unreported, pane);
     }
 
-    private static void RaiseIfPaneReplaced(Pane pane, PaneGridState state, TailCursor cursor)
+    private static void RaiseIfPaneReplaced(
+        Pane pane,
+        PaneGridState state,
+        PaneCursor cursor,
+        Func<PaneReadFailure, Pane, Exception> fail)
     {
         if (!string.Equals(state.PanePid, cursor.PanePid, StringComparison.Ordinal))
         {
-            throw new McpException(
-                $"Pane {pane.Id} is running a different process than when the cursor was "
-                + "issued, so there is nothing to continue from. Call capture_since "
-                + "again without a cursor.");
+            throw fail(PaneReadFailure.Replaced, pane);
         }
     }
 
-    private static bool AnchorLost(TailCursor cursor, PaneGridState state)
+    private static bool AnchorLost(PaneCursor cursor, PaneGridState state)
     {
         if (cursor.AnchorAbsolute > state.HistorySize + state.PaneHeight - 1)
         {
@@ -258,7 +288,7 @@ internal static class PaneReader
         return state.HistorySize < cursor.HistorySize && state.PaneHeight <= cursor.PaneHeight;
     }
 
-    private static bool TrimRisk(TailCursor cursor, PaneGridState state)
+    private static bool TrimRisk(PaneCursor cursor, PaneGridState state)
     {
         if (state.HistoryLimit <= 0)
         {
@@ -274,7 +304,7 @@ internal static class PaneReader
 
     internal static int? FindUniqueAnchor(
         IReadOnlyList<string> rows,
-        TailCursor cursor,
+        PaneCursor cursor,
         CancellationToken cancellationToken)
     {
         if (cursor.AnchorHash is null)
@@ -293,12 +323,12 @@ internal static class PaneReader
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(
-                    TailCursor.HashLine(rows[index]),
+                    PaneCursor.HashLine(rows[index]),
                     cursor.AnchorHash,
                     StringComparison.Ordinal)
                 || (cursor.BelowCount > 0
                     && !string.Equals(
-                        TailCursor.HashRows(rows, index + 1, cursor.BelowCount),
+                        PaneCursor.HashRows(rows, index + 1, cursor.BelowCount),
                         cursor.BelowHash,
                         StringComparison.Ordinal)))
             {
@@ -320,7 +350,7 @@ internal static class PaneReader
 
     internal static List<string> DropAlreadySeen(
         IReadOnlyList<string> rows,
-        TailCursor cursor)
+        PaneCursor cursor)
     {
         if (rows.Count == 0)
         {
@@ -329,7 +359,7 @@ internal static class PaneReader
 
         List<string> kept = [];
         if (cursor.AnchorHash is null
-            || !string.Equals(TailCursor.HashLine(rows[0]), cursor.AnchorHash, StringComparison.Ordinal))
+            || !string.Equals(PaneCursor.HashLine(rows[0]), cursor.AnchorHash, StringComparison.Ordinal))
         {
             // The anchor row was rewritten since it was seen, so it is new text.
             kept.Add(rows[0]);
@@ -339,7 +369,7 @@ internal static class PaneReader
         if (cursor.SuffixCount > 0
             && rows.Count - index >= cursor.SuffixCount
             && string.Equals(
-                TailCursor.HashRows(rows, index, cursor.SuffixCount),
+                PaneCursor.HashRows(rows, index, cursor.SuffixCount),
                 cursor.SuffixHash,
                 StringComparison.Ordinal))
         {
@@ -354,7 +384,7 @@ internal static class PaneReader
             : Math.Min(cursor.BelowCount, Math.Max(rows.Count - index, 0));
         for (int row = 0; row < tracked; row++)
         {
-            if (!TailCursor.TrackedRowUnchanged(digests!, row, rows[index + row]))
+            if (!PaneCursor.TrackedRowUnchanged(digests!, row, rows[index + row]))
             {
                 kept.Add(rows[index + row]);
             }

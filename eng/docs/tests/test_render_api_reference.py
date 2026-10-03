@@ -127,6 +127,25 @@ def test_fsharp_renderer_uses_compiled_signatures_and_declaring_modules() -> Non
     assert "M:LibTmux.FSharp.Filter.eq" not in rendered
 
 
+def test_fsharp_renderer_writes_names_as_source_spells_them() -> None:
+    """System and FSharp.Core namespaces are noise; a core handle keeps its own."""
+    short_names = load_renderer()["short_names"]
+
+    assert short_names(
+        "val enter: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server"
+        " -> System.Threading.Tasks.Task<LibTmux.IControlModeSession>"
+    ) == "val enter: cancellationToken: CancellationToken -> server: LibTmux.Server -> Task<LibTmux.IControlModeSession>"
+    assert short_names(
+        "val cleanupFailure: error: Microsoft.FSharp.Core.exn -> Microsoft.FSharp.Core.exn Microsoft.FSharp.Core.option"
+    ) == "val cleanupFailure: error: exn -> exn option"
+    assert short_names("val name: LibTmux.FSharp.Field<LibTmux.Client,System.String>") == (
+        "val name: Field<LibTmux.Client,String>"
+    )
+    assert short_names("val p: System.Reflection.PropertyInfo -> System.TimeSpan") == (
+        "val p: System.Reflection.PropertyInfo -> TimeSpan"
+    )
+
+
 def test_fsharp_check_rejects_stale_generated_output(tmp_path: pathlib.Path, capsys) -> None:
     """The F# reference must be checked from the compiler inventory."""
     import json

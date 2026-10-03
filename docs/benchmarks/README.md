@@ -9,6 +9,8 @@ Nothing here is a promise about your machine.
 |---|---|---|---|
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
+| 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
+| 2026-10-03 | 3.7c | `0.0.0-alpha.17` + F# branch, hosted runner | [F# costs including the pane watch](runs/2026-10-03-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -210,7 +212,7 @@ $ dotnet run \
 ## F# control fold cost
 
 [`FSharpControlFoldBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpControlFoldBenchmarks.cs)
-compares direct C# `await foreach` with `Control.foldEventsWhile` over the same
+compares direct C# `await foreach` with `Control.foldWhile` over the same
 synthetic control event source. Both stop after 64 of 128 notifications and
 compute the same checksum through the same prebuilt, task-returning folder.
 Setup verifies the result, event-read count, reader disposal, and cancellation
@@ -227,6 +229,84 @@ $ dotnet run \
     --filter '*FSharpControlFoldBenchmarks*' \
     --artifacts artifacts/benchmarks/fsharp-control-fold
 ```
+
+## F# query pushdown
+
+[`FSharpQueryPushdownBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpQueryPushdownBenchmarks.cs)
+builds a server of 64 sessions with 4 windows each, where one pane in 64 runs
+`tail`, and finds those panes, and the sessions holding them, three ways: a
+query tmux narrows with `-f`, a full listing filtered locally, and a snapshot
+filtered locally. Every route must return the same objects before timing.
+
+In the [2026-10-03 record](runs/2026-10-03-tmux-3.7d-fsharp.md) the pane query
+took a median of 39 ms pushed down against 254 ms for a full listing and
+497 ms for a snapshot, allocating 26 times less than the listing. The session
+query, a relation, took 163 ms pushed down against 428 ms and more for the
+local routes, allocating 10 times less: tmux evaluates the relation once per
+session, and only the matching sessions are captured. Two identical local
+routes for that query differ by half, which is the run-to-run noise of a
+process start under load.
+
+The [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md), from a GitHub
+runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
+took 9.2 ms pushed down against 82 ms for a full listing and 169 ms for a
+snapshot, and the session query 36 ms against 179 ms and 176 ms. Its two
+local session routes agree within 2%, where the workstation's differed by
+half. That run was a pull request's, so it records the merge commit GitHub
+tested, which is not on the branch.
+
+```console
+$ dotnet run \
+    --project benchmarks/LibTmux.Benchmarks \
+    --configuration Release \
+    --framework net10.0 \
+    -- \
+    --filter '*FSharp*' \
+    --artifacts artifacts/benchmarks-fsharp
+```
+
+```console
+$ uv run python eng/benchmarks/record_fsharp.py \
+    --reports artifacts/benchmarks-fsharp/results \
+    --tmux-version 3.7d \
+    --collected 2026-10-03 \
+    --out docs/benchmarks/runs
+```
+
+## F# pane watch
+
+[`FSharpPaneWatchBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpPaneWatchBenchmarks.cs)
+reads 256 output events spread over eight panes from a synthetic client and
+keeps one, two or eight panes' output, once by filtering `Control.events` by
+hand and once through `Control.watchPanes`. Both must count the same output
+before timing. The watch also asks whether each watched pane still exists
+when it starts and after each layout change; the synthetic client answers at
+once, and against a real server each answer is one tmux round trip.
+
+In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
+about 1 µs for every count of panes, and the watch 4.3 µs for one pane, 5.2 µs
+for two and 10.8 µs for eight: about 0.9 µs for each pane checked, on top of a
+fixed 3.4 µs, across 256 events.
+
+## Hosted runs
+
+The `benchmarks` workflow runs every F# class on a GitHub-hosted runner
+against a tmux built from source, records the run with
+`eng/benchmarks/record_fsharp.py`, and uploads the record for comparison with
+those under `runs/`. It runs when a push changes what is measured or how it
+is recorded, and on dispatch for a chosen tmux version:
+
+```console
+$ gh workflow run benchmarks.yml -f tmux=3.2a
+```
+
+## Regression gate
+
+Timings are not gated in CI: the same case moves by more than half between
+runs on one machine, so a threshold loose enough to pass would catch nothing.
+What is gated is what does not vary. An integration test counts the tmux
+processes a pushed-down query starts and the rows tmux returns through the
+connection interceptor, and fails when a listing stops narrowing.
 
 ## Control stream probe
 

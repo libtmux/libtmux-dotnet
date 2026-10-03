@@ -9,45 +9,93 @@
 
 # LibTmux.FSharp
 
-Compose tmux from F# with task helpers, native sequences, and typed portable
-filters over the existing [LibTmux](https://www.nuget.org/packages/LibTmux)
-objects. The [F# package](https://www.nuget.org/packages/LibTmux.FSharp) and
-core share a repository, release version, and primary author in the `libtmux`
-organization.
+Drive tmux from F#: send keys and wait for what a pane prints, run a command
+to its exit status, and list and filter sessions, windows, panes and clients
+with typed filters tmux evaluates itself. Every function works on the
+[LibTmux](https://www.nuget.org/packages/LibTmux) core objects. The
+[F# package](https://www.nuget.org/packages/LibTmux.FSharp) and core share a
+repository, release version, and primary author in the `libtmux` organization.
 
 [![build](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet.yml)
 [![tmux matrix](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml/badge.svg)](https://github.com/libtmux/libtmux-dotnet/actions/workflows/dotnet-tmux.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-dotnet/blob/master/LICENSE)
 
 [Run isolated tmux](#quick-start) · [Connect to running tmux](#existing-tmux) ·
-[Filter snapshots](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md) ·
-[Read control events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md)
+[Send, wait, read](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#send-wait-read) ·
+[Query tmux](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md) ·
+[Stream events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md)
 
-A portable relation filter is an F# value after installing the package below:
+Find a shell, send it keys, wait for its output, and run a command:
 
 <!-- fsharp-contract: golden -->
-<!-- fsharp-snippet: RelationFilter run -->
+<!-- fsharp-snippet: SendWaitList run -->
 ```fsharp run
+open System
+open System.Threading
+open LibTmux
 open LibTmux.FSharp
 
-let sessionsWithCommands commands =
-    Filter.oneOf commands PaneFields.currentCommand
-    |> Filter.any WindowFields.panes
-    |> Filter.any SessionFields.windows
+let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
+    task {
+        // List and filter: tmux narrows the listing, then every row is rechecked.
+        let! shells =
+            server
+            |> Server.panes
+            |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
+            |> Query.list cancellationToken
 
-let editorFilter = sessionsWithCommands [ "nvim"; "vim" ]
+        let pane = shells[0]
 
-printfn "capture depth: %A" (Filter.toDocument editorFilter).RequiredSnapshotDepth
+        // Type a command and wait for what it prints, not for its echo.
+        let! ready =
+            pane
+            |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+
+        // Run a command to its exit status and read what it printed.
+        let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
+
+        return ready.Found, listing.Succeeded, listing.Output
+    }
 ```
 <!-- endfsharp-snippet -->
 
-This prints `capture depth: Panes`. The filter describes sessions containing
-an editor pane; constructing it makes no tmux call. The complete example below
-creates a server, captures its object graph, and applies a filter.
+Building a query reads nothing; `Query.list` asks tmux, which drops panes that
+cannot match, and checks every row it returns. `Pane.sendAndWait` types the
+line, then waits for a later line to contain the text; the screen before it and
+the line's own echo do not count. It sleeps on the pane's output instead of
+polling, and ends early if the program exits. `Pane.run` returns the command's
+exit status and the lines it printed. The quick start below runs these steps
+against an isolated tmux server.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
 targets `net8.0` and `net10.0`.
+
+## Choose a call
+
+| Need | F# call | Result |
+| --- | --- | --- |
+| List and filter live objects | `Server.panes server \|> Query.where filter \|> Query.list ct` | Task; tmux narrows the listing and every row is rechecked |
+| Exactly one match | `Query.exactlyOne ct query` | `Result` distinguishing none from several |
+| Find, or create when absent | `Query.atMostOne ct query` | `option`: `None` only when nothing matched; several raise. Publishes under NativeAOT |
+| A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
+| Type a line and wait for its output | `Pane.sendAndWait ct timeout line text pane` | `PaneWaitResult`; ignores the earlier screen and the line's echo. `Pane.sendAndWaitFor` takes a keys request and patterns |
+| Wait for output you did not type | `Pane.waitForText ct timeout text pane` | `PaneWaitResult`; text already showing answers at once. [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait) compares them all |
+| Wait for a condition over the whole screen | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult`; the condition sees every visible row, including what a full-screen program draws |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult` with the status and printed lines; POSIX shells only |
+| Create a session with windows and splits | `Server.newSession ct spec server` | The `Session`; describe it with `SessionSpec`, `WindowSpec` and `SplitSpec` records |
+| Run several commands in one tmux call | `Chain.start server \|> Chain.newWindow session name \|> … \|> Chain.run ct` | One `TmuxCommandResult`; each step acts on what the one before made |
+| Bound every command a handle sends | `Server.within timeout server` | A handle to the same server; its sessions, windows and panes share the bound |
+| Read or set an option as its type | `Options.get ct TmuxOptionKey.HistoryLimit session.Options` | The value as the key's type; `Options.set` writes one |
+| A whole object graph | `Server.capture ct depth server` | Snapshot to traverse and filter locally |
+| Follow live server state | `Mirror.start ct session` | A `ServerMirror` to `use!`, updated from tmux's announcements; `Mirror.waitUntil` waits for a view |
+| React to events as they happen | `Control.withSession ct work server`, then `Control.events`, `Control.watchPane` or `Control.watchPanes` | Cold `IAsyncEnumerable` for a control client, which `withSession` disposes |
+| Let an assistant drive the same tmux | The `LibTmux.Mcp` server on a shared socket | [Which F# call each MCP tool matches](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
+
+Captured sessions, windows, panes, and IDs are the core .NET types. A window
+linked into more than one session has contextual placements; filtering keeps
+their order and multiplicity. An uncaptured relationship raises
+`IncompleteSnapshotException` rather than behaving as empty.
 
 ## Quick start
 
@@ -84,77 +132,62 @@ open LibTmux.FSharp
 
 let runAsync () =
     task {
-        let binary =
-            match Environment.GetEnvironmentVariable("LIBTMUX_TMUX") with
-            | null
-            | "" -> "tmux"
-            | value -> value
+        use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 30.)
+        let token = deadline.Token
 
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-" + Guid.NewGuid().ToString("N"),
                 ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                TmuxBinaryPath =
+                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
+                     |> Option.ofObj
+                     |> Option.defaultValue "tmux")
             )
 
-        use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, CancellationToken.None)
+        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
 
-        use! _ownedSession =
-            ownedServer.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "demo", WindowName = "shell", Command = "/bin/sh"),
-                CancellationToken.None
-            )
+        for name in [ "build"; "web"; "worker" ] do
+            let! _ =
+                owned.Value.CreateSessionAsync(NewSessionRequest(Name = name, Command = "/bin/sh"), token)
 
-        use! _ownedWorker =
-            ownedServer.Value.CreateOwnedSessionAsync(
-                NewSessionRequest(Name = "worker", WindowName = "idle", Command = "/bin/sh"),
-                CancellationToken.None
-            )
+            ()
 
-        let! connected = LibTmux.Server.ConnectAsync(options, CancellationToken.None)
+        let! server = LibTmux.Server.ConnectAsync(options, token)
 
-        let! captured =
-            connected |> Server.capture CancellationToken.None SnapshotDepth.Panes
+        // List and filter: tmux narrows the listing, then every row is rechecked.
+        // atMostOne is None when nothing matches and raises when several do.
+        let! build =
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.eq "build")
+            |> Query.atMostOne token
 
-        let session =
-            captured.Sessions |> Seq.find (fun candidate -> candidate.Name = "demo")
+        let! others =
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.ne "build")
+            |> Query.list token
 
-        let window = session.Windows |> Seq.exactlyOne
-        let pane = window.Panes |> Seq.exactlyOne
+        printfn "other sessions: %s" (String.Join(", ", [ for session in others -> session.Name ]))
 
-        let command =
-            pane
-            |> Pane.currentCommand
-            |> Option.defaultWith (fun () -> failwith "The captured pane has no command.")
+        match build with
+        | None -> printfn "no build session"
+        | Some session ->
+            let! panes = session |> Session.panes |> Query.list token
+            let pane = panes[0]
 
-        let localMatches =
-            captured.Panes
-            |> Seq.filter (fun candidate -> candidate.Id = pane.Id)
-            |> Seq.length
+            // Type a command and wait for what it prints, not for its echo.
+            let! started =
+                pane
+                |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
 
-        let hasPane =
-            Filter.eq pane.Id PaneFields.id
-            |> Filter.any WindowFields.panes
-            |> Filter.any SessionFields.windows
+            // Run a command to its exit status and read what it printed.
+            let! result =
+                pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
 
-        let selected =
-            captured.Sessions
-            |> Query.matching hasPane
-            |> Selection.exactlyOne
-            |> Result.defaultWith (fun error -> failwithf "Expected one matching session: %A" error)
-
-        if
-            captured.Sessions.Count <> 2
-            || captured.Panes.Count <> 2
-            || window.Name <> "shell"
-            || localMatches <> 1
-            || selected.Id <> session.Id
-        then
-            failwith "The captured graph and portable filter did not agree."
-
-        printfn "%s / %s / %s" session.Name window.Name command
-        printfn "local pane matches: %d" localMatches
-        printfn "portable match: %s" selected.Name
+            printfn "wait found: %b" started.Found
+            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
     }
 
 runAsync().GetAwaiter().GetResult()
@@ -167,24 +200,28 @@ Run it:
 $ dotnet run
 ```
 
-It prints `demo / shell / sh`, `local pane matches: 1`, and
-`portable match: demo` on the Linux tmux used for validation. The captured
-command name can differ by shell. The program checks the graph and query
-result before printing. A second `worker` session also runs a shell; filtering
-by the captured pane ID selects one session from two.
+It prints:
 
-`CreateOwnedAsync` starts a server on a unique socket. `ConnectAsync` attaches
-a second handle to that socket. `use!` closes the owned sessions and server
-when the task ends. `Server.capture` performs one explicit snapshot
-acquisition. Traversal through
-`captured.Sessions → session.Windows → window.Panes`, `Seq.filter`, and
-`Query.matching` then use captured data locally. The portable filter matches
-a session through its windows and panes. It does not send a native tmux filter.
+<!-- fsharp-output: Quickstart -->
+```text
+other sessions: web, worker
+wait found: true
+run: exit 3, output ["ok"]
+```
+<!-- endfsharp-output -->
+
+`CreateOwnedAsync` starts a server on a unique socket and `use!` stops it when
+the task ends. `ConnectAsync` attaches a second handle to that socket, as an
+application attaches to a server it did not start. `Query.atMostOne` returns
+`None` only when no session matched, so the `match` is where a program would
+create the missing session; several matches raise. The wait succeeds
+whether the line appeared before or after it began, and the run's exit status
+comes from the shell, not from reading the screen.
 
 The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/examples/LibTmux.FSharp.Quickstart/Program.fs)
 is the published block. CI restores only `LibTmux.FSharp` as a direct package
-reference from freshly packed artifacts, then runs this program against real
-tmux on both target frameworks.
+reference from freshly packed artifacts, runs this program against real tmux
+on both target frameworks, and compares what it prints with the block above.
 
 ## Existing tmux
 
@@ -195,28 +232,14 @@ the default socket; [socket selection](https://github.com/libtmux/libtmux-dotnet
 explains the configuration order. Code running inside a tmux pane can use
 `Server.FromEnvironment()` to locate that pane's server.
 
-## Choose a read
-
-| Need | F# call | Result |
-| --- | --- | --- |
-| Live state | `server.GetSessionsAsync(ct)` or `Server.capture ct depth server` | Task; contacts tmux |
-| Application-specific local filter | `captured.Panes |> Seq.filter predicate` | Lazy sequence over captured objects |
-| Portable relation filter | `Filter.any` then `Query.matching` | Materialized `IReadOnlyList`; no tmux call |
-| A missing live entity | `Server.tryFindPane ct id server` | `Task<Pane option>`; other failures still throw |
-| Exactly one match | `Selection.exactlyOne source` | `Result` distinguishing zero from many |
-
-Captured sessions, windows, panes, and IDs are the core .NET types. A window
-linked into more than one session has contextual placements; filtering keeps
-their order and multiplicity. An uncaptured relationship raises
-`IncompleteSnapshotException` rather than behaving as empty.
-
 ## Keep going
 
-- [Split panes and send keys](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md): owned scopes and live mutation.
-- [Filter snapshots](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md) and [supported fields](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/supported-query-fields.md): quantifiers, capture depth, and the shared schema.
-- [Choose an execution mode](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md) and [read control events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md): scoped clients, consumptive streams, cancellation, and command chains.
+- [Send, wait and read; split panes](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md): owned scopes, waits, runs and live mutation.
+- [Query tmux](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/queries.md), [filter captured objects](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/filters.md) and [supported fields](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/supported-query-fields.md): every level, pushdown, screen search, relations and capture depth.
+- [Choose an execution mode](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/modes.md) and [stream events](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/streams.md): scoped clients, cold streams, pane watches, cancellation, and command chains.
+- [Test code that drives tmux](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/testing.md): a private server per test, waits instead of sleeps, and CI setup.
 - [Call the core from F#](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/interop.md) and [browse signatures](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/api.md).
-- [Use tmux from an assistant](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.Mcp/README.md): `LibTmux.Mcp` is a separate .NET tool.
+- [Share tmux with an assistant](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md): the `LibTmux.Mcp` server, a shared socket, and which F# function each tool matches.
 - [Read benchmark records](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/benchmarks/README.md): measured core execution modes and benchmark methods.
 
 ## Compatibility
@@ -224,9 +247,14 @@ their order and multiplicity. An uncaptured relationship raises
 | Area | Contract and verification |
 | --- | --- |
 | .NET | Targets .NET 8 and .NET 10 and uses the matching `LibTmux` package version. |
+| F# | Requires FSharp.Core 8.0.100 or newer, so an application keeps its SDK's FSharp.Core. Required CI builds and runs a consumer with the .NET 8 SDK's F# compiler and implicit FSharp.Core. |
 | tmux | Required Linux CI runs the repository's F# integration example against tmux 3.2a, 3.3a, 3.4, 3.5, 3.6, 3.7a, 3.7b, and 3.7c on both target frameworks. The README quickstart runs against the runner's tmux in the package workflow. |
-| Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows tmux is unsupported. |
-| Trimming and NativeAOT | A Linux consumer publishes and runs the static snapshot and native `Seq` route on both frameworks. |
+| Operating systems | Linux is required CI. An advisory macOS arm64 job runs the example with Homebrew tmux on manual dispatch. Native Windows is unsupported: the core marks its tmux calls `[UnsupportedOSPlatform("windows")]`. WSL runs the Linux build, which CI does not exercise separately. |
+| Trimming and NativeAOT | Portable filters bind fields without reflection. A Linux consumer publishes and runs captured snapshots, a tmux query, portable filters with relations and regex, and native `Seq` predicates under NativeAOT and trimming on both frameworks. |
 
-`Selection.exactlyOne` is unsupported under NativeAOT while FSharp.Core 10.1.302
-emits trim and AOT diagnostics for its `Result` return type.
+`Selection.exactlyOne` and `Query.exactlyOne` return FSharp.Core's `Result`,
+whose compiler-generated `ToString` formats through `printf`; with
+FSharp.Core 10.1.302, which the NativeAOT consumer builds with, NativeAOT
+publication rejects it. Under NativeAOT, read one row with `Query.atMostOne`,
+which still raises on several matches, or with `Query.tryExactlyOne` where
+none and several may be treated alike. The NativeAOT consumer runs both.

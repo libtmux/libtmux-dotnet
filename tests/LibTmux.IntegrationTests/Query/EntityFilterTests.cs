@@ -50,8 +50,7 @@ public sealed class EntityFilterTests
             () => Assert.Equal(pane, Assert.Single(new[] { pane }.Matching(document))));
         Assert.Equal([pane], new[] { pane }.Matching<Pane>(candidate => candidate.CurrentCommand == command));
         Assert.Equal([pane], new[] { pane }.Where(candidate => candidate.CurrentPath == path));
-        Assert.Throws<UnsupportedQueryExpressionException>(
-            () => QueryExtensions.Translate<Pane>(candidate => candidate.CurrentPath == path));
+        Assert.Equal([pane], new[] { pane }.Matching<Pane>(candidate => candidate.CurrentPath == path));
     }
 
     [UnixFact]

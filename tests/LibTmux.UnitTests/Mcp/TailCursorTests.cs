@@ -14,9 +14,9 @@ public sealed class TailCursorTests
     public void A_cursor_round_trips_for_its_exact_endpoint_generation_and_pane()
     {
         Pane pane = PaneFor("cursor-one", new ServerGeneration(17, 9001), 3);
-        TailCursor cursor = CursorFor(pane);
+        PaneCursor cursor = CursorFor(pane);
 
-        TailCursor? decoded = TailCursor.Decode(cursor.Encode(), pane);
+        PaneCursor? decoded = TailCursor.Decode(cursor.Encode(), pane);
 
         Assert.Equal(cursor, decoded);
     }
@@ -36,8 +36,8 @@ public sealed class TailCursorTests
         string wideRow = string.Concat(Enumerable.Repeat("\U0001f642", 80));
         string[] rows = Enumerable.Repeat(wideRow, 10_000).ToArray();
 
-        string token = TailCursor.Build(pane, state, rows).Encode();
-        TailCursor decoded = Assert.IsType<TailCursor>(TailCursor.Decode(token, pane));
+        string token = PaneCursor.Build(pane, state, rows).Encode();
+        PaneCursor decoded = Assert.IsType<PaneCursor>(TailCursor.Decode(token, pane));
 
         // Decode enforces these ceilings, so a cursor that cannot be read back
         // would be issued by every tail of a tall pane.
@@ -52,12 +52,12 @@ public sealed class TailCursorTests
     public void A_cursor_with_nothing_below_it_round_trips()
     {
         Pane pane = PaneFor("cursor-bottom", new ServerGeneration(17, 9001), 3);
-        TailCursor cursor = TailCursor.Build(
+        PaneCursor cursor = PaneCursor.Build(
             pane,
             new PaneGridState("313", 23, 1_000, 24, 1, false, false),
             ["only the cursor row"]);
 
-        TailCursor decoded = Assert.IsType<TailCursor>(TailCursor.Decode(cursor.Encode(), pane));
+        PaneCursor decoded = Assert.IsType<PaneCursor>(TailCursor.Decode(cursor.Encode(), pane));
 
         Assert.Null(decoded.RowHashes);
         Assert.Equal(0, decoded.BelowCount);
@@ -115,7 +115,7 @@ public sealed class TailCursorTests
     public void An_authenticated_cursor_with_a_null_required_field_is_rejected_cleanly()
     {
         Pane pane = PaneFor("cursor-null", new ServerGeneration(17, 9001), 3);
-        TailCursor malformed = CursorFor(pane) with { EndpointFingerprint = null! };
+        PaneCursor malformed = CursorFor(pane) with { EndpointFingerprint = null! };
 
         McpException error = Assert.Throws<McpException>(() =>
             TailCursor.Decode(malformed.Encode(), pane));
@@ -127,7 +127,7 @@ public sealed class TailCursorTests
     public void An_authenticated_cursor_with_an_unknown_version_is_rejected()
     {
         Pane pane = PaneFor("cursor-version", new ServerGeneration(17, 9001), 3);
-        TailCursor malformed = CursorFor(pane) with { Version = int.MaxValue };
+        PaneCursor malformed = CursorFor(pane) with { Version = int.MaxValue };
 
         Assert.Throws<McpException>(() => TailCursor.Decode(malformed.Encode(), pane));
     }
@@ -143,7 +143,7 @@ public sealed class TailCursorTests
         Assert.Throws<McpException>(() => TailCursor.Decode(token, pane));
     }
 
-    private static TailCursor CursorFor(Pane pane) => TailCursor.Build(
+    private static PaneCursor CursorFor(Pane pane) => PaneCursor.Build(
         pane,
         new PaneGridState("313", 2, 1_000, 24, 1, false, false),
         ["anchor", "below"]);

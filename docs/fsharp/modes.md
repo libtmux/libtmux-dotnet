@@ -12,8 +12,9 @@ chain remains an explicit core value.
 `Control.withSession` opens and owns a core control client. It ends the client
 after its task finishes. `readUntilTerminalAsync` borrows a client, so it
 disposes only its event enumerator. `Control.enter` returns an owned client
-when its lifetime must extend beyond one function; pass that client to
-`Control.useSession` to transfer ownership to a task scope.
+when its lifetime must extend beyond one function, and `Control.enterSession`
+attaches one to a chosen session; pass either to `Control.useSession` to
+transfer ownership to a task scope.
 
 <!-- fsharp-snippet: ObserveControlEvents run -->
 ```fsharp run
@@ -23,7 +24,8 @@ open LibTmux.FSharp
 
 let readUntilTerminalAsync (cancellationToken: CancellationToken) (session: IControlModeSession) =
     session
-    |> Control.foldEventsWhile
+    |> Control.events
+    |> Control.foldWhile
         cancellationToken
         (fun events event ->
             task {
@@ -42,21 +44,27 @@ let observeUntilTerminalAsync cancellationToken server =
 ```
 <!-- endfsharp-snippet -->
 
-`Control.foldEventsWhile` reads and awaits one event handler at a time. It
-stops before reading another event when the folder returns `StreamStep.Stop`.
+`Control.events` is the client's event stream; nothing is read until a
+consumer enumerates it. `Control.foldWhile` reads and awaits one folder call at
+a time. It stops before reading another event when the folder returns
+`StreamStep.Stop`.
 It preserves unknown event types. `TmuxEventsDroppedEvent` means the caller
-must resynchronize from a capture; the example returns it to the caller and
-stops. `TmuxExitEvent` is a normal terminal event. A failed control stream
+must resynchronize from a capture; when its `OnlyOutput` is true, only pane
+output was lost and every notification arrived. The example returns it to the
+caller and stops. `TmuxExitEvent` is a normal terminal event. A failed control stream
 raises after its buffered events.
 
-`Control.iterEvents` is the same borrowed-client pattern when no accumulator
-is needed. It completes when the stream ends or propagates the handler,
-stream, and cancellation errors unchanged.
+`Control.iter` is the same borrowed-client pattern when no accumulator is
+needed. It completes when the stream ends or propagates the handler, stream,
+and cancellation errors unchanged. When a handler and the enumerator's cleanup
+both fail, the handler's exception propagates and `Control.cleanupFailure`
+returns the cleanup's.
 
 
 ## Command chains
 
-A core `TmuxChain` stays explicit in F#. Building it makes no I/O; one
+A chain is a core `TmuxChain`, which F# can build directly or through the
+`Chain` module below. Building it makes no I/O; one
 `ExecuteAsync` dispatches the commands in order and returns their combined
 output.
 
@@ -67,11 +75,12 @@ open LibTmux
 
 let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server) =
     task {
+        // Each typed request becomes one command of the chain.
+        let print text =
+            DisplayMessageRequest(Format = text, ReturnText = true).ToCommand(server)
+
         let chain =
-            server
-                .Chain()
-                .Then("display-message", "-p", "fsharp-chain-first")
-                .Then("display-message", "-p", "fsharp-chain-second")
+            server.Chain().Then(print "fsharp-chain-first").Then(print "fsharp-chain-second")
 
         let! result = chain.ExecuteAsync(cancellationToken)
         return result.StandardOutputLines |> Seq.toList
@@ -79,6 +88,14 @@ let readChainOutputAsync (cancellationToken: CancellationToken) (server: Server)
 ```
 <!-- endfsharp-snippet -->
 
+Forty request types, such as `SendKeysRequest`, `SplitPaneRequest` and
+`CapturePaneRequest`, convert to a command with `ToCommand`, so a chain keeps
+their validation; `Then(name, arguments)` takes any other command as text.
+The `Chain` module builds the same chain as a pipeline, with named steps that
+act on what the step before made: `Chain.newWindow`, `Chain.splitLeftRight`,
+`Chain.splitTopBottom`, `Chain.sendLine` and `Chain.arrange`, then
+`Chain.run`; `Chain.add` appends a typed request's command. The
+[session program](getting-started.md#describe-a-session) uses one.
 Use a chain for a known batch. It returns one `TmuxCommandResult`, not a typed
 object for every step. Use one-shot operations when each step needs a refreshed
 entity handle.

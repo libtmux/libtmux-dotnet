@@ -30,6 +30,7 @@
     <ProjectReference Include="../../src/LibTmux.FSharp/LibTmux.FSharp.fsproj" />
     <ProjectReference Include="../../src/LibTmux.Query.Json/LibTmux.Query.Json.csproj" />
     <ProjectReference Include="../../src/LibTmux.Testing/LibTmux.Testing.csproj" />
+    <ProjectReference Include="../../src/LibTmux.Workspace/LibTmux.Workspace.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UsePackageReferences)' == 'true'">
@@ -37,5 +38,6 @@
     <PackageReference Include="LibTmux.FSharp" Version="[$(LibTmuxPackageVersion)]" />
     <PackageReference Include="LibTmux.Query.Json" Version="[$(LibTmuxPackageVersion)]" />
     <PackageReference Include="LibTmux.Testing" Version="[$(LibTmuxPackageVersion)]" />
+    <PackageReference Include="LibTmux.Workspace" Version="[$(LibTmuxPackageVersion)]" />
   </ItemGroup>
 </Project>

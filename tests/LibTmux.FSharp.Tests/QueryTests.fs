@@ -80,19 +80,81 @@ module QueryTests =
         |> ignore
 
     [<Fact>]
-    let ``empty combinators reject unsupported identities and singleton keeps its document`` () =
-        Assert.Throws<ArgumentException>(fun () -> Filter.allOf<LibTmux.Session> [] |> ignore)
-        |> ignore
+    let ``empty combinators are identities and singleton keeps its document`` () =
+        let generation = ServerGeneration(93, 903)
 
-        Assert.Throws<ArgumentException>(fun () -> Filter.anyOf<LibTmux.Session> [] |> ignore)
-        |> ignore
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-empty-combinators"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                    raise (InvalidOperationException "A filter reached tmux."))
+            )
 
-        Assert.Throws<ArgumentException>(fun () -> Filter.oneOf [] PaneFields.id |> ignore)
-        |> ignore
+        let pane =
+            Pane(Server(connection, generation, "tmux 3.7"), connection, generation, PaneId 17, Dictionary())
 
+        let matches filter = Filter.toPredicate filter pane
+
+        Assert.True(matches (Filter.allOf<LibTmux.Pane> []))
+        Assert.False(matches (Filter.anyOf<LibTmux.Pane> []))
+        Assert.False(matches (Filter.oneOf [] PaneFields.id))
+        Assert.True(matches (Filter.notOneOf [] PaneFields.id))
+        Assert.True(matches (Filter.oneOf [ PaneId 3; PaneId 17 ] PaneFields.id))
         let filter = Filter.eq (PaneId 17) PaneFields.id
         Assert.Same(Filter.toDocument filter, Filter.toDocument (Filter.allOf [ filter ]))
         Assert.Same(Filter.toDocument filter, Filter.toDocument (Filter.anyOf [ filter ]))
+
+    type private CountRow = { SessionWindows: int64 }
+
+    [<Fact>]
+    let ``lookups preserve the core documents C# translation produces`` () =
+        Assert.Equal(
+            translate
+                <@
+                    Func<LibTmux.Session, bool>(fun session ->
+                        session.Name.Contains("dev", StringComparison.OrdinalIgnoreCase))
+                @>,
+            Filter.containsIgnoreCase "dev" SessionFields.name |> Filter.toDocument
+        )
+
+        Assert.Equal(
+            translate
+                <@
+                    Func<LibTmux.Session, bool>(fun session ->
+                        session.Name.EndsWith("-ci", StringComparison.OrdinalIgnoreCase))
+                @>,
+            Filter.endsWithIgnoreCase "-ci" SessionFields.name |> Filter.toDocument
+        )
+
+        Assert.Equal(
+            translate <@ Func<LibTmux.Session, bool>(fun session -> session.Name <> "dev") @>,
+            Filter.ne "dev" SessionFields.name |> Filter.toDocument
+        )
+
+        let ignoreCase =
+            Text.RegularExpressions.RegexOptions.IgnoreCase
+            ||| Text.RegularExpressions.RegexOptions.CultureInvariant
+
+        Assert.Equal(
+            translate
+                <@
+                    Func<LibTmux.Session, bool>(fun session ->
+                        Text.RegularExpressions.Regex.IsMatch(session.Name, "^dev", ignoreCase))
+                @>,
+            Filter.matchesIgnoreCase "^dev" SessionFields.name |> Filter.toDocument
+        )
+
+        let id = SessionId 3
+
+        Assert.Equal(
+            translate <@ Func<LibTmux.Session, bool>(fun session -> session.Id <> id) @>,
+            Filter.ne id SessionFields.id |> Filter.toDocument
+        )
+
+        Assert.Equal(
+            translate <@ Func<CountRow, bool>(fun row -> row.SessionWindows > 2L) @>,
+            Filter.gt 2 SessionFields.windowCount |> Filter.toDocument
+        )
 
     [<Fact>]
     let ``native predicate compilation is cached per filter`` () =
@@ -133,7 +195,7 @@ module QueryTests =
         Assert.False(isNull empty)
 
     [<Fact>]
-    let ``nullable and typed ID constants use core semantics and cancellation precedes enumeration`` () =
+    let ``nullable and typed ID constants use core semantics`` () =
         let expected =
             translate <@ Func<LibTmux.Pane, bool>(fun pane -> pane.CurrentCommand = null) @>
 
@@ -141,18 +203,3 @@ module QueryTests =
         let id = PaneId 17
         let expectedId = translate <@ Func<LibTmux.Pane, bool>(fun pane -> pane.Id = id) @>
         Assert.Equal(expectedId, Filter.eq id PaneFields.id |> Filter.toDocument)
-
-        let source =
-            seq {
-                failwith "A canceled match enumerated its input."
-                yield Unchecked.defaultof<LibTmux.Pane>
-            }
-
-        use canceled = new CancellationTokenSource()
-        canceled.Cancel()
-
-        Assert.Throws<OperationCanceledException>(fun () ->
-            source
-            |> Query.matchingWithCancellation canceled.Token (Filter.eq id PaneFields.id)
-            |> ignore)
-        |> ignore

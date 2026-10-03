@@ -147,6 +147,12 @@ internal static class ApiInventory
             "Release",
             "net10.0",
             "LibTmux.Query.Json.dll");
+
+        // The guides also teach the test scopes and workspace builder.
+        string testingAssembly = Path.Join(
+            root, "src", "LibTmux.Testing", "bin", "Release", "net10.0", "LibTmux.Testing.dll");
+        string workspaceAssembly = Path.Join(
+            root, "src", "LibTmux.Workspace", "bin", "Release", "net10.0", "LibTmux.Workspace.dll");
         var start = new ProcessStartInfo("dotnet")
         {
             WorkingDirectory = root,
@@ -161,6 +167,8 @@ internal static class ApiInventory
                 coreAssembly,
                 facadeAssembly,
                 queryJsonAssembly,
+                testingAssembly,
+                workspaceAssembly,
                 Path.Join(Path.GetDirectoryName(facadeProject)!, "README.md"),
                 Path.Join(root, "docs", "fsharp"),
             },

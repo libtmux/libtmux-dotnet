@@ -93,6 +93,26 @@ public sealed class QueryJsonTests
         Assert.Equal(document, QueryJson.Deserialize(expected));
     }
 
+    [Theory]
+    [InlineData("startsWithOrdinalIgnoreCase", 5)]
+    [InlineData("endsWithOrdinalIgnoreCase", 6)]
+    [InlineData("containsOrdinalIgnoreCase", 7)]
+    public void Case_insensitive_string_operations_have_wire_names(string wire, int value)
+    {
+        var operation = (QueryStringOperation)value;
+        string json =
+            """
+            {"schema":"libtmux-query","version":1,"target":"session","predicate":{"kind":"comparison","operator":"WIRE","left":{"kind":"field","target":"session","wireName":"session_name"},"right":{"kind":"constant","value":{"kind":"string","value":"Dev"}}}}
+            """.Replace("WIRE", wire, StringComparison.Ordinal);
+        QueryDocument document = Document(new StringNode(
+            operation,
+            SessionName,
+            new ConstantNode(new StringConstant("Dev"))));
+
+        Assert.Equal(json, QueryJson.Serialize(document));
+        Assert.Equal(document, QueryJson.Deserialize(json));
+    }
+
     [Fact]
     public void The_wire_matches_the_retained_regex_golden()
     {

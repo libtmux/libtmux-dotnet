@@ -33,9 +33,80 @@ public sealed class ControlModeEventBufferTests
         TmuxEventsDroppedEvent loss = Assert.IsType<TmuxEventsDroppedEvent>(observed[0]);
         Assert.Equal(ExtraEvents, loss.Count);
         Assert.Equal(ExtraEvents, loss.TotalDropped);
+        Assert.False(loss.OnlyOutput);
         TmuxNotificationEvent firstRetained = Assert.IsType<TmuxNotificationEvent>(observed[1]);
         Assert.Equal(ExtraEvents.ToString(CultureInfo.InvariantCulture), firstRetained.Name);
         Assert.Equal(ControlModeSession.EventBufferCapacity + 1, observed.Count);
+    }
+
+    [Fact]
+    public async Task A_full_buffer_discards_pane_output_before_any_notification()
+    {
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(capacity: 3, outputDiscarded: discarded.Add);
+        Assert.True(buffer.TryWrite(Notification("window-add")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "first")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "second")));
+        Assert.True(buffer.TryWrite(Notification("layout-change")));
+        buffer.Complete();
+
+        var observed = new List<TmuxEvent>();
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal([new PaneId(1)], discarded);
+        Assert.Equal(
+            ["dropped 1, only output", "window-add", "%1: second", "layout-change"],
+            observed.Select(item => item switch
+            {
+                TmuxEventsDroppedEvent loss => $"dropped {loss.Count}{(loss.OnlyOutput ? ", only output" : "")}",
+                TmuxOutputEvent output => $"{output.PaneId}: {output.Data}",
+                TmuxNotificationEvent notification => notification.Name,
+                _ => item.ToString(),
+            }));
+    }
+
+    [Fact]
+    public async Task A_flooding_pane_loses_its_own_output_before_a_quieter_pane_does()
+    {
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(capacity: 3, outputDiscarded: discarded.Add);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "quiet")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-1")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-2")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "flood-3")));
+        buffer.Complete();
+
+        var observed = new List<string>();
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item is TmuxOutputEvent output ? $"{output.PaneId}: {output.Data}" : "dropped");
+        }
+
+        Assert.Equal([new PaneId(2)], discarded);
+        Assert.Equal(["dropped", "%1: quiet", "%2: flood-2", "%2: flood-3"], observed);
+    }
+
+    [Fact]
+    public async Task Panes_with_equal_output_lose_the_oldest_first()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(capacity: 3, outputDiscarded: discarded.Add);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "a")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "b")));
+        await using IAsyncEnumerator<TmuxEvent> reader = buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+        Assert.True(await reader.MoveNextAsync());
+
+        // Pane 1 returns to the index after pane 2, holding newer output.
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "c")));
+        Assert.True(buffer.TryWrite(Notification("window-add")));
+        Assert.True(buffer.TryWrite(Notification("layout-change")));
+        buffer.Complete();
+
+        Assert.Equal([new PaneId(2)], discarded);
     }
 
     [Fact]
@@ -69,7 +140,7 @@ public sealed class ControlModeEventBufferTests
         using var producerAttempted = new ManualResetEventSlim();
         var buffer = new ControlModeEventBuffer(
             capacity: 2,
-            afterDequeue: () =>
+            afterDequeue: _ =>
             {
                 consumerDequeued.Set();
                 producerAttempted.Wait(token);

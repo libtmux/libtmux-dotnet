@@ -4,7 +4,7 @@ Namespace: [LibTmux.FSharp](../reference/libtmux-fsharp.md)
 
 Assembly: LibTmux.FSharp.dll
 
-Starts explicit server reads with the caller's cancellation token.
+Starts server reads and queries with the caller's cancellation token.
 
 ### Functions and values
 
@@ -26,77 +26,90 @@ Acquisition is not atomic; retained handles do not refresh themselves.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Server&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L82)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L115)
 
-<a name="listClients"></a>
+<a name="clients"></a>
 
-#### <code><span>Server.listClients&#32;<span>cancellationToken&#32;server</span></span></code>
+#### <code><span>Server.clients&#32;<span>server</span></span></code>
 
-Lists attached clients and captures their scalar fields.
+Queries attached clients.
 
-A successful read returns an empty collection when no clients are attached.
+tmux narrows a filtered client listing only from tmux 3.4; older tmux lists every client.
+
+**Parameters:**
+
+**server**: <code>Server</code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Client&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L20)
+
+<a name="newSession"></a>
+
+#### <code><span>Server.newSession&#32;<span>cancellationToken&#32;spec&#32;server</span></span></code>
+
+Creates a session as described: its windows, and each window&#39;s splits.
+
+<p class='fsdocs-para'>
+ tmux gives a new session one window, so the first <code>WindowSpec</code> is
+ that window: its name, command and directory go into the command that
+ creates the session. tmux sets environment there for the whole session,
+ so the first window&#39;s must be empty; put it in the session&#39;s. Each
+ later spec creates a window of its own. A window&#39;s splits are made in
+ order, each beside the pane before it.
+ </p><p class='fsdocs-para'>
+ Steps run one after another; a failure part way leaves what was already
+ created, so kill the session by name to clean up.
+ </p>
 
 **Parameters:**
 
 **cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
 
+**spec**: <code><a href="../reference/libtmux-fsharp-sessionspec.md">SessionSpec</a></code>
+
 **server**: <code>Server</code>
 
-Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;Client&gt;</span>&gt;</span></code>
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Session&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L79)
+The session, read again after its windows and panes exist.
 
-<a name="listPanes"></a>
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The session and its first window name different directories, or the
+ first window sets an environment.
 
-#### <code><span>Server.listPanes&#32;<span>cancellationToken&#32;server</span></span></code>
+`TmuxSessionExistsException` The name is already taken.
 
-Lists panes and captures their scalar fields.
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L48)
+
+<a name="panes"></a>
+
+#### <code><span>Server.panes&#32;<span>server</span></span></code>
+
+Queries every pane.
 
 **Parameters:**
 
-**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
-
 **server**: <code>Server</code>
 
-Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;Pane&gt;</span>&gt;</span></code>
+Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L76)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L17)
 
-<a name="listSessions"></a>
+<a name="sessions"></a>
 
-#### <code><span>Server.listSessions&#32;<span>cancellationToken&#32;server</span></span></code>
+#### <code><span>Server.sessions&#32;<span>server</span></span></code>
 
-Lists sessions and captures their scalar fields.
+Queries every session.
 
 Child windows and panes require an explicit capture at the corresponding depth.
 
 **Parameters:**
 
-**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
-
 **server**: <code>Server</code>
 
-Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;Session&gt;</span>&gt;</span></code>
+Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Session&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L70)
-
-<a name="listWindows"></a>
-
-#### <code><span>Server.listWindows&#32;<span>cancellationToken&#32;server</span></span></code>
-
-Lists window placements across all sessions and captures their scalar fields.
-
-A linked window can appear in more than one session. Panes require an explicit capture.
-
-**Parameters:**
-
-**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
-
-**server**: <code>Server</code>
-
-Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;Window&gt;</span>&gt;</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L73)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L11)
 
 <a name="tryFindClient"></a>
 
@@ -118,7 +131,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The client name is null, empty or whitespace.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L103)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L136)
 
 <a name="tryFindPane"></a>
 
@@ -138,7 +151,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Pane&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L97)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L130)
 
 <a name="tryFindSession"></a>
 
@@ -158,7 +171,7 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Session&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L85)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L118)
 
 <a name="tryFindWindow"></a>
 
@@ -178,4 +191,42 @@ Connection, command and cancellation errors propagate unchanged.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>Window&#32;option</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L91)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L124)
+
+<a name="windows"></a>
+
+#### <code><span>Server.windows&#32;<span>server</span></span></code>
+
+Queries window placements across all sessions.
+
+A linked window appears once for each session it is linked into.
+
+**Parameters:**
+
+**server**: <code>Server</code>
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-query-1.md">Query</a>&lt;Window&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L14)
+
+<a name="within"></a>
+
+#### <code><span>Server.within&#32;<span>timeout&#32;server</span></span></code>
+
+Returns the server with every command bounded by a timeout, for it and every handle taken from it.
+
+The handle shares the connection, so nothing starts or is verified again.
+ A command that outlasts the bound fails as <code>MayHaveRun</code>; a caller&#39;s
+ own cancellation still reads as cancellation.
+
+**Parameters:**
+
+**timeout**: <code><a href="https://learn.microsoft.com/dotnet/api/system.timespan">TimeSpan</a></code>
+
+**server**: <code>Server</code>
+
+Returns: <code>Server</code>
+
+[ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The timeout does not run forward.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L23)

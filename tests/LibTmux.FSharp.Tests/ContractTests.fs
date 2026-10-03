@@ -55,12 +55,32 @@ module ContractTests =
             Assert.Equal(SnapshotDepth.Server, depth)
         | Captured _ -> failwith "An unqueried endpoint cannot contain captured panes."
 
-    let private readServer operation token server : Task =
+    let private readServer operation token (connection: TmuxConnection) server : Task =
+        let generation = ServerGeneration(17, 29)
+
         match operation with
-        | "listSessions" -> Server.listSessions token server
-        | "listWindows" -> Server.listWindows token server
-        | "listPanes" -> Server.listPanes token server
-        | "listClients" -> Server.listClients token server
+        | "sessions" -> server |> Server.sessions |> Query.list token :> Task
+        | "windows" -> server |> Server.windows |> Query.list token :> Task
+        | "panes" -> server |> Server.panes |> Query.list token :> Task
+        | "clients" -> server |> Server.clients |> Query.list token :> Task
+        | "filteredSessions" ->
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.startsWith "de")
+            |> Query.list token
+            :> Task
+        | "sessionPanes" ->
+            LibTmux.Session(server, connection, generation, SessionId 7, Dictionary<string, string>())
+            |> Session.panes
+            |> Query.showing (ScreenSearch.Text "a,b")
+            |> Query.list token
+            :> Task
+        | "windowPanes" ->
+            LibTmux.Window(server, connection, generation, WindowId 7, Dictionary<string, string>())
+            |> Window.panes
+            |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
+            |> Query.list token
+            :> Task
         | "tryFindSession" -> Server.tryFindSession token (SessionId 7) server
         | "tryFindWindow" -> Server.tryFindWindow token (WindowId 7) server
         | "tryFindPane" -> Server.tryFindPane token (PaneId 7) server
@@ -68,10 +88,13 @@ module ContractTests =
         | _ -> invalidArg (nameof operation) operation
 
     [<Theory>]
-    [<InlineData("listSessions", "list-sessions", "")>]
-    [<InlineData("listWindows", "list-windows", "-a")>]
-    [<InlineData("listPanes", "list-panes", "-a")>]
-    [<InlineData("listClients", "list-clients", "")>]
+    [<InlineData("sessions", "list-sessions", "")>]
+    [<InlineData("windows", "list-windows", "-a")>]
+    [<InlineData("panes", "list-panes", "-a")>]
+    [<InlineData("clients", "list-clients", "")>]
+    [<InlineData("filteredSessions", "list-sessions", "#{m:de*,#{session_name}}")>]
+    [<InlineData("sessionPanes", "list-panes", "#{C:a#,b}")>]
+    [<InlineData("windowPanes", "list-panes", "#{pane_active}")>]
     [<InlineData("tryFindSession", "display-message", "$7")>]
     [<InlineData("tryFindWindow", "display-message", "@7")>]
     [<InlineData("tryFindPane", "display-message", "%7")>]
@@ -109,7 +132,8 @@ module ContractTests =
             let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.7")
 
             let! observed =
-                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () -> readServer operation token server)
+                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () ->
+                    readServer operation token connection server)
 
             Assert.Contains(command, observedCommand)
 
@@ -184,7 +208,8 @@ module ContractTests =
             failCommand <- true
 
             let! observed =
-                Assert.ThrowsAsync<TmuxTransportException>(fun () -> readServer operation CancellationToken.None server)
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    readServer operation CancellationToken.None connection server)
 
             Assert.Equal(failure.Message, observed.Message)
             Assert.Equal(failure.Dispatch, observed.Dispatch)
@@ -301,4 +326,255 @@ module ContractTests =
 
             Assert.Equal(token, observed.CancellationToken)
             Assert.Equal(0, mutations)
+        }
+
+module FailureTests =
+    let private failure dispatch =
+        LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn
+
+    let private describe error =
+        match error with
+        | TmuxFailure.NotSent _ -> "not sent"
+        | TmuxFailure.Ran _ -> "ran"
+        | TmuxFailure.MayHaveRun _ -> "may have run"
+        | _ -> "other"
+
+    [<Fact>]
+    let ``failures are told apart by whether tmux saw the command`` () =
+        let canceled ran =
+            TmuxOperationCanceledException("canceled", CancellationToken.None, ran, 7) :> exn
+
+        Assert.Equal<string list>(
+            [ "not sent"; "ran"; "may have run"; "may have run"; "other"; "other" ],
+            [
+                failure TmuxDispatchState.NotDispatched
+                failure TmuxDispatchState.Dispatched
+                failure TmuxDispatchState.Unknown
+                canceled true
+                canceled false
+                InvalidOperationException("not tmux") :> exn
+            ]
+            |> List.map describe
+        )
+
+    [<Fact>]
+    let ``a chain's steps act on what the one before made and send nothing until run`` () =
+        let generation = ServerGeneration(96, 906)
+
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-chain-steps"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                    raise (InvalidOperationException "Building a chain reached tmux."))
+            )
+
+        let server = Server(connection, generation, "tmux 3.7")
+        let session = Session(server, connection, generation, SessionId 3, Dictionary())
+
+        let chain =
+            server
+            |> Chain.start
+            |> Chain.newWindow session "watch"
+            |> Chain.splitLeftRight
+            |> Chain.splitTopBottom
+            |> Chain.sendLine "tail -f log"
+            |> Chain.arrange "tiled"
+
+        Assert.Equal<string list list>(
+            [
+                [ "new-window"; "-t"; "$3:"; "-n"; "watch" ]
+                [ "split-window"; "-h" ]
+                [ "split-window"; "-v" ]
+                [ "send-keys"; "-l"; "--"; "tail -f log\r" ]
+                [ "select-layout"; "tiled" ]
+            ],
+            [ for command in chain.Commands -> List.ofSeq (command.ToArguments()) ]
+        )
+
+        // The new window's session id holds only on the server it was read from,
+        // and the layout is checked before tmux, which some versions crash on.
+        Assert.Equal(Nullable generation, chain.Commands[0].RequiredGeneration)
+        Assert.True(chain.Commands[4].ChecksLayout)
+
+        Assert.ThrowsAsync<ArgumentException>(fun () ->
+            server
+            |> Chain.start
+            |> Chain.arrange "no-such-layout"
+            |> Chain.run CancellationToken.None
+            :> Task)
+        |> fun refused -> refused.GetAwaiter().GetResult() |> ignore
+
+    [<Fact>]
+    let ``a session description is checked before tmux and names itself without printf`` () =
+        task {
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-session-spec"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun _ _ ->
+                        raise (InvalidOperationException "A rejected description reached tmux."))
+                )
+
+            let server = Server(connection, ServerGeneration(97, 907), "tmux 3.7")
+
+            let conflicting =
+                { SessionSpec.named "dev" with
+                    Directory = Some "/srv"
+                    Windows =
+                        [
+                            { WindowSpec.named "editor" with
+                                Directory = Some "/tmp"
+                            }
+                        ]
+                }
+
+            let! _ =
+                Assert.ThrowsAsync<ArgumentException>(fun () ->
+                    Server.newSession CancellationToken.None conflicting server :> Task)
+
+            // tmux would give the first window's environment to the whole session.
+            let windowEnvironment =
+                { SessionSpec.named "dev" with
+                    Windows =
+                        [
+                            { WindowSpec.named "editor" with
+                                Environment = Map [ "EDITOR", "nvim" ]
+                            }
+                        ]
+                }
+
+            let! _ =
+                Assert.ThrowsAsync<ArgumentException>(fun () ->
+                    Server.newSession CancellationToken.None windowEnvironment server :> Task)
+
+            Assert.Equal(
+                ("session dev", "window editor", "split running the default shell"),
+                (string conflicting, string conflicting.Windows[0], string SplitSpec.empty)
+            )
+        }
+
+    [<Fact>]
+    let ``retry does not repeat an operation once any command it sent reached tmux`` () =
+        task {
+            let sent = ResizeArray<string>()
+            let mutable flaky = 0
+            let slow = TaskCompletionSource<TmuxCommandResult>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-retry-ledger"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let name = request.LogicalArguments |> Seq.last
+                        sent.Add name
+
+                        if name = "flaky" then
+                            flaky <- flaky + 1
+
+                        if name = "slow" then
+                            slow.Task
+                        elif name = "refused" || (name = "flaky" && flaky = 1) then
+                            Task.FromException<TmuxCommandResult>(
+                                TmuxTransportException(
+                                    "refused",
+                                    request.LogicalArguments,
+                                    TmuxDispatchState.NotDispatched
+                                )
+                            )
+                        else
+                            // The connection asks the version first; any other command echoes its name.
+                            let line = if name = "-V" then "tmux 3.7" else name
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    request.LogicalArguments,
+                                    0,
+                                    ReadOnlyMemory(Encoding.UTF8.GetBytes(line + "\n")),
+                                    ReadOnlyMemory.Empty,
+                                    [ line ],
+                                    []
+                                )
+                            ))
+                )
+
+            let server = Server(connection, ServerGeneration(95, 905), "tmux 3.7")
+
+            let run name token =
+                server.ExecuteCommandAsync([ name ], token)
+
+            let count name =
+                sent |> Seq.filter ((=) name) |> Seq.length
+
+            // The first step ran, so the second step's NotSent does not make the whole safe to repeat.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let! _ = run "first" token
+                            return! run "refused" token
+                        })
+                    :> Task)
+
+            // A command an inner retry ran counts for the outer retry too.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let! _ = Retry.ifNotSent token 2 (run "nested")
+                            return! run "refused" token
+                        })
+                    :> Task)
+
+            // A command still in flight when another is refused counts as sent.
+            let! _ =
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                        task {
+                            let pending = run "slow" token
+                            let! _ = run "refused" token
+                            return! pending
+                        })
+                    :> Task)
+
+            slow.SetResult(TmuxCommandResult([ "slow" ], 0, ReadOnlyMemory.Empty, ReadOnlyMemory.Empty, [], []))
+
+            // A lone command refused before dispatch is still repeated.
+            let! recovered = Retry.ifNotSent CancellationToken.None 2 (run "flaky")
+
+            Assert.Equal(
+                (1, 1, 1, 2, 0),
+                (count "first", count "nested", count "slow", count "flaky", recovered.ExitCode)
+            )
+        }
+
+    [<Fact>]
+    let ``retry runs again only while tmux never saw the command`` () =
+        task {
+            let mutable attempts = 0
+
+            let failingWith dispatch _ =
+                attempts <- attempts + 1
+                Task.FromException<int>(failure dispatch)
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (failingWith TmuxDispatchState.NotDispatched) :> Task)
+
+            let notSentAttempts = attempts
+            attempts <- 0
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSent CancellationToken.None 2 (failingWith TmuxDispatchState.Unknown) :> Task)
+
+            let mutable calls = 0
+
+            let! recovered =
+                Retry.ifNotSent CancellationToken.None 1 (fun _ ->
+                    calls <- calls + 1
+
+                    if calls = 1 then
+                        Task.FromException<int>(failure TmuxDispatchState.NotDispatched)
+                    else
+                        Task.FromResult 42)
+
+            Assert.Equal((3, 1, 42), (notSentAttempts, attempts, recovered))
         }

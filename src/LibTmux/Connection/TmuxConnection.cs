@@ -42,6 +42,11 @@ internal sealed class TmuxConnection
             execute is null
                 ? CreateProcessTransports(resolved)
                 : (execute, execute);
+
+        // Counted below the interceptor, as tmux receives each command. The
+        // version probe answers from the client and changes nothing.
+        Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>> transport = send;
+        send = (request, cancellationToken) => TmuxDispatchLedger.TrackAsync(transport(request, cancellationToken));
         if (Options.Interceptor is TmuxInterceptor interceptor)
         {
             // Wrapped below both dialects and the generation guard, so it sees
@@ -67,6 +72,26 @@ internal sealed class TmuxConnection
             Options.Logger,
             Options.SocketName ?? Options.SocketPath,
             Options.CommandTimeout);
+        ServerDispatcher = new TmuxCommandDispatcher(
+            ExecuteSingleAsync,
+            CommandContext,
+            ExecuteGroupAsync);
+    }
+
+    // A view of a connection that bounds its commands differently: the same
+    // transport, endpoint and verified dialect, so nothing starts or probes again.
+    private TmuxConnection(TmuxConnection source, ServerConnectionOptions options)
+    {
+        Options = options;
+        _dialect = source._dialect;
+        _endpointIdentity = source._endpointIdentity;
+        _resolvedSocketName = source._resolvedSocketName;
+        _resolvedSocketPath = source._resolvedSocketPath;
+        PrefixArguments = source.PrefixArguments;
+        CommandContext = new TmuxCommandContext(
+            options.Logger,
+            options.SocketName ?? options.SocketPath,
+            options.CommandTimeout);
         ServerDispatcher = new TmuxCommandDispatcher(
             ExecuteSingleAsync,
             CommandContext,
@@ -130,6 +155,12 @@ internal sealed class TmuxConnection
 
     internal Task<string> ReadClientVersionAsync(CancellationToken cancellationToken) =>
         _dialect.EnsureVerifiedAsync(cancellationToken);
+
+    /// <summary>Returns this connection with every command bounded by another timeout.</summary>
+    /// <param name="timeout">The bound for each command.</param>
+    /// <returns>A connection sharing this one's transport and endpoint.</returns>
+    internal TmuxConnection WithCommandTimeout(TimeSpan timeout) =>
+        new(this, Options with { CommandTimeout = timeout });
 
     internal TmuxCommandDispatcher CreateEntityDispatcher(ServerGeneration generation)
     {

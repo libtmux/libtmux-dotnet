@@ -233,7 +233,7 @@ let runScenario mode =
                 | Captured panes -> check "captured relation is usable from installed signature" (panes.Count = 1)
                 | Uncaptured _ -> failwith "The pane relation was not captured."
 
-                let! livePanes = server |> Server.listPanes token
+                let! livePanes = server |> Server.panes |> Query.list token
                 check "task pipeline lists the live pane" (livePanes |> Seq.exists (fun live -> live.Id = pane.Id))
 
                 let! found = server |> Server.tryFindPane token pane.Id
@@ -410,7 +410,7 @@ let runScenario mode =
                 | "cancellation" ->
                     use canceled = new CancellationTokenSource()
                     canceled.Cancel()
-                    let! _ = server |> Server.listPanes canceled.Token
+                    let! _ = server |> Server.panes |> Query.list canceled.Token
                     failwith "Cancellation was not forwarded."
                 | _ -> ()
             }

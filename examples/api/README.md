@@ -7,8 +7,8 @@ for API pages to publish from a recorded source revision. Every import and
 helper is present in the displayed file.
 
 The F# programs use `LibTmux.Server.CreateOwnedAsync` and the core session and
-window methods for construction. The F# facade supplies task, snapshot, query
-and option helpers; it has no separate server constructor.
+window methods for construction. The F# facade supplies task, snapshot, query,
+wait, run, mirror and option helpers; it has no separate server constructor.
 
 | Program | Task |
 | --- | --- |
@@ -20,6 +20,11 @@ and option helpers; it has no separate server constructor.
 | [LookupFailures.fs](../LibTmux.FSharp.Examples/Programs/LookupFailures.fs) | Keep cancellation, invalid input and failed reads distinct from absence |
 | [CreateWindowPane.fs](../LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs) | Own a session and window, then split a pane |
 | [InputCapture.fs](../LibTmux.FSharp.Examples/Programs/InputCapture.fs) | Send literal text and Enter, then capture signalled output |
+| [Queries.fs](../LibTmux.FSharp.Examples/Programs/Queries.fs) | Query every level and let tmux narrow the listing |
+| [SendWaitRead.fs](../LibTmux.FSharp.Examples/Programs/SendWaitRead.fs) | Send a command, wait for its output and run to an exit status |
+| [LiveState.fs](../LibTmux.FSharp.Examples/Programs/LiveState.fs) | Follow live server state |
+| [WatchPanes.fs](../LibTmux.FSharp.Examples/Programs/WatchPanes.fs) | Watch several panes through one control client |
+| [BuildSession.fs](../LibTmux.FSharp.Examples/Programs/BuildSession.fs) | Describe a session, add a window with a chain, and bound every command |
 
 ## Run a complete F# program
 

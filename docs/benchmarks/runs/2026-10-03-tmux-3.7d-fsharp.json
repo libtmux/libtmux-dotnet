@@ -1,0 +1,293 @@
+{
+  "schema": "libtmux-fsharp-benchmark-record-v1",
+  "collected": "2026-10-03",
+  "libraryVersion": "v0.0.0-alpha.17-101-g4a24bb3e",
+  "commit": "4a24bb3e1cad671f3706494ddb29e62b2af5e7ea",
+  "tmuxVersion": "3.7d",
+  "host": {
+    "os": "Linux Ubuntu 24.04.5 LTS (Noble Numbat)",
+    "processor": "12th Gen Intel Core i7-12700H",
+    "logicalCores": 10,
+    "runtime": ".NET 10.0.11 (10.0.11, 10.0.1126.37416)"
+  },
+  "classes": [
+    {
+      "name": "FSharpCapturedFieldBenchmarks",
+      "cases": [
+        {
+          "method": "CSharp",
+          "parameters": "HasPath=False",
+          "allocated_bytes": 0,
+          "samples": 46,
+          "min_ns": 3.9201331362128258,
+          "median_ns": 8.903844870626926,
+          "mean_ns": 9.9133083557953,
+          "p95_ns": 19.046688936650753,
+          "max_ns": 20.84925789386034
+        },
+        {
+          "method": "FSharp",
+          "parameters": "HasPath=False",
+          "allocated_bytes": 0,
+          "samples": 46,
+          "min_ns": 1.0922580659389496,
+          "median_ns": 6.715016961097717,
+          "mean_ns": 8.345629556023557,
+          "p95_ns": 20.254377767443657,
+          "max_ns": 23.027457982301712
+        },
+        {
+          "method": "CSharp",
+          "parameters": "HasPath=True",
+          "allocated_bytes": 0,
+          "samples": 49,
+          "min_ns": 0.5985366106033325,
+          "median_ns": 8.121866166591644,
+          "mean_ns": 8.290524641470034,
+          "p95_ns": 16.926890110969538,
+          "max_ns": 20.885422080755234
+        },
+        {
+          "method": "FSharp",
+          "parameters": "HasPath=True",
+          "allocated_bytes": 24,
+          "samples": 49,
+          "min_ns": 14.994239628314972,
+          "median_ns": 23.71871066093445,
+          "mean_ns": 23.818155081904663,
+          "p95_ns": 33.630631864070864,
+          "max_ns": 37.077985763549805
+        }
+      ]
+    },
+    {
+      "name": "FSharpControlFoldBenchmarks",
+      "cases": [
+        {
+          "method": "CSharpConsume",
+          "parameters": "",
+          "allocated_bytes": 7792,
+          "samples": 18,
+          "min_ns": 3340.7067812798473,
+          "median_ns": 4552.241329393506,
+          "mean_ns": 4438.0942375039795,
+          "p95_ns": 5126.93741195081,
+          "max_ns": 5884.772057067813
+        },
+        {
+          "method": "FSharpFold",
+          "parameters": "",
+          "allocated_bytes": 8160,
+          "samples": 19,
+          "min_ns": 5552.5561361200425,
+          "median_ns": 7382.496851554127,
+          "mean_ns": 7319.78739528685,
+          "p95_ns": 8758.074705251875,
+          "max_ns": 9866.145263933548
+        }
+      ]
+    },
+    {
+      "name": "FSharpQueryBenchmarks",
+      "cases": [
+        {
+          "method": "CSharpConstruct",
+          "parameters": "",
+          "allocated_bytes": 1320,
+          "samples": 20,
+          "min_ns": 2992.722554347826,
+          "median_ns": 5427.6969202898545,
+          "mean_ns": 6553.239673913044,
+          "p95_ns": 11589.53382246377,
+          "max_ns": 14976.945380434783
+        },
+        {
+          "method": "FSharpConstruct",
+          "parameters": "",
+          "allocated_bytes": 608,
+          "samples": 20,
+          "min_ns": 479.08723606199294,
+          "median_ns": 632.2843233175577,
+          "mean_ns": 681.579932910339,
+          "p95_ns": 1055.3660969679634,
+          "max_ns": 1058.3142812565009
+        },
+        {
+          "method": "CoreCompile",
+          "parameters": "",
+          "allocated_bytes": 864,
+          "samples": 20,
+          "min_ns": 647.1937413068217,
+          "median_ns": 821.850852721755,
+          "mean_ns": 837.062191392173,
+          "p95_ns": 1010.8776113121958,
+          "max_ns": 1072.5593921887842
+        },
+        {
+          "method": "FSharpConstructAndCompile",
+          "parameters": "",
+          "allocated_bytes": 1496,
+          "samples": 20,
+          "min_ns": 1170.9149540292049,
+          "median_ns": 1635.822532449973,
+          "mean_ns": 1703.0892201865875,
+          "p95_ns": 2200.4966012033533,
+          "max_ns": 2408.213696592753
+        },
+        {
+          "method": "FSharpCachedPredicate",
+          "parameters": "",
+          "allocated_bytes": 0,
+          "samples": 19,
+          "min_ns": 0,
+          "median_ns": 2.8361490224132946,
+          "mean_ns": 2.9040497292941785,
+          "p95_ns": 6.9703868282018435,
+          "max_ns": 8.008068416137137
+        },
+        {
+          "method": "CoreMatching",
+          "parameters": "",
+          "allocated_bytes": 1544,
+          "samples": 20,
+          "min_ns": 2755.7433594958243,
+          "median_ns": 4289.762788045159,
+          "mean_ns": 4631.533826940921,
+          "p95_ns": 6478.677051113516,
+          "max_ns": 7016.430898159604
+        },
+        {
+          "method": "FSharpMatching",
+          "parameters": "",
+          "allocated_bytes": 784,
+          "samples": 20,
+          "min_ns": 4016.780029857602,
+          "median_ns": 6563.228697749197,
+          "mean_ns": 6508.781941892513,
+          "p95_ns": 8895.978397737712,
+          "max_ns": 9157.193787322003
+        },
+        {
+          "method": "CoreCachedPredicateMaterialize",
+          "parameters": "",
+          "allocated_bytes": 328,
+          "samples": 18,
+          "min_ns": 3033.765292881859,
+          "median_ns": 4784.396765323776,
+          "mean_ns": 4874.320834706432,
+          "p95_ns": 6665.251099851704,
+          "max_ns": 7381.779041028176
+        },
+        {
+          "method": "FSharpCachedPredicateMaterialize",
+          "parameters": "",
+          "allocated_bytes": 392,
+          "samples": 19,
+          "min_ns": 3834.4370422231796,
+          "median_ns": 6564.545400689358,
+          "mean_ns": 6501.344068176149,
+          "p95_ns": 8384.775298901335,
+          "max_ns": 8566.847533390779
+        }
+      ]
+    },
+    {
+      "name": "FSharpQueryPushdownBenchmarks",
+      "cases": [
+        {
+          "method": "FindTailPanes",
+          "parameters": "Route=list-then-filter",
+          "allocated_bytes": 29341568,
+          "samples": 20,
+          "min_ns": 160890122,
+          "median_ns": 253616192.5,
+          "mean_ns": 247149989.75,
+          "p95_ns": 315019401.50000006,
+          "max_ns": 373034733
+        },
+        {
+          "method": "FindSessionsWithTail",
+          "parameters": "Route=list-then-filter",
+          "allocated_bytes": 66608536,
+          "samples": 20,
+          "min_ns": 416137318,
+          "median_ns": 650932115.0,
+          "mean_ns": 681508404.0,
+          "p95_ns": 1041853332.25,
+          "max_ns": 1062509890
+        },
+        {
+          "method": "FindTailPanes",
+          "parameters": "Route=pushdown",
+          "allocated_bytes": 1123656,
+          "samples": 20,
+          "min_ns": 23507519,
+          "median_ns": 38991411.0,
+          "mean_ns": 43477203.5,
+          "p95_ns": 70154348.55000001,
+          "max_ns": 89749439
+        },
+        {
+          "method": "FindSessionsWithTail",
+          "parameters": "Route=pushdown",
+          "allocated_bytes": 6278872,
+          "samples": 20,
+          "min_ns": 98212029,
+          "median_ns": 163435268.5,
+          "mean_ns": 180286174.05,
+          "p95_ns": 254579765.55000004,
+          "max_ns": 292361979
+        },
+        {
+          "method": "FindTailPanes",
+          "parameters": "Route=snapshot-then-filter",
+          "allocated_bytes": 67120312,
+          "samples": 20,
+          "min_ns": 317388815,
+          "median_ns": 496706091.0,
+          "mean_ns": 503701320.35,
+          "p95_ns": 633335561.3500001,
+          "max_ns": 862674061
+        },
+        {
+          "method": "FindSessionsWithTail",
+          "parameters": "Route=snapshot-then-filter",
+          "allocated_bytes": 66636512,
+          "samples": 20,
+          "min_ns": 299477622,
+          "median_ns": 427927027.0,
+          "mean_ns": 468437964.6,
+          "p95_ns": 687937747.95,
+          "max_ns": 796965409
+        }
+      ]
+    },
+    {
+      "name": "FSharpTaskForwardingBenchmarks",
+      "cases": [
+        {
+          "method": "CSharpCapture",
+          "parameters": "",
+          "allocated_bytes": 3984,
+          "samples": 45,
+          "min_ns": 3761.1331176757812,
+          "median_ns": 7312.6163330078125,
+          "mean_ns": 7210.719821506076,
+          "p95_ns": 9615.60968017578,
+          "max_ns": 9942.029235839844
+        },
+        {
+          "method": "FSharpCapture",
+          "parameters": "",
+          "allocated_bytes": 3984,
+          "samples": 46,
+          "min_ns": 4397.4208984375,
+          "median_ns": 7030.6016845703125,
+          "mean_ns": 7155.4930313773775,
+          "p95_ns": 9912.73127746582,
+          "max_ns": 11680.731994628906
+        }
+      ]
+    }
+  ]
+}

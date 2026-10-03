@@ -46,6 +46,7 @@ public sealed class VersionParityTests
         new("hook_scope_pane_window_set", "set-hook", ["-p", "-w"]),
         new("hook_scope_pane_window_show", "show-hooks", ["-p", "-w"]),
         new("kill_session_group", "kill-session", ["-g"]),
+        new("list_clients_filter", "list-clients", ["-f"]),
         new("list_keys_format", "list-keys", ["-F"]),
         new("new_pane_command", "new-pane", []),
         new("paste_buffer_no_vis", "paste-buffer", ["-S"]),
@@ -367,6 +368,9 @@ public sealed class VersionParityTests
     public Task DisplayMessageLiteral() => ExerciseGateAsync("display_message_literal");
 
     [UnixFact]
+    public Task ListClientsFilter() => ExerciseGateAsync("list_clients_filter");
+
+    [UnixFact]
     public Task DisplayMessageUpdatePane() => ExerciseGateAsync("display_message_update_pane");
 
     [UnixFact]
@@ -675,6 +679,13 @@ public sealed class VersionParityTests
                 Assert.Contains(context.SessionName, sessions.StandardOutputLines);
                 Assert.DoesNotContain("libtmux-group-seed", sessions.StandardOutputLines);
                 Assert.DoesNotContain("libtmux-group-peer", sessions.StandardOutputLines);
+                break;
+            case "list_clients_filter":
+                // A filter that keeps nothing still succeeds with no rows.
+                RawTmuxResult filtered = await RequireSuccessAsync(
+                    context,
+                    ["list-clients", "-f", "#{==:#{client_name},nobody}"]);
+                Assert.Empty(filtered.StandardOutputLines);
                 break;
             case "list_keys_format":
                 {

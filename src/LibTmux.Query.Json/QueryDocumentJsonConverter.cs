@@ -85,6 +85,9 @@ internal sealed class QueryDocumentJsonConverter : JsonConverter<QueryDocument>
         QueryStringOperation.StartsWithOrdinal => "startsWithOrdinal",
         QueryStringOperation.EndsWithOrdinal => "endsWithOrdinal",
         QueryStringOperation.ContainsOrdinal => "containsOrdinal",
+        QueryStringOperation.StartsWithOrdinalIgnoreCase => "startsWithOrdinalIgnoreCase",
+        QueryStringOperation.EndsWithOrdinalIgnoreCase => "endsWithOrdinalIgnoreCase",
+        QueryStringOperation.ContainsOrdinalIgnoreCase => "containsOrdinalIgnoreCase",
         _ => throw new UnsupportedQueryExpressionException("Query document names an unknown string operation."),
     };
 

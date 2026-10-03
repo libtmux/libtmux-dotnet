@@ -92,6 +92,41 @@ public sealed class DispatchInterceptionTests
         Assert.Equal(TmuxDispatchState.Unknown, expired.Dispatch);
     }
 
+    [ConnectionUnixFact]
+    public async Task Within_bounds_its_server_and_the_handles_taken_from_it_but_not_the_original()
+    {
+        var generation = new ServerGeneration(3, 4);
+        var connection = new TmuxConnection(
+            new ServerConnectionOptions(),
+            FakeMultiplexer.AnsweringVersion(static async (_, token) =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("unreachable");
+            }));
+        var server = new Server(connection, generation, "tmux 3.7");
+        Server bounded = server.Within(TimeSpan.FromMilliseconds(50));
+        var pane = new Pane(bounded, bounded.Connection!, generation, new PaneId(1), new Dictionary<string, string?>());
+
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        caller.CancelAfter(TimeSpan.FromSeconds(5));
+        TmuxTransportException direct = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => bounded.ExecuteCommandAsync(["list-sessions"], caller.Token));
+        TmuxTransportException throughPane = await Assert.ThrowsAsync<TmuxTransportException>(
+            () => pane.SendKeysAsync(new SendKeysRequest { Text = "x", Literal = true, Enter = false }, caller.Token));
+
+        // The original handle has no bound: only the caller's own cancellation ends its wait.
+        using var impatient = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        impatient.CancelAfter(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => server.ExecuteCommandAsync(["list-sessions"], impatient.Token));
+
+        Assert.Equal(
+            (TmuxDispatchState.Unknown, TmuxDispatchState.Unknown),
+            (direct.Dispatch, throughPane.Dispatch));
+        Assert.Equal(server, bounded);
+        Assert.Throws<ArgumentOutOfRangeException>(() => server.Within(TimeSpan.Zero));
+    }
+
     private static TmuxConnection Connect(TmuxInterceptor interceptor, Action onSend) =>
         new(
             new ServerConnectionOptions { Interceptor = interceptor },

@@ -288,7 +288,7 @@ public sealed class StructuredTextResultBudgetTests
             generation,
             new PaneId(99_999),
             new Dictionary<string, string?>(StringComparer.Ordinal));
-        return TailCursor.Build(
+        return PaneCursor.Build(
                 pane,
                 new PaneGridState(
                     int.MaxValue.ToString(CultureInfo.InvariantCulture),

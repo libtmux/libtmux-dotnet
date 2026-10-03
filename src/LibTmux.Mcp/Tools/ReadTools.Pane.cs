@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
+using LibTmux.Internal;
 using ModelContextProtocol;
 
 namespace LibTmux.Mcp;
@@ -34,7 +35,7 @@ internal sealed partial class ReadTools
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        PaneRead read = await PaneReader.ReadVisibleAsync(pane, null, cancellationToken)
+        PaneRead read = await McpPaneReader.ReadVisibleAsync(pane, null, cancellationToken)
             .ConfigureAwait(false);
 
         PaneInfo paneInfo = PaneInfo.From(
@@ -141,16 +142,16 @@ internal sealed partial class ReadTools
             .ConfigureAwait(false);
         string id = pane.Id.ToString();
 
-        TailCursor? previous = TailCursor.Decode(cursor, pane);
+        PaneCursor? previous = TailCursor.Decode(cursor, pane);
         PaneRead read = previous is null
-            ? await PaneReader.ReadVisibleAsync(pane, null, cancellationToken).ConfigureAwait(false)
-            : await PaneReader.ReadSinceAsync(pane, previous, cancellationToken).ConfigureAwait(false);
+            ? await McpPaneReader.ReadVisibleAsync(pane, null, cancellationToken).ConfigureAwait(false)
+            : await McpPaneReader.ReadSinceAsync(pane, previous, cancellationToken).ConfigureAwait(false);
 
         // A first read establishes a position without spending the caller's
         // budget on a screenful they did not ask for.
         IReadOnlyList<string> lines = previous is null ? [] : read.Lines;
 
-        string nextCursor = TailCursor.Build(pane, read.State, read.CursorRows).Encode();
+        string nextCursor = PaneCursor.Build(pane, read.State, read.CursorRows).Encode();
         return StructuredTextResultBudget.Fit(
             PaneText.Scrub(lines, pane.Width),
             ResolveMaxLines(maxLines, _policy),

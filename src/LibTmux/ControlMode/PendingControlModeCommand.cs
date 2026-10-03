@@ -11,7 +11,7 @@ internal sealed class PendingControlModeCommand(TmuxCommand command, string sent
     private int _replyBytes;
     private int _replyLines;
 
-    private TmuxCommand Command { get; } = command;
+    internal TmuxCommand Command { get; } = command;
 
     private List<string> ErrorLines { get; } = [];
 
