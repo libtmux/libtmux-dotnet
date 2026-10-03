@@ -189,6 +189,12 @@ module WindowFields =
     val name: Field<LibTmux.Window, string>
     /// <summary>Identifies the typed physical window ID.</summary>
     val id: Field<LibTmux.Window, WindowId>
+    /// <summary>Identifies where the window sits in its session.</summary>
+    val index: Field<LibTmux.Window, int>
+    /// <summary>Identifies the window's width in cells.</summary>
+    val width: Field<LibTmux.Window, int>
+    /// <summary>Identifies the window's height in cells.</summary>
+    val height: Field<LibTmux.Window, int>
     /// <summary>Identifies the number of panes in the window.</summary>
     val paneCount: Field<LibTmux.Window, int>
     /// <summary>Identifies panes captured through this window placement.</summary>
@@ -201,6 +207,28 @@ module PaneFields =
     val currentCommand: Field<LibTmux.Pane, string>
     /// <summary>Identifies the typed pane ID.</summary>
     val id: Field<LibTmux.Pane, PaneId>
+    /// <summary>Identifies the pane's position in its window.</summary>
+    val index: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the pane's title, which a program running in it can set.</summary>
+    val title: Field<LibTmux.Pane, string>
+    /// <summary>Identifies the pane's working directory, as the text tmux reported.</summary>
+    val currentPath: Field<LibTmux.Pane, string>
+    /// <summary>Identifies the pane's width in cells.</summary>
+    val width: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the pane's height in cells.</summary>
+    val height: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the column of the pane's left edge in its window.</summary>
+    val left: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the row of the pane's top edge in its window.</summary>
+    val top: Field<LibTmux.Pane, int>
+    /// <summary>Identifies whether the pane touches the top of its window.</summary>
+    val atTop: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane touches the bottom of its window.</summary>
+    val atBottom: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane touches the left of its window.</summary>
+    val atLeft: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane touches the right of its window.</summary>
+    val atRight: Field<LibTmux.Pane, bool>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

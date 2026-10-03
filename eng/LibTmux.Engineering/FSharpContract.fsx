@@ -129,9 +129,9 @@ let contracts =
                 + "let invalid = Field<Pane, string>(Unchecked.defaultof<System.Reflection.PropertyInfo>)"
         }
         {
-            Name = "unsupported-path"
+            Name = "unsupported-field"
             ShouldCompile = false
-            Source = opens + "let invalid = PaneFields.currentPath"
+            Source = opens + "let invalid = PaneFields.pid"
         }
     ]
 

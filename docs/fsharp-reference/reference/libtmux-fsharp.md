@@ -4,7 +4,7 @@ Type/Module | Description | Source
 :--- | :--- | :---:
 [CaptureState<'T>](../reference/libtmux-fsharp-capturestate-1.md) | Distinguishes captured state from a relation the snapshot did not read. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L16)
 [CardinalityError](../reference/libtmux-fsharp-cardinalityerror.md) | Describes a selection that does not contain exactly one match. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fsi#L9)
-[ClientFields](../reference/libtmux-fsharp-clientfields.md) | Provides supported client fields for portable filters. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L207)
+[ClientFields](../reference/libtmux-fsharp-clientfields.md) | Provides supported client fields for portable filters. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L235)
 [Control](../reference/libtmux-fsharp-control.md) | Opens control clients and reads their event streams. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L24)
 [Field<'T, 'Value>](../reference/libtmux-fsharp-field-2.md) | Identifies a supported scalar field and its query constant type. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L15)
 [Filter](../reference/libtmux-fsharp-filter.md) | Constructs portable predicates without reflection. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L31)
@@ -12,7 +12,7 @@ Type/Module | Description | Source
 [Mirror](../reference/libtmux-fsharp-mirror.md) | Follows a server&#39;s sessions, windows, panes and clients as tmux announces changes. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fsi#L97)
 [Options](../reference/libtmux-fsharp-options.md) | Reads and writes options through keys that know their value&#39;s type. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fsi#L158)
 [Pane](../reference/libtmux-fsharp-pane.md) | Reads captured pane fields and starts explicit pane operations. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fsi#L77)
-[PaneFields](../reference/libtmux-fsharp-panefields.md) | Provides supported pane fields for portable filters. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L199)
+[PaneFields](../reference/libtmux-fsharp-panefields.md) | Provides supported pane fields for portable filters. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L205)
 [Query](../reference/libtmux-fsharp-query.md) | Narrows and runs tmux queries, and filters captured objects locally. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L146)
 [Query<'T>](../reference/libtmux-fsharp-query-1.md) | Describes a tmux listing: a scope, filters and text panes must show. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L140)
 [Relation<'Parent, 'Child>](../reference/libtmux-fsharp-relation-2.md) | Identifies a supported captured relation between two entity types. | [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fsi#L19)

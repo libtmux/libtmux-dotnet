@@ -126,8 +126,19 @@ Core handles and request types appear in the
 | Signature | Summary |
 |---|---|
 | `LibTmux.FSharp.PaneFields` | Provides supported pane fields for portable filters. |
+| `val atBottom: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>` | Identifies whether the pane touches the bottom of its window. |
+| `val atLeft: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>` | Identifies whether the pane touches the left of its window. |
+| `val atRight: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>` | Identifies whether the pane touches the right of its window. |
+| `val atTop: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.bool>` | Identifies whether the pane touches the top of its window. |
 | `val currentCommand: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>` | Identifies the captured command, including a captured unavailable value. |
+| `val currentPath: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>` | Identifies the pane's working directory, as the text tmux reported. |
+| `val height: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>` | Identifies the pane's height in cells. |
 | `val id: LibTmux.FSharp.Field<LibTmux.Pane,LibTmux.PaneId>` | Identifies the typed pane ID. |
+| `val index: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>` | Identifies the pane's position in its window. |
+| `val left: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>` | Identifies the column of the pane's left edge in its window. |
+| `val title: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.string>` | Identifies the pane's title, which a program running in it can set. |
+| `val top: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>` | Identifies the row of the pane's top edge in its window. |
+| `val width: LibTmux.FSharp.Field<LibTmux.Pane,Microsoft.FSharp.Core.int>` | Identifies the pane's width in cells. |
 
 ## Query
 
@@ -229,10 +240,13 @@ Core handles and request types appear in the
 | Signature | Summary |
 |---|---|
 | `LibTmux.FSharp.WindowFields` | Provides supported window fields and relations for portable filters. |
+| `val height: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>` | Identifies the window's height in cells. |
 | `val id: LibTmux.FSharp.Field<LibTmux.Window,LibTmux.WindowId>` | Identifies the typed physical window ID. |
+| `val index: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>` | Identifies where the window sits in its session. |
 | `val name: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.string>` | Identifies the window name. |
 | `val paneCount: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>` | Identifies the number of panes in the window. |
 | `val panes: LibTmux.FSharp.Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |
+| `val width: LibTmux.FSharp.Field<LibTmux.Window,Microsoft.FSharp.Core.int>` | Identifies the window's width in cells. |
 
 ## WindowPlacementKey
 

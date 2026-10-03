@@ -91,6 +91,33 @@ module DescriptorMatrixTests =
                 Document = Filter.eq (WindowId 1) WindowFields.id |> Filter.toDocument
             }
             {
+                Name = "WindowFields.index"
+                CoreProperty = "Window.Index"
+                WireName = "window_index"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.index |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.width"
+                CoreProperty = "Window.Width"
+                WireName = "window_width"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.width |> Filter.toDocument
+            }
+            {
+                Name = "WindowFields.height"
+                CoreProperty = "Window.Height"
+                WireName = "window_height"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Windows
+                Document = Filter.gt 1 WindowFields.height |> Filter.toDocument
+            }
+            {
                 Name = "WindowFields.paneCount"
                 CoreProperty = "Window.Panes"
                 WireName = "window_panes"
@@ -129,6 +156,107 @@ module DescriptorMatrixTests =
                 Operators = "eq, ne, oneOf, notOneOf"
                 Depth = SnapshotDepth.Panes
                 Document = Filter.eq (PaneId 1) PaneFields.id |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.index"
+                CoreProperty = "Pane.Index"
+                WireName = "pane_index"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.index |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.title"
+                CoreProperty = "Pane.Title"
+                WireName = "pane_title"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "x" PaneFields.title |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.currentPath"
+                CoreProperty = "Pane.CurrentPath"
+                WireName = "pane_current_path"
+                ValueType = "string"
+                Operators =
+                    "eq, ne, eqIgnoreCase, isNull, startsWith, startsWithIgnoreCase, endsWith, endsWithIgnoreCase, contains, containsIgnoreCase, matches, matchesIgnoreCase, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq "x" PaneFields.currentPath |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.width"
+                CoreProperty = "Pane.Width"
+                WireName = "pane_width"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.width |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.height"
+                CoreProperty = "Pane.Height"
+                WireName = "pane_height"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.height |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.left"
+                CoreProperty = "Pane.Left"
+                WireName = "pane_left"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.left |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.top"
+                CoreProperty = "Pane.Top"
+                WireName = "pane_top"
+                ValueType = "int"
+                Operators = "eq, ne, lt, le, gt, ge, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.gt 1 PaneFields.top |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atTop"
+                CoreProperty = "Pane.AtTop"
+                WireName = "pane_at_top"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atTop |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atBottom"
+                CoreProperty = "Pane.AtBottom"
+                WireName = "pane_at_bottom"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atBottom |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atLeft"
+                CoreProperty = "Pane.AtLeft"
+                WireName = "pane_at_left"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atLeft |> Filter.toDocument
+            }
+            {
+                Name = "PaneFields.atRight"
+                CoreProperty = "Pane.AtRight"
+                WireName = "pane_at_right"
+                ValueType = "bool"
+                Operators = "eq, ne, oneOf, notOneOf"
+                Depth = SnapshotDepth.Panes
+                Document = Filter.eq true PaneFields.atRight |> Filter.toDocument
             }
             {
                 Name = "ClientFields.name"

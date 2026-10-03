@@ -262,6 +262,9 @@ module SessionFields =
 module WindowFields =
     let name = Field<LibTmux.Window, string>("window_name")
     let id = Field<LibTmux.Window, WindowId>("window_id")
+    let index = Field<LibTmux.Window, int>("window_index")
+    let width = Field<LibTmux.Window, int>("window_width")
+    let height = Field<LibTmux.Window, int>("window_height")
     let paneCount = Field<LibTmux.Window, int>("window_panes")
     let panes = Relation<LibTmux.Window, LibTmux.Pane>("window_panes")
 
@@ -269,6 +272,17 @@ module WindowFields =
 module PaneFields =
     let currentCommand = Field<LibTmux.Pane, string>("pane_command")
     let id = Field<LibTmux.Pane, PaneId>("pane_id")
+    let index = Field<LibTmux.Pane, int>("pane_index")
+    let title = Field<LibTmux.Pane, string>("pane_title")
+    let currentPath = Field<LibTmux.Pane, string>("pane_current_path")
+    let width = Field<LibTmux.Pane, int>("pane_width")
+    let height = Field<LibTmux.Pane, int>("pane_height")
+    let left = Field<LibTmux.Pane, int>("pane_left")
+    let top = Field<LibTmux.Pane, int>("pane_top")
+    let atTop = Field<LibTmux.Pane, bool>("pane_at_top")
+    let atBottom = Field<LibTmux.Pane, bool>("pane_at_bottom")
+    let atLeft = Field<LibTmux.Pane, bool>("pane_at_left")
+    let atRight = Field<LibTmux.Pane, bool>("pane_at_right")
 
 [<RequireQualifiedAccess>]
 module ClientFields =
