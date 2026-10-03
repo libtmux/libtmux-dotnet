@@ -117,6 +117,10 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 Waits until a view satisfies a condition, testing the current view first.
 
+A view is published only when something besides activity times, cursor
+ positions and history sizes changes, so a condition on those alone can
+ wait for an unrelated change. Wait on output with the pane waits.
+
 **Parameters:**
 
 **cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
