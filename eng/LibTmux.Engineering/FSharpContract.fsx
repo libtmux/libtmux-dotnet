@@ -135,7 +135,7 @@ let contracts =
         {
             Name = "unsupported-field"
             ShouldCompile = false
-            Source = opens + "let invalid = PaneFields.tty"
+            Source = opens + "let invalid = PaneFields.mode"
         }
     ]
 

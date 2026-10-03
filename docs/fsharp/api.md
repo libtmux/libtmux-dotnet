@@ -177,9 +177,11 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val index: Field<LibTmux.Pane,int>` | Identifies the pane's position in its window. |
 | `val left: Field<LibTmux.Pane,int>` | Identifies the column of the pane's left edge in its window. |
 | `val processId: Field<LibTmux.Pane,int>` | Identifies the process ID of the program the pane started. |
+| `val startCommand: Field<LibTmux.Pane,string>` | Identifies the command the pane started, quoted as tmux prints it; empty for the default shell. |
 | `val synchronized: Field<LibTmux.Pane,bool>` | Identifies whether keys typed into the pane go to every synchronized pane in its window. |
 | `val title: Field<LibTmux.Pane,string>` | Identifies the pane's title, which a program running in it can set. |
 | `val top: Field<LibTmux.Pane,int>` | Identifies the row of the pane's top edge in its window. |
+| `val tty: Field<LibTmux.Pane,string>` | Identifies the terminal device the pane's program reads and writes, such as /dev/pts/3. |
 | `val width: Field<LibTmux.Pane,int>` | Identifies the pane's width in cells. |
 
 ## PaneRun
@@ -350,9 +352,11 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val active: Field<LibTmux.Window,bool>` | Identifies whether the window is the current window of the session it was read through. |
 | `val activityAlert: Field<LibTmux.Window,bool>` | Identifies whether the window printed since it was last the current window, while monitor-activity is on. |
 | `val bellAlert: Field<LibTmux.Window,bool>` | Identifies whether a bell rang in the window since it was last the current window. |
+| `val flags: Field<LibTmux.Window,string>` | Identifies the window's flags as its status line shows them, such as * for the current window; empty for none. |
 | `val height: Field<LibTmux.Window,int>` | Identifies the window's height in cells. |
 | `val id: Field<LibTmux.Window,WindowId>` | Identifies the typed physical window ID. |
 | `val index: Field<LibTmux.Window,int>` | Identifies where the window sits in its session. |
+| `val layout: Field<LibTmux.Window,string>` | Identifies the window's layout string, as select-layout takes it. |
 | `val name: Field<LibTmux.Window,string>` | Identifies the window name. |
 | `val paneCount: Field<LibTmux.Window,int>` | Identifies the number of panes in the window. |
 | `val panes: Relation<LibTmux.Window,LibTmux.Pane>` | Identifies panes captured through this window placement. |

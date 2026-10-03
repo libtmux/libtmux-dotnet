@@ -150,6 +150,24 @@ captured-object properties. They have no portable descriptor.
 - Required depth: `Windows`
 - Schema version: `1`
 
+### `WindowFields.layout`
+
+- Core property: `Window.Layout`
+- Wire name: `window_layout`
+- Value type: `string`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
+### `WindowFields.flags`
+
+- Core property: `Window.Flags`
+- Wire name: `window_flags`
+- Value type: `string`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
+- Required depth: `Windows`
+- Schema version: `1`
+
 ### `WindowFields.paneCount`
 
 - Core property: `Window.Panes`
@@ -347,6 +365,24 @@ captured-object properties. They have no portable descriptor.
 - Wire name: `pane_dead_status`
 - Value type: `int option`
 - Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.tty`
+
+- Core property: `Pane.Tty`
+- Wire name: `pane_tty`
+- Value type: `string`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
+### `PaneFields.startCommand`
+
+- Core property: `Pane.StartCommand`
+- Wire name: `pane_start_command`
+- Value type: `string`
+- Operators: `eq`, `ne`, `eqIgnoreCase`, `isNull`, `startsWith`, `startsWithIgnoreCase`, `endsWith`, `endsWithIgnoreCase`, `contains`, `containsIgnoreCase`, `matches`, `matchesIgnoreCase`, `oneOf`, `notOneOf`
 - Required depth: `Panes`
 - Schema version: `1`
 
