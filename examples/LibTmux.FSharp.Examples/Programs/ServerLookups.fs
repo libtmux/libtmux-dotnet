@@ -30,13 +30,13 @@ let runAsync () =
             )
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! windows = server |> Server.listWindows token
-        let! panes = server |> Server.listPanes token
+        let! windows = server |> Server.windows |> Query.list token
+        let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne
         let pane = panes |> Seq.exactlyOne
 
         use! _control = server |> Control.enter token
-        let! clients = server |> Server.listClients token
+        let! clients = server |> Server.clients |> Query.list token
         let client = clients |> Seq.exactlyOne
 
         let! foundSession = server |> Server.tryFindSession token demo.Value.Id

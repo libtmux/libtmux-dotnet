@@ -117,7 +117,7 @@ module internal GuideSnippets =
             then
                 failwith "The owned session was not discoverable on its detached server."
 
-            let! panes = server |> Server.listPanes cancellationToken
+            let! panes = server |> Server.panes |> Query.list cancellationToken
 
             let first =
                 panes

@@ -24,7 +24,7 @@ Captures pane contents using the supplied core request.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1">IReadOnlyList</a>&lt;string&gt;</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L115)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L70)
 
 <a name="currentCommand"></a>
 
@@ -40,7 +40,7 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The command field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L113)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L68)
 
 <a name="currentPath"></a>
 
@@ -56,7 +56,29 @@ Returns: <code><span>string&#32;option</span></code>
 
 `IncompleteSnapshotException` The path field was not captured.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L112)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L67)
+
+<a name="findOnScreen"></a>
+
+#### <code><span>Pane.findOnScreen&#32;<span>cancellationToken&#32;search&#32;pane</span></span></code>
+
+Returns the first visible row showing the text, counted from 1, or None.
+
+tmux searches only the rows on screen. Capture the history and filter its lines to search further back.
+
+**Parameters:**
+
+**cancellationToken**: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken">CancellationToken</a></code>
+
+**search**: <code><a href="../reference/libtmux-fsharp-screensearch.md">ScreenSearch</a></code>
+
+**pane**: <code>Pane</code>
+
+Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;<span>int&#32;option</span>&gt;</span></code>
+
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text cannot be written as a tmux format.
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L73)
 
 <a name="sendKeys"></a>
 
@@ -76,7 +98,7 @@ Cancellation can occur after dispatch; it does not undo sent keys.
 
 Returns: <code><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task">Task</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L118)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L79)
 
 <a name="split"></a>
 
@@ -96,4 +118,4 @@ Cancellation can leave the split applied; do not retry automatically.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;Pane&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L121)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Hierarchy.fs#L82)

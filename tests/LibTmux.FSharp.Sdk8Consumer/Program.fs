@@ -33,7 +33,7 @@ let run () =
         let! created =
             server.CreateSessionAsync(NewSessionRequest(Name = "sdk8", Command = "/bin/sh"), token)
 
-        let! sessions = server |> Server.listSessions token
+        let! sessions = server |> Server.sessions |> Query.list token
 
         let named =
             sessions

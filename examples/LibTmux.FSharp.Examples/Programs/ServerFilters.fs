@@ -36,7 +36,7 @@ let runAsync () =
             )
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! sessions = server |> Server.listSessions token
+        let! sessions = server |> Server.sessions |> Query.list token
 
         let nativeMatches =
             sessions
@@ -46,7 +46,7 @@ let runAsync () =
         let portableMatches =
             sessions |> Query.matching (Filter.startsWith "de" SessionFields.name)
 
-        let! windows = server |> Server.listWindows token
+        let! windows = server |> Server.windows |> Query.list token
 
         let matchingWindows =
             windows |> Query.matching (Filter.eq "shell" WindowFields.name)
@@ -70,7 +70,7 @@ let runAsync () =
         let matchingParents = captured.Sessions |> Query.matching hasDemoPane
 
         use! _control = server |> Control.enter token
-        let! clients = server |> Server.listClients token
+        let! clients = server |> Server.clients |> Query.list token
 
         let controlClients =
             clients |> Query.matching (Filter.eq true ClientFields.controlMode)

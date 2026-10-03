@@ -36,10 +36,10 @@ let runAsync () =
             )
 
         let! server = LibTmux.Server.ConnectAsync(options, token)
-        let! sessions = server |> Server.listSessions token
-        let! windows = server |> Server.listWindows token
-        let! panes = server |> Server.listPanes token
-        let! clients = server |> Server.listClients token
+        let! sessions = server |> Server.sessions |> Query.list token
+        let! windows = server |> Server.windows |> Query.list token
+        let! panes = server |> Server.panes |> Query.list token
+        let! clients = server |> Server.clients |> Query.list token
 
         for session in sessions do
             printfn "Session: %s (%O)" session.Name session.Id

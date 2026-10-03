@@ -153,7 +153,91 @@ module Filter =
     let toPredicate (filter: Filter<'T>) = filter.Predicate
 
 [<RequireQualifiedAccess>]
+type ScreenSearch =
+    | Text of text: string
+    | TextIgnoringCase of text: string
+    | PosixRegex of pattern: string
+    | PosixRegexIgnoringCase of pattern: string
+
+module internal ScreenSearch =
+    let toCore search =
+        match search with
+        | ScreenSearch.Text text -> PaneScreenSearch(text, false, false)
+        | ScreenSearch.TextIgnoringCase text -> PaneScreenSearch(text, false, true)
+        | ScreenSearch.PosixRegex pattern -> PaneScreenSearch(pattern, true, false)
+        | ScreenSearch.PosixRegexIgnoringCase pattern -> PaneScreenSearch(pattern, true, true)
+
+[<Sealed>]
+type Query<'T>
+    internal
+    (
+        server: LibTmux.Server,
+        target: QueryTarget,
+        session: SessionId option,
+        window: WindowId option,
+        filters: Filter<'T> list,
+        native: string list
+    ) =
+    static member internal Create
+        (server: LibTmux.Server, target: QueryTarget, session: SessionId option, window: WindowId option)
+        =
+        ArgumentNullException.ThrowIfNull(server)
+        Query<'T>(server, target, session, window, [], [])
+
+    member internal _.Server = server
+    member internal _.Filters = filters
+    member internal _.Native = native
+
+    member internal _.With(filters, native) =
+        Query<'T>(server, target, session, window, filters, native)
+
+    member internal _.Request =
+        let filter =
+            match List.rev filters with
+            | [] -> null
+            | [ only ] -> only.Document
+            | many -> (Filter<'T>(AndNode([ for filter in many -> filter.Node ]))).Document
+
+        let unsafeFilter =
+            match List.rev native with
+            | [] -> null
+            | first :: rest ->
+                UnsafeTmuxFilter(rest |> List.fold (fun combined next -> $"#{{&&:{combined},{next}}}") first)
+
+        ListingRequest(target, Option.toNullable session, Option.toNullable window, filter, unsafeFilter, null)
+
+[<RequireQualifiedAccess>]
 module Query =
+    let where (filter: Filter<'T>) (query: Query<'T>) =
+        query.With(filter :: query.Filters, query.Native)
+
+    let whereUnsafe (filter: UnsafeTmuxFilter) (query: Query<'T>) =
+        ArgumentNullException.ThrowIfNull(filter)
+        query.With(query.Filters, filter.Value :: query.Native)
+
+    let showing search (query: Query<LibTmux.Pane>) =
+        query.With(query.Filters, (ScreenSearch.toCore search).Render() :: query.Native)
+
+    let list (cancellationToken: CancellationToken) (query: Query<'T>) =
+        query.Server.QueryAsync<'T>(query.Request, cancellationToken)
+
+    let exactlyOne cancellationToken (query: Query<'T>) =
+        backgroundTask {
+            let! items = list cancellationToken query
+
+            return
+                match items.Count with
+                | 0 -> Error NoMatches
+                | 1 -> Ok items[0]
+                | _ -> Error MultipleMatches
+        }
+
+    let tryExactlyOne cancellationToken (query: Query<'T>) =
+        backgroundTask {
+            let! items = list cancellationToken query
+            return if items.Count = 1 then Some items[0] else None
+        }
+
     let matching (filter: Filter<'T>) (source: seq<'T>) : IReadOnlyList<'T> =
         ArgumentNullException.ThrowIfNull(source)
         ResizeArray(Seq.filter filter.Predicate source)

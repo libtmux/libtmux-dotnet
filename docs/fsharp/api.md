@@ -90,6 +90,7 @@ Core handles and request types appear in the
 | `val capture: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.CapturePaneRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.FSharp.Core.string>>` | Captures pane contents using the supplied core request. |
 | `val currentCommand: pane: LibTmux.Pane -> Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option` | Reads the captured command name, preserving an empty string. |
 | `val currentPath: pane: LibTmux.Pane -> Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option` | Reads the captured working directory, preserving an empty string. |
+| `val findOnScreen: cancellationToken: System.Threading.CancellationToken -> search: LibTmux.FSharp.ScreenSearch -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>` | Returns the first visible row showing the text, counted from 1, or None. |
 | `val sendKeys: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.SendKeysRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task` | Sends text or key names according to the request's literal and Enter settings. |
 | `val split: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.SplitPaneRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
 
@@ -105,14 +106,31 @@ Core handles and request types appear in the
 
 | Signature | Summary |
 |---|---|
-| `LibTmux.FSharp.Query` | Applies portable filters locally to captured objects. |
-| `val matching: filter: LibTmux.FSharp.Filter<'T> -> source: 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>` | Materializes matching elements, preserving input order and multiplicity. |
+| `LibTmux.FSharp.Query` | Narrows and runs tmux queries, and filters captured objects locally. |
+| ``LibTmux.FSharp.Query`1`` | Describes a tmux listing: a scope, filters and text panes must show. |
+| `val exactlyOne: cancellationToken: System.Threading.CancellationToken -> query: LibTmux.FSharp.Query<'T> -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.Result<'T,LibTmux.FSharp.CardinalityError>>` | Reads the sole match, or why there is not exactly one. |
+| `val list: cancellationToken: System.Threading.CancellationToken -> query: LibTmux.FSharp.Query<'T> -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<'T>>` | Reads the matching objects in tmux's listing order. |
+| `val matching: filter: LibTmux.FSharp.Filter<'T> -> source: 'T Microsoft.FSharp.Collections.seq -> System.Collections.Generic.IReadOnlyList<'T>` | Filters captured objects locally, preserving input order and multiplicity. |
+| `val showing: search: LibTmux.FSharp.ScreenSearch -> query: LibTmux.FSharp.Query<LibTmux.Pane> -> LibTmux.FSharp.Query<LibTmux.Pane>` | Keeps panes whose visible rows show the searched text. |
+| `val tryExactlyOne: cancellationToken: System.Threading.CancellationToken -> query: LibTmux.FSharp.Query<'T> -> System.Threading.Tasks.Task<'T Microsoft.FSharp.Core.option>` | Reads the sole match, or None when there are none or several. |
+| `val where: filter: LibTmux.FSharp.Filter<'T> -> query: LibTmux.FSharp.Query<'T> -> LibTmux.FSharp.Query<'T>` | Adds a portable filter every result satisfies. |
+| `val whereUnsafe: filter: LibTmux.UnsafeTmuxFilter -> query: LibTmux.FSharp.Query<'T> -> LibTmux.FSharp.Query<'T>` | Adds a raw tmux filter, which tmux evaluates and nothing rechecks. |
 
 ## Relation
 
 | Signature | Summary |
 |---|---|
 | ``LibTmux.FSharp.Relation`2`` | Identifies a supported captured relation between two entity types. |
+
+## ScreenSearch
+
+| Signature | Summary |
+|---|---|
+| `LibTmux.FSharp.ScreenSearch` | Describes text tmux searches for on a pane's visible rows. |
+| `PosixRegex of pattern: Microsoft.FSharp.Core.string` | Matches a POSIX extended regular expression, which tmux evaluates. |
+| `PosixRegexIgnoringCase of pattern: Microsoft.FSharp.Core.string` | Matches a POSIX extended regular expression ignoring case. |
+| `Text of text: Microsoft.FSharp.Core.string` | Matches literal text. |
+| `TextIgnoringCase of text: Microsoft.FSharp.Core.string` | Matches literal text ignoring case. |
 
 ## Selection
 
@@ -125,16 +143,24 @@ Core handles and request types appear in the
 
 | Signature | Summary |
 |---|---|
-| `LibTmux.FSharp.Server` | Starts explicit server reads with the caller's cancellation token. |
+| `LibTmux.FSharp.Server` | Starts server reads and queries with the caller's cancellation token. |
 | `val capture: cancellationToken: System.Threading.CancellationToken -> depth: LibTmux.SnapshotDepth -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Server>` | Returns a new server handle captured to the requested depth. |
-| `val listClients: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Client>>` | Lists attached clients and captures their scalar fields. |
-| `val listPanes: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Pane>>` | Lists panes and captures their scalar fields. |
-| `val listSessions: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Session>>` | Lists sessions and captures their scalar fields. |
-| `val listWindows: cancellationToken: System.Threading.CancellationToken -> server: LibTmux.Server -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<LibTmux.Window>>` | Lists window placements across all sessions and captures their scalar fields. |
+| `val clients: server: LibTmux.Server -> LibTmux.FSharp.Query<LibTmux.Client>` | Queries attached clients. |
+| `val panes: server: LibTmux.Server -> LibTmux.FSharp.Query<LibTmux.Pane>` | Queries every pane. |
+| `val sessions: server: LibTmux.Server -> LibTmux.FSharp.Query<LibTmux.Session>` | Queries every session. |
 | `val tryFindClient: cancellationToken: System.Threading.CancellationToken -> name: Microsoft.FSharp.Core.string -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Client Microsoft.FSharp.Core.option>` | Returns the client with an exact name or None after a successful listing finds no match. |
 | `val tryFindPane: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.PaneId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Pane Microsoft.FSharp.Core.option>` | Returns a pane or None after a successful lookup establishes absence. |
 | `val tryFindSession: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.SessionId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Session Microsoft.FSharp.Core.option>` | Returns a session or None after a successful lookup establishes absence. |
 | `val tryFindWindow: cancellationToken: System.Threading.CancellationToken -> id: LibTmux.WindowId -> server: LibTmux.Server -> System.Threading.Tasks.Task<LibTmux.Window Microsoft.FSharp.Core.option>` | Returns a window or None after a successful lookup establishes absence. |
+| `val windows: server: LibTmux.Server -> LibTmux.FSharp.Query<LibTmux.Window>` | Queries window placements across all sessions. |
+
+## Session
+
+| Signature | Summary |
+|---|---|
+| `LibTmux.FSharp.Session` | Starts queries confined to one session. |
+| `val panes: session: LibTmux.Session -> LibTmux.FSharp.Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
+| `val windows: session: LibTmux.Session -> LibTmux.FSharp.Query<LibTmux.Window>` | Queries the window placements in a session. |
 
 ## SessionFields
 
@@ -167,7 +193,8 @@ Core handles and request types appear in the
 
 | Signature | Summary |
 |---|---|
-| `LibTmux.FSharp.Window` | Identifies window placements without refreshing their captured state. |
+| `LibTmux.FSharp.Window` | Identifies window placements and starts queries confined to one window. |
+| `val panes: window: LibTmux.Window -> LibTmux.FSharp.Query<LibTmux.Pane>` | Queries the panes in a window. |
 | `val placementKey: window: LibTmux.Window -> LibTmux.FSharp.WindowPlacementKey` | Returns a comparable key including the captured session and window index. |
 
 ## WindowFields

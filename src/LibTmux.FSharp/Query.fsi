@@ -1,6 +1,8 @@
 namespace LibTmux.FSharp
 
 open System.Collections.Generic
+open System.Threading
+open System.Threading.Tasks
 open LibTmux
 open LibTmux.Query
 
@@ -108,10 +110,62 @@ module Filter =
     /// <summary>Returns a predicate compiled once for native lazy filtering.</summary>
     val toPredicate: filter: Filter<'T> -> ('T -> bool)
 
-/// <summary>Applies portable filters locally to captured objects.</summary>
+/// <summary>Describes text tmux searches for on a pane's visible rows.</summary>
+/// <remarks>
+/// tmux evaluates the search itself, as <c>find-window -C</c> does: it reads
+/// only the rows on screen, with trailing spaces removed. To search history,
+/// capture the pane and filter its lines.
+/// </remarks>
+[<RequireQualifiedAccess>]
+type ScreenSearch =
+    /// <summary>Matches literal text.</summary>
+    | Text of text: string
+    /// <summary>Matches literal text ignoring case.</summary>
+    | TextIgnoringCase of text: string
+    /// <summary>Matches a POSIX extended regular expression, which tmux evaluates.</summary>
+    | PosixRegex of pattern: string
+    /// <summary>Matches a POSIX extended regular expression ignoring case.</summary>
+    | PosixRegexIgnoringCase of pattern: string
+
+module internal ScreenSearch =
+    val toCore: search: ScreenSearch -> PaneScreenSearch
+
+/// <summary>Describes a tmux listing: a scope, filters and text panes must show.</summary>
+/// <remarks>
+/// Building a query reads nothing; each run reads tmux again. tmux narrows the
+/// listing with its own filter where it can evaluate one exactly, and every
+/// row is then checked against the portable filters.
+/// </remarks>
+[<Sealed>]
+type Query<'T> =
+    static member internal Create:
+        server: LibTmux.Server * target: QueryTarget * session: SessionId option * window: WindowId option -> Query<'T>
+
+/// <summary>Narrows and runs tmux queries, and filters captured objects locally.</summary>
 [<RequireQualifiedAccess>]
 module Query =
-    /// <summary>Materializes matching elements, preserving input order and multiplicity.</summary>
+    /// <summary>Adds a portable filter every result satisfies.</summary>
+    val where: filter: Filter<'T> -> query: Query<'T> -> Query<'T>
+
+    /// <summary>Adds a raw tmux filter, which tmux evaluates and nothing rechecks.</summary>
+    /// <remarks>A malformed or unknown token makes tmux keep no rows rather than report an error.</remarks>
+    val whereUnsafe: filter: UnsafeTmuxFilter -> query: Query<'T> -> Query<'T>
+
+    /// <summary>Keeps panes whose visible rows show the searched text.</summary>
+    val showing: search: ScreenSearch -> query: Query<LibTmux.Pane> -> Query<LibTmux.Pane>
+
+    /// <summary>Reads the matching objects in tmux's listing order.</summary>
+    /// <remarks>A filter over a relation reads a snapshot of only the sessions that can match.</remarks>
+    /// <exception cref="T:LibTmux.TmuxVersionTooLowException">A raw client filter needs tmux 3.4.</exception>
+    val list: cancellationToken: CancellationToken -> query: Query<'T> -> Task<IReadOnlyList<'T>>
+
+    /// <summary>Reads the sole match, or why there is not exactly one.</summary>
+    val exactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<Result<'T, CardinalityError>>
+
+    /// <summary>Reads the sole match, or None when there are none or several.</summary>
+    val tryExactlyOne: cancellationToken: CancellationToken -> query: Query<'T> -> Task<'T option>
+
+    /// <summary>Filters captured objects locally, preserving input order and multiplicity.</summary>
     val matching: filter: Filter<'T> -> source: seq<'T> -> IReadOnlyList<'T>
 
 /// <summary>Provides supported session fields and relations for portable filters.</summary>

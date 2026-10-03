@@ -55,12 +55,32 @@ module ContractTests =
             Assert.Equal(SnapshotDepth.Server, depth)
         | Captured _ -> failwith "An unqueried endpoint cannot contain captured panes."
 
-    let private readServer operation token server : Task =
+    let private readServer operation token (connection: TmuxConnection) server : Task =
+        let generation = ServerGeneration(17, 29)
+
         match operation with
-        | "listSessions" -> Server.listSessions token server
-        | "listWindows" -> Server.listWindows token server
-        | "listPanes" -> Server.listPanes token server
-        | "listClients" -> Server.listClients token server
+        | "sessions" -> server |> Server.sessions |> Query.list token :> Task
+        | "windows" -> server |> Server.windows |> Query.list token :> Task
+        | "panes" -> server |> Server.panes |> Query.list token :> Task
+        | "clients" -> server |> Server.clients |> Query.list token :> Task
+        | "filteredSessions" ->
+            server
+            |> Server.sessions
+            |> Query.where (SessionFields.name |> Filter.startsWith "de")
+            |> Query.list token
+            :> Task
+        | "sessionPanes" ->
+            LibTmux.Session(server, connection, generation, SessionId 7, Dictionary<string, string>())
+            |> Session.panes
+            |> Query.showing (ScreenSearch.Text "a,b")
+            |> Query.list token
+            :> Task
+        | "windowPanes" ->
+            LibTmux.Window(server, connection, generation, WindowId 7, Dictionary<string, string>())
+            |> Window.panes
+            |> Query.whereUnsafe (UnsafeTmuxFilter "#{pane_active}")
+            |> Query.list token
+            :> Task
         | "tryFindSession" -> Server.tryFindSession token (SessionId 7) server
         | "tryFindWindow" -> Server.tryFindWindow token (WindowId 7) server
         | "tryFindPane" -> Server.tryFindPane token (PaneId 7) server
@@ -68,10 +88,13 @@ module ContractTests =
         | _ -> invalidArg (nameof operation) operation
 
     [<Theory>]
-    [<InlineData("listSessions", "list-sessions", "")>]
-    [<InlineData("listWindows", "list-windows", "-a")>]
-    [<InlineData("listPanes", "list-panes", "-a")>]
-    [<InlineData("listClients", "list-clients", "")>]
+    [<InlineData("sessions", "list-sessions", "")>]
+    [<InlineData("windows", "list-windows", "-a")>]
+    [<InlineData("panes", "list-panes", "-a")>]
+    [<InlineData("clients", "list-clients", "")>]
+    [<InlineData("filteredSessions", "list-sessions", "#{m:de*,#{session_name}}")>]
+    [<InlineData("sessionPanes", "list-panes", "#{C:a#,b}")>]
+    [<InlineData("windowPanes", "list-panes", "#{pane_active}")>]
     [<InlineData("tryFindSession", "display-message", "$7")>]
     [<InlineData("tryFindWindow", "display-message", "@7")>]
     [<InlineData("tryFindPane", "display-message", "%7")>]
@@ -109,7 +132,8 @@ module ContractTests =
             let server = LibTmux.Server(connection, ServerGeneration(17, 29), "tmux 3.7")
 
             let! observed =
-                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () -> readServer operation token server)
+                Assert.ThrowsAsync<TmuxOperationCanceledException>(fun () ->
+                    readServer operation token connection server)
 
             Assert.Contains(command, observedCommand)
 
@@ -184,7 +208,8 @@ module ContractTests =
             failCommand <- true
 
             let! observed =
-                Assert.ThrowsAsync<TmuxTransportException>(fun () -> readServer operation CancellationToken.None server)
+                Assert.ThrowsAsync<TmuxTransportException>(fun () ->
+                    readServer operation CancellationToken.None connection server)
 
             Assert.Equal(failure.Message, observed.Message)
             Assert.Equal(failure.Dispatch, observed.Dispatch)
