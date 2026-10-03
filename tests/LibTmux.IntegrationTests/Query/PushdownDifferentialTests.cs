@@ -234,6 +234,10 @@ public sealed class PushdownDifferentialTests
         await raw.ExecuteAsync(["split-window", "-d", "-v", "-t", "geo:grid.0", "sh"], token);
         await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.1", "-T", "build"], token);
         await raw.ExecuteAsync(["select-pane", "-t", "geo:grid.2", "-T", "b#uild,x}"], token);
+
+        // tmux quotes a command given as one string, and a layout carries
+        // commas and brackets, so both test operand escaping.
+        await raw.ExecuteAsync(["new-window", "-d", "-t", "geo", "-n", "side", "sleep 60"], token);
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         Pane[] panes = [.. snapshot.Panes];
@@ -266,6 +270,14 @@ public sealed class PushdownDifferentialTests
         await Agree<Window>(window => window.Index == 0 && window.Width >= 120, windows, QueryTarget.Window, Key);
         await Agree<Window>(window => window.Height < 40, windows, QueryTarget.Window, Key);
 
+        string layout = windows.Single(window => window.Name == "grid").Layout;
+        string tty = panes[0].Tty!;
+        await Agree<Window>(window => window.Layout == layout, windows, QueryTarget.Window, Key);
+        await Agree<Window>(window => window.Flags == "*", windows, QueryTarget.Window, Key);
+        await Agree<Pane>(pane => pane.Tty == tty, panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.StartCommand == "\"sleep 60\"", panes, QueryTarget.Pane, PaneKey);
+        await Agree<Pane>(pane => pane.StartCommand!.StartsWith("\"sl", StringComparison.Ordinal), panes, QueryTarget.Pane, PaneKey);
+
         // Escaped operands inside tmux's window and pane loops.
         Session[] sessions = [.. snapshot.Sessions];
         string SessionKey(Session session) => session.Id.ToString();
@@ -281,6 +293,11 @@ public sealed class PushdownDifferentialTests
             SessionKey);
 
         Assert.True(panes.Length >= 3 && path.Length > 0);
+        Assert.Contains(",", layout, StringComparison.Ordinal);
+        Assert.Contains(windows, window => window.Flags == "*");
+        Assert.Contains(windows, window => window.Flags.Length == 0);
+        Assert.Single(panes, pane => pane.Tty == tty);
+        Assert.Single(panes, pane => pane.StartCommand == "\"sleep 60\"");
         Assert.True(disagreements.Count == 0, string.Join("\n", disagreements));
     }
 

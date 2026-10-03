@@ -136,6 +136,13 @@ internal static class QueryFieldCatalog
             nameof(Pane.ProcessId),
             new(static element => (long)((Pane)element).ProcessId, typeof(long))),
         new(
+            "pane_start_command",
+            QueryTarget.Pane,
+            QueryValueKind.String,
+            typeof(Pane),
+            nameof(Pane.StartCommand),
+            new(static element => ((Pane)element).StartCommand, typeof(string))),
+        new(
             "pane_synchronized",
             QueryTarget.Pane,
             QueryValueKind.Boolean,
@@ -156,6 +163,13 @@ internal static class QueryFieldCatalog
             typeof(Pane),
             nameof(Pane.Top),
             new(static element => (long)((Pane)element).Top, typeof(long))),
+        new(
+            "pane_tty",
+            QueryTarget.Pane,
+            QueryValueKind.String,
+            typeof(Pane),
+            nameof(Pane.Tty),
+            new(static element => ((Pane)element).Tty, typeof(string))),
         new(
             "pane_width",
             QueryTarget.Pane,
@@ -216,6 +230,13 @@ internal static class QueryFieldCatalog
             nameof(Window.BellAlert),
             new(static element => ((Window)element).BellAlert, typeof(bool))),
         new(
+            "window_flags",
+            QueryTarget.Window,
+            QueryValueKind.String,
+            typeof(Window),
+            nameof(Window.Flags),
+            new(static element => ((Window)element).Flags, typeof(string))),
+        new(
             "window_height",
             QueryTarget.Window,
             QueryValueKind.Int64,
@@ -236,6 +257,13 @@ internal static class QueryFieldCatalog
             typeof(Window),
             nameof(Window.Index),
             new(static element => (long)((Window)element).Index, typeof(long))),
+        new(
+            "window_layout",
+            QueryTarget.Window,
+            QueryValueKind.String,
+            typeof(Window),
+            nameof(Window.Layout),
+            new(static element => ((Window)element).Layout, typeof(string))),
         new(
             "window_name",
             QueryTarget.Window,
