@@ -9,6 +9,7 @@ Nothing here is a promise about your machine.
 |---|---|---|---|
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
+| 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -210,7 +211,7 @@ $ dotnet run \
 ## F# control fold cost
 
 [`FSharpControlFoldBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpControlFoldBenchmarks.cs)
-compares direct C# `await foreach` with `Control.foldEventsWhile` over the same
+compares direct C# `await foreach` with `Control.foldWhile` over the same
 synthetic control event source. Both stop after 64 of 128 notifications and
 compute the same checksum through the same prebuilt, task-returning folder.
 Setup verifies the result, event-read count, reader disposal, and cancellation
@@ -227,6 +228,48 @@ $ dotnet run \
     --filter '*FSharpControlFoldBenchmarks*' \
     --artifacts artifacts/benchmarks/fsharp-control-fold
 ```
+
+## F# query pushdown
+
+[`FSharpQueryPushdownBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpQueryPushdownBenchmarks.cs)
+builds a server of 64 sessions with 4 windows each, where one pane in 64 runs
+`tail`, and finds those panes, and the sessions holding them, three ways: a
+query tmux narrows with `-f`, a full listing filtered locally, and a snapshot
+filtered locally. Every route must return the same objects before timing.
+
+In the [2026-10-03 record](runs/2026-10-03-tmux-3.7d-fsharp.md) the pane query
+took a median of 34 ms pushed down against 157 ms for a full listing and
+475 ms for a snapshot, allocating 26 times less than the listing. The session
+query, a relation, allocated 12 times less pushed down but took about as long
+as a snapshot: tmux evaluates the nested window and pane loops for every
+session itself. Two identical local routes for that query differ by 60%, which
+is the run-to-run noise of a process start under load.
+
+```console
+$ dotnet run \
+    --project benchmarks/LibTmux.Benchmarks \
+    --configuration Release \
+    --framework net10.0 \
+    -- \
+    --filter '*FSharp*' \
+    --artifacts artifacts/benchmarks-fsharp
+```
+
+```console
+$ uv run python eng/benchmarks/record_fsharp.py \
+    --reports artifacts/benchmarks-fsharp/results \
+    --tmux-version 3.7d \
+    --collected 2026-10-03 \
+    --out docs/benchmarks/runs
+```
+
+## Regression gate
+
+Timings are not gated in CI: the same case moves by more than half between
+runs on one machine, so a threshold loose enough to pass would catch nothing.
+What is gated is what does not vary. An integration test counts the tmux
+processes a pushed-down query starts and the rows tmux returns through the
+connection interceptor, and fails when a listing stops narrowing.
 
 ## Control stream probe
 
