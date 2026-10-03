@@ -61,7 +61,7 @@ public sealed class ServerWaitForLockTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        Server server = await ConnectAsync(raw, token, TimeSpan.FromMilliseconds(200));
+        Server server = await ConnectAsync(raw, token, TimeSpan.FromMilliseconds(100));
         const string Lock = "libtmux-lock-timeout";
         const string Signal = "libtmux-signal-timeout";
 
@@ -70,7 +70,7 @@ public sealed class ServerWaitForLockTests
         Task waiting = server.WaitForAsync(new WaitForRequest(Signal, TmuxWaitMode.Wait), token);
 
         // Three command timeouts pass while both still wait for another client.
-        Task elapsed = Task.Delay(TimeSpan.FromMilliseconds(600), token);
+        Task elapsed = Task.Delay(TimeSpan.FromMilliseconds(300), token);
         Assert.Same(elapsed, await Task.WhenAny(queued, waiting, elapsed));
 
         await server.WaitForAsync(new WaitForRequest(Lock, TmuxWaitMode.Unlock), token);
