@@ -383,6 +383,7 @@ modes differ.
 | `LibTmux.Server.ThrowIfDeadAsync(System.Threading.CancellationToken)` | Throws unless a tmux server is answering. |
 | `LibTmux.Server.ValidateLayoutsAsync(System.Collections.Generic.IEnumerable{System.ValueTuple{System.String,System.Int32}},System.Threading.CancellationToken)` | Checks layouts before a workspace changes the server. |
 | `LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest,System.Threading.CancellationToken)` | Waits on, signals, locks, or unlocks a tmux channel. |
+| `LibTmux.Server.Within(System.TimeSpan)` | Returns this server with every command bounded by a timeout of the caller's choosing. |
 | `LibTmux.Server.op_Equality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach the same server endpoint. |
 | `LibTmux.Server.op_Inequality(LibTmux.Server,LibTmux.Server)` | Reports whether two handles reach different server endpoints. |
 | `LibTmux.ServerAccessRequest.ToCommand(LibTmux.Server)` | Returns an access request as one tmux command. |

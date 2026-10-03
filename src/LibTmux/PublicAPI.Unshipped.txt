@@ -988,6 +988,7 @@ LibTmux.Server.ValidateLayoutsAsync(System.Collections.Generic.IEnumerable<(stri
 LibTmux.Server.Version.get -> LibTmux.TmuxVersion?
 LibTmux.Server.WaitForAsync(LibTmux.WaitForRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Server.Windows.get -> LibTmux.CapturedRelation<LibTmux.Window!>!
+LibTmux.Server.Within(System.TimeSpan timeout) -> LibTmux.Server!
 LibTmux.ServerAccessRequest
 LibTmux.ServerAccessRequest.<Clone>$() -> LibTmux.ServerAccessRequest!
 LibTmux.ServerAccessRequest.AllowUser.get -> string?
