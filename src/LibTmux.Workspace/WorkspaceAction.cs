@@ -43,6 +43,8 @@ public enum WorkspaceActionKind
     CaptureResult,
     /// <summary>Arranges existing panes to make space for the next split; failure stops application.</summary>
     ArrangePanes,
+    /// <summary>Moves the first workspace window to its declared session-relative index.</summary>
+    MoveToWindowIndex,
 }
 
 /// <summary>Describes one immutable operation over plan-local targets.</summary>

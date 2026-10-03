@@ -295,6 +295,129 @@ public sealed class WorkspaceBuilderTests
         Assert.Empty(result.Unsupported);
     }
 
+    [UnixFact]
+    public async Task Workspace_window_indexes_preserve_sparse_placements()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        WorkspaceFile workspace = WorkspaceFile.Parse("""
+            session_name: sparse-windows
+            options:
+              base-index: '0'
+              default-command: exec /bin/cat
+            windows:
+              - window_name: zero
+                panes: [null]
+              - window_name: five
+                window_index: 5
+                panes: [null]
+              - window_name: one
+                panes: [null]
+            """);
+
+        WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
+
+        Assert.Equal([("zero", 0), ("five", 5), ("one", 1)],
+            result.Windows.Select(window => (window.Name, window.Index)).ToArray());
+        int[] indexes = [0, 1, 5];
+        Assert.Equal(indexes, (await result.Session.GetWindowsAsync(token))
+            .Select(window => window.Index).Order().ToArray());
+    }
+
+    [UnixFact]
+    public async Task First_workspace_window_moves_to_its_declared_index_after_bootstrap_removal()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        int[] requestedIndexes = [0, 5];
+        foreach (int requestedIndex in requestedIndexes)
+        {
+            WorkspaceFile workspace = new($"first-window-{requestedIndex}",
+                options: new Dictionary<string, string> { ["default-command"] = "exec /bin/cat" },
+                windows: [new WorkspaceWindow("first", windowIndex: requestedIndex)]);
+
+            WorkspaceResult result = await new WorkspaceBuilder(scope.Server).BuildAsync(workspace, token);
+
+            Assert.Equal(requestedIndex, Assert.Single(result.Windows).Index);
+            Assert.Equal(requestedIndex, Assert.Single(await result.Session.GetWindowsAsync(token)).Index);
+            WorkspaceActionOutcome move = Assert.Single(result.Journal,
+                outcome => outcome.Action.Kind == WorkspaceActionKind.MoveToWindowIndex);
+            Assert.Equal(requestedIndex, Assert.IsType<WorkspaceAction<int>>(move.Action).Request);
+        }
+    }
+
+    [UnixFact]
+    public async Task Appending_a_window_uses_its_declared_index_without_moving_existing_windows()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        Session existing = await scope.Server.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "append-placement",
+            Command = "exec /bin/cat",
+        }, token);
+        Window original = Assert.Single(await existing.GetWindowsAsync(token));
+        WorkspaceFile workspace = new("append-placement", windows: [new WorkspaceWindow("five", windowIndex: 5)]);
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(workspace,
+            new() { ExistingSession = WorkspaceExistingSession.Append }, token);
+
+        WorkspaceAction<NewWindowRequest> create = Assert.Single(plan.Actions.OfType<WorkspaceAction<NewWindowRequest>>(),
+            action => action.Kind == WorkspaceActionKind.CreateWindow);
+        Assert.Equal("5", create.Request.Index);
+        Assert.DoesNotContain(plan.Actions, action => action.Kind is WorkspaceActionKind.MoveToBaseIndex
+            or WorkspaceActionKind.MoveToWindowIndex);
+
+        WorkspaceResult result = await builder.ApplyAsync(plan, token);
+        Assert.Equal(5, Assert.Single(result.Windows).Index);
+        Assert.Contains(await result.Session.GetWindowsAsync(token), window => window.Id == original.Id
+            && window.Index == original.Index);
+    }
+
+    [UnixFact]
+    public async Task Appending_at_an_occupied_index_preserves_the_existing_window()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(HarnessOptions(), token);
+        Session existing = await scope.Server.CreateSessionAsync(new NewSessionRequest
+        {
+            Name = "occupied-placement",
+            Command = "exec /bin/cat",
+        }, token);
+        Window original = Assert.Single(await existing.GetWindowsAsync(token));
+        Pane originalPane = Assert.Single(await original.GetPanesAsync(token));
+        WorkspaceFile workspace = new("occupied-placement",
+            windows: [new WorkspaceWindow("replacement", windowIndex: original.Index)]);
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(workspace, new()
+        {
+            ExistingSession = WorkspaceExistingSession.Append,
+            CompensateOnFailure = true,
+        }, token);
+
+        WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(
+            () => builder.ApplyAsync(plan, token));
+
+        TmuxCommandException native = Assert.IsType<TmuxCommandException>(failure.InnerException);
+        Assert.NotEqual(0, native.Result.ExitCode);
+        WorkspaceActionOutcome create = Assert.Single(failure.Journal,
+            outcome => outcome.Action.Kind == WorkspaceActionKind.CreateWindow);
+        Assert.Equal(WorkspaceActionState.Failed, create.State);
+        Assert.Equal(TmuxDispatchState.Dispatched, create.Dispatch);
+        Assert.Same(native, create.Failure);
+        Assert.Equal(existing.Id, Assert.IsType<WorkspaceResult>(failure.PartialResult).Session.Id);
+        Assert.Empty(failure.PartialResult.Windows);
+        WorkspaceActionOutcome cleanup = Assert.Single(failure.CompensationJournal);
+        Assert.Equal(WorkspaceActionKind.UnlinkWindow, cleanup.Action.Kind);
+        Assert.Equal(WorkspaceActionState.NotStarted, cleanup.State);
+
+        Window preserved = Assert.Single(await existing.GetWindowsAsync(token));
+        Assert.Equal(original.Id, preserved.Id);
+        Assert.Equal(original.Index, preserved.Index);
+        Assert.Equal(originalPane.Id, Assert.Single(await preserved.GetPanesAsync(token)).Id);
+        Assert.Equal(existing.Id, Assert.Single(await scope.Server.GetSessionsAsync(token)).Id);
+    }
+
     // A session the builder creates is 80x24, and halving the previous pane
     // in turn runs out of rows before the fifth. Rebalancing between splits
     // is what the CLI learned; the library builds the same window.

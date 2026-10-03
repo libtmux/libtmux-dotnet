@@ -36,8 +36,9 @@ LibTmux.Workspace.WorkspaceWindow.Layout.get -> string?
 LibTmux.Workspace.WorkspaceWindow.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 LibTmux.Workspace.WorkspaceWindow.Panes.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspacePane!>!
 LibTmux.Workspace.WorkspaceWindow.StartDirectory.get -> string?
+LibTmux.Workspace.WorkspaceWindow.WindowIndex.get -> int?
 LibTmux.Workspace.WorkspaceWindow.WindowName.get -> string?
-LibTmux.Workspace.WorkspaceWindow.WorkspaceWindow(string? windowName = null, string? startDirectory = null, string? layout = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspacePane!>? panes = null) -> void
+LibTmux.Workspace.WorkspaceWindow.WorkspaceWindow(string? windowName = null, string? startDirectory = null, string? layout = null, bool focus = false, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? options = null, System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspacePane!>? panes = null, int? windowIndex = null) -> void
 override LibTmux.Workspace.WorkspaceResult.Equals(object? obj) -> bool
 override LibTmux.Workspace.WorkspaceResult.GetHashCode() -> int
 override LibTmux.Workspace.WorkspaceResult.ToString() -> string!
@@ -162,5 +163,6 @@ LibTmux.Workspace.WorkspacePlan.CleanupTimeout.get -> System.TimeSpan
 LibTmux.Workspace.WorkspaceActionKind.CaptureResult = 18 -> LibTmux.Workspace.WorkspaceActionKind
 LibTmux.Workspace.WorkspacePlan.SessionName.get -> string!
 LibTmux.Workspace.WorkspaceActionKind.ArrangePanes = 19 -> LibTmux.Workspace.WorkspaceActionKind
+LibTmux.Workspace.WorkspaceActionKind.MoveToWindowIndex = 20 -> LibTmux.Workspace.WorkspaceActionKind
 static LibTmux.Workspace.WorkspaceBuilder.Validate(LibTmux.Workspace.WorkspaceFile! workspace, LibTmux.Workspace.WorkspacePlanOptions? options = null) -> void
 static LibTmux.Workspace.WorkspaceFile.FromSnapshot(LibTmux.Session! session) -> LibTmux.Workspace.WorkspaceFile!

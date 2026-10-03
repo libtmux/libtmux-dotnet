@@ -220,6 +220,11 @@ creates the described first window under them, and removes the bootstrap.
 tmux hooks can observe that extra window lifecycle. A missing session name or
 empty window list raises `WorkspaceFormatException` before creating anything.
 
+Set `window_index` in YAML or `WorkspaceWindow(windowIndex: 5)` in C# to request
+a nonnegative session-relative index. Omit it to use tmux's next free index.
+Duplicate requested indexes fail local validation; an index occupied by another
+window fails during application.
+
 ## Keep a captured session's structure
 
 `FromSnapshot` converts an already captured session locally. Capture through
@@ -234,14 +239,16 @@ WorkspaceFile resolved = frozen.Resolve("/tmp");
 Console.WriteLine($"{resolved.SessionName}: {resolved.Windows.Count} windows");
 ```
 
-The declaration preserves window and pane order, names, layouts, pane directories,
-and selected window and pane flags. Each linked window placement becomes a
-separate declared window. Literal dollars in captured paths are escaped for
-`Resolve`; a captured null path stays unspecified. Conversion supplies no document
-origin, so choose one explicitly before planning or exporting resolved paths.
+The declaration preserves window and pane order, window indexes, names,
+layouts, pane directories, and selected window and pane flags. Each linked
+window placement becomes a separate declared window. Literal dollars in
+captured paths are escaped for `Resolve`; a captured null path stays
+unspecified. Conversion supplies no document origin, so choose one explicitly
+before planning or exporting resolved paths.
 
 This is a starting declaration, not a process checkpoint. It omits commands,
-environment, options, terminal text, entity IDs, indices, and shared-link identity.
+environment, options, terminal text, entity IDs, pane indices, and shared-link
+identity.
 A foreground command name cannot recover the shell command that started it.
 Applying a native custom layout can rotate which pane occupies each position;
 the layout text does not establish a mapping from old panes to new processes.
@@ -249,10 +256,11 @@ the layout text does not establish a mapping from old panes to new processes.
 ## What is in scope
 
 This reads a closed tmuxp subset: session name, start directory, options at
-session/window/pane scope, windows, panes, layouts, focus, environment and scalar or ordered
-`shell_command` and `shell_command_before` values. `before_script` runs on the
-host only when the plan enables `AllowHostScripts`; resolve the declaration
-against its document directory first. `HostScriptTimeout` and
+session/window/pane scope, windows, window indexes, panes, layouts, focus,
+environment, and scalar or ordered `shell_command` and `shell_command_before`
+values. `before_script` runs on the host only when the plan enables
+`AllowHostScripts`. Resolve the declaration against its document directory
+first. `HostScriptTimeout` and
 `MaxHostOutputBytes` bound host execution and its combined captured output.
 Linux cleanup uses pinned process handles when available; otherwise it uses
 .NET's best-effort tree cleanup, and an observed loss of descendant coverage

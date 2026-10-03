@@ -5,6 +5,36 @@ namespace LibTmux.IntegrationTests;
 public sealed class WorkspaceFileTests
 {
     [Fact]
+    public void Window_index_survives_parse_defaults_and_resolution()
+    {
+        WorkspaceFile yaml = WorkspaceFile.Parse("session_name: placed\nwindows:\n  - window_index: 5\n");
+        WorkspaceFile json = WorkspaceFile.Parse("{\"session_name\":\"placed\",\"windows\":[{\"window_index\":5}]}");
+
+        Assert.Equal(5, Assert.Single(yaml.Windows).WindowIndex);
+        Assert.Equal(5, Assert.Single(json.Windows).WindowIndex);
+        Assert.Equal(5, Assert.Single(yaml.WithDefaults().Resolve(Path.GetTempPath()).Windows).WindowIndex);
+        Assert.Null(Assert.Single(WorkspaceFile.Parse("windows:\n  - window_name: automatic\n").Windows).WindowIndex);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("2147483648")]
+    [InlineData("null")]
+    public void Invalid_window_indexes_report_the_value_location(string value)
+    {
+        WorkspaceFormatException failure = Assert.Throws<WorkspaceFormatException>(() =>
+            WorkspaceFile.Parse($"windows:\n  - window_index: {value}\n"));
+
+        Assert.Contains("windows[0].window_index", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("line 2, column", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Native_window_index_must_be_nonnegative() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WorkspaceWindow(windowIndex: -1));
+
+    [Fact]
     public void Pane_options_parse_and_survive_immutable_resolution()
     {
         const string yaml = "windows:\n  - panes:\n      - options:\n          remain-on-exit: 'on'\n";

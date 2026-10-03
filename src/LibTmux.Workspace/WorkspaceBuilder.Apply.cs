@@ -222,8 +222,11 @@ public sealed partial class WorkspaceBuilder
                     return null;
                 }
             case WorkspaceActionKind.MoveToBaseIndex:
+            case WorkspaceActionKind.MoveToWindowIndex:
                 {
-                    string index = await ReadOptionAsync(state.Get<Session>(action.SourceTarget!).Options, "base-index", false, token).ConfigureAwait(false);
+                    string index = action.Kind == WorkspaceActionKind.MoveToBaseIndex
+                        ? await ReadOptionAsync(state.Get<Session>(action.SourceTarget!).Options, "base-index", false, token).ConfigureAwait(false)
+                        : ((WorkspaceAction<int>)action).Request.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     WindowId id = state.Get<Window>(action.Target).Id;
                     Window window = (await state.Get<Session>(action.SourceTarget!).GetWindowsAsync(token).ConfigureAwait(false))
                         .Single(candidate => candidate.Id == id);

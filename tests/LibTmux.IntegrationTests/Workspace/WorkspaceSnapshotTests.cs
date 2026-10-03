@@ -25,6 +25,7 @@ public sealed class WorkspaceSnapshotTests
         Assert.Empty(workspace.ShellCommandsBefore);
         WorkspaceWindow window = Assert.Single(workspace.Windows);
         Assert.Equal("editor", window.WindowName);
+        Assert.Equal(0, window.WindowIndex);
         Assert.Equal("even-horizontal", window.Layout);
         Assert.True(window.Focus);
         Assert.Null(window.StartDirectory);
@@ -91,6 +92,7 @@ public sealed class WorkspaceSnapshotTests
             Assert.Equal(raw.SessionName, frozen.SessionName);
             Assert.Null(frozen.DocumentDirectory);
             Assert.Equal(["editor", "middle", "editor"], frozen.Windows.Select(window => window.WindowName));
+            Assert.Equal([0, 3, 7], frozen.Windows.Select(window => window.WindowIndex));
             Assert.Equal([false, false, true], frozen.Windows.Select(window => window.Focus));
             Assert.Equal(session.Windows.Select(window => window.Layout), frozen.Windows.Select(window => window.Layout));
             Assert.All(new[] { frozen.Windows[0], frozen.Windows[2] }, window =>
