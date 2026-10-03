@@ -310,6 +310,7 @@ module PaneFields =
     let dead = Field<LibTmux.Pane, bool>("pane_dead")
     let inMode = Field<LibTmux.Pane, bool>("pane_in_mode")
     let processId = Field<LibTmux.Pane, int>("pane_pid")
+    let synchronized = Field<LibTmux.Pane, bool>("pane_synchronized")
 
 [<RequireQualifiedAccess>]
 module ClientFields =

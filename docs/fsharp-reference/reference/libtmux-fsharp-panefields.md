@@ -148,6 +148,16 @@ Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L312)
 
+<a name="synchronized"></a>
+
+#### <code><span>PaneFields.synchronized&#32;<span></span></span></code>
+
+Identifies whether keys typed into the pane go to every synchronized pane in its window.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Pane,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L313)
+
 <a name="title"></a>
 
 #### <code><span>PaneFields.title&#32;<span></span></span></code>

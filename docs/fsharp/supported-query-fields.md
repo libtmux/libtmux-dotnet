@@ -296,6 +296,15 @@ captured-object properties. They have no portable descriptor.
 - Required depth: `Panes`
 - Schema version: `1`
 
+### `PaneFields.synchronized`
+
+- Core property: `Pane.Synchronized`
+- Wire name: `pane_synchronized`
+- Value type: `bool`
+- Operators: `eq`, `ne`, `oneOf`, `notOneOf`
+- Required depth: `Panes`
+- Schema version: `1`
+
 ## Clients
 
 ### `ClientFields.name`
