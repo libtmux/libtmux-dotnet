@@ -189,7 +189,7 @@ def render(record: dict) -> str:
 # 28 times fewer bytes allocated, so missing either bar means pushdown stopped
 # narrowing the listing rather than a noisy runner.
 PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
-MINIMUM_SPEEDUP = 2.0
+MINIMUM_SPEEDUP = 3.0
 
 
 def gate(record: dict) -> list[str]:
