@@ -607,8 +607,8 @@ internal static class PaneRunner
             }
 
             // A command that never reaches the wrapper's tail, interrupted or
-            // endless, sets no status. Past the limit it is left to run, and
-            // tmux removes a status it sets later on its own schedule.
+            // endless, sets no status. Past the limit it is left to run; a
+            // status it sets later stays on the pane.
             if (followed.Elapsed >= followLimit)
             {
                 completed?.Invoke();

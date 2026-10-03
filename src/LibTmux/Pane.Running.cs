@@ -38,10 +38,11 @@ public sealed partial class Pane
     /// option and signals a private <c>wait-for</c> channel.
     /// </para>
     /// <para>
-    /// A command that outlasts the timeout keeps running. It is followed for up
-    /// to a minute longer, so its option and file are removed when it ends;
-    /// after that tmux removes the option itself. Do not start another command
-    /// in the same pane before it ends: the shell would read both.
+    /// A command that outlasts the timeout keeps running. It is followed for a
+    /// minute more, so its option and file are removed when it ends; one still
+    /// running then leaves its status option on the pane when it finishes. Do not
+    /// start another command in the same pane before it ends: the shell would
+    /// read both.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
@@ -78,7 +79,7 @@ public sealed partial class Pane
                 request.Timeout,
                 request.KeepOutOfHistory,
                 request.Timeout + FollowAfterTimeout,
-                new PaneRunHooks { FollowLimit = request.Timeout + FollowAfterTimeout },
+                new PaneRunHooks { FollowLimit = FollowAfterTimeout },
                 PaneReader.Failure,
                 cancellationToken)
             .ConfigureAwait(false);
