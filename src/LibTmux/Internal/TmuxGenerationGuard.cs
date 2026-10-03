@@ -80,12 +80,6 @@ internal sealed partial class TmuxGenerationGuard(
         return TmuxCommandResultProjection.Remap(grouped, logicalArguments, remainingOutput);
     }
 
-    internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(mismatchCommand);
-        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}", string.Empty, mismatchCommand];
-    }
-
     // The planner budgets the same encoded request used by dispatch. The
     // native connection owns its fixed-length marker; custom markers are an
     // internal test seam.
@@ -105,6 +99,11 @@ internal sealed partial class TmuxGenerationGuard(
     private static string GenerationText(ServerGeneration expected) =>
         $"{expected.ProcessId.ToString(CultureInfo.InvariantCulture)}:"
         + expected.StartTime.ToString(CultureInfo.InvariantCulture);
+    internal static IReadOnlyList<string> Conditional(ServerGeneration expected, string mismatchCommand)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mismatchCommand);
+        return ["if-shell", "-F", $"#{{==:{TmuxConnection.GenerationFormat},{GenerationText(expected)}}}", string.Empty, mismatchCommand];
+    }
 
     private static bool TryStripGenerationPrefix(
         ReadOnlySpan<byte> standardOutput,

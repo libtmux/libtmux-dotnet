@@ -1163,7 +1163,7 @@ modes differ.
 | `LibTmux.TmuxEventsDroppedEvent.Count` | The events discarded since the previous loss report. |
 | `LibTmux.TmuxEventsDroppedEvent.OnlyOutput` | Gets whether every discarded event was pane output, so notifications about sessions, windows and layout since the previous report all arrived. |
 | `LibTmux.TmuxEventsDroppedEvent.TotalDropped` | The events discarded over this control client's lifetime. |
-| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null there is tmux's own silence, not something this library failed to capture. |
+| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null can also mean the reason exceeded the event buffer's byte limit; a preceding dropped-event notice reports that loss. |
 | `LibTmux.TmuxHook.Name` | Gets the hook name, without an index. |
 | `LibTmux.TmuxHook.Values` | Gets the commands it runs, in the order tmux reported. |
 | `LibTmux.TmuxHookEntry.Command` | Gets the tmux command, as tmux prints it. |

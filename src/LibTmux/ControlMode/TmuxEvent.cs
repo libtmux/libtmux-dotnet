@@ -64,8 +64,9 @@ public sealed record TmuxPaneContinuedEvent(PaneId PaneId) : TmuxEvent;
 /// Why tmux said it ended, when it said anything. It is silent for an ordinary
 /// exit. For an abnormal one tmux sometimes names a reason and sometimes does
 /// not: a server another client killed, for one, sends a bare <c>%exit</c>
-/// with none. A null <see cref="Reason" /> there is tmux's own silence, not
-/// something this library failed to capture.
+/// with none. A null <see cref="Reason" /> can also mean the reason exceeded
+/// the event buffer's byte limit; a preceding dropped-event notice reports
+/// that loss.
 /// </param>
 /// <remarks>
 /// This is always the last event, and the event stream completes after it.

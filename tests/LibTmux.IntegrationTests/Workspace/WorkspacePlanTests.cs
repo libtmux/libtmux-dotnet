@@ -202,6 +202,31 @@ public sealed class WorkspacePlanTests
         }, plan.CompensationActions.Select(action => action.Kind));
     }
 
+    [UnixFact]
+    public async Task Version_sensitive_layouts_are_checked_before_planning_workspace_actions()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(), token);
+        _ = await scope.Server.CreateSessionAsync(new() { Name = "sentinel", Command = "exec /bin/cat" }, token);
+        Server observed = Assert.IsType<Server>(await scope.Server.InspectAsync(token));
+        WorkspaceFile workspace = new("planned", windows:
+            [new WorkspaceWindow(layout: "main-h", panes: [new WorkspacePane(), new WorkspacePane()])]);
+        WorkspaceBuilder.Validate(workspace);
+
+        if (observed.DaemonVersion!.Value.CompareTo(TmuxVersion.Parse("3.5")) >= 0)
+        {
+            await Assert.ThrowsAsync<WorkspaceFormatException>(() =>
+                new WorkspaceBuilder(scope.Server).PlanAsync(workspace, cancellationToken: token));
+        }
+        else
+        {
+            WorkspacePlan plan = await new WorkspaceBuilder(scope.Server).PlanAsync(workspace, cancellationToken: token);
+            Assert.Contains(plan.Actions, action => action.Kind == WorkspaceActionKind.SelectLayout);
+        }
+
+        Assert.Equal("sentinel", Assert.Single(await scope.Server.GetSessionsAsync(token)).Name);
+    }
+
     private static TmuxTestOptions Options() => new(new ServerConnectionOptions
     {
         TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
