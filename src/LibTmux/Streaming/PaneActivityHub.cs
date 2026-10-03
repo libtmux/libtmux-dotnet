@@ -43,6 +43,12 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     /// <param name="logger">Records why a control client could not start.</param>
     public PaneActivityHub(ILogger? logger = null) => _logger = logger;
 
+    private const string PaneDeadSubscription = "libtmux-pane-dead";
+
+    /// <summary>Gets the hub the library's own pane waits share.</summary>
+    /// <remarks>Each watch is released when its wait ends, so nothing stays attached.</remarks>
+    internal static PaneActivityHub Shared { get; } = new();
+
     internal PaneActivityHub(
         Func<Pane, CancellationToken, Task<IControlModeSession>> startPaneSession,
         ILogger? logger = null)
@@ -351,6 +357,14 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                     cancellationToken)
                     .ConfigureAwait(false);
 
+                // A program exiting writes nothing, so output alone would let
+                // a wait on a dead pane sleep to its deadline. tmux re-checks
+                // subscriptions once a second and reports each change.
+                await starting.SendAsync(
+                    TmuxCommand.Create("refresh-client", "-B", $"{PaneDeadSubscription}:%*:#{{pane_dead}}"),
+                    cancellationToken)
+                    .ConfigureAwait(false);
+
                 // Recorded so a client listing can tell this observer apart
                 // from one a human actually attached - tmux counts both the
                 // same way, and a wait or a capture must never read as a
@@ -448,6 +462,21 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                     {
                         case TmuxOutputEvent output:
                             OnPaneOutput(output.PaneId);
+                            break;
+                        case TmuxNotificationEvent { Name: "subscription-changed" } changed
+                            when changed.Arguments is [PaneDeadSubscription, ..]:
+                            foreach (string argument in changed.Arguments)
+                            {
+                                if (argument.StartsWith('%') && PaneId.TryParse(argument, out PaneId pane))
+                                {
+                                    OnPaneOutput(pane);
+                                }
+                            }
+
+                            break;
+                        case TmuxNotificationEvent { Name: "layout-change" or "window-close" or "unlinked-window-close" }:
+                            // A closed pane leaves no subscription value behind to change.
+                            OnSessionChanged();
                             break;
                         case TmuxExitEvent exit when hub._logger is not null:
                             LogControlClientEnded(hub._logger, key.SessionId, exit.Reason);
@@ -595,6 +624,17 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             lock (_signalGate)
             {
                 if (_signals.TryGetValue(paneId, out PaneSignal? signal))
+                {
+                    signal.Fire();
+                }
+            }
+        }
+
+        private void OnSessionChanged()
+        {
+            lock (_signalGate)
+            {
+                foreach (PaneSignal signal in _signals.Values)
                 {
                     signal.Fire();
                 }

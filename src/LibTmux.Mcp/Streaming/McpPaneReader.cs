@@ -25,7 +25,7 @@ internal static class McpPaneReader
         CancellationToken cancellationToken) =>
         PaneReader.ReadSinceAsync(pane, cursor, Failure, cancellationToken);
 
-    private static McpException Failure(PaneReadFailure failure, Pane pane) => new(
+    internal static McpException Failure(PaneReadFailure failure, Pane pane) => new(
         failure switch
         {
             PaneReadFailure.Dead => $"Pane {pane.Id} is dead: the program in it has exited. "

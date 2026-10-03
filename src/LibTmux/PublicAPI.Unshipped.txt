@@ -604,6 +604,8 @@ LibTmux.Pane.SplitAsync(LibTmux.SplitPaneRequest? request = null, System.Threadi
 LibTmux.Pane.SwapAsync(LibTmux.SwapPaneRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.Title.get -> string?
 LibTmux.Pane.Top.get -> int
+LibTmux.Pane.WaitForTextAsync(LibTmux.PaneWaitRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
+LibTmux.Pane.WaitForTextAsync(string! text, System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult!>!
 LibTmux.Pane.Width.get -> int
 LibTmux.Pane.Window.get -> LibTmux.Window!
 LibTmux.PaneDirection
@@ -630,6 +632,36 @@ LibTmux.PaneSelectDirection.Up = 0 -> LibTmux.PaneSelectDirection
 LibTmux.PaneSwapDirection
 LibTmux.PaneSwapDirection.Down = 1 -> LibTmux.PaneSwapDirection
 LibTmux.PaneSwapDirection.Up = 0 -> LibTmux.PaneSwapDirection
+LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.AlternateScreen = 6 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.AnyOutput = 2 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.Matched = 0 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.PaneExited = 5 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.PresentAtEntry = 1 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.Stopped = 3 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitOutcome.TimedOut = 4 -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitRequest
+LibTmux.PaneWaitRequest.<Clone>$() -> LibTmux.PaneWaitRequest!
+LibTmux.PaneWaitRequest.Equals(LibTmux.PaneWaitRequest? other) -> bool
+LibTmux.PaneWaitRequest.PaneWaitRequest() -> void
+LibTmux.PaneWaitRequest.Patterns.get -> System.Collections.Generic.IReadOnlyList<System.Text.RegularExpressions.Regex!>!
+LibTmux.PaneWaitRequest.Patterns.init -> void
+LibTmux.PaneWaitRequest.StopPatterns.get -> System.Collections.Generic.IReadOnlyList<System.Text.RegularExpressions.Regex!>!
+LibTmux.PaneWaitRequest.StopPatterns.init -> void
+LibTmux.PaneWaitRequest.Timeout.get -> System.TimeSpan
+LibTmux.PaneWaitRequest.Timeout.init -> void
+LibTmux.PaneWaitResult
+LibTmux.PaneWaitResult.<Clone>$() -> LibTmux.PaneWaitResult!
+LibTmux.PaneWaitResult.Deconstruct(out LibTmux.PaneWaitOutcome Outcome, out string? Pattern, out System.TimeSpan Elapsed) -> void
+LibTmux.PaneWaitResult.Elapsed.get -> System.TimeSpan
+LibTmux.PaneWaitResult.Elapsed.init -> void
+LibTmux.PaneWaitResult.Equals(LibTmux.PaneWaitResult? other) -> bool
+LibTmux.PaneWaitResult.Found.get -> bool
+LibTmux.PaneWaitResult.Outcome.get -> LibTmux.PaneWaitOutcome
+LibTmux.PaneWaitResult.Outcome.init -> void
+LibTmux.PaneWaitResult.PaneWaitResult(LibTmux.PaneWaitOutcome Outcome, string? Pattern, System.TimeSpan Elapsed) -> void
+LibTmux.PaneWaitResult.Pattern.get -> string?
+LibTmux.PaneWaitResult.Pattern.init -> void
 LibTmux.PasteBufferRequest
 LibTmux.PasteBufferRequest.<Clone>$() -> LibTmux.PasteBufferRequest!
 LibTmux.PasteBufferRequest.Bracketed.get -> bool
@@ -1518,6 +1550,16 @@ override LibTmux.AttachSessionRequest.ToString() -> string!
 override LibTmux.BindKeyRequest.Equals(object? obj) -> bool
 override LibTmux.BindKeyRequest.GetHashCode() -> int
 override LibTmux.BindKeyRequest.ToString() -> string!
+override LibTmux.PaneWaitRequest.Equals(object? obj) -> bool
+override LibTmux.PaneWaitRequest.GetHashCode() -> int
+override LibTmux.PaneWaitRequest.ToString() -> string!
+override LibTmux.PaneWaitResult.Equals(object? obj) -> bool
+override LibTmux.PaneWaitResult.GetHashCode() -> int
+override LibTmux.PaneWaitResult.ToString() -> string!
+static LibTmux.PaneWaitRequest.operator !=(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
+static LibTmux.PaneWaitRequest.operator ==(LibTmux.PaneWaitRequest? left, LibTmux.PaneWaitRequest? right) -> bool
+static LibTmux.PaneWaitResult.operator !=(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
+static LibTmux.PaneWaitResult.operator ==(LibTmux.PaneWaitResult? left, LibTmux.PaneWaitResult? right) -> bool
 ~override LibTmux.CapturePanePosition.Equals(object obj) -> bool
 override LibTmux.CapturePanePosition.GetHashCode() -> int
 ~override LibTmux.CapturePanePosition.ToString() -> string
