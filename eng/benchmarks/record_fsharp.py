@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import pathlib
 import statistics
 import subprocess
@@ -94,7 +95,11 @@ def collect(reports: list[pathlib.Path], tmux_version: str, collected: str) -> d
 def scaled(value_ns: float, divisor: float) -> str:
     """Format a time at three significant figures in the class's unit, never in exponent form."""
     value = value_ns / divisor
-    return f"{value:,.0f}" if value >= 100 else f"{value:.3g}"
+    if value >= 100:
+        return f"{value:,.0f}"
+    text = f"{value:.3g}"
+    # A case far faster than its class's median would otherwise read 4e-05.
+    return f"{value:.{2 - math.floor(math.log10(value))}f}" if "e" in text else text
 
 
 def render(record: dict) -> str:

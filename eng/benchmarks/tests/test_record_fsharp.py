@@ -50,3 +50,8 @@ def test_each_class_reads_in_the_unit_its_median_needs(tmp_path: pathlib.Path, m
     assert "| Fold | 42 | 43.8 | 44 | 1,200 B | 3 |" in rendered
     assert "## Slow" in rendered and "| Case | Median ms |" in rendered
     assert "| FindTailPanes (Route=pushdown) | 5 | 5.9 | 6 | 1,200 B | 3 |" in rendered
+
+
+def test_a_case_far_below_its_class_unit_reads_without_an_exponent() -> None:
+    assert record_fsharp.scaled(40.0, 1_000_000.0) == "0.0000400"
+    assert record_fsharp.scaled(1_500.0, 1_000.0) == "1.5"
