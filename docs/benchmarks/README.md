@@ -10,6 +10,7 @@ Nothing here is a promise about your machine.
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 | 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
+| 2026-10-03 | 3.7c | `0.0.0-alpha.17` + F# branch, hosted runner | [F# costs including the pane watch](runs/2026-10-03-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -246,6 +247,14 @@ session, and only the matching sessions are captured. Two identical local
 routes for that query differ by half, which is the run-to-run noise of a
 process start under load.
 
+The [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md), from a GitHub
+runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
+took 9.2 ms pushed down against 82 ms for a full listing and 169 ms for a
+snapshot, and the session query 36 ms against 179 ms and 176 ms. Its two
+local session routes agree within 2%, where the workstation's differed by
+half. A pull request's run records the merge commit GitHub tested, so its
+commit is not on the branch.
+
 ```console
 $ dotnet run \
     --project benchmarks/LibTmux.Benchmarks \
@@ -273,6 +282,11 @@ hand and once through `Control.watchPanes`. Both must count the same output
 before timing. The watch also asks whether each watched pane still exists
 when it starts and after each layout change; the synthetic client answers at
 once, and against a real server each answer is one tmux round trip.
+
+In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
+about 1 µs for every count of panes, and the watch 4.3 µs for one pane, 5.2 µs
+for two and 10.8 µs for eight: about 0.9 µs for each pane checked, on top of a
+fixed 3.4 µs, across 256 events.
 
 ## Hosted runs
 
