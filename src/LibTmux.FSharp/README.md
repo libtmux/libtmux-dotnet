@@ -64,8 +64,9 @@ cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
-the command's exit status and the lines it printed. The quick start below runs
-these steps against an isolated tmux server.
+the command's exit status and the lines it printed. `server` comes from
+`Server.connect` for a tmux already running, or from `Server.createOwned`,
+which the quick start below uses to run these steps on an isolated server.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -73,15 +74,28 @@ targets `net8.0` and `net10.0`.
 
 ## Choose a call
 
+### Connect
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
+| Attach to a running server | `options \|> Server.connect ct` | `Server` |
+| Bound every command's time | `Server.within timeout server` | `Server` |
+
+### Find
+
 | Need | F# call | Returns |
 | --- | --- | --- |
 | List and filter | `Server.panes server \|> Query.where filter \|> Query.list ct`; `Session.panes`, `Window.panes` for one scope | `IReadOnlyList<Pane>` |
 | Panes showing some text | `Server.panes server \|> Query.showing search \|> Query.list ct` | `IReadOnlyList<Pane>` |
-| Exactly one match | `Query.exactlyOne ct query` | `Result<'T, CardinalityError>` |
+| Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
-| Start a server you own | `options \|> Server.createOwned ct` | `OwnedServerScope` to `use!` |
-| Attach to a running server | `options \|> Server.connect ct` | `Server` |
+
+### Type, wait and run
+
+| Need | F# call | Returns |
+| --- | --- | --- |
 | Type a line, or press a key | `Pane.sendLine ct line pane`; `Pane.pressKey ct "C-c" pane` | `Task` |
 | Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
@@ -89,17 +103,33 @@ targets `net8.0` and `net10.0`.
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
 | Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |
 | Find text on one screen | `Pane.findOnScreen ct search pane` | row `int option` |
+
+### Build
+
+| Need | F# call | Returns |
+| --- | --- | --- |
 | Split a pane | `Pane.split ct request pane` | the new `Pane` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |
-| Bound every command's time | `Server.within timeout server` | `Server` |
 | Read or set a typed option | `Options.get ct key options` | the key's value type |
-| Tell failures apart | `TmuxFailure.NotSent`, `Ran`, `MayHaveRun` | active patterns |
-| Retry only unsent work | `Retry.ifNotSent ct retries operation`, or `Retry.ifNotSentAfter ct delays operation` | the operation's result |
+
+### Observe
+
+| Need | F# call | Returns |
+| --- | --- | --- |
 | A whole object graph | `Server.capture ct depth server` | snapshot `Server` |
 | Live server state | `Mirror.start ct session` | `ServerMirror` |
 | Events as they happen | `Control.withSession ct work server` | cold `IAsyncEnumerable` streams |
 | An assistant on the same tmux | the `LibTmux.Mcp` server | [MCP guide](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/mcp.md) |
+
+### Recover
+
+| Need | F# call | Returns |
+| --- | --- | --- |
+| Tell failures apart | `TmuxFailure.NotSent`, `Ran`, `MayHaveRun` | active patterns |
+| Retry only unsent work | `Retry.ifNotSent ct retries operation`, or `Retry.ifNotSentAfter ct delays operation` | the operation's result |
+
+### Caveats
 
 - **Queries:** tmux narrows each listing where it can, and every row is
   rechecked. `Query.atMostOne` and `Query.tryExactlyOne` publish under
