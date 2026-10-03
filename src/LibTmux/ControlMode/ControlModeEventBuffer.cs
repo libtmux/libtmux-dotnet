@@ -90,13 +90,17 @@ internal sealed class ControlModeEventBuffer
     private void Discard()
     {
         _dropped++;
+        // The pane with the most output waiting, and of those the one whose
+        // oldest output is oldest, so a tie never depends on dictionary order.
         PaneId? flooding = null;
         int most = 0;
+        long oldest = long.MaxValue;
         foreach ((PaneId pane, Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> waiting) in _outputs)
         {
-            if (waiting.Count > most)
+            long first = waiting.Peek().Value.Sequence;
+            if (waiting.Count > most || (waiting.Count == most && first < oldest))
             {
-                (flooding, most) = (pane, waiting.Count);
+                (flooding, most, oldest) = (pane, waiting.Count, first);
             }
         }
 

@@ -90,6 +90,26 @@ public sealed class ControlModeEventBufferTests
     }
 
     [Fact]
+    public async Task Panes_with_equal_output_lose_the_oldest_first()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(capacity: 3, outputDiscarded: discarded.Add);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "a")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "b")));
+        await using IAsyncEnumerator<TmuxEvent> reader = buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
+        Assert.True(await reader.MoveNextAsync());
+
+        // Pane 1 returns to the index after pane 2, holding newer output.
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "c")));
+        Assert.True(buffer.TryWrite(Notification("window-add")));
+        Assert.True(buffer.TryWrite(Notification("layout-change")));
+        buffer.Complete();
+
+        Assert.Equal([new PaneId(2)], discarded);
+    }
+
+    [Fact]
     public async Task Stopping_after_loss_leaves_the_first_retained_event_for_the_next_reader()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
