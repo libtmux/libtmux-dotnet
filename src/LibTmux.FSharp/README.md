@@ -153,11 +153,12 @@ let runAsync () =
         let! server = LibTmux.Server.ConnectAsync(options, token)
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
+        // atMostOne is None when nothing matches and raises when several do.
         let! build =
             server
             |> Server.sessions
             |> Query.where (SessionFields.name |> Filter.eq "build")
-            |> Query.exactlyOne token
+            |> Query.atMostOne token
 
         let! others =
             server
@@ -165,25 +166,25 @@ let runAsync () =
             |> Query.where (SessionFields.name |> Filter.ne "build")
             |> Query.list token
 
-        let session =
-            build
-            |> Result.defaultWith (fun error -> failwithf "Expected one build session: %A" error)
-
-        let! panes = session |> Session.panes |> Query.list token
-        let pane = panes[0]
-
-        // Type a command and wait for what it prints, not for its echo.
-        let! started =
-            pane
-            |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
-
-        // Run a command to its exit status and read what it printed.
-        let! result =
-            pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
-
         printfn "other sessions: %s" (String.Join(", ", [ for session in others -> session.Name ]))
-        printfn "wait found: %b" started.Found
-        printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
+
+        match build with
+        | None -> printfn "no build session"
+        | Some session ->
+            let! panes = session |> Session.panes |> Query.list token
+            let pane = panes[0]
+
+            // Type a command and wait for what it prints, not for its echo.
+            let! started =
+                pane
+                |> Pane.sendAndWait token (TimeSpan.FromSeconds 10.) "echo build started" "build started"
+
+            // Run a command to its exit status and read what it printed.
+            let! result =
+                pane |> Pane.run token (TimeSpan.FromSeconds 10.) "printf 'ok\\n'; exit 3"
+
+            printfn "wait found: %b" started.Found
+            printfn "run: exit %d, output %A" result.ExitStatus.Value (List.ofSeq result.Output)
     }
 
 runAsync().GetAwaiter().GetResult()

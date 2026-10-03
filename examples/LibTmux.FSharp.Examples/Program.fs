@@ -266,17 +266,21 @@ let private runAsync () =
         if history <> 50_000 || stage <> "build" then
             failwithf "The typed option guide read back %d and %s." history stage
 
-        let! indexedOption, inheritedOption, hookIndex, renderedFormat =
+        let! settings =
             GuideSnippets.inspectCoreSettingsAsync cancellationToken scope.Server scope.Session
 
-        printfn
-            "Core interop: command-alias[%d], inherited status-keys=%s, hook[%d], %s"
-            indexedOption
-            inheritedOption
-            hookIndex
-            renderedFormat
+        match settings.Rendered with
+        | Some [ rendered ] when
+            settings.StatusKeys = [ "vi", true ]
+            && settings.Alias = Some "fsharp-window=new-window"
+            && settings.HookIndexes = [ 3 ]
+            && settings.Variable = Some "ready"
+            && rendered.StartsWith("fsharp-", StringComparison.Ordinal)
+            ->
+            printfn "Core interop: command-alias[40], inherited status-keys=vi, hook[3], %s" rendered
+        | _ -> failwithf "The core interop guide observed %A." settings
 
-        do!
+        let! operations =
             GuideSnippets.exerciseCoreOperationsAsync
                 cancellationToken
                 scope.Server
@@ -284,7 +288,36 @@ let private runAsync () =
                 scope.Window
                 scope.Pane
 
-        do! GuideSnippets.exerciseWindowInputAsync cancellationToken scope.Session
+        if
+            operations.Moved.Id <> scope.Window.Id
+            || operations.Moved.Index <> 3
+            || operations.Remaining.Count <> 1
+            || operations.Remaining[0].Id <> scope.Window.Id
+            || operations.LaidOut.Id <> scope.Window.Id
+            || operations.Resized.Id <> operations.Split.Id
+            || operations.Resized.Height < 1
+            || operations.Buffer <> "fsharp-ready"
+            || operations.InModeWhileCopying <> "1"
+            || operations.InModeAfter <> "0"
+        then
+            failwith "The core operations guide did not link, move, lay out, buffer and copy as shown."
+
+        let! input = GuideSnippets.exerciseWindowInputAsync cancellationToken scope.Session
+
+        let literal (command: string list) = List.contains "-l" command
+
+        match input.Literal, input.KeyName, input.TextThenEnter with
+        | [ typed ], [ pressed ], [ text; enter ] when
+            input.Window.Name = "fsharp-input"
+            && input.Panes = 1
+            && literal typed
+            && not (literal pressed)
+            && literal text
+            && not (literal enter)
+            && List.last enter = "Enter"
+            ->
+            ()
+        | _ -> failwithf "The window input guide built %A." input
 
         let encodedFilter = GuideSnippets.encodeEditorPaneFilter ()
         let decodedFilter = GuideSnippets.decodeFilter encodedFilter
