@@ -94,15 +94,50 @@ public sealed class ServerMirrorTests
             await client.WaitForExitAsync(token);
         }
 
+        // Only a new client can show the window added after the kill and
+        // be listed itself, so the view proves the mirror attached again.
         await raw.ExecuteAsync(["new-window", "-d", "-n", "after", "-t", raw.SessionName], token);
-        ServerMirrorView seen = await mirror.WaitUntilAsync(
+        await mirror.WaitUntilAsync(
             view => view.Server.Windows.Any(window => window.Name == "after")
-                && view.Clients.Any(client => client.IsControlClient),
+                && view.Clients.Any(client => client.IsControlClient && client.Name != killed[1]),
             Arrival,
             token);
 
         Assert.False(mirror.IsEnded);
-        Assert.DoesNotContain(seen.Clients, client => client.Name == killed[1]);
+    }
+
+    // A reattach that fails once, as a busy server can make it, is tried again.
+    [UnixFact]
+    public async Task The_mirror_tries_a_failed_reattach_again()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string refuse = Path.Combine(Path.GetDirectoryName(raw.SocketPath)!, $"refuse-{Guid.NewGuid():N}");
+        string tmux = Path.Combine(Path.GetDirectoryName(raw.SocketPath)!, $"tmux-{Guid.NewGuid():N}");
+        await TestExecutable.WriteAsync(
+            tmux,
+            "#!/bin/sh\n"
+            + $"case \" $* \" in *\" -C \"*) [ -e '{refuse}' ] && {{ rm -f '{refuse}'; exit 1; }} ;; esac\n"
+            + $"exec '{raw.TmuxBinaryPath}' \"$@\"\n",
+            token);
+        Session anchor = await AnchorAsync(raw, token, tmux);
+        await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
+        string[] killed = System.Text.Encoding.UTF8.GetString(
+            (await raw.ExecuteAsync(["list-clients", "-F", "#{client_pid} #{client_name}"], token)).StandardOutput).Trim().Split(' ', 2);
+
+        await File.WriteAllTextAsync(refuse, string.Empty, token);
+        using (System.Diagnostics.Process client = System.Diagnostics.Process.GetProcessById(int.Parse(killed[0], System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            client.Kill();
+            await client.WaitForExitAsync(token);
+        }
+
+        await mirror.WaitUntilAsync(
+            view => view.Clients.Any(client => client.IsControlClient && client.Name != killed[1]),
+            Arrival,
+            token);
+        Assert.False(File.Exists(refuse), "the refused attach was never tried");
+        Assert.False(mirror.IsEnded);
     }
 
     // A waiter whose condition never holds must fail when the server dies
@@ -125,12 +160,12 @@ public sealed class ServerMirrorTests
         Assert.True(mirror.IsEnded);
     }
 
-    private static async Task<Session> AnchorAsync(RawTmuxTestContext raw, CancellationToken token)
+    private static async Task<Session> AnchorAsync(RawTmuxTestContext raw, CancellationToken token, string? tmux = null)
     {
         Server server = await Server.ConnectAsync(
             new ServerConnectionOptions
             {
-                TmuxBinaryPath = raw.TmuxBinaryPath,
+                TmuxBinaryPath = tmux ?? raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
             },

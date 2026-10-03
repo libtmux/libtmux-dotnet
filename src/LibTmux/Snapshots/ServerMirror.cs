@@ -61,6 +61,7 @@ public sealed class ServerMirror : IAsyncDisposable
 
     private static readonly TimeSpan FirstReattachDelay = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan LongestReattachDelay = TimeSpan.FromSeconds(5);
+    private const int AttachAttempts = 5;
 
     private readonly Server _server;
     private readonly SessionId _anchor;
@@ -378,15 +379,29 @@ public sealed class ServerMirror : IAsyncDisposable
                     reattachDelay = FirstReattachDelay;
                 }
 
-                if (await _server.FindSessionAsync(_anchor, closing).ConfigureAwait(false) is null)
+                IControlModeSession? attached = null;
+                for (int attempt = 1; attached is null; attempt++)
                 {
-                    End(new TmuxObjectNotFoundException(
-                        $"The mirror's anchor session {_anchor} is gone.",
-                        _anchor.ToString()));
-                    return;
-                }
+                    if (await _server.FindSessionAsync(_anchor, closing).ConfigureAwait(false) is null)
+                    {
+                        End(new TmuxObjectNotFoundException(
+                            $"The mirror's anchor session {_anchor} is gone.",
+                            _anchor.ToString()));
+                        return;
+                    }
 
-                IControlModeSession attached = await AttachAsync(_server, _anchor, closing).ConfigureAwait(false);
+                    try
+                    {
+                        attached = await AttachAsync(_server, _anchor, closing).ConfigureAwait(false);
+                    }
+                    catch (Exception) when (attempt < AttachAttempts && !closing.IsCancellationRequested)
+                    {
+                        // The anchor was there a moment ago, so a failed attach
+                        // may pass; one that keeps failing ends the mirror.
+                        await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
+                        reattachDelay = reattachDelay * 2 < LongestReattachDelay ? reattachDelay * 2 : LongestReattachDelay;
+                    }
+                }
                 lock (_gate)
                 {
                     _control = attached;
