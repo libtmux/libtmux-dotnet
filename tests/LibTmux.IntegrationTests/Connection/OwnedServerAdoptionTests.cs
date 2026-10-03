@@ -40,8 +40,8 @@ public sealed class OwnedServerAdoptionTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = CreateSocketRoot();
-        string started = Path.Combine(root, "started");
-        string tmux = Path.Combine(root, "tmux");
+        string started = Path.Join(root, "started");
+        string tmux = Path.Join(root, "tmux");
         Server occupant = Server.Open(Options(root, socketName: null));
         try
         {
@@ -148,10 +148,10 @@ public sealed class OwnedServerAdoptionTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = CreateSocketRoot();
-        string pid = Path.Combine(root, "pid");
-        string hidePid = Path.Combine(root, "hide-pid");
-        string refuseKill = Path.Combine(root, "refuse-kill");
-        string tmux = Path.Combine(root, "tmux");
+        string pid = Path.Join(root, "pid");
+        string hidePid = Path.Join(root, "hide-pid");
+        string refuseKill = Path.Join(root, "refuse-kill");
+        string tmux = Path.Join(root, "tmux");
         using System.Diagnostics.Process stand = System.Diagnostics.Process.Start("sleep", "30");
         Server observer = Server.Open(Options(root, "owned"));
         try
@@ -217,9 +217,9 @@ public sealed class OwnedServerAdoptionTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = CreateSocketRoot();
-        string started = Path.Combine(root, "started");
-        string configuration = Path.Combine(root, "tmux.conf");
-        string tmux = Path.Combine(root, "tmux");
+        string started = Path.Join(root, "started");
+        string configuration = Path.Join(root, "tmux.conf");
+        string tmux = Path.Join(root, "tmux");
 
         // The server outlives having no sessions, and once started it never
         // answers list-sessions, so the start waits until it is cancelled.
@@ -256,8 +256,8 @@ public sealed class OwnedServerAdoptionTests
         string root,
         CancellationToken cancellationToken)
     {
-        string refuse = Path.Combine(root, "refuse");
-        string tmux = Path.Combine(root, "tmux");
+        string refuse = Path.Join(root, "refuse");
+        string tmux = Path.Join(root, "tmux");
         await TestExecutable.WriteAsync(
             tmux,
             $"#!/bin/sh\n[ -e '{refuse}' ] && exit 1\nexec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
@@ -273,7 +273,7 @@ public sealed class OwnedServerAdoptionTests
     {
         // A socket path is limited to about 104 bytes and this root is part of
         // one, `<root>/tmux-<uid>/<name>`, so it is short rather than descriptive.
-        string root = Path.Combine(Path.GetTempPath(), $"lt-{Guid.NewGuid():N}"[..11]);
+        string root = Path.Join(Path.GetTempPath(), $"lt-{Guid.NewGuid():N}"[..11]);
         Directory.CreateDirectory(root);
         return root;
     }

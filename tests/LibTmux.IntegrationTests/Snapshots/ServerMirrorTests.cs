@@ -112,8 +112,8 @@ public sealed class ServerMirrorTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
-        string refuse = Path.Combine(Path.GetDirectoryName(raw.SocketPath)!, $"refuse-{Guid.NewGuid():N}");
-        string tmux = Path.Combine(Path.GetDirectoryName(raw.SocketPath)!, $"tmux-{Guid.NewGuid():N}");
+        string refuse = Path.Join(Path.GetDirectoryName(raw.SocketPath)!, $"refuse-{Guid.NewGuid():N}");
+        string tmux = Path.Join(Path.GetDirectoryName(raw.SocketPath)!, $"tmux-{Guid.NewGuid():N}");
         await TestExecutable.WriteAsync(
             tmux,
             "#!/bin/sh\n"
