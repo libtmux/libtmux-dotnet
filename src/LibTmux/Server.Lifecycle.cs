@@ -396,6 +396,10 @@ public sealed class OwnedServerScope : IAsyncDisposable
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
     private Task? _stopping;
 
+    // Read once, by the first attempt that reaches the server: a retry after
+    // kill-server finds no server to ask, and still has to wait for this one.
+    private int? _processId;
+
     internal OwnedServerScope(Server value) => Value = value;
 
     /// <summary>Gets the owned server.</summary>
@@ -438,9 +442,9 @@ public sealed class OwnedServerScope : IAsyncDisposable
         using CancellationTokenSource cleanup = new(CleanupTimeout);
         try
         {
-            int? processId = await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
+            _processId ??= await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
             await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
-            if (processId is int id)
+            if (_processId is int id)
             {
                 await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
             }
