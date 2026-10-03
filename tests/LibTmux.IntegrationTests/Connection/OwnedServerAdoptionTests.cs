@@ -36,6 +36,39 @@ public sealed class OwnedServerAdoptionTests
     }
 
     [UnixFact]
+    public async Task Fails_rather_than_starting_when_tmux_cannot_say_whether_a_server_listens()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        string root = CreateSocketRoot();
+        string started = Path.Combine(root, "started");
+        string tmux = Path.Combine(root, "tmux");
+        Server occupant = Server.Open(Options(root, socketName: null));
+        try
+        {
+            await occupant.CreateSessionAsync(new NewSessionRequest { Name = "occupant" }, token);
+
+            // Answers as tmux does for a socket it may not open.
+            await TestExecutable.WriteAsync(
+                tmux,
+                "#!/bin/sh\n"
+                + "case \" $* \" in *\" list-sessions \"*) echo 'error connecting to /socket (Permission denied)' >&2; exit 1 ;; "
+                + $"*\" start-server \"*) : > '{started}' ;; esac\n"
+                + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
+                token);
+
+            await Assert.ThrowsAsync<TmuxCommandException>(
+                () => Server.CreateOwnedAsync(Options(root, socketName: null) with { TmuxBinaryPath = tmux }, token));
+
+            Assert.False(File.Exists(started), "a server was started without knowing whether one listened");
+            Assert.True(await occupant.IsAliveAsync(token));
+        }
+        finally
+        {
+            await CleanUpAsync(occupant, root, token);
+        }
+    }
+
+    [UnixFact]
     public async Task Owns_a_named_socket_while_the_default_one_is_serving()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
