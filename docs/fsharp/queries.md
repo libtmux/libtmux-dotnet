@@ -83,17 +83,10 @@ let runAsync () =
 
         let! logPane = logs[0] |> Session.panes |> Query.list token
 
-        let! _ =
-            TmuxWait.UntilAsync(
-                (fun ct ->
-                    task {
-                        let! row = logPane[0] |> Pane.findOnScreen ct (ScreenSearch.Text "ERROR:")
-                        return row.IsSome
-                    }),
-                TimeSpan.FromSeconds 5.,
-                TimeSpan.FromMilliseconds 20.,
-                cancellationToken = token
-            )
+        let! logged = logPane[0] |> Pane.waitForText token (TimeSpan.FromSeconds 5.) "ERROR:"
+
+        if not logged.Found then
+            failwith "The log pane never printed its error."
 
         // tmux narrows each listing itself; every row is then rechecked.
         let! named =

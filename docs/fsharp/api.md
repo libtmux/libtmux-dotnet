@@ -91,8 +91,12 @@ Core handles and request types appear in the
 | `val currentCommand: pane: LibTmux.Pane -> Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option` | Reads the captured command name, preserving an empty string. |
 | `val currentPath: pane: LibTmux.Pane -> Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option` | Reads the captured working directory, preserving an empty string. |
 | `val findOnScreen: cancellationToken: System.Threading.CancellationToken -> search: LibTmux.FSharp.ScreenSearch -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option>` | Returns the first visible row showing the text, counted from 1, or None. |
+| `val run: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> command: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
 | `val sendKeys: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.SendKeysRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task` | Sends text or key names according to the request's literal and Enter settings. |
 | `val split: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.SplitPaneRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.Pane>` | Splits the pane and returns the new pane handle. |
+| `val waitFor: cancellationToken: System.Threading.CancellationToken -> request: LibTmux.PaneWaitRequest -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>` | Waits as the request describes: patterns, stop patterns, or any output. |
+| `val waitForText: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> text: Microsoft.FSharp.Core.string -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>` | Waits for a line the pane prints to contain the text. |
+| `val waitUntil: cancellationToken: System.Threading.CancellationToken -> timeout: System.TimeSpan -> condition: (System.Collections.Generic.IReadOnlyList<Microsoft.FSharp.Core.string> -> Microsoft.FSharp.Core.bool) -> pane: LibTmux.Pane -> System.Threading.Tasks.Task<LibTmux.PaneWaitResult>` | Waits until a condition holds over the rows the pane shows, top to bottom. |
 
 ## PaneFields
 
