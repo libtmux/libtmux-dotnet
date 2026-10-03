@@ -168,6 +168,19 @@
       "output": "windows: shell, logs\nsleeping panes: 1\nnewer view: true\n"
     },
     {
+      "id": "fsharp-WatchPanes",
+      "profile": "fsharp",
+      "title": "Watch several panes through one control client",
+      "description": "Attach one control client, then follow two panes' output as each event names its pane. Each pane's end arrives as TmuxPaneGoneEvent in the order the panes were given.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/WatchPanes.fs",
+      "targets": [
+        "M:LibTmux.FSharp.Control.enterSession(System.Threading.CancellationToken,LibTmux.Session)",
+        "M:LibTmux.FSharp.Control.watchPanes(Microsoft.FSharp.Collections.FSharpList{LibTmux.Pane},LibTmux.IControlModeSession)",
+        "M:LibTmux.FSharp.Control.foldWhile``2(System.Threading.CancellationToken,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,System.Threading.Tasks.Task{LibTmux.FSharp.StreamStep{``0}}}},``0,System.Collections.Generic.IAsyncEnumerable{``1})"
+      ],
+      "output": "build: ok\ntest: ok\nended in order given: true\n"
+    },
+    {
       "id": "csharp-ServerConstruction",
       "profile": "csharp",
       "title": "Open and connect to an owned server",

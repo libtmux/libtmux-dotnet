@@ -23,6 +23,7 @@ wait, run, mirror and option helpers; it has no separate server constructor.
 | [Queries.fs](../LibTmux.FSharp.Examples/Programs/Queries.fs) | Query every level and let tmux narrow the listing |
 | [SendWaitRead.fs](../LibTmux.FSharp.Examples/Programs/SendWaitRead.fs) | Send a command, wait for its output and run to an exit status |
 | [LiveState.fs](../LibTmux.FSharp.Examples/Programs/LiveState.fs) | Follow live server state |
+| [WatchPanes.fs](../LibTmux.FSharp.Examples/Programs/WatchPanes.fs) | Watch several panes through one control client |
 
 ## Run a complete F# program
 
