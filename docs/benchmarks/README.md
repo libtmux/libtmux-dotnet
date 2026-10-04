@@ -11,6 +11,7 @@ Nothing here is a promise about your machine.
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 | 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
 | 2026-10-03 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane watch and mirror](runs/2026-10-03-tmux-3.7c-fsharp.md) |
+| 2026-10-04 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane flood](runs/2026-10-04-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -253,11 +254,11 @@ session, and only the matching sessions are captured. Two identical local
 routes for that query differ by half, which is the run-to-run noise of a
 process start under load.
 
-The [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md), from a GitHub
+The [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 9.1 ms pushed down against 75 ms for a full listing and 169 ms for a
-snapshot, and the session query 34 ms against 166 ms and 174 ms. Its two
-local session routes agree within 5%, where the workstation's differed by
+took 8.7 ms pushed down against 80 ms for a full listing and 170 ms for a
+snapshot, and the session query 36 ms against 162 ms and 178 ms. Its two
+local session routes agree within 10%, where the workstation's differed by
 half.
 
 ```console
@@ -284,16 +285,16 @@ $ uv run python eng/benchmarks/record_fsharp.py \
 reads 256 output events spread over eight panes from a synthetic client and
 keeps one, two or eight panes' output, once by filtering `Control.events` by
 hand and once through `Control.watchPanes`. Both must count the same output
-before timing. The watch also lists the server's panes when it starts and
-after each layout change, to see which watched panes remain; the synthetic
-client answers at once, and against a real server each listing is one tmux
-round trip whatever the number of panes.
+before timing. The watch also lists the client's session's panes when it
+starts, to check each watched pane is there; the synthetic client answers at
+once and sends no layout change, and against a real server that listing is
+one tmux round trip whatever the number of panes.
 
-In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
-1.5 to 1.7 µs for every count of panes, and the watch 5.1 µs for one pane,
-5.9 µs for two and 11.4 µs for eight: about 0.9 µs for each pane checked, on
-top of a fixed 4.2 µs, across 256 events. That run checked each pane with a
-command of its own, before the watch listed them in one.
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) the filter took
+1.0 to 1.2 µs for every count of panes, and the watch 4.3 µs for one pane,
+5.9 µs for two and 12.6 µs for eight. The watch passes on 32, 64 or 256 of
+the events where the filter only counts them, so its cost grows with what it
+yields: about 37 ns for each event, on top of a fixed 3.1 µs.
 
 ## F# pane flood
 
@@ -306,6 +307,11 @@ watch adds under a flood. Setup fails unless both routes see every line, and
 the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
 by hand.
 
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) reading 1,000
+lines took 5.09 ms by hand and 5.23 ms through the watch, 1.03 times, and
+20,000 lines 21.8 ms and 23 ms, 1.06 times. The two routes allocated within
+4% of each other, so the watch adds a filter, not a copy of the output.
+
 ## F# live mirror
 
 [`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
@@ -317,9 +323,9 @@ announcement and the publish; the capture is the part that grows with the
 server. Setup fails unless the mirror publishes a renamed window, and the
 [regression gate](#regression-gate) bounds the rename at 1.65 captures.
 
-In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) a rename seen
-through the mirror took 14.7 ms against 10.9 ms for a capture of one session,
-1.35 captures, and 54.8 ms against 46.8 ms for sixteen sessions, 1.17. The
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) a rename seen
+through the mirror took 14.8 ms against 11.9 ms for a capture of one session,
+1.24 captures, and 52.3 ms against 47 ms for sixteen sessions, 1.11. The
 capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
 large server spends most of a mirror's cost on captures.
 
@@ -348,18 +354,19 @@ nothing. Four things are gated instead:
   must be at least three times as fast as listing everything and filtering
   locally, and allocate less managed memory per operation, as BenchmarkDotNet's
   memory diagnoser counts it. Every recorded host clears both by far, 4 to 9
-  times as fast with 10 to 29 times fewer bytes allocated, so a failure means
+  times as fast with 10 to 30 times fewer bytes allocated, so a failure means
   pushdown stopped narrowing rather than a noisy runner. The rows tmux sends
   are counted by the integration test above, not here.
 - The same workflow fails a run in which a rename seen through a mirror costs
   more than 1.65 snapshot captures of the same server. The workstation and
-  the hosted runner measured 1.17 to 1.35, since each rebuild is one capture;
+  the hosted runner measured 1.11 to 1.35, since each rebuild is one capture;
   a mirror made to capture twice per change measured 1.86 with sixteen
   sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
   class and pass this check.
 - It also fails a run in which reading a pane's flood through the watch costs
-  more than 1.6 times reading every event by hand. The workstation measured
-  0.95 to 1.13; a watch made to list the panes on each output event measured
+  more than 1.6 times reading every event by hand. The workstation and the
+  hosted runner measured 0.95 to 1.13; a watch made to list the panes on each
+  output event measured
   2.33 for 20,000 lines and 1.32 for 1,000, too few events to show it. Records
   made before the flood benchmark pass this check.
 
@@ -367,7 +374,7 @@ Check a record with:
 
 ```console
 $ python3 eng/benchmarks/record_fsharp.py \
-    --gate docs/benchmarks/runs/2026-10-03-tmux-3.7c-fsharp.json
+    --gate docs/benchmarks/runs/2026-10-04-tmux-3.7c-fsharp.json
 ```
 
 ## Control stream probe

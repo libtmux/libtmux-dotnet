@@ -186,13 +186,13 @@ def render(record: dict) -> str:
 # Absolute times move by more than half between runs on one host, so the gate
 # compares routes measured in the same run. Every recorded host shows pushdown
 # 4 to 9 times faster than listing everything and filtering locally, with 10 to
-# 28 times fewer bytes allocated, so missing either bar means pushdown stopped
+# 30 times fewer bytes allocated, so missing either bar means pushdown stopped
 # narrowing the listing rather than a noisy runner.
 PUSHDOWN_CLASS = "FSharpQueryPushdownBenchmarks"
 MINIMUM_SPEEDUP = 3.0
 
 # A mirror captures the server once per announcement, so a rename seen through
-# it costs little more than the capture alone: 1.17 to 1.35 times on the
+# it costs little more than the capture alone: 1.11 to 1.35 times on the
 # workstation and the hosted runner. A mirror made to capture twice per change
 # measured 1.86 with sixteen sessions and 2.39 with one.
 MIRROR_CLASS = "FSharpMirrorBenchmarks"
@@ -200,7 +200,7 @@ MAXIMUM_MIRROR_RATIO = 1.65
 
 # A pane watch passes the client's events through as they arrive, so reading a
 # flood through it costs what reading every event by hand does: 0.95 to 1.13
-# times on the workstation. A watch made to list the panes on each output event
+# times on the workstation and the hosted runner. A watch made to list the panes on each output event
 # measured 2.33 for 20,000 lines; a short flood has too few events to show it.
 FLOOD_CLASS = "FSharpPaneFloodBenchmarks"
 MAXIMUM_FLOOD_RATIO = 1.6
