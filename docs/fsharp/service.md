@@ -228,7 +228,9 @@ type PaneGate() =
 <!-- endfsharp-snippet -->
 
 The gate covers this process only. Two processes driving one tmux server do not
-see each other's gates.
+see each other's gates. It also keeps a semaphore for every pane it has gated,
+so a service that creates a pane per job removes the pane's entry when it
+kills the pane.
 
 ## What each command cost
 

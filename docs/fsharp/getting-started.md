@@ -192,7 +192,7 @@ How each call reports what can go wrong:
 | --- | --- | --- | --- |
 | The time ran out | `PaneWait.TimedOut` | `PaneRun.TimedOut`; the command may still be running | — |
 | The token was cancelled | `OperationCanceledException` | `LibTmuxException`, matched by `TmuxFailure.MayHaveRun`, once the command was sent | `OperationCanceledException` |
-| The pane's program exits during the call | `PaneWait.Ended` | `PaneRun.Ended`, within seconds | reads the pane as it stands |
+| The pane's program exits during the call | `PaneWait.Ended` | `PaneRun.Ended`, within five seconds | reads the pane as it stands |
 | The program had already exited | `TmuxPaneException` | `TmuxPaneException` | `TmuxPaneException` on a read without a position |
 | tmux no longer has the pane | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` | `TmuxObjectNotFoundException` |
 
