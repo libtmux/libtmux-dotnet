@@ -375,6 +375,26 @@ module ContractTests =
         }
 
     [<Fact>]
+    let ``a blank layout name is refused before anything is sent`` () =
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-layout"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                    Task.FromException<TmuxCommandResult>(InvalidOperationException("Nothing should be sent.")))
+            )
+
+        let generation = ServerGeneration(17, 32)
+        let server = LibTmux.Server(connection, generation, "tmux 3.7")
+
+        let window =
+            LibTmux.Window(server, connection, generation, WindowId 3, Dictionary<string, string>())
+
+        for blank in [ ""; " " ] do
+            Assert.ThrowsAny<ArgumentException>(fun () ->
+                window |> Window.selectLayout CancellationToken.None blank |> ignore)
+            |> ignore
+
+    [<Fact>]
     let ``pane, window and session functions send the command they name`` () =
         task {
             let sent = Collections.Concurrent.ConcurrentQueue<string list>()
