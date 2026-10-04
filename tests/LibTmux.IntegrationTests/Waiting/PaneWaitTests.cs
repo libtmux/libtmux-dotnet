@@ -208,11 +208,14 @@ public sealed class PaneWaitTests
         // 620 lines of 45 columns take three rows each at 20 columns: past
         // nine tenths of tmux's default 2,000 lines of history.
         await pane.SendTextAsync(
-            "seq -f 'line-%04g-padding-padding-padding-padding' 1 620; printf 'held-%s' here; sleep 2; printf '\\n%s-done\\n' narrow",
+            "seq -f 'line-%04g-padding-padding-padding-padding' 1 620; printf 'held-%s' here; "
+            + $"'{raw.TmuxBinaryPath}' -S '{raw.SocketPath}' wait-for {Channel(raw, "narrowed")}; "
+            + "printf '\\n%s-done\\n' narrow",
             cancellationToken: token);
         Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("held-here", StringComparison.Ordinal)), Arrival, token)).Found);
         PaneOutputSince start = await pane.ReadOutputSinceAsync(cancellationToken: token);
         await raw.ExecuteAsync(["resize-window", "-t", name, "-x", "20"], token);
+        await raw.ExecuteAsync(["wait-for", "-S", Channel(raw, "narrowed")], token);
         Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("narrow-done", StringComparison.Ordinal)), Arrival, token)).Found);
 
         PaneOutputSince next = await pane.ReadOutputSinceAsync(start.Position, token);
