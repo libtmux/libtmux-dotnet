@@ -181,9 +181,13 @@ def verify(root: pathlib.Path) -> list[str]:
 
     quickstart = required_step("dotnet", "build", "fsharp-readme-quickstart")
     quickstart_run = quickstart.get("run", "")
+    # Counted in commands only, so a comment that names the flag cannot stand in for one.
+    quickstart_commands = "\n".join(
+        line for line in quickstart_run.splitlines() if not line.lstrip().startswith("#")
+    )
     require(
         "python3 eng/docs/sync_fsharp_snippets.py --expect-output Quickstart" in quickstart_run
-        and quickstart_run.count("-p:UsePackageReferences=true") >= 3,
+        and quickstart_commands.count("-p:UsePackageReferences=true") >= 3,
         "dotnet.build.fsharp-readme-quickstart must compare the packed program's output with the README",
     )
 
