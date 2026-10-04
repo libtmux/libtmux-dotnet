@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Transport;
@@ -71,24 +70,30 @@ public sealed class PaneEchoContractTests
             token);
         Pane pane = await BashPaneAsync(scope, token);
         string paneId = pane.Id.ToString();
+        string channel = $"qa-echo-before-{Guid.NewGuid():N}";
 
-        var stopwatch = Stopwatch.StartNew();
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
-            paneId, ["MARKER"], timeoutSeconds: 4, cancellationToken: token);
+            paneId, ["MARKER"], timeoutSeconds: 4,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        AssertStillWaiting(waiting);
+
         await mcp.Write.SendKeysAsync(
-            "sleep 1; echo MARKER", paneId, enter: true, literal: true, cancellationToken: token);
+            $"tmux wait-for {channel}; echo MARKER", paneId,
+            enter: true, literal: true, cancellationToken: token);
+        // The command's echo is on screen and in the wait's stream, and the
+        // command is parked on the channel, so only a match on the echo could
+        // end the wait now.
+        await EchoVisibleAsync(pane, channel, token);
+        AssertStillWaiting(waiting);
+        await scope.Server.ExecuteCommandAsync(["wait-for", "-S", channel], token);
 
         WaitResult waited = await waiting;
 
         Assert.Equal(WaitOutcome.Matched, waited.Outcome);
         Assert.Equal("MARKER", waited.MatchedPattern);
-        // The wait already saw the command's own echo in its stream; an
-        // instant match on that buffered echo could not have taken as long as
-        // the pane's own `sleep 1`, so timing is what distinguishes a match on
-        // the echo from a match on the real output row beneath it.
-        Assert.True(
-            stopwatch.Elapsed.TotalSeconds >= 0.7,
-            $"expected the wait to take at least 700ms, took {stopwatch.Elapsed.TotalSeconds}s");
     }
 
     [UnixFact]
@@ -102,22 +107,30 @@ public sealed class PaneEchoContractTests
             token);
         Pane pane = await BashPaneAsync(scope, token);
         string paneId = pane.Id.ToString();
+        string channel = $"qa-echo-after-{Guid.NewGuid():N}";
 
         await mcp.Write.SendKeysAsync(
-            "sleep 1; echo MARKER", paneId, enter: true, literal: true, cancellationToken: token);
-        var stopwatch = Stopwatch.StartNew();
-        WaitResult waited = await mcp.Read.WaitForTextAsync(
-            paneId, ["MARKER"], timeoutSeconds: 4, cancellationToken: token);
+            $"tmux wait-for {channel}; echo MARKER", paneId,
+            enter: true, literal: true, cancellationToken: token);
+        // The echo printed before the wait ever subscribed, so it can never be
+        // what matched. The command stays parked on the channel until the wait
+        // has read its baseline, so no delay in this process can let the real
+        // output arrive early and read as text already on screen.
+        await EchoVisibleAsync(pane, channel, token);
+
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
+            paneId, ["MARKER"], timeoutSeconds: 4,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        AssertStillWaiting(waiting);
+        await scope.Server.ExecuteCommandAsync(["wait-for", "-S", channel], token);
+
+        WaitResult waited = await waiting;
 
         Assert.Equal(WaitOutcome.Matched, waited.Outcome);
         Assert.Equal("MARKER", waited.MatchedPattern);
-        // Here the echo printed before the wait ever subscribed, so it can
-        // never be what matched - only the pane's own `sleep 1` gates the
-        // real output, and the same timing check proves it was not a replay
-        // of something already on screen either.
-        Assert.True(
-            stopwatch.Elapsed.TotalSeconds >= 0.7,
-            $"expected the wait to take at least 700ms, took {stopwatch.Elapsed.TotalSeconds}s");
     }
 
     [UnixFact]
@@ -236,9 +249,15 @@ public sealed class PaneEchoContractTests
         await mcp.Write.SendKeysAsync(
             "Left", paneId, enter: false, literal: false, cancellationToken: token);
 
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<WaitResult> waiting = mcp.Read.WaitForTextAsync(
-            paneId, ["xMARKER"], timeoutSeconds: 3, cancellationToken: token);
-        await InjectForeignOutputAsync(scope.Server, tty, "xMARKER", 0.3, token);
+            paneId, ["xMARKER"], timeoutSeconds: 3,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        // The abandoned typing may already read as present at entry, which this
+        // scenario accepts, so the wait is allowed to have ended here.
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        await InjectForeignOutputAsync(scope.Server, tty, "xMARKER", 0, token);
         WaitResult waited = await waiting;
 
         // The abandoned typing must not still be masking a later, genuine
@@ -268,6 +287,15 @@ public sealed class PaneEchoContractTests
             token);
         Assert.True(prompt.Found, "bash never printed its prompt");
         return pane;
+    }
+
+    private static async Task EchoVisibleAsync(Pane pane, string channel, CancellationToken token)
+    {
+        PaneWaitResult echo = await pane.WaitUntilAsync(
+            rows => rows.Any(row => row.Contains(channel, StringComparison.Ordinal)),
+            TimeSpan.FromSeconds(4),
+            token);
+        Assert.True(echo.Found, "the typed command never appeared in the pane");
     }
 
     private static async Task<string> PaneTtyAsync(Pane pane, CancellationToken token)
