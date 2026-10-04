@@ -114,6 +114,40 @@ public sealed class PaneWaitTests
     }
 
     [UnixFact]
+    public async Task Reading_since_a_position_returns_only_what_is_new()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        Assert.True((await pane.SendTextAndWaitAsync("printf '%s-done\\n' before", "before-done", Arrival, token)).Found);
+
+        PaneOutputSince start = await pane.ReadOutputSinceAsync(cancellationToken: token);
+        Assert.True((await pane.SendTextAndWaitAsync("printf '%s-done\\n' after", "after-done", Arrival, token)).Found);
+        PaneOutputSince next = await pane.ReadOutputSinceAsync(start.Position, token);
+        PaneOutputSince idle = await pane.ReadOutputSinceAsync(next.Position, token);
+
+        Assert.Empty(start.Lines);
+        Assert.Contains("after-done", next.Lines);
+        Assert.DoesNotContain("before-done", next.Lines);
+        Assert.False(next.LinesMissed);
+        Assert.DoesNotContain("after-done", idle.Lines);
+
+        Pane other = await pane.SplitAsync(cancellationToken: token);
+        await Assert.ThrowsAsync<ArgumentException>(() => other.ReadOutputSinceAsync(next.Position, token));
+    }
+
+    [UnixFact]
     public async Task A_held_wait_client_serves_a_series_of_waits_and_then_detaches()
     {
         CancellationToken token = TestContext.Current.CancellationToken;

@@ -110,6 +110,7 @@ targets `net8.0` and `net10.0`.
 | Many waits on one session | `use! _ = Session.holdWaitClient ct session` | `IAsyncDisposable`; each wait skips attaching a client |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
 | Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |
+| What a pane printed since last time | `Pane.readSince ct position pane` | `PaneOutputSince`; pass its `Position` next time |
 | Find text on one screen | `Pane.findOnScreen ct search pane` | row `int option` |
 
 ### Build

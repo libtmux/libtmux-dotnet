@@ -595,6 +595,7 @@ LibTmux.Pane.Options.get -> LibTmux.TmuxOptions!
 LibTmux.Pane.PasteBufferAsync(LibTmux.PasteBufferRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.PipeAsync(LibTmux.PipePaneRequest? request = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 LibTmux.Pane.RawFormatFields.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string?>!
+LibTmux.Pane.ReadOutputSinceAsync(LibTmux.PaneOutputPosition? position = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.PaneOutputSince!>!
 LibTmux.Pane.RefreshAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.ResetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
 LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<LibTmux.Pane!>!
@@ -637,6 +638,18 @@ LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Disable = 1 -> LibTmux.PaneInputMode
 LibTmux.PaneInputMode.Enable = 0 -> LibTmux.PaneInputMode
 LibTmux.PaneObservation
+LibTmux.PaneOutputPosition
+LibTmux.PaneOutputSince
+LibTmux.PaneOutputSince.<Clone>$() -> LibTmux.PaneOutputSince!
+LibTmux.PaneOutputSince.Deconstruct(out System.Collections.Generic.IReadOnlyList<string!>! Lines, out LibTmux.PaneOutputPosition! Position, out bool LinesMissed) -> void
+LibTmux.PaneOutputSince.Equals(LibTmux.PaneOutputSince? other) -> bool
+LibTmux.PaneOutputSince.Lines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+LibTmux.PaneOutputSince.Lines.init -> void
+LibTmux.PaneOutputSince.LinesMissed.get -> bool
+LibTmux.PaneOutputSince.LinesMissed.init -> void
+LibTmux.PaneOutputSince.PaneOutputSince(System.Collections.Generic.IReadOnlyList<string!>! Lines, LibTmux.PaneOutputPosition! Position, bool LinesMissed) -> void
+LibTmux.PaneOutputSince.Position.get -> LibTmux.PaneOutputPosition!
+LibTmux.PaneOutputSince.Position.init -> void
 LibTmux.PaneRunRequest
 LibTmux.PaneRunRequest.<Clone>$() -> LibTmux.PaneRunRequest!
 LibTmux.PaneRunRequest.Command.get -> string!
@@ -1766,6 +1779,9 @@ override LibTmux.Pane.GetHashCode() -> int
 ~override LibTmux.PaneId.Equals(object obj) -> bool
 override LibTmux.PaneId.GetHashCode() -> int
 override LibTmux.PaneId.ToString() -> string!
+override LibTmux.PaneOutputSince.Equals(object? obj) -> bool
+override LibTmux.PaneOutputSince.GetHashCode() -> int
+override LibTmux.PaneOutputSince.ToString() -> string!
 override LibTmux.PasteBufferRequest.Equals(object? obj) -> bool
 override LibTmux.PasteBufferRequest.GetHashCode() -> int
 override LibTmux.PasteBufferRequest.ToString() -> string!
@@ -1981,6 +1997,8 @@ static LibTmux.PaneId.operator ==(LibTmux.PaneId left, LibTmux.PaneId right) -> 
 static LibTmux.PaneId.operator >(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
 static LibTmux.PaneId.operator >=(LibTmux.PaneId left, LibTmux.PaneId right) -> bool
 static LibTmux.PaneObservation.WatchAsync(this LibTmux.IControlModeSession! session, LibTmux.Pane! pane, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<LibTmux.TmuxEvent!>!
+static LibTmux.PaneOutputSince.operator !=(LibTmux.PaneOutputSince? left, LibTmux.PaneOutputSince? right) -> bool
+static LibTmux.PaneOutputSince.operator ==(LibTmux.PaneOutputSince? left, LibTmux.PaneOutputSince? right) -> bool
 static LibTmux.PasteBufferRequest.operator !=(LibTmux.PasteBufferRequest? left, LibTmux.PasteBufferRequest? right) -> bool
 static LibTmux.PasteBufferRequest.operator ==(LibTmux.PasteBufferRequest? left, LibTmux.PasteBufferRequest? right) -> bool
 static LibTmux.PipePaneRequest.operator !=(LibTmux.PipePaneRequest? left, LibTmux.PipePaneRequest? right) -> bool

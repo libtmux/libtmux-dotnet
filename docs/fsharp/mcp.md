@@ -42,7 +42,7 @@ program's. The MCP server reads the socket once, when it starts.
 | `list_sessions`, `list_windows`, `list_panes` | `Server.sessions`, `Server.windows`, `Server.panes` with `Query.list` |
 | `search_panes` | `Query.showing`, or `Pane.findOnScreen` for one pane |
 | `capture_pane`, `snapshot_pane` | `Pane.capture`, or `Server.capture` for the whole hierarchy |
-| `capture_since` | `Control.watchPane`: a pushed stream of the pane's output rather than a cursor the caller passes back; loss arrives as `TmuxEventsDroppedEvent` |
+| `capture_since` | `Pane.readSince`, with the position the last read returned; `LinesMissed` is `linesMissed`. `Control.watchPane` pushes the same output as it prints |
 | `wait_for_text` | `Pane.waitForText` and `Pane.waitFor` |
 | `send_keys` followed by `wait_for_text` | `Pane.sendAndWait` and `Pane.sendAndWaitFor` |
 | `run_shell_command` | `Pane.run` |

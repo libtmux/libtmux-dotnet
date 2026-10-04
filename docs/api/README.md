@@ -57,6 +57,8 @@ modes differ.
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
 | `LibTmux.PaneObservation` | Narrows a control client's event stream to some panes, and ends it cleanly. |
+| `LibTmux.PaneOutputPosition` | Where a read of a pane's output finished, so the next read returns only what is new. |
+| `LibTmux.PaneOutputSince` | What a pane printed since a position, and where this read finished. |
 | `LibTmux.PaneRunRequest` | Describes a shell command to run in a pane and wait for. |
 | `LibTmux.PaneRunResult` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
@@ -257,6 +259,7 @@ modes differ.
 | `LibTmux.Pane.MoveAsync(LibTmux.MovePaneRequest,System.Threading.CancellationToken)` | Moves this pane to another position. |
 | `LibTmux.Pane.PasteBufferAsync(LibTmux.PasteBufferRequest,System.Threading.CancellationToken)` | Pastes a tmux buffer into the pane. |
 | `LibTmux.Pane.PipeAsync(LibTmux.PipePaneRequest,System.Threading.CancellationToken)` | Pipes the pane's input or output through a command. |
+| `LibTmux.Pane.ReadOutputSinceAsync(LibTmux.PaneOutputPosition,System.Threading.CancellationToken)` | Reads what the pane has printed since a position, and where this read finished. |
 | `LibTmux.Pane.RefreshAsync(System.Threading.CancellationToken)` | Re-reads this pane from tmux. |
 | `LibTmux.Pane.ResetAsync(System.Threading.CancellationToken)` | Resets the pane's terminal state and drops its history. |
 | `LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest,System.Threading.CancellationToken)` | Resizes this pane. |
@@ -292,6 +295,7 @@ modes differ.
 | `LibTmux.PaneId.op_LessThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no later than another. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)` | Watches one pane's output until it ends. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,System.Collections.Generic.IReadOnlyCollection{LibTmux.Pane},System.Threading.CancellationToken)` | Watches several panes' output through one control client until each has ended. |
+| `LibTmux.PaneOutputSince.#ctor(System.Collections.Generic.IReadOnlyList{System.String},LibTmux.PaneOutputPosition,System.Boolean)` | What a pane printed since a position, and where this read finished. |
 | `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
 | `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
@@ -865,6 +869,9 @@ modes differ.
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
+| `LibTmux.PaneOutputSince.Lines` | The new lines, oldest first; none on a read that starts without a position. |
+| `LibTmux.PaneOutputSince.LinesMissed` | Whether output may be missing: scrollback dropped lines before this read saw them, or the position could not be found again. is then what the pane shows rather than exactly what is new. |
+| `LibTmux.PaneOutputSince.Position` | Where this read finished; pass it to the next read. |
 | `LibTmux.PaneRunRequest.Command` | Gets the shell command. |
 | `LibTmux.PaneRunRequest.KeepOutOfHistory` | Gets whether the line the shell reads starts with a space, which many shells keep out of history. |
 | `LibTmux.PaneRunRequest.Timeout` | Gets how long to wait for the command to finish. |

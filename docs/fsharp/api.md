@@ -151,6 +151,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val currentPath: pane: LibTmux.Pane -> string option` | Reads the captured working directory, preserving an empty string. |
 | `val findOnScreen: cancellationToken: CancellationToken -> search: ScreenSearch -> pane: LibTmux.Pane -> Task<int option>` | Returns the first visible row showing the text, counted from 1, or None. |
 | `val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task` | Presses one key by its tmux name, such as Enter, C-c or Up. |
+| `val readSince: cancellationToken: CancellationToken -> position: PaneOutputPosition option -> pane: LibTmux.Pane -> Task<PaneOutputSince>` | Reads what the pane printed since a position, and where this read finished. |
 | `val run: cancellationToken: CancellationToken -> timeout: TimeSpan -> command: string -> pane: LibTmux.Pane -> Task<PaneRunResult>` | Runs a shell command in the pane and waits for its exit status and output. |
 | `val sendAndWait: cancellationToken: CancellationToken -> timeout: TimeSpan -> line: string -> text: string -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Types a line, presses Enter, and waits for a later line to contain the text. |
 | `val sendAndWaitFor: cancellationToken: CancellationToken -> keys: SendKeysRequest -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>` | Sends keys as the request describes, then waits as the wait request describes. |

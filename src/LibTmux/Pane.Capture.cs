@@ -23,6 +23,44 @@ public sealed partial class Pane
         return result.StandardOutputLines;
     }
 
+    /// <summary>Reads what the pane has printed since a position, and where this read finished.</summary>
+    /// <param name="position">Where the last read finished, or null to start from what the pane shows now.</param>
+    /// <param name="cancellationToken">Cancels the tmux commands.</param>
+    /// <returns>The new lines and the position to pass next time; a read without a position returns none.</returns>
+    /// <remarks>
+    /// Each read costs about the same however long the pane has been
+    /// printing, where capturing the pane again returns everything again.
+    /// Lines a program rewrote in place, such as a progress bar or a prompt
+    /// redraw, are reported again when they change.
+    /// </remarks>
+    /// <exception cref="ArgumentException">The position came from another pane.</exception>
+    /// <exception cref="TmuxPaneException">
+    /// The pane runs a different program than when the position was taken, its
+    /// program has exited, or it changed during every read attempt.
+    /// </exception>
+    [UnsupportedOSPlatform("windows")]
+    public async Task<PaneOutputSince> ReadOutputSinceAsync(
+        PaneOutputPosition? position = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (position is not null && position.Cursor.PaneId != _id.ToString())
+        {
+            throw new ArgumentException(
+                $"The position was taken on pane {position.Cursor.PaneId}, not {_id}.",
+                nameof(position));
+        }
+
+        PaneRead read = position is null
+            ? await PaneReader.ReadVisibleAsync(this, null, PaneReader.Failure, cancellationToken)
+                .ConfigureAwait(false)
+            : await PaneReader.ReadSinceAsync(this, position.Cursor, PaneReader.Failure, cancellationToken)
+                .ConfigureAwait(false);
+        return new PaneOutputSince(
+            position is null ? [] : read.Lines,
+            new PaneOutputPosition(PaneCursor.Build(this, read.State, read.CursorRows)),
+            position is not null && read.LinesMissed);
+    }
+
     /// <summary>Captures the pane's contents into a tmux buffer.</summary>
     /// <param name="bufferName">The buffer to write.</param>
     /// <param name="request">What to capture.</param>

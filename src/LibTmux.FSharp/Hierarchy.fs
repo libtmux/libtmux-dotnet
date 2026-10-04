@@ -196,6 +196,9 @@ module Pane =
     let capture (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.CaptureAsync(request, cancellationToken)
 
+    let readSince (cancellationToken: CancellationToken) (position: PaneOutputPosition option) (pane: LibTmux.Pane) =
+        pane.ReadOutputSinceAsync(Option.toObj position, cancellationToken)
+
     let findOnScreen (cancellationToken: CancellationToken) search (pane: LibTmux.Pane) =
         backgroundTask {
             let! row = pane.FindOnScreenAsync(ScreenSearch.toCore search, cancellationToken)

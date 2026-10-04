@@ -154,6 +154,19 @@ module Pane =
         pane: LibTmux.Pane ->
             Task<IReadOnlyList<string>>
 
+    /// <summary>Reads what the pane printed since a position, and where this read finished.</summary>
+    /// <remarks>
+    /// The core's <c>Pane.ReadOutputSinceAsync</c>. Start with <c>None</c>, which returns no lines and a
+    /// position; pass each result's <c>Position</c> to the next read. <c>LinesMissed</c> says scrollback
+    /// dropped output first. This is the MCP server's <c>capture_since</c>.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The position came from another pane.</exception>
+    val readSince:
+        cancellationToken: CancellationToken ->
+        position: PaneOutputPosition option ->
+        pane: LibTmux.Pane ->
+            Task<PaneOutputSince>
+
     /// <summary>Returns the first visible row showing the text, counted from 1, or None.</summary>
     /// <remarks>tmux searches only the rows on screen. Capture the history and filter its lines to search further back.</remarks>
     /// <exception cref="T:System.ArgumentException">The text cannot be written as a tmux format.</exception>
