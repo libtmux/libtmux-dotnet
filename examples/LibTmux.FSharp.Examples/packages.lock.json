@@ -18,25 +18,25 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[8.0.100, )",
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )",
+          "LibTmux": "[0.0.0-alpha.20, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },
@@ -79,25 +79,25 @@
         "type": "Project",
         "dependencies": {
           "FSharp.Core": "[8.0.100, )",
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.query.json": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.testing": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )"
+          "LibTmux": "[0.0.0-alpha.20, )"
         }
       },
       "libtmux.workspace": {
         "type": "Project",
         "dependencies": {
-          "LibTmux": "[0.0.0-alpha.19, )",
+          "LibTmux": "[0.0.0-alpha.20, )",
           "YamlDotNet": "[18.1.0, )"
         }
       },

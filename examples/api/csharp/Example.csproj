@@ -11,6 +11,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <PackageReference Include="LibTmux" Version="[0.0.0-alpha.19]" />
+    <PackageReference Include="LibTmux" Version="[0.0.0-alpha.20]" />
   </ItemGroup>
 </Project>

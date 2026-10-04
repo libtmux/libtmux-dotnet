@@ -12,6 +12,24 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.20] — 2026-10-04
+
+Source queries expose their execution plans and retain the captured graph
+behind matching entities. Workspaces resolve inherited declarations and apply
+reviewed plans with action and cleanup journals. Pane runs and waits bound
+output and report partial effects. Query documents now require schema v2;
+workspace readiness and pane polling fallback must be chosen explicitly.
+
+### Added
+
 - Inspect source-query plans before execution and use LINQ over matching
   entities with their captured snapshot. Discover supported fields and
   operators through `QueryFieldCatalog`. (#34)
@@ -1560,7 +1578,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.19...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.20...HEAD
+[0.0.0-alpha.20]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.20
 [0.0.0-alpha.19]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.19
 [0.0.0-alpha.18]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.18
 [0.0.0-alpha.17]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.17
