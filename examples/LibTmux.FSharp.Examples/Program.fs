@@ -64,8 +64,10 @@ let private verifyPackedAssembly () =
                |> Seq.exists (fun path -> File.ReadAllBytes(path) = loaded)
                |> not
         then
-            failwith
-                "The F# example did not load the expected packed LibTmux.FSharp assembly."
+            failwith (
+                "The F# example did not load the "
+                + "expected packed LibTmux.FSharp assembly."
+            )
 
 let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
     task {
@@ -162,8 +164,10 @@ let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
                 )
 
             if cancelStarted <> 2 || cancelMaximum <> 2 then
-                failwith
-                    "The bounded helper did not hold two workers before cancellation."
+                failwith (
+                    "The bounded helper did not hold two workers "
+                    + "before cancellation."
+                )
 
             canceled.Cancel()
 
@@ -188,7 +192,8 @@ let private verifyBoundedCleanupAsync (cancellationToken: CancellationToken) =
                 || cancelActive <> 0
             then
                 failwithf
-                    "Bounded cancellation: observed=%b taskCanceled=%b started=%d maximum=%d active=%d status=%A"
+                    "Bounded cancellation: observed=%b taskCanceled=%b \
+                     started=%d maximum=%d active=%d status=%A"
                     observedCancellation
                     pending.IsCanceled
                     cancelStarted
@@ -284,8 +289,10 @@ let private runAsync () =
             GuideSnippets.readPaneCommandsAsync cancellationToken scope.Server
 
         if guideCommands |> List.contains command |> not then
-            failwith
-                "The getting-started guide did not read the captured pane command."
+            failwith (
+                "The getting-started guide did not read "
+                + "the captured pane command."
+            )
 
         let! guideMatches =
             GuideSnippets.readMatchingSessionNamesAsync
@@ -367,7 +374,8 @@ let private runAsync () =
             && rendered.StartsWith("fsharp-", StringComparison.Ordinal)
             ->
             printfn
-                "Core interop: command-alias[40], inherited status-keys=vi, hook[3], %s"
+                "Core interop: command-alias[40], inherited status-keys=vi, \
+                 hook[3], %s"
                 rendered
         | _ -> failwithf "The core interop guide observed %A." settings
 
@@ -391,8 +399,10 @@ let private runAsync () =
             || operations.InModeWhileCopying <> "1"
             || operations.InModeAfter <> "0"
         then
-            failwith
-                "The core operations guide did not link, move, lay out, buffer and copy as shown."
+            failwith (
+                "The core operations guide did not link, move, "
+                + "lay out, buffer and copy as shown."
+            )
 
         let! input =
             GuideSnippets.exerciseWindowInputAsync
@@ -460,8 +470,10 @@ let private runAsync () =
                 [ 1; 2; 3; 4 ]
 
         if squared <> [ 1; 4; 9; 16 ] || maximumInFlight <> 2 then
-            failwith
-                "The bounded-concurrency guide did not preserve its bound and input order."
+            failwith (
+                "The bounded-concurrency guide did not preserve "
+                + "its bound and input order."
+            )
 
         do! verifyBoundedCleanupAsync cancellationToken
 
@@ -491,8 +503,10 @@ let private runAsync () =
                    (fun (left: Pane) (right: Pane) -> left.Id <> right.Id)
                    native
         then
-            failwith
-                "The portable filter did not match the native captured-pane query."
+            failwith (
+                "The portable filter did not match the "
+                + "native captured-pane query."
+            )
 
         let! watchedPane =
             scope.Pane
