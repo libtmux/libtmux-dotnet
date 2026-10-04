@@ -416,6 +416,12 @@ typed client ID, so the F# façade does not invent one. `session_windows` and
 `WindowFields.paneCount`, and as the relations `SessionFields.windows` and
 `WindowFields.panes` that `Filter.any` and `Filter.all` walk.
 
+A tmux format outside this catalog, such as `session_created` or
+`pane_dead_signal`, filters through `Query.whereUnsafe`, which hands tmux a raw
+filter such as `UnsafeTmuxFilter "#{e|>|:#{session_created},1700000000}"`.
+tmux evaluates it and nothing rechecks it, so it has none of the typed fields'
+guarantees, and a malformed or unknown token keeps no rows rather than raising.
+
 `allOf []` matches everything, and `anyOf []`, `oneOf []` match nothing;
 `notOneOf []` matches everything. Each is a Boolean constant predicate, which
 serializes and travels like any other document.
