@@ -510,10 +510,8 @@ independent of tmux versions, including packaging and README compilation, run
 outside that matrix. The scheduled tmux-master lane remains advisory.
 
 `dotnet.yml` has an advisory macOS arm64 lane on master and manual dispatch.
-It builds and runs unit/integration tests and the F# example with Homebrew
-tmux; it stays outside `gate` and restores without locked mode. Text captured
-from a pane may wrap with the host's prompt width; assertions about typed text
-use `joinWrappedLines`.
+See [MACOS_CI.md](MACOS_CI.md). Text captured from a pane may wrap with the
+host's prompt width; assertions about typed text use `joinWrappedLines`.
 
 Action references are pinned to commits. CodeQL also runs on pull requests;
 Scorecard runs on its configured schedule. These workflows do not replace the
