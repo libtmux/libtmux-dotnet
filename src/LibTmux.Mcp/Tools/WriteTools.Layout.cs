@@ -94,7 +94,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Splits a pane in two.</summary>
-    /// <param name="paneId">The pane to split, or null for the active one.</param>
+    /// <param name="paneId">The pane to split, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="direction">Where the new pane goes.</param>
     /// <param name="startDirectory">Where the new pane starts.</param>
     /// <param name="percentage">How much of the space the new pane takes.</param>
@@ -183,7 +183,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Resizes a pane.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="width">Columns to set it to.</param>
     /// <param name="height">Rows to set it to.</param>
     /// <param name="zoom">Whether to zoom it to fill the window instead.</param>
@@ -226,7 +226,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Applies a layout to a window.</summary>
-    /// <param name="windowId">The window, or null for the active one.</param>
+    /// <param name="windowId">The window, or null for the caller's window or the one the first session shows.</param>
     /// <param name="layout">The layout name or a tmux layout string.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
@@ -285,7 +285,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Renames a window.</summary>
     /// <param name="name">The new name.</param>
-    /// <param name="windowId">The window, or null for the active one.</param>
+    /// <param name="windowId">The window, or null for the caller's window or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>What changed.</returns>
@@ -312,7 +312,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sets a pane's title.</summary>
     /// <param name="title">The new title.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>What changed.</returns>

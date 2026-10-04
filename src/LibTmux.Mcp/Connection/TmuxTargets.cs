@@ -502,7 +502,7 @@ internal static class TmuxTargets
     /// <summary>Resolves the option table one scope names.</summary>
     /// <param name="server">The server to resolve within.</param>
     /// <param name="scope">Which level the caller named.</param>
-    /// <param name="paneId">The pane whose scope to take, or null for the active one.</param>
+    /// <param name="paneId">The pane whose scope to take, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="cancellationToken">Cancels the tmux query.</param>
     /// <returns>The options at that scope.</returns>
     internal static async Task<TmuxOptions> OptionsAsync(

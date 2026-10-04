@@ -12,7 +12,7 @@ namespace LibTmux.Mcp;
 internal sealed partial class ReadTools
 {
     /// <summary>Waits until a pane prints text a caller is looking for.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="patterns">What to wait for, or null for any output at all.</param>
     /// <param name="stopPatterns">What means waiting is pointless.</param>
     /// <param name="timeoutSeconds">How long to wait, before the server's ceiling.</param>

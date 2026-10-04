@@ -61,7 +61,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Runs a command in a pane and waits for it to finish.</summary>
     /// <param name="command">The shell command.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="timeoutSeconds">How long to wait, before the server's ceiling.</param>
     /// <param name="maxLines">The most output lines to answer.</param>
     /// <param name="suppressHistory">Whether to keep the command out of shell history.</param>

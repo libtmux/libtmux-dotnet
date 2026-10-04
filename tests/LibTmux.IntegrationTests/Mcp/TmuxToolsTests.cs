@@ -70,6 +70,9 @@ public sealed class TmuxToolsTests
             window.PaneId, cancellationToken: token);
         _ = await mcp.Capabilities.SelectWindowAsync(window.WindowId!, token);
         _ = await mcp.Capabilities.SelectPaneAsync(split.PaneId!, token);
+
+        // A session created later, but named to sort after, is not the first.
+        _ = await mcp.Capabilities.CreateSessionAsync("zz-later", cancellationToken: token);
         Server server = await mcp.Connection.GetAsync(cancellationToken: token);
 
         Assert.Equal(split.PaneId, (await TmuxTargets.PaneAsync(server, null, token)).Id.ToString());

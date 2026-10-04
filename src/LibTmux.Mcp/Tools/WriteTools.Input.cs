@@ -22,7 +22,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sends keys to a pane.</summary>
     /// <param name="keys">The text or key name to send.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="enter">Whether Enter follows.</param>
     /// <param name="literal">Whether the text is sent as typed rather than read as key names.</param>
     /// <param name="suppressHistory">Whether to keep the text out of shell history.</param>
@@ -160,7 +160,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sends several keystrokes in order.</summary>
     /// <param name="steps">What to send, in order.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>What was sent.</returns>
@@ -302,7 +302,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Pastes text into a pane without the shell reading it as keys.</summary>
     /// <param name="text">The text to paste.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="bracketed">Whether to use bracketed paste.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>

@@ -10,7 +10,7 @@ internal sealed partial class ReadTools
     /// <summary>Reads tmux options.</summary>
     /// <param name="name">One option to read, or null for all of them.</param>
     /// <param name="scope">Which level to read.</param>
-    /// <param name="paneId">The pane whose scope to read, or null for the active one.</param>
+    /// <param name="paneId">The pane whose scope to read, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The options.</returns>
@@ -141,7 +141,7 @@ internal sealed partial class ReadTools
 
     /// <summary>Reads the hooks tmux will run.</summary>
     /// <param name="scope">Which level to read.</param>
-    /// <param name="paneId">The pane whose scope to read, or null for the active one.</param>
+    /// <param name="paneId">The pane whose scope to read, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>The hooks.</returns>

@@ -13,7 +13,7 @@ internal sealed partial class ReadTools
     private const int MaximumSearchWorkBytes = 8 * 1_024 * 1_024;
 
     /// <summary>Reads a pane's content and screen state together.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="maxLines">The most lines to answer, or null for the server default.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
@@ -63,7 +63,7 @@ internal sealed partial class ReadTools
     }
 
     /// <summary>Reads what a pane is showing.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="includeHistory">Whether to read scrollback as well as the screen.</param>
     /// <param name="maxLines">The most lines to answer, or null for the server default.</param>
     /// <param name="joinWrappedLines">Whether a line tmux wrapped is rejoined.</param>
@@ -119,7 +119,7 @@ internal sealed partial class ReadTools
     }
 
     /// <summary>Reads what a pane has printed since the last read.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="cursor">Where the last read finished, or null to start now.</param>
     /// <param name="maxLines">The most lines to answer, or null for the server default.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
