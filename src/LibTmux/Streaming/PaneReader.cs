@@ -206,9 +206,11 @@ internal static class PaneReader
         // Every sampled state must preserve them; public cursors lack screen mode.
         bool trustedCoordinates = expectedAlternateScreen.HasValue && cursor.PaneWidth > 0;
         int previousHistorySize = cursor.HistorySize;
+        bool observedHistoryShrink = false;
 
         void ObserveState(PaneGridState state)
         {
+            observedHistoryShrink |= state.HistorySize < previousHistorySize;
             trustedCoordinates &= state.PaneWidth == cursor.PaneWidth
                 && state.AlternateScreen == expectedAlternateScreen
                 && string.Equals(state.PanePid, cursor.PanePid, StringComparison.Ordinal)
@@ -251,6 +253,11 @@ internal static class PaneReader
             if (before != after)
             {
                 continue;
+            }
+
+            if (observedHistoryShrink)
+            {
+                break;
             }
 
             int previousOffset;

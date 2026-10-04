@@ -685,8 +685,10 @@ public sealed class PaneWaitConsistencyTests
         Assert.InRange(fixture.Captures, 5, 6);
     }
 
-    [Fact]
-    public async Task A_busy_fallback_does_not_trust_coordinates_after_history_resets_between_samples()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_read_does_not_trust_coordinates_after_history_resets_between_samples(bool stabilizesBeforeFallback)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new()
@@ -695,7 +697,7 @@ public sealed class PaneWaitConsistencyTests
             Unstable = false,
             PaneWidth = 80,
             CaptureUsesGridRows = true,
-            HistoryAfterCaptures = [13, 0, 1],
+            HistoryAfterCaptures = stabilizesBeforeFallback ? [13, 1] : [13, 0, 1],
         };
         Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
         PaneCursor cursor = PaneCursor.Build(pane,
@@ -704,13 +706,17 @@ public sealed class PaneWaitConsistencyTests
         PaneRead read = await PaneReader.ReadSinceAsync(pane, cursor, PaneReader.Failure,
             control: null, token, expectedAlternateScreen: false);
 
-        Assert.Equal([0, 13, 13, 0, 0, 1, 1, 1], fixture.GridHistorySamples);
-        Assert.Equal(4, fixture.Captures);
+        int[] expectedSamples = stabilizesBeforeFallback ? [0, 13, 13, 1, 1, 1] : [0, 13, 13, 0, 0, 1, 1, 1];
+        Assert.Equal(expectedSamples, fixture.GridHistorySamples.Take(expectedSamples.Length));
+        Assert.All(fixture.GridHistorySamples.Skip(expectedSamples.Length), history => Assert.Equal(1, history));
+        Assert.InRange(fixture.Captures, stabilizesBeforeFallback ? 3 : 4, 4);
         Assert.Equal(1, read.State.HistorySize);
-        Assert.Equal("old READY", Assert.Single(read.Lines));
+        Assert.Contains("old READY", read.Lines);
+        Assert.True(read.RowPositions is null,
+            $"Uncertain read returned absolute rows [{string.Join(", ", read.RowPositions ?? [])}] "
+            + $"(LinesMissed={read.LinesMissed}, AnchorLost={read.AnchorLost}).");
         Assert.True(read.LinesMissed);
         Assert.True(read.AnchorLost);
-        Assert.Null(read.RowPositions);
     }
 
     [Fact]
