@@ -1,7 +1,9 @@
 # Benchmarks
 
 Recorded runs, each naming the tmux, host, runtime and commit that produced it.
-Nothing here is a promise about your machine.
+Nothing here is a promise about your machine. A record is dated by the UTC
+day it was collected on, so an evening run in the Americas carries the next
+day's date.
 
 ## Runs
 
@@ -10,7 +12,8 @@ Nothing here is a promise about your machine.
 | 2026-08-16 | 3.7b | `0.0.0-alpha.3` | [record](runs/2026-08-16-tmux-3.7b.md) |
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 | 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
-| 2026-10-03 | 3.7c | `0.0.0-alpha.17` + F# branch, hosted runner | [F# costs including the pane watch](runs/2026-10-03-tmux-3.7c-fsharp.md) |
+| 2026-10-03 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane watch and mirror](runs/2026-10-03-tmux-3.7c-fsharp.md) |
+| 2026-10-04 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane flood and wait latency](runs/2026-10-04-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -40,6 +43,12 @@ property of the host. Both orders have been measured here.
 
 **Compare allocations within one workload and runtime.** The records include
 allocated bytes alongside timing; changing the workload changes that count.
+
+**Read each F# record's conditions before comparing two.** A record says
+whether the host was a virtual machine, how many cores the run could use, the
+CPU governor where Linux exposes one, and the load averages when it was
+recorded; the 5- and 15-minute figures span the run. A run under load reads
+slower, and the spread between median and p95 shows how much.
 
 ## Reproducing
 
@@ -236,7 +245,9 @@ $ dotnet run \
 builds a server of 64 sessions with 4 windows each, where one pane in 64 runs
 `tail`, and finds those panes, and the sessions holding them, three ways: a
 query tmux narrows with `-f`, a full listing filtered locally, and a snapshot
-filtered locally. Every route must return the same objects before timing.
+filtered locally. Every route must return the same objects before timing. The
+full listing filtered locally is how Python libtmux filters: `server.panes`
+lists every pane, and `QueryList.filter` checks them in Python.
 
 In the [2026-10-03 record](runs/2026-10-03-tmux-3.7d-fsharp.md) the pane query
 took a median of 39 ms pushed down against 254 ms for a full listing and
@@ -247,13 +258,12 @@ session, and only the matching sessions are captured. Two identical local
 routes for that query differ by half, which is the run-to-run noise of a
 process start under load.
 
-The [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md), from a GitHub
+The [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 9.2 ms pushed down against 82 ms for a full listing and 169 ms for a
-snapshot, and the session query 36 ms against 179 ms and 176 ms. Its two
+took 10.5 ms pushed down against 90 ms for a full listing and 189 ms for a
+snapshot, and the session query 41 ms against 189 ms and 187 ms. Its two
 local session routes agree within 2%, where the workstation's differed by
-half. That run was a pull request's, so it records the merge commit GitHub
-tested, which is not on the branch.
+half.
 
 ```console
 $ dotnet run \
@@ -279,14 +289,78 @@ $ uv run python eng/benchmarks/record_fsharp.py \
 reads 256 output events spread over eight panes from a synthetic client and
 keeps one, two or eight panes' output, once by filtering `Control.events` by
 hand and once through `Control.watchPanes`. Both must count the same output
-before timing. The watch also asks whether each watched pane still exists
-when it starts and after each layout change; the synthetic client answers at
-once, and against a real server each answer is one tmux round trip.
+before timing. The watch also lists the client's session's panes when it
+starts, to check each watched pane is there; the synthetic client answers at
+once and sends no layout change, and against a real server that listing is
+one tmux round trip whatever the number of panes.
 
-In the [hosted record](runs/2026-10-03-tmux-3.7c-fsharp.md) the filter took
-about 1 µs for every count of panes, and the watch 4.3 µs for one pane, 5.2 µs
-for two and 10.8 µs for eight: about 0.9 µs for each pane checked, on top of a
-fixed 3.4 µs, across 256 events.
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) the filter took
+1.4 to 1.7 µs for every count of panes, and the watch 6.0 µs for one pane,
+7.0 µs for two and 12.2 µs for eight. The watch passes on 32, 64 or 256 of
+the events where the filter only counts them, so its cost grows with what it
+yields: about 28 ns for each event, on top of a fixed 5.1 µs.
+
+## F# pane flood
+
+[`FSharpPaneFloodBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpPaneFloodBenchmarks.cs)
+has a shell print 1,000 or 20,000 numbered lines and a marker, and reads a
+real control client's events until the marker arrives: once by keeping the
+pane's output by hand, and once through `Control.watchPane`. It measures how
+fast output crosses tmux, the control client and the reader, and what the
+watch adds under a flood. Setup fails unless both routes see every line, and
+the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
+by hand.
+
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) reading 1,000
+lines took 6.64 ms by hand and 6.69 ms through the watch, 1.01 times, and
+20,000 lines 26.9 ms and 25.8 ms, 0.96 times. The two routes allocated within
+2% of each other, so the watch adds a filter, not a copy of the output.
+
+## F# wait latency
+
+[`FSharpWaitLatencyBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpWaitLatencyBenchmarks.cs)
+types a command into a shell and returns once its output is on the pane,
+printed at once or after 250 ms. `Pane.sendAndWait` sleeps on the pane's
+output through a control client it attaches for the wait, or through one
+`Session.holdWaitClient` keeps attached across waits. The baseline
+captures the screen every 50 ms until the output shows, as Python libtmux's
+`retry_until` does by default; Python libtmux has no wait of its own.
+
+A wait pays a fixed cost a poll does not: it attaches a control client before
+reading the screen, and reads the pane through that client, three round trips
+each time it wakes. Output already printed is a poll's best case, found by its
+first capture. A poll pays instead for every interval the output takes: a capture,
+which is a tmux process, every 50 ms, and up to 50 ms of latency after the
+output appears. Delayed output sleeps 250 to 290 ms in turn, so the polls land
+at every point of their interval, as they do against output nothing
+synchronizes with them.
+
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), output already
+printed took 6.3 ms by polling, 11.2 ms through a wait, and a median of 5.9 ms
+through a wait whose client was held. Delayed output took a median of 323 ms
+by polling, 283 ms through a wait and 277 ms with the client held; the waits
+started no tmux process while they slept, where the poll started one every
+50 ms. `Pane.run`, which also returns the exit status, took 34 ms for a
+command that printed at once and 306 ms for one that printed late. Read the
+screen once with `Pane.capture` when the output is already there, wait when
+it is still to come, and hold the client for a series of waits.
+
+## F# live mirror
+
+[`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
+mirrors a server of one or sixteen sessions with four windows each, renames a
+window, and waits with `Mirror.waitUntil` until a view shows the new name. The
+baseline captures the same server to pane depth, which is what the mirror does
+on each announcement. The difference between the two is the command, tmux's
+announcement and the publish; the capture is the part that grows with the
+server. Setup fails unless the mirror publishes a renamed window, and the
+[regression gate](#regression-gate) bounds the rename at 1.65 captures.
+
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) a rename seen
+through the mirror took 16.9 ms against 13.2 ms for a capture of one session,
+1.28 captures, and 57.1 ms against 56 ms for sixteen sessions, 1.02. The
+capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
+large server spends most of a mirror's cost on captures.
 
 ## Hosted runs
 
@@ -302,11 +376,39 @@ $ gh workflow run benchmarks.yml -f tmux=3.2a
 
 ## Regression gate
 
-Timings are not gated in CI: the same case moves by more than half between
-runs on one machine, so a threshold loose enough to pass would catch nothing.
-What is gated is what does not vary. An integration test counts the tmux
-processes a pushed-down query starts and the rows tmux returns through the
-connection interceptor, and fails when a listing stops narrowing.
+Absolute timings are not gated in CI: the same case moves by more than half
+between runs on one machine, so a threshold loose enough to pass would catch
+nothing. Four things are gated instead:
+
+- An integration test counts the tmux processes a pushed-down query starts and
+  the rows tmux returns through the connection interceptor, and fails when a
+  listing stops narrowing.
+- The `benchmarks` workflow compares routes measured in the same run: pushdown
+  must be at least three times as fast as listing everything and filtering
+  locally, and allocate less managed memory per operation, as BenchmarkDotNet's
+  memory diagnoser counts it. Every recorded host clears both by far, 4 to 9
+  times as fast with 10 to 30 times fewer bytes allocated, so a failure means
+  pushdown stopped narrowing rather than a noisy runner. The rows tmux sends
+  are counted by the integration test above, not here.
+- The same workflow fails a run in which a rename seen through a mirror costs
+  more than 1.65 snapshot captures of the same server. The workstation and
+  the hosted runner measured 1.02 to 1.35, since each rebuild is one capture;
+  a mirror made to capture twice per change measured 1.86 with sixteen
+  sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
+  class and pass this check.
+- It also fails a run in which reading a pane's flood through the watch costs
+  more than 1.6 times reading every event by hand. The workstation and the
+  hosted runner measured 0.95 to 1.13; a watch made to list the panes on each
+  output event measured
+  2.33 for 20,000 lines and 1.32 for 1,000, too few events to show it. Records
+  made before the flood benchmark pass this check.
+
+Check a record with:
+
+```console
+$ python3 eng/benchmarks/record_fsharp.py \
+    --gate docs/benchmarks/runs/2026-10-04-tmux-3.7c-fsharp.json
+```
 
 ## Control stream probe
 

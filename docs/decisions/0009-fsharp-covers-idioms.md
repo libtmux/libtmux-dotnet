@@ -6,6 +6,21 @@ Accepted for the prerelease line. The session builder, typed chains and
 per-handle timeout it declined are superseded by
 [ADR 0010](0010-fsharp-builds-sessions-and-chains.md).
 
+Revisited on 2026-10-04 for kill, rename and select, which the F# samples
+called more than any other core operation. `KillAsync` and `Pane.SelectAsync`
+take optional parameters before the token, so every F# call named it, and
+the handles rename and select return read naturally at the end of a pipe.
+`Session`, `Window` and `Pane` gain `kill`, `rename` and `select` where tmux
+has them.
+
+Revisited again the same day, because reviewers kept finding the two calling
+styles side by side in one pipeline. The threshold is now the MCP server's
+tool list: every session, window and pane operation an assistant is given has
+an F# function too, so `Pane.setTitle`, `resize`, `swap`, `respawn` and
+`clearHistory`, `Window.selectLayout`, `resize` and `move`, and
+`Session.newWindow` join them. Configuration, hooks, buffers, formats and
+`wait-for` channels still go through the core.
+
 ## Context
 
 The JVM ports generate their Kotlin and Scala coverage from the Java
@@ -39,11 +54,14 @@ For the other requests:
 
 - **Typed chains:** forty request types convert to commands with `ToCommand`,
   and `Server.Chain().Then(...)` composes them. F# uses that directly.
+  Superseded: ADR 0010 adds the `Chain` module.
 - **Session builder:** `LibTmux.Workspace` builds a session from a
   `WorkspaceFile` of windows and panes, which F# writes as nested lists.
+  Superseded: ADR 0010 adds `SessionSpec` records and `Server.newSession`.
 - **`within(timeout)`:** a token from `CancellationTokenSource(timeout)`
   bounds one call; `ServerConnectionOptions.CommandTimeout` bounds every
   command a handle sends, and two handles to one socket give two bounds.
+  Superseded: ADR 0010 adds `Server.Within` and `Server.within`.
 - **Per-client buffer capacity:** `ServerConnectionOptions.ControlModeEventBufferCapacity`
   is set per handle, so a client that needs more room is entered through a
   handle connected with more.
@@ -62,8 +80,9 @@ the duplication drifts.
 ## Consequences
 
 - `docs/fsharp/interop.md` and `modes.md` show the core calls the facade
-  does not wrap: configuration, hooks, formats, layouts, buffers, chains and
-  timeouts.
+  does not wrap: configuration, hooks, formats, layouts and buffers. Chains
+  and timeouts were here too until [ADR 0010](0010-fsharp-builds-sessions-and-chains.md)
+  wrapped them.
 - A new facade function needs an F# shape the core call lacks, stated in its
   commit.
 - Revisit if F# users repeatedly write the same wrapper around a core call.

@@ -217,6 +217,52 @@ module ContractTests =
         }
 
     [<Fact>]
+    let ``pressKey sends one key name and no Enter`` () =
+        task {
+            let sent = System.Collections.Concurrent.ConcurrentQueue<string array>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-press-key"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            sent.Enqueue arguments
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    arguments,
+                                    0,
+                                    ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes("17:29\n")),
+                                    ReadOnlyMemory<byte>.Empty,
+                                    [||],
+                                    [||]
+                                )
+                            ))
+                )
+
+            let generation = ServerGeneration(17, 29)
+            let server = LibTmux.Server(connection, generation, "tmux 3.7")
+
+            let pane =
+                LibTmux.Pane(server, connection, generation, PaneId 1, Dictionary<string, string>())
+
+            do! pane |> Pane.pressKey CancellationToken.None "C-c"
+
+            // Each command also carries the server generation check, so look
+            // for the key; a following Enter would be a second command.
+            let arguments = Assert.Single(sent)
+            Assert.Contains("C-c", arguments)
+            Assert.DoesNotContain("-l", arguments)
+
+            Assert.Throws<ArgumentException>(fun () -> pane |> Pane.pressKey CancellationToken.None " " |> ignore)
+            |> ignore
+        }
+
+    [<Fact>]
     let ``send keys keeps post-dispatch cancellation token and diagnostics`` () =
         task {
             use source = new CancellationTokenSource()
@@ -328,6 +374,220 @@ module ContractTests =
             Assert.Equal(0, mutations)
         }
 
+    [<Fact>]
+    let ``a blank layout name is refused before anything is sent`` () =
+        let connection =
+            TmuxConnection(
+                ServerConnectionOptions(SocketName = "fsharp-layout"),
+                Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                    Task.FromException<TmuxCommandResult>(InvalidOperationException("Nothing should be sent.")))
+            )
+
+        let generation = ServerGeneration(17, 32)
+        let server = LibTmux.Server(connection, generation, "tmux 3.7")
+
+        let window =
+            LibTmux.Window(server, connection, generation, WindowId 3, Dictionary<string, string>())
+
+        for blank in [ ""; " " ] do
+            Assert.ThrowsAny<ArgumentException>(fun () ->
+                window |> Window.selectLayout CancellationToken.None blank |> ignore)
+            |> ignore
+
+    [<Fact>]
+    let ``pane, window and session functions send the command they name`` () =
+        task {
+            let sent = Collections.Concurrent.ConcurrentQueue<string list>()
+
+            let connection =
+                TmuxConnection(
+                    ServerConnectionOptions(SocketName = "fsharp-kill"),
+                    Func<TmuxCommandRequest, CancellationToken, Task<TmuxCommandResult>>(fun request _ ->
+                        let arguments = request.LogicalArguments |> Seq.toArray
+
+                        if arguments = [| "-V" |] then
+                            versionReply arguments
+                        else
+                            // Entity commands follow the server generation guard's.
+                            let guard = Array.LastIndexOf(arguments, ";")
+                            sent.Enqueue(arguments |> Array.skip (guard + 1) |> List.ofArray)
+                            let generation = Encoding.UTF8.GetBytes("17:31\n")
+
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    arguments,
+                                    0,
+                                    ReadOnlyMemory<byte>(generation),
+                                    ReadOnlyMemory<byte>.Empty,
+                                    [| "17:31" |],
+                                    [||]
+                                )
+                            ))
+                )
+
+            let generation = ServerGeneration(17, 31)
+            let server = LibTmux.Server(connection, generation, "tmux 3.7")
+            let fields () = Dictionary<string, string>()
+            let token = TestContext.Current.CancellationToken
+
+            do!
+                LibTmux.Pane(server, connection, generation, PaneId 4, fields ())
+                |> Pane.kill token
+
+            do!
+                LibTmux.Window(server, connection, generation, WindowId 3, fields ())
+                |> Window.kill token
+
+            do!
+                LibTmux.Session(server, connection, generation, SessionId 2, fields ())
+                |> Session.kill token
+
+            let pane = LibTmux.Pane(server, connection, generation, PaneId 5, fields ())
+            do! pane |> Pane.clearHistory token
+            do! pane |> Pane.respawn token (RespawnRequest(KillExistingProcess = true))
+
+            Assert.Equal<string list>(
+                [
+                    "kill-pane -t %4"
+                    "kill-window -t @3"
+                    "kill-session -t $2"
+                    "clear-history -t %5"
+                    "respawn-pane -t %5 -k"
+                ],
+                sent |> Seq.map (String.concat " ") |> List.ofSeq
+            )
+        }
+
+module PaneRunTests =
+    let private describe result =
+        match result with
+        | PaneRun.Exited status -> "exited " + string status
+        | PaneRun.Ended -> "ended"
+        | PaneRun.NotStarted -> "not started"
+        | PaneRun.TimedOut -> "timed out"
+
+    [<Fact>]
+    let ``runs are told apart by how they ended`` () =
+        let run status timedOut started =
+            PaneRunResult(status, timedOut, [], TimeSpan.Zero, started, false)
+
+        Assert.Equal("exited 3", describe (run (Nullable 3) false true))
+
+        Assert.Equal(
+            "ended",
+            describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, true, false, PaneExited = true))
+        )
+        // The shell's exit decides, whether or not the command was seen to begin.
+        Assert.Equal(
+            "ended",
+            describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, false, false, PaneExited = true))
+        )
+
+        Assert.Equal("timed out", describe (run (Nullable()) true true))
+        Assert.Equal("not started", describe (run (Nullable()) false false))
+        // A run typed into something other than a shell also waits out its time.
+        Assert.Equal("not started", describe (run (Nullable()) true false))
+
+        Assert.Throws<ArgumentOutOfRangeException>(fun () -> describe (run (Nullable()) false true) |> ignore)
+        |> ignore
+
+module PaneWaitTests =
+    let private describe result =
+        match result with
+        | PaneWait.Found -> "found"
+        | PaneWait.Printed -> "printed"
+        | PaneWait.Stopped pattern -> "stopped by " + pattern
+        | PaneWait.TimedOut -> "timed out"
+        | PaneWait.Ended -> "ended"
+
+    [<Fact>]
+    let ``every wait outcome has one pattern`` () =
+        let wait outcome (pattern: string | null) =
+            PaneWaitResult(outcome, pattern, TimeSpan.Zero) |> describe
+
+        Assert.Equal<string list>(
+            [
+                "found"
+                "found"
+                "printed"
+                "stopped by FAIL"
+                "timed out"
+                "ended"
+                "ended"
+            ],
+            [
+                wait PaneWaitOutcome.Matched "ok"
+                wait PaneWaitOutcome.PresentAtEntry "ok"
+                wait PaneWaitOutcome.AnyOutput null
+                wait PaneWaitOutcome.Stopped "FAIL"
+                wait PaneWaitOutcome.TimedOut null
+                wait PaneWaitOutcome.PaneExited null
+                wait PaneWaitOutcome.AlternateScreen null
+            ]
+        )
+
+        // An outcome the core adds later must have a case here before it ships.
+        for outcome in Enum.GetValues<PaneWaitOutcome>() do
+            wait outcome "pattern" |> ignore
+
+module PaneWatchTests =
+    let private describe event =
+        match event with
+        | PaneWatch.Output output -> "output " + output.Data
+        | PaneWatch.Paused pane -> "paused " + pane.ToString()
+        | PaneWatch.Continued pane -> "continued " + pane.ToString()
+        | PaneWatch.Dropped loss -> "dropped " + loss.Count.ToString()
+        | PaneWatch.Gone pane -> "gone " + pane.ToString()
+        | PaneWatch.Exited reason -> "exited " + defaultArg reason "silently"
+
+    [<Fact>]
+    let ``every event a pane watch yields has one pattern`` () =
+        let pane = PaneId 3
+
+        Assert.Equal<string list>(
+            [
+                "output hi"
+                "paused %3"
+                "continued %3"
+                "dropped 2"
+                "gone %3"
+                "exited silently"
+                "exited detached"
+            ],
+            [
+                describe (TmuxOutputEvent(pane, "hi"))
+                describe (TmuxPanePausedEvent pane)
+                describe (TmuxPaneContinuedEvent pane)
+                describe (TmuxEventsDroppedEvent(2L, 5L))
+                describe (TmuxPaneGoneEvent pane)
+                describe (TmuxExitEvent null)
+                describe (TmuxExitEvent "detached")
+            ]
+        )
+
+        // A watch never yields a notification, so matching one is a mistake.
+        Assert.Throws<ArgumentOutOfRangeException>(fun () ->
+            describe (TmuxNotificationEvent("window-add", [| "@1" |])) |> ignore)
+        |> ignore
+
+        // An event type the core adds later fails here until it has a case, or
+        // is shown never to reach a pane watch.
+        Assert.Equal<string array>(
+            [|
+                "TmuxEventsDroppedEvent"
+                "TmuxExitEvent"
+                "TmuxNotificationEvent"
+                "TmuxOutputEvent"
+                "TmuxPaneContinuedEvent"
+                "TmuxPaneGoneEvent"
+                "TmuxPanePausedEvent"
+            |],
+            typeof<TmuxEvent>.Assembly.GetTypes()
+            |> Array.filter (fun kind -> kind.IsSubclassOf typeof<TmuxEvent> && not kind.IsAbstract)
+            |> Array.map (fun kind -> kind.Name)
+            |> Array.sort
+        )
+
 module FailureTests =
     let private failure dispatch =
         LibTmuxException("tmux failed", (dispatch: TmuxDispatchState)) :> exn
@@ -356,6 +616,96 @@ module FailureTests =
             ]
             |> List.map describe
         )
+
+    // Async.AwaitTask loses a tmux client's cancellation after it started;
+    // TmuxAsync keeps it, and still cancels the workflow for any other.
+    [<Fact>]
+    let ``an async workflow keeps the cancellation that says tmux may have acted`` () =
+        use canceled = new CancellationTokenSource()
+        canceled.Cancel()
+
+        let kept () : Task<int> =
+            task { return raise (TmuxOperationCanceledException("may have run", canceled.Token, true, 7)) }
+
+        let plain () : Task<int> =
+            task { return raise (OperationCanceledException(canceled.Token)) }
+
+        let failed () : Task =
+            task { return raise (failure TmuxDispatchState.Unknown) } :> Task
+
+        let describe (work: Async<unit>) =
+            let attempt =
+                async {
+                    try
+                        do! work
+                        return "ran"
+                    with TmuxFailure.MayHaveRun error ->
+                        return "may have run: " + error.GetType().Name
+                }
+
+            // Async.Catch keeps what was raised; a cancelled workflow escapes it.
+            try
+                match Async.RunSynchronously(Async.Catch attempt) with
+                | Choice1Of2 outcome -> outcome
+                | Choice2Of2 error -> "raised " + error.GetType().Name
+            with :? OperationCanceledException ->
+                "cancelled"
+
+        Assert.Equal(
+            "may have run: TmuxOperationCanceledException",
+            describe (TmuxAsync.awaitTask (kept ()) |> Async.Ignore)
+        )
+
+        Assert.Equal("cancelled", describe (TmuxAsync.awaitTask (plain ()) |> Async.Ignore))
+
+        // Still running when awaited, as a real call is.
+        let later () : Task<int> =
+            task {
+                do! Task.Delay 20
+                return raise (TmuxOperationCanceledException("may have run", canceled.Token, true, 7))
+            }
+
+        Assert.Equal(
+            "may have run: TmuxOperationCanceledException",
+            describe (TmuxAsync.awaitTask (later ()) |> Async.Ignore)
+        )
+
+        // A client cancelled before it could act is an ordinary cancellation.
+        let unsent () : Task<int> =
+            task { return raise (TmuxOperationCanceledException("not sent", canceled.Token, false, 7)) }
+
+        Assert.Equal("cancelled", describe (TmuxAsync.awaitTask (unsent ()) |> Async.Ignore))
+        Assert.Equal("may have run: LibTmuxException", describe (TmuxAsync.awaitUnitTask (failed ())))
+        Assert.Equal("raised TaskCanceledException", describe (Async.AwaitTask(kept ()) |> Async.Ignore))
+
+    // Async.AwaitTask and Task.Wait wrap a failed task's exception; a match
+    // that missed it would read a command that may have run as some other failure.
+    [<Fact>]
+    let ``a failure wrapped by Async.AwaitTask is told apart the same way`` () =
+        let failed dispatch =
+            Task.FromException<unit>(failure dispatch)
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.RunSynchronously
+
+        let wrapped =
+            [
+                TmuxDispatchState.NotDispatched
+                TmuxDispatchState.Dispatched
+                TmuxDispatchState.Unknown
+            ]
+            |> List.map (fun dispatch ->
+                match failed dispatch with
+                | Choice2Of2 error -> error
+                | Choice1Of2() -> failwith "the task failed")
+
+        Assert.All(wrapped, fun error -> Assert.IsType<AggregateException>(error) |> ignore)
+        Assert.Equal<string list>([ "not sent"; "ran"; "may have run" ], wrapped |> List.map describe)
+
+        let both =
+            AggregateException(failure TmuxDispatchState.NotDispatched, failure TmuxDispatchState.Dispatched)
+
+        Assert.Equal("other", describe both)
 
     [<Fact>]
     let ``a chain's steps act on what the one before made and send nothing until run`` () =
@@ -446,10 +796,36 @@ module FailureTests =
                 Assert.ThrowsAsync<ArgumentException>(fun () ->
                     Server.newSession CancellationToken.None windowEnvironment server :> Task)
 
+            // A size outside the documented range is refused before the session exists;
+            // tmux itself refuses a share over 100 and clamps a split of no cells.
+            for size in [ SplitSize.Cells 0; SplitSize.Percent 101 ] do
+                let sized =
+                    { SessionSpec.named "dev" with
+                        Windows =
+                            [
+                                { WindowSpec.named "editor" with
+                                    Splits =
+                                        [
+                                            { SplitSpec.empty with
+                                                Size = Some size
+                                            }
+                                        ]
+                                }
+                            ]
+                    }
+
+                let! _ =
+                    Assert.ThrowsAsync<ArgumentOutOfRangeException>(fun () ->
+                        Server.newSession CancellationToken.None sized server :> Task)
+
+                ()
+
             Assert.Equal(
                 ("session dev", "window editor", "split running the default shell"),
                 (string conflicting, string conflicting.Windows[0], string SplitSpec.empty)
             )
+
+            Assert.Equal(("20 cells", "50%"), (string (SplitSize.Cells 20), string (SplitSize.Percent 50)))
         }
 
     [<Fact>]
@@ -457,6 +833,7 @@ module FailureTests =
         task {
             let sent = ResizeArray<string>()
             let mutable flaky = 0
+            let mutable absent = 0
             let slow = TaskCompletionSource<TmuxCommandResult>()
 
             let connection =
@@ -469,8 +846,23 @@ module FailureTests =
                         if name = "flaky" then
                             flaky <- flaky + 1
 
+                        if name = "absent" then
+                            absent <- absent + 1
+
                         if name = "slow" then
                             slow.Task
+                        elif name = "absent" && absent = 1 then
+                            // The client ran, but no server listened.
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    request.LogicalArguments,
+                                    1,
+                                    ReadOnlyMemory.Empty,
+                                    ReadOnlyMemory.Empty,
+                                    [],
+                                    [ "no server running on /tmp/fsharp-retry-ledger" ]
+                                )
+                            )
                         elif name = "refused" || (name = "flaky" && flaky = 1) then
                             Task.FromException<TmuxCommandResult>(
                                 TmuxTransportException(
@@ -539,10 +931,49 @@ module FailureTests =
             // A lone command refused before dispatch is still repeated.
             let! recovered = Retry.ifNotSent CancellationToken.None 2 (run "flaky")
 
+            // A command no server heard is repeated, as while a server starts.
+            let! started =
+                Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                    task {
+                        let! result = run "absent" token
+
+                        return
+                            if result.ExitCode = 0 then
+                                result
+                            else
+                                raise (TmuxCommandException("absent failed", result))
+                    })
+
             Assert.Equal(
-                (1, 1, 1, 2, 0),
-                (count "first", count "nested", count "slow", count "flaky", recovered.ExitCode)
+                (1, 1, 1, 2, 0, 2, 0),
+                (count "first",
+                 count "nested",
+                 count "slow",
+                 count "flaky",
+                 recovered.ExitCode,
+                 count "absent",
+                 started.ExitCode)
             )
+        }
+
+    [<Fact>]
+    let ``retry after delays waits before each attempt and stops when they run out`` () =
+        task {
+            let mutable attempts = 0
+            let started = Diagnostics.Stopwatch.StartNew()
+
+            let! _ =
+                Assert.ThrowsAsync<LibTmuxException>(fun () ->
+                    Retry.ifNotSentAfter
+                        CancellationToken.None
+                        [ TimeSpan.FromMilliseconds 20.; TimeSpan.FromMilliseconds 30. ]
+                        (fun _ ->
+                            attempts <- attempts + 1
+                            Task.FromException<int>(failure TmuxDispatchState.NotDispatched))
+                    :> Task)
+
+            Assert.Equal(3, attempts)
+            Assert.True(started.Elapsed >= TimeSpan.FromMilliseconds 50.)
         }
 
     [<Fact>]

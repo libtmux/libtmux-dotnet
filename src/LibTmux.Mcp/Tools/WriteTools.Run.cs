@@ -61,7 +61,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Runs a command in a pane and waits for it to finish.</summary>
     /// <param name="command">The shell command.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="timeoutSeconds">How long to wait, before the server's ceiling.</param>
     /// <param name="maxLines">The most output lines to answer.</param>
     /// <param name="suppressHistory">Whether to keep the command out of shell history.</param>
@@ -83,13 +83,16 @@ internal sealed partial class WriteTools
         + "cd and export do not persist. Output starts at an authenticated position "
         + "captured before dispatch; check linesMissed and anchorLost. If it may "
         + "outlast the timeout, run it through a client-managed MCP task. A timed-out "
-        + "command MAY STILL BE RUNNING; inspect it and do not retry it.")]
+        + "command MAY STILL BE RUNNING; inspect it and do not retry it. paneExited "
+        + "means the pane's shell exited first, ending the call early.")]
     public Task<RunResult> RunAsync(
         [Description(
             "The shell command to run, at most LIBTMUX_MCP_MAX_BYTES UTF-8 bytes. "
             + "Put longer scripts in a file and run that file.")]
         string command,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Seconds to wait. Lowered to the server's ceiling; read "
@@ -238,7 +241,8 @@ internal sealed partial class WriteTools
                     budget.TotalSeconds,
                     outcome.LinesMissed,
                     outcome.AnchorLost,
-                    outcome.Started),
+                    outcome.Started,
+                    outcome.PaneExited),
                 "command result");
         }
         finally

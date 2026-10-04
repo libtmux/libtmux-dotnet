@@ -264,8 +264,14 @@ public sealed class WorkspaceBuilderTests
                         PaneReadiness.Always)
                     .BuildAsync(workspace, token));
 
-            TmuxWaitTimeoutException timeout = Assert.IsType<TmuxWaitTimeoutException>(
-                failure.InnerException);
+            // Assert.IsType names only the type; the failure's own text says
+            // which step failed.
+            if (failure.InnerException is not TmuxWaitTimeoutException timeout)
+            {
+                Assert.Fail($"Expected a readiness timeout, not: {failure.InnerException}");
+                return;
+            }
+
             Assert.Equal(TimeSpan.FromMilliseconds(250), timeout.Timeout);
             Assert.False(File.Exists(received));
             Server server = await scope.Server.ConnectAsync(token);

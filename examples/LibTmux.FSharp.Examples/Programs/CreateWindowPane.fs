@@ -8,19 +8,13 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-create-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! session =
             owned.Value.CreateOwnedSessionAsync(
@@ -29,7 +23,10 @@ let runAsync () =
             )
 
         use! window =
-            session.Value.CreateOwnedWindowAsync(NewWindowRequest(Name = "editor", Command = "/bin/cat"), token)
+            session.Value.CreateOwnedWindowAsync(
+                NewWindowRequest(Name = "editor", Command = "/bin/cat", Attach = false),
+                token
+            )
 
         let! panes = window.Value.GetPanesAsync(token)
         let original = panes |> Seq.exactlyOne
@@ -38,15 +35,24 @@ let runAsync () =
             original
             |> Pane.split token (SplitPaneRequest(Direction = PaneDirection.Right, Command = "/bin/cat"))
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        // Renaming and selecting return a handle carrying the state afterwards.
+        let! notes = window.Value |> Window.rename token "notes"
+        let wasCurrent = notes.Active
+        let! current = notes |> Window.select token
+        let! focused = original |> Pane.select token
+        let! _ = current |> Window.selectLayout token "even-horizontal"
+        let! titled = focused |> Pane.setTitle token "editor"
+        do! added |> Pane.kill token
+
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! allPanes = server |> Server.panes |> Query.list token
 
-        if windows.Count <> 2 || allPanes.Count <> 3 || added.Id = original.Id then
-            failwith "Expected two windows and three distinct panes."
-
         printfn "Created session demo and window editor."
-        printfn "Windows: %d; panes: %d" windows.Count allPanes.Count
+        printfn "The split made a new pane: %b" (added.Id <> original.Id)
+        printfn "Renamed to %s; current before select: %b, after: %b" current.Name wasCurrent current.Active
+        printfn "First pane active again: %b; titled %s" focused.Active titled.Title
+        printfn "Windows: %d; panes after the kill: %d" windows.Count allPanes.Count
     }
 
 runAsync().GetAwaiter().GetResult()

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -41,7 +42,9 @@ public sealed class PaneRunTests
             "MARKER",
             Allowed,
             token);
-        _ = await shell.WaitUntilAsync(rows => rows.Any(row => row.Contains("wait-for", StringComparison.Ordinal)), Allowed, token);
+        // The typed line wraps where the socket path's length puts it, which
+        // can be inside "wait-for", so the rows are read as one text.
+        _ = await shell.WaitUntilAsync(rows => string.Concat(rows).Contains("wait-for", StringComparison.Ordinal), Allowed, token);
         Assert.False(waiting.IsCompleted);
         await raw.ExecuteAsync(["wait-for", "-S", gate], token);
         PaneWaitResult done = await waiting;
@@ -96,6 +99,30 @@ public sealed class PaneRunTests
         await released.Task.WaitAsync(Allowed, token);
     }
 
+    // A shell killed mid-run never signals the run, which ends within seconds
+    // rather than at its timeout. A pane tmux keeps still shows what the
+    // command printed; one tmux closes leaves nothing to read.
+    [UnixFact]
+    public async Task A_run_ends_soon_after_its_panes_program_exits()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Pane closing = await NewPaneAsync(raw, ["/bin/sh"], token);
+        Pane kept = await NewPaneAsync(raw, ["/bin/sh"], token);
+        await raw.ExecuteAsync(["set-option", "-p", "-t", kept.Id.ToString(), "remain-on-exit", "on"], token);
+
+        PaneRunResult closed = await RunUntilShellKilledAsync(closing, token);
+        PaneRunResult dead = await RunUntilShellKilledAsync(kept, token);
+
+        Assert.Equal((true, null, false), (closed.PaneExited, closed.ExitStatus, closed.TimedOut));
+        Assert.Empty(closed.Output);
+        Assert.Equal((true, null, false), (dead.PaneExited, dead.ExitStatus, dead.TimedOut));
+        Assert.Contains("before", dead.Output);
+        Assert.True(
+            closed.Elapsed < TimeSpan.FromSeconds(15) && dead.Elapsed < TimeSpan.FromSeconds(15),
+            $"The runs ended after {closed.Elapsed} and {dead.Elapsed}.");
+    }
+
     [UnixFact]
     public async Task A_pane_not_at_a_shell_is_refused_before_anything_is_sent()
     {
@@ -106,9 +133,20 @@ public sealed class PaneRunTests
         TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(
             () => busy.RunAsync("echo never", Allowed, token));
 
-        Assert.Equal(busy.Id, refusal.PaneId);
+        Assert.Equal((busy.Id, TmuxDispatchState.NotDispatched), (refusal.PaneId, refusal.Dispatch));
         RawTmuxResult buffers = await raw.ExecuteAsync(["list-buffers"], token);
         Assert.Empty(buffers.StandardOutputLines);
+    }
+
+    // Killed from outside, as a crash or the OOM killer would: a command that
+    // killed its own shell could still record its status as tmux hangs it up.
+    private static async Task<PaneRunResult> RunUntilShellKilledAsync(Pane pane, CancellationToken token)
+    {
+        Task<PaneRunResult> running = pane.RunAsync("printf 'before\\n'; sleep 30", TimeSpan.FromSeconds(60), token);
+        _ = await pane.WaitForTextAsync("before", Allowed, token);
+        using Process shell = Process.GetProcessById(pane.ProcessId);
+        shell.Kill();
+        return await running;
     }
 
     private static async Task<IEnumerable<string>> StatusOptionsAsync(

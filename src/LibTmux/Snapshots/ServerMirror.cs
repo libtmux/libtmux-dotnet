@@ -44,16 +44,24 @@ public sealed record ServerMirrorView(long Epoch, Server Server, IReadOnlyList<C
 [UnsupportedOSPlatform("windows")]
 public sealed class ServerMirror : IAsyncDisposable
 {
-    // Fields that move with every keystroke or line of output.
+    // Fields that move with every keystroke, line of output or redrawn frame,
+    // or with the clock: client_activity_string changes each second a client
+    // is used, client_written with every status-line redraw, the window
+    // offsets with the cursor of a window larger than its client, and a
+    // program updating its screen atomically toggles synchronized_output_flag
+    // around every frame.
     private static readonly FrozenSet<string> Restless = FrozenSet.ToFrozenSet(
         [
-            "client_activity", "cursor_character", "cursor_x", "cursor_y", "history_bytes",
-            "history_size", "session_activity", "window_activity",
+            "client_activity", "client_activity_string", "client_discarded", "client_written",
+            "cursor_character", "cursor_x", "cursor_y", "history_bytes", "history_size",
+            "saved_cursor_x", "saved_cursor_y", "session_activity", "synchronized_output_flag",
+            "window_activity", "window_offset_x", "window_offset_y",
         ],
         StringComparer.Ordinal);
 
     private static readonly TimeSpan FirstReattachDelay = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan LongestReattachDelay = TimeSpan.FromSeconds(5);
+    private const int AttachAttempts = 5;
 
     private readonly Server _server;
     private readonly SessionId _anchor;
@@ -65,6 +73,10 @@ public sealed class ServerMirror : IAsyncDisposable
     private TaskCompletionSource _published = NewSignal();
     private TaskCompletionSource _wake = NewSignal();
     private IControlModeSession _control;
+
+    // Set once the listener has taken a client whose events ended to dispose
+    // it, so the mirror's own disposal does not dispose it again.
+    private bool _controlReleased;
     private bool _dirty;
     private bool _ended;
     private Exception? _failure;
@@ -254,13 +266,17 @@ public sealed class ServerMirror : IAsyncDisposable
             // Both loops report their failures through End.
         }
 
-        IControlModeSession control;
+        IControlModeSession? control;
         lock (_gate)
         {
-            control = _control;
+            control = _controlReleased ? null : _control;
         }
 
-        await control.DisposeAsync().ConfigureAwait(false);
+        if (control is not null)
+        {
+            await control.DisposeAsync().ConfigureAwait(false);
+        }
+
         _closing.Dispose();
     }
 
@@ -313,25 +329,48 @@ public sealed class ServerMirror : IAsyncDisposable
                 }
 
                 long listening = Stopwatch.GetTimestamp();
-                await foreach (TmuxEvent item in control.Events.WithCancellation(closing).ConfigureAwait(false))
+                try
                 {
-                    // With detach-on-destroy off, tmux moves a client whose
-                    // session ends to another session rather than ending it.
-                    if (item is TmuxNotificationEvent { Name: "session-changed", Arguments: [string session, ..] }
-                        && !string.Equals(session, anchor, StringComparison.Ordinal))
+                    await foreach (TmuxEvent item in control.Events.WithCancellation(closing).ConfigureAwait(false))
                     {
-                        break;
-                    }
+                        // With detach-on-destroy off, tmux moves a client whose
+                        // session ends to another session rather than ending it.
+                        if (item is TmuxNotificationEvent { Name: "session-changed", Arguments: [string session, ..] }
+                            && !string.Equals(session, anchor, StringComparison.Ordinal))
+                        {
+                            break;
+                        }
 
-                    if (item is TmuxNotificationEvent or TmuxEventsDroppedEvent { OnlyOutput: false })
-                    {
-                        RequestCapture();
+                        if (item is TmuxNotificationEvent or TmuxEventsDroppedEvent { OnlyOutput: false })
+                        {
+                            RequestCapture();
+                        }
                     }
+                }
+                catch (Exception) when (!closing.IsCancellationRequested)
+                {
+                    // A client killed without %exit faults its stream, though
+                    // the server and the anchor may be alive; the lookup below
+                    // reports a server that is not.
                 }
 
                 // The client ended or left the anchor, and tmux has forgotten
                 // what it announced.
-                await control.DisposeAsync().ConfigureAwait(false);
+                lock (_gate)
+                {
+                    _controlReleased = true;
+                }
+
+                try
+                {
+                    await control.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception) when (!closing.IsCancellationRequested)
+                {
+                    // Disposing a faulted client raises the fault the read
+                    // above already handled.
+                }
+
                 if (Stopwatch.GetElapsedTime(listening) < LongestReattachDelay)
                 {
                     await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
@@ -342,18 +381,33 @@ public sealed class ServerMirror : IAsyncDisposable
                     reattachDelay = FirstReattachDelay;
                 }
 
-                if (await _server.FindSessionAsync(_anchor, closing).ConfigureAwait(false) is null)
+                IControlModeSession? attached = null;
+                for (int attempt = 1; attached is null; attempt++)
                 {
-                    End(new TmuxObjectNotFoundException(
-                        $"The mirror's anchor session {_anchor} is gone.",
-                        _anchor.ToString()));
-                    return;
-                }
+                    if (await _server.FindSessionAsync(_anchor, closing).ConfigureAwait(false) is null)
+                    {
+                        End(new TmuxObjectNotFoundException(
+                            $"The mirror's anchor session {_anchor} is gone.",
+                            _anchor.ToString()));
+                        return;
+                    }
 
-                IControlModeSession attached = await AttachAsync(_server, _anchor, closing).ConfigureAwait(false);
+                    try
+                    {
+                        attached = await AttachAsync(_server, _anchor, closing).ConfigureAwait(false);
+                    }
+                    catch (Exception) when (attempt < AttachAttempts && !closing.IsCancellationRequested)
+                    {
+                        // The anchor was there a moment ago, so a failed attach
+                        // may pass; one that keeps failing ends the mirror.
+                        await Task.Delay(reattachDelay, closing).ConfigureAwait(false);
+                        reattachDelay = reattachDelay * 2 < LongestReattachDelay ? reattachDelay * 2 : LongestReattachDelay;
+                    }
+                }
                 lock (_gate)
                 {
                     _control = attached;
+                    _controlReleased = false;
                 }
 
                 RequestCapture();
@@ -524,7 +578,7 @@ public sealed class ServerMirror : IAsyncDisposable
         return text.ToString();
     }
 
-    private static void Append(StringBuilder text, char kind, IReadOnlyDictionary<string, string?> fields)
+    internal static void Append(StringBuilder text, char kind, IReadOnlyDictionary<string, string?> fields)
     {
         text.Append(kind);
         foreach (KeyValuePair<string, string?> field in fields

@@ -1,5 +1,6 @@
 namespace LibTmux.FSharp
 
+open System
 open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
@@ -53,7 +54,9 @@ module Selection =
 /// on that rather than on the exception type. <c>NotSent</c> is the only failure
 /// after which running the same command again is always safe. It says nothing
 /// about commands sent before it: an operation that ran one command and then
-/// failed to send another has already acted.
+/// failed to send another has already acted. <c>Async.AwaitTask</c> and
+/// <c>Task.Wait</c> hand a failure over inside an <c>AggregateException</c>;
+/// one holding a single failure is matched as that failure.
 /// </remarks>
 [<RequireQualifiedAccess>]
 module TmuxFailure =
@@ -66,6 +69,65 @@ module TmuxFailure =
 
     /// <summary>Matches a failure, or a cancellation, after which tmux may already have acted.</summary>
     val (|MayHaveRun|_|): error: exn -> exn option
+
+/// <summary>Recognises how a command run with <c>Pane.run</c> ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneRun =
+    /// <summary>Tells how a run ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Exited</c>: the command exited, carried as its exit status.
+    /// <c>Ended</c>: the pane's program exited before the command reported its status, and the run ended then.
+    /// <c>NotStarted</c>: the pane's shell never ran it, such as when the pane was not at a prompt.
+    /// <c>TimedOut</c>: the time allowed ran out first; the command may still be running.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The result has none of these endings.</exception>
+    val (|Exited|Ended|NotStarted|TimedOut|): result: PaneRunResult -> Choice<int, unit, unit, unit>
+
+/// <summary>Recognises how a wait on a pane's output ended.</summary>
+[<RequireQualifiedAccess>]
+module PaneWait =
+    /// <summary>Tells how a wait ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Found</c>: the text or a pattern appeared, before or during the wait.
+    /// <c>Printed</c>: a wait with no pattern saw the pane print something.
+    /// <c>Stopped</c>: a stop pattern matched, carried as its text.
+    /// <c>TimedOut</c>: the time allowed ran out.
+    /// <c>Ended</c>: the pane's program exited, or a full-screen program took over.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The outcome is not one this facade knows.</exception>
+    val (|Found|Printed|Stopped|TimedOut|Ended|): result: PaneWaitResult -> Choice<unit, unit, string, unit, unit>
+
+/// <summary>Recognises what a pane watch yields.</summary>
+[<RequireQualifiedAccess>]
+module PaneWatch =
+    /// <summary>Tells what <c>Control.watchPane</c> or <c>Control.watchPanes</c> yielded, one case per kind of event, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Output</c>: text a watched pane printed, carried as its event.
+    /// <c>Paused</c>: tmux stopped sending that pane's output, so what it prints until <c>Continued</c> never arrives; capture the pane to read its screen.
+    /// <c>Continued</c>: tmux resumed sending that pane's output.
+    /// <c>Dropped</c>: a full buffer discarded events, carried as the loss report.
+    /// <c>Gone</c>: a watched pane is gone; the watch ends once every pane is.
+    /// <c>Exited</c>: the control client ended, with tmux's reason when it gave one; the watch ends.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The event is not one a pane watch yields.</exception>
+    val (|Output|Paused|Continued|Dropped|Gone|Exited|):
+        event: TmuxEvent -> Choice<TmuxOutputEvent, PaneId, PaneId, TmuxEventsDroppedEvent, PaneId, string option>
+
+/// <summary>Awaits tasks in an <c>async</c> workflow without losing whether tmux may have acted.</summary>
+/// <remarks>
+/// <c>Async.AwaitTask</c> turns a <c>TmuxOperationCanceledException</c> into a bare
+/// <c>TaskCanceledException</c>, losing <c>CommandMayHaveExecuted</c>, and wraps a failure in an
+/// <c>AggregateException</c>. These raise a tmux client cancelled after it may have acted as itself,
+/// so <c>TmuxFailure.MayHaveRun</c> matches it in <c>try ... with</c>; any other cancellation cancels
+/// the workflow, and a failure is raised as the task raised it.
+/// </remarks>
+[<RequireQualifiedAccess>]
+module TmuxAsync =
+    /// <summary>Awaits a task that returns a value.</summary>
+    val awaitTask: task: Task<'T> -> Async<'T>
+
+    /// <summary>Awaits a task that returns nothing.</summary>
+    val awaitUnitTask: task: Task -> Async<unit>
 
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
@@ -83,6 +145,20 @@ module Retry =
     /// <exception cref="T:System.ArgumentOutOfRangeException">The retry count is negative.</exception>
     val ifNotSent:
         cancellationToken: CancellationToken -> retries: int -> operation: (CancellationToken -> Task<'T>) -> Task<'T>
+
+    /// <summary>Runs an operation, and after each delay in turn runs it again while nothing it sent reached tmux.</summary>
+    /// <remarks>
+    /// Retries as <c>ifNotSent</c> does, once per delay, waiting that long
+    /// first, so a server still starting has time to answer:
+    /// <c>Retry.ifNotSentAfter ct [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ] operation</c>.
+    /// Cancellation during a delay propagates.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">A delay is negative.</exception>
+    val ifNotSentAfter:
+        cancellationToken: CancellationToken ->
+        delays: TimeSpan list ->
+        operation: (CancellationToken -> Task<'T>) ->
+            Task<'T>
 
 module internal Placement =
     val key: window: LibTmux.Window -> WindowPlacementKey

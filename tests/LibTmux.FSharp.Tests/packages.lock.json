@@ -180,6 +180,12 @@
           "LibTmux": "[0.0.0-alpha.18, )"
         }
       },
+      "libtmux.testing": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.18, )"
+        }
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "CentralTransitive",
         "requested": "[10.0.10, )",
@@ -370,6 +376,12 @@
         }
       },
       "libtmux.query.json": {
+        "type": "Project",
+        "dependencies": {
+          "LibTmux": "[0.0.0-alpha.18, )"
+        }
+      },
+      "libtmux.testing": {
         "type": "Project",
         "dependencies": {
           "LibTmux": "[0.0.0-alpha.18, )"

@@ -14,11 +14,18 @@ public sealed partial class Pane
     /// <summary>Runs a shell command in the pane and waits for its exit status.</summary>
     /// <param name="command">The shell command.</param>
     /// <param name="timeout">How long to wait for it.</param>
-    /// <param name="cancellationToken">Stops waiting; a command already sent keeps running.</param>
+    /// <param name="cancellationToken">
+    /// Stops waiting. A command already sent keeps running, so cancelling then raises
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />,
+    /// which <see cref="Task.Wait()" /> and F#'s <c>Async.AwaitTask</c> replace with a bare
+    /// <see cref="TaskCanceledException" />.
+    /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <inheritdoc cref="RunAsync(PaneRunRequest, CancellationToken)" path="/remarks" />
     /// <exception cref="ArgumentException"><paramref name="command" /> is blank.</exception>
-    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneRunResult> RunAsync(
         string command,
@@ -28,7 +35,12 @@ public sealed partial class Pane
 
     /// <summary>Runs a shell command in the pane and waits for its exit status.</summary>
     /// <param name="request">The command and how long to wait.</param>
-    /// <param name="cancellationToken">Stops waiting; a command already sent keeps running.</param>
+    /// <param name="cancellationToken">
+    /// Stops waiting. A command already sent keeps running, so cancelling then raises
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />,
+    /// which <see cref="Task.Wait()" /> and F#'s <c>Async.AwaitTask</c> replace with a bare
+    /// <see cref="TaskCanceledException" />.
+    /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <remarks>
     /// <para>
@@ -46,7 +58,8 @@ public sealed partial class Pane
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneRunResult> RunAsync(
@@ -67,7 +80,8 @@ public sealed partial class Pane
         {
             throw new TmuxPaneException(
                 $"Pane {Id} cannot run a command: it is running '{command}' or is in a mode, not waiting at a POSIX shell.",
-                Id);
+                Id,
+                TmuxDispatchState.NotDispatched);
         }
 
         PaneRunOutcome outcome = await PaneRunner
@@ -89,6 +103,9 @@ public sealed partial class Pane
             outcome.Output,
             outcome.Elapsed,
             outcome.Started,
-            outcome.LinesMissed);
+            outcome.LinesMissed)
+        {
+            PaneExited = outcome.PaneExited,
+        };
     }
 }

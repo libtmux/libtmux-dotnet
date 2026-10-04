@@ -74,7 +74,7 @@
         "M:LibTmux.FSharp.Pane.currentCommand(LibTmux.Pane)",
         "T:LibTmux.FSharp.CaptureState`1"
       ],
-      "output": "Sessions have not been captured.\nThe captured active pane has a path and command.\nThe original handle is still uncaptured.\nCaptured sessions can be empty.\n"
+      "output": "Connected handle's sessions: not captured\nCaptured handle's sessions: captured 1\nActive pane reports a path: true; a command: true\nOriginal handle's sessions: not captured\nEmpty server's sessions: captured 0\n"
     },
     {
       "id": "fsharp-SelectionResults",
@@ -86,7 +86,7 @@
         "M:LibTmux.FSharp.Selection.exactlyOne``1(System.Collections.Generic.IEnumerable{``0})",
         "T:LibTmux.FSharp.CardinalityError"
       ],
-      "output": "One match: demo\nNo match: NoMatches\nTwo matches: MultipleMatches\n"
+      "output": "Sessions named demo: Ok demo\nSessions named missing: Error NoMatches\nEvery session: Error MultipleMatches\n"
     },
     {
       "id": "fsharp-LookupFailures",
@@ -98,19 +98,39 @@
         "M:LibTmux.FSharp.Server.tryFindSession(System.Threading.CancellationToken,LibTmux.SessionId,LibTmux.Server)",
         "M:LibTmux.FSharp.Server.tryFindClient(System.Threading.CancellationToken,System.String,LibTmux.Server)"
       ],
-      "output": "A successful lookup can return None.\nCancellation remains OperationCanceledException.\nA blank client name remains ArgumentException.\nA stopped server remains a LibTmuxException.\n"
+      "output": "A session that does not exist: None\nA cancelled lookup: OperationCanceledException\nA blank client name: ArgumentException\nA server that has stopped: LibTmuxException\n"
+    },
+    {
+      "id": "fsharp-FailureKinds",
+      "profile": "fsharp",
+      "title": "Tell failures apart and retry only unsent commands",
+      "description": "Set and read a typed option, then meet each kind of failure on a real server: a server that is not running (NotSent), a value tmux refuses (Ran), and a run cancelled after it was sent (MayHaveRun). Retry.ifNotSentAfter sends again only while nothing reached tmux.",
+      "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/FailureKinds.fs",
+      "targets": [
+        "T:LibTmux.FSharp.TmuxFailure",
+        "M:LibTmux.FSharp.Retry.ifNotSentAfter``1(System.Threading.CancellationToken,Microsoft.FSharp.Collections.FSharpList{System.TimeSpan},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
+        "M:LibTmux.FSharp.Options.get``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},LibTmux.TmuxOptions)",
+        "M:LibTmux.FSharp.Options.set``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},``0,LibTmux.TmuxOptions)"
+      ],
+      "output": "history-limit: 50000\nA server that is not running: NotSent\nA value tmux refuses: Ran\nA run cancelled after it was sent: MayHaveRun\nRetried while NotSent: 3 attempts, then NotSent\nRetried after Ran: 1 attempt, then Ran\n"
     },
     {
       "id": "fsharp-CreateWindowPane",
       "profile": "fsharp",
-      "title": "Create an owned session, window and split pane",
-      "description": "Create owned session and window scopes with the core LibTmux API, then split a pane with the F# Pane.split helper. Disposing the owned window also stops its split panes. For F# session descriptions, use Server.newSession with SessionSpec.",
+      "title": "Create, rename, select and kill windows and panes",
+      "description": "Create owned session and window scopes with the core LibTmux API, split a pane with Pane.split, then rename and select the window, select the first pane again, arrange the window, title the pane and kill the split with the F# helpers. Renaming and selecting return a handle carrying the state afterwards. Disposing the owned window also stops its panes. For F# session descriptions, use Server.newSession with SessionSpec.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/CreateWindowPane.fs",
       "targets": [
         "T:LibTmux.FSharp.Server",
-        "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)"
+        "M:LibTmux.FSharp.Pane.split(System.Threading.CancellationToken,LibTmux.SplitPaneRequest,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Window.rename(System.Threading.CancellationToken,System.String,LibTmux.Window)",
+        "M:LibTmux.FSharp.Window.select(System.Threading.CancellationToken,LibTmux.Window)",
+        "M:LibTmux.FSharp.Pane.select(System.Threading.CancellationToken,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.kill(System.Threading.CancellationToken,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Window.selectLayout(System.Threading.CancellationToken,System.String,LibTmux.Window)",
+        "M:LibTmux.FSharp.Pane.setTitle(System.Threading.CancellationToken,System.String,LibTmux.Pane)"
       ],
-      "output": "Created session demo and window editor.\nWindows: 2; panes: 3\n"
+      "output": "Created session demo and window editor.\nThe split made a new pane: true\nRenamed to notes; current before select: false, after: true\nFirst pane active again: true; titled editor\nWindows: 2; panes after the kill: 2\n"
     },
     {
       "id": "fsharp-InputCapture",
@@ -119,10 +139,10 @@
       "description": "Type a shell command literally, press the named Enter key, and wait for its private completion signal before capturing output. Timeout and command failures escape the program after scoped cleanup; cancellation does not undo dispatched input.",
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/InputCapture.fs",
       "targets": [
-        "M:LibTmux.FSharp.Pane.sendKeys(System.Threading.CancellationToken,LibTmux.SendKeysRequest,LibTmux.Pane)",
+        "M:LibTmux.FSharp.Pane.pressKey(System.Threading.CancellationToken,System.String,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
-      "output": "api capture ready\n"
+      "output": "The shell signalled: true\nCaptured line: api capture ready\n"
     },
     {
       "id": "fsharp-Queries",
@@ -154,7 +174,7 @@
         "M:LibTmux.FSharp.Pane.run(System.Threading.CancellationToken,System.TimeSpan,System.String,LibTmux.Pane)",
         "M:LibTmux.FSharp.Pane.capture(System.Threading.CancellationToken,LibTmux.CapturePaneRequest,LibTmux.Pane)"
       ],
-      "output": "ready: true\ncounted: true\nrun: exit 4, output [\"a\"; \"b\"]\nscreen shows the run: true\n"
+      "output": "ready: found\ncounted: found\nrun: exit 4, output [\"a\"; \"b\"]\nscreen shows the run: true\n"
     },
     {
       "id": "fsharp-LiveState",

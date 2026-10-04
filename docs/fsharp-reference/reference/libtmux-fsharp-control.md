@@ -77,7 +77,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 Streams every event a control client reports.
 
-A client has one event stream; two consumers each see only part of it.
+A client has one event stream; reading it while another reader is reading raises <code>InvalidOperationException</code>.
 
 **Parameters:**
 
@@ -165,7 +165,7 @@ Streams one pane&#39;s output from a borrowed control client.
  <code>TmuxPanePausedEvent</code> and <code>TmuxPaneContinuedEvent</code> bracket output
  a slow reader missed. It reads the client&#39;s single event stream, so other
  events are consumed and dropped; follow several panes through one client
- with <code>watchPanes</code>.
+ with <code>watchPanes</code>. Match what it yields with <code>PaneWatch</code>.
  </p><p class='fsdocs-para'>
  tmux discards output it has not yet sent once a pane&#39;s program exits,
  so the last lines of a program that exits at once may never arrive.
@@ -181,6 +181,10 @@ Streams one pane&#39;s output from a borrowed control client.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The pane is not in the session the client is attached to; tmux sends a control client output only from that session.
+
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The pane&#39;s window left the client&#39;s session while it was watched, so tmux sends none of its output any more.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L74)
 
 <a name="watchPanes"></a>
@@ -193,7 +197,8 @@ Each output event names its pane. Each pane confirmed gone is reported by
  a <code>TmuxPaneGoneEvent</code> after the output buffered before it went,
  unless the client ends first, and the stream ends once every pane is gone,
  or with <code>TmuxExitEvent</code> when the client ends. Events after that stay
- unread for the client&#39;s next reader.
+ unread for the client&#39;s next reader. Match what it yields with
+ <code>PaneWatch</code>.
 
 **Parameters:**
 
@@ -203,7 +208,9 @@ Each output event names its pane. Each pane confirmed gone is reported by
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty.
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty, or a pane is not in the session the client is attached to.
+
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) A pane&#39;s window left the client&#39;s session while it was watched.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
 

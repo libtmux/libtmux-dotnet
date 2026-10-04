@@ -175,6 +175,7 @@ internal static class TailCursor
             "suffixCount",
             "suffixHash",
             "rowHashes",
+            "paneWidth",
         ],
         StringComparer.Ordinal);
 

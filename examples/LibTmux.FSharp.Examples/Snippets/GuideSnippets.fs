@@ -8,19 +8,13 @@ module internal GuideSnippets =
 
     let readOwnedPaneCommandsAsync (cancellationToken: CancellationToken) =
         task {
-            let binary =
-                Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                |> Option.ofObj
-                |> Option.defaultValue "tmux"
-
             let options =
                 ServerConnectionOptions(
                     SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
-                    ConfigurationFile = "/dev/null",
-                    TmuxBinaryPath = binary
+                    ConfigurationFile = "/dev/null"
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
 
             use! _ownedSession =
                 ownedServer.Value.CreateOwnedSessionAsync(
@@ -49,17 +43,22 @@ module internal GuideSnippets =
                 |> Query.where (PaneFields.currentCommand |> Filter.oneOf [ "bash"; "sh"; "zsh" ])
                 |> Query.list cancellationToken
 
-            let pane = shells[0]
+            match shells |> Seq.tryHead with
+            | None -> return None
+            | Some pane ->
+                // Type a command and wait for what it prints, not for its echo.
+                let! ready =
+                    pane
+                    |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
 
-            // Type a command and wait for what it prints, not for its echo.
-            let! ready =
-                pane
-                |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+                // Run a command to its exit status and read what it printed.
+                let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
 
-            // Run a command to its exit status and read what it printed.
-            let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
-
-            return ready.Found, listing.Succeeded, listing.Output
+                match listing with
+                | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+                | PaneRun.Ended
+                | PaneRun.NotStarted
+                | PaneRun.TimedOut -> return None
         }
     // endfsharp-snippet
 
@@ -190,19 +189,13 @@ module internal GuideSnippets =
 
     let inspectOwnedSessionAsync (cancellationToken: CancellationToken) =
         task {
-            let binary =
-                Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-                |> Option.ofObj
-                |> Option.defaultValue "tmux"
-
             let options =
                 ServerConnectionOptions(
                     SocketName = "libtmux-fsharp-" + Guid.NewGuid().ToString("N"),
-                    ConfigurationFile = "/dev/null",
-                    TmuxBinaryPath = binary
+                    ConfigurationFile = "/dev/null"
                 )
 
-            use! ownedServer = LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+            use! ownedServer = options |> Server.createOwned cancellationToken
             let server = ownedServer.Value
 
             use! ownedSession =
@@ -213,9 +206,7 @@ module internal GuideSnippets =
             let! second =
                 panes[0] |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
-            do!
-                second
-                |> Pane.sendKeys cancellationToken (SendKeysRequest(Text = "printf 'ready\\n'", Literal = true))
+            do! second |> Pane.sendLine cancellationToken "printf 'ready\\n'"
 
             let! found = server |> Server.tryFindPane cancellationToken second.Id
             let! captured = server |> Server.capture cancellationToken SnapshotDepth.Panes
@@ -270,16 +261,20 @@ module internal GuideSnippets =
             (fun output event ->
                 task {
                     match event with
-                    | :? TmuxOutputEvent as printed ->
+                    | PaneWatch.Output printed ->
                         let output = output + printed.Data
 
                         if output.Contains(marker, StringComparison.Ordinal) then
                             return StreamStep.Stop output
                         else
                             return StreamStep.Continue output
-                    | :? TmuxPaneGoneEvent
-                    | :? TmuxExitEvent -> return StreamStep.Stop output
-                    | _ -> return StreamStep.Continue output
+                    // Output tmux held back or the buffer dropped never arrives;
+                    // capture the pane to read what the screen shows instead.
+                    | PaneWatch.Paused _
+                    | PaneWatch.Continued _
+                    | PaneWatch.Dropped _ -> return StreamStep.Continue output
+                    | PaneWatch.Gone _
+                    | PaneWatch.Exited _ -> return StreamStep.Stop output
                 })
             ""
     // endfsharp-snippet
@@ -411,7 +406,24 @@ module internal GuideSnippets =
         }
     // endfsharp-snippet
 
+    // fsharp-snippet: CiTestOptions
+    open System
+    open LibTmux
+    open LibTmux.Testing
+
+    // Options that name a connection replace the private socket a test gets
+    // by default, so name a socket of the test's own as well as the binary.
+    let testOptionsWith (tmuxBinary: string) =
+        TmuxTestOptions(
+            ServerConnectionOptions(
+                SocketName = "libtmux-test-" + Guid.NewGuid().ToString("N"),
+                TmuxBinaryPath = tmuxBinary
+            )
+        )
+    // endfsharp-snippet
+
     // fsharp-snippet: SafeRetry
+    open System
     open System.Threading
     open LibTmux
     open LibTmux.FSharp
@@ -419,14 +431,47 @@ module internal GuideSnippets =
     let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
         task {
             try
-                // Runs again only when tmux never received the command.
+                // Runs again only when tmux never received the command, after
+                // each delay in turn, so a server still starting can answer.
                 let! sessions =
-                    Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+                    Retry.ifNotSentAfter
+                        cancellationToken
+                        [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                        (fun token -> server.GetSessionsAsync(token))
 
                 return Ok [ for session in sessions -> session.Name ]
             with
             | TmuxFailure.Ran failure -> return Error $"tmux ran the command, then: {failure.Message}"
             | TmuxFailure.MayHaveRun failure -> return Error $"tmux may have acted: {failure.Message}"
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: RunCancellation
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
+        task {
+            try
+                let! result =
+                    pane |> Pane.run cancellationToken (TimeSpan.FromMinutes 5.) "make test"
+
+                match result with
+                | PaneRun.Exited 0 -> return "passed"
+                | PaneRun.Exited status -> return $"failed with status {status}"
+                | PaneRun.Ended -> return "the shell exited before the tests finished"
+                | PaneRun.NotStarted -> return "the shell was not at a prompt"
+                | PaneRun.TimedOut -> return "still running after five minutes"
+            with
+            // Cancelled or lost once the command was sent: it may be running.
+            // A tmux client cancelled mid-call matches too, even before the
+            // command went, erring towards "may have run". That cancellation
+            // is an OperationCanceledException, so this case comes first.
+            | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
+            // Cancelled between tmux calls, before the command was sent.
+            | :? OperationCanceledException -> return "cancelled before it was sent"
         }
     // endfsharp-snippet
 
@@ -611,7 +656,7 @@ module internal GuideSnippets =
             do! pane |> Pane.sendKeys cancellationToken literal
             do! pane |> Pane.sendKeys cancellationToken keyName
             do! pane |> Pane.sendKeys cancellationToken textThenEnter
-            do! window.KillAsync(cancellationToken = cancellationToken)
+            do! window |> Window.kill cancellationToken
 
             let arguments (request: SendKeysRequest) =
                 [
@@ -626,5 +671,98 @@ module internal GuideSnippets =
                     KeyName = arguments keyName
                     TextThenEnter = arguments textThenEnter
                 |}
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ServiceHandle
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    // The options name the socket and carry the service's logger, as in
+    // ServerConnectionOptions(SocketName = "build", Logger = logger).
+    let connectForServiceAsync (stopping: CancellationToken) (options: ServerConnectionOptions) =
+        task {
+            let! server = options |> Server.connect stopping
+
+            // Every command through this handle, and the sessions, windows and
+            // panes read from it, gives up after five seconds.
+            return server |> Server.within (TimeSpan.FromSeconds 5.)
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ServiceShutdown
+    open System
+    open System.Threading
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runJobAsync (log: string -> unit) (stopping: CancellationToken) (pane: Pane) (command: string) =
+        task {
+            try
+                let! result = pane |> Pane.run stopping (TimeSpan.FromMinutes 10.) command
+
+                match result with
+                | PaneRun.Exited status -> log $"exited {status}"
+                | PaneRun.Ended -> log "the shell exited; respawn the pane before the next job"
+                | PaneRun.NotStarted -> log "the pane was busy; nothing ran"
+                | PaneRun.TimedOut -> log "still running after ten minutes; left running"
+            with
+            // Stopping is not a failure, but a command already sent keeps
+            // running in its pane after this process exits.
+            | TmuxFailure.MayHaveRun _ when stopping.IsCancellationRequested ->
+                log $"stopped; the command may still be running in {pane.Id}"
+            | :? OperationCanceledException when stopping.IsCancellationRequested -> ()
+        }
+    // endfsharp-snippet
+
+    // fsharp-snippet: ServicePaneGate
+    open System.Collections.Concurrent
+    open System.Threading
+    open System.Threading.Tasks
+    open LibTmux
+
+    /// Lets one task at a time type into a pane, run in it, or wait on what it typed.
+    type PaneGate() =
+        let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
+
+        member _.UseAsync(pane: Pane, cancellationToken: CancellationToken, work: unit -> Task<'T>) =
+            task {
+                let gate = gates.GetOrAdd(pane.Id, fun _ -> new SemaphoreSlim(1, 1))
+                do! gate.WaitAsync(cancellationToken)
+
+                try
+                    return! work ()
+                finally
+                    gate.Release() |> ignore
+            }
+    // endfsharp-snippet
+
+    // fsharp-snippet: AsyncRun
+    open System
+    open LibTmux
+    open LibTmux.FSharp
+
+    let runInAsync (pane: Pane) (command: string) =
+        async {
+            // Cancelling the workflow cancels a call only through the token
+            // the call was given, so pass the workflow's own.
+            let! cancellationToken = Async.CancellationToken
+
+            try
+                let! result =
+                    pane
+                    |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) command
+                    |> TmuxAsync.awaitTask
+
+                return
+                    match result with
+                    | PaneRun.Exited status -> $"exited {status}"
+                    | PaneRun.Ended -> "the shell exited first"
+                    | PaneRun.NotStarted -> "the shell was not at a prompt"
+                    | PaneRun.TimedOut -> "still running"
+            with TmuxFailure.MayHaveRun _ ->
+                return "may have run; read the pane before trying again"
         }
     // endfsharp-snippet

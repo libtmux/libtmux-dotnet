@@ -9,19 +9,13 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-listings-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -35,7 +29,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token

@@ -86,6 +86,29 @@ public sealed class TmuxFilterRendererTests
     }
 
     [Fact]
+    public void An_absent_number_matches_only_inequality_though_tmux_reads_it_as_0()
+    {
+        Assert.Equal(
+            "#{&&:#{!=:#{pane_dead_status},},#{e|==|:#{pane_dead_status},0}}",
+            Render<Pane>(p => p.DeadStatus == 0));
+        Assert.Equal(
+            "#{||:#{==:#{pane_dead_status},},#{e|!=|:#{pane_dead_status},0}}",
+            Render<Pane>(p => p.DeadStatus != 0));
+        Assert.Equal("#{e|<|:#{pane_width},10}", Render<Pane>(p => p.Width < 10));
+    }
+
+    [Fact]
+    public void A_number_tmux_cannot_hold_exactly_is_left_to_the_recheck()
+    {
+        long exact = 9_007_199_254_740_992;
+        long inexact = exact + 1;
+        long lowest = long.MinValue;
+        Assert.Equal("#{e|<|:#{history_size},9007199254740992}", Render<Pane>(p => p.HistorySize < exact));
+        Assert.Null(Render<Pane>(p => p.HistorySize < inexact));
+        Assert.Null(Render<Pane>(p => p.HistorySize > lowest));
+    }
+
+    [Fact]
     public void Relations_loop_over_the_rows_own_children()
     {
         Assert.Equal(

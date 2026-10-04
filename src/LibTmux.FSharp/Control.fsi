@@ -52,7 +52,7 @@ module Control =
             Task<'State>
 
     /// <summary>Streams every event a control client reports.</summary>
-    /// <remarks>A client has one event stream; two consumers each see only part of it.</remarks>
+    /// <remarks>A client has one event stream; reading it while another reader is reading raises <c>InvalidOperationException</c>.</remarks>
     val events: session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams one pane's output from a borrowed control client.</summary>
@@ -63,7 +63,7 @@ module Control =
     /// <c>TmuxPanePausedEvent</c> and <c>TmuxPaneContinuedEvent</c> bracket output
     /// a slow reader missed. It reads the client's single event stream, so other
     /// events are consumed and dropped; follow several panes through one client
-    /// with <c>watchPanes</c>.
+    /// with <c>watchPanes</c>. Match what it yields with <c>PaneWatch</c>.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent once a pane's program exits,
@@ -72,6 +72,8 @@ module Control =
     /// <c>remain-on-exit</c>.
     /// </para>
     /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The pane is not in the session the client is attached to; tmux sends a control client output only from that session.</exception>
+    /// <exception cref="T:System.InvalidOperationException">The pane's window left the client's session while it was watched, so tmux sends none of its output any more.</exception>
     val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams several panes' output from one borrowed control client.</summary>
@@ -80,9 +82,11 @@ module Control =
     /// a <c>TmuxPaneGoneEvent</c> after the output buffered before it went,
     /// unless the client ends first, and the stream ends once every pane is gone,
     /// or with <c>TmuxExitEvent</c> when the client ends. Events after that stay
-    /// unread for the client's next reader.
+    /// unread for the client's next reader. Match what it yields with
+    /// <c>PaneWatch</c>.
     /// </remarks>
-    /// <exception cref="T:System.ArgumentException">The list is empty.</exception>
+    /// <exception cref="T:System.ArgumentException">The list is empty, or a pane is not in the session the client is attached to.</exception>
+    /// <exception cref="T:System.InvalidOperationException">A pane's window left the client's session while it was watched.</exception>
     val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Awaits one handler at a time for each item until the stream ends.</summary>
@@ -134,9 +138,15 @@ module Mirror =
 
     /// <summary>Streams the current view and each newer one, skipping views published while the reader was busy.</summary>
     /// <remarks>The stream is cold, ends when the mirror ends, and raises the failure that ended it.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">The anchor session has gone, so the mirror could not attach again.</exception>
     val views: mirror: ServerMirror -> IAsyncEnumerable<ServerMirrorView>
 
     /// <summary>Waits until a view satisfies a condition, testing the current view first.</summary>
+    /// <remarks>
+    /// A view is published only when something besides activity times, cursor
+    /// positions and history sizes changes, so a condition on those alone can
+    /// wait for an unrelated change. Wait on output with the pane waits.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxWaitTimeoutException">No view satisfied the condition in time.</exception>
     /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
     val waitUntil:
@@ -145,3 +155,13 @@ module Mirror =
         condition: (ServerMirrorView -> bool) ->
         mirror: ServerMirror ->
             Task<ServerMirrorView>
+
+    /// <summary>Waits until a view satisfies a condition, or returns None when none did in time.</summary>
+    /// <remarks>As <c>waitUntil</c>, for a caller to whom running out of time is an ordinary outcome.</remarks>
+    /// <exception cref="T:System.InvalidOperationException">The mirror ended first.</exception>
+    val tryWaitUntil:
+        cancellationToken: CancellationToken ->
+        timeout: TimeSpan ->
+        condition: (ServerMirrorView -> bool) ->
+        mirror: ServerMirror ->
+            Task<ServerMirrorView option>

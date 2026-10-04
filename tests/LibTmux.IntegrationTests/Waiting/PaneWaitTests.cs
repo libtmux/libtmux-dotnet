@@ -39,6 +39,258 @@ public sealed class PaneWaitTests
         Assert.DoesNotContain(await building.Server.GetClientsAsync(token), client => client.IsControlClient);
     }
 
+    // A read through the wait's own control client is a round trip; one
+    // through a tmux process is a process start, about ten times the cost.
+    [UnixFact]
+    public async Task A_wait_reads_the_pane_through_its_control_client()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        int reads = 0;
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Interceptor = (request, next, cancellationToken) =>
+                {
+                    // A read captures the screen, or samples the grid state
+                    // around the capture.
+                    if (request.Arguments.Any(argument => argument == "capture-pane"
+                        || argument.Contains("#{history_size}", StringComparison.Ordinal)))
+                    {
+                        Interlocked.Increment(ref reads);
+                    }
+
+                    return next(cancellationToken);
+                },
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        Interlocked.Exchange(ref reads, 0);
+
+        PaneWaitResult result = await pane.SendTextAndWaitAsync(
+            "printf '%s-done\\n' read", "read-done", Arrival, token);
+
+        Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+        Assert.Equal(0, Volatile.Read(ref reads));
+    }
+
+    // Within a tenth of history-limit, a read finds its place by the row the
+    // cursor was on. That row is a bare prompt the next command rewrites, and
+    // the fresh prompt below it hashes the same.
+    [UnixFact]
+    public async Task A_wait_sees_new_output_once_history_nears_its_limit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        // 1,830 lines put history past 1,800 of tmux's default 2,000.
+        await pane.SendTextAsync("seq 1 1830", cancellationToken: token);
+        PaneWaitResult filled = await pane.WaitUntilAsync(
+            rows => rows.Any(row => row == "1830"), Arrival, token);
+        Assert.True(filled.Found, "seq never finished printing");
+
+        PaneWaitResult result = await pane.SendTextAndWaitAsync(
+            "printf '%s-done\\n' near", "near-done", Arrival, token);
+
+        Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+    }
+
+    [UnixFact]
+    public async Task A_pane_tmux_no_longer_has_is_reported_as_not_found_by_every_read()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sleep 60"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        await pane.KillAsync(cancellationToken: token);
+
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitForTextAsync("x", Arrival, token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.WaitUntilAsync(_ => true, Arrival, token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.ReadOutputSinceAsync(cancellationToken: token));
+        await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
+    }
+
+    // A character with combining marks stacked on it takes up to 32 bytes in
+    // one cell, so a wide row of them is longer than a control client accepts
+    // in a line; read through the client, it would end it. 2,450 cells of 31
+    // bytes make a 75,950-byte row.
+    [UnixFact]
+    public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string name = raw.SessionName + "-wide";
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "2500", "-y", "12", "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        async Task<string[]> ControlClientsAsync() =>
+            [.. (await server.GetClientsAsync(token)).Where(client => client.IsControlClient).Select(client => client.Name)];
+
+        await using (await pane.Session.HoldWaitClientAsync(token))
+        {
+            string[] held = await ControlClientsAsync();
+            PaneWaitResult result = await pane.SendTextAndWaitAsync(
+                "i=0; while [ $i -lt 2450 ]; do printf 'e\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201'; i=$((i+1)); done; printf '\\n%s-done\\n' wide",
+                "wide-done",
+                TimeSpan.FromSeconds(20),
+                token);
+
+            Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+            Assert.Single(held);
+            Assert.Equal(held, await ControlClientsAsync());
+        }
+    }
+
+    // A narrower pane rewraps the rows above a position, which moves it down;
+    // near history-limit, where a read finds its place by content, it must
+    // still be found there.
+    [UnixFact]
+    public async Task A_position_is_found_again_after_the_pane_narrows()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string name = raw.SessionName + "-narrow";
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "60", "-y", "10", "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        // 620 lines of 45 columns take three rows each at 20 columns: past
+        // nine tenths of tmux's default 2,000 lines of history.
+        await pane.SendTextAsync(
+            "seq -f 'line-%04g-padding-padding-padding-padding' 1 620; printf 'held-%s' here; sleep 2; printf '\\n%s-done\\n' narrow",
+            cancellationToken: token);
+        Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("held-here", StringComparison.Ordinal)), Arrival, token)).Found);
+        PaneOutputSince start = await pane.ReadOutputSinceAsync(cancellationToken: token);
+        await raw.ExecuteAsync(["resize-window", "-t", name, "-x", "20"], token);
+        Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("narrow-done", StringComparison.Ordinal)), Arrival, token)).Found);
+
+        PaneOutputSince next = await pane.ReadOutputSinceAsync(start.Position, token);
+
+        Assert.False(next.LinesMissed, string.Join(" | ", next.Lines));
+        Assert.Contains("narrow-done", next.Lines);
+    }
+
+    [UnixFact]
+    public async Task Reading_since_a_position_returns_only_what_is_new()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        Assert.True((await pane.SendTextAndWaitAsync("printf '%s-done\\n' before", "before-done", Arrival, token)).Found);
+
+        PaneOutputSince start = await pane.ReadOutputSinceAsync(cancellationToken: token);
+        Assert.True((await pane.SendTextAndWaitAsync("printf '%s-done\\n' after", "after-done", Arrival, token)).Found);
+        PaneOutputSince next = await pane.ReadOutputSinceAsync(start.Position, token);
+        PaneOutputSince idle = await pane.ReadOutputSinceAsync(next.Position, token);
+
+        Assert.Empty(start.Lines);
+        Assert.Contains("after-done", next.Lines);
+        Assert.DoesNotContain("before-done", next.Lines);
+        Assert.False(next.LinesMissed);
+        Assert.DoesNotContain("after-done", idle.Lines);
+
+        Pane other = await pane.SplitAsync(cancellationToken: token);
+        await Assert.ThrowsAsync<ArgumentException>(() => other.ReadOutputSinceAsync(next.Position, token));
+    }
+
+    [UnixFact]
+    public async Task A_held_wait_client_serves_a_series_of_waits_and_then_detaches()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        async Task<string[]> ControlClientsAsync() =>
+            [.. (await server.GetClientsAsync(token)).Where(client => client.IsControlClient).Select(client => client.Name)];
+
+        string[] during = [];
+        await using (await pane.Session.HoldWaitClientAsync(token))
+        {
+            string[] held = await ControlClientsAsync();
+            foreach (string mark in new[] { "first", "second" })
+            {
+                PaneWaitResult result = await pane.SendTextAndWaitAsync(
+                    $"printf '%s-done\\n' {mark}", $"{mark}-done", Arrival, token);
+                Assert.True(result.Found, $"The {mark} wait ended {result.Outcome}.");
+                during = [.. during, .. await ControlClientsAsync()];
+            }
+
+            Assert.Single(held);
+            Assert.All(during, name => Assert.Equal(held[0], name));
+        }
+
+        Assert.Empty(await ControlClientsAsync());
+    }
+
     [UnixFact]
     public async Task Text_already_showing_answers_at_once_and_absent_text_times_out()
     {

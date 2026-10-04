@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
@@ -67,7 +68,7 @@ public sealed partial class Server
     {
         TmuxCommandResult result = await Dispatch(["kill-server"], cancellationToken)
             .ConfigureAwait(false);
-        if (result.ExitCode != 0 && !NamesMissingServer(result) && !NamesDyingServer(result))
+        if (result.ExitCode != 0 && !TmuxCommandFailure.NamesMissingServer(result) && !NamesDyingServer(result))
         {
             TmuxCommandFailure.ThrowIfFailed(result, "kill-server");
         }
@@ -207,20 +208,87 @@ public sealed partial class Server
     /// window, and pane listings and <see cref="CaptureSnapshotAsync(SnapshotDepth, CancellationToken)" />
     /// discover the live server on each call, and the objects they return
     /// carry the discovered handle.
+    /// <para>
+    /// On the default socket, the one a caller gets by naming none, a server
+    /// already listening is refused rather than adopted: disposing the scope
+    /// stops the server, and on a developer's machine the default socket holds
+    /// the one they are using. A named socket or path stays the caller's to
+    /// adopt deliberately. The check and the start are two tmux calls, so two
+    /// callers that own the default socket at the same moment can both pass
+    /// it; give each owned server a socket of its own.
+    /// </para>
+    /// <para>
+    /// A call that fails or is cancelled after starting a server stops it, since
+    /// no scope reaches the caller to do so; a server it found running is left.
+    /// </para>
     /// </remarks>
+    /// <exception cref="InvalidOperationException">A server is already listening on the default socket.</exception>
+    /// <exception cref="TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
     [UnsupportedOSPlatform("windows")]
     public static async Task<OwnedServerScope> CreateOwnedAsync(
         ServerConnectionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         Server endpoint = Open(options ?? ServerConnectionOptions.Default);
+        bool serving = await endpoint.IsServingAsync(cancellationToken).ConfigureAwait(false);
+        if (serving && endpoint.Connection is
+            { ResolvedSocket: { SocketPath: null, SocketName: TmuxConnectionEndpoint.DefaultSocketName } })
+        {
+            throw new InvalidOperationException(
+                "A tmux server is already listening on the default socket. Refusing to own it: "
+                + "disposing the scope would stop a server this call did not start. Name a socket "
+                + "of your own, or use ConnectAsync to attach without owning it.");
+        }
+
         var sequence = new TmuxMutationSequence();
-        await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
-            .ConfigureAwait(false);
-        await sequence
-            .ObserveAsync(() => endpoint.WaitForSettledEndpointAsync(cancellationToken))
-            .ConfigureAwait(false);
+        try
+        {
+            await sequence.MutateAsync(() => endpoint.StartServerAsync(cancellationToken))
+                .ConfigureAwait(false);
+            await sequence
+                .ObserveAsync(() => endpoint.WaitForSettledEndpointAsync(cancellationToken))
+                .ConfigureAwait(false);
+        }
+        catch (Exception failure) when (!serving)
+        {
+            // No scope reaches the caller to stop a server this call started.
+            await StopStartedServerAsync(endpoint, failure).ConfigureAwait(false);
+            throw;
+        }
+
         return sequence.Observe(() => new OwnedServerScope(endpoint));
+    }
+
+    // Unlike IsAliveAsync, a failure that does not say the server is missing
+    // raises: a permission error against a live daemon read as absence would
+    // skip the refusal, and a failed start would then stop that daemon.
+    [UnsupportedOSPlatform("windows")]
+    private async Task<bool> IsServingAsync(CancellationToken cancellationToken)
+    {
+        TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
+            .ConfigureAwait(false);
+        if (result.ExitCode != 0 && TmuxCommandFailure.NamesMissingServer(result))
+        {
+            return false;
+        }
+
+        TmuxCommandFailure.ThrowIfFailed(result, "list-sessions");
+        return true;
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private static async Task StopStartedServerAsync(Server endpoint, Exception failure)
+    {
+        using CancellationTokenSource cleanup = new(TimeSpan.FromSeconds(5));
+        try
+        {
+            await endpoint.KillAsync(cleanup.Token).ConfigureAwait(false);
+        }
+        catch (Exception cleanupFailure) when (cleanupFailure is LibTmuxException or OperationCanceledException)
+        {
+            // The caller needs the failure that stopped the start, not this one.
+            failure.Data["LibTmux.CleanupFailure"] = cleanupFailure;
+        }
     }
 
     /// <summary>Creates a session and takes ownership of it.</summary>
@@ -327,7 +395,7 @@ public sealed partial class Server
         {
             TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
                 .ConfigureAwait(false);
-            if (result.ExitCode == 0 || NamesMissingServer(result))
+            if (result.ExitCode == 0 || TmuxCommandFailure.NamesMissingServer(result))
             {
                 return;
             }
@@ -337,17 +405,6 @@ public sealed partial class Server
 
         // An endpoint still in flux after the deadline is left for the caller's
         // next command to report, rather than failing here with less context.
-    }
-
-    // A socket that cannot be opened is not the same as a server that is
-    // already gone: "error connecting to" also covers a permission error
-    // against a live daemon, so on its own it must not read as absence.
-    private static bool NamesMissingServer(TmuxCommandResult result)
-    {
-        string standardError = string.Join('\n', result.StandardErrorLines);
-        return standardError.Contains("no server running", StringComparison.Ordinal)
-            || (standardError.Contains("error connecting to", StringComparison.Ordinal)
-                && standardError.Contains("No such file or directory", StringComparison.Ordinal));
     }
 
     // A dying server is success for Kill (already stopping is what was asked)
@@ -374,7 +431,12 @@ public sealed partial class Server
 public sealed class OwnedServerScope : IAsyncDisposable
 {
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(5);
-    private int _disposed;
+    private Task? _stopping;
+
+    // Read once, by the first attempt that reaches the server: a retry after
+    // kill-server finds no server to ask, and still has to wait for this one.
+    // The start time tells it apart from a process that reuses its ID.
+    private (int Id, DateTime Started)? _process;
 
     internal OwnedServerScope(Server value) => Value = value;
 
@@ -383,24 +445,53 @@ public sealed class OwnedServerScope : IAsyncDisposable
 
     /// <summary>Stops the owned server.</summary>
     /// <returns>A task that completes once the server process has exited.</returns>
+    /// <remarks>
+    /// Calls made while a stop is under way share it, and complete or fail with
+    /// it. A call after a failed stop tries again; one after a stop that
+    /// succeeded returns at once.
+    /// </remarks>
     /// <exception cref="LibTmuxException">The server could not be stopped, or had not exited within five seconds.</exception>
     [UnsupportedOSPlatform("windows")]
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        while (true)
         {
-            return;
-        }
+            Task? current = Volatile.Read(ref _stopping);
+            if (current is not null && !current.IsFaulted)
+            {
+                return new ValueTask(current);
+            }
 
+            var attempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (Interlocked.CompareExchange(ref _stopping, attempt.Task, current) == current)
+            {
+                _ = StopAsync(attempt);
+                return new ValueTask(attempt.Task);
+            }
+        }
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task StopAsync(TaskCompletionSource attempt)
+    {
         // Teardown does not inherit the caller's token, because a canceled
         // caller still needs its server gone; it bounds itself instead so a
         // wedged socket cannot hang disposal forever.
         using CancellationTokenSource cleanup = new(CleanupTimeout);
-        int? processId = await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false);
-        await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
-        if (processId is int id)
+        try
         {
-            await WaitForExitAsync(id, cleanup.Token).ConfigureAwait(false);
+            _process ??= Identify(await ReadProcessIdAsync(Value, cleanup.Token).ConfigureAwait(false));
+            await Value.KillAsync(cleanup.Token).ConfigureAwait(false);
+            if (_process is { } process)
+            {
+                await WaitForExitAsync(process, cleanup.Token).ConfigureAwait(false);
+            }
+
+            attempt.SetResult();
+        }
+        catch (Exception error)
+        {
+            attempt.SetException(error);
         }
     }
 
@@ -419,16 +510,41 @@ public sealed class OwnedServerScope : IAsyncDisposable
                 : null;
     }
 
+    private static (int Id, DateTime Started)? Identify(int? processId)
+    {
+        if (processId is not int id)
+        {
+            return null;
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(id);
+            return (id, process.StartTime);
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or Win32Exception)
+        {
+            // Already gone, so there is nothing to wait for.
+            return null;
+        }
+    }
+
     // kill-server answers once tmux has the command; the server may still be
     // ending its panes, with its socket accepting connections.
-    private static async Task WaitForExitAsync(int processId, CancellationToken cancellationToken)
+    internal static async Task WaitForExitAsync((int Id, DateTime Started) process, CancellationToken cancellationToken)
     {
         Process server;
         try
         {
-            server = Process.GetProcessById(processId);
+            server = Process.GetProcessById(process.Id);
+            if (server.StartTime != process.Started)
+            {
+                // Another process took the ID after the server exited.
+                server.Dispose();
+                return;
+            }
         }
-        catch (ArgumentException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or Win32Exception)
         {
             return;
         }

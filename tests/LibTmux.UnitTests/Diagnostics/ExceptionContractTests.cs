@@ -26,6 +26,58 @@ public sealed class ExceptionContractTests
         Assert.Equal("nope", option.OptionName);
         Assert.IsAssignableFrom<LibTmuxException>(option);
 
+        // tmux answered a refused option command, so the command ran, and a
+        // caller deciding whether to send it again is told so.
+        TmuxOptionException refused = Assert.Throws<TmuxOptionException>(() => OptionFailure.ThrowIfFailed(
+            new TmuxCommandResult(
+                ["set-option", "history-limit", "-1"],
+                1,
+                ReadOnlyMemory<byte>.Empty,
+                ReadOnlyMemory<byte>.Empty,
+                [],
+                ["value is too small: -1"]),
+            "history-limit"));
+        Assert.Equal(TmuxDispatchState.Dispatched, refused.Dispatch);
+
+        // A client that finds no server listening sent the command nowhere, so
+        // it may be sent again; a permission error reaches a live server.
+        TmuxCommandResult Failed(params string[] errors) => new(
+            ["list-sessions"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            [.. errors]);
+        Assert.Equal(
+            [TmuxDispatchState.NotDispatched, TmuxDispatchState.NotDispatched, TmuxDispatchState.Dispatched],
+            [
+                new TmuxCommandException("failed", Failed("no server running on /tmp/x")).Dispatch,
+                new TmuxCommandException("failed", Failed("error connecting to /tmp/x (No such file or directory)")).Dispatch,
+                new TmuxCommandException("failed", Failed("error connecting to /tmp/x (Permission denied)")).Dispatch,
+            ]);
+
+        // tmux echoes user text in its own errors, and a group that printed
+        // anything reached a server, so neither reads as a missing server.
+        TmuxCommandResult answered = new(
+            ["display-message", "-p", "#{pid}", ";", "new-window"],
+            1,
+            "17:9001\n"u8.ToArray(),
+            ReadOnlyMemory<byte>.Empty,
+            ["17:9001"],
+            ["no server running on /tmp/x"]);
+        Assert.Equal(
+            [TmuxDispatchState.Dispatched, TmuxDispatchState.Dispatched, TmuxDispatchState.Dispatched],
+            [
+                new TmuxCommandException("failed", Failed("unknown value: no server running on /tmp/x")).Dispatch,
+                new TmuxCommandException("failed", Failed("can't find pane: x", "no server running on /tmp/x")).Dispatch,
+                new TmuxCommandException("failed", answered).Dispatch,
+            ]);
+        Assert.Equal(
+            TmuxDispatchState.NotDispatched,
+            Assert.Throws<TmuxOptionException>(() => OptionFailure.ThrowIfFailed(
+                Failed("no server running on /tmp/x"),
+                "history-limit")).Dispatch);
+
         TmuxVersionTooLowException old = new(
             "needs 3.3a",
             TmuxVersion.Parse("3.3a"),

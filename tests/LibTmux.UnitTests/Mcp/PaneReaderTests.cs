@@ -86,6 +86,46 @@ public sealed class PaneReaderTests
         new PaneGridState("313", 2, 1_000, 64, 1, false, false),
         cursorRows);
 
+    [Fact]
+    public async Task A_control_client_that_never_answers_gives_way_to_a_process_within_the_command_timeout()
+    {
+        var connection = new TmuxConnection(
+            new ServerConnectionOptions { SocketName = "pane-reader", CommandTimeout = TimeSpan.FromMilliseconds(100) },
+            FakeMultiplexer.AnsweringVersion(static (request, _) =>
+            {
+                // A command reaching tmux carries the server generation's guard first.
+                string body = request.LogicalArguments.Contains("capture-pane")
+                    ? "first\nsecond\n"
+                    : "313\t2\t1000\t24\t1\t0\t0\t80\n";
+                if (request.LogicalArguments.Contains("#{pid}:#{start_time}"))
+                {
+                    body = "17:9001\n" + body;
+                }
+
+                byte[] output = System.Text.Encoding.UTF8.GetBytes(body);
+                return Task.FromResult(new TmuxCommandResult(
+                    request.LogicalArguments,
+                    0,
+                    output,
+                    ReadOnlyMemory<byte>.Empty,
+                    Utf8BackslashDecoder.ProjectOutputLines(output),
+                    []));
+            }));
+        var server = new Server(connection, new ServerGeneration(17, 9001), "tmux 3.7");
+        var pane = new Pane(
+            server,
+            connection,
+            new ServerGeneration(17, 9001),
+            new PaneId(1),
+            new Dictionary<string, string?>(StringComparer.Ordinal));
+
+        PaneRead read = await PaneReader
+            .ReadVisibleAsync(pane, null, PaneReader.Failure, new SilentControlSession(), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["first", "second"], read.Lines);
+    }
+
     private static Pane Pane()
     {
         var connection = new TmuxConnection(
@@ -104,5 +144,22 @@ public sealed class PaneReaderTests
             new ServerGeneration(17, 9001),
             new PaneId(1),
             new Dictionary<string, string?>(StringComparer.Ordinal));
+    }
+
+    private sealed class SilentControlSession : IControlModeSession
+    {
+        public IAsyncEnumerable<TmuxEvent> Events => System.Threading.Channels.Channel.CreateUnbounded<TmuxEvent>().Reader.ReadAllAsync();
+
+        public bool IsRunning => true;
+
+        public async Task<IReadOnlyList<string>> SendAsync(
+            TmuxCommand command,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return [];
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

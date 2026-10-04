@@ -408,6 +408,30 @@ public sealed class WindowTopologyTests
         Assert.Equal(before, (await first.RefreshAsync(token)).Index);
     }
 
+    [UnixFact]
+    public async Task Active_pane_reads_follow_the_current_window_and_its_selected_pane()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        Session home = await TestHierarchy.RequireFirstSessionAsync(server, token);
+        Window first = await TestHierarchy.RequireFirstWindowAsync(home, token);
+
+        // A second, current window with a split selected, so neither the
+        // first window nor the first pane is the answer.
+        await raw.ExecuteAsync(["new-window", "-t", raw.SessionName, "-n", "second"], token);
+        await raw.ExecuteAsync(["split-window", "-t", raw.SessionName + ":second"], token);
+        string shown = (await raw.ExecuteAsync(["display-message", "-p", "-t", raw.SessionName, "#{pane_id}"], token))
+            .StandardOutputText.Trim();
+
+        Pane sessionPane = await home.GetActivePaneAsync(token);
+        Pane firstWindowPane = await first.GetActivePaneAsync(token);
+
+        Assert.Equal(shown, sessionPane.Id.ToString());
+        Assert.Equal(Assert.Single(await first.GetPanesAsync(token)).Id, firstWindowPane.Id);
+        Assert.NotEqual(firstWindowPane.Id, sessionPane.Id);
+    }
+
     [Fact(
         Skip = "Requires a Unix process environment.",
         SkipType = typeof(UnixTestEnvironment),

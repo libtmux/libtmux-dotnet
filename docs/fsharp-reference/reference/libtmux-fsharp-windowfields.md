@@ -8,6 +8,46 @@ Provides supported window fields and relations for portable filters.
 
 ### Functions and values
 
+<a name="active"></a>
+
+#### <code><span>WindowFields.active&#32;<span></span></span></code>
+
+Identifies whether the window is the current window of the session it was read through.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L290)
+
+<a name="activityAlert"></a>
+
+#### <code><span>WindowFields.activityAlert&#32;<span></span></span></code>
+
+Identifies whether the window printed since it was last the current window, while monitor-activity is on.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L293)
+
+<a name="bellAlert"></a>
+
+#### <code><span>WindowFields.bellAlert&#32;<span></span></span></code>
+
+Identifies whether a bell rang in the window since it was last the current window.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L292)
+
+<a name="flags"></a>
+
+#### <code><span>WindowFields.flags&#32;<span></span></span></code>
+
+Identifies the window&#39;s flags as its status line shows them, such as <code>*</code> for the current window; empty for none.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;string</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L296)
+
 <a name="height"></a>
 
 #### <code><span>WindowFields.height&#32;<span></span></span></code>
@@ -16,7 +56,7 @@ Identifies the window's height in cells.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L288)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L289)
 
 <a name="id"></a>
 
@@ -26,7 +66,7 @@ Identifies the typed physical window ID.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;WindowId</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L285)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L286)
 
 <a name="index"></a>
 
@@ -36,7 +76,17 @@ Identifies where the window sits in its session.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L286)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L287)
+
+<a name="layout"></a>
+
+#### <code><span>WindowFields.layout&#32;<span></span></span></code>
+
+Identifies the window&#39;s layout string, as <code>select-layout</code> takes it.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;string</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L295)
 
 <a name="name"></a>
 
@@ -46,7 +96,7 @@ Identifies the window name.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;string</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L284)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L285)
 
 <a name="paneCount"></a>
 
@@ -56,7 +106,7 @@ Identifies the number of panes in the window.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L289)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L297)
 
 <a name="panes"></a>
 
@@ -66,7 +116,17 @@ Identifies panes captured through this window placement.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-relation-2.md">Relation</a>&lt;<span>Window,&#32;Pane</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L290)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L298)
+
+<a name="silenceAlert"></a>
+
+#### <code><span>WindowFields.silenceAlert&#32;<span></span></span></code>
+
+Identifies whether the window has been silent for monitor-silence seconds.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L294)
 
 <a name="width"></a>
 
@@ -76,4 +136,14 @@ Identifies the window's width in cells.
 
 Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;int</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L287)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L288)
+
+<a name="zoomed"></a>
+
+#### <code><span>WindowFields.zoomed&#32;<span></span></span></code>
+
+Identifies whether one of the window's panes is zoomed to fill it.
+
+Returns: <code><span><a href="../reference/libtmux-fsharp-field-2.md">Field</a>&lt;<span>Window,&#32;bool</span>&gt;</span></code>
+
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L291)

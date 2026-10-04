@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 from pathlib import Path
 import shlex
 import shutil
@@ -34,10 +35,27 @@ def test_native_manifest_covers_every_complete_program(example_tree):
     validate(root, manifest, inventory)
     fsharp = [entry for entry in manifest["examples"] if entry["profile"] == "fsharp"]
     csharp = [entry for entry in manifest["examples"] if entry["profile"] == "csharp"]
-    assert len(fsharp) == 13
-    assert len({target for entry in fsharp for target in entry["targets"]}) == 46
+    assert len(fsharp) == 14
+    assert len({target for entry in fsharp for target in entry["targets"]}) == 56
     assert len(csharp) == 7
     assert len({target for entry in csharp for target in entry["targets"]}) == 33
+
+
+# The docs site reads F# targets with this pattern and stops the build on any
+# other, such as an active pattern's |Case|_| name; name its module instead.
+SITE_FSHARP_TARGET = re.compile(r"^[MT]:LibTmux\.FSharp\.[\w.]+(?:`{1,2}\d+)?(?:\([^()\s]+\))?$")
+
+
+def test_fsharp_targets_are_ones_the_docs_site_reads():
+    manifest = json.loads((ROOT / "examples/api/manifest.json").read_text(encoding="utf-8"))
+    unreadable = [
+        target
+        for entry in manifest["examples"]
+        if entry["profile"] == "fsharp"
+        for target in entry["targets"]
+        if not SITE_FSHARP_TARGET.match(target)
+    ]
+    assert unreadable == []
 
 
 def test_duplicate_json_fields_are_rejected():
@@ -120,7 +138,9 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
         pytest.skip("outer loop: set LIBTMUX_PACKAGE_ARTIFACTS after Release pack")
     native = shutil.which(os.environ.get("LIBTMUX_TMUX", "tmux"))
     assert native, "the native failure control requires tmux"
-    wrapper = tmp_path / "tmux-fail-capture"
+    # F# programs run the tmux on PATH and C# ones LIBTMUX_TMUX; both reach this.
+    wrapper = tmp_path / "bin" / "tmux"
+    wrapper.parent.mkdir()
     wrapper.write_text(
         "#!/bin/sh\n"
         'case "$*" in\n'
@@ -130,6 +150,7 @@ def test_native_command_failure_rejects_consumer_and_keeps_cleanup(tmp_path, mon
     )
     wrapper.chmod(0o755)
     monkeypatch.setenv("LIBTMUX_TMUX", str(wrapper))
+    monkeypatch.setenv("PATH", f"{wrapper.parent}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("TMUX_TMPDIR", "/tmp/libtmux-dotnet-test")
     manifest = json.loads((ROOT / "examples/api/manifest.json").read_text())
     manifest["examples"] = [entry for entry in manifest["examples"] if entry["id"] == f"{profile}-InputCapture"]

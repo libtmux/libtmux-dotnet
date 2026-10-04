@@ -110,9 +110,15 @@ internal static class Program
             return UsageExitCode;
         }
 
+        // Pipes of its own: inheriting this process's, which reach the
+        // transport, the shell would hold them until its redirections ran,
+        // and a cancellation inside that window waits out the cleanup.
         ProcessStartInfo startInfo = new("/bin/sh")
         {
             UseShellExecute = false,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         startInfo.ArgumentList.Add("-c");
         startInfo.ArgumentList.Add("exec sleep 300 </dev/null >/dev/null 2>&1");

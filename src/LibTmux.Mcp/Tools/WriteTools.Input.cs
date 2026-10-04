@@ -22,7 +22,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sends keys to a pane.</summary>
     /// <param name="keys">The text or key name to send.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="enter">Whether Enter follows.</param>
     /// <param name="literal">Whether the text is sent as typed rather than read as key names.</param>
     /// <param name="suppressHistory">Whether to keep the text out of shell history.</param>
@@ -43,7 +43,9 @@ internal sealed partial class WriteTools
     public async Task<ActionResult> SendKeysAsync(
         [Description("The text to type, or a key name such as C-c when literal is false.")]
         string keys,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("Press Enter after the keys.")] bool enter = false,
         [Description(
@@ -158,7 +160,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sends several keystrokes in order.</summary>
     /// <param name="steps">What to send, in order.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
     /// <returns>What was sent.</returns>
@@ -173,7 +175,9 @@ internal sealed partial class WriteTools
             "The keystrokes to send, in order: 1–64 steps, with no null step or keys. "
             + "Combined text is limited to min(LIBTMUX_MCP_MAX_BYTES, 65536) UTF-8 bytes.")]
         IReadOnlyList<KeyStep> steps,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("The tmux socket to use. Omit for the default server.")]
         string? socketName = null,
@@ -298,7 +302,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Pastes text into a pane without the shell reading it as keys.</summary>
     /// <param name="text">The text to paste.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="bracketed">Whether to use bracketed paste.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux commands.</param>
@@ -314,7 +318,9 @@ internal sealed partial class WriteTools
         + "if cleanup fails, the completed-paste result identifies what remains.")]
     public async Task<ActionResult> PasteTextAsync(
         [Description("The text to paste.")] string text,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Tell the program the text was pasted, not typed. Keep this on for "

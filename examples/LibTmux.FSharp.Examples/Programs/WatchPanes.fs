@@ -12,17 +12,14 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "exec sleep 60"), token)
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "work" "exec sleep 60")
 
         // The client buffers everything from the moment it attaches, so the
         // panes it should see can start afterwards.
@@ -44,7 +41,7 @@ let runAsync () =
                 (fun (printed: Map<string, string>) event ->
                     task {
                         match event with
-                        | :? TmuxOutputEvent as output ->
+                        | PaneWatch.Output output ->
                             let pane = output.PaneId.ToString()
                             let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
                             let printed = printed |> Map.add pane (sofar + output.Data)
@@ -57,10 +54,10 @@ let runAsync () =
                     })
                 Map.empty
 
-        // Each pane's end arrives as TmuxPaneGoneEvent, and the stream ends
+        // Each pane's end arrives as PaneWatch.Gone, and the stream ends
         // once both are gone.
-        do! build.KillAsync(cancellationToken = token)
-        do! test.KillAsync(cancellationToken = token)
+        do! build |> Pane.kill token
+        do! test |> Pane.kill token
 
         let! ended =
             client
@@ -70,7 +67,7 @@ let runAsync () =
                 (fun ended event ->
                     task {
                         match event with
-                        | :? TmuxPaneGoneEvent as gone -> return StreamStep.Continue(ended @ [ gone.PaneId ])
+                        | PaneWatch.Gone pane -> return StreamStep.Continue(ended @ [ pane ])
                         | _ -> return StreamStep.Continue ended
                     })
                 []

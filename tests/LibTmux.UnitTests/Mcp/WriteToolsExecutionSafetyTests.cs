@@ -1674,7 +1674,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task A_process_wide_run_reservation_refuses_a_competing_run()
     {
-        await using var firstFixture = new ToolFixture { BlockFirstWait = true };
+        await using var firstFixture = new ToolFixture { BlockFirstWait = true, StatusValue = null };
         await using var secondFixture = new ToolFixture();
         Task<RunResult> first = firstFixture.Capabilities.RunShellCommandAsync(
             "sleep 1",
@@ -1695,6 +1695,7 @@ public sealed class WriteToolsExecutionSafetyTests
         }
         finally
         {
+            firstFixture.PublishStatus("0");
             firstFixture.ReleaseFirstWait();
             _ = await first;
         }
@@ -1703,7 +1704,7 @@ public sealed class WriteToolsExecutionSafetyTests
     [Fact]
     public async Task An_active_run_refuses_other_pane_input_paths()
     {
-        await using var owner = new ToolFixture { BlockFirstWait = true };
+        await using var owner = new ToolFixture { BlockFirstWait = true, StatusValue = null };
         await using var writer = new ToolFixture();
         Task<RunResult> running = owner.Capabilities.RunShellCommandAsync(
             "sleep 1",
@@ -1733,6 +1734,7 @@ public sealed class WriteToolsExecutionSafetyTests
         }
         finally
         {
+            owner.PublishStatus("0");
             owner.ReleaseFirstWait();
             _ = await running;
         }
@@ -1937,6 +1939,24 @@ public sealed class WriteToolsExecutionSafetyTests
 
         Assert.True(timedOut.TimedOut);
         await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    // A wrapper hung up with its shell can record the status and die before
+    // signalling. The run ends on the recorded status, not at its timeout.
+    [Fact]
+    public async Task A_run_whose_signal_is_lost_ends_on_its_recorded_status()
+    {
+        await using var fixture = new ToolFixture { TimeoutFirstWait = true };
+
+        RunResult result = await fixture.Capabilities
+            .RunShellCommandAsync(
+                "echo once",
+                "%1",
+                timeoutSeconds: 20,
+                cancellationToken: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Equal((0, false), (result.ExitStatus, result.TimedOut));
     }
 
     [Fact]
@@ -2457,6 +2477,58 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
     }
 
+    // A pane busy through every attempt of a read, such as one a progress bar
+    // keeps redrawing, is read again rather than failing the wait.
+    [Fact]
+    public async Task A_wait_reads_again_when_the_pane_changed_during_every_attempt()
+    {
+        string[] staticRows = ["ALREADY_HERE_MARKER"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(2) })
+        {
+            CaptureSequence = [staticRows],
+        };
+        fixture.DestabilizeNextStateSamples(6);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["ALREADY_HERE_MARKER"],
+            timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+    }
+
+    // Keys follow the read they are judged against. A pane busy through every
+    // read until the time runs out sends nothing, and the wait says so rather
+    // than timing out as though they had gone.
+    [Fact]
+    public async Task A_send_and_wait_that_never_reads_the_screen_sends_nothing_and_says_so()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture();
+        Pane pane = (await fixture.Server.GetPanesAsync(token))[0];
+        fixture.DestabilizeNextStateSamples(int.MaxValue);
+        bool sent = false;
+
+        TmuxPaneException failure = await Assert.ThrowsAsync<TmuxPaneException>(() => PaneTextWaiter.WaitAsync(
+            pane,
+            fixture.Activity,
+            static (_, _) => null,
+            TimeSpan.FromMilliseconds(100),
+            PaneReader.Failure,
+            progress: null,
+            token,
+            _ =>
+            {
+                sent = true;
+                return Task.CompletedTask;
+            }));
+
+        Assert.Contains("every snapshot attempt", failure.Message, StringComparison.Ordinal);
+        Assert.False(sent);
+    }
+
     [Fact]
     public async Task Wait_for_a_pattern_already_on_screen_reports_present_at_entry_not_timeout()
     {
@@ -2808,6 +2880,7 @@ public sealed class WriteToolsExecutionSafetyTests
 
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity;
+        private readonly Server _server;
         private readonly ServerGeneration _generation;
         private readonly object _stateGate = new();
         private int _captureCount;
@@ -2866,6 +2939,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, _generation, "tmux 3.7");
+            _server = server;
             _accessor = new TmuxConnectionAccessor(server);
             ServerPolicy effectivePolicy = policy ?? new ServerPolicy();
             Tools = new WriteTools(
@@ -2977,6 +3051,10 @@ public sealed class WriteToolsExecutionSafetyTests
         internal WriteTools Tools { get; }
 
         internal ReadTools Reads { get; }
+
+        internal PaneActivityHub Activity => _activity;
+
+        internal Server Server => _server;
 
         internal void DestabilizeNextStateSamples(int count)
         {

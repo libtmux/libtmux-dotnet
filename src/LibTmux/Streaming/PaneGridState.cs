@@ -11,6 +11,7 @@ namespace LibTmux.Internal;
 /// <param name="CursorY">The cursor's row within the visible screen.</param>
 /// <param name="Dead">Whether the pane's program has exited.</param>
 /// <param name="AlternateScreen">Whether a full-screen program owns the pane.</param>
+/// <param name="PaneWidth">Visible columns, or 0 when unknown.</param>
 /// <remarks>
 /// Read in one tmux call rather than field by field. Two reads of a moving
 /// pane describe two different instants, and a position computed across them
@@ -24,11 +25,13 @@ internal sealed record PaneGridState(
     int PaneHeight,
     int CursorY,
     bool Dead,
-    bool AlternateScreen)
+    bool AlternateScreen,
+    int PaneWidth = 0)
 {
-    private const string Format =
+    /// <summary>The format that reads every field in one call.</summary>
+    internal const string Format =
         "#{pane_pid}\t#{history_size}\t#{history_limit}\t#{pane_height}"
-        + "\t#{cursor_y}\t#{pane_dead}\t#{alternate_on}";
+        + "\t#{cursor_y}\t#{pane_dead}\t#{alternate_on}\t#{pane_width}";
 
     /// <summary>Gets the absolute position of the row the cursor is on.</summary>
     /// <remarks>
@@ -49,11 +52,20 @@ internal sealed record PaneGridState(
                 new DisplayMessageRequest { Message = Format, ReturnText = true },
                 cancellationToken)
             .ConfigureAwait(false);
+        return Parse(lines);
+    }
+
+    /// <summary>Reads the state from what tmux printed for <see cref="Format" />.</summary>
+    /// <param name="lines">The printed lines, or null when tmux printed nothing.</param>
+    /// <returns>The state, or null when the lines are not one.</returns>
+    internal static PaneGridState? Parse(IReadOnlyList<string>? lines)
+    {
         if (lines is not { Count: > 0 } || lines[0] is not { } line)
         {
             return null;
         }
 
+        // The width came last; a reply without it still reads, as unknown.
         string[] parts = line.Split('\t');
         if (parts.Length < 7)
         {
@@ -67,7 +79,8 @@ internal sealed record PaneGridState(
             PaneHeight: Int(parts[3]),
             CursorY: Int(parts[4]),
             Dead: parts[5] == "1",
-            AlternateScreen: parts[6] == "1");
+            AlternateScreen: parts[6] == "1",
+            PaneWidth: parts.Length > 7 ? Int(parts[7]) : 0);
     }
 
     private static int Int(string text) =>

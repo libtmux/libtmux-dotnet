@@ -112,16 +112,36 @@ internal sealed class TmuxCommandDispatcher
         return result;
     }
 
+    /// <summary>Gets how long one command may take, or null when it is not bounded.</summary>
+    internal TimeSpan? CommandTimeout => _context?.CommandTimeout;
+
     [UnsupportedOSPlatform("windows")]
-    internal async Task<TmuxCommandResult> ExecuteAsync(
+    internal Task<TmuxCommandResult> ExecuteAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ExecuteWithinAsync(arguments, _context?.CommandTimeout, cancellationToken);
+
+    /// <summary>Runs a command that waits for another client by design, outside the command timeout.</summary>
+    /// <param name="arguments">The command, such as a blocking <c>wait-for</c>.</param>
+    /// <param name="cancellationToken">Cancels the command.</param>
+    /// <returns>The command's result.</returns>
+    [UnsupportedOSPlatform("windows")]
+    internal Task<TmuxCommandResult> ExecuteBlockingAsync(
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken = default) =>
+        ExecuteWithinAsync(arguments, limit: null, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
+    private async Task<TmuxCommandResult> ExecuteWithinAsync(
+        IReadOnlyList<string> arguments,
+        TimeSpan? limit,
+        CancellationToken cancellationToken)
     {
         ValidateArguments(arguments);
         string[] copy = [.. arguments];
         string? socket = _context?.Socket;
         using Activity? activity = TmuxInstrumentation.StartCommand(copy, socket);
-        using var deadline = new Deadline(_context?.CommandTimeout, cancellationToken);
+        using var deadline = new Deadline(limit, cancellationToken);
         long started = Stopwatch.GetTimestamp();
         TmuxCommandResult result;
         try
@@ -148,7 +168,10 @@ internal sealed class TmuxCommandDispatcher
         TmuxInstrumentation.Complete(activity, started, copy, socket, result.ExitCode);
         TmuxLog.CommandCompleted(_context, copy, result);
 
-        if (copy.Contains("has-session", StringComparer.Ordinal)
+        // Only the subcommand counts: the text has-session typed into a pane
+        // is not a question about a session.
+        if (copy.Length > 0
+            && string.Equals(copy[0], "has-session", StringComparison.Ordinal)
             && result.StandardOutputLines.Count == 0
             && result.StandardErrorLines.Count > 0)
         {

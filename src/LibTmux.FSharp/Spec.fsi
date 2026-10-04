@@ -2,6 +2,17 @@ namespace LibTmux.FSharp
 
 open LibTmux
 
+/// <summary>How much of the space split a new pane takes.</summary>
+[<RequireQualifiedAccess>]
+type SplitSize =
+    /// <summary>A number of cells: columns for a split beside, rows for one above or below; at least 1.</summary>
+    | Cells of cells: int
+    /// <summary>A share of the space split, from 1 to 100.</summary>
+    | Percent of percent: int
+
+    /// <summary>Names the size, such as "20 cells" or "50%", without formatting through printf.</summary>
+    override ToString: unit -> string
+
 /// <summary>Describes a pane split off the pane created before it.</summary>
 /// <remarks>Build one from <c>SplitSpec.empty</c> with a copy-and-update expression.</remarks>
 type SplitSpec =
@@ -12,8 +23,8 @@ type SplitSpec =
         Command: string option
         /// <summary>The pane's working directory.</summary>
         Directory: string option
-        /// <summary>The pane's size, in cells, or with a percent sign as a share of the space split.</summary>
-        Size: string option
+        /// <summary>The pane's size, such as <c>SplitSize.Cells 20</c> or <c>SplitSize.Percent 30</c>; tmux splits in half when None.</summary>
+        Size: SplitSize option
         /// <summary>Variables added to the pane's environment.</summary>
         Environment: Map<string, string>
     }
@@ -81,3 +92,7 @@ module WindowSpec =
 module SessionSpec =
     /// <summary>A named session with tmux's single default window.</summary>
     val named: name: string -> SessionSpec
+
+    /// <summary>A named session whose one window runs a command instead of the default shell.</summary>
+    /// <remarks>Such as <c>SessionSpec.running "build" "/bin/sh"</c>, for a shell that <c>Pane.run</c> accepts whatever the user's login shell is.</remarks>
+    val running: name: string -> command: string -> SessionSpec

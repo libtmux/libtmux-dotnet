@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
@@ -596,7 +595,7 @@ public sealed class ControlModeSessionTests
                 fi
                 exec {{ShellQuote(raw.TmuxBinaryPath)}} "$@"
                 """;
-            await WriteExecutableAsync(wrapper, script, token);
+            await TestExecutable.WriteAsync(wrapper, script, token);
 
             Server server = Server.Open(new ServerConnectionOptions
             {
@@ -635,7 +634,7 @@ public sealed class ControlModeSessionTests
 
         try
         {
-            await WriteExecutableAsync(
+            await TestExecutable.WriteAsync(
                 wrapper,
                 $"#!/bin/sh\nexec {ShellQuote(raw.TmuxBinaryPath)} \"$@\"\n",
                 token);
@@ -698,7 +697,7 @@ public sealed class ControlModeSessionTests
                 done
                 exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                 """;
-            await WriteExecutableAsync(
+            await TestExecutable.WriteAsync(
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
@@ -763,7 +762,7 @@ public sealed class ControlModeSessionTests
                 done
                 exec {ShellQuote(raw.TmuxBinaryPath)} "$@"
                 """;
-            await WriteExecutableAsync(
+            await TestExecutable.WriteAsync(
                 wrapper,
                 script,
                 TestContext.Current.CancellationToken);
@@ -801,49 +800,6 @@ public sealed class ControlModeSessionTests
                 ConfigurationFile = "/dev/null",
             },
             token);
-
-    private static async Task WriteExecutableAsync(
-        string path,
-        string contents,
-        CancellationToken cancellationToken)
-    {
-        string candidate = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            await File.WriteAllTextAsync(candidate, contents, cancellationToken);
-            File.SetUnixFileMode(
-                candidate,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            File.Move(candidate, path);
-            await WaitUntilAsync(() => CanExecute(path), cancellationToken);
-        }
-        finally
-        {
-            File.Delete(candidate);
-        }
-    }
-
-    // errno 26. Process.Start surfaces it as the native error code on Linux.
-    private const int TextFileBusy = 26;
-
-    private static bool CanExecute(string path)
-    {
-        try
-        {
-            using Process? probe = Process.Start(
-                new ProcessStartInfo(path, "-V")
-                {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                });
-            probe?.WaitForExit();
-            return true;
-        }
-        catch (Win32Exception exception) when (exception.NativeErrorCode == TextFileBusy)
-        {
-            return false;
-        }
-    }
 
     private static bool IsProcessAlive(int processId)
     {

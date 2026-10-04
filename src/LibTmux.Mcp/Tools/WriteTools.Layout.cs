@@ -94,7 +94,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Splits a pane in two.</summary>
-    /// <param name="paneId">The pane to split, or null for the active one.</param>
+    /// <param name="paneId">The pane to split, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="direction">Where the new pane goes.</param>
     /// <param name="startDirectory">Where the new pane starts.</param>
     /// <param name="percentage">How much of the space the new pane takes.</param>
@@ -105,7 +105,9 @@ internal sealed partial class WriteTools
         + "it — pane ids stay valid across layout changes, where window names and "
         + "indexes do not.")]
     public async Task<ActionResult> SplitPaneAsync(
-        [Description("The pane id to split, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id to split, such as %1. Omit for this server's own pane, or else the "
+            + "one the first session shows.")]
         string? paneId = null,
         [Description("Where the new pane goes: Below, Above, Left or Right.")]
         PaneDirection direction = PaneDirection.Below,
@@ -181,7 +183,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Resizes a pane.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="width">Columns to set it to.</param>
     /// <param name="height">Rows to set it to.</param>
     /// <param name="zoom">Whether to zoom it to fill the window instead.</param>
@@ -192,7 +194,9 @@ internal sealed partial class WriteTools
         "Resize a pane, or zoom it to fill its window. Widening a pane before reading "
         + "it is the fix for output that comes back wrapped across rows.")]
     public async Task<ActionResult> ResizePaneAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("Columns to set the pane to.")] int? width = null,
         [Description("Rows to set the pane to.")] int? height = null,
@@ -222,7 +226,7 @@ internal sealed partial class WriteTools
     }
 
     /// <summary>Applies a layout to a window.</summary>
-    /// <param name="windowId">The window, or null for the active one.</param>
+    /// <param name="windowId">The window, or null for the caller's window or the one the first session shows.</param>
     /// <param name="layout">The layout name or a tmux layout string.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
@@ -232,7 +236,9 @@ internal sealed partial class WriteTools
         + "even-vertical, main-horizontal, main-vertical, tiled — or a layout string "
         + "read from list_windows.")]
     public async Task<ActionResult> SelectLayoutAsync(
-        [Description("The window id, such as @1. Omit for the active window.")]
+        [Description(
+            "The window id, such as @1. Omit for this server's own window, or else the one "
+            + "the first session shows.")]
         string? windowId = null,
         [Description("A layout name such as tiled, or a tmux layout string.")]
         string? layout = null,
@@ -279,14 +285,16 @@ internal sealed partial class WriteTools
 
     /// <summary>Renames a window.</summary>
     /// <param name="name">The new name.</param>
-    /// <param name="windowId">The window, or null for the active one.</param>
+    /// <param name="windowId">The window, or null for the caller's window or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>What changed.</returns>
     [Description("Rename a tmux window. Its id does not change.")]
     public async Task<ActionResult> RenameWindowAsync(
         [Description("The new name.")] string name,
-        [Description("The window id, such as @1. Omit for the active window.")]
+        [Description(
+            "The window id, such as @1. Omit for this server's own window, or else the one "
+            + "the first session shows.")]
         string? windowId = null,
         [Description("The tmux socket to use. Omit for the default server.")]
         string? socketName = null,
@@ -304,7 +312,7 @@ internal sealed partial class WriteTools
 
     /// <summary>Sets a pane's title.</summary>
     /// <param name="title">The new title.</param>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="socketName">The tmux socket, or null for the default.</param>
     /// <param name="cancellationToken">Cancels the tmux command.</param>
     /// <returns>What changed.</returns>
@@ -313,7 +321,9 @@ internal sealed partial class WriteTools
         + "watching can tell which is which.")]
     public async Task<ActionResult> SetPaneTitleAsync(
         [Description("The new title.")] string title,
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description("The tmux socket to use. Omit for the default server.")]
         string? socketName = null,

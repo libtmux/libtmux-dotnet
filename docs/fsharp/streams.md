@@ -2,7 +2,8 @@
 
 Captured snapshots are replayable local observations. Control-mode events are
 live, ordered, destructive observations. They are not a replayable `seq`, and
-a control client has one event stream with one consumer.
+a control client has one event stream with one consumer: a second reader
+started while the first is reading raises `InvalidOperationException`.
 
 ## Choose a wait or a stream
 
@@ -23,7 +24,9 @@ client open. Any `IAsyncEnumerable` library composes the same streams;
 `TaskSeq<'T>` in FSharp.Control.TaskSeq is the same type.
 
 `Control.watchPane` narrows a client's stream to one pane's output, and ends
-with `TmuxPaneGoneEvent` once the pane is confirmed gone:
+once the pane is confirmed gone. `PaneWatch` names the six things a watch
+yields, so a match that leaves one out, such as a `Dropped` loss report, draws
+a compiler warning:
 
 <!-- fsharp-snippet: WatchPaneOutput run -->
 ```fsharp run
@@ -45,16 +48,20 @@ let readPaneUntilAsync
         (fun output event ->
             task {
                 match event with
-                | :? TmuxOutputEvent as printed ->
+                | PaneWatch.Output printed ->
                     let output = output + printed.Data
 
                     if output.Contains(marker, StringComparison.Ordinal) then
                         return StreamStep.Stop output
                     else
                         return StreamStep.Continue output
-                | :? TmuxPaneGoneEvent
-                | :? TmuxExitEvent -> return StreamStep.Stop output
-                | _ -> return StreamStep.Continue output
+                // Output tmux held back or the buffer dropped never arrives;
+                // capture the pane to read what the screen shows instead.
+                | PaneWatch.Paused _
+                | PaneWatch.Continued _
+                | PaneWatch.Dropped _ -> return StreamStep.Continue output
+                | PaneWatch.Gone _
+                | PaneWatch.Exited _ -> return StreamStep.Stop output
             })
         ""
 ```
@@ -62,7 +69,7 @@ let readPaneUntilAsync
 
 A client has one event stream, so watching two panes with `Control.watchPane`
 takes two clients. `Control.watchPanes` follows several through one: each
-output event names its pane, each pane's end arrives as `TmuxPaneGoneEvent`
+output event names its pane, each pane's end arrives as `PaneWatch.Gone`
 after the output buffered before it went, and the stream ends once every pane
 is gone. This complete program follows two panes, then their ends:
 
@@ -81,17 +88,14 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-watch-panes-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "exec sleep 60"), token)
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "work" "exec sleep 60")
 
         // The client buffers everything from the moment it attaches, so the
         // panes it should see can start afterwards.
@@ -113,7 +117,7 @@ let runAsync () =
                 (fun (printed: Map<string, string>) event ->
                     task {
                         match event with
-                        | :? TmuxOutputEvent as output ->
+                        | PaneWatch.Output output ->
                             let pane = output.PaneId.ToString()
                             let sofar = printed |> Map.tryFind pane |> Option.defaultValue ""
                             let printed = printed |> Map.add pane (sofar + output.Data)
@@ -126,10 +130,10 @@ let runAsync () =
                     })
                 Map.empty
 
-        // Each pane's end arrives as TmuxPaneGoneEvent, and the stream ends
+        // Each pane's end arrives as PaneWatch.Gone, and the stream ends
         // once both are gone.
-        do! build.KillAsync(cancellationToken = token)
-        do! test.KillAsync(cancellationToken = token)
+        do! build |> Pane.kill token
+        do! test |> Pane.kill token
 
         let! ended =
             client
@@ -139,7 +143,7 @@ let runAsync () =
                 (fun ended event ->
                     task {
                         match event with
-                        | :? TmuxPaneGoneEvent as gone -> return StreamStep.Continue(ended @ [ gone.PaneId ])
+                        | PaneWatch.Gone pane -> return StreamStep.Continue(ended @ [ pane ])
                         | _ -> return StreamStep.Continue ended
                     })
                 []
@@ -165,8 +169,12 @@ ended in order given: true
 <!-- endfsharp-output -->
 
 The watch reads the client's only stream, so it consumes and drops events
-for other panes. Attach the client with `Control.enterSession` to the session
-that holds the pane.
+for other panes. tmux sends a control client output only from the session it
+is attached to, and `Control.withSession` attaches to the most recently used
+one. Attach the client with `Control.enterSession` to the session that holds
+the pane: a watch raises `ArgumentException` for a pane elsewhere when it
+starts, and `InvalidOperationException` if the pane's window moves to another
+session while it is watched.
 
 tmux discards output it has not yet sent once a pane's program exits, so the
 last lines of a program that exits at once may never arrive on any control
@@ -199,14 +207,10 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-live-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
             owned.Value.CreateSessionAsync(
@@ -229,24 +233,26 @@ let runAsync () =
 
         let! panes = session |> Session.panes |> Query.list token
 
-        do!
-            panes[0]
-            |> Pane.sendKeys token (SendKeysRequest(Text = "exec sleep 30", Literal = true))
+        do! panes[0] |> Pane.sendLine token "exec sleep 30"
 
+        // tryWaitUntil answers None when no view matched in time.
         let! sleeping =
             mirror
-            |> Mirror.waitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
+            |> Mirror.tryWaitUntil token (TimeSpan.FromSeconds 5.) (fun view ->
                 view.Server.Panes |> Seq.exists (fun pane -> pane.CurrentCommand = "sleep"))
 
         printfn "windows: %s" (String.Join(", ", [ for window in withLogs.Server.Windows -> window.Name ]))
 
-        printfn
-            "sleeping panes: %d"
-            (sleeping.Server.Panes
-             |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
-             |> Seq.length)
+        match sleeping with
+        | Some sleeping ->
+            printfn
+                "sleeping panes: %d"
+                (sleeping.Server.Panes
+                 |> Seq.filter (fun pane -> pane.CurrentCommand = "sleep")
+                 |> Seq.length)
 
-        printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+            printfn "newer view: %b" (sleeping.Epoch > withLogs.Epoch)
+        | None -> printfn "no pane ran sleep within five seconds"
     }
 
 runAsync().GetAwaiter().GetResult()

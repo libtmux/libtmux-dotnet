@@ -57,6 +57,8 @@ modes differ.
 | `LibTmux.PaneId` | Represents a generation-independent tmux pane identifier. |
 | `LibTmux.PaneInputMode` | Names whether a pane accepts input. |
 | `LibTmux.PaneObservation` | Narrows a control client's event stream to some panes, and ends it cleanly. |
+| `LibTmux.PaneOutputPosition` | Where a read of a pane's output finished, so the next read returns only what is new. |
+| `LibTmux.PaneOutputSince` | What a pane printed since a position, and where this read finished. |
 | `LibTmux.PaneRunRequest` | Describes a shell command to run in a pane and wait for. |
 | `LibTmux.PaneRunResult` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
@@ -257,6 +259,7 @@ modes differ.
 | `LibTmux.Pane.MoveAsync(LibTmux.MovePaneRequest,System.Threading.CancellationToken)` | Moves this pane to another position. |
 | `LibTmux.Pane.PasteBufferAsync(LibTmux.PasteBufferRequest,System.Threading.CancellationToken)` | Pastes a tmux buffer into the pane. |
 | `LibTmux.Pane.PipeAsync(LibTmux.PipePaneRequest,System.Threading.CancellationToken)` | Pipes the pane's input or output through a command. |
+| `LibTmux.Pane.ReadOutputSinceAsync(LibTmux.PaneOutputPosition,System.Threading.CancellationToken)` | Reads what the pane has printed since a position, and where this read finished. |
 | `LibTmux.Pane.RefreshAsync(System.Threading.CancellationToken)` | Re-reads this pane from tmux. |
 | `LibTmux.Pane.ResetAsync(System.Threading.CancellationToken)` | Resets the pane's terminal state and drops its history. |
 | `LibTmux.Pane.ResizeAsync(LibTmux.ResizePaneRequest,System.Threading.CancellationToken)` | Resizes this pane. |
@@ -292,6 +295,7 @@ modes differ.
 | `LibTmux.PaneId.op_LessThanOrEqual(LibTmux.PaneId,LibTmux.PaneId)` | Reports whether one identifier was handed out no later than another. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,LibTmux.Pane,System.Threading.CancellationToken)` | Watches one pane's output until it ends. |
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,System.Collections.Generic.IReadOnlyCollection{LibTmux.Pane},System.Threading.CancellationToken)` | Watches several panes' output through one control client until each has ended. |
+| `LibTmux.PaneOutputSince.#ctor(System.Collections.Generic.IReadOnlyList{System.String},LibTmux.PaneOutputPosition,System.Boolean)` | What a pane printed since a position, and where this read finished. |
 | `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
 | `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
@@ -405,11 +409,13 @@ modes differ.
 | `LibTmux.Session.FindWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one of this session's windows by identifier. |
 | `LibTmux.Session.FindWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one of this session's windows by target. |
 | `LibTmux.Session.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the session holding the pane this process runs in. |
+| `LibTmux.Session.GetActivePaneAsync(System.Threading.CancellationToken)` | Reads from tmux the pane this session shows: its current window's active pane. |
 | `LibTmux.Session.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Session.GetPanesAsync(System.Threading.CancellationToken)` | Reads this session's panes from tmux. |
 | `LibTmux.Session.GetWindowAsync(LibTmux.WindowId,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
 | `LibTmux.Session.GetWindowAsync(System.String,System.Threading.CancellationToken)` | Reads one window in this session, throwing when it is absent. |
 | `LibTmux.Session.GetWindowsAsync(System.Threading.CancellationToken)` | Reads this session's windows from tmux. |
+| `LibTmux.Session.HoldWaitClientAsync(System.Threading.CancellationToken)` | Keeps the control client that waits on this session's panes use attached until the handle is disposed. |
 | `LibTmux.Session.KillAsync(System.Boolean,System.Boolean,System.Boolean,System.Threading.CancellationToken)` | Stops this session. |
 | `LibTmux.Session.KillWindowAsync(System.String,System.Threading.CancellationToken)` | Stops one window in this session. |
 | `LibTmux.Session.LockAsync(System.Threading.CancellationToken)` | Locks this session. |
@@ -573,6 +579,7 @@ modes differ.
 | `LibTmux.Window.ExecuteCommandAsync(System.Collections.Generic.IReadOnlyList{System.String},System.String,System.Threading.CancellationToken)` | Executes one raw tmux command against this window. |
 | `LibTmux.Window.FindPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window. |
 | `LibTmux.Window.FromEnvironmentAsync(System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.Threading.CancellationToken)` | Returns the window holding the pane this process runs in. |
+| `LibTmux.Window.GetActivePaneAsync(System.Threading.CancellationToken)` | Reads from tmux this window's active pane. |
 | `LibTmux.Window.GetHashCode` | Inherits the base member contract. |
 | `LibTmux.Window.GetLinkedSessionsAsync(System.Threading.CancellationToken)` | Reads every session this window is linked into. |
 | `LibTmux.Window.GetPaneAsync(System.String,System.Threading.CancellationToken)` | Reads one pane in this window, throwing when it is absent. |
@@ -832,34 +839,47 @@ modes differ.
 | `LibTmux.OwnedServerScope.Value` | Gets the owned server. |
 | `LibTmux.OwnedSessionScope.Value` | Gets the owned session. |
 | `LibTmux.OwnedWindowScope.Value` | Gets the owned window. |
+| `LibTmux.Pane.Active` | Gets whether the pane is its window's active pane. |
 | `LibTmux.Pane.AtBottom` | Gets whether the pane touches the bottom of its window. |
 | `LibTmux.Pane.AtLeft` | Gets whether the pane touches the left of its window. |
 | `LibTmux.Pane.AtRight` | Gets whether the pane touches the right of its window. |
 | `LibTmux.Pane.AtTop` | Gets whether the pane touches the top of its window. |
 | `LibTmux.Pane.CurrentCommand` | Gets the foreground command captured with this pane. |
 | `LibTmux.Pane.CurrentPath` | Gets the current working directory captured with this pane. |
+| `LibTmux.Pane.Dead` | Gets whether the pane's program has exited and the pane remains. |
+| `LibTmux.Pane.DeadStatus` | Gets the exit status of a dead pane's program. |
 | `LibTmux.Pane.Generation` | Gets the server generation captured with this pane. |
 | `LibTmux.Pane.Height` | Gets the pane height captured with this handle. |
+| `LibTmux.Pane.HistorySize` | Gets how many lines have scrolled into the pane's history. |
 | `LibTmux.Pane.Hooks` | Gets the hooks of this pane. |
 | `LibTmux.Pane.Id` | Gets the pane identifier. |
+| `LibTmux.Pane.InMode` | Gets whether the pane is in a mode, such as copy mode. |
 | `LibTmux.Pane.Index` | Gets the index this pane holds in its window. |
 | `LibTmux.Pane.Left` | Gets the pane's left offset, in cells, from its window's edge. |
 | `LibTmux.Pane.Options` | Gets the options of this pane. |
+| `LibTmux.Pane.ProcessId` | Gets the process ID of the program the pane started. |
 | `LibTmux.Pane.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Pane.Server` | Gets the server that owns this pane. |
 | `LibTmux.Pane.Session` | Gets the session containing this pane. |
+| `LibTmux.Pane.StartCommand` | Gets the command the pane started, as tmux prints it, or empty for the default shell. |
+| `LibTmux.Pane.Synchronized` | Gets whether keys typed into the pane go to every synchronized pane in its window. |
 | `LibTmux.Pane.Title` | Gets the pane title captured with this handle. |
 | `LibTmux.Pane.Top` | Gets the pane's top offset, in cells, from its window's edge. |
+| `LibTmux.Pane.Tty` | Gets the terminal device the pane's program reads and writes, such as /dev/pts/3. |
 | `LibTmux.Pane.Width` | Gets the pane width captured with this handle. |
 | `LibTmux.Pane.Window` | Gets the window containing this pane, with captured scalar state. |
 | `LibTmux.PaneId.Value` | Gets the nonnegative numeric value. |
+| `LibTmux.PaneOutputSince.Lines` | The new lines, oldest first; none on a read that starts without a position. |
+| `LibTmux.PaneOutputSince.LinesMissed` | Whether output may be missing: scrollback dropped lines before this read saw them, or the position could not be found again. is then what the pane shows rather than exactly what is new. |
+| `LibTmux.PaneOutputSince.Position` | Where this read finished; pass it to the next read. |
 | `LibTmux.PaneRunRequest.Command` | Gets the shell command. |
 | `LibTmux.PaneRunRequest.KeepOutOfHistory` | Gets whether the line the shell reads starts with a space, which many shells keep out of history. |
 | `LibTmux.PaneRunRequest.Timeout` | Gets how long to wait for the command to finish. |
 | `LibTmux.PaneRunResult.Elapsed` | How long the command ran, or how long it was waited for. |
 | `LibTmux.PaneRunResult.ExitStatus` | The command's exit status, or null when it had not finished. |
-| `LibTmux.PaneRunResult.LinesMissed` | Whether scrollback dropped output before it was read. |
+| `LibTmux.PaneRunResult.LinesMissed` | Whether scrollback dropped output before it was read; then holds only what the pane still showed. |
 | `LibTmux.PaneRunResult.Output` | The lines the command printed. |
+| `LibTmux.PaneRunResult.PaneExited` | Gets whether the pane's program exited before the command reported its status. |
 | `LibTmux.PaneRunResult.Started` | Whether the pane's shell ran the command at all. |
 | `LibTmux.PaneRunResult.Succeeded` | Gets whether the command finished with exit status 0. |
 | `LibTmux.PaneRunResult.TimedOut` | Whether the time allowed ran out first; the command may still be running. |
@@ -1153,9 +1173,13 @@ modes differ.
 | `LibTmux.UnsupportedQueryExpressionException.Expression` | Gets the expression that could not be translated. |
 | `LibTmux.WaitForRequest.Channel` | Gets the channel name. |
 | `LibTmux.WaitForRequest.Mode` | Gets what to do with it. |
+| `LibTmux.Window.Active` | Gets whether this is the current window of the session it was read through. |
 | `LibTmux.Window.ActivePane` | Gets the captured active pane, or an uncaptured relation. |
+| `LibTmux.Window.ActivityAlert` | Gets whether the window printed since it was last the current window. |
+| `LibTmux.Window.BellAlert` | Gets whether a bell rang in the window since it was last the current window. |
 | `LibTmux.Window.Edge` | Gets where this window sits in the session it was read from. |
 | `LibTmux.Window.EntityKey` | Gets the session, window and index this handle names together. |
+| `LibTmux.Window.Flags` | Gets the window's flags as its status line shows them, such as * for the current window. |
 | `LibTmux.Window.Generation` | Gets the server generation captured with this window. |
 | `LibTmux.Window.Height` | Gets the window height captured with this handle. |
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |
@@ -1169,7 +1193,9 @@ modes differ.
 | `LibTmux.Window.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Window.Server` | Gets the server that owns this window. |
 | `LibTmux.Window.Session` | Gets the session this window was read through. |
+| `LibTmux.Window.SilenceAlert` | Gets whether the window has been silent for monitor-silence seconds. |
 | `LibTmux.Window.Width` | Gets the window width captured with this handle. |
+| `LibTmux.Window.Zoomed` | Gets whether one of the window's panes is zoomed to fill it. |
 | `LibTmux.WindowEntityKey.SessionId` | The session the window is linked into. |
 | `LibTmux.WindowEntityKey.WindowId` | The linked window. |
 | `LibTmux.WindowEntityKey.WindowIndex` | The index of this placement in the session. |
@@ -1240,9 +1266,9 @@ modes differ.
 | `LibTmux.TmuxColorMode.Colors256` | Requests 256-color mode. |
 | `LibTmux.TmuxColorMode.Default` | Uses tmux's default color behavior. |
 | `LibTmux.TmuxColorMode.TrueColor` | Requests RGB true-color mode. |
-| `LibTmux.TmuxDiagnostics.ActivitySourceName` | The activity source name every tmux command is traced under. |
+| `LibTmux.TmuxDiagnostics.ActivitySourceName` | The activity source name each tmux process a handle runs is traced under. |
 | `LibTmux.TmuxDiagnostics.CommandDurationInstrumentName` | The histogram recording how long each tmux command took, in seconds. |
-| `LibTmux.TmuxDiagnostics.MeterName` | The meter name every tmux command is measured under. |
+| `LibTmux.TmuxDiagnostics.MeterName` | The meter name each tmux process a handle runs is measured under. |
 | `LibTmux.TmuxDispatchState.Dispatched` | tmux ran the command and answered. The failure is tmux refusing or reporting an error, not the command going missing, so any side effect it had before failing has already happened. |
 | `LibTmux.TmuxDispatchState.NotDispatched` | The command never reached tmux, so nothing was done and a retry repeats nothing. This is the only state in which retrying is unconditionally safe. |
 | `LibTmux.TmuxDispatchState.Unknown` | Whether tmux acted on the command cannot be determined. Treat a retry as capable of repeating whatever the command does. |

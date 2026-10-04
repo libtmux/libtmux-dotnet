@@ -177,6 +177,21 @@ public sealed class McpProtocolTests
             Assert.False(string.IsNullOrWhiteSpace(tool.ProtocolTool.Description));
             Assert.False(tool.ProtocolTool.InputSchema.GetProperty("properties")
                 .TryGetProperty("socketName", out _));
+
+            // A parameter that may be left out says what leaving it out does;
+            // docs/mcp/tools.md builds its omitted-parameter table from these.
+            foreach (JsonProperty parameter in tool.ProtocolTool.InputSchema
+                .GetProperty("properties").EnumerateObject())
+            {
+                bool nullable = parameter.Value.TryGetProperty("type", out JsonElement type)
+                    && type.ValueKind == JsonValueKind.Array
+                    && type.EnumerateArray().Any(each => each.GetString() == "null");
+                Assert.True(
+                    !nullable
+                    || parameter.Value.GetProperty("description").GetString()!
+                        .Contains("Omit ", StringComparison.Ordinal),
+                    $"{tool.Name}.{parameter.Name} does not say what omitting it does.");
+            }
         });
 
         JsonElement searchPattern = tools.Single(tool => tool.Name == "search_panes")
@@ -277,13 +292,19 @@ public sealed class McpProtocolTests
         foreach (McpClientTool tool in tools)
         {
             JsonObject metadata = Assert.IsType<JsonObject>(tool.ProtocolTool.Meta);
-            KeyValuePair<string, JsonNode?> capabilityMetadata = Assert.Single(metadata);
-            Assert.Equal("com.git-pull.libtmux-mcp/capability", capabilityMetadata.Key);
+            JsonNode capabilityMetadata = Assert.IsType<JsonObject>(
+                metadata["com.git-pull.libtmux-mcp/capability"]);
+
+            // Only the discovery anchors ask to stay loaded; each one costs
+            // every conversation its schema.
+            bool anchor = tool.Name is "list_panes" or "list_windows" or "snapshot_pane";
+            Assert.Equal(anchor ? 2 : 1, metadata.Count);
+            Assert.Equal(anchor, metadata["anthropic/alwaysLoad"]?.GetValue<bool>() ?? false);
             JsonElement disclosed = rows.EnumerateArray()
                 .Single(row => row.GetProperty("name").GetString() == tool.Name);
             Assert.True(JsonNode.DeepEquals(
                 JsonNode.Parse(disclosed.GetRawText()),
-                capabilityMetadata.Value));
+                capabilityMetadata));
 
             // The row says only what the protocol cannot. Carrying a second
             // copy of the schemas cost 54 KB and the output one was wrong.

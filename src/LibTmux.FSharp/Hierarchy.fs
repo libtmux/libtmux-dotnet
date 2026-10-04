@@ -2,12 +2,19 @@ namespace LibTmux.FSharp
 
 open System
 open System.Collections.Generic
+open System.Globalization
 open System.Threading
 open LibTmux
 open LibTmux.Query
 
 [<RequireQualifiedAccess>]
 module Server =
+    let createOwned (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.CreateOwnedAsync(options, cancellationToken)
+
+    let connect (cancellationToken: CancellationToken) (options: ServerConnectionOptions) =
+        LibTmux.Server.ConnectAsync(options, cancellationToken)
+
     let sessions (server: LibTmux.Server) =
         Query<LibTmux.Session>.Create(server, QueryTarget.Session, None, None)
 
@@ -36,7 +43,14 @@ module Server =
                             Direction = Option.toNullable split.Direction,
                             Command = Option.toObj split.Command,
                             StartDirectory = Option.toObj split.Directory,
-                            Size = Option.toObj split.Size,
+                            Size =
+                                (match split.Size with
+                                 | Some(SplitSize.Cells cells) -> cells.ToString(CultureInfo.InvariantCulture)
+                                 | _ -> null),
+                            Percentage =
+                                (match split.Size with
+                                 | Some(SplitSize.Percent percent) -> Nullable percent
+                                 | _ -> Nullable()),
                             Environment = environment split.Environment
                         ),
                         cancellationToken
@@ -68,6 +82,16 @@ module Server =
                 )
             )
         | _ -> ()
+
+        // Checked before anything is created, so a bad size cannot leave half a session behind.
+        for window in spec.Windows do
+            for split in window.Splits do
+                match split.Size with
+                | Some(SplitSize.Cells cells) when cells < 1 ->
+                    raise (ArgumentOutOfRangeException(nameof spec, cells, "A split's size in cells is at least 1."))
+                | Some(SplitSize.Percent percent) when percent < 1 || percent > 100 ->
+                    raise (ArgumentOutOfRangeException(nameof spec, percent, "A split's share runs from 1 to 100."))
+                | _ -> ()
 
         backgroundTask {
             let! session =
@@ -148,12 +172,48 @@ module Session =
     let panes (session: LibTmux.Session) =
         Query<LibTmux.Pane>.Create(session.Server, QueryTarget.Pane, Some session.Id, None)
 
+    let activePane (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.GetActivePaneAsync(cancellationToken)
+
+    let holdWaitClient (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.HoldWaitClientAsync(cancellationToken)
+
+    let rename (cancellationToken: CancellationToken) (name: string) (session: LibTmux.Session) =
+        session.RenameAsync(name, cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.KillAsync(cancellationToken = cancellationToken)
+
+    let newWindow (cancellationToken: CancellationToken) (request: NewWindowRequest) (session: LibTmux.Session) =
+        session.CreateWindowAsync(request, cancellationToken)
+
 [<RequireQualifiedAccess>]
 module Window =
     let placementKey window = Placement.key window
 
     let panes (window: LibTmux.Window) =
         Query<LibTmux.Pane>.Create(window.Server, QueryTarget.Pane, None, Some window.Id)
+
+    let activePane (cancellationToken: CancellationToken) (window: LibTmux.Window) =
+        window.GetActivePaneAsync(cancellationToken)
+
+    let rename (cancellationToken: CancellationToken) (name: string) (window: LibTmux.Window) =
+        window.RenameAsync(name, cancellationToken)
+
+    let select (cancellationToken: CancellationToken) (window: LibTmux.Window) = window.SelectAsync(cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (window: LibTmux.Window) =
+        window.KillAsync(cancellationToken = cancellationToken)
+
+    let selectLayout (cancellationToken: CancellationToken) (layout: string) (window: LibTmux.Window) =
+        ArgumentException.ThrowIfNullOrWhiteSpace layout
+        window.SelectLayoutAsync(SelectLayoutRequest(Layout = layout), cancellationToken)
+
+    let resize (cancellationToken: CancellationToken) (request: ResizeWindowRequest) (window: LibTmux.Window) =
+        window.ResizeAsync(request, cancellationToken)
+
+    let move (cancellationToken: CancellationToken) (request: MoveWindowRequest) (window: LibTmux.Window) =
+        window.MoveAsync(request, cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Pane =
@@ -162,6 +222,9 @@ module Pane =
 
     let capture (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.CaptureAsync(request, cancellationToken)
+
+    let readSince (cancellationToken: CancellationToken) (position: PaneOutputPosition option) (pane: LibTmux.Pane) =
+        pane.ReadOutputSinceAsync(Option.toObj position, cancellationToken)
 
     let findOnScreen (cancellationToken: CancellationToken) search (pane: LibTmux.Pane) =
         backgroundTask {
@@ -203,11 +266,42 @@ module Pane =
     let run (cancellationToken: CancellationToken) (timeout: TimeSpan) (command: string) (pane: LibTmux.Pane) =
         pane.RunAsync(command, timeout, cancellationToken)
 
+    let sendLine (cancellationToken: CancellationToken) (line: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(line, true, cancellationToken)
+
+    let sendText (cancellationToken: CancellationToken) (text: string) (pane: LibTmux.Pane) =
+        pane.SendTextAsync(text, false, cancellationToken)
+
+    let pressKey (cancellationToken: CancellationToken) (key: string) (pane: LibTmux.Pane) =
+        ArgumentException.ThrowIfNullOrWhiteSpace(key)
+        pane.SendKeysAsync(SendKeysRequest(Text = key, Enter = false), cancellationToken)
+
     let sendKeys (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SendKeysAsync(request, cancellationToken)
 
     let split (cancellationToken: CancellationToken) request (pane: LibTmux.Pane) =
         pane.SplitAsync(request, cancellationToken)
+
+    let select (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.SelectAsync(cancellationToken = cancellationToken)
+
+    let kill (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.KillAsync(cancellationToken = cancellationToken)
+
+    let setTitle (cancellationToken: CancellationToken) (title: string) (pane: LibTmux.Pane) =
+        pane.SetTitleAsync(title, cancellationToken)
+
+    let resize (cancellationToken: CancellationToken) (request: ResizePaneRequest) (pane: LibTmux.Pane) =
+        pane.ResizeAsync(request, cancellationToken)
+
+    let swap (cancellationToken: CancellationToken) (request: SwapPaneRequest) (pane: LibTmux.Pane) =
+        pane.SwapAsync(request, cancellationToken)
+
+    let respawn (cancellationToken: CancellationToken) (request: RespawnRequest) (pane: LibTmux.Pane) =
+        pane.RespawnAsync(request, cancellationToken)
+
+    let clearHistory (cancellationToken: CancellationToken) (pane: LibTmux.Pane) =
+        pane.ClearHistoryAsync(cancellationToken = cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Options =

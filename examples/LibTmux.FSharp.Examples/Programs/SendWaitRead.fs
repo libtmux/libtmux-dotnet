@@ -12,20 +12,15 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-send-wait-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
+            owned.Value |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
 
-        let! panes = session |> Session.panes |> Query.list token
-        let pane = panes[0]
+        let! pane = session |> Session.activePane token
 
         // Type a line and wait for what it prints. The screen before it and
         // the line's own echo do not count.
@@ -34,7 +29,7 @@ let runAsync () =
             |> Pane.sendAndWait token (TimeSpan.FromSeconds 5.) "echo server ready" "server ready"
 
         // A condition sees every visible row each time the pane changes.
-        do! pane |> Pane.sendKeys token (SendKeysRequest(Text = "seq 3", Literal = true))
+        do! pane |> Pane.sendLine token "seq 3"
 
         let! counted =
             pane
@@ -46,9 +41,24 @@ let runAsync () =
 
         let! screen = pane |> Pane.capture token (CapturePaneRequest())
 
-        printfn "ready: %b" ready.Found
-        printfn "counted: %b" counted.Found
-        printfn "run: exit %A, output %A" listing.ExitStatus (List.ofSeq listing.Output)
+        // One case for each way a wait can end; leaving one out draws a warning.
+        let describe wait =
+            match wait with
+            | PaneWait.Found -> "found"
+            | PaneWait.Printed -> "printed"
+            | PaneWait.Stopped pattern -> "stopped by " + pattern
+            | PaneWait.TimedOut -> "timed out"
+            | PaneWait.Ended -> "the pane's program ended"
+
+        printfn "ready: %s" (describe ready)
+        printfn "counted: %s" (describe counted)
+
+        match listing with
+        | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
+        | PaneRun.Ended -> printfn "run: the shell exited first"
+        | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
+        | PaneRun.TimedOut -> printfn "run: still running"
+
         printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
 

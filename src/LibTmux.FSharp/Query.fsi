@@ -208,6 +208,20 @@ module WindowFields =
     val width: Field<LibTmux.Window, int>
     /// <summary>Identifies the window's height in cells.</summary>
     val height: Field<LibTmux.Window, int>
+    /// <summary>Identifies whether the window is the current window of the session it was read through.</summary>
+    val active: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether one of the window's panes is zoomed to fill it.</summary>
+    val zoomed: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether a bell rang in the window since it was last the current window.</summary>
+    val bellAlert: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether the window printed since it was last the current window, while monitor-activity is on.</summary>
+    val activityAlert: Field<LibTmux.Window, bool>
+    /// <summary>Identifies whether the window has been silent for monitor-silence seconds.</summary>
+    val silenceAlert: Field<LibTmux.Window, bool>
+    /// <summary>Identifies the window's layout string, as <c>select-layout</c> takes it.</summary>
+    val layout: Field<LibTmux.Window, string>
+    /// <summary>Identifies the window's flags as its status line shows them, such as <c>*</c> for the current window; empty for none.</summary>
+    val flags: Field<LibTmux.Window, string>
     /// <summary>Identifies the number of panes in the window.</summary>
     val paneCount: Field<LibTmux.Window, int>
     /// <summary>Identifies panes captured through this window placement.</summary>
@@ -242,6 +256,25 @@ module PaneFields =
     val atLeft: Field<LibTmux.Pane, bool>
     /// <summary>Identifies whether the pane touches the right of its window.</summary>
     val atRight: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane is its window's active pane.</summary>
+    val active: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane's program has exited while the pane remains.</summary>
+    val dead: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies whether the pane is in a mode, such as copy mode.</summary>
+    val inMode: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies the process ID of the program the pane started.</summary>
+    val processId: Field<LibTmux.Pane, int>
+    /// <summary>Identifies whether keys typed into the pane go to every synchronized pane in its window.</summary>
+    val synchronized: Field<LibTmux.Pane, bool>
+    /// <summary>Identifies how many lines have scrolled into the pane's history.</summary>
+    val historySize: Field<LibTmux.Pane, int>
+    /// <summary>Identifies the exit status of a dead pane's program; None while it runs, or when a signal ended it.</summary>
+    /// <remarks>Compare with <c>Filter.eq</c> or <c>Filter.ne</c> and <c>Some</c>; <c>Filter.ne (Some 0)</c> also keeps panes still running.</remarks>
+    val deadStatus: Field<LibTmux.Pane, int option>
+    /// <summary>Identifies the terminal device the pane's program reads and writes, such as <c>/dev/pts/3</c>.</summary>
+    val tty: Field<LibTmux.Pane, string>
+    /// <summary>Identifies the command the pane started, quoted as tmux prints it; empty for the default shell.</summary>
+    val startCommand: Field<LibTmux.Pane, string>
 
 /// <summary>Provides supported client fields for portable filters.</summary>
 [<RequireQualifiedAccess>]

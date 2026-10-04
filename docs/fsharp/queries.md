@@ -20,7 +20,8 @@ publication rejects it.
 These complete programs require .NET 8 or 10 and tmux on Linux or macOS.
 Run the commands from this repository's root. Each block can also replace
 `Program.fs` in a console project referencing this revision of
-`LibTmux.FSharp`. Set `LIBTMUX_TMUX` to select a tmux binary outside `PATH`.
+`LibTmux.FSharp`. Each program runs the first `tmux` on `PATH`; set
+`ServerConnectionOptions.TmuxBinaryPath` to run another.
 
 Each program creates a uniquely named server. Its `use!` bindings dispose
 the control clients, sessions, and server when the task finishes or fails.
@@ -110,14 +111,10 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-queries-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -135,7 +132,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
 
         let! logs =
             server
@@ -207,7 +204,8 @@ let runAsync () =
 
         if existing.IsNone then
             let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = "deploy", Command = "exec sleep 60"), token)
+                owned.Value
+                |> Server.newSession token (SessionSpec.running "deploy" "exec sleep 60")
 
             ()
 
@@ -284,19 +282,13 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-listings-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! _demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -310,7 +302,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! sessions = server |> Server.sessions |> Query.list token
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
@@ -367,19 +359,13 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-lookups-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         use! demo =
             owned.Value.CreateOwnedSessionAsync(
@@ -387,7 +373,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
         let! windows = server |> Server.windows |> Query.list token
         let! panes = server |> Server.panes |> Query.list token
         let window = windows |> Seq.exactlyOne

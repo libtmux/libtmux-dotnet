@@ -20,7 +20,8 @@ public sealed partial class Pane
     /// </remarks>
     /// <exception cref="ArgumentException">The text is empty or contains a line break.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneWaitResult> WaitForTextAsync(
         string text,
@@ -45,7 +46,8 @@ public sealed partial class Pane
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane closed.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="RegexMatchTimeoutException">A pattern exceeded its own match timeout.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneWaitResult> WaitForTextAsync(
@@ -114,7 +116,8 @@ public sealed partial class Pane
     /// <exception cref="ArgumentNullException"><paramref name="line" /> is null.</exception>
     /// <exception cref="ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
     /// The line was typed but Enter failed. The pane may already have acted
     /// on it; do not retry the whole call.
@@ -164,7 +167,8 @@ public sealed partial class Pane
     /// </remarks>
     /// <exception cref="ArgumentException">The request has no patterns; the echo alone would answer it.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
     /// The text was sent but a requested Enter failed. The pane may already
     /// have acted on the text; do not retry the whole call.
@@ -215,6 +219,7 @@ public sealed partial class Pane
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
     /// <exception cref="TmuxPaneException">The pane's program had already exited, or another program replaced it during the wait.</exception>
+    /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneWaitResult> WaitUntilAsync(
         Func<IReadOnlyList<string>, bool> condition,

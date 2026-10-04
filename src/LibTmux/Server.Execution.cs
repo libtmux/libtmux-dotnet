@@ -36,8 +36,9 @@ public sealed partial class Server
         ServerUtilities.AddValue(
             arguments,
             "-d",
+            // tmux reads the delay as a decimal number of seconds.
             request.Delay is TimeSpan delay
-                ? ((long)delay.TotalSeconds).ToString(CultureInfo.InvariantCulture)
+                ? delay.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture)
                 : null);
         ServerUtilities.AddValue(arguments, "-t", request.TargetPane);
         ServerUtilities.EndOptions(arguments);
@@ -118,25 +119,45 @@ public sealed partial class Server
     /// <param name="request">Which channel, and what to do with it.</param>
     /// <param name="cancellationToken">
     /// Cancels waiting for tmux's reply. For <see cref="TmuxWaitMode.Wait" />
-    /// this kills the client while tmux keeps its queue entry, eating the next
-    /// real signal — prefer <see cref="OpenWaitChannel" /> whenever a
-    /// <see cref="TmuxWaitMode.Wait" /> needs a deadline. For
+    /// this kills the client, and tmux before 3.8 keeps its queue entry, which
+    /// takes the next signal: a signal sent while nothing else waits is then
+    /// spent on that entry instead of waking the next wait. Prefer
+    /// <see cref="OpenWaitChannel" /> whenever a <see cref="TmuxWaitMode.Wait" />
+    /// needs a deadline. For
     /// <see cref="TmuxWaitMode.Lock" /> cancelling never kills the client, since
     /// tmux hands a released lock to whichever queued client is still alive: the
     /// client keeps running, and a lock it goes on to acquire is released again
-    /// automatically once this call has already given up on it.
+    /// automatically once this call has already given up on it. A lock that is
+    /// never released therefore keeps one tmux client queued per cancelled call.
     /// </param>
     /// <remarks>
     /// Waiting blocks until something else signals the channel, so a call that
-    /// waits does not return on its own.
+    /// waits does not return on its own. A wait or a lock is not bounded by
+    /// <see cref="ServerConnectionOptions.CommandTimeout" />: it waits for another
+    /// client by design, and ending it would leave tmux holding its place.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public Task WaitForAsync(WaitForRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request.Mode == TmuxWaitMode.Lock
-            ? WaitForLockAsync(request, cancellationToken)
-            : RunUtilityAsync(BuildWaitForArguments(request), cancellationToken);
+        return request.Mode switch
+        {
+            TmuxWaitMode.Lock => WaitForLockAsync(request, cancellationToken),
+            TmuxWaitMode.Wait => WaitForSignalAsync(request, cancellationToken),
+            _ => RunUtilityAsync(BuildWaitForArguments(request), cancellationToken),
+        };
+    }
+
+    // A wait blocks until another client signals, so the command timeout
+    // would kill it while tmux keeps its place in the queue.
+    [UnsupportedOSPlatform("windows")]
+    private async Task WaitForSignalAsync(WaitForRequest request, CancellationToken cancellationToken)
+    {
+        List<string> arguments = BuildWaitForArguments(request);
+        TmuxCommandResult result = await _commandDispatcher
+            .ExecuteBlockingAsync(arguments, cancellationToken)
+            .ConfigureAwait(false);
+        TmuxCommandFailure.ThrowIfFailed(result, arguments[0]);
     }
 
     // A killed locker leaves its queue entry behind, and tmux hands the lock
@@ -148,7 +169,7 @@ public sealed partial class Server
     {
         cancellationToken.ThrowIfCancellationRequested();
         List<string> arguments = BuildWaitForArguments(request);
-        Task<TmuxCommandResult> locking = _commandDispatcher.ExecuteAsync(arguments, CancellationToken.None);
+        Task<TmuxCommandResult> locking = _commandDispatcher.ExecuteBlockingAsync(arguments, CancellationToken.None);
         try
         {
             TmuxCommandResult result = await locking.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -201,8 +222,8 @@ public sealed partial class Server
     /// <returns>The open wait, which must be disposed to withdraw it.</returns>
     /// <remarks>
     /// Prefer this to <see cref="WaitForAsync" /> whenever the wait has a
-    /// deadline. Cancelling a waiting <c>wait-for</c> kills its client while
-    /// tmux keeps the registration, and that registration eats the next signal.
+    /// deadline. Cancelling a waiting <c>wait-for</c> kills its client, and tmux
+    /// before 3.8 keeps the registration, which takes the next signal.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public TmuxWaitChannel OpenWaitChannel(string channel) => new(this, channel);

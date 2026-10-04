@@ -12,18 +12,14 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-build-session-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         // Describe the session, then create it in one call: the first window is
         // the one tmux makes with the session, and each split goes beside the
-        // pane before it.
+        // pane before it, sized in cells or as a share of the space it splits.
         let dev =
             { SessionSpec.named "dev" with
                 Windows =
@@ -37,9 +33,11 @@ let runAsync () =
                                 [
                                     { SplitSpec.empty with
                                         Direction = Some PaneDirection.Right
+                                        Size = Some(SplitSize.Percent 30)
                                         Command = Some "exec sleep 60"
                                     }
                                     { SplitSpec.empty with
+                                        Size = Some(SplitSize.Cells 8)
                                         Command = Some "exec sleep 60"
                                     }
                                 ]

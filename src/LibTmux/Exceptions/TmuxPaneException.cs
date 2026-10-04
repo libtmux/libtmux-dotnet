@@ -16,6 +16,11 @@ public sealed class TmuxPaneException : LibTmuxException
     public TmuxPaneException(string message, PaneId paneId, Exception? innerException = null)
         : base(message, innerException) => PaneId = paneId;
 
+    // A refusal decided before anything is sent says so; a pane read can also
+    // fail after keys went out, so the public constructor stays Unknown.
+    internal TmuxPaneException(string message, PaneId paneId, TmuxDispatchState dispatch)
+        : base(message, dispatch) => PaneId = paneId;
+
     /// <summary>Gets the pane the request named.</summary>
     public PaneId PaneId { get; }
 }

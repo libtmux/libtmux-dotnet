@@ -12,14 +12,10 @@ let runAsync () =
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-queries-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath =
-                    (Environment.GetEnvironmentVariable "LIBTMUX_TMUX"
-                     |> Option.ofObj
-                     |> Option.defaultValue "tmux")
+                ConfigurationFile = "/dev/null"
             )
 
-        use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+        use! owned = options |> Server.createOwned token
 
         let! build =
             owned.Value.CreateSessionAsync(
@@ -37,7 +33,7 @@ let runAsync () =
                 token
             )
 
-        let! server = LibTmux.Server.ConnectAsync(options, token)
+        let server = owned.Value
 
         let! logs =
             server
@@ -109,7 +105,8 @@ let runAsync () =
 
         if existing.IsNone then
             let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = "deploy", Command = "exec sleep 60"), token)
+                owned.Value
+                |> Server.newSession token (SessionSpec.running "deploy" "exec sleep 60")
 
             ()
 

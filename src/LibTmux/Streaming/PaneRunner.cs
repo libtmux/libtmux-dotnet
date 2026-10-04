@@ -36,7 +36,8 @@ internal readonly record struct PaneRunRoute(string TmuxBinaryPath, string Socke
         {
             throw new TmuxPaneException(
                 $"Pane {pane.Id} cannot run a command: the tmux executable '{binary}' or the pane's socket has no absolute path.",
-                pane.Id);
+                pane.Id,
+                TmuxDispatchState.NotDispatched);
         }
 
         return new PaneRunRoute(resolved, socket, pane.Id);
@@ -92,6 +93,7 @@ internal sealed record PaneRunHooks
 /// <param name="AnchorLost">Whether the position read from could not be found again.</param>
 /// <param name="Started">Whether the shell ran the payload at all.</param>
 /// <param name="Elapsed">How long the run took, or how long it was waited for.</param>
+/// <param name="PaneExited">Whether the pane's program exited before the command reported its status.</param>
 internal sealed record PaneRunOutcome(
     Pane Pane,
     int? ExitStatus,
@@ -100,7 +102,8 @@ internal sealed record PaneRunOutcome(
     bool LinesMissed,
     bool AnchorLost,
     bool Started,
-    TimeSpan Elapsed);
+    TimeSpan Elapsed,
+    bool PaneExited = false);
 
 /// <summary>Runs a shell command in a pane and learns its exit status.</summary>
 /// <remarks>
@@ -119,6 +122,7 @@ internal static class PaneRunner
     private static readonly TimeSpan RetainedRunLongestProbe = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StatusCleanupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan RunningPaneFirstProbe = TimeSpan.FromMilliseconds(250);
     private static readonly Action Nothing = static () => { };
 
     /// <summary>Runs one command.</summary>
@@ -150,7 +154,10 @@ internal static class PaneRunner
         {
             if (route.PaneId != pane.Id)
             {
-                throw new TmuxPaneException($"The run route belongs to pane {route.PaneId}, not {pane.Id}.", pane.Id);
+                throw new TmuxPaneException(
+                    $"The run route belongs to pane {route.PaneId}, not {pane.Id}.",
+                    pane.Id,
+                    TmuxDispatchState.NotDispatched);
             }
 
             long? daemonProcessStart = CaptureDaemonProcessStart(pane.Generation);
@@ -182,32 +189,46 @@ internal static class PaneRunner
                     .ConfigureAwait(false);
                 pane = dispatch.Pane;
                 completionWait = server.OpenWaitChannel(token.Channel);
-                Task<bool> waitAttempt = completionWait.WaitAsync(budget, cancellationToken);
-                bool timedOut = !await sequence.ObserveAsync(() => TickWhileAsync(
-                        waitAttempt,
+                TmuxWaitChannel opened = completionWait;
+                RunEnd end = await sequence.ObserveAsync(() => AwaitRunEndAsync(
+                        server,
+                        pane,
+                        token,
+                        daemonProcessStart,
+                        opened,
+                        budget,
                         hooks.Progress,
                         elapsed,
                         cancellationToken))
                     .ConfigureAwait(false);
+                bool timedOut = end == RunEnd.TimedOut;
+                bool paneExited = end == RunEnd.PaneExited;
 
                 elapsed.Stop();
-                int? status = timedOut
-                    ? null
-                    : await sequence
-                        .ObserveAsync(() => ReadStatusAsync(pane, token, cancellationToken))
-                        .ConfigureAwait(false);
-                if (!timedOut && status is null)
+                int? status = null;
+                if (end == RunEnd.Completed)
                 {
-                    throw new LibTmuxException(
-                        "The command completed, but tmux did not return its authenticated "
-                        + "exit status. Do not retry it; inspect the pane instead.",
-                        TmuxDispatchState.Dispatched);
+                    status = await sequence
+                        .ObserveAsync(() => ReadStatusAsync(pane, token, cancellationToken))
+                        .ConfigureAwait(false)
+                        ?? throw new LibTmuxException(
+                            "The command completed, but tmux did not return its authenticated "
+                            + "exit status. Do not retry it; inspect the pane instead.",
+                            TmuxDispatchState.Dispatched);
                 }
 
-                completionAuthenticated = !timedOut;
-                PaneRead read = await sequence
-                    .ObserveAsync(() => PaneReader.ReadSinceAsync(pane, baseline, fail, cancellationToken))
-                    .ConfigureAwait(false);
+                completionAuthenticated = end == RunEnd.Completed;
+                PaneRead? read = paneExited
+                    ? await ReadAfterExitAsync(pane, baseline, fail, cancellationToken).ConfigureAwait(false)
+                    : await sequence
+                        .ObserveAsync(() => PaneReader.ReadSinceAsync(pane, baseline, fail, cancellationToken))
+                        .ConfigureAwait(false);
+                if (read is null)
+                {
+                    // tmux closed the pane with its program, so nothing is
+                    // left to read; the payload was sent, so it may have run.
+                    return new PaneRunOutcome(pane, null, false, [], false, false, true, elapsed.Elapsed, PaneExited: true);
+                }
 
                 // The wrapper prints the begin marker itself, so its absence
                 // means the shell never ran the payload: the pane was not at an
@@ -228,11 +249,15 @@ internal static class PaneRunner
                     read.LinesMissed,
                     read.AnchorLost,
                     started,
-                    elapsed.Elapsed);
+                    elapsed.Elapsed,
+                    paneExited);
             }
             catch (TmuxOperationCanceledException error)
                 when (dispatch.PayloadMayHaveReachedTmux && error.CommandMayHaveExecuted)
             {
+                // Raised as a failure, not a cancellation: a cancelled task
+                // reaches Task.Wait and Async.AwaitTask callers as a bare
+                // TaskCanceledException that no longer says the command may run.
                 throw new LibTmuxException(
                     "The command may have reached tmux before cancellation. Do not retry "
                     + "until you inspect the pane.",
@@ -964,6 +989,115 @@ internal static class PaneRunner
         }
         catch (UnauthorizedAccessException)
         {
+        }
+    }
+
+    private enum RunEnd
+    {
+        Completed,
+        TimedOut,
+        PaneExited,
+    }
+
+    /// <summary>Waits for the run's signal, or for the run to be seen to end without one.</summary>
+    /// <remarks>
+    /// A program that exits mid-run never signals, and a wrapper hung up with
+    /// its shell can record the status but die before signalling. So the run
+    /// is checked on a lengthening interval rather than waited on to the end
+    /// of the budget. The check is the one that follows a timed-out run, and
+    /// the open wait stays owned for that follower to withdraw.
+    /// </remarks>
+    private static async Task<RunEnd> AwaitRunEndAsync(
+        Server server,
+        Pane pane,
+        RunToken token,
+        long? daemonProcessStart,
+        TmuxWaitChannel completionWait,
+        TimeSpan budget,
+        Action<TimeSpan>? progress,
+        Stopwatch elapsed,
+        CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Task<bool> signalled = TickWhileAsync(
+            completionWait.WaitAsync(budget, attempt.Token),
+            progress,
+            elapsed,
+            attempt.Token);
+        Task<RunEnd?> watched = WatchRunAsync(server, pane, token, daemonProcessStart, attempt.Token);
+        await Task.WhenAny(signalled, watched).ConfigureAwait(false);
+        if (!watched.IsCompletedSuccessfully || watched.Result is not RunEnd seen)
+        {
+            // The signal came first, or the watch gave up: the signal decides.
+            try
+            {
+                return await signalled.ConfigureAwait(false) ? RunEnd.Completed : RunEnd.TimedOut;
+            }
+            finally
+            {
+                await attempt.CancelAsync().ConfigureAwait(false);
+            }
+        }
+
+        await attempt.CancelAsync().ConfigureAwait(false);
+        try
+        {
+            if (await signalled.ConfigureAwait(false))
+            {
+                return RunEnd.Completed;
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The attempt was abandoned above for the end the watch saw; the
+            // open wait stays owned, for the follower to withdraw.
+        }
+
+        return seen;
+    }
+
+    private static async Task<RunEnd?> WatchRunAsync(
+        Server server,
+        Pane pane,
+        RunToken token,
+        long? daemonProcessStart,
+        CancellationToken cancellationToken)
+    {
+        TimeSpan probe = RunningPaneFirstProbe;
+        while (true)
+        {
+            await Task.Delay(probe, cancellationToken).ConfigureAwait(false);
+            switch (await ObserveRetainedRunAsync(server, pane, token, daemonProcessStart).ConfigureAwait(false))
+            {
+                case RetainedRunObservation.Completed:
+                    return RunEnd.Completed;
+
+                case RetainedRunObservation.PaneEnded:
+                    return RunEnd.PaneExited;
+
+                // The run's own wait fails on a server that has gone.
+                case RetainedRunObservation.ServerEnded:
+                    return null;
+            }
+
+            probe = probe * 2 < RetainedRunLongestProbe ? probe * 2 : RetainedRunLongestProbe;
+        }
+    }
+
+    /// <summary>Reads what a pane whose program exited still shows, or null when tmux closed it.</summary>
+    private static async Task<PaneRead?> ReadAfterExitAsync(
+        Pane pane,
+        PaneCursor baseline,
+        Func<PaneReadFailure, Pane, Exception> fail,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await PaneReader.ReadSinceAsync(pane, baseline, fail, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            return null;
         }
     }
 

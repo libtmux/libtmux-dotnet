@@ -72,7 +72,7 @@ Matches literal text ignoring case.
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L163)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L164)
 
 <a name="IsPosixRegexIgnoringCase"></a>
 
@@ -80,7 +80,7 @@ Returns: <code>bool</code>
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L164)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L165)
 
 <a name="IsText"></a>
 
@@ -88,7 +88,7 @@ Returns: <code>bool</code>
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L161)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L162)
 
 <a name="IsTextIgnoringCase"></a>
 
@@ -96,4 +96,4 @@ Returns: <code>bool</code>
 
 Returns: <code>bool</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L162)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Query.fs#L163)

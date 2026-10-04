@@ -175,6 +175,9 @@ public sealed partial class Pane
 
     private string Target => _id.ToString();
 
+    /// <summary>Gets how long one command against this pane may take, or null when it is not bounded.</summary>
+    internal TimeSpan? CommandTimeout => _commandDispatcher.CommandTimeout;
+
     private int ReadCapturedInt(string wireName, string relation) =>
         int.TryParse(
             ReadSnapshot(wireName),

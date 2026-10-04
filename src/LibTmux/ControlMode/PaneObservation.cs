@@ -29,7 +29,7 @@ public sealed record TmuxPaneGoneEvent(PaneId PaneId) : TmuxEvent;
 public static class PaneObservation
 {
     private static readonly string[] ArrangementChangeNames =
-        ["layout-change", "window-close", "unlinked-window-close"];
+        ["layout-change", "window-close", "unlinked-window-close", "session-changed"];
 
     /// <summary>Watches one pane's output until it ends.</summary>
     /// <param name="session">The control client to watch through.</param>
@@ -51,6 +51,17 @@ public static class PaneObservation
     /// <see cref="Pane.RunAsync(string, TimeSpan, CancellationToken)" />, or
     /// capture a pane kept with <c>remain-on-exit</c>.
     /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// When reading starts, the pane is in a session other than the one the
+    /// client is attached to; tmux sends a control client output only from its
+    /// own session.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// While reading, the pane's window left the client's session, or the
+    /// client moved to another session, so tmux sends none of its output any
+    /// more. tmux announces no change when <c>swap-window</c> trades the
+    /// window with another session's, so that move leaves the watch silent.
+    /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
     /// output was buffered before pane termination. Its watch fails when the
@@ -85,9 +96,10 @@ public static class PaneObservation
     /// <para>
     /// A client has one event stream, so this is how one client serves
     /// several panes: each output event names its pane. Events after the last
-    /// pane's end stay unread for the client's next reader. Each layout change
-    /// or loss report asks tmux about every pane still watched, one command
-    /// each.
+    /// pane's end stay unread for the client's next reader. Each layout change,
+    /// window close, session change or loss report lists the client's session's
+    /// panes in one command, and the server's panes in a second when a watched
+    /// pane is missing from it.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent to a control client once a
@@ -97,7 +109,17 @@ public static class PaneObservation
     /// capture a pane kept with <c>remain-on-exit</c>.
     /// </para>
     /// </remarks>
-    /// <exception cref="ArgumentException"><paramref name="panes" /> is empty.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="panes" /> is empty, or, when reading starts, a pane is in
+    /// a session other than the one the client is attached to; tmux sends a
+    /// control client output only from its own session.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// While reading, a pane's window left the client's session, or the client
+    /// moved to another session, so tmux sends none of its output any more.
+    /// tmux announces no change when <c>swap-window</c> trades the window with
+    /// another session's, so that move leaves the watch silent.
+    /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
     /// output was buffered before a pane ended. Its watch fails when a pane is
@@ -152,7 +174,7 @@ public static class PaneObservation
         Exception? failure = null;
         try
         {
-            await CheckForGoneAsync().ConfigureAwait(false);
+            await CheckForGoneAsync(starting: true).ConfigureAwait(false);
             if (watermarked is null)
             {
                 events = session.Events.GetAsyncEnumerator(reading.Token);
@@ -201,7 +223,7 @@ public static class PaneObservation
 
                     case TmuxEventsDroppedEvent loss:
                         yield return loss;
-                        await CheckForGoneAsync().ConfigureAwait(false);
+                        await CheckForGoneAsync(starting: false).ConfigureAwait(false);
 
                         break;
 
@@ -211,7 +233,7 @@ public static class PaneObservation
 
                     case TmuxNotificationEvent notification
                         when Array.IndexOf(ArrangementChangeNames, notification.Name) >= 0:
-                        await CheckForGoneAsync().ConfigureAwait(false);
+                        await CheckForGoneAsync(starting: false).ConfigureAwait(false);
 
                         break;
                 }
@@ -236,12 +258,45 @@ public static class PaneObservation
             }
         }
 
-        async Task CheckForGoneAsync()
+        // tmux sends a control client output only from panes in the session
+        // it is attached to, so a watched pane elsewhere would stay silent
+        // rather than end: one there when reading starts is refused, and one
+        // whose window leaves later ends the watch. One listing of that
+        // session answers for every watched pane still in it; the server's
+        // listing then tells a pane that is gone from one that is elsewhere.
+        async Task CheckForGoneAsync(bool starting)
         {
-            foreach (Pane pane in alive.ToArray())
+            Pane[] watched = [.. alive];
+            if (watched.Length == 0)
             {
-                if (await CheckAsync(pane).ConfigureAwait(false))
+                return;
+            }
+
+            // Panes from different server generations are checked one by one,
+            // so a stale one still fails as stale.
+            bool oneGeneration = watched.All(pane => pane.Generation == watched[0].Generation);
+            IReadOnlySet<string>? attached = oneGeneration
+                ? await ListAsync(watched[0].Generation, "-s").ConfigureAwait(false)
+                : null;
+            if (attached is not null && watched.All(pane => attached.Contains(pane.Id.ToString())))
+            {
+                return;
+            }
+
+            IReadOnlySet<string>? listed = oneGeneration
+                ? await ListAsync(watched[0].Generation, "-a").ConfigureAwait(false)
+                : null;
+            Pane? elsewhere = null;
+            foreach (Pane pane in watched)
+            {
+                if (attached?.Contains(pane.Id.ToString()) == true)
                 {
+                    continue;
+                }
+
+                if (listed?.Contains(pane.Id.ToString()) ?? await CheckAsync(pane).ConfigureAwait(false))
+                {
+                    elsewhere ??= attached is null ? null : pane;
                     continue;
                 }
 
@@ -255,6 +310,50 @@ public static class PaneObservation
 
                 alive.Remove(pane);
                 ending.Enqueue(pane.Id, (source.CaptureEventWatermark(), found++));
+            }
+
+            if (elsewhere is not null)
+            {
+                Exception error = starting
+                    ? new ArgumentException(
+                        $"Pane {elsewhere.Id} is not in the session this control client is attached to, and tmux "
+                        + "sends a control client output only from that session. Watch it through a client entered "
+                        + "on its session.")
+                    : new InvalidOperationException(
+                        $"Pane {elsewhere.Id} is no longer in the session this control client is attached to, and "
+                        + "tmux sends a control client output only from that session. Watch it through a client "
+                        + "entered on the session that holds it.");
+                failure = error;
+                throw error;
+            }
+        }
+
+        // -a lists every pane of the server; -s the panes of the client's own session.
+        async Task<IReadOnlySet<string>?> ListAsync(ServerGeneration generation, string scope)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<string> reply = await session.SendAsync(
+                        TmuxCommand.Create("list-panes", scope, "-F", "#{pane_id}") with
+                        {
+                            RequiredGeneration = generation,
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return reply.ToHashSet(StringComparer.Ordinal);
+            }
+            catch (InvalidOperationException error) when (
+                error is not StaleServerGenerationException && !session.IsRunning)
+            {
+                // The client is ending, and its exit ends the watch; every
+                // pane counts as present until then, as one by one.
+                return alive.Select(pane => pane.Id.ToString()).ToHashSet(StringComparer.Ordinal);
+            }
+            catch (Exception error)
+            {
+                failure = error;
+                throw;
             }
         }
 

@@ -12,7 +12,7 @@ namespace LibTmux.Mcp;
 internal sealed partial class ReadTools
 {
     /// <summary>Waits until a pane prints text a caller is looking for.</summary>
-    /// <param name="paneId">The pane, or null for the active one.</param>
+    /// <param name="paneId">The pane, or null for the caller's pane or the one the first session shows.</param>
     /// <param name="patterns">What to wait for, or null for any output at all.</param>
     /// <param name="stopPatterns">What means waiting is pointless.</param>
     /// <param name="timeoutSeconds">How long to wait, before the server's ceiling.</param>
@@ -35,7 +35,9 @@ internal sealed partial class ReadTools
         + "guessing from text. Omit patterns to wait for any new output at all. "
         + "Never poll capture_pane in a loop; this call does the waiting.")]
     public async Task<WaitResult> WaitForTextAsync(
-        [Description("The pane id, such as %1. Omit for the active pane.")]
+        [Description(
+            "The pane id, such as %1. Omit for this server's own pane, or else the one the "
+            + "first session shows.")]
         string? paneId = null,
         [Description(
             "Regular expressions to wait for. A pattern already on screen when this is "
@@ -162,7 +164,14 @@ internal sealed partial class ReadTools
                 budget,
                 McpPaneReader.Failure,
                 (spent, last) => Report(progress, spent, budget, last.Length > 0 ? last : $"waiting on {id}"),
-                cancellationToken)
+                cancellationToken,
+                // A send_keys call settles its echo record only after its
+                // dispatch returns, so a redraw an unmodelled key caused can be
+                // read while still discounted and then left behind the cursor.
+                // Process reads are slow enough that the record has nearly
+                // always settled first; they narrow that race rather than
+                // close it, which settling before the dispatch would.
+                readThroughControl: false)
             .ConfigureAwait(false);
 
         // The wire contract predates an alternate-screen outcome and reports

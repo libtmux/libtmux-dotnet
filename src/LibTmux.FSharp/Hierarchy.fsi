@@ -9,6 +9,20 @@ open LibTmux
 /// <summary>Starts server reads and queries with the caller's cancellation token.</summary>
 [<RequireQualifiedAccess>]
 module Server =
+    /// <summary>Starts a server on the socket the options name and owns it; disposing the scope stops it.</summary>
+    /// <remarks>
+    /// The core's <c>Server.CreateOwnedAsync</c>, named so F# need not qualify
+    /// the type this module shares a name with. A server already listening on
+    /// the default socket is refused rather than owned.
+    /// </remarks>
+    /// <exception cref="T:System.InvalidOperationException">A server is already listening on the default socket.</exception>
+    /// <exception cref="T:LibTmux.TmuxCommandException">tmux failed to say whether a server is listening, such as on a socket it may not open.</exception>
+    val createOwned: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<OwnedServerScope>
+
+    /// <summary>Attaches to a server already listening on the socket the options name.</summary>
+    /// <remarks>The core's <c>Server.ConnectAsync</c>; it never starts a server.</remarks>
+    val connect: cancellationToken: CancellationToken -> options: ServerConnectionOptions -> Task<LibTmux.Server>
+
     /// <summary>Queries every session.</summary>
     /// <remarks>Child windows and panes require an explicit capture at the corresponding depth.</remarks>
     val sessions: server: LibTmux.Server -> Query<LibTmux.Session>
@@ -50,8 +64,8 @@ module Server =
     /// </remarks>
     /// <returns>The session, read again after its windows and panes exist.</returns>
     /// <exception cref="T:System.ArgumentException">
-    /// The session and its first window name different directories, or the
-    /// first window sets an environment.
+    /// The session and its first window name different directories, the
+    /// first window sets an environment, or a split's size is out of range.
     /// </exception>
     /// <exception cref="T:LibTmux.TmuxSessionExistsException">The name is already taken.</exception>
     val newSession:
@@ -94,6 +108,35 @@ module Session =
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The session was not read through a server.</exception>
     val panes: session: LibTmux.Session -> Query<LibTmux.Pane>
 
+    /// <summary>Reads from tmux the pane the session shows: its current window's active pane.</summary>
+    /// <remarks>The core's <c>Session.GetActivePaneAsync</c>; a new session's only pane is this one.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
+    val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>
+
+    /// <summary>Keeps the control client that waits on the session's panes use attached until the handle is disposed.</summary>
+    /// <remarks>
+    /// The core's <c>Session.HoldWaitClientAsync</c>. Each wait attaches a client and lets it go when it ends;
+    /// holding one across a series of waits saves that attach for each. Use it with <c>use!</c>.
+    /// </remarks>
+    val holdWaitClient: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<IAsyncDisposable>
+
+    /// <summary>Renames the session and returns a handle carrying the new name.</summary>
+    /// <remarks>tmux expands the name as a format, so a <c>#</c> in it does not survive verbatim.</remarks>
+    val rename:
+        cancellationToken: CancellationToken -> name: string -> session: LibTmux.Session -> Task<LibTmux.Session>
+
+    /// <summary>Kills the session, with its windows and panes.</summary>
+    /// <remarks>The core's <c>Session.KillAsync</c> with its other options left off.</remarks>
+    val kill: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task
+
+    /// <summary>Creates a window in the session as the request describes, and returns it.</summary>
+    /// <remarks>The core's <c>Session.CreateWindowAsync</c>; cancellation can leave the window created.</remarks>
+    val newWindow:
+        cancellationToken: CancellationToken ->
+        request: NewWindowRequest ->
+        session: LibTmux.Session ->
+            Task<LibTmux.Window>
+
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =
@@ -104,6 +147,43 @@ module Window =
     /// <summary>Queries the panes in a window.</summary>
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The window was not read through a server.</exception>
     val panes: window: LibTmux.Window -> Query<LibTmux.Pane>
+
+    /// <summary>Reads from tmux the window's active pane.</summary>
+    /// <remarks>The core's <c>Window.GetActivePaneAsync</c>.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
+    val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>
+
+    /// <summary>Renames the window and returns a handle carrying the new name.</summary>
+    /// <remarks>tmux expands the name as a format, so a <c>#</c> in it does not survive verbatim.</remarks>
+    val rename: cancellationToken: CancellationToken -> name: string -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Makes the window its session's current window, and returns a handle carrying the state afterwards.</summary>
+    val select: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Kills the window, with its panes.</summary>
+    /// <remarks>The core's <c>Window.KillAsync</c> without <c>allExcept</c>.</remarks>
+    val kill: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task
+
+    /// <summary>Arranges the window's panes in a layout, such as <c>even-horizontal</c> or <c>tiled</c>, and returns a handle carrying the state afterwards.</summary>
+    /// <remarks>The core's <c>Window.SelectLayoutAsync</c> with a named layout; pass a request to it to cycle layouts instead.</remarks>
+    /// <exception cref="T:System.ArgumentException">The layout name is blank.</exception>
+    /// <exception cref="T:LibTmux.TmuxWindowException">tmux may not recognise the layout, so it is refused before anything is sent.</exception>
+    val selectLayout:
+        cancellationToken: CancellationToken -> layout: string -> window: LibTmux.Window -> Task<LibTmux.Window>
+
+    /// <summary>Resizes the window as the request says, and returns a handle carrying the state afterwards.</summary>
+    val resize:
+        cancellationToken: CancellationToken ->
+        request: ResizeWindowRequest ->
+        window: LibTmux.Window ->
+            Task<LibTmux.Window>
+
+    /// <summary>Moves the window as the request says, and returns a handle carrying the state afterwards.</summary>
+    val move:
+        cancellationToken: CancellationToken ->
+        request: MoveWindowRequest ->
+        window: LibTmux.Window ->
+            Task<LibTmux.Window>
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]
@@ -123,6 +203,21 @@ module Pane =
         pane: LibTmux.Pane ->
             Task<IReadOnlyList<string>>
 
+    /// <summary>Reads what the pane printed since a position, and where this read finished.</summary>
+    /// <remarks>
+    /// The core's <c>Pane.ReadOutputSinceAsync</c>. Start with <c>None</c>, which returns no lines and a
+    /// position; pass each result's <c>Position</c> to the next read. <c>LinesMissed</c> says scrollback
+    /// dropped output first. This is the MCP server's <c>capture_since</c>.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The position came from another pane.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane runs a different program than when the position was taken, or a read without a position found its program exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    val readSince:
+        cancellationToken: CancellationToken ->
+        position: PaneOutputPosition option ->
+        pane: LibTmux.Pane ->
+            Task<PaneOutputSince>
+
     /// <summary>Returns the first visible row showing the text, counted from 1, or None.</summary>
     /// <remarks>tmux searches only the rows on screen. Capture the history and filter its lines to search further back.</remarks>
     /// <exception cref="T:System.ArgumentException">The text cannot be written as a tmux format.</exception>
@@ -134,9 +229,11 @@ module Pane =
     /// Text already on screen ends the wait at once as <c>PresentAtEntry</c>.
     /// The wait sleeps on the pane's own output rather than polling, and ends
     /// early when the pane's program exits or a full-screen program starts.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitForText:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -145,7 +242,9 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits as the request describes: patterns, stop patterns, or any output.</summary>
+    /// <remarks>Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.</remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitFor:
         cancellationToken: CancellationToken -> request: PaneWaitRequest -> pane: LibTmux.Pane -> Task<PaneWaitResult>
 
@@ -156,9 +255,11 @@ module Pane =
     /// typing <c>echo done</c> waits for the command's output. Prefer this to
     /// <c>sendKeys</c> followed by <c>waitForText</c>, which can match the
     /// typed line itself.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWait:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -171,9 +272,11 @@ module Pane =
     /// <remarks>
     /// As <c>sendAndWait</c>: only output after the keys counts, and literal
     /// text is discounted from it. Key names are not.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWaitFor:
         cancellationToken: CancellationToken ->
         keys: SendKeysRequest ->
@@ -182,8 +285,12 @@ module Pane =
             Task<PaneWaitResult>
 
     /// <summary>Waits until a condition holds over the rows the pane shows, top to bottom.</summary>
-    /// <remarks>The condition sees the whole screen each time the pane prints or changes state.</remarks>
+    /// <remarks>
+    /// The condition sees the whole screen each time the pane prints or changes state.
+    /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
+    /// </remarks>
     /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val waitUntil:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -194,9 +301,13 @@ module Pane =
     /// <summary>Runs a shell command in the pane and waits for its exit status and output.</summary>
     /// <remarks>
     /// The pane must sit at a POSIX shell prompt. A command still running at
-    /// the timeout keeps running; the result reports <c>TimedOut</c>.
+    /// the timeout keeps running; the result reports <c>TimedOut</c>. A command
+    /// that prints more than scrollback holds reports <c>LinesMissed</c>, and its
+    /// <c>Output</c> is then what the pane still showed.
     /// </remarks>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode or not running a POSIX shell.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode, not running a POSIX shell, or its program has exited; or it changed during every read before the command was sent.</exception>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
+    /// <exception cref="T:LibTmux.LibTmuxException">The command was sent and the run was cancelled or could not be observed; <c>TmuxFailure.MayHaveRun</c> matches it, and the pane needs inspecting before a retry.</exception>
     val run:
         cancellationToken: CancellationToken ->
         timeout: TimeSpan ->
@@ -204,14 +315,61 @@ module Pane =
         pane: LibTmux.Pane ->
             Task<PaneRunResult>
 
+    /// <summary>Types a line into the pane as literal text, then presses Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The line contains NUL.</exception>
+    /// <exception cref="T:LibTmux.LibTmuxException">The text was sent but Enter failed; whether tmux pressed it is unknown, so do not send the line again.</exception>
+    val sendLine: cancellationToken: CancellationToken -> line: string -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Types text into the pane literally, without pressing Enter.</summary>
+    /// <exception cref="T:System.ArgumentException">The text contains NUL.</exception>
+    val sendText: cancellationToken: CancellationToken -> text: string -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Presses one key by its tmux name, such as <c>Enter</c>, <c>C-c</c> or <c>Up</c>.</summary>
+    /// <remarks>tmux types a name it does not know as text. Cancellation can occur after dispatch; it does not undo the key.</remarks>
+    /// <exception cref="T:System.ArgumentException">The key is empty or white space.</exception>
+    val pressKey: cancellationToken: CancellationToken -> key: string -> pane: LibTmux.Pane -> Task
+
     /// <summary>Sends text or key names according to the request's literal and Enter settings.</summary>
     /// <remarks>Cancellation can occur after dispatch; it does not undo sent keys.</remarks>
     val sendKeys: cancellationToken: CancellationToken -> request: SendKeysRequest -> pane: LibTmux.Pane -> Task
 
     /// <summary>Splits the pane and returns the new pane handle.</summary>
-    /// <remarks>Cancellation can leave the split applied; do not retry automatically.</remarks>
+    /// <remarks>
+    /// It takes the core request, which carries every split-window option;
+    /// <c>SplitSpec</c> describes only the splits a <c>Server.newSession</c>
+    /// spec builds. Cancellation can leave the split applied; do not retry
+    /// automatically.
+    /// </remarks>
     val split:
         cancellationToken: CancellationToken -> request: SplitPaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Makes the pane its window's active pane, and returns a handle carrying the state afterwards.</summary>
+    /// <remarks>The core's <c>Pane.SelectAsync</c> without a request; pass one to it to move by direction or keep the window's last pane.</remarks>
+    val select: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Kills the pane and the program in it.</summary>
+    /// <remarks>The core's <c>Pane.KillAsync</c> without <c>allExcept</c>.</remarks>
+    val kill: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Sets the pane's title and returns a handle carrying it.</summary>
+    val setTitle: cancellationToken: CancellationToken -> title: string -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Resizes the pane as the request says, and returns a handle carrying the state afterwards.</summary>
+    val resize:
+        cancellationToken: CancellationToken -> request: ResizePaneRequest -> pane: LibTmux.Pane -> Task<LibTmux.Pane>
+
+    /// <summary>Swaps the pane with another, as the request names it.</summary>
+    val swap: cancellationToken: CancellationToken -> request: SwapPaneRequest -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Starts the pane's program again as the request says.</summary>
+    /// <remarks>
+    /// The core's <c>Pane.RespawnAsync</c>. tmux refuses a pane whose program is still running unless
+    /// <c>KillExistingProcess</c> is set, which kills that program first.
+    /// </remarks>
+    val respawn: cancellationToken: CancellationToken -> request: RespawnRequest -> pane: LibTmux.Pane -> Task
+
+    /// <summary>Clears the pane's scrollback history; what the screen shows stays.</summary>
+    val clearHistory: cancellationToken: CancellationToken -> pane: LibTmux.Pane -> Task
 
 /// <summary>Reads and writes options through keys that know their value's type.</summary>
 /// <remarks>

@@ -53,6 +53,33 @@ public sealed class TmuxToolsTests
     }
 
     [UnixFact]
+    public async Task An_omitted_target_is_what_the_first_session_shows()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        // tmux marks one pane active in every window, so the first window's
+        // pane still reads as active, and lists first, once a later one shows.
+        ActionResult window = await mcp.Capabilities.CreateWindowAsync(
+            scope.Session.Id.ToString(), cancellationToken: token);
+        ActionResult split = await mcp.Capabilities.SplitWindowAsync(
+            window.PaneId, cancellationToken: token);
+        _ = await mcp.Capabilities.SelectWindowAsync(window.WindowId!, token);
+        _ = await mcp.Capabilities.SelectPaneAsync(split.PaneId!, token);
+
+        // A session created later, but named to sort after, is not the first.
+        _ = await mcp.Capabilities.CreateSessionAsync("zz-later", cancellationToken: token);
+        Server server = await mcp.Connection.GetAsync(cancellationToken: token);
+
+        Assert.Equal(split.PaneId, (await TmuxTargets.PaneAsync(server, null, token)).Id.ToString());
+        Assert.Equal(window.WindowId, (await TmuxTargets.WindowAsync(server, null, token)).Id.ToString());
+    }
+
+    [UnixFact]
     public async Task A_synchronized_cohort_reports_configured_membership()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -67,6 +94,8 @@ public sealed class TmuxToolsTests
         ActionResult third = await mcp.Capabilities.SplitWindowAsync(
             first, cancellationToken: token);
         await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
+
+        await WaitForShellsAsync(mcp, token, first, second.PaneId!, third.PaneId!);
 
         PaneInputResult all = await mcp.Capabilities.SendKeysAsync(
             "# all", first, enter: true, cancellationToken: token);
@@ -2057,6 +2086,7 @@ public sealed class TmuxToolsTests
         _ = await scope.Window.Options.SetAsync(
             new SetOptionRequest("synchronize-panes", "on"), token);
 
+        await WaitForShellsAsync(mcp, token, source, peerId);
         await SetPaneSynchronizationAsync(scope.Pane, "on", token);
         await SetPaneSynchronizationAsync(peer, "off", token);
         await AssertSourceOnlyInputAsync("source-on-peer-off", source, peerId, mcp, token);
@@ -2187,6 +2217,25 @@ public sealed class TmuxToolsTests
         _ = await mcp.Capabilities.WaitForTextAsync(
             source, [marker], timeoutSeconds: 5, cancellationToken: cancellationToken);
         await AssertMarkerAbsentAsync(mcp, peer, marker, cancellationToken);
+    }
+
+    // The input preflight reads each pane's running command twice and refuses
+    // if it changed, as it does while a shell is still starting.
+    private static async Task WaitForShellsAsync(
+        McpToolFixture mcp,
+        CancellationToken cancellationToken,
+        params string[] paneIds)
+    {
+        Server server = await mcp.Connection.GetAsync(cancellationToken: cancellationToken);
+        foreach (string id in paneIds)
+        {
+            Pane pane = await TmuxTargets.PaneAsync(server, id, cancellationToken);
+            PaneWaitResult prompt = await pane.WaitUntilAsync(
+                rows => rows.Any(row => row.Trim().Length > 0),
+                TimeSpan.FromSeconds(10),
+                cancellationToken);
+            Assert.True(prompt.Found, $"{id} never drew a prompt");
+        }
     }
 
     private static async Task AssertMarkerAbsentAsync(

@@ -1,9 +1,8 @@
 # .NET interoperation
 
 The companion is built on
-[LibTmux](https://github.com/libtmux/libtmux-dotnet/) in the same `libtmux`
-organization and maintained by the same primary author. It uses the existing
-entities, IDs, requests, exceptions, snapshots, and query documents. Pass a
+[LibTmux](https://github.com/libtmux/libtmux-dotnet/) and uses its entities,
+IDs, requests, exceptions, snapshots, and query documents. Pass a
 `Server`, `Session`, `Window`, or `Pane` between F# and C# without conversion.
 
 `Task<'T>` remains the default asynchronous contract. Pass the cancellation
@@ -12,13 +11,45 @@ token to the façade function explicitly and preserve core exceptions. Use
 `Selection.exactlyOne` when zero and multiple local matches need different
 outcomes.
 
-A task starts when called; an `Async` workflow starts when run. If cancellation
-details matter, await the core task directly. Passing it through
-`Async.AwaitTask` and `Async.StartAsTask` can replace
-`TmuxOperationCanceledException` with `TaskCanceledException`, losing
-`CommandMayHaveExecuted` and `ClientProcessId`. Depending on continuation
-timing, the outer task can be canceled or faulted. The companion does not
-expose an `Async` adapter with an unproved cancellation contract.
+A task starts when called; an `Async` workflow starts when run. In an `async`
+workflow, await with `TmuxAsync.awaitTask` or `TmuxAsync.awaitUnitTask`.
+`Async.AwaitTask` replaces `TmuxOperationCanceledException` with
+`TaskCanceledException`, losing `CommandMayHaveExecuted` and
+`ClientProcessId`, and wraps a failure in an `AggregateException`.
+`TmuxAsync` raises that cancellation as itself, so `TmuxFailure.MayHaveRun`
+matches it, raises a failure unwrapped, and cancels the workflow for any other
+cancellation. `Async.StartAsTask` on the way back can still make the outer
+task canceled or faulted, depending on continuation timing.
+
+<!-- fsharp-snippet: AsyncRun run -->
+```fsharp run
+open System
+open LibTmux
+open LibTmux.FSharp
+
+let runInAsync (pane: Pane) (command: string) =
+    async {
+        // Cancelling the workflow cancels a call only through the token
+        // the call was given, so pass the workflow's own.
+        let! cancellationToken = Async.CancellationToken
+
+        try
+            let! result =
+                pane
+                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) command
+                |> TmuxAsync.awaitTask
+
+            return
+                match result with
+                | PaneRun.Exited status -> $"exited {status}"
+                | PaneRun.Ended -> "the shell exited first"
+                | PaneRun.NotStarted -> "the shell was not at a prompt"
+                | PaneRun.TimedOut -> "still running"
+        with TmuxFailure.MayHaveRun _ ->
+            return "may have run; read the pane before trying again"
+    }
+```
+<!-- endfsharp-snippet -->
 
 `LibTmux.Query.Json` remains optional. Add it only when a portable filter must
 cross a process or language boundary. It serializes the core `QueryDocument`;
@@ -31,11 +62,13 @@ Every `LibTmuxException` says whether its command reached tmux. The
 command, so running it again repeats nothing. `Ran` means tmux ran it and then
 reported an error or gave an answer that could not be used. `MayHaveRun`
 covers a failure or cancellation after which tmux may already have acted.
-`Retry.ifNotSent` runs an operation again only for `NotSent`, and only when no
-command the attempt sent before that failure reached tmux:
+`Retry.ifNotSentAfter` runs an operation again only for `NotSent`, and only
+when no command the attempt sent before that failure reached tmux, waiting each
+delay in turn first:
 
 <!-- fsharp-snippet: SafeRetry run -->
 ```fsharp run
+open System
 open System.Threading
 open LibTmux
 open LibTmux.FSharp
@@ -43,9 +76,13 @@ open LibTmux.FSharp
 let readSessionNamesAsync (cancellationToken: CancellationToken) (server: Server) =
     task {
         try
-            // Runs again only when tmux never received the command.
+            // Runs again only when tmux never received the command, after
+            // each delay in turn, so a server still starting can answer.
             let! sessions =
-                Retry.ifNotSent cancellationToken 2 (fun token -> server.GetSessionsAsync(token))
+                Retry.ifNotSentAfter
+                    cancellationToken
+                    [ TimeSpan.FromMilliseconds 100.; TimeSpan.FromMilliseconds 400. ]
+                    (fun token -> server.GetSessionsAsync(token))
 
             return Ok [ for session in sessions -> session.Name ]
         with
@@ -61,6 +98,26 @@ fails to send a second command has already created the window, so
 awaits, and repeats the attempt only if none reached tmux. A read that is safe
 to repeat whatever happened can use any retry policy; a command that changes
 tmux should be retried only this way.
+
+`Retry.ifNotSent ct retries operation` retries under the same rule without
+waiting, for a failure that waiting does not change.
+
+Beyond the `LibTmuxException` any tmux call can raise, an F# call raises these,
+each documented on the function that raises it:
+
+| Exception | Raised when |
+| --- | --- |
+| `OperationCanceledException` | The cancellation token fired. |
+| `TmuxPaneException` | A pane wait or `Pane.run` reaches a pane whose program had already exited, or a run reaches a pane in a mode or not at a POSIX shell. |
+| `TmuxWaitTimeoutException` | `Mirror.waitUntil` saw no matching view in time. Pane waits return `TimedOut` instead. |
+| `InvalidOperationException` | `Query.atMostOne` found several matches, a mirror ended before a wait's condition held, a second reader started on a control client, or `Server.createOwned` met a server already on the default socket. |
+| `TmuxSessionExistsException` | `Server.newSession` names a session that already exists. |
+| `TmuxObjectNotFoundException` | A mirror's anchor session is gone; `Mirror.views` raises the failure that ended the mirror. |
+| `TmuxOptionException` | tmux rejected an option name or value, or reported one the key cannot read. |
+| `TmuxVersionTooLowException` | A raw client filter ran on tmux older than 3.4. |
+| `IncompleteSnapshotException` | A captured relation or field was read that the capture did not include. |
+| `UnsupportedQueryExpressionException` | A `Filter.matches` pattern is invalid or longer than 1024 characters. |
+| `ArgumentException` | An argument is wrong before anything reaches tmux, such as an empty wait text or a negative retry count or delay. |
 
 ## Bound how long tmux may take
 
@@ -297,7 +354,7 @@ let exerciseWindowInputAsync (cancellationToken: CancellationToken) (session: Se
         do! pane |> Pane.sendKeys cancellationToken literal
         do! pane |> Pane.sendKeys cancellationToken keyName
         do! pane |> Pane.sendKeys cancellationToken textThenEnter
-        do! window.KillAsync(cancellationToken = cancellationToken)
+        do! window |> Window.kill cancellationToken
 
         let arguments (request: SendKeysRequest) =
             [

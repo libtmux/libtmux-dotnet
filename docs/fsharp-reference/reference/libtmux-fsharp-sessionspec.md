@@ -24,7 +24,7 @@ The working directory of the session and its first window.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L54)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L65)
 
 <a name="Environment"></a>
 
@@ -34,7 +34,7 @@ Variables added to the session's environment.
 
 Field type: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-collections-fsharpmap-2">Map</a>&lt;<span>string,&#32;string</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L56)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L67)
 
 <a name="Name"></a>
 
@@ -44,7 +44,7 @@ The session's name.
 
 Field type: <code>string</code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L52)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L63)
 
 <a name="Windows"></a>
 
@@ -54,4 +54,4 @@ The windows, in order; the first is the one tmux creates with the session.
 
 Field type: <code><span><a href="../reference/libtmux-fsharp-windowspec.md">WindowSpec</a>&#32;list</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L58)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L69)

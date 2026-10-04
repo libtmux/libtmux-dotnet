@@ -43,18 +43,27 @@ internal sealed class TmuxDispatchLedger
 
     /// <summary>Counts a command as it is sent, and uncounts it if it never reached tmux.</summary>
     /// <param name="sending">The command in flight.</param>
+    /// <param name="reachedNoServer">Whether a result says no server heard the command, or null.</param>
     /// <returns>The command's result.</returns>
     /// <remarks>
     /// Counted before it settles, so a command still in flight when another
     /// in the same operation is refused keeps the operation from repeating.
+    /// A tmux client that finds no server returns a result rather than
+    /// failing, so that result is uncounted as a refusal is.
     /// </remarks>
-    internal static async Task<T> TrackAsync<T>(Task<T> sending)
+    internal static async Task<T> TrackAsync<T>(Task<T> sending, Func<T, bool>? reachedNoServer = null)
     {
         TmuxDispatchLedger? ledger = Current.Value;
         Adjust(ledger, 1);
         try
         {
-            return await sending.ConfigureAwait(false);
+            T result = await sending.ConfigureAwait(false);
+            if (reachedNoServer?.Invoke(result) == true)
+            {
+                Adjust(ledger, -1);
+            }
+
+            return result;
         }
         catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
         {

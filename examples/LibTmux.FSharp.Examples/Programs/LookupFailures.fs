@@ -1,5 +1,6 @@
 open System
 open System.Threading
+open System.Threading.Tasks
 open LibTmux
 open LibTmux.FSharp
 
@@ -8,55 +9,56 @@ let runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let token = deadline.Token
 
-        let binary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let options =
             ServerConnectionOptions(
                 SocketName = "fsharp-failures-" + Guid.NewGuid().ToString("N"),
-                ConfigurationFile = "/dev/null",
-                TmuxBinaryPath = binary
+                ConfigurationFile = "/dev/null"
             )
+
+        // Absence is None; every other failure is an exception, named here by
+        // the type a caller would catch.
+        let failure (lookup: unit -> Task<'T option>) =
+            task {
+                try
+                    let! found = lookup ()
+                    return if found.IsSome then "found" else "None"
+                with
+                | :? OperationCanceledException -> return "OperationCanceledException"
+                | :? ArgumentException -> return "ArgumentException"
+                | :? LibTmuxException -> return "LibTmuxException"
+            }
 
         let! stoppedServer =
             task {
-                use! owned = LibTmux.Server.CreateOwnedAsync(options, token)
+                use! owned = options |> Server.createOwned token
 
                 use! session =
                     owned.Value.CreateOwnedSessionAsync(NewSessionRequest(Name = "demo", Command = "/bin/cat"), token)
 
-                let! server = LibTmux.Server.ConnectAsync(options, token)
-                let! missing = server |> Server.tryFindSession token (SessionId Int32.MaxValue)
+                let server = owned.Value
 
-                match missing with
-                | None -> printfn "A successful lookup can return None."
-                | Some _ -> failwith "The missing session unexpectedly exists."
+                let! missing =
+                    failure (fun () -> server |> Server.tryFindSession token (SessionId Int32.MaxValue))
+
+                printfn "A session that does not exist: %s" missing
 
                 use cancelled = new CancellationTokenSource()
                 cancelled.Cancel()
 
-                try
-                    let! _ = server |> Server.tryFindSession cancelled.Token session.Value.Id
-                    failwith "A cancelled lookup must throw."
-                with :? OperationCanceledException ->
-                    printfn "Cancellation remains OperationCanceledException."
+                let! canceled =
+                    failure (fun () -> server |> Server.tryFindSession cancelled.Token session.Value.Id)
 
-                try
-                    let! _ = server |> Server.tryFindClient token " "
-                    failwith "A blank client name must be rejected."
-                with :? ArgumentException ->
-                    printfn "A blank client name remains ArgumentException."
+                printfn "A cancelled lookup: %s" canceled
 
+                let! blank = failure (fun () -> server |> Server.tryFindClient token " ")
+                printfn "A blank client name: %s" blank
                 return server
             }
 
-        try
-            let! _ = stoppedServer |> Server.tryFindSession token (SessionId Int32.MaxValue)
-            failwith "A failed server read must not become None."
-        with :? LibTmuxException ->
-            printfn "A stopped server remains a LibTmuxException."
+        let! stopped =
+            failure (fun () -> stoppedServer |> Server.tryFindSession token (SessionId Int32.MaxValue))
+
+        printfn "A server that has stopped: %s" stopped
     }
 
 runAsync().GetAwaiter().GetResult()

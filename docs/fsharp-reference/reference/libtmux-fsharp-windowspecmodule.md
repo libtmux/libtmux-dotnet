@@ -16,7 +16,7 @@ A window tmux names after its command, running the default shell.
 
 Returns: <code><a href="../reference/libtmux-fsharp-windowspec.md">WindowSpec</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L55)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L66)
 
 <a name="named"></a>
 
@@ -30,4 +30,4 @@ A named window running the default shell.
 
 Returns: <code><a href="../reference/libtmux-fsharp-windowspec.md">WindowSpec</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L64)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L75)

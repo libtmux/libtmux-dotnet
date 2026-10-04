@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.Versioning;
 
 using LibTmux.Internal;
@@ -17,6 +18,38 @@ public sealed partial class Pane
 
     /// <summary>Gets whether the pane touches the right of its window.</summary>
     public bool AtRight => ReadSnapshot("pane_at_right") == "1";
+
+    /// <summary>Gets whether the pane is its window's active pane.</summary>
+    public bool Active => ReadSnapshot("pane_active") == "1";
+
+    /// <summary>Gets whether the pane's program has exited and the pane remains.</summary>
+    /// <remarks>A pane outlives its program only while <c>remain-on-exit</c> is on.</remarks>
+    public bool Dead => ReadSnapshot("pane_dead") == "1";
+
+    /// <summary>Gets the exit status of a dead pane's program.</summary>
+    /// <remarks>Null while the program runs, and when a signal ended it instead.</remarks>
+    public int? DeadStatus =>
+        int.TryParse(ReadSnapshot("pane_dead_status"), NumberStyles.None, CultureInfo.InvariantCulture, out int status)
+            ? status
+            : null;
+
+    /// <summary>Gets how many lines have scrolled into the pane's history.</summary>
+    /// <remarks>
+    /// It changes with output, so a <see cref="ServerMirror" /> does not
+    /// publish a view when only this changes.
+    /// </remarks>
+    public int HistorySize => ReadCapturedInt("history_size", "history size");
+
+    /// <summary>Gets whether keys typed into the pane go to every synchronized pane in its window.</summary>
+    public bool Synchronized => ReadSnapshot("pane_synchronized") == "1";
+
+    /// <summary>Gets whether the pane is in a mode, such as copy mode.</summary>
+    /// <remarks>tmux reports how many modes are stacked on the pane; any number but zero is true.</remarks>
+    public bool InMode => ReadSnapshot("pane_in_mode") is not (null or "" or "0");
+
+    /// <summary>Gets the process ID of the program the pane started.</summary>
+    /// <remarks>A dead pane keeps the ID of the program that exited.</remarks>
+    public int ProcessId => ReadCapturedInt("pane_pid", "process ID");
 
     /// <summary>Gets the pane height captured with this handle.</summary>
     public int Height => ReadCapturedInt("pane_height", "height");
@@ -45,6 +78,15 @@ public sealed partial class Pane
     /// <remarks>Returns null for a captured unavailable value. Reading this never reaches tmux.</remarks>
     /// <exception cref="IncompleteSnapshotException">The path field was not captured.</exception>
     public string? CurrentPath => ReadCapturedText("pane_current_path", "current path");
+
+    /// <summary>Gets the terminal device the pane's program reads and writes, such as <c>/dev/pts/3</c>.</summary>
+    /// <exception cref="IncompleteSnapshotException">The terminal was not captured.</exception>
+    public string? Tty => ReadCapturedText("pane_tty", "terminal");
+
+    /// <summary>Gets the command the pane started, as tmux prints it, or empty for the default shell.</summary>
+    /// <remarks>tmux quotes a command given as one string, so <c>sleep 60</c> reads <c>"sleep 60"</c>.</remarks>
+    /// <exception cref="IncompleteSnapshotException">The start command was not captured.</exception>
+    public string? StartCommand => ReadCapturedText("pane_start_command", "start command");
 
     private string? ReadCapturedText(string wireName, string relation) =>
         _snapshot is not null && _snapshot.TryGetValue(wireName, out string? value)

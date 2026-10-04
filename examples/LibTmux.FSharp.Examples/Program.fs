@@ -164,16 +164,8 @@ let private runAsync () =
         use deadline = new CancellationTokenSource(TimeSpan.FromSeconds 10.)
         let cancellationToken = deadline.Token
 
-        let tmuxBinary =
-            Environment.GetEnvironmentVariable("LIBTMUX_TMUX")
-            |> Option.ofObj
-            |> Option.defaultValue "tmux"
-
         let connection =
-            ServerConnectionOptions(
-                SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"),
-                TmuxBinaryPath = tmuxBinary
-            )
+            ServerConnectionOptions(SocketName = "libtmux-fsharp-example-" + Guid.NewGuid().ToString("N"))
 
         use! scope =
             TmuxTestFactory().CreateHierarchyAsync(TmuxTestOptions(connection), cancellationToken)
@@ -181,26 +173,21 @@ let private runAsync () =
         let! tour =
             task {
                 use! owned =
-                    LibTmux.Server.CreateOwnedAsync(
-                        ServerConnectionOptions(
-                            SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
-                            ConfigurationFile = "/dev/null",
-                            TmuxBinaryPath = tmuxBinary
-                        ),
-                        cancellationToken
+                    ServerConnectionOptions(
+                        SocketName = "libtmux-fsharp-tour-" + Guid.NewGuid().ToString("N"),
+                        ConfigurationFile = "/dev/null"
                     )
+                    |> Server.createOwned cancellationToken
 
                 let! _ =
-                    owned.Value.CreateSessionAsync(
-                        NewSessionRequest(Name = "tour", Command = "/bin/sh"),
-                        cancellationToken
-                    )
+                    owned.Value
+                    |> Server.newSession cancellationToken (SessionSpec.running "tour" "/bin/sh")
 
                 return! GuideSnippets.runInShellAsync cancellationToken owned.Value
             }
 
         match tour with
-        | true, true, listing when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
+        | Some(true, 0, listing) when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
         | unexpected -> failwithf "The README tour did not send, wait and run: %A" unexpected
 
         let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken
@@ -259,6 +246,19 @@ let private runAsync () =
 
         if greeting <> [ "hello" ] then
             failwithf "The testing guide read %A." greeting
+
+        let ciOptions = GuideSnippets.testOptionsWith "tmux"
+
+        do!
+            task {
+                use! ciScope = TmuxTestFactory().CreateServerAsync(ciOptions, cancellationToken)
+
+                if
+                    ciScope.Server.ConnectionOptions.SocketName
+                    <> ciOptions.ConnectionOptions.SocketName
+                then
+                    failwith "The CI test options did not reach the test server."
+            }
 
         let! history, stage, _ =
             GuideSnippets.tuneAsync cancellationToken scope.Session scope.Window
@@ -384,6 +384,21 @@ let private runAsync () =
             scope.Pane
             |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
 
+        // The async guide runs a command in a shell of its own.
+        let! shell =
+            scope.Pane
+            |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+        let! _ =
+            shell
+            |> Pane.sendAndWait cancellationToken (TimeSpan.FromSeconds 10.) "echo ready" "ready"
+
+        let! ran =
+            Async.StartAsTask(GuideSnippets.runInAsync shell "exit 3", cancellationToken = cancellationToken)
+
+        if ran <> "exited 3" then
+            failwithf "The async guide did not report the command's exit status: %s" ran
+
         let! watcher = scope.Session |> Control.enterSession cancellationToken
 
         let! watched =
@@ -393,11 +408,7 @@ let private runAsync () =
                     let reading =
                         GuideSnippets.readPaneUntilAsync cancellationToken "watched" watchedPane control
 
-                    do!
-                        watchedPane
-                        |> Pane.sendKeys
-                            cancellationToken
-                            (SendKeysRequest(Text = "printf 'watch''ed\\n'", Literal = true))
+                    do! watchedPane |> Pane.sendLine cancellationToken "printf 'watch''ed\\n'"
 
                     return! reading
                 })

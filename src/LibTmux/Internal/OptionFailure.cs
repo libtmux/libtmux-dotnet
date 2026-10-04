@@ -20,6 +20,7 @@ internal static class OptionFailure
             reported.Length == 0
                 ? $"tmux rejected the option '{optionName}'."
                 : reported,
-            optionName);
+            optionName,
+            TmuxCommandFailure.DispatchOf(result));
     }
 }

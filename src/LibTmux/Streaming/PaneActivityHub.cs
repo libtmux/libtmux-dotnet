@@ -112,18 +112,40 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
-    private async Task<IControlModeSession> StartPaneSessionAsync(
+    /// <summary>Keeps a session's control client attached for the waits on its panes.</summary>
+    /// <param name="session">The session whose panes will be waited on.</param>
+    /// <param name="cancellationToken">Cancels attaching the client.</param>
+    /// <returns>A lease like a wait's; disposing it lets the client go once no wait needs it.</returns>
+    internal async Task<IAsyncDisposable> WatchAsync(Session session, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        SessionWatchKey key = SessionWatchKey.From(session);
+        return await WatchAsync(
+                key,
+                token => StartSessionAsync(
+                    start => session.Server.EnterControlModeAsync(key.SessionId, start),
+                    token),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private Task<IControlModeSession> StartPaneSessionAsync(
         Pane pane,
         string sessionId,
+        CancellationToken cancellationToken) =>
+        StartSessionAsync(
+            token => _startPaneSession is null
+                ? pane.Server.EnterControlModeAsync(sessionId, token)
+                : _startPaneSession(pane, token),
+            cancellationToken);
+
+    private static async Task<IControlModeSession> StartSessionAsync(
+        Func<CancellationToken, Task<IControlModeSession>> start,
         CancellationToken cancellationToken)
     {
         try
         {
-            return _startPaneSession is null
-                ? await pane.Server
-                    .EnterControlModeAsync(sessionId, cancellationToken)
-                    .ConfigureAwait(false)
-                : await _startPaneSession(pane, cancellationToken).ConfigureAwait(false);
+            return await start(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception error) when (error is Win32Exception
             or IOException
@@ -271,6 +293,22 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         return CaptureSignal(SessionWatchKey.From(pane), pane.Id.ToString());
     }
 
+    /// <summary>Gets the control client streaming a pane's session, while one is.</summary>
+    /// <param name="pane">The pane about to be read.</param>
+    /// <returns>The client, or null when that session is not streaming.</returns>
+    /// <remarks>
+    /// A wait reads its pane through this client rather than starting a tmux
+    /// process for each read: a round trip on an attached client costs about
+    /// a tenth of a process start.
+    /// </remarks>
+    internal IControlModeSession? ControlFor(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return _watches.TryGetValue(SessionWatchKey.From(pane), out SessionWatch? watch)
+            ? watch.StreamingSession
+            : null;
+    }
+
     internal Task? CaptureSignal(string endpointId, string sessionId, string paneId) =>
         CaptureSignal(SessionWatchKey.ForTest(endpointId, sessionId), paneId);
 
@@ -309,14 +347,18 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         private bool _retired;
         private int _leases;
 
-        internal bool IsStreaming
+        internal bool IsStreaming => StreamingSession is not null;
+
+        internal IControlModeSession? StreamingSession
         {
             get
             {
                 WatchRun? run = Volatile.Read(ref _run);
                 return run is not null
                     && Volatile.Read(ref run.Ended) == 0
-                    && run.Session.IsRunning;
+                    && run.Session.IsRunning
+                        ? run.Session
+                        : null;
             }
         }
 
@@ -445,11 +487,8 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
             if (run is not null)
             {
-                StopSignaling();
-                await DisposeRunAsync(run).ConfigureAwait(false);
-                await run.Pump.ConfigureAwait(false);
+                await RetireAsync(run).ConfigureAwait(false);
             }
-
         }
 
         private async Task PumpAsync(WatchRun run)
@@ -522,6 +561,26 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             finally
             {
                 _gate.Release();
+            }
+        }
+
+        // A client that ended on its own, such as on a line over its limits,
+        // fails its disposal. That must not fail the wait releasing it, nor
+        // stop the hub disposing its other clients, so the failure is logged.
+        private async Task RetireAsync(WatchRun run)
+        {
+            StopSignaling();
+            await ObserveCleanupAsync(run).ConfigureAwait(false);
+            try
+            {
+                await run.Pump.ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                if (hub._logger is not null)
+                {
+                    LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
+                }
             }
         }
 
@@ -598,9 +657,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             hub.RemoveWatch(key, this);
             if (run is not null)
             {
-                StopSignaling();
-                await DisposeRunAsync(run).ConfigureAwait(false);
-                await run.Pump.ConfigureAwait(false);
+                await RetireAsync(run).ConfigureAwait(false);
             }
         }
 
@@ -716,6 +773,9 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     {
         internal static SessionWatchKey From(Pane pane) =>
             new(pane.Server, pane.Generation, TestEndpoint: null, pane.Session.Id.ToString());
+
+        internal static SessionWatchKey From(Session session) =>
+            new(session.Server, session.Generation, TestEndpoint: null, session.Id.ToString());
 
         internal static SessionWatchKey ForTest(string endpointId, string sessionId) =>
             new(Server: null, Generation: null, endpointId, sessionId);
