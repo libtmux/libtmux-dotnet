@@ -409,12 +409,24 @@ module ContractTests =
             let fields () = Dictionary<string, string>()
             let token = TestContext.Current.CancellationToken
 
-            do! LibTmux.Pane(server, connection, generation, PaneId 4, fields ()) |> Pane.kill token
-            do! LibTmux.Window(server, connection, generation, WindowId 3, fields ()) |> Window.kill token
-            do! LibTmux.Session(server, connection, generation, SessionId 2, fields ()) |> Session.kill token
+            do!
+                LibTmux.Pane(server, connection, generation, PaneId 4, fields ())
+                |> Pane.kill token
+
+            do!
+                LibTmux.Window(server, connection, generation, WindowId 3, fields ())
+                |> Window.kill token
+
+            do!
+                LibTmux.Session(server, connection, generation, SessionId 2, fields ())
+                |> Session.kill token
 
             Assert.Equal<string list list>(
-                [ [ "kill-pane"; "-t"; "%4" ]; [ "kill-window"; "-t"; "@3" ]; [ "kill-session"; "-t"; "$2" ] ],
+                [
+                    [ "kill-pane"; "-t"; "%4" ]
+                    [ "kill-window"; "-t"; "@3" ]
+                    [ "kill-session"; "-t"; "$2" ]
+                ],
                 sent |> List.ofSeq
             )
         }
@@ -433,9 +445,17 @@ module PaneRunTests =
             PaneRunResult(status, timedOut, [], TimeSpan.Zero, started, false)
 
         Assert.Equal("exited 3", describe (run (Nullable 3) false true))
-        Assert.Equal("ended", describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, true, false, PaneExited = true)))
+
+        Assert.Equal(
+            "ended",
+            describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, true, false, PaneExited = true))
+        )
         // The shell's exit decides, whether or not the command was seen to begin.
-        Assert.Equal("ended", describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, false, false, PaneExited = true)))
+        Assert.Equal(
+            "ended",
+            describe (PaneRunResult(Nullable(), false, [], TimeSpan.Zero, false, false, PaneExited = true))
+        )
+
         Assert.Equal("timed out", describe (run (Nullable()) true true))
         Assert.Equal("not started", describe (run (Nullable()) false false))
         // A run typed into something other than a shell also waits out its time.
@@ -575,10 +595,17 @@ module FailureTests =
     [<Fact>]
     let ``a failure wrapped by Async.AwaitTask is told apart the same way`` () =
         let failed dispatch =
-            Task.FromException<unit>(failure dispatch) |> Async.AwaitTask |> Async.Catch |> Async.RunSynchronously
+            Task.FromException<unit>(failure dispatch)
+            |> Async.AwaitTask
+            |> Async.Catch
+            |> Async.RunSynchronously
 
         let wrapped =
-            [ TmuxDispatchState.NotDispatched; TmuxDispatchState.Dispatched; TmuxDispatchState.Unknown ]
+            [
+                TmuxDispatchState.NotDispatched
+                TmuxDispatchState.Dispatched
+                TmuxDispatchState.Unknown
+            ]
             |> List.map (fun dispatch ->
                 match failed dispatch with
                 | Choice2Of2 error -> error

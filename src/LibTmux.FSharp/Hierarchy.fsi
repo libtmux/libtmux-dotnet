@@ -122,7 +122,8 @@ module Session =
 
     /// <summary>Renames the session and returns a handle carrying the new name.</summary>
     /// <remarks>tmux expands the name as a format, so a <c>#</c> in it does not survive verbatim.</remarks>
-    val rename: cancellationToken: CancellationToken -> name: string -> session: LibTmux.Session -> Task<LibTmux.Session>
+    val rename:
+        cancellationToken: CancellationToken -> name: string -> session: LibTmux.Session -> Task<LibTmux.Session>
 
     /// <summary>Kills the session, with its windows and panes.</summary>
     /// <remarks>The core's <c>Session.KillAsync</c> with its other options left off.</remarks>
