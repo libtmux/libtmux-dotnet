@@ -36,7 +36,8 @@ public sealed class TmuxOptionKey<T>
             ? value
             : throw new TmuxOptionException(
                 $"tmux reported option {Name} as '{reported}', which is not a {typeof(T).Name}.",
-                Name);
+                Name,
+                TmuxDispatchState.Dispatched);
 
     internal string Write(T value)
     {

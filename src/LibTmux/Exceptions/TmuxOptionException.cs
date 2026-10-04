@@ -22,6 +22,18 @@ public sealed class TmuxOptionException : LibTmuxException
         OptionName = optionName;
     }
 
+    // tmux answered, so the command ran; Ran, not MayHaveRun, describes it.
+    internal TmuxOptionException(
+        string message,
+        string optionName,
+        TmuxDispatchState dispatch,
+        Exception? innerException = null)
+        : base(message, dispatch, innerException)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(optionName);
+        OptionName = optionName;
+    }
+
     /// <summary>Gets the option tmux was asked about.</summary>
     public string OptionName { get; }
 }

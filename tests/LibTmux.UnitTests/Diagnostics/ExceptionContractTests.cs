@@ -26,6 +26,19 @@ public sealed class ExceptionContractTests
         Assert.Equal("nope", option.OptionName);
         Assert.IsAssignableFrom<LibTmuxException>(option);
 
+        // tmux answered a refused option command, so the command ran, and a
+        // caller deciding whether to send it again is told so.
+        TmuxOptionException refused = Assert.Throws<TmuxOptionException>(() => OptionFailure.ThrowIfFailed(
+            new TmuxCommandResult(
+                ["set-option", "history-limit", "-1"],
+                1,
+                ReadOnlyMemory<byte>.Empty,
+                ReadOnlyMemory<byte>.Empty,
+                [],
+                ["value is too small: -1"]),
+            "history-limit"));
+        Assert.Equal(TmuxDispatchState.Dispatched, refused.Dispatch);
+
         TmuxVersionTooLowException old = new(
             "needs 3.3a",
             TmuxVersion.Parse("3.3a"),

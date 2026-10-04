@@ -115,7 +115,10 @@ public sealed class TmuxOptions
                 cancellationToken)
             .ConfigureAwait(false);
         string reported = options.FirstOrDefault(option => option.Index is null)?.Value.Raw
-            ?? throw new TmuxOptionException($"tmux reported no value for option {key.Name}.", key.Name);
+            ?? throw new TmuxOptionException(
+                $"tmux reported no value for option {key.Name}.",
+                key.Name,
+                TmuxDispatchState.Dispatched);
         return key.Read(reported);
     }
 
