@@ -116,7 +116,7 @@ public sealed partial class Pane
     /// <exception cref="ArgumentNullException"><paramref name="line" /> is null.</exception>
     /// <exception cref="ArgumentException">The text is empty or spans lines.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
     /// The line was typed but Enter failed. The pane may already have acted
@@ -167,7 +167,7 @@ public sealed partial class Pane
     /// </remarks>
     /// <exception cref="ArgumentException">The request has no patterns; the echo alone would answer it.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">
     /// The text was sent but a requested Enter failed. The pane may already

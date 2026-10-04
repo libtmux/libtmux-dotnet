@@ -209,7 +209,7 @@ module Pane =
     /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The text is empty or spans lines.</exception>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWait:
         cancellationToken: CancellationToken ->
@@ -226,7 +226,7 @@ module Pane =
     /// Running out of time returns the outcome <c>TimedOut</c>; only <c>Mirror.waitUntil</c> raises instead.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The wait names no pattern.</exception>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane's program had already exited, or the pane changed during every read until the timeout, so nothing was sent.</exception>
     /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     val sendAndWaitFor:
         cancellationToken: CancellationToken ->

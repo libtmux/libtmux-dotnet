@@ -68,6 +68,13 @@ internal static class PaneTextWaiter
                 // output: the signal taken before the read has already fired.
                 if (budget - elapsed.Elapsed <= TimeSpan.Zero)
                 {
+                    // Keys follow the read they are judged against, so none
+                    // were sent, which a timeout would not say.
+                    if (afterEntry is not null)
+                    {
+                        throw;
+                    }
+
                     return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
                 }
 

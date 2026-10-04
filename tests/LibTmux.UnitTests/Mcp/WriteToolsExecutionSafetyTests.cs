@@ -2479,6 +2479,36 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
     }
 
+    // Keys follow the read they are judged against. A pane busy through every
+    // read until the time runs out sends nothing, and the wait says so rather
+    // than timing out as though they had gone.
+    [Fact]
+    public async Task A_send_and_wait_that_never_reads_the_screen_sends_nothing_and_says_so()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using var fixture = new ToolFixture();
+        Pane pane = (await fixture.Server.GetPanesAsync(token))[0];
+        fixture.DestabilizeNextStateSamples(int.MaxValue);
+        bool sent = false;
+
+        TmuxPaneException failure = await Assert.ThrowsAsync<TmuxPaneException>(() => PaneTextWaiter.WaitAsync(
+            pane,
+            fixture.Activity,
+            static (_, _) => null,
+            TimeSpan.FromMilliseconds(100),
+            PaneReader.Failure,
+            progress: null,
+            token,
+            _ =>
+            {
+                sent = true;
+                return Task.CompletedTask;
+            }));
+
+        Assert.Contains("every snapshot attempt", failure.Message, StringComparison.Ordinal);
+        Assert.False(sent);
+    }
+
     [Fact]
     public async Task Wait_for_a_pattern_already_on_screen_reports_present_at_entry_not_timeout()
     {
@@ -2830,6 +2860,7 @@ public sealed class WriteToolsExecutionSafetyTests
 
         private readonly TmuxConnectionAccessor _accessor;
         private readonly PaneActivityHub _activity;
+        private readonly Server _server;
         private readonly ServerGeneration _generation;
         private readonly object _stateGate = new();
         private int _captureCount;
@@ -2888,6 +2919,7 @@ public sealed class WriteToolsExecutionSafetyTests
                 },
                 FakeMultiplexer.AnsweringVersion(ExecuteAsync));
             var server = new Server(connection, _generation, "tmux 3.7");
+            _server = server;
             _accessor = new TmuxConnectionAccessor(server);
             ServerPolicy effectivePolicy = policy ?? new ServerPolicy();
             Tools = new WriteTools(
@@ -2999,6 +3031,10 @@ public sealed class WriteToolsExecutionSafetyTests
         internal WriteTools Tools { get; }
 
         internal ReadTools Reads { get; }
+
+        internal PaneActivityHub Activity => _activity;
+
+        internal Server Server => _server;
 
         internal void DestabilizeNextStateSamples(int count)
         {

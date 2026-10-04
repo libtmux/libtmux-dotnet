@@ -190,7 +190,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The text is empty or spans lines.
 
-`TmuxPaneException` The pane&#39;s program had already exited.
+`TmuxPaneException` The pane&#39;s program had already exited, or the pane changed during every read until the timeout, so nothing was sent.
 
 `TmuxObjectNotFoundException`tmux no longer has the pane.
 
@@ -220,7 +220,7 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.thre
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The wait names no pattern.
 
-`TmuxPaneException` The pane&#39;s program had already exited.
+`TmuxPaneException` The pane&#39;s program had already exited, or the pane changed during every read until the timeout, so nothing was sent.
 
 `TmuxObjectNotFoundException`tmux no longer has the pane.
 
