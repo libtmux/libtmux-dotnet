@@ -113,7 +113,8 @@ executes the ones tagged `csharp run` against a tmux server of their own:
 
 ````markdown
 ```csharp run
-Window built = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window built = await session.CreateWindowAsync(request, ct);
 ```
 ````
 
