@@ -8,7 +8,8 @@ namespace LibTmux;
 /// </remarks>
 /// <example>
 /// <code>
-/// catch (LibTmuxException error) when (error.Dispatch == TmuxDispatchState.NotDispatched)
+/// catch (LibTmuxException error)
+///     when (error.Dispatch == TmuxDispatchState.NotDispatched)
 /// {
 ///     // tmux never saw it, so sending it again repeats nothing.
 /// }
