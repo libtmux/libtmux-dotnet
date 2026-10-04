@@ -103,7 +103,7 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | Type a line, or press a key | `Pane.sendLine ct line pane`; `Pane.pressKey ct "C-c" pane` | `Task` |
-| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult` |
+| Type a line, wait for its output | `Pane.sendAndWait ct timeout line text pane`; `Pane.sendAndWaitFor` for keys and patterns | `PaneWaitResult`; `.Found`, or match `PaneWait` |
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
 | Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
@@ -115,6 +115,7 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | Split a pane | `Pane.split ct request pane` | the new `Pane` |
+| Create a session running one command | `server.CreateSessionAsync(NewSessionRequest(Name = name, Command = command), ct)`, the core call | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |
 | Read or set a typed option | `Options.get ct key options` | the key's value type |
@@ -206,7 +207,8 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // One session whose window runs a plain shell.
+        // One session running a plain shell. The core call takes the command
+        // directly; Server.newSession describes several windows and splits.
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
 

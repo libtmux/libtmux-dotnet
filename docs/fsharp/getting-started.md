@@ -153,7 +153,8 @@ screen shows the run: true
 | Follow output as it prints | `Control.watchPane`, or `Control.watchPanes` for several panes on one client | You stop reading, or the panes are gone; see [streams](streams.md). |
 
 A wait's `PaneWaitResult` falls under one `PaneWait` case, so a match that
-leaves one out draws a compiler warning:
+leaves one out draws a compiler warning. `result.Found` is the same test as
+`PaneWait.Found`, for code that only asks whether the text appeared:
 
 | Case | Outcomes | It means |
 | --- | --- | --- |
