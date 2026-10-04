@@ -304,6 +304,207 @@ public sealed class PaneRunTests
         Assert.Empty(buffers.StandardOutputLines);
     }
 
+    [UnixFact]
+    public async Task A_failed_run_preserves_its_primary_error_and_reports_an_owned_buffer_cleanup_failure()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        var primary = new LibTmuxException("The paste was refused before dispatch.", TmuxDispatchState.NotDispatched);
+        var cleanup = new IOException("The owned buffer could not be deleted.");
+        string? buffer = null;
+        string? payload = null;
+        string? directory = null;
+        int pasteAttempts = 0;
+        int deletionAttempts = 0;
+        TmuxInterceptor interceptor = async (invocation, next, cancellation) =>
+        {
+            IReadOnlyList<string> arguments = invocation.Arguments;
+            if (arguments.Contains("paste-buffer", StringComparer.Ordinal))
+            {
+                pasteAttempts++;
+                throw primary;
+            }
+
+            if (arguments.Contains("delete-buffer", StringComparer.Ordinal))
+            {
+                deletionAttempts++;
+                throw cleanup;
+            }
+
+            TmuxCommandResult result = await next(cancellation);
+            if (arguments.Contains("set-buffer", StringComparer.Ordinal))
+            {
+                buffer = arguments[arguments.ToList().IndexOf("-b") + 1];
+                payload = arguments[^1];
+                directory = RunDirectoryFromPayload(payload);
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            }
+
+            return result;
+        };
+        Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token, interceptor);
+        try
+        {
+            Exception? failure = await Record.ExceptionAsync(() => shell.RunAsync("printf 'never\\n'", Allowed, token));
+
+            Assert.Same(primary, failure);
+            Assert.Equal(TmuxDispatchState.NotDispatched, primary.Dispatch);
+            Assert.Equal((1, 1), (pasteAttempts, deletionAttempts));
+            Assert.NotNull(buffer);
+            Assert.StartsWith("libtmux_run_", buffer, StringComparison.Ordinal);
+            Assert.NotNull(payload);
+            RawTmuxResult retained = await raw.ExecuteAsync(["show-buffer", "-b", buffer], token);
+            Assert.Equal(0, retained.ExitCode);
+            Assert.Contains(payload.TrimEnd('\n'), retained.StandardOutputText, StringComparison.Ordinal);
+            Assert.Same(cleanup, primary.Data["LibTmux.PasteBufferCleanupFailure"]);
+            Assert.Equal(buffer, primary.Data["LibTmux.PasteBufferCleanupBuffer"]);
+            Assert.NotNull(directory);
+            Assert.True(File.Exists(Path.Combine(directory, "command")));
+            Assert.Equal(directory, primary.Data[PaneRunner.RunDirectoryCleanupDirectoryDataKey]);
+            Exception directoryFailure = Assert.IsAssignableFrom<Exception>(primary.Data[PaneRunner.RunDirectoryCleanupFailureDataKey]);
+            Assert.True(directoryFailure is IOException or UnauthorizedAccessException);
+        }
+        finally
+        {
+            try
+            {
+                if (buffer is not null)
+                {
+                    using var teardown = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    Assert.Equal(0, (await raw.ExecuteAsync(["delete-buffer", "-b", buffer], teardown.Token)).ExitCode);
+                }
+            }
+            finally
+            {
+                if (directory is not null && Directory.Exists(directory))
+                {
+                    File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+        }
+    }
+
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_completed_run_reports_private_directory_cleanup_failure_but_allows_an_already_removed_directory(
+        bool denyDeletion)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string? directory = null;
+        string? completedStatus = null;
+        bool cleanupReached = false;
+        bool injectCleanupFault = true;
+        int pasteAttempts = 0;
+        TmuxInterceptor interceptor = async (invocation, next, cancellation) =>
+        {
+            IReadOnlyList<string> arguments = invocation.Arguments;
+            if (arguments.Contains("paste-buffer", StringComparer.Ordinal))
+            {
+                pasteAttempts++;
+            }
+
+            if (arguments.Contains("set-buffer", StringComparer.Ordinal))
+            {
+                directory = RunDirectoryFromPayload(arguments[^1]);
+            }
+
+            if (injectCleanupFault
+                && directory is not null
+                && arguments.Contains("set-option", StringComparer.Ordinal)
+                && arguments.Contains("-u", StringComparer.Ordinal)
+                && arguments.Any(argument => argument.StartsWith("@lt_s_", StringComparison.Ordinal)))
+            {
+                string target = arguments[arguments.ToList().LastIndexOf("-t") + 1];
+                string statusOption = arguments.Last(argument => argument.StartsWith("@lt_s_", StringComparison.Ordinal));
+                RawTmuxResult status = await raw.ExecuteAsync(["show-options", "-p", "-v", "-t", target, statusOption], cancellation);
+                completedStatus = status.StandardOutputText.Trim();
+                cleanupReached = true;
+                if (denyDeletion)
+                {
+                    File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+                }
+                else
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+            }
+
+            return await next(cancellation);
+        };
+        Pane shell = await NewPaneAsync(raw, ["/bin/sh"], token, interceptor);
+        try
+        {
+            PaneRunResult? result = null;
+            Exception? failure = await Record.ExceptionAsync(async () =>
+                result = await shell.RunAsync(new PaneRunRequest("printf 'earlier\\ndone\\n'")
+                {
+                    Timeout = Allowed,
+                    MaxOutputLines = 1,
+                    MaxOutputBytes = 4,
+                }, token));
+
+            Assert.True(cleanupReached);
+            Assert.Equal("0", completedStatus);
+            Assert.NotNull(directory);
+            Assert.Equal(1, pasteAttempts);
+            if (denyDeletion)
+            {
+                Assert.True(Directory.Exists(directory));
+                Assert.True(File.Exists(Path.Combine(directory, "command")));
+                Assert.True(failure is LibTmuxException,
+                    $"The completed run returned Succeeded={result?.Succeeded} while its owned command file remained.");
+                var reported = Assert.IsType<LibTmuxException>(failure);
+                Assert.Equal(TmuxDispatchState.Dispatched, reported.Dispatch);
+                Assert.Same(reported.InnerException, reported.Data[PaneRunner.RunDirectoryCleanupFailureDataKey]);
+                Assert.Equal(directory, reported.Data[PaneRunner.RunDirectoryCleanupDirectoryDataKey]);
+                PaneRunResult completed = Assert.IsType<PaneRunResult>(reported.Data[PaneRunner.CompletedRunResultDataKey]);
+                Assert.Equal(0, completed.ExitStatus);
+                Assert.True(completed.Succeeded);
+                Assert.Equal(["done"], completed.Output);
+                Assert.Equal((1, 8), (completed.OmittedOutputLines, completed.OmittedOutputBytes));
+                Assert.Equal(shell.Id, completed.PaneId);
+                Assert.Null(reported.Data[PaneRunner.CompletedRunOutcomeDataKey]);
+
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                Directory.Delete(directory, recursive: true);
+                injectCleanupFault = false;
+                PaneRunResult next = await shell.RunAsync("printf 'next\\n'", Allowed, token);
+                Assert.True(next.Succeeded);
+                Assert.Equal(["next"], next.Output);
+                Assert.Equal(2, pasteAttempts);
+            }
+            else
+            {
+                Assert.Null(failure);
+                Assert.NotNull(result);
+                Assert.True(result.Succeeded);
+                Assert.Equal(["done"], result.Output);
+                Assert.False(Directory.Exists(directory));
+            }
+        }
+        finally
+        {
+            if (directory is not null && Directory.Exists(directory))
+            {
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    private static string RunDirectoryFromPayload(string payload)
+    {
+        string source = payload.Trim();
+        Assert.StartsWith(". '", source, StringComparison.Ordinal);
+        Assert.EndsWith("'", source, StringComparison.Ordinal);
+        string script = source[3..^1].Replace("'\\''", "'", StringComparison.Ordinal);
+        Assert.Equal("run", Path.GetFileName(script));
+        return Assert.IsType<string>(Path.GetDirectoryName(script));
+    }
+
     // Killed from outside, as a crash or the OOM killer would: a command that
     // killed its own shell could still record its status as tmux hangs it up.
     private static async Task<PaneRunResult> RunUntilShellKilledAsync(Pane pane, CancellationToken token)
@@ -325,7 +526,11 @@ public sealed class PaneRunTests
     }
 
     // Several words run the program directly, with no shell in between.
-    private static async Task<Pane> NewPaneAsync(RawTmuxTestContext raw, string[] command, CancellationToken token)
+    private static async Task<Pane> NewPaneAsync(
+        RawTmuxTestContext raw,
+        string[] command,
+        CancellationToken token,
+        TmuxInterceptor? interceptor = null)
     {
         RawTmuxResult created = await raw.ExecuteAsync(
             ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "--", .. command],
@@ -336,6 +541,7 @@ public sealed class PaneRunTests
                 TmuxBinaryPath = raw.TmuxBinaryPath,
                 SocketPath = raw.SocketPath,
                 ConfigurationFile = "/dev/null",
+                Interceptor = interceptor,
             },
             token);
         Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);

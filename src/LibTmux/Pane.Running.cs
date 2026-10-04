@@ -23,7 +23,7 @@ public sealed partial class Pane
     /// <exception cref="ArgumentException"><paramref name="command" /> is blank.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
-    /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
+    /// <exception cref="LibTmuxException">The command's result could not be read, or its private files could not be deleted; inspect the failure before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public Task<PaneRunResult> RunAsync(
         string command,
@@ -54,11 +54,17 @@ public sealed partial class Pane
     /// pane/server's end authenticates completion. Other processes are not
     /// coordinated.
     /// </para>
+    /// <para>
+    /// If a completed command's private files cannot be deleted, the failure's
+    /// <c>Data["LibTmux.CompletedRunResult"]</c> contains its bounded
+    /// <see cref="PaneRunResult" /> and <c>Data["LibTmux.RunDirectoryCleanupDirectory"]</c>
+    /// names the owned directory to inspect and remove. Do not run the command again.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout or output budget is invalid.</exception>
     /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
-    /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
+    /// <exception cref="LibTmuxException">The command's result could not be read, or its private files could not be deleted; inspect the failure before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
     public async Task<PaneRunResult> RunAsync(
         PaneRunRequest request,
@@ -68,19 +74,34 @@ public sealed partial class Pane
         request.Validate();
         cancellationToken.ThrowIfCancellationRequested();
 
-        PaneRunOutcome outcome = await PaneRunner
-            .RunAsync(
-                Server,
-                this,
-                PaneRunRoute.From(this),
-                request.Command,
-                request.Timeout,
-                request.KeepOutOfHistory,
-                request.Timeout + FollowAfterTimeout,
-                new PaneRunHooks { FollowLimit = FollowAfterTimeout },
-                PaneReader.Failure,
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            PaneRunOutcome outcome = await PaneRunner
+                .RunAsync(
+                    Server,
+                    this,
+                    PaneRunRoute.From(this),
+                    request.Command,
+                    request.Timeout,
+                    request.KeepOutOfHistory,
+                    request.Timeout + FollowAfterTimeout,
+                    new PaneRunHooks { FollowLimit = FollowAfterTimeout },
+                    PaneReader.Failure,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return ToRunResult(outcome, request);
+        }
+        catch (LibTmuxException error) when (error.Data[PaneRunner.CompletedRunOutcomeDataKey] is PaneRunOutcome)
+        {
+            var outcome = (PaneRunOutcome)error.Data[PaneRunner.CompletedRunOutcomeDataKey]!;
+            error.Data.Remove(PaneRunner.CompletedRunOutcomeDataKey);
+            error.Data[PaneRunner.CompletedRunResultDataKey] = ToRunResult(outcome, request);
+            throw;
+        }
+    }
+
+    private static PaneRunResult ToRunResult(PaneRunOutcome outcome, PaneRunRequest request)
+    {
         (IReadOnlyList<string> output, int omittedLines, int omittedBytes) = BoundOutput(
             outcome.Output, request.MaxOutputLines, request.MaxOutputBytes);
         return new PaneRunResult(

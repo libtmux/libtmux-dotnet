@@ -302,6 +302,15 @@ if (!run.Output.Contains("hello-from-libtmux"))
 as complete. For interactive programs, `SendTextAsync` types input without
 assuming a shell command ended.
 
+If a completed run's private files cannot be deleted, `RunAsync` throws
+`LibTmuxException`. Its `Data["LibTmux.CompletedRunResult"]` retains the bounded
+`PaneRunResult`, and `Data["LibTmux.RunDirectoryCleanupDirectory"]` names the
+owned directory to inspect and remove. The command has already completed;
+do not run it again. A cleanup failure during an earlier refusal stays on the
+original exception in `Data["LibTmux.RunDirectoryCleanupFailure"]`. Failed
+temporary-buffer deletion similarly preserves the original error and names
+the owned buffer in `Data["LibTmux.PasteBufferCleanupBuffer"]`.
+
 `SendTextAsync` types leading dashes, semicolons and newlines as input. NUL
 is rejected before dispatch. Setting `enter: false` omits the extra Enter
 key; it does not remove newlines already present in the text.

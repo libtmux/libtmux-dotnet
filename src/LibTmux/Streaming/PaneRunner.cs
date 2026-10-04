@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace LibTmux.Internal;
 
@@ -132,7 +133,7 @@ internal sealed record PaneRunHooks
     /// <summary>Gets a callback told, about once a second, how long the run has gone on.</summary>
     internal Action<TimeSpan>? Progress { get; init; }
 
-    /// <summary>Gets how to delete the paste buffer after a failed paste; the default ignores failures.</summary>
+    /// <summary>Gets how to delete the paste buffer after a failed paste and report cleanup failures.</summary>
     internal Func<Server, string, Exception?, Task>? CleanupBuffer { get; init; }
 }
 
@@ -167,8 +168,15 @@ internal sealed record PaneRunOutcome(
 /// or pane/server end is authenticated.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
-internal static class PaneRunner
+internal static partial class PaneRunner
 {
+    internal const string PasteBufferCleanupFailureDataKey = "LibTmux.PasteBufferCleanupFailure";
+    internal const string PasteBufferCleanupBufferDataKey = "LibTmux.PasteBufferCleanupBuffer";
+    internal const string RunDirectoryCleanupFailureDataKey = "LibTmux.RunDirectoryCleanupFailure";
+    internal const string RunDirectoryCleanupDirectoryDataKey = "LibTmux.RunDirectoryCleanupDirectory";
+    internal const string CompletedRunResultDataKey = "LibTmux.CompletedRunResult";
+    internal static readonly object CompletedRunOutcomeDataKey = new();
+
     private const int MaximumInheritedTrapBytes = 64 * 1024;
     private static readonly TimeSpan RetainedRunFirstProbe = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan RetainedRunLongestProbe = TimeSpan.FromSeconds(5);
@@ -246,6 +254,8 @@ internal static class PaneRunner
             var dispatch = new RunDispatchState(pane);
             TmuxWaitChannel? completionWait = null;
             bool completionAuthenticated = false;
+            Exception? primaryFailure = null;
+            PaneRunOutcome? outcome = null;
             try
             {
                 await sequence.MutateAsync(
@@ -314,7 +324,7 @@ internal static class PaneRunner
                         token.EndMarker,
                         pane.Width),
                     pane.Width));
-                return new PaneRunOutcome(
+                outcome = new PaneRunOutcome(
                     pane,
                     status,
                     timedOut,
@@ -324,6 +334,7 @@ internal static class PaneRunner
                     started,
                     elapsed.Elapsed,
                     paneExited);
+                return outcome;
             }
             catch (TmuxOperationCanceledException error)
                 when (dispatch.PayloadMayHaveReachedTmux && error.CommandMayHaveExecuted)
@@ -331,11 +342,17 @@ internal static class PaneRunner
                 // Raised as a failure, not a cancellation: a cancelled task
                 // reaches Task.Wait and Async.AwaitTask callers as a bare
                 // TaskCanceledException that no longer says the command may run.
-                throw new LibTmuxException(
+                primaryFailure = new LibTmuxException(
                     "The command may have reached tmux before cancellation. Do not retry "
                     + "until you inspect the pane.",
                     TmuxDispatchState.Unknown,
                     error);
+                throw primaryFailure;
+            }
+            catch (Exception error)
+            {
+                primaryFailure = error;
+                throw;
             }
             finally
             {
@@ -364,7 +381,7 @@ internal static class PaneRunner
                         await CleanupStatusMarkerAsync(dispatch.Pane, token).ConfigureAwait(false);
                     }
 
-                    DeleteRunDirectory(dispatch.Directory);
+                    DeleteRunDirectory(dispatch.Directory, primaryFailure, outcome);
                 }
             }
         }
@@ -466,7 +483,7 @@ internal static class PaneRunner
                 }
             }
 
-            DeleteRunDirectory(directory);
+            LogDirectoryCleanupFailure(pane, DeleteRunDirectory(directory));
         }
 
         internal async Task<bool> TryReconcileAsync(CancellationToken cancellationToken)
@@ -539,8 +556,9 @@ internal static class PaneRunner
                 directory = _directory;
             }
 
-            DeleteRunDirectory(directory);
+            Exception? cleanupFailure = DeleteRunDirectory(directory);
             _ = ActiveRuns.TryRemove(new KeyValuePair<PaneRunIdentity, RunReservation>(identity, this));
+            LogDirectoryCleanupFailure(pane, cleanupFailure);
             completed?.Invoke();
         }
     }
@@ -849,7 +867,9 @@ internal static class PaneRunner
 
             if (!dispatch.PayloadMayHaveReachedTmux)
             {
-                DeleteRunDirectory(dispatch.Directory);
+                string? directory = dispatch.Directory;
+                dispatch.Directory = null;
+                DeleteRunDirectory(directory, primaryFailure, outcome: null);
             }
         }
     }
@@ -1318,24 +1338,83 @@ internal static class PaneRunner
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static void DeleteRunDirectory(string? directory)
+    private static Exception? DeleteRunDirectory(string? directory)
     {
         if (directory is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+            return null;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return error;
+        }
+    }
+
+    private static void DeleteRunDirectory(string? directory, Exception? primaryFailure, PaneRunOutcome? outcome)
+    {
+        Exception? cleanupFailure = DeleteRunDirectory(directory);
+        if (cleanupFailure is null)
+        {
+            return;
+        }
+
+        if (primaryFailure is not null)
+        {
+            primaryFailure.Data[RunDirectoryCleanupFailureDataKey] = cleanupFailure;
+            primaryFailure.Data[RunDirectoryCleanupDirectoryDataKey] = directory;
+            return;
+        }
+
+        string completed = outcome?.ExitStatus is int status
+            ? $"The command completed with exit status {status.ToString(CultureInfo.InvariantCulture)}, but"
+            : "The operation ended, but";
+        var failure = new LibTmuxException(
+            $"{completed} private run directory '{directory}' could not be deleted. "
+            + "Do not retry the command. Inspect and remove that exact directory.",
+            outcome is null ? TmuxDispatchState.NotDispatched : TmuxDispatchState.Dispatched,
+            cleanupFailure);
+        failure.Data[RunDirectoryCleanupFailureDataKey] = cleanupFailure;
+        failure.Data[RunDirectoryCleanupDirectoryDataKey] = directory;
+        if (outcome is not null)
+        {
+            failure.Data[CompletedRunOutcomeDataKey] = outcome;
+        }
+
+        throw failure;
+    }
+
+    private static void LogDirectoryCleanupFailure(Pane pane, Exception? cleanupFailure)
+    {
+        if (cleanupFailure is null || pane.Server.ConnectionOptions.Logger is not ILogger logger)
         {
             return;
         }
 
         try
         {
-            Directory.Delete(directory, recursive: true);
+            LogPrivateRunCleanupFailed(logger, pane.Id.ToString(), cleanupFailure.GetType().Name);
         }
-        catch (IOException)
+        catch (Exception)
         {
-        }
-        catch (UnauthorizedAccessException)
-        {
+            // A caller's logger must not keep a terminal run reserved.
         }
     }
+
+    [LoggerMessage(
+        EventId = 120,
+        Level = LogLevel.Warning,
+        Message = "Private run files for pane {PaneId} could not be deleted ({ErrorType}).")]
+    private static partial void LogPrivateRunCleanupFailed(ILogger logger, string paneId, string errorType);
 
     private enum RunEnd
     {
@@ -1477,9 +1556,22 @@ internal static class PaneRunner
         {
             await server.Buffers.DeleteAsync(buffer, cleanup.Token).ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception cleanupFailure)
         {
-            // The buffer holds only the sourcing line, not the command.
+            if (primaryFailure is not null)
+            {
+                primaryFailure.Data[PasteBufferCleanupFailureDataKey] = cleanupFailure;
+                primaryFailure.Data[PasteBufferCleanupBufferDataKey] = buffer;
+            }
+            else
+            {
+                var failure = new LibTmuxException(
+                    $"Temporary tmux buffer '{buffer}' could not be deleted. Inspect and remove that exact buffer.",
+                    cleanupFailure);
+                failure.Data[PasteBufferCleanupFailureDataKey] = cleanupFailure;
+                failure.Data[PasteBufferCleanupBufferDataKey] = buffer;
+                throw failure;
+            }
         }
     }
 
