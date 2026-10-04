@@ -12,7 +12,8 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task An_announced_change_is_published_as_a_newer_view()
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Session anchor = await AnchorAsync(raw, token);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
@@ -30,7 +31,8 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task A_change_tmux_does_not_announce_is_seen_within_the_refresh_interval()
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Session anchor = await AnchorAsync(raw, token);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(
@@ -58,7 +60,8 @@ public sealed class ServerMirrorTests
     [InlineData("off")]
     public async Task The_mirror_ends_when_its_anchor_session_is_gone(string detachOnDestroy)
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         await raw.ExecuteAsync(["set-option", "-g", "detach-on-destroy", detachOnDestroy], token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", raw.SessionName + "-other"], token);
@@ -81,7 +84,8 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task The_mirror_reattaches_when_its_client_is_killed()
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Session anchor = await AnchorAsync(raw, token);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(anchor, cancellationToken: token);
@@ -110,7 +114,8 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task The_mirror_tries_a_failed_reattach_again()
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         string refuse = Path.Join(Path.GetDirectoryName(raw.SocketPath)!, $"refuse-{Guid.NewGuid():N}");
         string tmux = Path.Join(Path.GetDirectoryName(raw.SocketPath)!, $"tmux-{Guid.NewGuid():N}");
@@ -145,7 +150,8 @@ public sealed class ServerMirrorTests
     [UnixFact]
     public async Task A_waiter_fails_when_the_server_dies_under_a_refreshing_mirror()
     {
-        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource bound = Bounded();
+        CancellationToken token = bound.Token;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
         Session anchor = await AnchorAsync(raw, token);
         await using ServerMirror mirror = await ServerMirror.OpenAsync(
@@ -158,6 +164,16 @@ public sealed class ServerMirrorTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => waiting.WaitAsync(Arrival, token));
         Assert.True(mirror.IsEnded);
+    }
+
+    // Every wait here is for tmux, which answers within seconds, so a stall
+    // fails where it waits instead of running into the hang dump.
+    private static CancellationTokenSource Bounded()
+    {
+        CancellationTokenSource bound =
+            CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        bound.CancelAfter(TestBudget.Settle);
+        return bound;
     }
 
     private static async Task<Session> AnchorAsync(RawTmuxTestContext raw, CancellationToken token, string? tmux = null)
