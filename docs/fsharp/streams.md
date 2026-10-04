@@ -162,8 +162,12 @@ ended in order given: true
 <!-- endfsharp-output -->
 
 The watch reads the client's only stream, so it consumes and drops events
-for other panes. Attach the client with `Control.enterSession` to the session
-that holds the pane.
+for other panes. tmux sends a control client output only from the session it
+is attached to, and `Control.withSession` attaches to the most recently used
+one. Attach the client with `Control.enterSession` to the session that holds
+the pane: a watch raises `ArgumentException` for a pane elsewhere when it
+starts, and `InvalidOperationException` if the pane's window moves to another
+session while it is watched.
 
 tmux discards output it has not yet sent once a pane's program exits, so the
 last lines of a program that exits at once may never arrive on any control

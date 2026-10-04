@@ -73,6 +73,7 @@ module Control =
     /// </para>
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The pane is not in the session the client is attached to; tmux sends a control client output only from that session.</exception>
+    /// <exception cref="T:System.InvalidOperationException">The pane's window left the client's session while it was watched, so tmux sends none of its output any more.</exception>
     val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams several panes' output from one borrowed control client.</summary>
@@ -84,6 +85,7 @@ module Control =
     /// unread for the client's next reader.
     /// </remarks>
     /// <exception cref="T:System.ArgumentException">The list is empty, or a pane is not in the session the client is attached to.</exception>
+    /// <exception cref="T:System.InvalidOperationException">A pane's window left the client's session while it was watched.</exception>
     val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Awaits one handler at a time for each item until the stream ends.</summary>

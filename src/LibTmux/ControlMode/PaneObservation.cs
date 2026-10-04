@@ -29,7 +29,7 @@ public sealed record TmuxPaneGoneEvent(PaneId PaneId) : TmuxEvent;
 public static class PaneObservation
 {
     private static readonly string[] ArrangementChangeNames =
-        ["layout-change", "window-close", "unlinked-window-close"];
+        ["layout-change", "window-close", "unlinked-window-close", "session-changed"];
 
     /// <summary>Watches one pane's output until it ends.</summary>
     /// <param name="session">The control client to watch through.</param>
@@ -55,6 +55,10 @@ public static class PaneObservation
     /// When reading starts, the pane is in a session other than the one the
     /// client is attached to; tmux sends a control client output only from its
     /// own session.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// While reading, the pane's window left the client's session, so tmux
+    /// sends none of its output any more.
     /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
@@ -90,9 +94,10 @@ public static class PaneObservation
     /// <para>
     /// A client has one event stream, so this is how one client serves
     /// several panes: each output event names its pane. Events after the last
-    /// pane's end stay unread for the client's next reader. Each layout change
-    /// or loss report asks tmux about every pane still watched, one command
-    /// each.
+    /// pane's end stay unread for the client's next reader. Each layout change,
+    /// window close, session change or loss report lists the client's session's
+    /// panes in one command, and the server's panes in a second when a watched
+    /// pane is missing from it.
     /// </para>
     /// <para>
     /// tmux discards output it has not yet sent to a control client once a
@@ -106,6 +111,10 @@ public static class PaneObservation
     /// <paramref name="panes" /> is empty, or, when reading starts, a pane is in
     /// a session other than the one the client is attached to; tmux sends a
     /// control client output only from its own session.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// While reading, a pane's window left the client's session, so tmux sends
+    /// none of its output any more.
     /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
@@ -161,7 +170,7 @@ public static class PaneObservation
         Exception? failure = null;
         try
         {
-            await CheckAttachedAsync().ConfigureAwait(false);
+            await CheckForGoneAsync(starting: true).ConfigureAwait(false);
             if (watermarked is null)
             {
                 events = session.Events.GetAsyncEnumerator(reading.Token);
@@ -210,7 +219,7 @@ public static class PaneObservation
 
                     case TmuxEventsDroppedEvent loss:
                         yield return loss;
-                        await CheckForGoneAsync().ConfigureAwait(false);
+                        await CheckForGoneAsync(starting: false).ConfigureAwait(false);
 
                         break;
 
@@ -220,7 +229,7 @@ public static class PaneObservation
 
                     case TmuxNotificationEvent notification
                         when Array.IndexOf(ArrangementChangeNames, notification.Name) >= 0:
-                        await CheckForGoneAsync().ConfigureAwait(false);
+                        await CheckForGoneAsync(starting: false).ConfigureAwait(false);
 
                         break;
                 }
@@ -245,7 +254,13 @@ public static class PaneObservation
             }
         }
 
-        async Task CheckForGoneAsync()
+        // tmux sends a control client output only from panes in the session
+        // it is attached to, so a watched pane elsewhere would stay silent
+        // rather than end: one there when reading starts is refused, and one
+        // whose window leaves later ends the watch. One listing of that
+        // session answers for every watched pane still in it; the server's
+        // listing then tells a pane that is gone from one that is elsewhere.
+        async Task CheckForGoneAsync(bool starting)
         {
             Pane[] watched = [.. alive];
             if (watched.Length == 0)
@@ -253,16 +268,31 @@ public static class PaneObservation
                 return;
             }
 
-            // One listing answers for every watched pane of one server; panes
-            // from different server generations are checked one by one, so a
-            // stale one still fails as stale.
-            IReadOnlySet<string>? listed = watched.All(pane => pane.Generation == watched[0].Generation)
+            // Panes from different server generations are checked one by one,
+            // so a stale one still fails as stale.
+            bool oneGeneration = watched.All(pane => pane.Generation == watched[0].Generation);
+            IReadOnlySet<string>? attached = oneGeneration
+                ? await ListAsync(watched[0].Generation, "-s").ConfigureAwait(false)
+                : null;
+            if (attached is not null && watched.All(pane => attached.Contains(pane.Id.ToString())))
+            {
+                return;
+            }
+
+            IReadOnlySet<string>? listed = oneGeneration
                 ? await ListAsync(watched[0].Generation, "-a").ConfigureAwait(false)
                 : null;
+            Pane? elsewhere = null;
             foreach (Pane pane in watched)
             {
+                if (attached?.Contains(pane.Id.ToString()) == true)
+                {
+                    continue;
+                }
+
                 if (listed?.Contains(pane.Id.ToString()) ?? await CheckAsync(pane).ConfigureAwait(false))
                 {
+                    elsewhere ??= attached is null ? null : pane;
                     continue;
                 }
 
@@ -277,29 +307,18 @@ public static class PaneObservation
                 alive.Remove(pane);
                 ending.Enqueue(pane.Id, (source.CaptureEventWatermark(), found++));
             }
-        }
 
-        // tmux sends a control client output only from panes in the session
-        // it is attached to, so a watched pane elsewhere would stay silent
-        // rather than end; the watch refuses it at the start instead. One
-        // listing of that session also confirms that every pane in it exists.
-        async Task CheckAttachedAsync()
-        {
-            Pane[] watched = [.. alive];
-            IReadOnlySet<string>? attached = watched.All(pane => pane.Generation == watched[0].Generation)
-                ? await ListAsync(watched[0].Generation, "-s").ConfigureAwait(false)
-                : null;
-            if (attached is not null && watched.All(pane => attached.Contains(pane.Id.ToString())))
+            if (elsewhere is not null)
             {
-                return;
-            }
-
-            await CheckForGoneAsync().ConfigureAwait(false);
-            if (attached is not null && alive.Find(pane => !attached.Contains(pane.Id.ToString())) is Pane elsewhere)
-            {
-                var error = new ArgumentException(
-                    $"Pane {elsewhere.Id} is not in the session this control client is attached to, and tmux sends a "
-                    + "control client output only from that session. Watch it through a client entered on its session.");
+                Exception error = starting
+                    ? new ArgumentException(
+                        $"Pane {elsewhere.Id} is not in the session this control client is attached to, and tmux "
+                        + "sends a control client output only from that session. Watch it through a client entered "
+                        + "on its session.")
+                    : new InvalidOperationException(
+                        $"Pane {elsewhere.Id} left the session this control client is attached to, and tmux sends "
+                        + "a control client output only from that session. Watch it through a client entered on "
+                        + "its new session.");
                 failure = error;
                 throw error;
             }

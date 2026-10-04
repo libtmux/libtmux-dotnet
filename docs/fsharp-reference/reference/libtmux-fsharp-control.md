@@ -183,6 +183,8 @@ Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.coll
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The pane is not in the session the client is attached to; tmux sends a control client output only from that session.
 
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) The pane&#39;s window left the client&#39;s session while it was watched, so tmux sends none of its output any more.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L74)
 
 <a name="watchPanes"></a>
@@ -206,6 +208,8 @@ Each output event names its pane. Each pane confirmed gone is reported by
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
 [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty, or a pane is not in the session the client is attached to.
+
+[InvalidOperationException](https://learn.microsoft.com/dotnet/api/system.invalidoperationexception) A pane&#39;s window left the client&#39;s session while it was watched.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
 

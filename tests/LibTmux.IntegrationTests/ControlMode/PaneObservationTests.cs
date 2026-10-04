@@ -52,6 +52,44 @@ public sealed class PaneObservationTests
         Assert.True(control.IsRunning);
     }
 
+    // A watched pane's window can also leave after reading starts, and tmux
+    // then stops sending its output just as silently.
+    [UnixFact]
+    public async Task A_pane_moved_to_another_session_ends_the_watch_rather_than_silencing_it()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        _ = await raw.ExecuteAsync(["new-session", "-d", "-s", raw.SessionName + "-other"], token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{window_id} #{pane_id}", "-t", raw.SessionName, "cat"],
+            token);
+        string[] ids = created.StandardOutputText.Trim().Split(' ');
+        Pane moving = await server.GetPaneAsync(PaneId.Parse(ids[1]), token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(raw.SessionName, token);
+
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromSeconds(5));
+        await using IAsyncEnumerator<TmuxEvent> reader = control.WatchAsync(moving, watchdog.Token).GetAsyncEnumerator();
+
+        // Output read through the watch shows its start-time check has passed.
+        Task<bool> first = reader.MoveNextAsync().AsTask();
+        _ = await raw.ExecuteAsync(["send-keys", "-t", ids[1], "seen", "Enter"], token);
+        Assert.True(await first);
+        Assert.IsType<TmuxOutputEvent>(reader.Current);
+
+        _ = await raw.ExecuteAsync(["move-window", "-s", ids[0], "-t", raw.SessionName + "-other:"], token);
+        InvalidOperationException moved = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            while (await reader.MoveNextAsync())
+            {
+            }
+        });
+
+        Assert.Contains(moving.Id.ToString(), moved.Message, StringComparison.Ordinal);
+        Assert.True(control.IsRunning);
+    }
+
     [UnixFact]
     public async Task A_generic_async_event_source_cannot_silently_discard_buffered_output()
     {
