@@ -11,7 +11,7 @@ Nothing here is a promise about your machine.
 | 2026-09-27 | 3.7d | `0.0.0-alpha.16` + F# branch | [five-mode workload](runs/2026-09-27-tmux-3.7d-workload.md), [linked topology](probes/2026-09-27-tmux-3.7d-topology.json), [control stream](probes/2026-09-27-tmux-3.7d-stream.json) |
 | 2026-10-03 | 3.7d | `0.0.0-alpha.17` + F# branch | [F# query, pushdown, fold and task costs](runs/2026-10-03-tmux-3.7d-fsharp.md) |
 | 2026-10-03 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane watch and mirror](runs/2026-10-03-tmux-3.7c-fsharp.md) |
-| 2026-10-04 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane flood](runs/2026-10-04-tmux-3.7c-fsharp.md) |
+| 2026-10-04 | 3.7c | `0.0.0-alpha.18` + F# branch, hosted runner | [F# costs including the pane flood and wait latency](runs/2026-10-04-tmux-3.7c-fsharp.md) |
 
 ## Why a record rather than a number
 
@@ -256,9 +256,9 @@ process start under load.
 
 The [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), from a GitHub
 runner with tmux 3.7c, keeps the order with tighter spreads: the pane query
-took 8.7 ms pushed down against 80 ms for a full listing and 170 ms for a
-snapshot, and the session query 36 ms against 162 ms and 178 ms. Its two
-local session routes agree within 10%, where the workstation's differed by
+took 10.2 ms pushed down against 91 ms for a full listing and 188 ms for a
+snapshot, and the session query 39 ms against 184 ms and 178 ms. Its two
+local session routes agree within 4%, where the workstation's differed by
 half.
 
 ```console
@@ -291,10 +291,10 @@ once and sends no layout change, and against a real server that listing is
 one tmux round trip whatever the number of panes.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) the filter took
-1.0 to 1.2 µs for every count of panes, and the watch 4.3 µs for one pane,
-5.9 µs for two and 12.6 µs for eight. The watch passes on 32, 64 or 256 of
-the events where the filter only counts them, so its cost grows with what it
-yields: about 37 ns for each event, on top of a fixed 3.1 µs.
+1.5 to 1.6 µs for every count of panes, and the watch 5.8 µs for one pane,
+6.7 µs for two and 12 µs for eight. The watch passes on 32, 64 or 256 of the
+events where the filter only counts them, so its cost grows with what it
+yields: about 28 ns for each event, on top of a fixed 4.9 µs.
 
 ## F# pane flood
 
@@ -308,9 +308,9 @@ the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
 by hand.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) reading 1,000
-lines took 5.09 ms by hand and 5.23 ms through the watch, 1.03 times, and
-20,000 lines 21.8 ms and 23 ms, 1.06 times. The two routes allocated within
-4% of each other, so the watch adds a filter, not a copy of the output.
+lines took 6.33 ms by hand and 6.45 ms through the watch, 1.02 times, and
+20,000 lines 25.8 ms and 25.6 ms, 0.99 times. The two routes allocated within
+1% of each other, so the watch adds a filter, not a copy of the output.
 
 ## F# wait latency
 
@@ -326,7 +326,16 @@ reading the screen, and reads the pane with three tmux commands each time it
 wakes. Output already printed is a poll's best case, found by its first
 capture. A poll pays instead for every interval the output takes: a capture,
 which is a tmux process, every 50 ms, and up to 50 ms of latency after the
-output appears.
+output appears. Delayed output sleeps 250 to 290 ms in turn, so the polls land
+at every point of their interval, as they do against output nothing
+synchronizes with them.
+
+In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md), output already
+printed took 6.1 ms by polling and 22.4 ms through the wait. Delayed output
+took a median of 320 ms by polling and 293 ms through the wait, which started
+no tmux process while it slept where the poll started one every 50 ms. Read
+the screen once with `Pane.capture` when the output is already there; wait
+when it is still to come.
 
 ## F# live mirror
 
@@ -340,8 +349,8 @@ server. Setup fails unless the mirror publishes a renamed window, and the
 [regression gate](#regression-gate) bounds the rename at 1.65 captures.
 
 In the [hosted record](runs/2026-10-04-tmux-3.7c-fsharp.md) a rename seen
-through the mirror took 14.8 ms against 11.9 ms for a capture of one session,
-1.24 captures, and 52.3 ms against 47 ms for sixteen sessions, 1.11. The
+through the mirror took 15.9 ms against 12.7 ms for a capture of one session,
+1.25 captures, and 56.8 ms against 52.3 ms for sixteen sessions, 1.09. The
 capture allocated 2.4 MB for one session and 18 MB for sixteen, so a busy
 large server spends most of a mirror's cost on captures.
 
@@ -375,7 +384,7 @@ nothing. Four things are gated instead:
   are counted by the integration test above, not here.
 - The same workflow fails a run in which a rename seen through a mirror costs
   more than 1.65 snapshot captures of the same server. The workstation and
-  the hosted runner measured 1.11 to 1.35, since each rebuild is one capture;
+  the hosted runner measured 1.09 to 1.35, since each rebuild is one capture;
   a mirror made to capture twice per change measured 1.86 with sixteen
   sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
   class and pass this check.
