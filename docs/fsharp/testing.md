@@ -69,7 +69,8 @@ open LibTmux.FSharp
 open LibTmux.Testing
 open Xunit
 
-/// Starts one private tmux server for a test class, and stops it after the class's last test.
+/// Starts one private tmux server for a test class, and stops it after the
+/// class's last test.
 type TmuxFixture() =
     let mutable scope: TemporaryHierarchyScope option = None
 
@@ -84,7 +85,10 @@ type TmuxFixture() =
                 task {
                     let! started =
                         TmuxTestFactory()
-                            .CreateHierarchyAsync(cancellationToken = TestContext.Current.CancellationToken)
+                            .CreateHierarchyAsync(
+                                cancellationToken =
+                                    TestContext.Current.CancellationToken
+                            )
 
                     scope <- Some started
                 }
@@ -108,11 +112,16 @@ type ShellTests(fixture: TmuxFixture) =
 
             let! shell =
                 fixture.Pane
-                |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+                |> Pane.split
+                    cancellationToken
+                    (SplitPaneRequest(Command = "/bin/sh"))
 
             let! result =
                 shell
-                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'hello\\n'"
+                |> Pane.run
+                    cancellationToken
+                    (TimeSpan.FromSeconds 10.)
+                    "printf 'hello\\n'"
 
             Assert.Equal<string list>([ "hello" ], List.ofSeq result.Output)
         }
