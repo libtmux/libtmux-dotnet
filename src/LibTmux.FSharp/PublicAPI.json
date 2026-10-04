@@ -2755,19 +2755,19 @@
       "returnType": "System.Threading.Tasks.Task<LibTmux.PaneWaitResult>"
     },
     {
-      "id": "M:LibTmux.FSharp.PaneRun.|Exited|_|(LibTmux.PaneRunResult)",
+      "id": "M:LibTmux.FSharp.PaneRun.|Exited|NotStarted|TimedOut|(LibTmux.PaneRunResult)",
       "package": "LibTmux.FSharp",
-      "name": "(|Exited|_|)",
+      "name": "(|Exited|NotStarted|TimedOut|)",
       "declaringType": "T:LibTmux.FSharp.PaneRun",
       "visibility": "public",
       "kind": "member",
-      "signature": "val (|Exited|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option",
+      "signature": "val (|Exited|NotStarted|TimedOut|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
       "interfaces": [],
       "exposedTypes": [
-        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option"
+        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
       ],
       "attributes": [],
       "parameters": [
@@ -2780,69 +2780,9 @@
       "argumentGroups": [
         1
       ],
-      "compiledName": "|Exited|_|",
+      "compiledName": "|Exited|NotStarted|TimedOut|",
       "genericParameters": [],
-      "returnType": "Microsoft.FSharp.Core.int Microsoft.FSharp.Core.option"
-    },
-    {
-      "id": "M:LibTmux.FSharp.PaneRun.|NotStarted|_|(LibTmux.PaneRunResult)",
-      "package": "LibTmux.FSharp",
-      "name": "(|NotStarted|_|)",
-      "declaringType": "T:LibTmux.FSharp.PaneRun",
-      "visibility": "public",
-      "kind": "member",
-      "signature": "val (|NotStarted|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option",
-      "language": "F#",
-      "implicitDeclaration": false,
-      "accessor": false,
-      "interfaces": [],
-      "exposedTypes": [
-        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
-      ],
-      "attributes": [],
-      "parameters": [
-        {
-          "name": "result",
-          "optional": false,
-          "type": "LibTmux.PaneRunResult"
-        }
-      ],
-      "argumentGroups": [
-        1
-      ],
-      "compiledName": "|NotStarted|_|",
-      "genericParameters": [],
-      "returnType": "Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
-    },
-    {
-      "id": "M:LibTmux.FSharp.PaneRun.|TimedOut|_|(LibTmux.PaneRunResult)",
-      "package": "LibTmux.FSharp",
-      "name": "(|TimedOut|_|)",
-      "declaringType": "T:LibTmux.FSharp.PaneRun",
-      "visibility": "public",
-      "kind": "member",
-      "signature": "val (|TimedOut|_|) : result: LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option",
-      "language": "F#",
-      "implicitDeclaration": false,
-      "accessor": false,
-      "interfaces": [],
-      "exposedTypes": [
-        "LibTmux.PaneRunResult -> Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
-      ],
-      "attributes": [],
-      "parameters": [
-        {
-          "name": "result",
-          "optional": false,
-          "type": "LibTmux.PaneRunResult"
-        }
-      ],
-      "argumentGroups": [
-        1
-      ],
-      "compiledName": "|TimedOut|_|",
-      "genericParameters": [],
-      "returnType": "Microsoft.FSharp.Core.unit Microsoft.FSharp.Core.option"
+      "returnType": "Microsoft.FSharp.Core.Choice<Microsoft.FSharp.Core.int,Microsoft.FSharp.Core.unit,Microsoft.FSharp.Core.unit>"
     },
     {
       "id": "M:LibTmux.FSharp.PaneWait.|Found|Printed|Stopped|TimedOut|Ended|(LibTmux.PaneWaitResult)",

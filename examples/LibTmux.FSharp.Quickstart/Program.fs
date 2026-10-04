@@ -37,7 +37,8 @@ let runAsync () =
 
         match result with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
-        | _ -> printfn "run: did not finish"
+        | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
+        | PaneRun.TimedOut -> printfn "run: still running"
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
         let! found =

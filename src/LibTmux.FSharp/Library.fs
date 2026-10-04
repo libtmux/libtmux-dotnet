@@ -74,12 +74,19 @@ module TmuxFailure =
 
 [<RequireQualifiedAccess>]
 module PaneRun =
-    let (|Exited|_|) (result: PaneRunResult) = Option.ofNullable result.ExitStatus
-
-    let (|TimedOut|_|) (result: PaneRunResult) =
-        if result.TimedOut then Some() else None
-
-    let (|NotStarted|_|) (result: PaneRunResult) = if result.Started then None else Some()
+    let (|Exited|NotStarted|TimedOut|) (result: PaneRunResult) =
+        match Option.ofNullable result.ExitStatus with
+        | Some status -> Exited status
+        | None when not result.Started -> NotStarted
+        | None when result.TimedOut -> TimedOut
+        | None ->
+            raise (
+                ArgumentOutOfRangeException(
+                    nameof result,
+                    box result,
+                    "The run has no exit status and did not time out; this facade knows no such ending."
+                )
+            )
 
 [<RequireQualifiedAccess>]
 module PaneWait =

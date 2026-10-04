@@ -57,7 +57,8 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
 
             match listing with
             | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
-            | _ -> return None // timed out, or the shell never ran it
+            | PaneRun.NotStarted
+            | PaneRun.TimedOut -> return None
     }
 ```
 <!-- endfsharp-snippet -->
@@ -67,8 +68,8 @@ cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
-the lines the command printed, and `PaneRun.Exited` matches a command that
-exited, with its status. `server` comes from `Server.createOwned`, which the
+the lines the command printed, and `PaneRun` tells a command that exited,
+with its status, from one that never started or ran out of time. `server` comes from `Server.createOwned`, which the
 quick start below uses to run these steps on an isolated server. Pass a server
 from `Server.connect` only with care: the sample types into the first shell it
 finds, and on a tmux already running that may be the terminal you are reading.
@@ -108,7 +109,7 @@ targets `net8.0` and `net10.0`.
 | Wait for output you did not type | `Pane.waitForText ct timeout text pane`; `Pane.waitFor` for patterns | `PaneWaitResult` |
 | Wait for a screen condition | `Pane.waitUntil ct timeout condition pane` | `PaneWaitResult` |
 | Many waits on one session | `use! _ = Session.holdWaitClient ct session` | `IAsyncDisposable`; each wait skips attaching a client, about 5 ms |
-| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun.Exited` |
+| Run a command to its exit status | `Pane.run ct timeout command pane` | `PaneRunResult`; match `PaneRun` |
 | Read the screen | `Pane.capture ct request pane` | `IReadOnlyList<string>` |
 | What a pane printed since last time | `Pane.readSince ct position pane` | `PaneOutputSince`; pass its `Position` next time |
 | Find text on one screen | `Pane.findOnScreen ct search pane` | row `int option` |
@@ -229,7 +230,8 @@ let runAsync () =
 
         match result with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq result.Output)
-        | _ -> printfn "run: did not finish"
+        | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
+        | PaneRun.TimedOut -> printfn "run: still running"
 
         // List and filter: tmux narrows the listing, then every row is rechecked.
         let! found =

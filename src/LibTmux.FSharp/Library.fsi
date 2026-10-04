@@ -71,14 +71,14 @@ module TmuxFailure =
 /// <summary>Recognises how a command run with <c>Pane.run</c> ended.</summary>
 [<RequireQualifiedAccess>]
 module PaneRun =
-    /// <summary>Matches a command that exited, with its exit status.</summary>
-    val (|Exited|_|): result: PaneRunResult -> int option
-
-    /// <summary>Matches a command still running when the time allowed ran out.</summary>
-    val (|TimedOut|_|): result: PaneRunResult -> unit option
-
-    /// <summary>Matches a command the pane's shell never ran.</summary>
-    val (|NotStarted|_|): result: PaneRunResult -> unit option
+    /// <summary>Tells how a run ended, one case per kind of ending, so a match that leaves one out draws a warning.</summary>
+    /// <remarks>
+    /// <c>Exited</c>: the command exited, carried as its exit status.
+    /// <c>NotStarted</c>: the pane's shell never ran it, such as when the pane was not at a prompt.
+    /// <c>TimedOut</c>: the time allowed ran out first; the command may still be running.
+    /// </remarks>
+    /// <exception cref="T:System.ArgumentOutOfRangeException">The result has none of these endings.</exception>
+    val (|Exited|NotStarted|TimedOut|): result: PaneRunResult -> Choice<int, unit, unit>
 
 /// <summary>Recognises how a wait on a pane's output ended.</summary>
 [<RequireQualifiedAccess>]

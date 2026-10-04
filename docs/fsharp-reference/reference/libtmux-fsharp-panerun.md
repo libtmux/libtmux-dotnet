@@ -8,44 +8,22 @@ Recognises how a command run with <code>Pane.run</code> ended.
 
 ### Active patterns
 
-<a name="(%7cExited%7c_%7c)"></a>
+<a name="(%7cExited%7cNotStarted%7cTimedOut%7c)"></a>
 
-#### <code><span>PaneRun.(|Exited|_|)&#32;<span>result</span></span></code>
+#### <code><span>PaneRun.(|Exited|NotStarted|TimedOut|)&#32;<span>result</span></span></code>
 
-Matches a command that exited, with its exit status.
+Tells how a run ended, one case per kind of ending, so a match that leaves one out draws a warning.
+
+<code>Exited</code>: the command exited, carried as its exit status.
+ <code>NotStarted</code>: the pane&#39;s shell never ran it, such as when the pane was not at a prompt.
+ <code>TimedOut</code>: the time allowed ran out first; the command may still be running.
 
 **Parameters:**
 
 **result**: <code>PaneRunResult</code>
 
-Returns: <code><span>int&#32;option</span></code>
+Returns: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-core-fsharpchoice-3">Choice</a>&lt;<span>int,&#32;unit,&#32;unit</span>&gt;</span></code>
+
+[ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The result has none of these endings.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L77)
-
-<a name="(%7cNotStarted%7c_%7c)"></a>
-
-#### <code><span>PaneRun.(|NotStarted|_|)&#32;<span>result</span></span></code>
-
-Matches a command the pane's shell never ran.
-
-**Parameters:**
-
-**result**: <code>PaneRunResult</code>
-
-Returns: <code><span>unit&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L82)
-
-<a name="(%7cTimedOut%7c_%7c)"></a>
-
-#### <code><span>PaneRun.(|TimedOut|_|)&#32;<span>result</span></span></code>
-
-Matches a command still running when the time allowed ran out.
-
-**Parameters:**
-
-**result**: <code>PaneRunResult</code>
-
-Returns: <code><span>unit&#32;option</span></code>
-
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L79)

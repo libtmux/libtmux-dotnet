@@ -378,9 +378,8 @@ module PaneRunTests =
     let private describe result =
         match result with
         | PaneRun.Exited status -> "exited " + string status
-        | PaneRun.TimedOut -> "timed out"
         | PaneRun.NotStarted -> "not started"
-        | _ -> "other"
+        | PaneRun.TimedOut -> "timed out"
 
     [<Fact>]
     let ``runs are told apart by how they ended`` () =
@@ -390,6 +389,11 @@ module PaneRunTests =
         Assert.Equal("exited 3", describe (run (Nullable 3) false true))
         Assert.Equal("timed out", describe (run (Nullable()) true true))
         Assert.Equal("not started", describe (run (Nullable()) false false))
+        // A run typed into something other than a shell also waits out its time.
+        Assert.Equal("not started", describe (run (Nullable()) true false))
+
+        Assert.Throws<ArgumentOutOfRangeException>(fun () -> describe (run (Nullable()) false true) |> ignore)
+        |> ignore
 
 module PaneWaitTests =
     let private describe result =

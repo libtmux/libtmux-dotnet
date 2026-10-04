@@ -121,7 +121,8 @@ let runAsync () =
 
         match listing with
         | PaneRun.Exited status -> printfn "run: exit %d, output %A" status (List.ofSeq listing.Output)
-        | _ -> printfn "run: did not finish"
+        | PaneRun.NotStarted -> printfn "run: the shell was not at a prompt"
+        | PaneRun.TimedOut -> printfn "run: still running"
 
         printfn "screen shows the run: %b" (screen |> Seq.exists (fun row -> row = "a"))
     }
@@ -214,8 +215,8 @@ let runTestsAsync (cancellationToken: CancellationToken) (pane: Pane) =
             match result with
             | PaneRun.Exited 0 -> return "passed"
             | PaneRun.Exited status -> return $"failed with status {status}"
+            | PaneRun.NotStarted -> return "the shell was not at a prompt"
             | PaneRun.TimedOut -> return "still running after five minutes"
-            | _ -> return "the shell was not at a prompt"
         with
         // Cancelled or lost once the command was sent: it may be running.
         // Matched first, because that cancellation is also an

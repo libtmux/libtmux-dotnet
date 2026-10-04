@@ -196,9 +196,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Signature | Summary |
 |---|---|
 | `module PaneRun` | Recognises how a command run with Pane.run ended. |
-| `val (|Exited|_|) : result: PaneRunResult -> int option` | Matches a command that exited, with its exit status. |
-| `val (|NotStarted|_|) : result: PaneRunResult -> unit option` | Matches a command the pane's shell never ran. |
-| `val (|TimedOut|_|) : result: PaneRunResult -> unit option` | Matches a command still running when the time allowed ran out. |
+| `val (|Exited|NotStarted|TimedOut|) : result: PaneRunResult -> Choice<int,unit,unit>` | Tells how a run ended, one case per kind of ending, so a match that leaves one out draws a warning. |
 
 ## PaneWait
 

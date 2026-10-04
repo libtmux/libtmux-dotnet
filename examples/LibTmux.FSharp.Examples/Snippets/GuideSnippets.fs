@@ -56,7 +56,8 @@ module internal GuideSnippets =
 
                 match listing with
                 | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
-                | _ -> return None // timed out, or the shell never ran it
+                | PaneRun.NotStarted
+                | PaneRun.TimedOut -> return None
         }
     // endfsharp-snippet
 
@@ -459,8 +460,8 @@ module internal GuideSnippets =
                 match result with
                 | PaneRun.Exited 0 -> return "passed"
                 | PaneRun.Exited status -> return $"failed with status {status}"
+                | PaneRun.NotStarted -> return "the shell was not at a prompt"
                 | PaneRun.TimedOut -> return "still running after five minutes"
-                | _ -> return "the shell was not at a prompt"
             with
             // Cancelled or lost once the command was sent: it may be running.
             // Matched first, because that cancellation is also an
