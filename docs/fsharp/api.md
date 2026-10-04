@@ -270,6 +270,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Signature | Summary |
 |---|---|
 | `module Session` | Starts queries confined to one session. |
+| `val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>` | Reads from tmux the pane the session shows: its current window's active pane. |
 | `val panes: session: LibTmux.Session -> Query<LibTmux.Pane>` | Queries the panes of every window in a session. |
 | `val windows: session: LibTmux.Session -> Query<LibTmux.Window>` | Queries the window placements in a session. |
 
@@ -341,6 +342,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Signature | Summary |
 |---|---|
 | `module Window` | Identifies window placements and starts queries confined to one window. |
+| `val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>` | Reads from tmux the window's active pane. |
 | `val panes: window: LibTmux.Window -> Query<LibTmux.Pane>` | Queries the panes in a window. |
 | `val placementKey: window: LibTmux.Window -> WindowPlacementKey` | Returns a comparable key including the captured session and window index. |
 

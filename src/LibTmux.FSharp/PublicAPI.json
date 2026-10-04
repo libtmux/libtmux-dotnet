@@ -3765,6 +3765,42 @@
       "returnType": "LibTmux.Server"
     },
     {
+      "id": "M:LibTmux.FSharp.Session.activePane(System.Threading.CancellationToken,LibTmux.Session)",
+      "package": "LibTmux.FSharp",
+      "name": "activePane",
+      "declaringType": "T:LibTmux.FSharp.Session",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val activePane: cancellationToken: System.Threading.CancellationToken -> session: LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.Pane>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Session -> System.Threading.Tasks.Task<LibTmux.Pane>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "session",
+          "optional": false,
+          "type": "LibTmux.Session"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "activePane",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
+    },
+    {
       "id": "M:LibTmux.FSharp.Session.panes(LibTmux.Session)",
       "package": "LibTmux.FSharp",
       "name": "panes",
@@ -4064,6 +4100,42 @@
       "compiledName": "|Ran|_|",
       "genericParameters": [],
       "returnType": "LibTmux.LibTmuxException Microsoft.FSharp.Core.option"
+    },
+    {
+      "id": "M:LibTmux.FSharp.Window.activePane(System.Threading.CancellationToken,LibTmux.Window)",
+      "package": "LibTmux.FSharp",
+      "name": "activePane",
+      "declaringType": "T:LibTmux.FSharp.Window",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val activePane: cancellationToken: System.Threading.CancellationToken -> window: LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Pane>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.CancellationToken -> LibTmux.Window -> System.Threading.Tasks.Task<LibTmux.Pane>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "cancellationToken",
+          "optional": false,
+          "type": "System.Threading.CancellationToken"
+        },
+        {
+          "name": "window",
+          "optional": false,
+          "type": "LibTmux.Window"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "activePane",
+      "genericParameters": [],
+      "returnType": "System.Threading.Tasks.Task<LibTmux.Pane>"
     },
     {
       "id": "M:LibTmux.FSharp.Window.panes(LibTmux.Window)",

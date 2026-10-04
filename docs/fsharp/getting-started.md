@@ -86,8 +86,7 @@ let runAsync () =
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
 
-        let! panes = session |> Session.panes |> Query.list token
-        let pane = panes[0]
+        let! pane = session |> Session.activePane token
 
         // Type a line and wait for what it prints. The screen before it and
         // the line's own echo do not count.

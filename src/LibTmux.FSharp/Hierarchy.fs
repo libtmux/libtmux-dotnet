@@ -154,12 +154,18 @@ module Session =
     let panes (session: LibTmux.Session) =
         Query<LibTmux.Pane>.Create(session.Server, QueryTarget.Pane, Some session.Id, None)
 
+    let activePane (cancellationToken: CancellationToken) (session: LibTmux.Session) =
+        session.GetActivePaneAsync(cancellationToken)
+
 [<RequireQualifiedAccess>]
 module Window =
     let placementKey window = Placement.key window
 
     let panes (window: LibTmux.Window) =
         Query<LibTmux.Pane>.Create(window.Server, QueryTarget.Pane, None, Some window.Id)
+
+    let activePane (cancellationToken: CancellationToken) (window: LibTmux.Window) =
+        window.GetActivePaneAsync(cancellationToken)
 
 [<RequireQualifiedAccess>]
 module Pane =

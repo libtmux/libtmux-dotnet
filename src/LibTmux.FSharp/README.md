@@ -92,6 +92,7 @@ targets `net8.0` and `net10.0`.
 | Exactly one match | `Query.exactlyOne ct query`; `Query.tryExactlyOne` under NativeAOT | `Result<'T, CardinalityError>`; `'T option` |
 | Find, or create when absent | `Query.atMostOne ct query` | `'T option`; several raise |
 | One object by ID | `Server.tryFindPane ct id server` | `Pane option` |
+| The pane a session or window shows | `Session.activePane ct session`, `Window.activePane ct window` | `Pane` |
 
 ### Type, wait and run
 
@@ -205,8 +206,7 @@ let runAsync () =
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
 
-        let! panes = session |> Session.panes |> Query.list token
-        let pane = panes[0]
+        let! pane = session |> Session.activePane token
 
         // Type a command and wait for what it prints, not for its echo.
         let! started =

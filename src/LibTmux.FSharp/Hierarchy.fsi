@@ -108,6 +108,11 @@ module Session =
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The session was not read through a server.</exception>
     val panes: session: LibTmux.Session -> Query<LibTmux.Pane>
 
+    /// <summary>Reads from tmux the pane the session shows: its current window's active pane.</summary>
+    /// <remarks>The core's <c>Session.GetActivePaneAsync</c>; a new session's only pane is this one.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
+    val activePane: cancellationToken: CancellationToken -> session: LibTmux.Session -> Task<LibTmux.Pane>
+
 /// <summary>Identifies window placements and starts queries confined to one window.</summary>
 [<RequireQualifiedAccess>]
 module Window =
@@ -118,6 +123,11 @@ module Window =
     /// <summary>Queries the panes in a window.</summary>
     /// <exception cref="T:LibTmux.IncompleteSnapshotException">The window was not read through a server.</exception>
     val panes: window: LibTmux.Window -> Query<LibTmux.Pane>
+
+    /// <summary>Reads from tmux the window's active pane.</summary>
+    /// <remarks>The core's <c>Window.GetActivePaneAsync</c>.</remarks>
+    /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux reports no such pane.</exception>
+    val activePane: cancellationToken: CancellationToken -> window: LibTmux.Window -> Task<LibTmux.Pane>
 
 /// <summary>Reads captured pane fields and starts explicit pane operations.</summary>
 [<RequireQualifiedAccess>]

@@ -22,8 +22,7 @@ let runAsync () =
         let! session =
             owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
 
-        let! panes = session |> Session.panes |> Query.list token
-        let pane = panes[0]
+        let! pane = session |> Session.activePane token
 
         // Type a command and wait for what it prints, not for its echo.
         let! started =
