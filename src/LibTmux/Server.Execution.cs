@@ -119,9 +119,11 @@ public sealed partial class Server
     /// <param name="request">Which channel, and what to do with it.</param>
     /// <param name="cancellationToken">
     /// Cancels waiting for tmux's reply. For <see cref="TmuxWaitMode.Wait" />
-    /// this kills the client while tmux keeps its queue entry, eating the next
-    /// real signal — prefer <see cref="OpenWaitChannel" /> whenever a
-    /// <see cref="TmuxWaitMode.Wait" /> needs a deadline. For
+    /// this kills the client, and tmux before 3.8 keeps its queue entry, which
+    /// takes the next signal: a signal sent while nothing else waits is then
+    /// spent on that entry instead of waking the next wait. Prefer
+    /// <see cref="OpenWaitChannel" /> whenever a <see cref="TmuxWaitMode.Wait" />
+    /// needs a deadline. For
     /// <see cref="TmuxWaitMode.Lock" /> cancelling never kills the client, since
     /// tmux hands a released lock to whichever queued client is still alive: the
     /// client keeps running, and a lock it goes on to acquire is released again
