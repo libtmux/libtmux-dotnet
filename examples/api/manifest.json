@@ -108,9 +108,6 @@
       "sourceFile": "examples/LibTmux.FSharp.Examples/Programs/FailureKinds.fs",
       "targets": [
         "T:LibTmux.FSharp.TmuxFailure",
-        "M:LibTmux.FSharp.TmuxFailure.|NotSent|_|(System.Exception)",
-        "M:LibTmux.FSharp.TmuxFailure.|Ran|_|(System.Exception)",
-        "M:LibTmux.FSharp.TmuxFailure.|MayHaveRun|_|(System.Exception)",
         "M:LibTmux.FSharp.Retry.ifNotSentAfter``1(System.Threading.CancellationToken,Microsoft.FSharp.Collections.FSharpList{System.TimeSpan},Microsoft.FSharp.Core.FSharpFunc{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}})",
         "M:LibTmux.FSharp.Options.get``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},LibTmux.TmuxOptions)",
         "M:LibTmux.FSharp.Options.set``1(System.Threading.CancellationToken,LibTmux.TmuxOptionKey{``0},``0,LibTmux.TmuxOptions)"
