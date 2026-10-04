@@ -319,6 +319,10 @@ public sealed class PushdownDifferentialTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+
+        // The first pane runs the login shell, whose startup output can still
+        // be scrolling when the snapshot is taken; sh prints only a prompt.
+        await raw.ExecuteAsync(["respawn-pane", "-k", "-t", raw.SessionName, "sh"], token);
         await raw.ExecuteAsync(["set-option", "-g", "automatic-rename", "off"], token);
         await raw.ExecuteAsync(["new-session", "-d", "-s", "flags", "-n", "modes", "-x", "120", "-y", "40", "sh"], token);
         await raw.ExecuteAsync(["split-window", "-d", "-t", "flags:modes", "sh"], token);
@@ -345,8 +349,9 @@ public sealed class PushdownDifferentialTests
         // tmux takes the exit status from SIGCHLD. Before 3.6, a tmux built
         // with utempter can lose that signal while it removes the pane's utmp
         // record, and collects the status only when another child exits, so
-        // each look runs one.
-        await ReportsAsync(raw, dead, "#{==:#{pane_dead_status},3}", token, ["run-shell", "true"]);
+        // each look starts one. In the background, because a job whose own
+        // signal is lost would hold a waiting client until the next one.
+        await ReportsAsync(raw, dead, "#{==:#{pane_dead_status},3}", token, ["run-shell", "-b", "true"]);
         Server server = await ConnectAsync(raw, token);
         Server snapshot = await server.CaptureSnapshotAsync(SnapshotDepth.Panes, token);
         Pane[] panes = [.. snapshot.Panes];
