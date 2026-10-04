@@ -189,7 +189,7 @@ let private runAsync () =
             }
 
         match tour with
-        | Some(true, true, listing) when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
+        | Some(true, 0, listing) when listing |> Seq.exists (fun line -> line.Contains "usr") -> ()
         | unexpected -> failwithf "The README tour did not send, wait and run: %A" unexpected
 
         let! ownedCommands = GuideSnippets.readOwnedPaneCommandsAsync cancellationToken

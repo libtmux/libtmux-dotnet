@@ -55,7 +55,9 @@ let runInShellAsync (cancellationToken: CancellationToken) (server: Server) =
             // Run a command to its exit status and read what it printed.
             let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
 
-            return Some(ready.Found, listing.Succeeded, listing.Output)
+            match listing with
+            | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+            | _ -> return None // timed out, or the shell never ran it
     }
 ```
 <!-- endfsharp-snippet -->
@@ -65,7 +67,8 @@ cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
-the command's exit status and the lines it printed. `server` comes from
+the lines the command printed, and `PaneRun.Exited` matches a command that
+exited, with its status. `server` comes from
 `Server.connect` for a tmux already running, or from `Server.createOwned`,
 which the quick start below uses to run these steps on an isolated server.
 

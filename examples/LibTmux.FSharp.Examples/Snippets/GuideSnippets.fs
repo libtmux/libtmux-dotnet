@@ -54,7 +54,9 @@ module internal GuideSnippets =
                 // Run a command to its exit status and read what it printed.
                 let! listing = pane |> Pane.run cancellationToken (TimeSpan.FromSeconds 30.) "ls /"
 
-                return Some(ready.Found, listing.Succeeded, listing.Output)
+                match listing with
+                | PaneRun.Exited status -> return Some(ready.Found, status, listing.Output)
+                | _ -> return None // timed out, or the shell never ran it
         }
     // endfsharp-snippet
 
