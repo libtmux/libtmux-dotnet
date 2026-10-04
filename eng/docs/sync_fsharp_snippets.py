@@ -19,7 +19,9 @@ import typing as t
 
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
-SNIPPETS = REPOSITORY / "examples"
+# Guide blocks are compiled where they live: the examples, and the F# tests
+# for blocks that need a test framework.
+SNIPPETS = (REPOSITORY / "examples", REPOSITORY / "tests" / "LibTmux.FSharp.Tests")
 MANIFEST = REPOSITORY / "examples" / "api" / "manifest.json"
 DOCUMENTS = (
     REPOSITORY / "src" / "LibTmux.FSharp" / "README.md",
@@ -32,7 +34,7 @@ REGION = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 ANCHOR = re.compile(
-    r"(?P<open><!-- fsharp-snippet: (?P<name>\S+)(?P<run>[ \t]+run)? -->\n)"
+    r"(?P<open><!-- fsharp-snippet: (?P<name>\S+)(?P<flag>[ \t]+(?:run|tested))? -->\n)"
     r"(?P<body>.*?)"
     r"(?P<close><!-- endfsharp-snippet -->)",
     re.DOTALL,
@@ -56,10 +58,11 @@ def recorded_outputs(manifest: pathlib.Path) -> dict[str, str]:
     }
 
 
-def read_regions(sources: pathlib.Path) -> dict[str, str]:
+def read_regions(sources: pathlib.Path | t.Sequence[pathlib.Path]) -> dict[str, str]:
     """Return the compiled F# source blocks keyed by their published names."""
+    roots = [sources] if isinstance(sources, pathlib.Path) else list(sources)
     regions: dict[str, str] = {}
-    for path in sorted(sources.rglob("*.fs")):
+    for path in sorted(path for root in roots for path in root.rglob("*.fs")):
         for match in REGION.finditer(path.read_text(encoding="utf-8")):
             name = match.group("name")
             if name in regions:
@@ -81,7 +84,7 @@ def materialize(text: str, regions: dict[str, str], used: list[str]) -> str:
         if name not in regions:
             return match.group(0)
         used.append(name)
-        rendered = render(name, bool(match.group("run")), regions)
+        rendered = render(name, (match.group("flag") or "").strip() == "run", regions)
         return f"{match.group('open')}{rendered}{match.group('close')}"
 
     return ANCHOR.sub(replace, text)
@@ -113,7 +116,7 @@ def validate_fences(path: pathlib.Path, text: str) -> list[str]:
 
 
 def run(
-    sources: pathlib.Path,
+    sources: pathlib.Path | t.Sequence[pathlib.Path],
     documents: t.Iterable[pathlib.Path],
     *,
     check: bool,

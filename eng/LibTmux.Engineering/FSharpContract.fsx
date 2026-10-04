@@ -76,21 +76,25 @@ let documentationContracts =
             |> Seq.sort
             |> Seq.toList)
 
+    // A block marked tested is compiled and run by the F# tests, which give
+    // it the test framework this check does not reference.
     let fences path =
         Regex.Matches(
             File.ReadAllText(path),
-            "```fsharp(?:[ \\t]+run)?\\r?\\n(?<source>.*?)```",
+            "(?<tested><!-- fsharp-snippet: \\S+ tested -->\\r?\\n)?```fsharp(?:[ \\t]+run)?\\r?\\n(?<source>.*?)```",
             RegexOptions.Singleline
         )
+        |> Seq.filter (fun fence -> not fence.Groups["tested"].Success)
+        |> Seq.toArray
 
-    if (fences readme).Count = 0 then
+    if (fences readme).Length = 0 then
         invalidOp $"The F# README has no F# fences: {readme}."
 
     [
         for path in sources do
             let documentFences = fences path
 
-            for index in 0 .. documentFences.Count - 1 do
+            for index in 0 .. documentFences.Length - 1 do
                 {
                     Name =
                         if path = readme && index = 0 then

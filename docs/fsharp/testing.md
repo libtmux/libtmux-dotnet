@@ -44,9 +44,74 @@ let greetingAsync (cancellationToken: CancellationToken) =
 ```
 <!-- endfsharp-snippet -->
 
-A test asserts on what this returns, in any test framework. With xUnit, bind
-`let! greeting = greetingAsync cancellationToken` and check
-`Assert.Equal<string list>([ "hello" ], greeting)`.
+A test asserts on what this returns, in any test framework.
+
+## One server for a test class
+
+Starting a server for every test costs a few tens of milliseconds each. With
+xUnit, a class fixture starts one for a test class and stops it after the
+class's last test; each test splits a shell of its own, so tests that run in
+any order do not read each other's output. This one runs in the library's own
+F# tests:
+
+<!-- fsharp-snippet: XunitClassFixture tested -->
+```fsharp
+open System
+open System.Threading.Tasks
+open LibTmux
+open LibTmux.FSharp
+open LibTmux.Testing
+open Xunit
+
+/// Starts one private tmux server for a test class, and stops it after the class's last test.
+type TmuxFixture() =
+    let mutable scope: TemporaryHierarchyScope option = None
+
+    member _.Pane =
+        match scope with
+        | Some started -> started.Pane
+        | None -> invalidOp "The tmux fixture has not started."
+
+    interface IAsyncLifetime with
+        member _.InitializeAsync() =
+            ValueTask(
+                task {
+                    let! started =
+                        TmuxTestFactory()
+                            .CreateHierarchyAsync(cancellationToken = TestContext.Current.CancellationToken)
+
+                    scope <- Some started
+                }
+            )
+
+    interface IAsyncDisposable with
+        member _.DisposeAsync() =
+            match scope with
+            | Some started -> started.DisposeAsync()
+            | None -> ValueTask.CompletedTask
+
+// Each test splits a shell of its own from the fixture's pane, so tests
+// that run in any order do not read each other's output.
+type ShellTests(fixture: TmuxFixture) =
+    interface IClassFixture<TmuxFixture>
+
+    [<Fact>]
+    member _.``a command run in its own shell returns what it printed``() =
+        task {
+            let cancellationToken = TestContext.Current.CancellationToken
+
+            let! shell =
+                fixture.Pane
+                |> Pane.split cancellationToken (SplitPaneRequest(Command = "/bin/sh"))
+
+            let! result =
+                shell
+                |> Pane.run cancellationToken (TimeSpan.FromSeconds 10.) "printf 'hello\\n'"
+
+            Assert.Equal<string list>([ "hello" ], List.ofSeq result.Output)
+        }
+```
+<!-- endfsharp-snippet -->
 
 `CreateServerAsync`, `CreateSessionAsync` and `CreateWindowAsync` create less
 when a test needs less, and `TmuxNameGenerator` hands out session and window
