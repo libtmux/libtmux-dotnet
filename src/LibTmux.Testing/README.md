@@ -26,7 +26,8 @@ failure, so a test that throws does not leave a server behind.
 using LibTmux.Testing;
 
 var factory = new TmuxTestFactory();
-await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync();
+await using TemporaryHierarchyScope scope =
+    await factory.CreateHierarchyAsync();
 
 await scope.Pane.SendTextAsync("echo hello");
 ```
