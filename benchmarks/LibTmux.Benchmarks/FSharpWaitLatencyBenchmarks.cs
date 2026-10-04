@@ -10,7 +10,7 @@ namespace LibTmux.Benchmarks;
 /// Each operation types a command into a shell and returns once its output is
 /// on the pane, printed at once or after a delay. <c>Pane.sendAndWait</c>
 /// sleeps on the pane's output through a control client it attaches for the
-/// wait. The polling route captures the screen every 50 ms until the output
+/// wait, or through one <c>Session.holdWaitClient</c> keeps attached. The polling route captures the screen every 50 ms until the output
 /// shows, as Python libtmux's <c>retry_until</c> does by default, since Python
 /// libtmux has no wait of its own; output already there is its best case. A
 /// delayed command sleeps 0 to 40 ms longer in turn, so the polls land at
@@ -29,11 +29,24 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
 
     private TemporaryServerScope? _scope;
     private Pane _pane = null!;
+    private IAsyncDisposable? _held;
     private int _marks;
 
     /// <summary>How long the command sleeps before printing, in milliseconds, before the spread.</summary>
     [Params(0, 250)]
     public int DelayMs { get; set; }
+
+    /// <summary>Starts a shell, holds the session's wait client, and checks the held route sees output.</summary>
+    [GlobalSetup(Target = nameof(WaitHoldingClient))]
+    public async Task SetupHolding()
+    {
+        await Setup().ConfigureAwait(false);
+        _held = await LibTmux.FSharp.Session.holdWaitClient(CancellationToken.None, _pane.Session).ConfigureAwait(false);
+        if (!await WaitHoldingClient().ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("The held route ended without seeing the command's output.");
+        }
+    }
 
     /// <summary>Starts a shell and checks both routes see a command's output.</summary>
     [GlobalSetup]
@@ -63,6 +76,11 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
     [GlobalCleanup]
     public async ValueTask DisposeAsync()
     {
+        if (_held is not null)
+        {
+            await _held.DisposeAsync().ConfigureAwait(false);
+        }
+
         if (_scope is not null)
         {
             await _scope.DisposeAsync().ConfigureAwait(false);
@@ -103,6 +121,11 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
             .ConfigureAwait(false);
         return result.Found;
     }
+
+    /// <summary>The same wait, while <c>Session.holdWaitClient</c> keeps its control client attached.</summary>
+    /// <returns>Whether the output arrived within the budget.</returns>
+    [Benchmark]
+    public Task<bool> WaitHoldingClient() => WaitForOutput();
 
     private string NextMarker() => $"mark-{++_marks}-done";
 
