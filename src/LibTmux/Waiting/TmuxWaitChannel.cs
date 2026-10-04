@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 
 namespace LibTmux;
@@ -13,10 +14,10 @@ namespace LibTmux;
 /// each timed-out retry leaves another corpse to destroy the one after that.
 /// </para>
 /// <para>
-/// So this never abandons a live waiter. <see cref="WaitAsync" /> returning
-/// false means that attempt expired without observing completion. The open
-/// wait remains owned and may already have completed from a racing signal.
-/// Disposing ends its lifetime deliberately.
+/// <see cref="WaitAsync" /> returning false means that attempt expired without
+/// observing completion. The open wait remains owned and may already have
+/// completed from a racing signal. Closing attempts withdrawal before ending
+/// the local client; failed withdrawal leaves remote registration unknown.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -24,8 +25,11 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 {
     private readonly object _disposeGate = new();
     private readonly Server _server;
+    private readonly CancellationTokenSource _waiterLifetime = new();
     private readonly Task _waiter;
     private Task? _disposeTask;
+    private CancellationTokenSource? _closeLifetime;
+    private CancellationToken _closeCallerCancellation;
     private int _disposed;
     private bool _withdrew;
 
@@ -36,11 +40,10 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
         _server = server;
         Channel = channel;
 
-        // Deliberately unbound to any caller's token: the waiter outlives every
-        // individual attempt, and only Dispose withdraws it.
+        // Individual attempts borrow this lifetime; only close cancels it.
         _waiter = server.WaitForAsync(
             new WaitForRequest(channel, TmuxWaitMode.Wait),
-            CancellationToken.None);
+            _waiterLifetime.Token);
     }
 
     /// <summary>Gets the channel being waited on.</summary>
@@ -93,6 +96,36 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     internal Task WaitUntilSignalledAsync(CancellationToken cancellationToken) =>
         _waiter.WaitAsync(cancellationToken);
 
+    /// <summary>Withdraws the waiter and ends its owned client lifetime.</summary>
+    /// <param name="cancellationToken">Ends the shared withdrawal attempt early.</param>
+    /// <returns>The shared close operation, including owned local cleanup.</returns>
+    /// <remarks>
+    /// Withdrawal has a one-second deadline. Cancellation or failed withdrawal
+    /// leaves the remote registration unknown and is reported after local cleanup.
+    /// Concurrent callers share this lifetime; cancelling one closes it for all.
+    /// </remarks>
+    public ValueTask CloseAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is null)
+            {
+                Interlocked.Exchange(ref _disposed, 1);
+                _closeLifetime = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    CancelClose(cancellationToken);
+                }
+
+                _disposeTask = CloseCoreAsync(_closeLifetime);
+            }
+
+            return cancellationToken.CanBeCanceled
+                ? new ValueTask(JoinCloseAsync(_disposeTask, cancellationToken))
+                : new ValueTask(_disposeTask);
+        }
+    }
+
     /// <summary>Withdraws the waiter from tmux.</summary>
     /// <remarks>
     /// <para>
@@ -114,40 +147,111 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
     /// </para>
     /// <para>
     /// A wait that did not dispatch or returned a command failure never
-    /// registered, so disposal does not signal it. Command failures and
-    /// cancellation remain cleanup-only; other failures remain observable.
+    /// registered, so disposal does not signal it. Close uses a one-second
+    /// withdrawal deadline, then ends the owned local client. Failed withdrawal
+    /// reports unknown remote registration; unrelated waiter failures remain observable.
     /// </para>
     /// </remarks>
-    public ValueTask DisposeAsync()
+    public ValueTask DisposeAsync() => CloseAsync();
+
+    private async Task JoinCloseAsync(Task closing, CancellationToken cancellationToken)
+    {
+        using CancellationTokenRegistration registration = cancellationToken.Register(
+            () => CancelClose(cancellationToken));
+        await closing.ConfigureAwait(false);
+    }
+
+    private void CancelClose(CancellationToken cancellationToken)
     {
         lock (_disposeGate)
         {
-            if (_disposeTask is null)
+            if (_closeLifetime is not null)
             {
-                Interlocked.Exchange(ref _disposed, 1);
-                _disposeTask = DisposeCoreAsync();
-            }
+                if (!_closeCallerCancellation.CanBeCanceled)
+                {
+                    _closeCallerCancellation = cancellationToken;
+                }
 
-            return new ValueTask(_disposeTask);
+                _closeLifetime.Cancel();
+            }
         }
     }
 
-    private async Task DisposeCoreAsync()
+    private async Task CloseCoreAsync(CancellationTokenSource lifetime)
     {
-        if (WaitMayRemainRegistered())
+        Exception? withdrawalFailure = null;
+        Exception? waiterFailure = null;
+        CancellationToken callerCancellation;
+        bool deadlineExpired;
+        try
         {
-            _withdrew = true;
-            try
+            if (WaitMayRemainRegistered())
             {
-                await _server.WaitForAsync(
-                        new WaitForRequest(Channel, TmuxWaitMode.Signal),
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
+                _withdrew = true;
+                try
+                {
+                    await _server.WaitForAsync(
+                            new WaitForRequest(Channel, TmuxWaitMode.Signal),
+                            lifetime.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception failure)
+                {
+                    withdrawalFailure = failure;
+                }
             }
-            catch (TmuxCommandException)
+        }
+        finally
+        {
+            waiterFailure = await EndOwnedWaiterAsync().ConfigureAwait(false);
+            lock (_disposeGate)
             {
-                // The server is gone, which withdraws every waiter it held.
+                callerCancellation = _closeCallerCancellation;
+                deadlineExpired = lifetime.IsCancellationRequested;
+                _closeLifetime = null;
             }
+
+            lifetime.Dispose();
+            _waiterLifetime.Dispose();
+        }
+
+        if (withdrawalFailure is not null)
+        {
+            const string Message = "The wait channel could not be withdrawn; the remote wait registration is unknown.";
+            Exception cause = waiterFailure is null ? withdrawalFailure : new AggregateException(withdrawalFailure, waiterFailure);
+            if (withdrawalFailure is OperationCanceledException)
+            {
+                if (callerCancellation.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(Message, cause, callerCancellation);
+                }
+
+                if (deadlineExpired)
+                {
+                    throw new TimeoutException(Message, cause);
+                }
+            }
+
+            throw new TmuxTransportException(Message, ["wait-for", "-S", Channel], TmuxDispatchState.Unknown, cause);
+        }
+
+        if (waiterFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(waiterFailure).Throw();
+        }
+    }
+
+    private async Task<Exception?> EndOwnedWaiterAsync()
+    {
+        bool wasPending = !_waiter.IsCompleted;
+        Exception? failure = null;
+        try
+        {
+            await _waiterLifetime.CancelAsync().ConfigureAwait(false);
+        }
+        catch (Exception cancellationFailure)
+        {
+            failure = cancellationFailure;
         }
 
         try
@@ -156,12 +260,24 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
         }
         catch (TmuxCommandException)
         {
-            // Disposal reports nothing; the waiter's outcome stopped mattering.
+            // A command failure did not leave a registered waiter.
         }
-        catch (OperationCanceledException)
+        catch (StaleServerGenerationException)
         {
-            // Same: the wait is being withdrawn, not observed.
+            // The generation guard rejected the command before registration.
         }
+        catch (OperationCanceledException cancellation) when (wasPending
+            && _waiterLifetime.IsCancellationRequested
+            && (cancellation.CancellationToken == _waiterLifetime.Token || cancellation is TmuxOperationCanceledException))
+        {
+            // Only cancellation of the owned client is cleanup-only.
+        }
+        catch (Exception waiterFailure)
+        {
+            failure = failure is null ? waiterFailure : new AggregateException(failure, waiterFailure);
+        }
+
+        return failure;
     }
 
     private bool WaitMayRemainRegistered()
@@ -183,6 +299,7 @@ public sealed class TmuxWaitChannel : IAsyncDisposable
 
         Exception failure = _waiter.Exception!.GetBaseException();
         return failure is not TmuxCommandException
+            && failure is not StaleServerGenerationException
             && failure is not LibTmuxException
             {
                 Dispatch: TmuxDispatchState.NotDispatched,

@@ -25,16 +25,20 @@ internal static class McpPaneReader
         CancellationToken cancellationToken) =>
         PaneReader.ReadSinceAsync(pane, cursor, Failure, cancellationToken);
 
-    internal static McpException Failure(PaneReadFailure failure, Pane pane) => new(
-        failure switch
-        {
-            PaneReadFailure.Dead => $"Pane {pane.Id} is dead: the program in it has exited. "
-                + "Use respawn_pane to start it again.",
-            PaneReadFailure.Unstable => $"Pane {pane.Id} changed during every snapshot attempt. Try again when "
-                + "its output is less busy.",
-            PaneReadFailure.Replaced => $"Pane {pane.Id} is running a different process than when the cursor was "
-                + "issued, so there is nothing to continue from. Call capture_since "
-                + "again without a cursor.",
-            _ => $"tmux did not report the state of pane {pane.Id}. It may have just closed.",
-        });
+    internal static McpException Failure(PaneReadFailure failure, Pane pane) =>
+        failure == PaneReadFailure.Unstable
+            ? new UnstableSnapshotException(pane.Id)
+            : new McpException(failure switch
+            {
+                PaneReadFailure.Dead => $"Pane {pane.Id} is dead: the program in it has exited. "
+                    + "Use respawn_pane to start it again.",
+                PaneReadFailure.Replaced => $"Pane {pane.Id} is running a different process than when the cursor was "
+                    + "issued, so there is nothing to continue from. Call capture_since "
+                    + "again without a cursor.",
+                _ => $"tmux did not report the state of pane {pane.Id}. It may have just closed.",
+            });
+
+    internal sealed class UnstableSnapshotException(PaneId paneId)
+        : McpException($"Pane {paneId} changed during every snapshot attempt. Try again when "
+            + "its output is less busy.");
 }

@@ -12,8 +12,8 @@ public sealed partial class Server
 
     /// <summary>Lists the objects a request describes.</summary>
     /// <remarks>
-    /// A filter that needs a relation reads a snapshot of only the session
-    /// subtrees tmux keeps, at the depth the recheck reads.
+    /// Downward relations acquire complete session subtrees. Linked-session
+    /// predicates acquire all sessions before selecting matching placements.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     internal async Task<IReadOnlyList<T>> QueryAsync<T>(
@@ -44,18 +44,20 @@ public sealed partial class Server
         }
 
         SnapshotDepth required = request.Filter?.RequiredSnapshotDepth ?? SnapshotDepth.Server;
-        if (required <= ListedDepth(request.Target))
+        bool graph = request.Filter is { } document && UsesRelation(document.Predicate);
+        if (!graph && required <= ListedDepth(request.Target))
         {
             IReadOnlyList<T> listed = await owner.ListAsync<T>(request, narrowed, cancellationToken)
                 .ConfigureAwait(false);
             return [.. listed.Where(keep)];
         }
 
-        // Only sessions and windows hold relations. The snapshot keeps whole
-        // session subtrees, so a raw filter, written for the target's own
-        // rows, is answered by a listing of its own and intersected.
-        string? scope = request.Session is { } session ? $"#{{==:#{{session_id}},{session}}}" : null;
-        string? lifted = Lift(typed, request.Target);
+        // A linked-session relation can leave the requested session subtree.
+        // Capture that graph in full, then restrict result membership locally.
+        bool linked = request.Filter is { } linkedDocument
+            && UsesRelation(linkedDocument.Predicate, "window_linked_sessions");
+        string? scope = !linked && request.Session is { } session ? $"#{{==:#{{session_id}},{session}}}" : null;
+        string? lifted = linked || request.Target == QueryTarget.Pane ? null : Lift(typed, request.Target);
         if (lifted is not null)
         {
             // tmux runs a relation filter's window and pane loops for every row
@@ -80,14 +82,20 @@ public sealed partial class Server
         Server captured = await owner
             .CaptureSnapshotAsync(required, TimeProvider.System, scope, cancellationToken)
             .ConfigureAwait(false);
-        HashSet<string>? kept = raw is null
+        // A window-id pane target selects one placement, not every linked
+        // placement. Keep the original listing's keys and its native filters.
+        string? membershipFilter = And(screen, raw);
+        HashSet<string>? kept = membershipFilter is null && request.Window is null
             ? null
-            : [.. (await owner.ListAsync<T>(request, raw, cancellationToken).ConfigureAwait(false)).Select(Key)];
+            : [.. (await owner.ListAsync<T>(request, membershipFilter, cancellationToken).ConfigureAwait(false)).Select(Key)];
         IEnumerable<T> candidates = request.Target switch
         {
             QueryTarget.Session => captured.Sessions.Cast<T>(),
             QueryTarget.Window => captured.Windows
                 .Where(window => request.Session is null || window.Edge.SessionId == request.Session)
+                .Cast<T>(),
+            QueryTarget.Pane => captured.Panes
+                .Where(pane => request.Session is null || pane.Window.Edge.SessionId == request.Session)
                 .Cast<T>(),
             _ => throw new InvalidOperationException($"A {request.Target} listing has no relations to capture."),
         };
@@ -107,10 +115,12 @@ public sealed partial class Server
         return [.. rows.Select(row => Materialize<T>(this, request.Target, row))];
     }
 
+    [UnsupportedOSPlatform("windows")]
     private static string Key<T>(T item) => item switch
     {
         Session session => session.Id.ToString(),
         Window window => $"{window.Edge.SessionId}:{window.Edge.WindowIndex}:{window.Id}",
+        Pane pane => $"{pane.Window.EntityKey}:{pane.Id}",
         _ => throw new InvalidOperationException($"A {typeof(T).Name} has no listing key."),
     };
 
@@ -161,6 +171,21 @@ public sealed partial class Server
         QueryTarget.Window => SnapshotDepth.Windows,
         QueryTarget.Pane => SnapshotDepth.Panes,
         _ => SnapshotDepth.Sessions,
+    };
+
+    private static bool UsesRelation(QueryNode node, string? wireName = null) => node switch
+    {
+        FieldNode field => QueryFieldCatalog.IsRelation(field.WireName)
+            && (wireName is null || field.WireName == wireName),
+        AndNode and => and.Operands.Any(operand => UsesRelation(operand, wireName)),
+        OrNode or => or.Operands.Any(operand => UsesRelation(operand, wireName)),
+        NotNode not => UsesRelation(not.Operand, wireName),
+        ComparisonNode comparison => UsesRelation(comparison.Left, wireName) || UsesRelation(comparison.Right, wireName),
+        StringNode text => UsesRelation(text.Left, wireName) || UsesRelation(text.Right, wireName),
+        RegexNode regex => UsesRelation(regex.Input, wireName),
+        QuantifierNode quantifier => UsesRelation(quantifier.Relation, wireName) || UsesRelation(quantifier.Predicate, wireName),
+        RelatedNode related => UsesRelation(related.Relation, wireName) || UsesRelation(related.Predicate, wireName),
+        _ => false,
     };
 
     // A session keeps its subtree when one of its windows matches.

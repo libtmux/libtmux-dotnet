@@ -8,6 +8,105 @@ namespace LibTmux.UnitTests.ControlMode;
 [UnsupportedOSPlatform("windows")]
 public sealed class ControlModeSessionFailureTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Startup_terminal_diagnostics_wait_for_complete_stderr(bool rawEof)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new TerminalWhileRunningProcess(ready: false);
+        var session = new ControlModeSession(process);
+        if (rawEof)
+        {
+            process.EndOutput();
+        }
+        else
+        {
+            process.Exit("diagnostic-early-exit");
+        }
+
+        Exception original = (await Record.ExceptionAsync(() => session.WaitForReadyAsync(token)))!;
+        Assert.NotNull(original);
+        Task<Exception> capture = session.EnrichStartupFailureAsync(original, token);
+        Assert.False(capture.IsCompleted);
+        await process.DiagnosticsRequested.Task.WaitAsync(token);
+        process.CompleteDiagnostics(new ControlModeExitDiagnostics(37, "complete-stderr-marker", true));
+        Exception enriched = await capture.WaitAsync(token);
+
+        Assert.Same(original, enriched.InnerException);
+        Assert.Contains("Exit code: 37", enriched.Message, StringComparison.Ordinal);
+        Assert.Contains("complete-stderr-marker", enriched.Message, StringComparison.Ordinal);
+        Assert.True((bool)enriched.Data["LibTmux.ControlModeStandardErrorComplete"]!);
+        if (rawEof)
+        {
+            Assert.IsType<EndOfStreamException>(enriched);
+            Assert.Contains("without an %exit notification", enriched.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.IsType<InvalidOperationException>(enriched);
+            Assert.Contains("diagnostic-early-exit", enriched.Message, StringComparison.Ordinal);
+        }
+
+        Exception? cleanup = await Record.ExceptionAsync(() => session.DisposeAsync().AsTask());
+        if (rawEof)
+        {
+            Assert.Same(original, cleanup);
+        }
+        else
+        {
+            Assert.Null(cleanup);
+        }
+
+        Assert.True(process.DisposeCalled);
+    }
+
+    [Fact]
+    public async Task Caller_cancellation_skips_terminal_diagnostic_waits()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using var canceled = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var process = new TerminalWhileRunningProcess(ready: false);
+        var session = new ControlModeSession(process);
+        Task ready = session.WaitForReadyAsync(canceled.Token);
+        canceled.Cancel();
+        OperationCanceledException original = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await ready);
+
+        Assert.Same(original, await session.EnrichStartupFailureAsync(original, canceled.Token));
+        Assert.False(process.DiagnosticsRequested.Task.IsCompleted);
+        await session.DisposeAsync();
+        Assert.True(process.DisposeCalled);
+    }
+
+    [Fact]
+    public async Task Caller_cancellation_during_diagnostics_preserves_cancellation_and_cleanup()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using var canceled = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var process = new TerminalWhileRunningProcess(ready: false);
+        var session = new ControlModeSession(process);
+        process.Exit("diagnostic-early-exit");
+        Exception original = (await Record.ExceptionAsync(() => session.WaitForReadyAsync(token)))!;
+        Task<Exception> capture = session.EnrichStartupFailureAsync(original, canceled.Token);
+        await process.DiagnosticsRequested.Task.WaitAsync(token);
+        canceled.Cancel();
+
+        try
+        {
+            OperationCanceledException reported = Assert.IsAssignableFrom<OperationCanceledException>(
+                await capture.WaitAsync(token));
+            Assert.Equal(canceled.Token, reported.CancellationToken);
+            Assert.Same(original, reported.InnerException);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
+
+        Assert.True(process.DisposeCalled);
+    }
+
     [Fact]
     public async Task A_faulted_pump_cannot_skip_process_and_write_lock_disposal()
     {
@@ -383,6 +482,31 @@ public sealed class ControlModeSessionFailureTests
         Assert.True(process.DisposeCalled);
     }
 
+    [Fact]
+    public async Task A_byte_limited_event_burst_does_not_block_a_reply_or_exit()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        const int NotificationCount = 568;
+        var process = new BurstOutputProcess(NotificationCount);
+        var session = new ControlModeSession(process, eventBufferMaxBytes: 7);
+        await session.WaitForReadyAsync(token);
+
+        IReadOnlyList<string> reply = await session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "reply"), token);
+        await session.DisposeAsync();
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent item in session.Events.WithCancellation(token))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal(["reply-ok"], reply);
+        Assert.Equal(new TmuxEventsDroppedEvent(NotificationCount, NotificationCount), observed[0]);
+        Assert.Equal(new TmuxExitEvent("done"), observed[1]);
+        Assert.Equal(2, observed.Count);
+        Assert.True(process.DisposeCalled);
+    }
+
     [Theory]
     [InlineData(DispatchFailurePoint.PartialWrite)]
     [InlineData(DispatchFailurePoint.Flush)]
@@ -726,17 +850,34 @@ public sealed class ControlModeSessionFailureTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _terminalRead = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<ControlModeExitDiagnostics> _diagnostics = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly bool _endDuringFinalCheck;
         private int _hasExitedReads;
 
-        internal TerminalWhileRunningProcess(bool endDuringFinalCheck = false)
+        internal TerminalWhileRunningProcess(bool endDuringFinalCheck = false, bool ready = true)
         {
             _endDuringFinalCheck = endDuringFinalCheck;
-            _output.Writer.TryWrite("%begin 1 1 0");
-            _output.Writer.TryWrite("%end 1 1 0");
+            if (ready)
+            {
+                _output.Writer.TryWrite("%begin 1 1 0");
+                _output.Writer.TryWrite("%end 1 1 0");
+            }
         }
 
         internal bool DisposeCalled { get; private set; }
+
+        internal TaskCompletionSource DiagnosticsRequested { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal void CompleteDiagnostics(ControlModeExitDiagnostics diagnostics) =>
+            _diagnostics.TrySetResult(diagnostics);
+
+        public async Task<ControlModeExitDiagnostics> ReadExitedDiagnosticsAsync(CancellationToken cancellationToken)
+        {
+            DiagnosticsRequested.TrySetResult();
+            return await _diagnostics.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         internal TaskCompletionSource Flushed { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);

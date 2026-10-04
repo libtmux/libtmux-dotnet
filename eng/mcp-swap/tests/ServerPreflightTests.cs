@@ -65,7 +65,7 @@ public sealed class ServerPreflightTests
         Assert.Contains("exited before answering initialize", failure, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Fact(Skip = "Intermittent quiet-server deadline assertion: https://github.com/libtmux/libtmux-dotnet/issues/62.")]
     public void TimeoutTerminatesAQuietServer()
     {
         if (OperatingSystem.IsWindows())

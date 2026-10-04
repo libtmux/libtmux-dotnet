@@ -47,6 +47,7 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
     private readonly Task _pump;
     private Task? _disposeTask;
     private int _stopRequested;
+    private StartupTerminal? _startupTerminal;
 
     /// <summary>How long disposal awaits cleanup work.</summary>
     /// <remarks>
@@ -63,12 +64,15 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         Func<string>? sentinelFactory = null,
         ControlModeLimits? limits = null,
         TimeProvider? timeProvider = null,
-        int? eventBufferCapacity = null)
+        int? eventBufferCapacity = null,
+        int? eventBufferMaxBytes = null)
     {
         _process = process ?? throw new ArgumentNullException(nameof(process));
         int capacity = eventBufferCapacity ?? EventBufferCapacity;
         _flow = new ControlModePaneFlow(SendFlowCommandAsync, capacity);
-        _events = new ControlModeEventBuffer(capacity, _flow.Dequeued, _flow.OutputDiscarded);
+        _events = new ControlModeEventBuffer(
+            capacity, _flow.Dequeued, _flow.OutputDiscarded,
+            maxBytes: eventBufferMaxBytes ?? ControlModeEventBuffer.DefaultMaxBytes);
         _generation = generation;
         _limits = limits ?? new ControlModeLimits();
         _pendingSlots = new SemaphoreSlim(
@@ -102,7 +106,8 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
         string? target,
         ServerGeneration generation,
         Action<ProcessStartInfo> configureEnvironment,
-        int? eventBufferCapacity = null)
+        int? eventBufferCapacity = null,
+        int? eventBufferMaxBytes = null)
     {
         ProcessStartInfo startInfo = new(tmuxBinaryPath)
         {
@@ -139,12 +144,82 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
             new SystemControlModeProcess(process, limits),
             generation: generation,
             limits: limits,
-            eventBufferCapacity: eventBufferCapacity);
+            eventBufferCapacity: eventBufferCapacity,
+            eventBufferMaxBytes: eventBufferMaxBytes);
     }
 
     /// <summary>Waits until tmux has answered its own attach.</summary>
     internal Task WaitForReadyAsync(CancellationToken cancellationToken) =>
         _ready.Task.WaitAsync(cancellationToken);
+
+    internal async Task<Exception> EnrichStartupFailureAsync(
+        Exception startupFailure, CancellationToken cancellationToken)
+    {
+        StartupTerminal? terminal = Volatile.Read(ref _startupTerminal);
+        if (terminal is null || startupFailure is OperationCanceledException)
+        {
+            return startupFailure;
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new OperationCanceledException(
+                "Starting the tmux control client was canceled.", startupFailure, cancellationToken);
+        }
+
+        using var deadline = new CancellationTokenSource(_disposalBudget, _timeProvider);
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
+        ControlModeExitDiagnostics diagnostics;
+        try
+        {
+            diagnostics = await _process.ReadExitedDiagnosticsAsync(bounded.Token).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            diagnostics = new ControlModeExitDiagnostics(null, _process.StandardErrorTail, false, error);
+        }
+
+        string message = terminal.RawEof
+            ? "The tmux control stream ended without an %exit notification."
+            : "The tmux control client exited before it finished attaching.";
+        if (!terminal.RawEof && terminal.Reason is not null)
+        {
+            message += $"\nExit notification: {terminal.Reason}";
+        }
+
+        string code = diagnostics.ExitCode?.ToString(CultureInfo.InvariantCulture) ?? "unavailable";
+        message += $"\nExit code: {code}";
+        if (!diagnostics.StandardErrorComplete)
+        {
+            message += "\nStandard error: incomplete.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(diagnostics.StandardErrorTail))
+        {
+            message += $"\nStandard error:\n{diagnostics.StandardErrorTail.Trim()}";
+        }
+
+        Exception enriched = cancellationToken.IsCancellationRequested
+            ? new OperationCanceledException(
+                "Starting the tmux control client was canceled.", startupFailure, cancellationToken)
+            : terminal.RawEof
+                ? new EndOfStreamException(message, startupFailure)
+                : new InvalidOperationException(message, startupFailure);
+        foreach (object key in startupFailure.Data.Keys)
+        {
+            enriched.Data[key] = startupFailure.Data[key];
+        }
+
+        enriched.Data["LibTmux.ControlModeStandardErrorComplete"] = diagnostics.StandardErrorComplete;
+        if (diagnostics.Failure is not null)
+        {
+            enriched.Data["LibTmux.ControlModeDiagnosticsFailure"] = diagnostics.Failure;
+        }
+
+        return enriched;
+    }
+
+    private sealed record StartupTerminal(bool RawEof, string? Reason);
 
     internal async Task VerifyAttachedGenerationAsync(CancellationToken cancellationToken)
     {
@@ -553,6 +628,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
                 {
                     sawExit = true;
                     exitReason = arguments.Count == 0 ? null : string.Join(' ', arguments);
+                    if (!_ready.Task.IsCompleted)
+                    {
+                        Volatile.Write(ref _startupTerminal, new StartupTerminal(false, exitReason));
+                    }
+
                     break;
                 }
 
@@ -561,6 +641,11 @@ internal sealed class ControlModeSession : IControlModeSession, IControlModeEven
 
             if (!sawExit && Volatile.Read(ref _stopRequested) == 0)
             {
+                if (!_ready.Task.IsCompleted)
+                {
+                    Volatile.Write(ref _startupTerminal, new StartupTerminal(true, null));
+                }
+
                 throw new EndOfStreamException(WithStandardError(
                     "The tmux control stream ended without an %exit notification."));
             }

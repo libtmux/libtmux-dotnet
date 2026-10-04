@@ -1741,6 +1741,34 @@ public sealed class WriteToolsExecutionSafetyTests
     }
 
     [Fact]
+    public async Task Completed_run_keeps_input_reservation_until_its_output_is_captured()
+    {
+        await using var owner = new ToolFixture { BlockCaptureAttempt = 2 };
+        await using var contender = new ToolFixture();
+        Task<RunResult> running = owner.Capabilities.RunShellCommandAsync(
+            "echo owner",
+            "%1",
+            cancellationToken: TestContext.Current.CancellationToken);
+        await owner.CaptureBlocked.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            McpException refusal = await Assert.ThrowsAsync<McpException>(() =>
+                contender.Capabilities.SendKeysAsync(
+                    "taint output",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Contains("still active", refusal.Message, StringComparison.Ordinal);
+            Assert.Equal(0, contender.SuccessfulSends);
+        }
+        finally
+        {
+            owner.ReleaseCapture();
+            _ = await running;
+        }
+    }
+
+    [Fact]
     public async Task A_run_refuses_in_flight_input_through_another_binary_route()
     {
         await using var writer = new ToolFixture { BlockFirstSend = true };
@@ -1877,6 +1905,61 @@ public sealed class WriteToolsExecutionSafetyTests
         }
     }
 
+    [Fact]
+    public async Task Distinct_socket_endpoints_do_not_share_command_reservations()
+    {
+        string directory = SocketRoots.Reserve("distinct-runs");
+        string firstPath = Path.Combine(directory, "first.sock");
+        string secondPath = Path.Combine(directory, "second.sock");
+        Directory.CreateDirectory(directory);
+        using Socket firstEndpoint = CreateBoundSocket(firstPath);
+        using Socket secondEndpoint = CreateBoundSocket(secondPath);
+        try
+        {
+            await using var owner = new ToolFixture(socketPath: firstPath)
+            {
+                BlockFirstWait = true,
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: firstPath)],
+                ],
+            };
+            await using var independent = new ToolFixture(
+                socketPath: secondPath,
+                generation: new ServerGeneration(122, 1202))
+            {
+                PaneListings =
+                [
+                    [new PaneListingRow("%1", "0", "0", SocketPath: secondPath)],
+                ],
+            };
+            Task<RunResult> first = owner.Capabilities.RunShellCommandAsync(
+                "printf first",
+                "%1",
+                cancellationToken: TestContext.Current.CancellationToken);
+            await owner.FirstWaitStarted.WaitAsync(TestContext.Current.CancellationToken);
+            try
+            {
+                RunResult second = await independent.Capabilities.RunShellCommandAsync(
+                    "printf second",
+                    "%1",
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+                Assert.Equal(0, second.ExitStatus);
+                Assert.Equal(1, independent.SuccessfulSends);
+            }
+            finally
+            {
+                owner.ReleaseFirstWait();
+                _ = await first;
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData("send")]
     [InlineData("batch")]
@@ -1939,6 +2022,79 @@ public sealed class WriteToolsExecutionSafetyTests
 
         Assert.True(timedOut.TimedOut);
         await AssertReservedUntilCompletionAsync(owner, contender);
+    }
+
+    [Theory]
+    [InlineData("run")]
+    [InlineData("input")]
+    public async Task Mcp_reconciles_a_late_status_after_bounded_follow_stops(string next)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var generation = new ServerGeneration(121, DateTime.UtcNow.Ticks);
+        await using var owner = new ToolFixture(generation: generation)
+        {
+            TimeoutFirstWait = true,
+            StatusValue = null,
+        };
+        await using var contender = new ToolFixture(generation: generation);
+        Pane pane = await owner.GetPaneAsync(token);
+        PaneRunRegistry.PaneRunLease lease = PaneRunRegistry.Acquire(pane);
+        var unresolved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            PaneRunOutcome timedOut = await PaneRunner.RunAsync(
+                pane.Server,
+                pane,
+                PaneRunRoute.From(pane),
+                "printf 'late\\n'",
+                TimeSpan.FromMilliseconds(20),
+                suppressHistory: true,
+                statusMarkerLifetime: TimeSpan.FromMinutes(1),
+                new PaneRunHooks
+                {
+                    Completed = lease.Release,
+                    Unresolved = () => unresolved.TrySetResult(),
+                    FollowLimit = TimeSpan.FromMilliseconds(300),
+                },
+                McpPaneReader.Failure,
+                token);
+            Assert.True(timedOut.TimedOut);
+            await unresolved.Task.WaitAsync(TimeSpan.FromSeconds(1), token);
+
+            await AssertRunReservedAsync(contender);
+            McpException blocked = await Assert.ThrowsAsync<McpException>(() =>
+                contender.Capabilities.SendKeysAsync("blocked", "%1", cancellationToken: token));
+            Assert.Contains("still active", blocked.Message, StringComparison.Ordinal);
+            Assert.Equal(0, contender.SuccessfulSends);
+
+            owner.PublishStatus("0");
+            if (next == "run")
+            {
+                RunResult resumed = await contender.Capabilities.RunShellCommandAsync(
+                    "printf 'resumed\\n'", "%1", cancellationToken: token);
+                Assert.Equal(0, resumed.ExitStatus);
+            }
+            else
+            {
+                PaneInputResult resumed = await contender.Capabilities.SendKeysAsync(
+                    "resumed", "%1", cancellationToken: token);
+                Assert.Contains("Sent", resumed.Changed, StringComparison.Ordinal);
+            }
+
+            Assert.Equal(1, contender.SuccessfulSends);
+        }
+        finally
+        {
+            owner.CompleteTimedOutRun();
+            try
+            {
+                _ = await PaneRunner.TryReconcilePendingAsync(pane, CancellationToken.None);
+            }
+            finally
+            {
+                lease.Release();
+            }
+        }
     }
 
     // A wrapper hung up with its shell can record the status and die before
@@ -2314,7 +2470,7 @@ public sealed class WriteToolsExecutionSafetyTests
         await using var fixture = new ToolFixture();
         fixture.DestabilizeNextStateSamples(6);
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+        McpException failure = await Assert.ThrowsAsync<McpPaneReader.UnstableSnapshotException>(() =>
             fixture.Reads.TailPaneAsync(
                 paneId: "%1",
                 cancellationToken: TestContext.Current.CancellationToken));
@@ -2463,7 +2619,7 @@ public sealed class WriteToolsExecutionSafetyTests
         string[] staticRows =
         [.. Enumerable.Range(0, 40).Select(static index => $"static {index}")];
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1), AllowPollingFallback = true })
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
             StateSequence = [new StateSample(0, 50_000, 40, 0)],
@@ -2475,6 +2631,7 @@ public sealed class WriteToolsExecutionSafetyTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+        Assert.True(result.PollingFallback);
     }
 
     // A pane busy through every attempt of a read, such as one a progress bar
@@ -2484,7 +2641,7 @@ public sealed class WriteToolsExecutionSafetyTests
     {
         string[] staticRows = ["ALREADY_HERE_MARKER"];
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(2) })
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(2), AllowPollingFallback = true })
         {
             CaptureSequence = [staticRows],
         };
@@ -2512,20 +2669,25 @@ public sealed class WriteToolsExecutionSafetyTests
         bool sent = false;
 
         TmuxPaneException failure = await Assert.ThrowsAsync<TmuxPaneException>(() => PaneTextWaiter.WaitAsync(
-            pane,
             fixture.Activity,
-            static (_, _) => null,
-            TimeSpan.FromMilliseconds(100),
-            PaneReader.Failure,
+            pane,
+            (PaneWaitRequest.FromTextPatterns(["never"]) with
+            {
+                Timeout = TimeSpan.FromMilliseconds(100),
+                AllowPollingFallback = true,
+            }).Snapshot(),
+            matchLines: null,
+            tailLines: null,
             progress: null,
-            token,
-            _ =>
+            cancellationToken: token,
+            afterEntry: _ =>
             {
                 sent = true;
                 return Task.CompletedTask;
             }));
 
         Assert.Contains("every snapshot attempt", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(TmuxDispatchState.NotDispatched, failure.Dispatch);
         Assert.False(sent);
     }
 
@@ -2534,7 +2696,7 @@ public sealed class WriteToolsExecutionSafetyTests
     {
         string[] staticRows = ["ALREADY_HERE_MARKER"];
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) })
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1), AllowPollingFallback = true })
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
             StateSequence = [new StateSample(0, 50_000, 40, 0)],
@@ -2550,6 +2712,7 @@ public sealed class WriteToolsExecutionSafetyTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+        Assert.True(result.PollingFallback);
         Assert.Equal("ALREADY_HERE_MARKER", result.MatchedPattern);
         Assert.Contains("ALREADY_HERE_MARKER", result.Tail.Lines);
 
@@ -2568,7 +2731,7 @@ public sealed class WriteToolsExecutionSafetyTests
         // for "%1" under the default generation, which every other test in
         // this file that does not care about it also shares.
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1), AllowPollingFallback = true },
             generation: new ServerGeneration(121, 1_202))
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
@@ -2598,7 +2761,7 @@ public sealed class WriteToolsExecutionSafetyTests
         // A generation of its own, for the same reason as the sibling test
         // above: nothing else may have left this pane's echo record dirty.
         await using var fixture = new ToolFixture(
-            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1) },
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(1), AllowPollingFallback = true },
             generation: new ServerGeneration(121, 1_203))
         {
             CaptureSequence = [staticRows, staticRows, staticRows],
@@ -2647,7 +2810,7 @@ public sealed class WriteToolsExecutionSafetyTests
         await using var fixture = new ToolFixture();
         fixture.DestabilizeNextStateSamples(6);
 
-        McpException failure = await Assert.ThrowsAsync<McpException>(() =>
+        McpException failure = await Assert.ThrowsAsync<McpPaneReader.UnstableSnapshotException>(() =>
             fixture.Tools.RunAsync(
                 "echo never",
                 paneId: "%1",
@@ -2915,6 +3078,10 @@ public sealed class WriteToolsExecutionSafetyTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _statusUnsetObserved = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _captureBlocked = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseCapture = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal ToolFixture(
             ServerPolicy? policy = null,
@@ -2968,6 +3135,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal bool BlockFirstSend { get; init; }
 
         internal int? BlockPaneListingAttempt { get; init; }
+
+        internal int? BlockCaptureAttempt { get; init; }
 
         internal bool TimeoutFirstWait { get; init; }
 
@@ -3048,9 +3217,19 @@ public sealed class WriteToolsExecutionSafetyTests
 
         internal Task WaitSignalBlocked => _waitSignalBlocked.Task;
 
+        internal Task CaptureBlocked => _captureBlocked.Task;
+
         internal WriteTools Tools { get; }
 
         internal ReadTools Reads { get; }
+
+        internal async Task<Pane> GetPaneAsync(CancellationToken cancellationToken)
+        {
+            Server server = await _accessor.GetAsync(cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return await server.GetPaneAsync(new PaneId(1), cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         internal PaneActivityHub Activity => _activity;
 
@@ -3072,6 +3251,8 @@ public sealed class WriteToolsExecutionSafetyTests
         internal void ReleasePaneListing() => _releasePaneListing.TrySetResult();
 
         internal void ReleaseWaitSignal() => _releaseWaitSignal.TrySetResult();
+
+        internal void ReleaseCapture() => _releaseCapture.TrySetResult();
 
         internal void PublishStatus(string? status) => Volatile.Write(ref _statusValue, status);
 
@@ -3237,6 +3418,13 @@ public sealed class WriteToolsExecutionSafetyTests
                 _statusUnsetObserved.TrySetResult();
             }
 
+            if (arguments.Contains("capture-pane", StringComparer.Ordinal)
+                && BlockCaptureAttempt == Volatile.Read(ref _captureCount) + 1)
+            {
+                _captureBlocked.TrySetResult();
+                await _releaseCapture.Task.WaitAsync(cancellationToken);
+            }
+
             return Success(arguments, Output(arguments));
         }
 
@@ -3246,6 +3434,8 @@ public sealed class WriteToolsExecutionSafetyTests
                 ? PaneListing()
                 : arguments.Contains("list-clients", StringComparer.Ordinal)
                     ? ClientListing()
+                : IsTargetedPaneRead(arguments)
+                    ? TargetedPaneRead(arguments[^2])
                 : arguments.Any(static argument => argument.Contains(
                     "#{history_size}",
                     StringComparison.Ordinal))
@@ -3309,6 +3499,28 @@ public sealed class WriteToolsExecutionSafetyTests
             && arguments[0] == "display-message"
             && arguments[2] == "#{pid}:#{start_time}";
 
+        private static bool IsTargetedPaneRead(IReadOnlyList<string> arguments) =>
+            arguments.Count >= 5
+            && arguments[^5] == "display-message"
+            && arguments[^4] == "-p"
+            && arguments[^3] == "-t"
+            && arguments[^1] == FormatProjection.Create(
+                "list-panes",
+                TmuxVersion.Parse("3.7")).Template;
+
+        private string TargetedPaneRead(string target)
+        {
+            FormatProjection projection = FormatProjection.Create(
+                "list-panes",
+                TmuxVersion.Parse("3.7"));
+            int index = Math.Max(0, Volatile.Read(ref _paneListingCount) - 1);
+            IReadOnlyList<PaneListingRow> panes = PaneListings is { Count: > 0 } sequence
+                ? sequence[Math.Min(index, sequence.Count - 1)]
+                : [new PaneListingRow("%1", "0", "0")];
+            PaneListingRow? pane = panes.FirstOrDefault(row => row.Id == target);
+            return ProjectPaneRow(projection, pane) + "\n";
+        }
+
         private string PaneListing()
         {
             FormatProjection projection = FormatProjection.Create(
@@ -3318,9 +3530,22 @@ public sealed class WriteToolsExecutionSafetyTests
             IReadOnlyList<PaneListingRow> panes = PaneListings is { Count: > 0 } sequence
                 ? sequence[Math.Min(index, sequence.Count - 1)]
                 : [new PaneListingRow("%1", "0", "0")];
-            return string.Concat(panes.Select(pane => string.Concat(projection.Fields.Select(
-                field => FieldValue(field.WireName, pane) + FormatProjection.RowSeparator)) + "\n"));
+            return string.Concat(panes.Select(pane => ProjectPaneRow(projection, pane) + "\n"));
         }
+
+        private string ProjectPaneRow(FormatProjection projection, PaneListingRow? pane) =>
+            string.Concat(projection.Fields.Select(field =>
+                (pane is not null
+                    ? FieldValue(field.WireName, pane)
+                    : field.WireName switch
+                    {
+                        "pid" => _generation.ProcessId.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture),
+                        "start_time" => _generation.StartTime.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture),
+                        _ => string.Empty,
+                    })
+                + FormatProjection.RowSeparator));
 
         private string ClientListing()
         {

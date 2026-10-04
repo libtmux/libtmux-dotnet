@@ -22,9 +22,8 @@ namespace LibTmux.Internal;
 /// </para>
 /// <para>
 /// A control client sees only the session it attached to, so watches are per
-/// session and reference counted. Control mode is an optimisation, not a
-/// requirement: when a client cannot start, waiting falls back to polling and
-/// the caller cannot tell the difference except in cost.
+/// session and reference counted. Control mode is required unless an individual
+/// lease explicitly enables polling fallback; a lost stream wakes every waiter.
 /// </para>
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
@@ -37,11 +36,19 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     private readonly ConcurrentDictionary<string, byte> _ownedControlClientNames = new(StringComparer.Ordinal);
     private readonly ILogger? _logger;
     private readonly Func<Pane, CancellationToken, Task<IControlModeSession>>? _startPaneSession;
+    private readonly TimeProvider _timeProvider;
+    private readonly CancellationTokenSource _lifetime = new();
     private bool _disposed;
+
+    internal CancellationToken LifetimeToken => _lifetime.Token;
 
     /// <summary>Initializes the hub.</summary>
     /// <param name="logger">Records why a control client could not start.</param>
-    public PaneActivityHub(ILogger? logger = null) => _logger = logger;
+    public PaneActivityHub(ILogger? logger = null)
+    {
+        _logger = logger;
+        _timeProvider = TimeProvider.System;
+    }
 
     private const string PaneDeadSubscription = "libtmux-pane-dead";
 
@@ -51,11 +58,13 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
     internal PaneActivityHub(
         Func<Pane, CancellationToken, Task<IControlModeSession>> startPaneSession,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(startPaneSession);
         _startPaneSession = startPaneSession;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>Gets whether any session is currently watched through control mode.</summary>
@@ -85,6 +94,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         Volatile.Write(ref _disposed, true);
+        _lifetime.Cancel();
         foreach (KeyValuePair<SessionWatchKey, SessionWatch> entry in _watches)
         {
             await entry.Value.DisposeAsync().ConfigureAwait(false);
@@ -95,19 +105,24 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
     /// <summary>Watches a pane's session for as long as the result is held.</summary>
     /// <param name="pane">The pane whose session to watch.</param>
+    /// <param name="allowPollingFallback">Permits timed reads if the control stream is unavailable.</param>
     /// <param name="cancellationToken">Cancels starting the control client.</param>
     /// <returns>A lease that stops watching when disposed.</returns>
     /// <remarks>
-    /// Take one of these around a wait. Without it the wait still works, by
-    /// polling; with it, tmux does the waiting.
+    /// Take one of these around a wait. An unavailable stream fails unless
+    /// this lease explicitly permits observable polling fallback.
     /// </remarks>
-    public async Task<IAsyncDisposable> WatchAsync(Pane pane, CancellationToken cancellationToken)
+    public async Task<IAsyncDisposable> WatchAsync(
+        Pane pane,
+        bool allowPollingFallback = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pane);
         SessionWatchKey key = SessionWatchKey.From(pane);
         return await WatchAsync(
                 key,
                 token => StartPaneSessionAsync(pane, key.SessionId, token),
+                allowPollingFallback,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -125,6 +140,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 token => StartSessionAsync(
                     start => session.Server.EnterControlModeAsync(key.SessionId, start),
                     token),
+                false,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -154,7 +170,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             or NotSupportedException)
         {
             throw new TmuxTransportException(
-                "The tmux control client could not attach; polling will be used instead.",
+                "The tmux control client could not attach.",
                 [],
                 TmuxDispatchState.NotDispatched,
                 error);
@@ -165,10 +181,12 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     internal async Task<IAsyncDisposable> WatchAsync(
         string sessionId,
         Func<CancellationToken, Task<IControlModeSession>> startSession,
-        CancellationToken cancellationToken) =>
+        bool allowPollingFallback = false,
+        CancellationToken cancellationToken = default) =>
         await WatchAsync(
                 SessionWatchKey.ForTest("default", sessionId),
                 startSession,
+                allowPollingFallback,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -176,20 +194,26 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         string endpointId,
         string sessionId,
         Func<CancellationToken, Task<IControlModeSession>> startSession,
-        CancellationToken cancellationToken) =>
+        bool allowPollingFallback = false,
+        CancellationToken cancellationToken = default) =>
         await WatchAsync(
                 SessionWatchKey.ForTest(endpointId, sessionId),
                 startSession,
+                allowPollingFallback,
                 cancellationToken)
             .ConfigureAwait(false);
 
     private async Task<IAsyncDisposable> WatchAsync(
         SessionWatchKey key,
         Func<CancellationToken, Task<IControlModeSession>> startSession,
+        bool allowPollingFallback,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(key.SessionId);
         ArgumentNullException.ThrowIfNull(startSession);
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, LifetimeToken);
+        CancellationToken token = linked.Token;
         while (!Volatile.Read(ref _disposed))
         {
             SessionWatch watch = _watches.GetOrAdd(
@@ -198,14 +222,14 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 this);
 
             LeaseAcquisition acquired = await watch
-                .AcquireAsync(startSession, cancellationToken)
+                .AcquireAsync(startSession, allowPollingFallback, token)
                 .ConfigureAwait(false);
             if (acquired.Lease is not null)
             {
                 if (Volatile.Read(ref _disposed))
                 {
                     await acquired.Lease.DisposeAsync().ConfigureAwait(false);
-                    return NullLease.Instance;
+                    throw new OperationCanceledException(token);
                 }
 
                 return acquired.Lease;
@@ -214,16 +238,84 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             RemoveWatch(key, watch);
             if (!acquired.Retry)
             {
-                return NullLease.Instance;
+                if (allowPollingFallback)
+                {
+                    return new NullLease(acquired.Failure);
+                }
+
+                throw acquired.Failure ?? ControlUnavailable();
             }
         }
 
-        return NullLease.Instance;
+        throw new OperationCanceledException(token);
     }
 
     private void RemoveWatch(SessionWatchKey key, SessionWatch watch) =>
         ((ICollection<KeyValuePair<SessionWatchKey, SessionWatch>>)_watches)
             .Remove(new KeyValuePair<SessionWatchKey, SessionWatch>(key, watch));
+
+    private static TmuxTransportException ControlUnavailable(Exception? cause = null) => new(
+        "Pane observation requires a live control client. "
+        + "Enable polling fallback explicitly to permit timed reads.",
+        [], TmuxDispatchState.NotDispatched, cause);
+
+    internal static long EventsDropped(IAsyncDisposable lease) =>
+        ((IObservationLease)lease).EventsDropped;
+
+    internal static bool FallbackAtAcquisition(IAsyncDisposable lease) =>
+        ((IObservationLease)lease).FallbackAtAcquisition;
+
+    internal static bool RequireObservation(IAsyncDisposable lease, object? signal)
+    {
+        IObservationLease observation = (IObservationLease)lease;
+        if (observation.Failure is { } failure)
+        {
+            if (!observation.AllowPollingFallback)
+            {
+                throw failure;
+            }
+
+            return true;
+        }
+
+        if (signal is Task)
+        {
+            return false;
+        }
+
+        if (!observation.AllowPollingFallback)
+        {
+            throw ControlUnavailable();
+        }
+
+        return true;
+    }
+
+    internal static bool RequireObservation(object? signal)
+    {
+        if (signal is Task)
+        {
+            return false;
+        }
+
+        throw ControlUnavailable();
+    }
+
+    internal long? ArrangementVersion(Pane pane) =>
+        _watches.TryGetValue(SessionWatchKey.From(pane), out SessionWatch? watch)
+            ? watch.ArrangementVersion
+            : null;
+
+    private interface IObservationLease : IAsyncDisposable
+    {
+        public long EventsDropped { get; }
+
+        public bool AllowPollingFallback { get; }
+
+        public bool FallbackAtAcquisition { get; }
+
+        public Exception? Failure { get; }
+    }
 
     /// <summary>Waits until a pane prints something, or the time runs out.</summary>
     /// <param name="paneId">The pane to wait on.</param>
@@ -234,31 +326,40 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     /// </param>
     /// <param name="timeout">How long to wait at most.</param>
     /// <param name="cancellationToken">Stops waiting.</param>
+    /// <param name="lease">The watch that controls whether polling fallback is permitted.</param>
+    /// <param name="timerProvider">The clock used for the timeout.</param>
     /// <returns><see langword="true" /> when the pane printed something.</returns>
     public async Task<bool> WaitForActivityAsync(
         string paneId,
         object? signalBefore,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IAsyncDisposable? lease = null,
+        TimeProvider? timerProvider = null)
     {
         ArgumentNullException.ThrowIfNull(paneId);
-        if (Volatile.Read(ref _disposed) || timeout <= TimeSpan.Zero)
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
+        if (timeout <= TimeSpan.Zero)
         {
             return false;
         }
 
-        // Without a live control client there is nothing to be woken by, so the
-        // caller sleeps a short fixed step and reads again.
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, LifetimeToken);
+        CancellationToken token = linked.Token;
         if (signalBefore is not Task wake)
         {
+            _ = lease is null ? RequireObservation(signalBefore) : RequireObservation(lease, signalBefore);
             TimeSpan step = timeout < PollInterval ? timeout : PollInterval;
-            await Task.Delay(step, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(step, token).ConfigureAwait(false);
             return false;
         }
 
         try
         {
-            await wake.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+            await wake.WaitAsync(timeout, timerProvider ?? _timeProvider, token)
+                .ConfigureAwait(false);
             return true;
         }
         catch (TimeoutException)
@@ -346,6 +447,11 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         private WatchRun? _run;
         private bool _retired;
         private int _leases;
+        private long _eventsDropped;
+        private long _arrangementVersion;
+        private Exception? _terminalFailure;
+
+        internal long ArrangementVersion => Interlocked.Read(ref _arrangementVersion);
 
         internal bool IsStreaming => StreamingSession is not null;
 
@@ -364,6 +470,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
         internal async Task<LeaseAcquisition> AcquireAsync(
             Func<CancellationToken, Task<IControlModeSession>> startSession,
+            bool allowPollingFallback,
             CancellationToken cancellationToken)
         {
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -381,22 +488,40 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                     if (Volatile.Read(ref current.Ended) == 0 && current.Session.IsRunning)
                     {
                         _leases = checked(_leases + 1);
-                        return new LeaseAcquisition(new Release(this), Retry: false);
+                        return new LeaseAcquisition(new Release(this, allowPollingFallback), Retry: false, Failure: null);
                     }
 
                     Volatile.Write(ref current.Ended, 1);
+                    RecordFailure(ControlUnavailable());
                     _run = null;
                     StopSignaling();
                     await ObserveCleanupAsync(current).ConfigureAwait(false);
+                    if (_leases > 0)
+                    {
+                        _retired = true;
+                        return LeaseAcquisition.RetryRequired;
+                    }
+
+                    Volatile.Write(ref _terminalFailure, null);
                 }
 
-                starting = await startSession(cancellationToken).ConfigureAwait(false);
+                Task<IControlModeSession> startup = startSession(cancellationToken);
+                try
+                {
+                    starting = await startup.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _ = DisposeLateStartAsync(startup);
+                    throw;
+                }
 
                 // A listening client must ignore size or it can shrink the session's windows.
                 // The flag is available throughout the supported tmux range.
                 await starting.SendAsync(
                     TmuxCommand.Create("refresh-client", "-f", "ignore-size"),
                     cancellationToken)
+                    .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
 
                 // A program exiting writes nothing, so output alone would let
@@ -405,6 +530,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 await starting.SendAsync(
                     TmuxCommand.Create("refresh-client", "-B", $"{PaneDeadSubscription}:%*:#{{pane_dead}}"),
                     cancellationToken)
+                    .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
 
                 // Recorded so a client listing can tell this observer apart
@@ -414,6 +540,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 IReadOnlyList<string> selfName = await starting.SendAsync(
                         TmuxCommand.Create("display-message", "-p", "#{client_name}"),
                         cancellationToken)
+                    .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
                 ownedClientName = selfName.Count > 0 ? selfName[0] : null;
                 if (ownedClientName is not null)
@@ -426,7 +553,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                 run.Pump = PumpAsync(run);
                 starting = null;
                 _leases = checked(_leases + 1);
-                return new LeaseAcquisition(new Release(this), Retry: false);
+                return new LeaseAcquisition(new Release(this, allowPollingFallback), Retry: false, Failure: null);
             }
             catch (Exception startupFailure)
             {
@@ -456,19 +583,36 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                     throw;
                 }
 
+                RecordFailure(error);
                 if (hub._logger is not null)
                 {
                     LogControlClientUnavailable(hub._logger, error, key.SessionId);
                 }
 
                 _retired = true;
-                return LeaseAcquisition.Unavailable;
+                return new LeaseAcquisition(null, Retry: false, Failure: error);
             }
             finally
             {
                 _gate.Release();
             }
         }
+
+        private static async Task DisposeLateStartAsync(Task<IControlModeSession> startup)
+        {
+            try
+            {
+                IControlModeSession session = await startup.ConfigureAwait(false);
+                await session.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // A late factory result is observed and disposed after cancellation.
+            }
+        }
+
+        private void RecordFailure(Exception error) =>
+            Interlocked.CompareExchange(ref _terminalFailure, error, null);
 
         public async ValueTask DisposeAsync()
         {
@@ -511,8 +655,8 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                         case TmuxPaneContinuedEvent continued:
                             OnPaneOutput(continued.PaneId);
                             break;
-                        case TmuxEventsDroppedEvent:
-                            OnSessionChanged();
+                        case TmuxEventsDroppedEvent dropped:
+                            OnEventsDropped(dropped.Count);
                             break;
                         case TmuxNotificationEvent { Name: "subscription-changed" } changed
                             when changed.Arguments is [PaneDeadSubscription, ..]:
@@ -527,24 +671,33 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
                             break;
                         case TmuxNotificationEvent { Name: "layout-change" or "window-close" or "unlinked-window-close" }:
                             // A closed pane leaves no subscription value behind to change.
-                            OnSessionChanged();
+                            OnArrangementChanged();
                             break;
-                        case TmuxExitEvent exit when hub._logger is not null:
-                            LogControlClientEnded(hub._logger, key.SessionId, exit.Reason);
+                        case TmuxExitEvent exit:
+                            RecordFailure(ControlUnavailable(new IOException(
+                                $"Control client for session {key.SessionId} ended: {exit.Reason}")));
+                            if (hub._logger is not null)
+                            {
+                                LogControlClientEnded(hub._logger, key.SessionId, exit.Reason);
+                            }
+
                             break;
                         default:
                             break;
                     }
                 }
             }
-            catch (Exception error) when (error is LibTmuxException or OperationCanceledException)
+            catch (OperationCanceledException) when (hub.LifetimeToken.IsCancellationRequested)
             {
-                // The client going away is how this ends. Waiters fall back to
-                // their own timeout, which is why losing the stream degrades
-                // cost rather than correctness.
+                // Hub disposal wakes all leases through its lifetime token.
+            }
+            catch (Exception error)
+            {
+                RecordFailure(ControlUnavailable(error));
             }
             finally
             {
+                RecordFailure(ControlUnavailable());
                 await MarkEndedAsync(run).ConfigureAwait(false);
                 await ObserveCleanupAsync(run).ConfigureAwait(false);
             }
@@ -663,9 +816,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
 
         internal Task? CaptureSignal(string paneId)
         {
-            // Only tmux issues these, so text that is not one names no pane the
-            // stream can ever report. Answering null sends the caller to the
-            // polling path rather than to a wait nothing will end.
+            // An invalid ID cannot name a pane reported by the stream.
             if (!PaneId.TryParse(paneId, out PaneId pane))
             {
                 return null;
@@ -699,10 +850,24 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             }
         }
 
-        private void OnSessionChanged()
+        private void OnArrangementChanged()
         {
+            Interlocked.Increment(ref _arrangementVersion);
             lock (_signalGate)
             {
+                foreach (PaneSignal signal in _signals.Values)
+                {
+                    signal.Fire();
+                }
+            }
+        }
+
+        private void OnEventsDropped(long count)
+        {
+            Interlocked.Increment(ref _arrangementVersion);
+            lock (_signalGate)
+            {
+                Interlocked.Add(ref _eventsDropped, count);
                 foreach (PaneSignal signal in _signals.Values)
                 {
                     signal.Fire();
@@ -723,9 +888,18 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             }
         }
 
-        private sealed class Release(SessionWatch watch) : IAsyncDisposable
+        private sealed class Release(SessionWatch watch, bool allowPollingFallback) : IObservationLease
         {
+            private readonly long _initialDropped = Interlocked.Read(ref watch._eventsDropped);
             private int _done;
+
+            public long EventsDropped => Interlocked.Read(ref watch._eventsDropped) - _initialDropped;
+
+            public bool AllowPollingFallback => allowPollingFallback;
+
+            public bool FallbackAtAcquisition => false;
+
+            public Exception? Failure => Volatile.Read(ref watch._terminalFailure);
 
             public ValueTask DisposeAsync() =>
                 Interlocked.Exchange(ref _done, 1) == 0
@@ -751,18 +925,22 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         }
     }
 
-    private sealed class NullLease : IAsyncDisposable
+    private sealed class NullLease(Exception? failure) : IObservationLease
     {
-        internal static NullLease Instance { get; } = new();
+        public long EventsDropped => 0;
+
+        public bool AllowPollingFallback => true;
+
+        public bool FallbackAtAcquisition => true;
+
+        public Exception? Failure => failure;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private readonly record struct LeaseAcquisition(IAsyncDisposable? Lease, bool Retry)
+    private readonly record struct LeaseAcquisition(IAsyncDisposable? Lease, bool Retry, Exception? Failure)
     {
-        internal static LeaseAcquisition RetryRequired { get; } = new(null, Retry: true);
-
-        internal static LeaseAcquisition Unavailable { get; } = new(null, Retry: false);
+        internal static LeaseAcquisition RetryRequired { get; } = new(null, Retry: true, Failure: null);
     }
 
     private readonly record struct SessionWatchKey(
@@ -790,7 +968,7 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
     [LoggerMessage(
         EventId = 43,
         Level = LogLevel.Debug,
-        Message = "Control client for session {Session} could not start; falling back to polling.")]
+        Message = "Control client for session {Session} could not start.")]
     private static partial void LogControlClientUnavailable(ILogger logger, Exception error, string? session);
 
     [LoggerMessage(

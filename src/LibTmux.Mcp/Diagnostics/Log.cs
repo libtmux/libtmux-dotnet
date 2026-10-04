@@ -38,6 +38,29 @@ internal static partial class Log
     internal static partial void ServerUnreachable(ILogger logger, Exception error, string? socket);
 
     [LoggerMessage(
+        EventId = 4,
+        Level = LogLevel.Debug,
+        Message = "Control client for socket {Socket} ended: {Reason}")]
+    internal static partial void ControlClientEnded(ILogger logger, string? socket, string? reason);
+
+    [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Warning,
+        Message = "Control client for session {Session} could not start; pane observation uses polling every {IntervalMilliseconds}ms.")]
+    internal static partial void ControlClientUnavailable(
+        ILogger logger,
+        Exception error,
+        string? session,
+        double intervalMilliseconds);
+
+    [LoggerMessage(
+        EventId = 6,
+        Level = LogLevel.Warning,
+        Message = "Control client for session {Session} ended; pane observation uses polling every {IntervalMilliseconds}ms.")]
+    internal static partial void PollingFallbackActivated(
+        ILogger logger, string session, double intervalMilliseconds);
+
+    [LoggerMessage(
         EventId = 7,
         Level = LogLevel.Warning,
         Message = "Tool {Tool} failed.")]

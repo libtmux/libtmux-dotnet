@@ -52,7 +52,8 @@ public sealed partial class Server
             startInfo => TmuxConnection.ApplyChildEnvironment(
                 startInfo,
                 connection.Options.ChildEnvironment),
-            connection.Options.ControlModeEventBufferCapacity);
+            connection.Options.ControlModeEventBufferCapacity,
+            connection.Options.ControlModeEventBufferMaxBytes);
 
         // Attaching is asynchronous, and a caller who sends a command before
         // tmux has answered its own attach would be handed that answer.
@@ -72,16 +73,23 @@ public sealed partial class Server
         }
         catch (Exception startupFailure)
         {
+            Exception reported = await session.EnrichStartupFailureAsync(startupFailure, cancellationToken)
+                .ConfigureAwait(false);
             try
             {
                 await session.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception cleanupFailure)
             {
-                startupFailure.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
+                reported.Data["LibTmux.ControlModeCleanupFailure"] = cleanupFailure;
             }
 
-            throw;
+            if (ReferenceEquals(reported, startupFailure))
+            {
+                throw;
+            }
+
+            throw reported;
         }
     }
 }

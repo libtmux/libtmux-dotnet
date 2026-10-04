@@ -1,16 +1,21 @@
+using System.Text;
+
 namespace LibTmux.Internal;
 
 internal sealed class TmuxCommandRequest
 {
     private readonly TmuxCommandToken[] _tokens;
 
-    private TmuxCommandRequest(TmuxCommandToken[] tokens, string[] logicalArguments)
+    private TmuxCommandRequest(TmuxCommandToken[] tokens, string[] logicalArguments, bool preventServerStart = false)
     {
         _tokens = tokens;
         LogicalArguments = logicalArguments;
+        PreventServerStart = preventServerStart;
     }
 
     internal IReadOnlyList<string> LogicalArguments { get; }
+
+    internal bool PreventServerStart { get; }
 
     internal static TmuxCommandRequest Single(IReadOnlyList<string> arguments)
     {
@@ -22,7 +27,10 @@ internal sealed class TmuxCommandRequest
             copy);
     }
 
-    internal static TmuxCommandRequest Group(params IReadOnlyList<string>[] commands)
+    internal static TmuxCommandRequest Group(params IReadOnlyList<string>[] commands) =>
+        Group(preventServerStart: false, commands);
+
+    internal static TmuxCommandRequest Group(bool preventServerStart, params IReadOnlyList<string>[] commands)
     {
         ArgumentNullException.ThrowIfNull(commands);
         if (commands.Length == 0)
@@ -56,7 +64,7 @@ internal sealed class TmuxCommandRequest
             }
         }
 
-        return new TmuxCommandRequest([.. tokens], [.. logicalArguments]);
+        return new TmuxCommandRequest([.. tokens], [.. logicalArguments], preventServerStart);
     }
 
     private static void ValidateCommand(IReadOnlyList<string> command, string parameterName)
@@ -83,6 +91,10 @@ internal sealed class TmuxCommandRequest
 
         return encoded;
     }
+
+    // MAX_IMSGSIZE minus imsg header (16) and msg_command header (4).
+    internal bool FitsNativeArgumentBudget() =>
+        EncodeArguments().Sum(static argument => Encoding.UTF8.GetByteCount(argument) + 1L) <= 16_364;
 
     private static string EncodeLiteral(string value)
     {

@@ -10,7 +10,8 @@ namespace LibTmux.Mcp;
 internal readonly record struct RunCommandRoute(
     string TmuxBinaryPath,
     string SocketPath,
-    PaneId PaneId)
+    PaneId PaneId,
+    ServerGeneration Generation = default)
 {
     internal static RunCommandRoute From(Pane pane, string toolName)
     {
@@ -37,10 +38,10 @@ internal readonly record struct RunCommandRoute(
                 $"{toolName} refuses a missing or non-absolute pane socket route.");
         }
 
-        return new RunCommandRoute(binary, socketPath, pane.Id);
+        return new RunCommandRoute(binary, socketPath, pane.Id, pane.Generation);
     }
 
-    internal PaneRunRoute ForRunner() => new(TmuxBinaryPath, SocketPath, PaneId);
+    internal PaneRunRoute ForRunner() => new(TmuxBinaryPath, SocketPath, PaneId, Generation);
 
     internal void RequireSame(RunCommandRoute final, string toolName)
     {
@@ -187,7 +188,7 @@ internal sealed partial class WriteTools
             }
             RunCommandRoute route = initialRoute
                 ?? RunCommandRoute.From(pane, "run_shell_command");
-            if (route.PaneId != pane.Id)
+            if (route.PaneId != pane.Id || route.Generation != pane.Generation)
             {
                 throw new McpException(
                     "run_shell_command lost its authenticated pane route before setup.");
@@ -208,6 +209,7 @@ internal sealed partial class WriteTools
                     return (note.Rollback, note.Settle);
                 },
                 Completed = () => runLease?.Release(),
+                FollowLimit = StatusCleanupMargin,
                 Progress = spent => ReadTools.Report(progress, spent, budget, $"running in {pane.Id}"),
                 CleanupBuffer = async (owner, buffer, failure) =>
                     _ = await CleanupPasteBufferAsync(owner, buffer, failure).ConfigureAwait(false),
@@ -258,6 +260,10 @@ internal sealed partial class WriteTools
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumBytes);
+        if (command.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new McpException("The command cannot contain NUL.");
+        }
         if (command.Length > maximumBytes)
         {
             throw RunCommandTooLarge(

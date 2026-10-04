@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Runtime.Versioning;
-using System.Text;
 using System.Text.RegularExpressions;
 using LibTmux.Internal;
 using ModelContextProtocol;
@@ -56,7 +55,8 @@ internal sealed partial class ReadTools
         [Description(
             "Regular expressions meaning the thing you are waiting for will never "
             + "come, such as an error line. Matching one ends the wait as 'stopped'. "
-            + "It shares the patterns count and byte limits.")]
+            + "A stop pattern wins over a wanted pattern on the same screen, including "
+            + "the initial screen. It shares the patterns count and byte limits.")]
         IReadOnlyList<string>? stopPatterns = null,
         [Description(
             "Seconds to wait. Lowered to the server's ceiling; read "
@@ -69,26 +69,31 @@ internal sealed partial class ReadTools
         CancellationToken cancellationToken = default)
     {
         ValidateWaitPatterns(patterns, stopPatterns, _policy.MaxBytes);
-        Regex[] wanted = Compile(patterns, ignoreCase);
-        Regex[] stops = Compile(stopPatterns, ignoreCase);
-        var matchingWork = new SearchWorkBudget(
-            MaximumWaitMatchingWorkBytes,
-            "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane.");
+        TimeSpan budget = _policy.EffectiveTimeout(
+            timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
+        PaneWaitRequest request;
+        try
+        {
+            request = PaneWaitRequest.FromTextPatterns(patterns, stopPatterns, ignoreCase) with
+            {
+                Timeout = budget,
+                AllowPollingFallback = _policy.AllowPollingFallback,
+                TailLines = TailLines,
+                MaxOutputBytes = Math.Min(_policy.MaxBytes, 1_048_576),
+            };
+            request.Validate();
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        {
+            throw new McpException($"Invalid pane wait: {error.Message}", error);
+        }
+
         Server server = await ServerAsync(socketName, cancellationToken).ConfigureAwait(false);
         Pane pane = await TmuxTargets.PaneAsync(server, paneId, cancellationToken)
             .ConfigureAwait(false);
-        string id = pane.Id.ToString();
-        TimeSpan budget = _policy.EffectiveTimeout(
-            timeoutSeconds is double seconds ? TimeSpan.FromSeconds(seconds) : null);
 
-        // What this server itself typed is discounted before anything is
-        // matched, so a shell echoing or re-printing it cannot satisfy a
-        // wait the command itself never answered.
-        //
-        // `recentSoFar` accumulates every submitted or pre-edit line for this
-        // wait's whole lifetime, so a TTL expiring mid-wait cannot re-expose
-        // an echo already in its stream. `Pending` is re-read fresh each
-        // iteration instead, since an unmodelled key invalidates it at once.
+        // Own echoes must not satisfy a wait for another process's output.
+        // Keep observed recent lines for this wait even after their registry TTL expires.
         var recentSoFar = new HashSet<string>(StringComparer.Ordinal);
         IReadOnlyList<string> Discounted(IReadOnlyList<string> lines)
         {
@@ -106,88 +111,75 @@ internal sealed partial class ReadTools
             IEnumerable<string> echoes = echo.Pending.Length == 0
                 ? recentSoFar
                 : recentSoFar.Prepend(echo.Pending);
-            List<string> kept = new(lines.Count);
-            foreach (string masked in lines
+            return [.. lines
                 .Select(line => PaneText.WithoutEchoes(line, echoes))
-                .Where(masked => masked.Length > 0))
-            {
-                kept.Add(masked);
-            }
-
-            return kept;
+                .Where(masked => masked.Length > 0)];
         }
 
-        // Matched against the rows the caller receives, not the raw ones: a
-        // concurrent run's payload echo could otherwise satisfy a wait whose
-        // scrubbed tail never showed the line that matched. Text already on
-        // screen is checked once against wanted patterns only, which is what
-        // keeps a command's own echo from matching.
-        PaneWaitVerdict? Classify(IReadOnlyList<string> lines, bool atEntry)
+        PaneWaitResult observed;
+        try
         {
-            IReadOnlyList<string> visible = Discounted(PaneText.Scrub(lines, pane.Width));
-            if (atEntry)
-            {
-                return wanted.Length > 0
-                    && Match(wanted, visible, matchingWork, cancellationToken) is { } present
-                        ? new(PaneWaitOutcome.PresentAtEntry, present)
-                        : null;
-            }
-
-            if (visible.Count == 0)
-            {
-                return null;
-            }
-
-            if (Match(stops, visible, matchingWork, cancellationToken) is { } stopped)
-            {
-                return new(PaneWaitOutcome.Stopped, stopped);
-            }
-
-            if (wanted.Length == 0)
-            {
-                return new(PaneWaitOutcome.AnyOutput, null);
-            }
-
-            return Match(wanted, visible, matchingWork, cancellationToken) is { } hit
-                ? new(PaneWaitOutcome.Matched, hit)
-                : null;
+            observed = await PaneTextWaiter.WaitAsync(
+                    _activity,
+                    pane,
+                    request.Snapshot(),
+                    matchLines: lines => Discounted(PaneText.Scrub(lines, pane.Width)),
+                    tailLines: lines => PaneText.Scrub(lines, pane.Width),
+                    progress: (elapsed, effective, message) =>
+                        Report(progress, elapsed, effective, message),
+                    cancellationToken: cancellationToken,
+                    // An unmodelled key settles its echo record only after dispatch.
+                    // Process reads narrow the race with that record's settlement.
+                    readThroughControl: false)
+                .ConfigureAwait(false);
         }
-
-        // Told, rather than left silent. A client showing a wait needs to know
-        // it is still running; without this a thirty second wait is
-        // indistinguishable from a hung one.
-        (PaneWaitOutcome outcome, string? matched, TimeSpan elapsed) = await PaneTextWaiter
-            .WaitAsync(
-                pane,
-                _activity,
-                Classify,
-                budget,
-                McpPaneReader.Failure,
-                (spent, last) => Report(progress, spent, budget, last.Length > 0 ? last : $"waiting on {id}"),
-                cancellationToken,
-                // A send_keys call settles its echo record only after its
-                // dispatch returns, so a redraw an unmodelled key caused can be
-                // read while still discounted and then left behind the cursor.
-                // Process reads are slow enough that the record has nearly
-                // always settled first; they narrow that race rather than
-                // close it, which settling before the dispatch would.
-                readThroughControl: false)
-            .ConfigureAwait(false);
-
-        // The wire contract predates an alternate-screen outcome and reports
-        // it as a timeout.
-        WaitOutcome reported = outcome switch
+        catch (Exception error) when (error is RegexMatchTimeoutException
+            or PaneTextWaiter.MatchWorkExceededException)
         {
-            PaneWaitOutcome.Matched => WaitOutcome.Matched,
+            throw WaitMatchingError(error);
+        }
+        WaitOutcome outcome = observed.Outcome switch
+        {
             PaneWaitOutcome.PresentAtEntry => WaitOutcome.PresentAtEntry,
-            PaneWaitOutcome.AnyOutput => WaitOutcome.AnyOutput,
+            PaneWaitOutcome.Matched => WaitOutcome.Matched,
             PaneWaitOutcome.Stopped => WaitOutcome.Stopped,
+            PaneWaitOutcome.AnyOutput => WaitOutcome.AnyOutput,
+            PaneWaitOutcome.TimedOut => WaitOutcome.Timeout,
             PaneWaitOutcome.PaneExited => WaitOutcome.PaneDied,
-            _ => WaitOutcome.Timeout,
+            _ => throw new InvalidOperationException("Unknown pane wait outcome."),
         };
-        return await FinishAsync(pane, id, reported, matched, elapsed, budget, cancellationToken)
-            .ConfigureAwait(false);
+
+        return StructuredTextResultBudget.Fit(
+            observed.Tail,
+            TailLines,
+            _policy.MaxBytes,
+            content => new WaitResult(
+                observed.PaneId.ToString(),
+                outcome,
+                observed.Pattern,
+                content,
+                Math.Round(observed.Elapsed.TotalSeconds, 3),
+                observed.EffectiveTimeout.TotalSeconds)
+            {
+                PollingFallback = observed.PollingFallback,
+                EventsDropped = observed.EventsDropped,
+                LinesMissed = observed.LinesMissed,
+                AnchorLost = observed.AnchorLost,
+            },
+            "pane wait");
     }
+
+    internal static McpException WaitMatchingError(Exception error) => error switch
+    {
+        RegexMatchTimeoutException timedOut => new McpException(
+            $"The pattern '{timedOut.Pattern}' took too long to match. Simplify it.",
+            timedOut),
+        PaneTextWaiter.MatchWorkExceededException exceeded => new McpException(
+            "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane.",
+            exceeded),
+        _ => throw new ArgumentException("Not a pane wait matching failure.", nameof(error)),
+    };
+
 
     /// <summary>Tells the client a wait is still running.</summary>
     /// <param name="progress">Where to report, or null when the client asked for none.</param>
@@ -208,13 +200,6 @@ internal sealed partial class ReadTools
         });
     }
 
-    private static Regex[] Compile(IReadOnlyList<string>? patterns, bool ignoreCase) =>
-        patterns is null
-            ? []
-            : [.. patterns
-                .Where(each => !string.IsNullOrEmpty(each))
-                .Select(each => CompilePattern(each, ignoreCase))];
-
     internal static void ValidateWaitPatterns(
         IReadOnlyList<string>? patterns,
         IReadOnlyList<string>? stopPatterns,
@@ -222,26 +207,21 @@ internal sealed partial class ReadTools
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(resultMaxBytes);
         long count = (patterns?.Count ?? 0L) + (stopPatterns?.Count ?? 0L);
-        if (count > MaximumWaitPatterns)
+        if (count > PaneWaitRequest.MaximumPatterns)
         {
             throw new McpException(
-                $"A pane wait accepts at most {MaximumWaitPatterns} patterns across both lists.");
+                $"A pane wait accepts at most {PaneWaitRequest.MaximumPatterns} patterns across both lists.");
         }
 
-        // Naming no patterns at all is the any-output wait, and that stays.
-        // An empty or null entry inside a list is different: it used to be
-        // dropped, which silently turned "wait until X appears" into "return
-        // on the first byte of anything" — a false early return the caller
-        // sees only by reading the outcome field.
-        if (new[] { patterns, stopPatterns }.Any(list =>
-            list is not null && list.Any(string.IsNullOrEmpty)))
+        try
         {
-            throw new McpException(
-                "A wait pattern cannot be empty or null. Drop the entry to wait for "
-                + "any output at all, or give the text to wait for.");
+            PaneWaitRequest.FromTextPatterns(patterns, stopPatterns).Validate();
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        {
+            throw new McpException(error.Message, error);
         }
 
-        int totalBytes = 0;
         foreach (IReadOnlyList<string>? list in new[] { patterns, stopPatterns })
         {
             if (list is null)
@@ -256,19 +236,6 @@ internal sealed partial class ReadTools
                     continue;
                 }
 
-                if (pattern.Length > MaximumRegexPatternBytes)
-                {
-                    throw PatternBudgetError();
-                }
-
-                int bytes = Encoding.UTF8.GetByteCount(pattern);
-                if (bytes > MaximumRegexPatternBytes
-                    || bytes > MaximumWaitPatternBytesTotal - totalBytes)
-                {
-                    throw PatternBudgetError();
-                }
-
-                totalBytes += bytes;
                 var probe = new WaitResult(
                     "%18446744073709551615",
                     WaitOutcome.Matched,
@@ -286,79 +253,8 @@ internal sealed partial class ReadTools
             }
         }
 
-        static McpException PatternBudgetError() => new(
-            $"Pane-wait patterns may use at most {MaximumRegexPatternBytes} UTF-8 bytes each "
-            + $"and {MaximumWaitPatternBytesTotal} bytes across both lists.");
     }
 
-
-    internal static string? Match(
-        Regex[] patterns,
-        IReadOnlyList<string> lines,
-        CancellationToken cancellationToken = default) => Match(
-            patterns,
-            lines,
-            new SearchWorkBudget(
-                MaximumWaitMatchingWorkBytes,
-                "Pane wait matching work limit exceeded; use fewer patterns or a narrower pane."),
-            cancellationToken);
-
-    private static string? Match(
-        Regex[] patterns,
-        IReadOnlyList<string> lines,
-        SearchWorkBudget matchingWork,
-        CancellationToken cancellationToken)
-    {
-        foreach (Regex pattern in patterns)
-        {
-            foreach (string line in lines)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                matchingWork.Consume(Encoding.UTF8.GetByteCount(line));
-                try
-                {
-                    if (pattern.IsMatch(line))
-                    {
-                        return pattern.ToString();
-                    }
-                }
-                catch (RegexMatchTimeoutException)
-                {
-                    throw new McpException(
-                        $"The pattern '{pattern}' took too long to match. Simplify it — "
-                        + "nested quantifiers such as (a+)+ backtrack badly on terminal text.");
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private async Task<WaitResult> FinishAsync(
-        Pane pane,
-        string paneId,
-        WaitOutcome outcome,
-        string? matched,
-        TimeSpan elapsed,
-        TimeSpan budget,
-        CancellationToken cancellationToken)
-    {
-        IReadOnlyList<string> tail = await PaneReader.CaptureAsync(pane, null, cancellationToken)
-            .ConfigureAwait(false);
-        double elapsedSeconds = Math.Round(elapsed.TotalSeconds, 3);
-        return StructuredTextResultBudget.Fit(
-            PaneText.Scrub(tail, pane.Width),
-            TailLines,
-            _policy.MaxBytes,
-            content => new WaitResult(
-                paneId,
-                outcome,
-                matched,
-                content,
-                elapsedSeconds,
-                budget.TotalSeconds),
-            "pane wait");
-    }
 
     /// <summary>How much of the pane a wait reports back when it ends.</summary>
     /// <remarks>
@@ -366,7 +262,4 @@ internal sealed partial class ReadTools
     /// wants the pane can read it; a caller who does not should not pay for it.
     /// </remarks>
     private const int TailLines = 20;
-    private const int MaximumWaitPatterns = 32;
-    private const int MaximumWaitPatternBytesTotal = 16_384;
-    private const int MaximumWaitMatchingWorkBytes = 8 * 1024 * 1024;
 }

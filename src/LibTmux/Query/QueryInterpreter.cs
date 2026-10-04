@@ -77,6 +77,12 @@ internal static class QueryInterpreter
         return element => predicate(element!);
     }
 
+    internal static Func<T, bool> CompileNative<T>(QueryDocument document, CancellationToken cancellationToken)
+    {
+        QuerySourcePlanner.RequireNativeTarget<T>(document.Target);
+        return CompileEntity<T>(document, cancellationToken);
+    }
+
     private static Func<object, bool> BindPredicate(
         QueryNode node,
         Type elementType,
@@ -92,6 +98,7 @@ internal static class QueryInterpreter
             StringNode text => BindText(text, elementType, bindings),
             RegexNode regex => BindRegex(regex, elementType, bindings),
             QuantifierNode quantifier => BindQuantifier(quantifier, elementType, bindings, check),
+            RelatedNode related => BindRelated(related, elementType, bindings, check),
             FieldNode field => BindBoolean(field, elementType, bindings),
             ConstantNode { Value: BooleanConstant boolean } => _ => boolean.Value,
             _ => throw new UnsupportedQueryExpressionException(
@@ -310,7 +317,7 @@ internal static class QueryInterpreter
             quantifier.Relation,
             elementType,
             QueryFieldRole.Relation);
-        Type childType = QueryPlanBindings.RelationElementType(
+        Type childType = bindings.RelationElementType(
             quantifier.Relation,
             relation.ValueType);
         Func<object, bool> predicate = BindPredicate(
@@ -340,6 +347,21 @@ internal static class QueryInterpreter
         }
 
         return false;
+    }
+
+    private static Func<object, bool> BindRelated(
+        RelatedNode related,
+        Type elementType,
+        QueryPlanBindings bindings,
+        Action? check)
+    {
+        QueryFieldAccessor relation = bindings.Field(
+            related.Relation, elementType, QueryFieldRole.Relation);
+        Func<object, bool> predicate = BindPredicate(
+            related.Predicate, relation.ValueType, bindings, check);
+        return element => predicate(relation.Read(element)
+            ?? throw new UnsupportedQueryExpressionException(
+                $"Required relation '{related.Relation.WireName}' returned null."));
     }
 
     private static bool All(object? relation, Func<object, bool> predicate)

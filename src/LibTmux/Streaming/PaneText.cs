@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -70,10 +71,10 @@ internal static partial class PaneText
     /// are minted ids, so the span is exact and matches nothing a caller
     /// wrote.
     /// </remarks>
-    private static bool[] PayloadRows(IReadOnlyList<string> lines)
+    private static bool[] PayloadRows(IReadOnlyList<string> lines, IEnumerable<string> tokens)
     {
         bool[] payload = new bool[lines.Count];
-        foreach (string id in Minted)
+        foreach (string id in tokens)
         {
             string head = $"lt_b_{id[..5]}";
             string channel = $"lt_r_{id}";
@@ -100,7 +101,7 @@ internal static partial class PaneText
         return payload;
     }
 
-    /// <summary>Removes lines that only exist because this server ran something.</summary>    /// <summary>Removes lines that only exist because this server ran something.</summary>
+    /// <summary>Removes lines that only exist because this server ran something.</summary>
     /// <param name="lines">The captured rows, oldest first.</param>
     /// <param name="paneWidth">
     /// The pane's width in columns, used to tell a wrapped continuation from a
@@ -118,7 +119,8 @@ internal static partial class PaneText
         }
 
         Regex marker = MarkerPattern();
-        bool[] payload = PayloadRows(lines);
+        HashSet<string> previousTokens = PreviousRunTokens(lines, paneWidth);
+        bool[] payload = PayloadRows(lines, Minted.Concat(previousTokens));
         List<string>? kept = null;
         StringBuilder logical = new();
 
@@ -147,7 +149,8 @@ internal static partial class PaneText
                 inPayload = payload[row];
             }
 
-            if (inPayload || marker.IsMatch(joined) || CarriesMintedToken(joined))
+            if (inPayload || marker.IsMatch(joined) || CarriesMintedToken(joined)
+                || CarriesPreviousToken(joined, previousTokens))
             {
                 kept ??= [.. lines.Take(start)];
             }
@@ -163,6 +166,70 @@ internal static partial class PaneText
         }
 
         return kept ?? lines;
+    }
+
+    // Ten-hex run tokens were minted by the previous published runner. Their
+    // shape alone is not proof: accept one only when the split begin, status
+    // option and rendezvous channel agree in this capture.
+    private static HashSet<string> PreviousRunTokens(IReadOnlyList<string> lines, int paneWidth)
+    {
+        HashSet<string> beginnings = [];
+        HashSet<string> statuses = [];
+        HashSet<string> channels = [];
+        StringBuilder logical = new();
+        int start = 0;
+        while (start < lines.Count)
+        {
+            int end = start;
+            logical.Clear();
+            logical.Append(lines[start]);
+            while (paneWidth > 0 && end + 1 < lines.Count && lines[end].Length == paneWidth)
+            {
+                end++;
+                logical.Append(lines[end]);
+            }
+
+            foreach (Match match in PreviousMarkerPattern().Matches(logical.ToString()))
+            {
+                string id = match.Groups["id"].Success
+                    ? match.Groups["id"].Value
+                    : match.Groups["head"].Value + match.Groups["tail"].Value;
+                if (match.Value.StartsWith("'lt_b_", StringComparison.Ordinal))
+                {
+                    beginnings.Add(id);
+                }
+                else if (match.Value.StartsWith("@lt_s_", StringComparison.Ordinal))
+                {
+                    statuses.Add(id);
+                }
+                else if (match.Value.StartsWith("lt_r_", StringComparison.Ordinal))
+                {
+                    channels.Add(id);
+                }
+            }
+
+            start = end + 1;
+        }
+
+        beginnings.IntersectWith(statuses);
+        beginnings.IntersectWith(channels);
+        return beginnings;
+    }
+
+    private static bool CarriesPreviousToken(string logical, HashSet<string> tokens)
+    {
+        foreach (Match match in PreviousMarkerPattern().Matches(logical))
+        {
+            string id = match.Groups["id"].Success
+                ? match.Groups["id"].Value
+                : match.Groups["head"].Value + match.Groups["tail"].Value;
+            if (tokens.Contains(id))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Drops everything a run printed before its command's own output.</summary>
@@ -362,37 +429,164 @@ internal static partial class PaneText
     /// identical to a typed line is removed with it.
     /// </para>
     /// </remarks>
-    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed)
+    internal static Func<IReadOnlyList<string>, IReadOnlyList<string>> TypedEchoRemover(string typed) =>
+        new TypedEchoProjection(typed, null, CancellationToken.None).Project;
+
+    internal sealed class TypedEchoProjection
     {
-        (string Line, Regex Occurrence)[] lines =
-        [
-            .. typed.Split(['\r', '\n'])
+        internal const int MaximumTypedBytes = 64 * 1024;
+        private const int MaximumProjectionWork = 4 * PaneWaitRequest.MaximumMatchWorkBytes;
+        private static readonly TimeSpan MaximumRegexTime = TimeSpan.FromSeconds(1);
+        private readonly string[] lines;
+        private readonly CancellationToken cancellationToken;
+        private readonly Func<TimeSpan>? remainingBudget;
+        private int work;
+
+        internal TypedEchoProjection(
+            string typed,
+            Func<TimeSpan>? remainingBudget,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(typed);
+            this.cancellationToken = cancellationToken;
+            this.remainingBudget = remainingBudget;
+            Check();
+            if (typed.Length > MaximumTypedBytes
+                || Encoding.UTF8.GetByteCount(typed) > MaximumTypedBytes)
+            {
+                throw new ArgumentException(
+                    $"Typed echo text exceeds {MaximumTypedBytes} UTF-8 bytes.", nameof(typed));
+            }
+
+            lines = typed.Split(['\r', '\n'])
                 .Select(line => line.TrimEnd(' '))
                 .Where(line => line.Length > 0)
-                .Select(line => (line, WrappedOccurrence(line))),
-        ];
-        return rows =>
+                .ToArray();
+            Check();
+        }
+
+        internal IReadOnlyList<string>? LastInput { get; private set; }
+
+        internal IReadOnlyList<string> LastCompleted { get; private set; } = [];
+
+        internal IReadOnlyList<string> Project(IReadOnlyList<string> rows)
         {
+            ArgumentNullException.ThrowIfNull(rows);
+            Check();
+            if (rows.Count == 0)
+            {
+                LastInput = rows;
+                LastCompleted = rows;
+                return rows;
+            }
+
+            int bytes = 0;
+            for (int index = 0; index < rows.Count; index++)
+            {
+                Check();
+                int separator = index == 0 ? 0 : 1;
+                if (separator > PaneWaitRequest.MaximumMatchWorkBytes - bytes)
+                {
+                    throw new PaneTextWaiter.MatchWorkExceededException();
+                }
+
+                bytes += separator;
+                int lineBytes = Encoding.UTF8.GetByteCount(rows[index]);
+                if (lineBytes > PaneWaitRequest.MaximumMatchWorkBytes - bytes)
+                {
+                    throw new PaneTextWaiter.MatchWorkExceededException();
+                }
+
+                bytes += lineBytes;
+            }
+
             string text = string.Join('\n', rows);
-            foreach ((string line, Regex occurrence) in lines)
+            Check();
+            foreach (string line in lines)
             {
-                text = WithoutWrapped(text, line, occurrence);
+                Check();
+                if (line.Length - line.AsSpan().Count(' ') <= text.Length)
+                {
+                    text = WithoutWrapped(text, line, this, ref work);
+                }
             }
 
-            foreach ((string line, _) in lines)
+            foreach (string line in lines)
             {
-                text = WithoutEchoInProgress(text, line);
+                text = WithoutEchoInProgress(text, line, this, ref work);
             }
 
-            return text.Split('\n');
-        };
+            Check();
+            string[] projected = text.Split('\n');
+            LastInput = rows;
+            LastCompleted = projected;
+            return projected;
+        }
+
+        internal void Charge(ref int work, int amount = 1)
+        {
+            if (amount > MaximumProjectionWork - work)
+            {
+                throw new ProjectionWorkExceededException();
+            }
+
+            work += amount;
+            if ((work & 1023) < amount)
+            {
+                Check();
+            }
+        }
+
+        internal Regex Occurrence(string pattern, Regex? previous)
+        {
+            Check();
+            TimeSpan available = remainingBudget?.Invoke() ?? MaximumRegexTime;
+            if (available <= TimeSpan.Zero)
+            {
+                throw new ProjectionDeadlineException();
+            }
+
+            if (previous is not null && previous.MatchTimeout <= available)
+            {
+                return previous;
+            }
+
+            long timeoutTicks = Math.Min(MaximumRegexTime.Ticks, available.Ticks);
+            // Keep a little of the deadline for cancellation and result capture.
+            timeoutTicks = Math.Max(1, timeoutTicks - Math.Max(1, timeoutTicks / 10));
+            Regex occurrence = new(
+                pattern, RegexOptions.CultureInvariant, TimeSpan.FromTicks(timeoutTicks));
+            Check();
+            return occurrence;
+        }
+
+        internal void Check()
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (remainingBudget is not null && remainingBudget() <= TimeSpan.Zero)
+            {
+                throw new ProjectionDeadlineException();
+            }
+        }
+
+        internal sealed class ProjectionDeadlineException()
+            : TimeoutException("Typed echo projection exceeded the pane wait deadline.");
+
+        internal sealed class ProjectionWorkExceededException()
+            : IOException("Typed echo projection exceeded its bounded work budget.");
     }
 
-    private static string WithoutWrapped(string text, string line, Regex occurrence)
+    private static string WithoutWrapped(
+        string text,
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         StringBuilder? result = null;
         int cursor = 0;
-        Match match = occurrence.Match(text);
+        string pattern = WrappedOccurrence(line, projection, ref work);
+        Regex? occurrence = null;
+        Match match = NextWrappedMatch(text, pattern, 0, projection, ref occurrence, ref work);
         while (match.Success)
         {
             int end = match.Index + match.Length;
@@ -403,53 +597,274 @@ internal static partial class PaneText
                 result ??= new StringBuilder(text.Length);
                 result.Append(text, cursor, match.Index - cursor).Append('\n', match.ValueSpan.Count('\n'));
                 cursor = end;
-                match = occurrence.Match(text, end);
+                match = NextWrappedMatch(text, pattern, end, projection, ref occurrence, ref work);
             }
             else
             {
-                match = occurrence.Match(text, match.Index + 1);
+                match = NextWrappedMatch(text, pattern, match.Index + 1, projection,
+                    ref occurrence, ref work);
             }
         }
 
         return result is null ? text : result.Append(text, cursor, text.Length - cursor).ToString();
     }
 
-    // The longest start of the line that ends the text, past trailing spaces
-    // and blank rows, is the part the shell has echoed so far.
-    private static string WithoutEchoInProgress(string text, string line)
+    private static Match NextWrappedMatch(
+        string text,
+        string pattern,
+        int start,
+        TypedEchoProjection projection,
+        ref Regex? occurrence,
+        ref int work)
+    {
+        projection.Charge(ref work, Math.Min(1024, text.Length - start + 1));
+        occurrence = projection.Occurrence(pattern, occurrence);
+        Match found = occurrence.Match(text, start);
+        projection.Check();
+        return found;
+    }
+
+    // Prefix states advance together; a state records how many non-space
+    // characters were consumed. Spaces are literal unless a row break
+    // swallows the rest of their typed run.
+    private static string WithoutEchoInProgress(
+        string text,
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         int end = text.Length;
         while (end > 0 && text[end - 1] is ' ' or '\n')
         {
+            projection.Charge(ref work);
             end--;
         }
 
-        for (int length = line.Length - 1; length > 0; length--)
+        if (end == 0 || line.Length < 2)
         {
-            int start = StartOfWrapped(text, end, line, length);
-            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
-            {
-                int breaks = text.AsSpan(start, end - start).Count('\n');
-                return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
-            }
+            return text;
         }
 
-        return text;
+        var matcher = new EchoPrefixMatcher(line, projection, ref work);
+        int start = matcher.FindStart(text, end, projection, ref work);
+        if (start < 0)
+        {
+            return text;
+        }
+
+        int breaks = text.AsSpan(start, end - start).Count('\n');
+        return string.Concat(text.AsSpan(0, start), new string('\n', breaks), text.AsSpan(end));
     }
 
-    // Reads backwards from end for the line's first length characters, across
-    // row breaks and the spaces a wrapped row loses; -1 when they are not there.
-    private static int StartOfWrapped(string text, int end, string line, int length)
+    private sealed class EchoPrefixMatcher
+    {
+        private readonly string line;
+        private readonly int[] positions;
+        private readonly int[] spaces;
+        private readonly int count;
+        private readonly Dictionary<(char Character, int Spaces, int Word), ulong> masks = [];
+        private ulong[] current;
+        private ulong[] next;
+        private List<int> active = [];
+        private List<int> nextActive = [];
+
+        internal EchoPrefixMatcher(string line, TypedEchoProjection projection, ref int work)
+        {
+            this.line = line;
+            positions = new int[line.Length];
+            spaces = new int[line.Length];
+            int gap = 0;
+            for (int index = 0; index < line.Length; index++)
+            {
+                projection.Charge(ref work);
+                if (line[index] == ' ')
+                {
+                    gap++;
+                }
+                else
+                {
+                    positions[count] = index;
+                    spaces[count] = gap;
+                    count++;
+                    gap = 0;
+                }
+            }
+
+            current = new ulong[(count + 63) / 64];
+            next = new ulong[current.Length];
+        }
+
+        internal int FindStart(string text, int end, TypedEchoProjection projection, ref int work)
+        {
+            if (count < 2)
+            {
+                return -1;
+            }
+
+            // A match at this upper bound settles every shorter candidate.
+            int possible = 0;
+            for (int index = 0; index < end && possible < count - 1; index++)
+            {
+                projection.Charge(ref work);
+                if (text[index] is not (' ' or '\n'))
+                {
+                    possible++;
+                }
+            }
+
+            int start = StartOfWrapped(text, end, line, positions[possible], projection, ref work);
+            if (start >= 0 && (start == 0 || !IsWordChar(text[start - 1]) || !IsWordChar(line[0])))
+            {
+                return start;
+            }
+
+            for (int index = 0; index < count - 1; index++)
+            {
+                projection.Charge(ref work);
+                int state = index + 1;
+                int word = state / 64;
+                ulong bit = 1UL << (state % 64);
+                char character = line[positions[index]];
+                AddMask((character, spaces[index], word), bit);
+                AddMask((character, -1, word), bit);
+            }
+
+            int gap = 0;
+            bool wrapped = false;
+            bool spacesBeforeWrap = false;
+            for (int index = 0; index < end; index++)
+            {
+                projection.Charge(ref work);
+                char character = text[index];
+                if (character == ' ')
+                {
+                    gap++;
+                    continue;
+                }
+
+                if (character == '\n')
+                {
+                    spacesBeforeWrap |= gap > 0;
+                    wrapped = true;
+                    gap = 0;
+                    continue;
+                }
+
+                if (!spacesBeforeWrap)
+                {
+                    foreach (int word in active)
+                    {
+                        projection.Charge(ref work);
+                        ulong bits = current[word];
+                        AdvanceWord(word, bits << 1, character, gap, wrapped, projection, ref work);
+                        AdvanceWord(word + 1, bits >> 63, character, gap, wrapped, projection, ref work);
+                    }
+                }
+
+                bool opens = spaces[0] > 0
+                    ? wrapped || gap >= spaces[0]
+                    : index == 0 || !IsWordChar(text[index - 1]) || !IsWordChar(line[0]);
+                if (character == line[positions[0]] && opens)
+                {
+                    AddNext(0, 2);
+                }
+
+                foreach (int word in active)
+                {
+                    current[word] = 0;
+                }
+
+                (current, next) = (next, current);
+                (active, nextActive) = (nextActive, active);
+                nextActive.Clear();
+                gap = 0;
+                wrapped = false;
+                spacesBeforeWrap = false;
+            }
+
+            int longest = 0;
+            foreach (int word in active)
+            {
+                projection.Charge(ref work);
+                longest = Math.Max(longest, word * 64 + 63 - BitOperations.LeadingZeroCount(current[word]));
+            }
+
+            return longest == 0 ? -1 : StartOfWrapped(text, end, line, positions[longest], projection, ref work);
+        }
+
+        private void AddMask((char Character, int Spaces, int Word) key, ulong bit) =>
+            masks[key] = masks.GetValueOrDefault(key) | bit;
+
+        private void AddNext(int word, ulong bits)
+        {
+            if (bits == 0)
+            {
+                return;
+            }
+
+            if (next[word] == 0)
+            {
+                nextActive.Add(word);
+            }
+
+            next[word] |= bits;
+        }
+
+        private void AdvanceWord(
+            int word,
+            ulong bits,
+            char character,
+            int gap,
+            bool wrapped,
+            TypedEchoProjection projection,
+            ref int work)
+        {
+            if (bits == 0)
+            {
+                return;
+            }
+
+            bits &= masks.GetValueOrDefault((character, wrapped ? -1 : gap, word));
+            if (wrapped && gap > 0)
+            {
+                ulong candidates = bits;
+                while (candidates != 0)
+                {
+                    projection.Charge(ref work);
+                    int bit = BitOperations.TrailingZeroCount(candidates);
+                    ulong flag = 1UL << bit;
+                    if (spaces[word * 64 + bit - 1] < gap)
+                    {
+                        bits &= ~flag;
+                    }
+
+                    candidates &= ~flag;
+                }
+            }
+
+            AddNext(word, bits);
+        }
+    }
+
+    private static int StartOfWrapped(
+        string text,
+        int end,
+        string line,
+        int length,
+        TypedEchoProjection projection,
+        ref int work)
     {
         int at = end - 1;
         int typed = length - 1;
         while (typed >= 0 && line[typed] == ' ')
         {
+            projection.Charge(ref work);
             typed--;
         }
 
         while (typed >= 0)
         {
+            projection.Charge(ref work);
             if (at < 0)
             {
                 return -1;
@@ -465,6 +880,7 @@ internal static partial class PaneText
                 at--;
                 while (typed >= 0 && line[typed] == ' ')
                 {
+                    projection.Charge(ref work);
                     typed--;
                 }
             }
@@ -479,15 +895,20 @@ internal static partial class PaneText
 
     // Each character may be followed by a wrap; a run of spaces may be cut
     // short by one, since tmux drops the spaces a wrapped row ends with.
-    private static Regex WrappedOccurrence(string line)
+    private static string WrappedOccurrence(
+        string line,
+        TypedEchoProjection projection,
+        ref int work)
     {
         StringBuilder pattern = new(line.Length * 4);
         for (int index = 0; index < line.Length; index++)
         {
+            projection.Charge(ref work);
             if (line[index] == ' ')
             {
                 while (index + 1 < line.Length && line[index + 1] == ' ')
                 {
+                    projection.Charge(ref work);
                     index++;
                 }
 
@@ -499,18 +920,15 @@ internal static partial class PaneText
             }
         }
 
-        return new Regex(pattern.ToString(), RegexOptions.CultureInvariant);
+        projection.Check();
+        return pattern.ToString();
     }
 
     /// <summary>Matches the channel and option names a run leaves behind.</summary>
     /// <remarks>
-    /// Anchored to the exact shape minted by <see cref="PaneRunner.RunToken" />
-    /// so that ordinary text mentioning the prefix survives. The begin marker
-    /// is spelled in halves in the payload, so the echo carries no ten-digit
-    /// form — but it always carries the two quoted halves adjacent, which is
-    /// a shape a caller's own output does not have. Matching that rather than
-    /// widening the digit count keeps a line like <c>lt_b_abcde</c> in a
-    /// user's build log, which a five-digit minimum would have deleted.
+    /// Matches full random tokens and their two quoted halves in a sourced
+    /// payload. A bare prefix in a caller's output remains visible. The exact
+    /// private script path also removes the echoed source command.
     /// <para>
     /// The status assignment is matched too, because rejoining wrapped rows
     /// cannot be relied on: tmux trims a row's trailing spaces, so a wrapped
@@ -520,7 +938,12 @@ internal static partial class PaneText
     /// </para>
     /// </remarks>
     [GeneratedRegex(
-        @"@?lt_[rsbe]_[0-9a-f]{10}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{5}'|__lt=\$\?",
+        @"@?lt_[rsbe]_[0-9a-f]{32}|'lt_[be]_[0-9a-f]{5}' '[0-9a-f]{27}'|\. '[^\r\n]*/libtmux-run-[0-9a-f]{32}-[A-Za-z0-9]{6}/run'|__lt=\$\?",
         RegexOptions.CultureInvariant)]
     private static partial Regex MarkerPattern();
+
+    [GeneratedRegex(
+        @"@?lt_[rsbe]_(?<id>[0-9a-f]{10})(?![0-9a-f])|'lt_[be]_(?<head>[0-9a-f]{5})' '(?<tail>[0-9a-f]{5})'",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PreviousMarkerPattern();
 }

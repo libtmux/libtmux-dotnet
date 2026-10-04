@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace LibTmux.Internal;
 
@@ -110,6 +111,8 @@ internal sealed class TmuxConnection
 
     internal bool IsPsmux => _dialect.IsPsmux;
 
+    internal string VerifiedRawVersion => _dialect.VerifiedRawVersion;
+
     internal bool HasSameEndpoint(TmuxConnection other)
     {
         ArgumentNullException.ThrowIfNull(other);
@@ -172,6 +175,20 @@ internal sealed class TmuxConnection
                 generation,
                 [arguments],
                 cancellationToken),
+            CommandContext);
+    }
+
+    [UnsupportedOSPlatform("windows")]
+    internal TmuxCommandDispatcher CreateAttachmentDispatcher(ServerGeneration generation)
+    {
+        ValidateLiveGeneration(generation);
+        TimeSpan budget = Options.CommandTimeout is TimeSpan limit
+            && limit < TmuxGenerationGuard.AttachmentAcknowledgementBudget
+            ? limit : TmuxGenerationGuard.AttachmentAcknowledgementBudget;
+        return new TmuxCommandDispatcher(
+            (arguments, token) => _dialect is TmuxDialect tmux
+                ? tmux.ExecuteAttachmentAsync(generation, arguments, budget, token)
+                : _dialect.ExecuteGuardedAsync(generation, [arguments], token),
             CommandContext);
     }
 

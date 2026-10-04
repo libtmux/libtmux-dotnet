@@ -25,7 +25,13 @@ internal interface IControlModeProcess : IDisposable
     public Task WaitForExitAsync(CancellationToken cancellationToken = default);
 
     public Task StopErrorPumpAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task<ControlModeExitDiagnostics> ReadExitedDiagnosticsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new ControlModeExitDiagnostics(null, StandardErrorTail, false));
 }
+
+internal sealed record ControlModeExitDiagnostics(
+    int? ExitCode, string StandardErrorTail, bool StandardErrorComplete, Exception? Failure = null);
 
 internal sealed class SystemControlModeProcess : IControlModeProcess
 {
@@ -34,6 +40,7 @@ internal sealed class SystemControlModeProcess : IControlModeProcess
     private readonly ControlModeLineReader _output;
     private readonly Process _process;
     private readonly RollingByteTail _standardError;
+    private bool _standardErrorComplete;
 
     internal SystemControlModeProcess(Process process, ControlModeLimits limits)
     {
@@ -67,6 +74,29 @@ internal sealed class SystemControlModeProcess : IControlModeProcess
     public Task WaitForExitAsync(CancellationToken cancellationToken = default) =>
         _process.WaitForExitAsync(cancellationToken);
 
+    public async Task<ControlModeExitDiagnostics> ReadExitedDiagnosticsAsync(CancellationToken cancellationToken)
+    {
+        int? exitCode = null;
+        Exception? failure = null;
+        try
+        {
+            await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            exitCode = _process.ExitCode;
+            await _errorPump.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            failure = error;
+            if (_process.HasExited)
+            {
+                exitCode = _process.ExitCode;
+            }
+        }
+
+        return new ControlModeExitDiagnostics(
+            exitCode, StandardErrorTail, Volatile.Read(ref _standardErrorComplete), failure);
+    }
+
     public async Task StopErrorPumpAsync(CancellationToken cancellationToken)
     {
         await _errorPumpCancellation.CancelAsync().ConfigureAwait(false);
@@ -92,6 +122,7 @@ internal sealed class SystemControlModeProcess : IControlModeProcess
                     .ConfigureAwait(false);
                 if (read == 0)
                 {
+                    Volatile.Write(ref _standardErrorComplete, true);
                     return;
                 }
 

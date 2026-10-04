@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using System.Text;
-using System.Text.RegularExpressions;
 using LibTmux.Internal;
 
 using LibTmux.UnitTests.Connection;
@@ -17,30 +16,176 @@ public sealed class PaneSendKeysDispatchTests
     public void A_send_and_wait_judges_later_output_without_the_typed_echo()
     {
         const string typed = "true && true && echo MARKER";
-        var wait = new PaneWaitRequest { Patterns = [new Regex("MARKER")], StopPatterns = [new Regex("^FATAL")] };
-        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, typed);
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho = PaneText.TypedEchoRemover(typed);
 
         // A narrow pane wraps the typed line, once mid-word and once where
         // tmux trims the space a row ends with; the last row alone holds the pattern.
         string[] echoed = ["$ true && tr", "ue &&", "echo MARKER"];
 
-        Assert.Null(classify(["MARKER"], true));
-        Assert.Null(classify(["$ " + typed], false));
-        Assert.Null(classify(echoed, false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "MARKER"), classify([.. echoed, "MARKER"], false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Stopped, "^FATAL"), classify(["FATAL: MARKER"], false));
+        Assert.DoesNotContain("MARKER", string.Join('\n', withoutEcho(["$ " + typed])), StringComparison.Ordinal);
+        Assert.DoesNotContain("MARKER", string.Join('\n', withoutEcho(echoed)), StringComparison.Ordinal);
+        Assert.Equal("MARKER", withoutEcho([.. echoed, "MARKER"])[^1]);
+    }
+
+    [Fact]
+    public void Wrapped_echo_remains_removable_when_tmux_drops_more_spaces_than_it_adds_breaks()
+    {
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("echo  done");
+
+        Assert.Equal(["", ""], withoutEcho(["echo", "done"]));
     }
 
     [Fact]
     public void A_send_and_wait_discounts_an_echo_in_progress_or_with_trailing_spaces()
     {
-        var wait = new PaneWaitRequest { Patterns = [new Regex("done")] };
-        Func<IReadOnlyList<string>, bool, PaneWaitVerdict?> classify = Pane.AfterSending(wait, "echo done; sleep 5 ");
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("echo done; sleep 5 ");
 
         // The shell has echoed only part of the line, which already holds the pattern.
-        Assert.Null(classify(["$ echo done; sl"], false));
-        Assert.Null(classify(["$ echo done; sleep 5", ""], false));
-        Assert.Equal(new PaneWaitVerdict(PaneWaitOutcome.Matched, "done"), classify(["$ echo done; sleep 5", "done"], false));
+        Assert.DoesNotContain("done", string.Join('\n', withoutEcho(["$ echo done; sl"])), StringComparison.Ordinal);
+        Assert.DoesNotContain("done", string.Join('\n', withoutEcho(["$ echo done; sleep 5", ""])), StringComparison.Ordinal);
+        Assert.Equal("done", withoutEcho(["$ echo done; sleep 5", "done"])[^1]);
+    }
+
+    [Fact]
+    public void Typed_echo_projection_rejects_input_beyond_its_UTF8_budget()
+    {
+        // Fewer than 64 KiB characters can still exceed a 64 KiB byte budget.
+        string typed = new('\u754c', 21_846);
+
+        ArgumentException failure = Assert.Throws<ArgumentException>(
+            () => PaneText.TypedEchoRemover(typed));
+
+        Assert.Equal("typed", failure.ParamName);
+    }
+
+    [Fact]
+    public async Task Triggered_wait_rejects_oversize_typed_text_before_pane_io()
+    {
+        int calls = 0;
+        Pane pane = CreatePane((_, _) =>
+        {
+            calls++;
+            throw new InvalidOperationException("Validation reached tmux.");
+        });
+
+        ArgumentException failure = await Assert.ThrowsAsync<ArgumentException>(() =>
+            pane.SendKeysAndWaitAsync(
+                new SendKeysRequest { Text = new string('\u754c', 21_846), Literal = true },
+                PaneWaitRequest.FromTextPatterns(["ready"]),
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal("typed", failure.ParamName);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public void Typed_echo_projection_accepts_the_UTF8_budget_boundary()
+    {
+        string typed = new('\u754c', 21_845);
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover(typed);
+
+        Assert.Equal(["ready"], withoutEcho(["ready"]));
+    }
+
+    [Fact]
+    public void Admitted_64KiB_wrapped_echo_is_removed_without_losing_rows()
+    {
+        string typed = "b " + new string('a', 65_534);
+        string[] rows = [.. typed.Chunk(80).Select(chunk => new string(chunk))];
+
+        IReadOnlyList<string> projected = PaneText.TypedEchoRemover(typed)(rows);
+
+        Assert.Equal(rows.Length, projected.Count);
+        Assert.All(projected, Assert.Empty);
+    }
+
+    [Fact]
+    public void Admitted_64KiB_partial_wrapped_echo_is_removed_without_losing_rows()
+    {
+        string typed = "b " + new string('a', 65_534);
+        string[] rows = [.. typed[..^1].Chunk(80).Select(chunk => new string(chunk))];
+
+        IReadOnlyList<string> projected = PaneText.TypedEchoRemover(typed)(rows);
+
+        Assert.Equal(rows.Length, projected.Count);
+        Assert.All(projected, Assert.Empty);
+    }
+
+    [Fact]
+    public void Admitted_64KiB_repeated_nonword_partial_echo_is_removed()
+    {
+        string typed = new('-', 65_536);
+
+        IReadOnlyList<string> projected = PaneText.TypedEchoRemover(typed)([typed[..^1]]);
+
+        Assert.Equal([""], projected);
+    }
+
+    [Fact]
+    public void Admitted_long_typed_text_without_an_echo_keeps_the_screen()
+    {
+        string typed = "b" + new string('a', 65_535);
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover(typed);
+        string[] screen = [new string('a', 4096)];
+
+        Assert.Equal(screen, withoutEcho(screen));
+
+        string mixed = "b " + new string('a', 65_534);
+        string[] wrapped = ["b unrelated", new string('a', 4096), new string('a', 4096)];
+        Assert.Equal(wrapped, PaneText.TypedEchoRemover(mixed)(wrapped));
+    }
+
+    [Theory]
+    [InlineData("a \nb", false)]
+    [InlineData("a\n b", true)]
+    [InlineData("a\n  b", false)]
+    public void Partial_echo_projection_preserves_wrapped_space_boundaries(
+        string captured,
+        bool removed)
+    {
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("a bc");
+
+        IReadOnlyList<string> projected = withoutEcho(captured.Split('\n'));
+        string[] expected = removed ? ["", ""] : captured.Split('\n');
+
+        Assert.Equal(expected, projected);
+    }
+
+    [Fact]
+    public void Typed_echo_projection_rejects_captured_rows_beyond_the_match_work_budget()
+    {
+        Func<IReadOnlyList<string>, IReadOnlyList<string>> withoutEcho =
+            PaneText.TypedEchoRemover("not present");
+        string row = new('a', 4_194_304);
+
+        Assert.Throws<PaneTextWaiter.MatchWorkExceededException>(
+            () => withoutEcho([row, row]));
+    }
+
+    [Fact]
+    public void Typed_echo_projection_observes_cancellation_during_partial_echo_work()
+    {
+        using CancellationTokenSource cancellation = new();
+        int checks = 0;
+        PaneText.TypedEchoProjection projection = new(
+            "b" + new string('a', 8192),
+            () =>
+            {
+                if (++checks == 10)
+                {
+                    cancellation.Cancel();
+                }
+
+                return TimeSpan.FromSeconds(1);
+            }, cancellation.Token);
+
+        Assert.Throws<OperationCanceledException>(() => projection.Project([new string('a', 4096)]));
+        Assert.True(checks >= 10);
     }
 
     [Fact]

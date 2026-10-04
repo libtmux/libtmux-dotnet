@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="libtmux-query-v1.schema.json" Pack="true" PackagePath="\" />
+    <None Include="libtmux-query-v2.schema.json" Pack="true" PackagePath="\" />
   </ItemGroup>
   <PropertyGroup>
     <!-- Optional parameters are part of the intended public API. -->

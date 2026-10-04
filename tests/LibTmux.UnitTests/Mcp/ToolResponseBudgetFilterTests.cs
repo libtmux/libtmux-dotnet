@@ -211,22 +211,91 @@ public sealed class ToolResponseBudgetFilterTests
         Assert.True(Utf8JsonBudget.FitsToolResult(result, 4_000, ToolJson.Options));
     }
 
-    [Fact]
-    public async Task Paste_primary_and_cleanup_failure_names_the_owned_buffer_on_the_wire()
+    [Theory]
+    [InlineData("libtmux_mcp_0123456789ab", false, true)]
+    [InlineData("libtmux_run_0123456789ab", false, true)]
+    [InlineData("libtmux_run_0123456789ab", true, true)]
+    [InlineData("libtmux_run_owned;kill-server", true, false)]
+    [InlineData("borrowed_buffer", false, false)]
+    public async Task Paste_primary_and_cleanup_failure_names_the_owned_buffer_on_the_wire(
+        string buffer,
+        bool wrapped,
+        bool namesOwnedBuffer)
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using BudgetProtocolHarness harness = await BudgetProtocolHarness.StartAsync(token);
 
         CallToolResult result = await harness.Client.CallToolAsync(
             "budget_probe_paste_cleanup_failure",
+            new Dictionary<string, object?> { ["buffer"] = buffer, ["wrapped"] = wrapped },
             cancellationToken: token);
 
         Assert.True(result.IsError);
         string message = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
-        Assert.Contains(BudgetProbeTools.PasteBuffer, message, StringComparison.Ordinal);
-        Assert.Contains("may still contain", message, StringComparison.Ordinal);
-        Assert.Contains("Do not retry", message, StringComparison.Ordinal);
-        Assert.Contains("tmux delete-buffer -b", message, StringComparison.Ordinal);
+        if (namesOwnedBuffer)
+        {
+            Assert.Contains(buffer, message, StringComparison.Ordinal);
+            Assert.Contains("may still contain", message, StringComparison.Ordinal);
+            Assert.Contains("Do not retry", message, StringComparison.Ordinal);
+            Assert.Contains("tmux delete-buffer -b", message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain("tmux delete-buffer -b", message, StringComparison.Ordinal);
+        }
+
+        Assert.True(Utf8JsonBudget.FitsToolResult(result, 4_000, ToolJson.Options));
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task A_primary_run_failure_reports_owned_directory_cleanup_on_the_wire(
+        bool bufferCleanup,
+        bool ownedDirectory)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using BudgetProtocolHarness harness = await BudgetProtocolHarness.StartAsync(token);
+        string directory = Path.Combine(Path.GetTempPath(), ownedDirectory
+            ? "libtmux-run-0123456789abcdef0123456789abcdef-owned"
+            : "borrowed-resources");
+
+        CallToolResult result = await harness.Client.CallToolAsync(
+            "budget_probe_paste_cleanup_failure",
+            new Dictionary<string, object?>
+            {
+                ["buffer"] = "libtmux_run_0123456789ab",
+                ["directory"] = directory,
+                ["bufferCleanup"] = bufferCleanup,
+            },
+            cancellationToken: token);
+
+        Assert.True(result.IsError);
+        string message = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
+        if (ownedDirectory)
+        {
+            Assert.Contains(directory, message, StringComparison.Ordinal);
+            Assert.Contains("private run directory", message, StringComparison.Ordinal);
+            Assert.Contains("Do not retry", message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain(directory, message, StringComparison.Ordinal);
+            Assert.DoesNotContain("private run directory", message, StringComparison.Ordinal);
+        }
+
+        if (bufferCleanup)
+        {
+            Assert.Contains("libtmux_run_0123456789ab", message, StringComparison.Ordinal);
+            Assert.Contains("tmux delete-buffer -b", message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("The paste was refused before dispatch.", message, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("rm ", message, StringComparison.Ordinal);
         Assert.True(Utf8JsonBudget.FitsToolResult(result, 4_000, ToolJson.Options));
     }
 
@@ -498,12 +567,42 @@ public sealed class ToolResponseBudgetFilterTests
             Destructive = true,
             OpenWorld = true,
             UseStructuredContent = true)]
-        public static BudgetProbeResult PasteCleanupFailure()
+        public static BudgetProbeResult PasteCleanupFailure(
+            string buffer = PasteBuffer,
+            bool wrapped = false,
+            string? directory = null,
+            bool bufferCleanup = true)
         {
-            var error = new InvalidOperationException(new string('p', 16_000));
-            error.Data[WriteTools.PasteBufferCleanupFailureDataKey] =
-                new IOException("delete-buffer failed");
-            error.Data[WriteTools.PasteBufferCleanupBufferDataKey] = PasteBuffer;
+            Exception error = wrapped
+                ? new TmuxOperationCanceledException(
+                    new string('p', 16_000),
+                    CancellationToken.None,
+                    commandMayHaveExecuted: true,
+                    clientProcessId: 801)
+                : directory is not null
+                    ? new LibTmuxException("The paste was refused before dispatch.", TmuxDispatchState.NotDispatched)
+                    : new InvalidOperationException(new string('p', 16_000));
+            if (bufferCleanup)
+            {
+                error.Data[WriteTools.PasteBufferCleanupFailureDataKey] =
+                    new IOException("delete-buffer failed");
+                error.Data[WriteTools.PasteBufferCleanupBufferDataKey] = buffer;
+            }
+
+            if (directory is not null)
+            {
+                error.Data[LibTmux.Internal.PaneRunner.RunDirectoryCleanupFailureDataKey] =
+                    new IOException("The private command files could not be deleted.");
+                error.Data[LibTmux.Internal.PaneRunner.RunDirectoryCleanupDirectoryDataKey] = directory;
+            }
+            if (wrapped)
+            {
+                throw new LibTmuxException(
+                    "The command may have reached tmux before cancellation. Do not retry until you inspect the pane.",
+                    TmuxDispatchState.Unknown,
+                    error);
+            }
+
             throw error;
         }
     }

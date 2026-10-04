@@ -1,8 +1,10 @@
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
+using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.Testing;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 
 namespace LibTmux.IntegrationTests;
@@ -94,6 +96,16 @@ public sealed class TmuxToolsTests
         ActionResult third = await mcp.Capabilities.SplitWindowAsync(
             first, cancellationToken: token);
         await mcp.Capabilities.SetSynchronizePanesAsync(true, cancellationToken: token);
+
+        // User prompt hooks can change the signed foreground command between preflights.
+        _ = await scope.Server.ExecuteCommandAsync(
+            ["set-option", "-g", "default-shell", "/bin/sh"], token);
+        foreach (string id in new[] { first, second.PaneId!, third.PaneId! })
+        {
+            _ = await scope.Server.ExecuteCommandAsync(
+                ["respawn-pane", "-k", "-t", id, "PS1='$ ' ENV= BASH_ENV= exec /bin/sh -i"],
+                token);
+        }
 
         await WaitForShellsAsync(mcp, token, first, second.PaneId!, third.PaneId!);
 
@@ -526,16 +538,129 @@ public sealed class TmuxToolsTests
             mcp.Options,
             token);
 
-        // The streaming design rests on tmux pushing pane output to a control
-        // client. When one cannot start, waiting falls back to a 60ms poll and
-        // nothing reports the difference — and every other test of this hub
-        // injects a fake session, so only this one says the real client starts.
         Assert.False(mcp.Activity.IsStreaming);
-        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, token);
+        IAsyncDisposable lease = await mcp.Activity.WatchAsync(scope.Pane, cancellationToken: token);
         Assert.True(mcp.Activity.IsStreaming);
 
         await lease.DisposeAsync();
         Assert.False(mcp.Activity.IsStreaming);
+    }
+
+    [UnixFact]
+    public async Task An_idle_text_wait_does_not_poll_pane_contents() =>
+        await AssertIdleWaitAsync(TimeProvider.System);
+
+    [UnixFact]
+    public async Task A_text_wait_timeout_does_not_read_again_when_its_timer_expires_early() =>
+        await AssertIdleWaitAsync(new EarlyTimeoutProvider());
+
+    private static async Task AssertIdleWaitAsync(TimeProvider timeProvider)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        // An interactive shell can print after its creation command returns.
+        // Keep this fixture silent while the wait observes its deadline.
+        TmuxTestOptions options = new(mcp.Options.ConnectionOptions with
+        {
+            ChildEnvironment = new Dictionary<string, string?>
+            {
+                ["SHELL"] = "/bin/sh",
+                ["ENV"] = null,
+                ["BASH_ENV"] = null,
+            },
+        });
+        await using TemporaryServerScope scope = await new TmuxTestFactory()
+            .CreateServerAsync(options, token);
+        Session session = await scope.Server.CreateSessionAsync(
+            new NewSessionRequest { Name = "idle-observation", Command = "exec /bin/cat" }, token);
+        Pane pane = Assert.Single(await session.GetPanesAsync(token));
+        CaptureLogger logger = new();
+        await using PaneActivityHub activity = new(
+            static (observed, cancellation) => observed.Server.EnterControlModeAsync(
+                observed.Session.Id.ToString(), cancellation),
+            timeProvider: timeProvider);
+        using TmuxConnectionAccessor connection = new(Server.Open(
+            scope.Server.ConnectionOptions with { Logger = logger }));
+        ReadTools reads = new(connection, new ServerPolicy(), activity);
+
+        WaitResult result = await reads.WaitForTextAsync(
+            pane.Id.ToString(),
+            ["NEVER_APPEARS_ANYWHERE"],
+            timeoutSeconds: 0.75,
+            cancellationToken: token);
+
+        Assert.Equal(WaitOutcome.Timeout, result.Outcome);
+        Assert.False(result.PollingFallback);
+        Assert.Equal(3, logger.Captures);
+        Assert.False(activity.IsStreaming);
+    }
+
+    [UnixFact]
+    public async Task A_text_wait_refreshes_after_notification_loss_and_discloses_it()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        await using TemporaryHierarchyScope scope = await new TmuxTestFactory()
+            .CreateHierarchyAsync(mcp.Options, token);
+        await scope.Pane.RespawnAsync(
+            new RespawnRequest { Command = "exec cat", KillExistingProcess = true }, token);
+        using TmuxConnectionAccessor connection = new(Server.Open(
+            scope.Server.ConnectionOptions with { ControlModeEventBufferMaxBytes = 1 }));
+        ReadTools reads = new(connection, new ServerPolicy(), mcp.Activity);
+        TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        const string Marker = "観測-notification-loss";
+        Task<WaitResult> waiting = reads.WaitForTextAsync(
+            scope.Pane.Id.ToString(), [Marker], timeoutSeconds: 1,
+            progress: new Progress<ProgressNotificationValue>(_ => ready.TrySetResult()),
+            cancellationToken: token);
+        await Task.WhenAny(ready.Task, waiting).WaitAsync(token);
+        Assert.False(waiting.IsCompleted);
+
+        await scope.Pane.SendTextAsync(Marker, enter: false, cancellationToken: token);
+        WaitResult result = await waiting;
+
+        Assert.Equal(WaitOutcome.Matched, result.Outcome);
+        Assert.True(result.EventsDropped > 0);
+        Assert.False(result.PollingFallback);
+        Assert.False(mcp.Activity.IsStreaming);
+    }
+
+    private sealed class EarlyTimeoutProvider : TimeProvider
+    {
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period) =>
+            // Model a deadline timer firing before Stopwatch reaches the budget.
+            new Timer(callback, state, TimeSpan.Zero, Timeout.InfiniteTimeSpan);
+    }
+
+    private sealed class CaptureLogger : ILogger
+    {
+        private int _captures;
+
+        internal int Captures => Volatile.Read(ref _captures);
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (eventId.Id == 100
+                && state is IEnumerable<KeyValuePair<string, object?>> fields
+                && fields.Any(field => field.Key == "TmuxSubcommand"
+                    && field.Value is "capture-pane"))
+            {
+                Interlocked.Increment(ref _captures);
+            }
+        }
     }
 
     [UnixFact]
@@ -897,6 +1022,31 @@ public sealed class TmuxToolsTests
             timeoutSeconds: 20,
             cancellationToken: token);
         Assert.Contains("ref=lt_b_abcde note=matters", lookalike.Output.Lines);
+    }
+
+    [UnixFact]
+    public async Task Public_pane_run_source_line_is_hidden_from_later_mcp_capture()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using McpToolFixture mcp = McpToolFixture.Create();
+        TmuxTestFactory factory = new();
+        await using TemporaryHierarchyScope scope = await factory.CreateHierarchyAsync(
+            mcp.Options,
+            token);
+
+        PaneRunResult run = await scope.Pane.RunAsync(
+            "printf 'public-visible\\n'",
+            TimeSpan.FromSeconds(10),
+            cancellationToken: token);
+        Assert.Equal(0, run.ExitStatus);
+
+        CaptureResult captured = await mcp.Read.CapturePaneAsync(
+            scope.Pane.Id.ToString(),
+            includeHistory: true,
+            cancellationToken: token);
+        Assert.Contains("public-visible", captured.Content.Lines);
+        Assert.DoesNotContain(captured.Content.Lines, line =>
+            line.Contains("libtmux-run-", StringComparison.Ordinal));
     }
 
     [UnixFact]

@@ -77,6 +77,11 @@ internal static class TmuxConnectionEndpoint
         string? socketName)
     {
         var arguments = new List<string>();
+        if (options.PsmuxPreview is null)
+        {
+            // Without this, tmux replaces tabs and Unicode under the C locale.
+            arguments.Add("-u");
+        }
         switch (options.ColorMode)
         {
             case TmuxColorMode.Default:

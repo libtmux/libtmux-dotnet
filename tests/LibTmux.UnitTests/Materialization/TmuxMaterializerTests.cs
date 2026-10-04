@@ -97,6 +97,35 @@ public sealed class TmuxMaterializerTests
         Assert.Equal("first\nsecond\r\n", projected);
     }
 
+    [Theory]
+    [InlineData("3.4", @"\$cash \${literal} \$_var $9 \\$cash \$9 \$é end\$", @"$cash ${literal} $_var $9 \$cash \$9 \$é end$")]
+    [InlineData("3.3a", @"\$cash \${literal} \$_var $9 \\$cash \$9 \$é end\$", @"\$cash \${literal} \$_var $9 \\$cash \$9 \$é end\$")]
+    [InlineData("3.5", @"\$cash \${literal} \$_var $9 \\$cash \$9 \$é end\$", @"\$cash \${literal} \$_var $9 \\$cash \$9 \$é end\$")]
+    public void Materialization_removes_only_native_34_dollar_escaping(string versionText, string wireValue, string expected)
+    {
+        TmuxVersion version = TmuxVersion.Parse(versionText);
+        var connection = new TmuxConnection(new ServerConnectionOptions(),
+            (_, _) => throw new InvalidOperationException("Materialization reached tmux."));
+        var context = new MaterializationContext(new Server(connection, new ServerGeneration(11, 22), versionText), version);
+        FormatProjection projection = FormatProjection.Create("list-panes", version);
+        byte[] payload = Encoding.UTF8.GetBytes(string.Concat(projection.Fields.Select(field =>
+            (field.WireName switch
+            {
+                "pid" => "11",
+                "start_time" => "22",
+                "pane_current_path" or "window_name" => wireValue,
+                _ => string.Empty,
+            }) + FormatProjection.RowSeparator)) + "\n");
+        byte[] original = payload.ToArray();
+
+        IReadOnlyDictionary<string, string?> row = Assert.Single(Materializer.MaterializeFormatFields(context, payload, "list-panes"));
+
+        Assert.Equal(expected, row["pane_current_path"]);
+        Assert.Equal(expected, row["window_name"]);
+        Assert.Null(row["pane_title"]);
+        Assert.Equal(original, payload);
+    }
+
     [Fact]
     public void Framed_field_limit_never_exceeds_the_capture_ceiling()
     {

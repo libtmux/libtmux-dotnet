@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using LibTmux.Internal;
+using LibTmux.Query;
 
 namespace LibTmux;
 
@@ -32,15 +33,45 @@ internal sealed class ServerSnapshot
         SnapshotDepth Depth,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> Sessions,
         IReadOnlyList<IReadOnlyDictionary<string, string?>> Windows,
-        IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes);
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> Panes,
+        IReadOnlyList<bool>? QueryMatches = null,
+        bool LinkedSessionsComplete = true);
+
+    [UnsupportedOSPlatform("windows")]
+    internal static Task<Rows> ReadAsync(
+        Server server,
+        SnapshotDepth depth = SnapshotDepth.Panes,
+        CancellationToken cancellationToken = default) =>
+        ReadRowsAsync(server, depth, null, null, null, null, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]
     // A session filter selects whole session subtrees: tmux evaluates it in
     // each window and pane row's own session.
-    internal static async Task<Rows> ReadAsync(
+    internal static Task<Rows> ReadAsync(
         Server server,
         SnapshotDepth depth,
         string? sessionFilter,
+        CancellationToken cancellationToken) =>
+        ReadRowsAsync(server, depth, sessionFilter, null, null, null, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
+    internal static Task<Rows> ReadAsync(
+        Server server,
+        SnapshotDepth depth,
+        TmuxVersion? projectionVersion,
+        QueryTarget? queryTarget,
+        string? predicateFormat,
+        CancellationToken cancellationToken) =>
+        ReadRowsAsync(server, depth, null, projectionVersion, queryTarget, predicateFormat, cancellationToken);
+
+    [UnsupportedOSPlatform("windows")]
+    private static async Task<Rows> ReadRowsAsync(
+        Server server,
+        SnapshotDepth depth,
+        string? sessionFilter,
+        TmuxVersion? projectionVersion,
+        QueryTarget? queryTarget,
+        string? predicateFormat,
         CancellationToken cancellationToken)
     {
         string[] filter = sessionFilter is null ? [] : ["-f", sessionFilter];
@@ -49,8 +80,9 @@ internal sealed class ServerSnapshot
         ServerGeneration generation = server.Generation
             ?? throw new InvalidOperationException(
                 "The server has no live generation; connect before capturing.");
-        var context = new MaterializationContext(server, ParseVersion(server));
+        var context = new MaterializationContext(server, projectionVersion ?? ParseVersion(server));
         var query = new MaterializationQuery(context);
+        IReadOnlyList<bool>? matches = null;
         if (depth == SnapshotDepth.Server)
         {
             TmuxCommandResult result = await server.Connection!
@@ -71,24 +103,37 @@ internal sealed class ServerSnapshot
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> sessionRows =
-            await query.FetchAsync("list-sessions", filter, cancellationToken)
+            await Fetch("list-sessions", filter)
                 .ConfigureAwait(false);
         if (depth == SnapshotDepth.Sessions)
         {
             SnapshotTopologyValidator.Validate(depth, generation, sessionRows, [], [], cancellationToken);
-            return new Rows(depth, sessionRows, [], []);
+            return new Rows(depth, sessionRows, [], [], matches, sessionFilter is null);
         }
 
         IReadOnlyList<IReadOnlyDictionary<string, string?>> windowRows =
-            await query.FetchAsync("list-windows", ["-a", .. filter], cancellationToken)
+            await Fetch("list-windows", ["-a", .. filter])
                 .ConfigureAwait(false);
         IReadOnlyList<IReadOnlyDictionary<string, string?>> paneRows =
             depth < SnapshotDepth.Panes
                 ? []
-                : await query.FetchAsync("list-panes", ["-a", .. filter], cancellationToken)
+                : await Fetch("list-panes", ["-a", .. filter])
                     .ConfigureAwait(false);
         SnapshotTopologyValidator.Validate(depth, generation, sessionRows, windowRows, paneRows, cancellationToken);
-        return new Rows(depth, sessionRows, windowRows, paneRows);
+        return new Rows(depth, sessionRows, windowRows, paneRows, matches, sessionFilter is null);
+
+        async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> Fetch(string command, string[]? arguments)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (predicateFormat is not null && queryTarget is { } target && command == QuerySourcePlanner.ListCommand(target))
+            {
+                MaterializedQueryRows marked = await query.FetchMarkedAsync(command, arguments, predicateFormat, cancellationToken)
+                    .ConfigureAwait(false);
+                matches = marked.Matches;
+                return marked.Fields;
+            }
+            return await query.FetchAsync(command, arguments, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static ServerSnapshot Empty(SnapshotDepth depth) =>
@@ -127,7 +172,8 @@ internal sealed class ServerSnapshot
             group => Relation(
                 group.Select(edge => edge.SessionId).Distinct().Select(id => sessionsById[id]).ToArray(),
                 "linked sessions",
-                depth));
+                depth,
+                rows.LinkedSessionsComplete));
         Window[] windows = [.. rows.Windows.Select((row, index) =>
         {
             cancellationToken.ThrowIfCancellationRequested();

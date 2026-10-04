@@ -11,9 +11,9 @@ namespace LibTmux.Mcp;
 internal sealed partial class WriteTools
 {
     internal const string PasteBufferCleanupFailureDataKey =
-        "LibTmux.Mcp.PasteBufferCleanupFailure";
+        PaneRunner.PasteBufferCleanupFailureDataKey;
     internal const string PasteBufferCleanupBufferDataKey =
-        "LibTmux.Mcp.PasteBufferCleanupBuffer";
+        PaneRunner.PasteBufferCleanupBufferDataKey;
 
     private static readonly TimeSpan PasteBufferCleanupTimeout = TimeSpan.FromSeconds(5);
     private const int MaximumBatchSteps = 64;

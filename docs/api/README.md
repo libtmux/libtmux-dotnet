@@ -63,9 +63,9 @@ modes differ.
 | `LibTmux.PaneRunResult` | Describes how a command run in a pane ended. |
 | `LibTmux.PaneSelectDirection` | Names which pane a selection moves to. |
 | `LibTmux.PaneSwapDirection` | Names which neighbouring pane a swap uses. |
-| `LibTmux.PaneWaitOutcome` | Names how a wait on a pane's output ended. |
-| `LibTmux.PaneWaitRequest` | Describes output to wait for in a pane. |
-| `LibTmux.PaneWaitResult` | Describes how a wait on a pane's output ended. |
+| `LibTmux.PaneWaitOutcome` | Names how a wait on a pane's rendered output ended. |
+| `LibTmux.PaneWaitRequest` | Describes rendered output to wait for in a pane. |
+| `LibTmux.PaneWaitResult` | Describes how a wait on a pane's rendered output ended. |
 | `LibTmux.PasteBufferRequest` | Describes one paste-buffer invocation. |
 | `LibTmux.PipePaneRequest` | Describes one pipe-pane invocation. |
 | `LibTmux.PopupCloseMode` | Names when a popup closes on its own. |
@@ -79,7 +79,14 @@ modes differ.
 | `LibTmux.Query.QueryDocument` | One translated query predicate and its wire schema. |
 | `LibTmux.Query.QueryEdgeParser` | Parses the one legacy lookup spelling this port still carries. |
 | `LibTmux.Query.QueryExtensions` | Translates, compiles, and applies declarative query predicates. |
+| `LibTmux.Query.QueryFieldCatalog` | Discovers the closed query vocabulary and its built-in entity bindings. |
+| `LibTmux.Query.QueryFieldDescriptor` | Describes one field accepted by the current portable query schema. |
+| ``LibTmux.Query.QueryPlan`1`` | An immutable query plan; inspecting it never reads tmux. |
+| `LibTmux.Query.QueryPushdown` | Controls predicate evaluation inside tmux. |
+| `LibTmux.Query.QueryRelationCardinality` | Names whether a captured query relation has one child or a collection. |
+| ``LibTmux.Query.QueryResult`1`` | Ordered, read-only matches and the complete observation that produced them. |
 | `LibTmux.Query.QueryTarget` | Names the tmux object a field or quantifier reads. |
+| `LibTmux.Query.QueryValueKind` | Names the scalar value types accepted by the portable query vocabulary. |
 | `LibTmux.ResizeDirection` | Defines pane resize directions. |
 | `LibTmux.ResizePaneRequest` | Describes one resize-pane invocation. |
 | `LibTmux.ResizeWindowRequest` | Describes one resize-window invocation. |
@@ -96,10 +103,11 @@ modes differ.
 | `LibTmux.ServerMirror` | A live copy of one tmux server's sessions, windows, panes and clients, rebuilt whenever tmux announces a change. |
 | `LibTmux.ServerMirrorView` | One state of a mirrored server. |
 | `LibTmux.Session` | Represents an immutable session handle and snapshot. |
+| `LibTmux.SessionCreationResult` | A created session and the initial child identities reported by its creation command. |
 | `LibTmux.SessionId` | Represents a generation-independent tmux session identifier. |
 | `LibTmux.SessionWindowEdge` | Places one window at one index inside one session. |
 | `LibTmux.SetHookRequest` | Describes one set-hook invocation. |
-| `LibTmux.SetHooksRequest` | Describes setting several entries of one hook at once. |
+| `LibTmux.SetHooksRequest` | Describes setting several entries of one hook. |
 | `LibTmux.SetOptionRequest` | Describes one set-option invocation. |
 | `LibTmux.ShowMessagesMode` | What show-messages should list. |
 | `LibTmux.SnapshotDepth` | Names how far down the tmux hierarchy a snapshot captured. |
@@ -162,6 +170,7 @@ modes differ.
 | `LibTmux.UnsupportedQueryExpressionException` | Thrown when an expression cannot be translated to a query. |
 | `LibTmux.WaitForRequest` | Describes one wait-for invocation. |
 | `LibTmux.Window` | Represents an immutable window handle and snapshot. |
+| `LibTmux.WindowCreationResult` | A created window and the initial pane identity reported by its creation command. |
 | `LibTmux.WindowDirection` | Defines relative window placement. |
 | `LibTmux.WindowEntityKey` | Identifies one window linked into one session. |
 | `LibTmux.WindowId` | Represents a generation-independent tmux window identifier. |
@@ -297,8 +306,11 @@ modes differ.
 | `LibTmux.PaneObservation.WatchAsync(LibTmux.IControlModeSession,System.Collections.Generic.IReadOnlyCollection{LibTmux.Pane},System.Threading.CancellationToken)` | Watches several panes' output through one control client until each has ended. |
 | `LibTmux.PaneOutputSince.#ctor(System.Collections.Generic.IReadOnlyList{System.String},LibTmux.PaneOutputPosition,System.Boolean)` | What a pane printed since a position, and where this read finished. |
 | `LibTmux.PaneRunRequest.#ctor(System.String)` | Initializes a run request. |
+| `LibTmux.PaneRunRequest.Validate` | Validates the request without reading a pane or creating tmux resources. |
 | `LibTmux.PaneRunResult.#ctor(System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.TimeSpan,System.Boolean,System.Boolean)` | Describes how a command run in a pane ended. |
-| `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's output ended. |
+| `LibTmux.PaneWaitRequest.FromTextPatterns(System.Collections.Generic.IReadOnlyList{System.String},System.Collections.Generic.IReadOnlyList{System.String},System.Boolean,System.Boolean)` | Builds a request from text patterns while retaining their original spelling. |
+| `LibTmux.PaneWaitRequest.Validate` | Validates and copies bounded patterns before pane I/O. |
+| `LibTmux.PaneWaitResult.#ctor(LibTmux.PaneWaitOutcome,System.String,System.TimeSpan)` | Describes how a wait on a pane's rendered output ended. |
 | `LibTmux.PasteBufferRequest.ToCommand(LibTmux.Pane)` | Returns a paste request as one tmux command. |
 | `LibTmux.PipePaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-piping request as one tmux command. |
 | `LibTmux.PsmuxCaptureOptions.#ctor(System.Nullable{LibTmux.CapturePanePosition},System.Nullable{LibTmux.CapturePanePosition},System.Boolean,System.Boolean)` | Initializes a bounded psmux capture. |
@@ -317,7 +329,11 @@ modes differ.
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument)``` | Filters a snapshot with an already translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},LibTmux.Query.QueryDocument,System.Threading.CancellationToken)``` | Filters a snapshot with a cancellable translated document. |
 | ```LibTmux.Query.QueryExtensions.Matching``1(System.Collections.Generic.IEnumerable{``0},System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Filters a snapshot with a declarative predicate. |
+| ```LibTmux.Query.QueryExtensions.Plan``1(LibTmux.Query.QueryDocument,LibTmux.TmuxVersion,LibTmux.Query.QueryPushdown)``` | Plans an explicit query against the supplied daemon version without I/O. |
 | ```LibTmux.Query.QueryExtensions.Translate``1(System.Linq.Expressions.Expression{System.Func{``0,System.Boolean}})``` | Translates an expression into a wire document. |
+| `LibTmux.Query.QueryFieldCatalog.GetFields(LibTmux.Query.QueryTarget)` | Reads the supported fields for one portable query target. |
+| ``LibTmux.Query.QueryPlan`1.ExecuteAsync(LibTmux.Server,System.Threading.CancellationToken)`` | Acquires a fresh snapshot and evaluates this plan. |
+| ``LibTmux.Query.QueryResult`1.GetEnumerator`` | Inherits the base member contract. |
 | `LibTmux.ResizePaneRequest.ToCommand(LibTmux.Pane)` | Returns a pane-resize request as one tmux command. |
 | `LibTmux.ResizeWindowRequest.ToCommand(LibTmux.Window)` | Returns a window-resize request as one tmux command. |
 | `LibTmux.RespawnRequest.ToCommand(LibTmux.Pane)` | Returns a respawn request as one tmux command for a pane. |
@@ -339,6 +355,7 @@ modes differ.
 | `LibTmux.Server.CreateOwnedAsync(LibTmux.ServerConnectionOptions,System.Threading.CancellationToken)` | Starts a server and takes ownership of it. |
 | `LibTmux.Server.CreateOwnedSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)` | Creates a session and takes ownership of it. |
 | `LibTmux.Server.CreateSessionAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)` | Creates a session. |
+| `LibTmux.Server.CreateSessionWithReceiptAsync(LibTmux.NewSessionRequest,System.Threading.CancellationToken)` | Creates a session and returns its initial window and pane identities. |
 | `LibTmux.Server.DetachAllClientsAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches every client except one. |
 | `LibTmux.Server.DetachClientAsync(System.String,System.String,System.Threading.CancellationToken)` | Detaches one client. |
 | `LibTmux.Server.DisplayMessageAsync(LibTmux.DisplayMessageRequest,System.Threading.CancellationToken)` | Shows a message on a client. |
@@ -364,6 +381,7 @@ modes differ.
 | `LibTmux.Server.GetWindowsAsync(System.Threading.CancellationToken)` | Reads every window on this server. |
 | `LibTmux.Server.HasSessionAsync(System.String,System.Boolean,System.Threading.CancellationToken)` | Reports whether a session exists. |
 | `LibTmux.Server.IfShellAsync(LibTmux.IfShellRequest,System.Threading.CancellationToken)` | Runs one tmux command or another depending on a shell command. |
+| `LibTmux.Server.InspectAsync(System.Threading.CancellationToken)` | Reads the live endpoint identity without running its initializer. |
 | `LibTmux.Server.IsAliveAsync(System.Threading.CancellationToken)` | Reports whether a tmux server is answering. |
 | `LibTmux.Server.IsValidLayoutCandidate(System.String,System.Int32)` | Checks a layout's syntax without contacting a server. |
 | `LibTmux.Server.KillAsync(System.Threading.CancellationToken)` | Stops the tmux server. |
@@ -402,6 +420,7 @@ modes differ.
 | `LibTmux.Session.AttachAsync(LibTmux.AttachSessionRequest,System.Threading.CancellationToken)` | Attaches a client to this session. |
 | `LibTmux.Session.CreateOwnedWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session and takes ownership of it. |
 | `LibTmux.Session.CreateWindowAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window in this session. |
+| `LibTmux.Session.CreateWindowWithReceiptAsync(LibTmux.NewWindowRequest,System.Threading.CancellationToken)` | Creates a window and returns its initial pane identity. |
 | `LibTmux.Session.DetachClientAsync(System.String,System.Threading.CancellationToken)` | Detaches every client attached to this session. |
 | `LibTmux.Session.Equals(LibTmux.Session)` | Inherits the base member contract. |
 | `LibTmux.Session.Equals(System.Object)` | Inherits the base member contract. |
@@ -558,6 +577,7 @@ modes differ.
 | `LibTmux.TmuxVersionTooLowException.#ctor(System.String,LibTmux.TmuxVersion,LibTmux.TmuxVersion,System.Exception)` | Initializes an unsupported-version exception. |
 | `LibTmux.TmuxWait.UntilAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{System.Boolean}},System.TimeSpan,System.TimeSpan,System.Boolean,System.Threading.CancellationToken)` | Waits until a probe reports the state was reached. |
 | ```LibTmux.TmuxWait.UntilAsync``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.Func{``0,System.Boolean},System.TimeSpan,System.TimeSpan,System.Threading.CancellationToken)``` | Waits until a reading satisfies a predicate, and answers it. |
+| `LibTmux.TmuxWaitChannel.CloseAsync(System.Threading.CancellationToken)` | Withdraws the waiter and ends its owned client lifetime. |
 | `LibTmux.TmuxWaitChannel.DisposeAsync` | Withdraws the waiter from tmux. |
 | `LibTmux.TmuxWaitChannel.WaitAsync(System.TimeSpan,System.Threading.CancellationToken)` | Waits for the signal, giving this attempt a budget. |
 | `LibTmux.TmuxWaitTimeoutException.#ctor(System.String,System.TimeSpan,System.Exception)` | Initializes a wait-timeout exception. |
@@ -601,6 +621,7 @@ modes differ.
 | `LibTmux.Window.SelectPreviousLayoutAsync(System.Threading.CancellationToken)` | Moves to the previous layout. |
 | `LibTmux.Window.SplitPaneAsync(LibTmux.SplitPaneRequest,System.Threading.CancellationToken)` | Splits a pane in this window. |
 | `LibTmux.Window.SwapAsync(LibTmux.WindowId,System.Boolean,System.Threading.CancellationToken)` | Swaps this window with another. |
+| `LibTmux.Window.UnlinkAsync(System.Boolean,System.Collections.Generic.IReadOnlyList{LibTmux.PaneId},System.Threading.CancellationToken)` | Unlinks this placement only while its pane membership is unchanged. |
 | `LibTmux.Window.UnlinkAsync(System.Boolean,System.Threading.CancellationToken)` | Removes this window's link to the session it was read through. |
 | `LibTmux.Window.op_Equality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name the same window. |
 | `LibTmux.Window.op_Inequality(LibTmux.Window,LibTmux.Window)` | Reports whether two handles name different windows. |
@@ -819,6 +840,7 @@ modes differ.
 | `LibTmux.NewSessionRequest.Command` | Gets the command the first pane runs. |
 | `LibTmux.NewSessionRequest.DetachOthers` | Gets whether other clients are detached on attach. |
 | `LibTmux.NewSessionRequest.Environment` | Gets the environment entries set on the session. |
+| `LibTmux.NewSessionRequest.ExpectedGeneration` | Gets the daemon generation required for creation, or null for endpoint-scoped creation. |
 | `LibTmux.NewSessionRequest.Height` | Gets the requested height. |
 | `LibTmux.NewSessionRequest.Name` | Gets the session name, or null to let tmux choose. |
 | `LibTmux.NewSessionRequest.NoSize` | Gets whether tmux may ignore the requested size. |
@@ -874,22 +896,42 @@ modes differ.
 | `LibTmux.PaneOutputSince.Position` | Where this read finished; pass it to the next read. |
 | `LibTmux.PaneRunRequest.Command` | Gets the shell command. |
 | `LibTmux.PaneRunRequest.KeepOutOfHistory` | Gets whether the line the shell reads starts with a space, which many shells keep out of history. |
+| `LibTmux.PaneRunRequest.MaxOutputBytes` | Gets the maximum UTF-8 bytes of rendered output to return. |
+| `LibTmux.PaneRunRequest.MaxOutputLines` | Gets the most recent rendered output lines to return. |
 | `LibTmux.PaneRunRequest.Timeout` | Gets how long to wait for the command to finish. |
+| `LibTmux.PaneRunResult.AnchorLost` | Gets whether the output cursor's previous grid anchor was lost. |
+| `LibTmux.PaneRunResult.EffectiveTimeout` | Gets the completion-wait budget applied after dispatch. |
 | `LibTmux.PaneRunResult.Elapsed` | How long the command ran, or how long it was waited for. |
 | `LibTmux.PaneRunResult.ExitStatus` | The command's exit status, or null when it had not finished. |
 | `LibTmux.PaneRunResult.LinesMissed` | Whether scrollback dropped output before it was read; then holds only what the pane still showed. |
-| `LibTmux.PaneRunResult.Output` | The lines the command printed. |
+| `LibTmux.PaneRunResult.OmittedOutputBytes` | Gets the number of UTF-8 output bytes omitted by output limits. |
+| `LibTmux.PaneRunResult.OmittedOutputLines` | Gets the number of whole rendered lines omitted by output limits. |
+| `LibTmux.PaneRunResult.Output` | Bounded rendered lines from the command, not byte-exact stdout or stderr. |
 | `LibTmux.PaneRunResult.PaneExited` | Gets whether the pane's program exited before the command reported its status. |
-| `LibTmux.PaneRunResult.Started` | Whether the pane's shell ran the command at all. |
+| `LibTmux.PaneRunResult.PaneId` | Gets the pane that received the command. |
+| `LibTmux.PaneRunResult.Started` | Whether the wrapper's begin marker was observed; false does not prove nonexecution. |
 | `LibTmux.PaneRunResult.Succeeded` | Gets whether the command finished with exit status 0. |
 | `LibTmux.PaneRunResult.TimedOut` | Whether the time allowed ran out first; the command may still be running. |
-| `LibTmux.PaneWaitRequest.Patterns` | Gets the patterns that end the wait; none means any new output does. |
-| `LibTmux.PaneWaitRequest.StopPatterns` | Gets the patterns meaning the awaited output will never come. |
-| `LibTmux.PaneWaitRequest.Timeout` | Gets how long to wait. |
+| `LibTmux.PaneWaitRequest.AllowPollingFallback` | Permits observable timed reads when the control stream fails. |
+| `LibTmux.PaneWaitRequest.MaxOutputBytes` | Gets the maximum UTF-8 bytes returned in the tail, from 1 through 1048576. |
+| `LibTmux.PaneWaitRequest.Patterns` | Gets patterns that end the wait; none means any new output does. |
+| `LibTmux.PaneWaitRequest.StopPatterns` | Gets stop patterns, checked before wanted patterns even at entry. |
+| `LibTmux.PaneWaitRequest.TailLines` | Gets the maximum recent rendered lines returned, from 1 through 1000. |
+| `LibTmux.PaneWaitRequest.Timeout` | Gets the total time allowed, including attach and captures. |
+| `LibTmux.PaneWaitResult.AnchorLost` | Gets whether the previous grid anchor was lost. |
+| `LibTmux.PaneWaitResult.EffectiveTimeout` | Gets the requested time budget applied to this wait. |
 | `LibTmux.PaneWaitResult.Elapsed` | How long the wait ran. |
+| `LibTmux.PaneWaitResult.EventsDropped` | Gets session events dropped during this wait. |
 | `LibTmux.PaneWaitResult.Found` | Gets whether the awaited text appeared, before or during the wait. |
+| `LibTmux.PaneWaitResult.LinesMissed` | Gets whether scrollback or event loss may have hidden lines. |
+| `LibTmux.PaneWaitResult.OmittedTailBytes` | Gets how many UTF-8 tail bytes were omitted by limits. |
+| `LibTmux.PaneWaitResult.OmittedTailLines` | Gets how many complete tail lines were omitted by limits. |
 | `LibTmux.PaneWaitResult.Outcome` | How the wait ended. |
-| `LibTmux.PaneWaitResult.Pattern` | The pattern that matched, when one did. |
+| `LibTmux.PaneWaitResult.PaneId` | Gets the watched pane's typed ID. |
+| `LibTmux.PaneWaitResult.Pattern` | The original pattern spelling that matched, when one did. |
+| `LibTmux.PaneWaitResult.PollingFallback` | Gets whether this wait used explicitly permitted polling. |
+| `LibTmux.PaneWaitResult.PollingInterval` | Gets the timed-read interval when fallback was used. |
+| `LibTmux.PaneWaitResult.Tail` | Gets an owned, bounded tail of rendered pane lines. |
 | `LibTmux.PasteBufferRequest.Bracketed` | Gets whether the paste is bracketed. |
 | `LibTmux.PasteBufferRequest.DeleteAfter` | Gets whether the buffer is deleted once pasted. |
 | `LibTmux.PasteBufferRequest.Name` | Gets the buffer to paste, or null for the most recent. |
@@ -934,6 +976,27 @@ modes differ.
 | `LibTmux.Query.QueryDocument.Schema` | Gets the wire schema identifier. |
 | `LibTmux.Query.QueryDocument.Target` | Gets the object the predicate selects. |
 | `LibTmux.Query.QueryDocument.Version` | Gets the wire schema version. |
+| `LibTmux.Query.QueryFieldDescriptor.Cardinality` | Gets the relation cardinality, or null for a scalar-only field. |
+| `LibTmux.Query.QueryFieldDescriptor.IsNullable` | Gets whether the captured native scalar can be null, or null without a scalar binding. |
+| `LibTmux.Query.QueryFieldDescriptor.MinimumSnapshotDepth` | Gets the field's minimum hierarchy capture depth, or null outside that hierarchy. |
+| `LibTmux.Query.QueryFieldDescriptor.Operators` | Gets the accepted wire operation names for this field. |
+| `LibTmux.Query.QueryFieldDescriptor.RelatedTarget` | Gets the related target kind, or null for a scalar-only field. |
+| `LibTmux.Query.QueryFieldDescriptor.RelationPropertyPath` | Gets the native relation property path, or null without a relation binding. |
+| `LibTmux.Query.QueryFieldDescriptor.ScalarPropertyPath` | Gets the native scalar property path, or null without a scalar binding. |
+| `LibTmux.Query.QueryFieldDescriptor.Target` | Gets the target that owns this field. |
+| `LibTmux.Query.QueryFieldDescriptor.ValueKind` | Gets the scalar type, or null for a to-one relation. |
+| `LibTmux.Query.QueryFieldDescriptor.WireName` | Gets the field name used in query JSON. |
+| ``LibTmux.Query.QueryPlan`1.DaemonVersion`` | Gets the daemon version against which this plan was prepared. |
+| ``LibTmux.Query.QueryPlan`1.Document`` | Gets the complete portable predicate. |
+| ``LibTmux.Query.QueryPlan`1.FallbackReasons`` | Gets reasons why some or all predicate evaluation remains local. |
+| ``LibTmux.Query.QueryPlan`1.Pushdown`` | Gets the requested evaluation mode. |
+| ``LibTmux.Query.QueryPlan`1.PushedPredicate`` | Gets the predicate evaluated in tmux, or null when evaluation is local. |
+| ``LibTmux.Query.QueryPlan`1.RequiredFields`` | Gets every scalar or relation field referenced by this query. |
+| ``LibTmux.Query.QueryPlan`1.RequiredSnapshotDepth`` | Gets the complete hierarchy depth required for local evaluation. |
+| ``LibTmux.Query.QueryPlan`1.ResidualPredicate`` | Gets the predicate evaluated locally, or null when evaluation is entirely in tmux. |
+| ``LibTmux.Query.QueryResult`1.Count`` | Inherits the base member contract. |
+| ``LibTmux.Query.QueryResult`1.Item(System.Int32)`` | Inherits the base member contract. |
+| ``LibTmux.Query.QueryResult`1.Snapshot`` | Gets the complete captured graph, including unselected entities. |
 | `LibTmux.ResizePaneRequest.Adjustment` | Gets how many cells to move the edge by. |
 | `LibTmux.ResizePaneRequest.Direction` | Gets the edge to move. |
 | `LibTmux.ResizePaneRequest.Height` | Gets the explicit height in cells or as a percentage. |
@@ -979,6 +1042,7 @@ modes differ.
 | `LibTmux.Server.Buffers` | Gets the paste buffers of this server. |
 | `LibTmux.Server.Clients` | Gets the clients this handle captured. |
 | `LibTmux.Server.ConnectionOptions` | Gets the connection options. |
+| `LibTmux.Server.DaemonVersion` | Gets the daemon version read by inspection, or null when it was not acquired. |
 | `LibTmux.Server.EndpointArguments` | Gets the endpoint selection arguments -- -L, -S, or a configuration file flag -- this handle's connection resolved. |
 | `LibTmux.Server.Environment` | Gets the environment new sessions inherit from. |
 | `LibTmux.Server.Generation` | Gets the materialized server generation. |
@@ -989,7 +1053,7 @@ modes differ.
 | `LibTmux.Server.Panes` | Gets the panes this handle captured, across every window. |
 | `LibTmux.Server.Sessions` | Gets the sessions this handle captured. |
 | `LibTmux.Server.SnapshotMetadata` | Gets acquisition metadata, or null when this handle was not captured. |
-| `LibTmux.Server.Version` | Gets the captured tmux version. |
+| `LibTmux.Server.Version` | Gets the verified tmux client executable version. |
 | `LibTmux.Server.Windows` | Gets the windows this handle captured, across every session. |
 | `LibTmux.ServerAccessRequest.AllowUser` | Gets the user to grant access to. |
 | `LibTmux.ServerAccessRequest.DenyUser` | Gets the user to take access from. |
@@ -1001,6 +1065,7 @@ modes differ.
 | `LibTmux.ServerConnectionOptions.CommandTimeout` | Gets how long one tmux command may run, or null to wait indefinitely. |
 | `LibTmux.ServerConnectionOptions.ConfigurationFile` | Gets the tmux configuration file. |
 | `LibTmux.ServerConnectionOptions.ControlModeEventBufferCapacity` | Gets how many control-mode events are buffered before pane output is dropped. |
+| `LibTmux.ServerConnectionOptions.ControlModeEventBufferMaxBytes` | Gets the UTF-8 payload byte ceiling for buffered control-mode notifications. |
 | `LibTmux.ServerConnectionOptions.Default` | Gets conventional connection defaults. |
 | `LibTmux.ServerConnectionOptions.InitializeAsync` | Gets the post-connect initializer. |
 | `LibTmux.ServerConnectionOptions.Interceptor` | Gets what every tmux invocation on this connection passes through, or null. |
@@ -1031,6 +1096,10 @@ modes differ.
 | `LibTmux.Session.RawFormatFields` | Gets the tmux fields captured when this handle materialized. |
 | `LibTmux.Session.Server` | Gets the server that owns this session. |
 | `LibTmux.Session.Windows` | Gets the windows the capture found in this session. |
+| `LibTmux.SessionCreationResult.InitialPaneId` | Gets the initial pane identifier from the creation reply. |
+| `LibTmux.SessionCreationResult.InitialWindowId` | Gets the initial window identifier from the creation reply. |
+| `LibTmux.SessionCreationResult.InitialWindowIndex` | Gets the initial window's session-relative index from the creation reply. |
+| `LibTmux.SessionCreationResult.Session` | Gets the created session, bound to the daemon that acknowledged creation. |
 | `LibTmux.SessionId.Value` | Gets the nonnegative numeric value. |
 | `LibTmux.SessionWindowEdge.Key` | Gets the session, window and index this edge joins. |
 | `LibTmux.SessionWindowEdge.Ordinal` | Gets the edge's position in the session's window order. |
@@ -1068,6 +1137,7 @@ modes differ.
 | `LibTmux.SplitPaneRequest.Direction` | Gets where the new pane goes. |
 | `LibTmux.SplitPaneRequest.Empty` | Gets whether the pane starts with no command. |
 | `LibTmux.SplitPaneRequest.Environment` | Gets the environment entries set on the new pane. |
+| `LibTmux.SplitPaneRequest.ExpectedWindowId` | Gets the window that must contain the target pane at dispatch. |
 | `LibTmux.SplitPaneRequest.FullWindow` | Gets whether the split spans the whole window. |
 | `LibTmux.SplitPaneRequest.InactiveBorderStyle` | Gets the border style while it is not. |
 | `LibTmux.SplitPaneRequest.KeepOpen` | Gets whether the pane stays after its command exits. |
@@ -1105,10 +1175,10 @@ modes differ.
 | `LibTmux.TmuxEnvironmentEntry.IsRemoved` | Gets whether tmux strips this variable from new panes. |
 | `LibTmux.TmuxEnvironmentEntry.Name` | Gets the variable name. |
 | `LibTmux.TmuxEnvironmentEntry.Value` | Gets the value, or null when the variable is marked removed. |
-| `LibTmux.TmuxEventsDroppedEvent.Count` | The events discarded since the previous loss report. |
-| `LibTmux.TmuxEventsDroppedEvent.OnlyOutput` | Gets whether every discarded event was pane output, so notifications about sessions, windows and layout since the previous report all arrived. |
-| `LibTmux.TmuxEventsDroppedEvent.TotalDropped` | The events discarded over this control client's lifetime. |
-| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null there is tmux's own silence, not something this library failed to capture. |
+| `LibTmux.TmuxEventsDroppedEvent.Count` | The discarded events represented by this report. |
+| `LibTmux.TmuxEventsDroppedEvent.OnlyOutput` | Gets whether this report proves that only pane output was lost. |
+| `LibTmux.TmuxEventsDroppedEvent.TotalDropped` | The cumulative events discarded by this client when the report was created. |
+| `LibTmux.TmuxExitEvent.Reason` | Why tmux said it ended, when it said anything. It is silent for an ordinary exit. For an abnormal one tmux sometimes names a reason and sometimes does not: a server another client killed, for one, sends a bare %exit with none. A null can also mean the reason exceeded the event buffer's byte limit; a preceding dropped-event notice reports that loss. |
 | `LibTmux.TmuxHook.Name` | Gets the hook name, without an index. |
 | `LibTmux.TmuxHook.Values` | Gets the commands it runs, in the order tmux reported. |
 | `LibTmux.TmuxHookEntry.Command` | Gets the tmux command, as tmux prints it. |
@@ -1185,6 +1255,7 @@ modes differ.
 | `LibTmux.Window.Hooks` | Gets the hooks of this window. |
 | `LibTmux.Window.Id` | Gets the window identifier. |
 | `LibTmux.Window.Index` | Gets the index this window holds in its session. |
+| `LibTmux.Window.IsActive` | Gets whether this captured placement is the selected window in its session. |
 | `LibTmux.Window.Layout` | Gets the layout string captured with this handle. |
 | `LibTmux.Window.LinkedSessions` | Gets the sessions the capture found this window linked into. |
 | `LibTmux.Window.Name` | Gets the window name captured with this handle. |
@@ -1196,6 +1267,8 @@ modes differ.
 | `LibTmux.Window.SilenceAlert` | Gets whether the window has been silent for monitor-silence seconds. |
 | `LibTmux.Window.Width` | Gets the window width captured with this handle. |
 | `LibTmux.Window.Zoomed` | Gets whether one of the window's panes is zoomed to fill it. |
+| `LibTmux.WindowCreationResult.InitialPaneId` | Gets the initial pane identifier from the creation reply. |
+| `LibTmux.WindowCreationResult.Window` | Gets the created window in the creating session's placement. |
 | `LibTmux.WindowEntityKey.SessionId` | The session the window is linked into. |
 | `LibTmux.WindowEntityKey.WindowId` | The linked window. |
 | `LibTmux.WindowEntityKey.WindowIndex` | The index of this placement in the session. |
@@ -1226,13 +1299,13 @@ modes differ.
 | `LibTmux.PaneSelectDirection.Up` | The pane above. |
 | `LibTmux.PaneSwapDirection.Down` | The pane below. |
 | `LibTmux.PaneSwapDirection.Up` | The pane above. |
-| `LibTmux.PaneWaitOutcome.AlternateScreen` | A full-screen program took over the pane, so nothing more is appended. |
-| `LibTmux.PaneWaitOutcome.AnyOutput` | The pane printed something, and no pattern was given. |
+| `LibTmux.PaneWaitOutcome.AlternateScreen` | An observation source could not continue across an alternate screen. |
+| `LibTmux.PaneWaitOutcome.AnyOutput` | The pane printed something, and no wanted pattern was given. |
 | `LibTmux.PaneWaitOutcome.Matched` | New output matched a pattern. |
-| `LibTmux.PaneWaitOutcome.PaneExited` | The pane's program exited. |
-| `LibTmux.PaneWaitOutcome.PresentAtEntry` | A pattern already matched the screen when the wait began. |
-| `LibTmux.PaneWaitOutcome.Stopped` | New output matched a stop pattern. |
-| `LibTmux.PaneWaitOutcome.TimedOut` | The time allowed ran out. |
+| `LibTmux.PaneWaitOutcome.PaneExited` | The pane's original program exited or its pane closed. |
+| `LibTmux.PaneWaitOutcome.PresentAtEntry` | A wanted pattern already matched when the wait began. |
+| `LibTmux.PaneWaitOutcome.Stopped` | A stop pattern matched, including at entry. |
+| `LibTmux.PaneWaitOutcome.TimedOut` | The complete time budget ran out without a match. |
 | `LibTmux.PopupCloseMode.AnyExit` | Close when the command exits, however it exits. |
 | `LibTmux.PopupCloseMode.SuccessfulExit` | Close only when the command exits successfully. |
 | `LibTmux.PromptType.Command` | A tmux command. |
@@ -1243,11 +1316,20 @@ modes differ.
 | `LibTmux.PsmuxServer.SupportedCommit` | Gets the exact psmux source commit accepted by this preview. |
 | `LibTmux.PsmuxServer.SupportedImplementationBanner` | Gets the exact clean implementation banner accepted by this preview. |
 | `LibTmux.Query.QueryDocument.CurrentSchema` | The current wire schema identifier. |
-| `LibTmux.Query.QueryDocument.CurrentVersion` | The current wire schema version. |
+| `LibTmux.Query.QueryDocument.CurrentVersion` | The supported wire schema version. |
+| `LibTmux.Query.QueryPushdown.Auto` | Evaluate an exact leading portion in tmux and the remainder locally. |
+| `LibTmux.Query.QueryPushdown.Never` | Evaluate the whole predicate locally. |
+| `LibTmux.Query.QueryPushdown.Require` | Reject any predicate that cannot execute entirely in tmux. |
+| `LibTmux.Query.QueryRelationCardinality.Many` | A captured collection relation. |
+| `LibTmux.Query.QueryRelationCardinality.One` | A captured to-one relation. |
 | `LibTmux.Query.QueryTarget.Client` | A tmux client. |
 | `LibTmux.Query.QueryTarget.Pane` | A tmux pane. |
 | `LibTmux.Query.QueryTarget.Session` | A tmux session. |
 | `LibTmux.Query.QueryTarget.Window` | A tmux window. |
+| `LibTmux.Query.QueryValueKind.Boolean` | A Boolean value. |
+| `LibTmux.Query.QueryValueKind.Int64` | A signed 64-bit integer. |
+| `LibTmux.Query.QueryValueKind.String` | Ordinal text. |
+| `LibTmux.Query.QueryValueKind.TypedId` | An identifier tagged with its target entity kind. |
 | `LibTmux.ResizeDirection.Down` | Resizes downward. |
 | `LibTmux.ResizeDirection.Left` | Resizes leftward. |
 | `LibTmux.ResizeDirection.Right` | Resizes rightward. |

@@ -36,6 +36,56 @@ payload the same way it escapes an option value, and this undoes that:
 
 becomes a `TmuxOutputEvent` whose `Data` holds the real control bytes.
 
+## Wait for rendered text
+
+`Pane.WaitForTextAsync` waits for text in a pane's rendered grid. Its shared
+control client wakes the wait and is released when the call ends. The example creates an owned session so its
+cleanup leaves the connected daemon running. Its `printf` command constructs
+the marker at execution time; the command's own echo cannot satisfy the wait.
+
+<!-- snippet: WaitForPaneText usings: LibTmux -->
+```csharp
+using LibTmux;
+
+Server server = await Server.ConnectAsync(new ServerConnectionOptions
+{
+    TmuxBinaryPath = Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux",
+});
+await using OwnedSessionScope owned = await server.CreateOwnedSessionAsync(
+    new NewSessionRequest
+    {
+        Name = $"text-wait-{Guid.NewGuid():N}",
+        Command = "exec /bin/sh",
+    });
+Window window = (await owned.Value.GetWindowsAsync()).Single();
+Pane pane = (await window.GetPanesAsync()).Single();
+
+Task<PaneWaitResult> waiting = pane.WaitForTextAsync(
+    PaneWaitRequest.FromTextPatterns(["observer-ready"], simpleMatch: true)
+        with
+    { Timeout = TimeSpan.FromSeconds(5) });
+await pane.SendTextAsync("printf 'observer-%s\\n' ready");
+PaneWaitResult result = await waiting;
+if (result.Outcome is not (PaneWaitOutcome.Matched
+    or PaneWaitOutcome.PresentAtEntry))
+{
+    throw new InvalidOperationException($"Pane text wait ended: {result.Outcome}");
+}
+
+Console.WriteLine($"{result.Outcome}: {string.Join(' ', result.Tail)}");
+```
+<!-- endsnippet -->
+
+`PresentAtEntry` means the pattern was already on screen; `Matched` means it
+appeared after the first read. A stop pattern yields `Stopped` and takes
+priority over a wanted pattern on the same screen, including the first read.
+No patterns yield `AnyOutput` on new text, and a dead pane yields `PaneExited`.
+With no match, the wait reserves a final grid read and stays subscribed
+until the effective timeout, so late output can still match. The result includes a bounded
+`Tail` and reports `EventsDropped`, `LinesMissed`, `AnchorLost`, and
+`PollingFallback` when observation loses information. Control loss is an error
+unless the request sets `AllowPollingFallback = true`.
+
 ## Two things worth knowing
 
 Entering control mode **attaches**. A control client that never attaches is
@@ -46,14 +96,26 @@ The stream ends with `TmuxExitEvent` and then completes, so an `await foreach`
 is released rather than hanging when the server goes away.
 
 Notifications use a bounded, non-blocking buffer so a slow observer cannot
-stall command replies or the control reader. If the buffer fills, the oldest
-events are discarded and a `TmuxEventsDroppedEvent` appears immediately before
-the next retained event. `Count` is the loss since the previous marker and
-`TotalDropped` is the lifetime total. Treat the marker as cache invalidation:
-re-read any state that depends on notifications. Command replies travel through
-a separate queue and are not dropped by this buffer.
+stall command replies or the control reader. `ControlModeEventBufferCapacity`
+defaults to 512 events; `ControlModeEventBufferMaxBytes` defaults to 4 MiB of
+decoded UTF-8 payload. Set either property on `ServerConnectionOptions` before
+opening the control client. Payload counts output text, notification names and
+arguments, and exit reasons. It is not a managed-heap measurement; the event
+count and the separate protocol line limit bound object overhead.
 
-The marker arrives in sequence, where the discarded events would have been:
+The buffer discards oldest events until both ceilings hold. It rejects an
+individually oversized event; an oversized final exit reason is omitted while
+the terminal exit notification is retained. Discards are reported through
+`TmuxEventsDroppedEvent`. The marker precedes the next delivered event, or
+arrives alone when no event fits. It does not identify the panes or stream
+positions lost. `Count` is the loss since the previous marker and
+`TotalDropped` is the lifetime total.
+
+Treat the marker as cache invalidation: re-read state derived from
+notifications. `control.WatchAsync(pane)` forwards loss and rechecks whether
+the pane still exists. Stopping that iterator leaves the borrowed control
+client open. Command replies travel through a separate queue and are never
+dropped by the event buffer.
 
 <!-- snippet: NoticeDroppedEvents -->
 ```csharp

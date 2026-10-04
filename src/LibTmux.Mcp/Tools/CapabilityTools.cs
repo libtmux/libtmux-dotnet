@@ -322,9 +322,9 @@ internal sealed class CapabilityTools
         string? paneId = null,
         [Description(
             "Linear-time regular expressions that end the wait successfully: .NET "
-            + "syntax without lookarounds, backreferences or atomic groups. Only output "
-            + "arriving after this call counts; text already on screen never matches. Omit "
-            + "to return on any new output. "
+            + "syntax without lookarounds, backreferences or atomic groups. Output "
+            + "arriving after this call counts unless the pattern is already present, "
+            + "which returns PresentAtEntry. Omit to return on any new output. "
             + "Across both pattern lists: at most 32 entries and 16384 UTF-8 bytes; each "
             + "entry is at most 999 UTF-8 bytes.")]
         IReadOnlyList<string>? patterns = null,
@@ -338,10 +338,11 @@ internal sealed class CapabilityTools
             + "ceiling, 30 unless LIBTMUX_MCP_WAIT_MAX_SECONDS sets another.")]
         double? timeoutSeconds = null,
         [Description("Ignore case.")] bool ignoreCase = true,
+        IProgress<ProgressNotificationValue>? progress = null,
         CancellationToken cancellationToken = default) =>
         _read.WaitForTextAsync(
             paneId, patterns, stopPatterns, timeoutSeconds, ignoreCase,
-            progress: null, cancellationToken: cancellationToken);
+            progress: progress, cancellationToken: cancellationToken);
 
     public async Task<IReadOnlyDictionary<string, string?>> GetTmuxVariablesAsync(
         [Description(
@@ -1438,7 +1439,7 @@ internal sealed class CapabilityTools
             panes,
             endpoint,
             generation);
-        return ResolvePaneInputTargets(
+        return await ResolvePaneInputTargetsAsync(
             panes,
             clients,
             caller,
@@ -1448,7 +1449,8 @@ internal sealed class CapabilityTools
             kind,
             reserveDispatch,
             runLease,
-            inputLease);
+            inputLease,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private Task<PaneInputPreflight> PreflightPaneInputDispatchAsync(
@@ -1499,7 +1501,7 @@ internal sealed class CapabilityTools
         return parsed.ToString();
     }
 
-    private static PaneInputPreflight ResolvePaneInputTargets(
+    private static async Task<PaneInputPreflight> ResolvePaneInputTargetsAsync(
         IReadOnlyList<Pane> panes,
         IReadOnlyList<Client> clients,
         PaneInputCallerIdentity caller,
@@ -1509,7 +1511,8 @@ internal sealed class CapabilityTools
         PaneInputPreflightKind kind,
         bool reserveDispatch,
         PaneRunRegistry.PaneRunLease? runLease,
-        PaneRunRegistry.PaneInputLease? inputLease)
+        PaneRunRegistry.PaneInputLease? inputLease,
+        CancellationToken cancellationToken)
     {
         PaneInputTopology topology = ValidatePaneInputTopology(panes, endpoint);
         if (!topology.Members.TryGetValue(paneId, out PaneInputMember? sourceMember))
@@ -1590,6 +1593,20 @@ internal sealed class CapabilityTools
             attention.TerminalClients,
             endpoint,
             kind);
+        if (runLease is null && inputLease is null)
+        {
+            foreach (Pane member in configured)
+            {
+                if (!await PaneRunner.TryReconcilePendingAsync(member, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    throw new McpException(
+                        $"{toolName} refuses pane {member.Id} because a command is still active "
+                        + "or its completion is unverified. Inspect the pane before sending input.");
+                }
+            }
+        }
+
         PaneRunRegistry.PaneInputLease? dispatchLease = PaneRunRegistry.Authorize(
             configured,
             runLease,

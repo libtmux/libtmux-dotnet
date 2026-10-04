@@ -164,7 +164,7 @@ def _aot_producer(root: pathlib.Path, commit: str) -> pathlib.Path:
         "allocations.ndjson",
         "api-examples.md",
         "redaction-proof.json",
-        "libtmux-query-v1.schema.json",
+        "libtmux-query-v2.schema.json",
         *(f"goldens/{name}" for name in golden_names),
     ]
     (producer / "aot-results.ndjson").write_text(
@@ -196,22 +196,17 @@ def _aot_producer(root: pathlib.Path, commit: str) -> pathlib.Path:
         json.dumps({"passed": True, "rejected": REDACTION_CATEGORIES}) + "\n",
         encoding="utf-8",
     )
-    (producer / "libtmux-query-v1.schema.json").write_text(
-        json.dumps(
-            {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-            }
-        )
-        + "\n",
-        encoding="utf-8",
+    shutil.copyfile(
+        pathlib.Path(__file__).resolve().parents[3]
+        / "src/LibTmux.Query.Json/libtmux-query-v2.schema.json",
+        producer / "libtmux-query-v2.schema.json",
     )
     for name in golden_names:
         (goldens / name).write_text(
             json.dumps(
                 {
                     "schema": "libtmux-query",
-                    "version": 1,
+                    "version": 2,
                     "target": "session",
                     "predicate": {
                         "kind": "field",
@@ -435,13 +430,51 @@ def test_query_aot_accepts_commit_free_canonical_contract(
     assemble_bundle.inspect_producer("aot", aot)
 
     schema = json.loads(
-        (aot / "libtmux-query-v1.schema.json").read_text(encoding="utf-8")
+        (aot / "libtmux-query-v2.schema.json").read_text(encoding="utf-8")
     )
     golden = json.loads(
         (aot / "goldens" / "attached-nvim.json").read_text(encoding="utf-8")
     )
     assert "evaluatedCommit" not in schema
     assert "evaluatedCommit" not in golden
+    assert schema["properties"]["version"] == {"const": 2}
+    assert golden["version"] == 2
+
+
+@pytest.mark.parametrize("artifact", ["filename", "schema", "golden"])
+def test_query_aot_rejects_obsolete_v1_contract(
+    tmp_path: pathlib.Path,
+    artifact: str,
+) -> None:
+    """Reject v1 schema artifacts and envelopes even under a v2 filename."""
+    repository, commit = _repository(tmp_path)
+    aot = _aot_producer(repository / "artifacts" / "staging", commit)
+    schema_name = "libtmux-query-v2.schema.json"
+    if artifact == "filename":
+        obsolete_name = "libtmux-query-v1.schema.json"
+        (aot / schema_name).rename(aot / obsolete_name)
+        manifest_path = aot / "producer.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"][manifest["files"].index(schema_name)] = obsolete_name
+        manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+        failure = "not allowed"
+    else:
+        path = (
+            aot / schema_name
+            if artifact == "schema"
+            else aot / "goldens" / "attached-nvim.json"
+        )
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if artifact == "schema":
+            document["properties"]["version"]["const"] = 1
+            failure = "query schema"
+        else:
+            document["version"] = 1
+            failure = "golden schema"
+        path.write_text(json.dumps(document) + "\n", encoding="utf-8")
+
+    with pytest.raises(assemble_bundle.BundleAssemblyError, match=failure):
+        assemble_bundle.inspect_producer("aot", aot)
 
 
 def test_query_aot_rejects_provenance_inside_a_closed_golden(

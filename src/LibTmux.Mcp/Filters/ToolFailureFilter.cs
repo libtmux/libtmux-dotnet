@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using System.Text.Json;
+using LibTmux.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -271,12 +272,14 @@ internal static class ToolFailureFilter
         bool mayModify,
         string advice)
     {
+        string? directory = RunDirectoryCleanup(error);
         if (TryPasteCleanup(error, out string? buffer))
         {
-            return $"The paste failed, and temporary tmux buffer {buffer} may still "
+            string pasteAdvice = $"The paste failed, and temporary tmux buffer {buffer} may still "
                 + "contain the pasted text because cleanup failed. Do not retry the paste. "
                 + "Ask the operator to inspect and remove that "
                 + $"exact buffer with tmux delete-buffer -b {buffer}.";
+            return AppendDirectoryCleanup(pasteAdvice, directory);
         }
 
         bool mayHaveActed = error is TmuxOperationCanceledException cancellation
@@ -291,7 +294,7 @@ internal static class ToolFailureFilter
             || !mayHaveActed
             || advice.Contains("do not retry", StringComparison.OrdinalIgnoreCase))
         {
-            return advice;
+            return AppendDirectoryCleanup(advice, directory);
         }
 
         // tmux's own wording is a fragment more often than a sentence, so
@@ -300,9 +303,28 @@ internal static class ToolFailureFilter
         string ended = advice.Length == 0 || advice[^1] is '.' or '!' or '?' or ':'
             ? advice
             : advice + ".";
-        return ended
+        return AppendDirectoryCleanup(ended
             + " tmux may have acted before the failure. Do not retry this operation."
-            + " Inspect tmux state first.";
+            + " Inspect tmux state first.", directory);
+    }
+
+    private static string AppendDirectoryCleanup(string advice, string? directory)
+    {
+        if (directory is null
+            || advice.Contains(directory, StringComparison.Ordinal)
+                && advice.Contains("could not be deleted", StringComparison.Ordinal))
+        {
+            return advice;
+        }
+
+        string ended = advice.Length == 0 || advice[^1] is '.' or '!' or '?' or ':'
+            ? advice
+            : advice + ".";
+        string retry = advice.Contains("do not retry", StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : " Do not retry the command.";
+        return $"{ended} The private run directory '{directory}' could not be deleted.{retry} "
+            + "Ask the operator to inspect and remove that exact directory.";
     }
 
     // tmux reports a refusal two ways: as a command failure, and as an option
@@ -348,17 +370,76 @@ internal static class ToolFailureFilter
     private static bool TryPasteCleanup(Exception? error, out string? buffer)
     {
         buffer = null;
-        if (error?.Data[WriteTools.PasteBufferCleanupFailureDataKey] is not Exception
-            || error.Data[WriteTools.PasteBufferCleanupBufferDataKey] is not string candidate
-            || candidate.Length is < 1 or > 64
-            || !candidate.StartsWith("libtmux_mcp_", StringComparison.Ordinal)
-            || candidate.Any(static character =>
-                !char.IsAsciiLetterOrDigit(character) && character != '_'))
+        foreach (Exception current in FailureChain(error))
+        {
+            if (current.Data[WriteTools.PasteBufferCleanupFailureDataKey] is not Exception
+                || current.Data[WriteTools.PasteBufferCleanupBufferDataKey] is not string candidate
+                || candidate.Length is < 1 or > 64
+                || !(candidate.StartsWith("libtmux_mcp_", StringComparison.Ordinal)
+                    || candidate.StartsWith("libtmux_run_", StringComparison.Ordinal))
+                || candidate.Any(static character =>
+                    !char.IsAsciiLetterOrDigit(character) && character != '_'))
+            {
+                continue;
+            }
+
+            buffer = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? RunDirectoryCleanup(Exception? error)
+    {
+        foreach (Exception current in FailureChain(error))
+        {
+            if (current.Data[PaneRunner.RunDirectoryCleanupFailureDataKey] is Exception
+                && current.Data[PaneRunner.RunDirectoryCleanupDirectoryDataKey] is string directory
+                && IsRunDirectory(directory))
+            {
+                return directory;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsRunDirectory(string directory)
+    {
+        if (directory.Length is < 1 or > 4096
+            || directory.Any(char.IsControl)
+            || !Path.IsPathFullyQualified(directory))
         {
             return false;
         }
 
-        buffer = candidate;
+        const string prefix = "libtmux-run-";
+        string name = Path.GetFileName(directory);
+        if (!name.StartsWith(prefix, StringComparison.Ordinal)
+            || name.Length <= prefix.Length + 33
+            || name[prefix.Length + 32] != '-'
+            || !Guid.TryParseExact(name.AsSpan(prefix.Length, 32), "N", out _))
+        {
+            return false;
+        }
+
+        foreach (char character in name.AsSpan(prefix.Length + 33))
+        {
+            if (!char.IsAsciiLetterOrDigit(character) && character is not ('.' or '_' or '-'))
+            {
+                return false;
+            }
+        }
+
         return true;
+    }
+
+    private static IEnumerable<Exception> FailureChain(Exception? error)
+    {
+        for (int depth = 0; error is not null && depth < 16; depth++, error = error.InnerException)
+        {
+            yield return error;
+        }
     }
 }

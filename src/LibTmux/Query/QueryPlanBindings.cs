@@ -22,7 +22,6 @@ internal sealed class QueryPlanBindings
 {
     private readonly Dictionary<FieldKey, QueryFieldAccessor> _fields = [];
     private readonly QueryValidationResult _validation;
-
     private readonly bool _entityOnly;
 
     // An entity-only plan binds catalog accessors and never reads a member
@@ -123,11 +122,23 @@ internal sealed class QueryPlanBindings
         return accessor;
     }
 
-    internal static Type RelationElementType(FieldNode field, Type relationType) =>
-        (relationType.IsGenericType && relationType.GetGenericTypeDefinition() == typeof(CapturedRelation<>)
+    internal Type RelationElementType(FieldNode field, Type relationType)
+    {
+        if (_entityOnly && QueryFieldCatalog.TryGetRelation(field.WireName, out QueryRelationDefinition relation))
+        {
+            return relation.Target switch
+            {
+                QueryTarget.Session => typeof(Session),
+                QueryTarget.Window => typeof(Window),
+                QueryTarget.Pane => typeof(Pane),
+                _ => throw Unsupported("This target has no native hierarchy relation."),
+            };
+        }
+        return (relationType.IsGenericType && relationType.GetGenericTypeDefinition() == typeof(CapturedRelation<>)
             ? relationType.GetGenericArguments()[0]
             : SequenceElementType(relationType))
-        ?? throw Unsupported($"Field '{field.WireName}' is not a typed relation.");
+            ?? throw Unsupported($"Field '{field.WireName}' is not a typed relation.");
+    }
 
     [UnconditionalSuppressMessage(
         "Trimming",

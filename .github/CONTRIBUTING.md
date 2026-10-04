@@ -226,6 +226,61 @@ line or a link nuget.org cannot resolve. It also checks portable PDB identity
 and SourceLink against `HEAD`. The compiler inventory travels with the packages
 so the publisher repeats this inspection without rebuilding the libraries.
 
+For a downstream review, `eng/package_review.py` runs the same restore, build,
+inventory, pack and inspection commands with a distinct prerelease identity.
+Use a clean, committed checkout with no concurrent builds or edits. Set
+`CORE_REVISION` to its full reviewed commit SHA and choose a version that has
+never been used for other bytes. Run each phase separately with the same SDK,
+environment, version and output directory:
+
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --phase restore \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --phase build \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --phase pack \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+Omit `--phase` to run the complete recipe in one invocation. The output
+directory must not exist before restore. Build and pack require the preceding
+phase's receipt; they reject changed source, SDK, environment, override props,
+configuration, restored inputs or build outputs. Pack runs the compiler
+inventory and native package inspector and refuses existing archives.
+Tool packing can create publish copies and `DotnetToolSettings.xml`; these
+SDK outputs are excluded from the compiler-input hashes. Compiled DLL, PDB
+and XML inputs remain guarded, and the inspector checks the final archives.
+
+The recipe leaves the checkout's declared version unchanged, records command
+timings and archive hashes, and writes `provenance.json` only after inspection
+and a final integrity check. Failed outputs are diagnostic artifacts; choose
+a new identity for changed source. Use an ignored artifact directory or a
+location outside the checkout.
+
+The output also contains a portable `NuGet.config`, which maps `LibTmux*`
+exclusively to the directory containing that file. Pin the reviewed version
+in a standalone consumer's package references, restore with this configuration
+and use a fresh `NUGET_PACKAGES` directory. The repository's PackageConsumer
+and AotSmoke projects accept `-p:LibTmuxPackageVersion="$REVIEW_VERSION"` on
+restore and run or publish. `inputs/Directory.Build.props` belongs only to the
+producer build. A PowerShell consumer can use the directory as its local
+package feed. These local packages are not published to NuGet.org.
+
 The F# inventory uses the compiler service bundled with the pinned SDK. It
 reads both compiled target frameworks, including curried argument groups,
 generic constraints and union cases, and requires matching XML summaries.

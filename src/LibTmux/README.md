@@ -113,6 +113,11 @@ await server.Chain()
 Control mode is an order of magnitude cheaper *per command*; a chain wins *for
 a batch* by paying one round trip for the whole sequence.
 
+For readiness text printed by a pane, `Pane.WaitForTextAsync`
+owns the control client and returns a typed outcome with a bounded rendered
+tail. The [executed pane-text example](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/modes/control-mode.md#wait-for-rendered-text)
+shows setup and cleanup.
+
 ## Reading what is there
 
 Accessors return `IReadOnlyList<T>` over an explicit read and never shell out
@@ -139,6 +144,22 @@ matched nothing. Catch the relevant exception when absence is acceptable;
 `IsAliveAsync` is the explicit convenience that returns `false` on library
 failures. Raw `ExecuteCommandAsync` keeps completed nonzero exit codes in its
 `TmuxCommandResult`.
+
+`Server.Open(options).InspectAsync(ct)` reads an endpoint without running
+`InitializeAsync` or starting a daemon. It returns null only for verified
+daemon absence; permission and transport failures remain errors. The returned
+handle exposes the observed `DaemonVersion` separately from the client
+executable's `Version`. Its relationships remain uncaptured until an explicit
+listing or snapshot. Inspecting a materialized handle rejects a replacement
+daemon instead of adopting it.
+
+Set `NewSessionRequest.ExpectedGeneration` to the inspected handle's `Generation`
+when creation must use that daemon. Direct creation and `ToCommand()` both refuse
+a replacement; direct creation also verifies the generation during readback.
+A missing daemon stays stopped, without loading its configuration.
+A failure after creation reports that state may already have changed. The
+default remains endpoint-scoped creation. `ExpectedGeneration` cannot be combined
+with `ReplaceExisting`.
 
 A handle says what it read, and that stays true. Operations that change what an
 object is hand back a replacement:
@@ -254,6 +275,42 @@ parent and child graph. Reading any of these properties performs no I/O.
 
 ## Running something, and reading it back
 
+`RunAsync` waits for a POSIX shell command and reports its real exit status
+and bounded rendered pane output. A timeout returns `TimedOut = true` and
+`ExitStatus = null`; the command may still be running. Another run in the
+same pane is refused until completion can be authenticated. The server
+remains owned by its caller; separate processes are not coordinated.
+
+```csharp run
+PaneRunResult run = await pane.RunAsync(
+    "printf 'hello-from-libtmux\\n'",
+    TimeSpan.FromSeconds(10),
+    cancellationToken: ct);
+if (run.ExitStatus != 0)
+{
+    throw new InvalidOperationException($"Command exited {run.ExitStatus}.");
+}
+
+if (!run.Output.Contains("hello-from-libtmux"))
+{
+    throw new InvalidOperationException("Command output was not observed in the pane.");
+}
+```
+
+`Output` is rendered pane text, not byte-exact stdout or stderr. Check
+`LinesMissed`, `AnchorLost`, and the omitted-output counts before treating it
+as complete. For interactive programs, `SendTextAsync` types input without
+assuming a shell command ended.
+
+If a completed run's private files cannot be deleted, `RunAsync` throws
+`LibTmuxException`. Its `Data["LibTmux.CompletedRunResult"]` retains the bounded
+`PaneRunResult`, and `Data["LibTmux.RunDirectoryCleanupDirectory"]` names the
+owned directory to inspect and remove. The command has already completed;
+do not run it again. A cleanup failure during an earlier refusal stays on the
+original exception in `Data["LibTmux.RunDirectoryCleanupFailure"]`. Failed
+temporary-buffer deletion similarly preserves the original error and names
+the owned buffer in `Data["LibTmux.PasteBufferCleanupBuffer"]`.
+
 `SendTextAsync` types leading dashes, semicolons and newlines as input. NUL
 is rejected before dispatch. Setting `enter: false` omits the extra Enter
 key; it does not remove newlines already present in the text.
@@ -338,17 +395,63 @@ QueryDocument document = QueryExtensions.Translate<Session>(
         && session.Attached);
 ```
 
+Source queries make acquisition explicit. Prepare a reusable plan from an
+inspected daemon version, then execute it for a fresh observation:
+
+```csharp run
+Server inspected = await server.InspectAsync(ct)
+    ?? throw new InvalidOperationException("The tmux daemon is absent.");
+QueryDocument predicate = QueryExtensions.Translate<Window>(
+    candidate => candidate.IsActive && candidate.Name.StartsWith("build", StringComparison.Ordinal));
+QueryPlan<Window> plan = predicate.Plan<Window>(inspected.DaemonVersion!.Value);
+QueryResult<Window> result = await plan.ExecuteAsync(inspected, ct);
+
+Console.WriteLine($"{result.Count} matches from {result.Snapshot.Windows.Count} placements");
+foreach (string reason in plan.FallbackReasons)
+{
+    Console.WriteLine(reason);
+}
+```
+
+`Auto` evaluates an exact leading predicate in tmux and the remainder locally.
+`Never` evaluates everything locally; `Require` rejects a plan needing local
+predicate evaluation. Inspect `PushedPredicate`, `ResidualPredicate`,
+`RequiredFields` and `RequiredSnapshotDepth` without I/O. Execution checks the
+actual daemon version and generation before acquisition, and never initializes
+or starts an absent daemon.
+
+Source evaluation currently supports canonical ID equality, `Session.Attached`
+and `Window.IsActive` on stable tmux 3.2a through 3.7c. Text, numbers and graph
+predicates use the local interpreter. Ordered conjunctions preserve earlier
+local errors; partial disjunctions and negations stay local.
+
+The source predicate travels in a private projection marker. It moves predicate
+work into tmux, **without reducing rows or payload**. `result.Snapshot` retains
+the complete graph at the required depth, even when the result is empty.
+Repeated window placements remain separate, and acquisition is an interval,
+not a transaction. Plans execute native sessions, windows or panes; clients and
+projection DTOs remain local filtering inputs.
+
 The document carries stable wire names: `Session.Name` is `session_name` and
-`Client.IsControlClient` is `client_control_mode`. The catalog is closed over
-twelve queryable fields:
+`Client.IsControlClient` is `client_control_mode`. Discover the supported
+fields and wire operations without contacting tmux:
 
-| Session | Window | Pane | Client |
-|---|---|---|---|
-| `Name`, `Id`, `Attached`, `Windows` | `Name`, `Id`, `Panes` | `Id`, `pane_command` | `Name`, `IsControlClient`, `client_id` |
+```csharp run
+foreach (QueryFieldDescriptor field in QueryFieldCatalog.GetFields(QueryTarget.Pane))
+{
+    Console.WriteLine($"{field.WireName}: {string.Join(", ", field.Operators)}");
+}
+```
 
-Two fields have no property on their entity, and are reached by declaring a row
-whose property names are the wire names — which is also how you query a
-projection rather than an entity:
+Descriptors distinguish scalar paths such as `Panes.Count` from relation paths
+such as `Panes` and `ActiveWindow.Value`. They report related targets,
+cardinality, scalar nullability and minimum capture depth. Nested predicates
+use `QueryDocument.RequiredSnapshotDepth` for the complete requirement. An
+uncaptured relation remains an error; it is not empty or null. Clients have no
+hierarchy snapshot depth, and the schema-only `client_id` has no entity binding.
+
+Documents can also filter records whose property names are the PascalCase wire
+names:
 
 ```csharp
 internal sealed record PaneRow(string PaneId, string PaneCommand);
@@ -369,8 +472,7 @@ and a warning says what was left off. Where a whole command is missing, nothing
 is sent and `TmuxVersionTooLowException` says which version would be needed.
 
 ```csharp run
-// A handle says what it read: the version is what tmux reported when this
-// server was reached, and null when it reported something unparsable.
+// The materialized handle records the verified client executable version.
 TmuxVersion? version = server.Version;
 Console.WriteLine($"tmux {version?.Raw} 3.4-or-newer={version?.IsAtLeast(TmuxVersion.Parse("3.4"))}");
 ```

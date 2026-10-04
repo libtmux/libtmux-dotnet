@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Text;
 
 namespace LibTmux.Internal;
 
@@ -12,24 +13,26 @@ internal enum ControlModeEventRead
 
 /// <summary>Buffers notifications without allowing a slow consumer to stall commands.</summary>
 /// <remarks>
-/// When full it discards the oldest output of the pane with the most output
-/// waiting, so a flooding pane loses its own output rather than a quieter
-/// pane's, and cannot push out the notifications that describe sessions,
-/// windows and layout. Only a buffer holding no output discards its oldest
-/// notification.
+/// When full it discards the oldest output of the pane with the most queued
+/// output events or bytes, according to the limit reached. Only a buffer
+/// holding no output discards its oldest notification.
 /// </remarks>
 internal sealed class ControlModeEventBuffer
 {
+    internal const int DefaultMaxBytes = 4 * 1024 * 1024;
+
     private readonly int _capacity;
+    private readonly int _maxBytes;
+    private long _bufferedBytes;
     private readonly Action<int>? _afterDequeue;
     private readonly Action<PaneId>? _outputDiscarded;
     private readonly object _gate = new();
-    private readonly LinkedList<(long Sequence, TmuxEvent Item)> _items = new();
-    private readonly Dictionary<PaneId, Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>> _outputs = [];
+    private readonly LinkedList<(long Sequence, TmuxEvent Item, long Bytes)> _items = new();
+    private readonly Dictionary<PaneId, PaneOutput> _outputs = [];
+    private readonly LinkedList<(long First, long Last)> _notificationLosses = [];
     private TaskCompletionSource _changed = NewSignal();
     private long _dropped;
-    private long _reported;
-    private bool _notificationDropped;
+    private long _lastDelivered;
     private long _lastWritten;
     private ExceptionDispatchInfo? _completionError;
     private bool _completed;
@@ -38,18 +41,21 @@ internal sealed class ControlModeEventBuffer
     internal ControlModeEventBuffer(
         int capacity,
         Action<int>? afterDequeue = null,
-        Action<PaneId>? outputDiscarded = null)
+        Action<PaneId>? outputDiscarded = null,
+        int maxBytes = DefaultMaxBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
         _capacity = capacity;
+        _maxBytes = maxBytes;
         _afterDequeue = afterDequeue;
         _outputDiscarded = outputDiscarded;
     }
 
-
     internal bool TryWrite(TmuxEvent item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        long bytes = PayloadBytes(item);
         TaskCompletionSource? changed = null;
         lock (_gate)
         {
@@ -59,21 +65,54 @@ internal sealed class ControlModeEventBuffer
             }
 
             bool wasEmpty = _items.Count == 0;
-            if (_items.Count == _capacity)
+            long sequence = ++_lastWritten;
+            bool retain = true;
+            if (bytes > _maxBytes)
             {
-                Discard();
-            }
-
-            LinkedListNode<(long Sequence, TmuxEvent Item)> node = _items.AddLast((++_lastWritten, item));
-            if (item is TmuxOutputEvent output)
-            {
-                if (!_outputs.TryGetValue(output.PaneId, out Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>? pane))
+                _dropped++;
+                if (item is TmuxOutputEvent output)
                 {
-                    pane = new Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>>();
-                    _outputs.Add(output.PaneId, pane);
+                    _outputDiscarded?.Invoke(output.PaneId);
+                }
+                else
+                {
+                    NoteNotificationDrop(sequence);
                 }
 
-                pane.Enqueue(node);
+                if (item is TmuxExitEvent)
+                {
+                    item = new TmuxExitEvent(null);
+                    bytes = 0;
+                    sequence = ++_lastWritten;
+                }
+                else
+                {
+                    retain = false;
+                }
+            }
+
+            if (retain)
+            {
+                while (_items.Count > 0
+                    && (_items.Count == _capacity || bytes > _maxBytes - _bufferedBytes))
+                {
+                    Discard(bytePressure: bytes > _maxBytes - _bufferedBytes);
+                }
+
+                LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)> node =
+                    _items.AddLast((sequence, item, bytes));
+                _bufferedBytes += bytes;
+                if (item is TmuxOutputEvent output)
+                {
+                    if (!_outputs.TryGetValue(output.PaneId, out PaneOutput? pane))
+                    {
+                        pane = new PaneOutput();
+                        _outputs.Add(output.PaneId, pane);
+                    }
+
+                    pane.Nodes.Enqueue(node);
+                    pane.Bytes += bytes;
+                }
             }
 
             if (wasEmpty)
@@ -87,41 +126,47 @@ internal sealed class ControlModeEventBuffer
         return true;
     }
 
-    // Called under the gate with the buffer full.
-    private void Discard()
+    // Called under the gate when either admission limit is reached.
+    private void Discard(bool bytePressure)
     {
         _dropped++;
-        // The pane with the most output waiting, and of those the one whose
-        // oldest output is oldest, so a tie never depends on dictionary order.
+        // Under byte pressure, keep small fragments from a quiet pane even if
+        // it has more events. Count pressure still selects by event count.
         PaneId? flooding = null;
-        int most = 0;
+        long most = -1;
         long oldest = long.MaxValue;
-        foreach ((PaneId pane, Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> waiting) in _outputs)
+        foreach ((PaneId pane, PaneOutput waiting) in _outputs)
         {
-            long first = waiting.Peek().Value.Sequence;
-            if (waiting.Count > most || (waiting.Count == most && first < oldest))
+            long measure = bytePressure ? waiting.Bytes : waiting.Nodes.Count;
+            long first = waiting.Nodes.Peek().Value.Sequence;
+            if (measure > most || (measure == most && first < oldest))
             {
-                (flooding, most, oldest) = (pane, waiting.Count, first);
+                (flooding, most, oldest) = (pane, measure, first);
             }
         }
 
         if (flooding is { } loud)
         {
-            _items.Remove(TakeOutput(loud));
+            LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)> discarded = TakeOutput(loud);
+            _bufferedBytes -= discarded.Value.Bytes;
+            _items.Remove(discarded);
             _outputDiscarded?.Invoke(loud);
             return;
         }
 
+        LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)> firstNode = _items.First!;
+        _bufferedBytes -= firstNode.Value.Bytes;
+        NoteNotificationDrop(firstNode.Value.Sequence);
         _items.RemoveFirst();
-        _notificationDropped = true;
     }
 
     // Called under the gate: a pane's outputs leave in the order they arrived.
-    private LinkedListNode<(long Sequence, TmuxEvent Item)> TakeOutput(PaneId pane)
+    private LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)> TakeOutput(PaneId pane)
     {
-        Queue<LinkedListNode<(long Sequence, TmuxEvent Item)>> waiting = _outputs[pane];
-        LinkedListNode<(long Sequence, TmuxEvent Item)> oldest = waiting.Dequeue();
-        if (waiting.Count == 0)
+        PaneOutput waiting = _outputs[pane];
+        LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)> oldest = waiting.Nodes.Dequeue();
+        waiting.Bytes -= oldest.Value.Bytes;
+        if (waiting.Nodes.Count == 0)
         {
             _outputs.Remove(pane);
         }
@@ -189,8 +234,6 @@ internal sealed class ControlModeEventBuffer
     {
         private readonly ControlModeEventBuffer _owner;
         private readonly CancellationToken _cancellationToken;
-        private long _lastConsumed;
-        private long? _boundaryLossWatermark;
         private int _disposed;
 
         internal Reader(ControlModeEventBuffer owner, CancellationToken cancellationToken)
@@ -207,10 +250,6 @@ internal sealed class ControlModeEventBuffer
         internal async ValueTask<ControlModeEventRead> MoveNextThroughAsync(long watermark)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            if (_lastConsumed >= watermark || _boundaryLossWatermark == watermark)
-            {
-                return ControlModeEventRead.Boundary;
-            }
 
             while (true)
             {
@@ -219,32 +258,40 @@ internal sealed class ControlModeEventBuffer
                 ControlModeEventRead result;
                 lock (_owner._gate)
                 {
+                    if (_owner._lastDelivered >= watermark)
+                    {
+                        return ControlModeEventRead.Boundary;
+                    }
+
+                    long beforeNext = _owner._items.First is { } first
+                        ? first.Value.Sequence - 1
+                        : _owner._lastWritten;
+                    long lossThrough = Math.Min(beforeNext, watermark);
+                    if (lossThrough > _owner._lastDelivered)
+                    {
+                        long from = _owner._lastDelivered;
+                        long count = lossThrough - from;
+                        bool onlyOutput = !_owner.HasNotificationLoss(from, lossThrough);
+                        _owner._lastDelivered = lossThrough;
+                        _owner.RetireNotificationLosses(lossThrough);
+                        Current = new TmuxEventsDroppedEvent(count, _owner._dropped)
+                        {
+                            OnlyOutput = onlyOutput,
+                        };
+                        _owner._afterDequeue?.Invoke(_owner._items.Count);
+                        return ControlModeEventRead.Item;
+                    }
+
                     if (_owner._items.First is { } head)
                     {
-                        (long sequence, TmuxEvent item) = head.Value;
-                        long dropped = _owner._dropped - _owner._reported;
+                        (long sequence, TmuxEvent item, long bytes) = head.Value;
                         if (sequence > watermark)
                         {
-                            if (dropped == 0)
-                            {
-                                return ControlModeEventRead.Boundary;
-                            }
-
-                            _boundaryLossWatermark = watermark;
-                        }
-
-                        if (dropped > 0)
-                        {
-                            _owner._reported = _owner._dropped;
-                            Current = new TmuxEventsDroppedEvent(dropped, _owner._dropped)
-                            {
-                                OnlyOutput = !_owner._notificationDropped,
-                            };
-                            _owner._notificationDropped = false;
-                            return ControlModeEventRead.Item;
+                            return ControlModeEventRead.Boundary;
                         }
 
                         _owner._items.RemoveFirst();
+                        _owner._bufferedBytes -= bytes;
                         if (item is TmuxOutputEvent output)
                         {
                             _ = _owner.TakeOutput(output.PaneId);
@@ -252,7 +299,7 @@ internal sealed class ControlModeEventBuffer
 
                         _owner._afterDequeue?.Invoke(_owner._items.Count);
                         Current = item;
-                        _lastConsumed = sequence;
+                        _owner._lastDelivered = sequence;
 
                         return ControlModeEventRead.Item;
                     }
@@ -301,6 +348,93 @@ internal sealed class ControlModeEventBuffer
             return ValueTask.CompletedTask;
         }
     }
+
+    // Notification-drop positions are needed only to prove OnlyOutput. A
+    // bounded, sorted set of spans keeps that proof useful under ordinary
+    // load; merging old spans may conservatively return false, never true.
+    private void NoteNotificationDrop(long sequence)
+    {
+        LinkedListNode<(long First, long Last)>? previous = _notificationLosses.Last;
+        while (previous is not null && previous.Value.First > sequence)
+        {
+            previous = previous.Previous;
+        }
+
+        if (previous is not null && sequence <= previous.Value.Last)
+        {
+            return;
+        }
+
+        LinkedListNode<(long First, long Last)> current;
+        if (previous is not null && previous.Value.Last == sequence - 1)
+        {
+            previous.Value = (previous.Value.First, sequence);
+            current = previous;
+        }
+        else
+        {
+            current = previous is null
+                ? _notificationLosses.AddFirst((sequence, sequence))
+                : _notificationLosses.AddAfter(previous, (sequence, sequence));
+        }
+
+        if (current.Next is { } next && next.Value.First == current.Value.Last + 1)
+        {
+            current.Value = (current.Value.First, next.Value.Last);
+            _notificationLosses.Remove(next);
+        }
+
+        if (_notificationLosses.Count > _capacity)
+        {
+            LinkedListNode<(long First, long Last)> first = _notificationLosses.First!;
+            LinkedListNode<(long First, long Last)> second = first.Next!;
+            first.Value = (first.Value.First, second.Value.Last);
+            _notificationLosses.Remove(second);
+        }
+    }
+
+    private bool HasNotificationLoss(long after, long through)
+    {
+        foreach ((long first, long last) in _notificationLosses)
+        {
+            if (first > through)
+            {
+                break;
+            }
+
+            if (last > after)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void RetireNotificationLosses(long through)
+    {
+        while (_notificationLosses.First is { } first && first.Value.Last <= through)
+        {
+            _notificationLosses.RemoveFirst();
+        }
+    }
+
+    private sealed class PaneOutput
+    {
+        internal Queue<LinkedListNode<(long Sequence, TmuxEvent Item, long Bytes)>> Nodes { get; } = new();
+
+        internal long Bytes { get; set; }
+    }
+
+    private static long PayloadBytes(TmuxEvent item) => item switch
+    {
+        TmuxOutputEvent output => Encoding.UTF8.GetByteCount(output.Data),
+        TmuxNotificationEvent notification => Encoding.UTF8.GetByteCount(notification.Name)
+            + notification.Arguments.Sum(static value => (long)Encoding.UTF8.GetByteCount(value)),
+        TmuxExitEvent { Reason: string reason } => Encoding.UTF8.GetByteCount(reason),
+        TmuxExitEvent or TmuxPanePausedEvent or TmuxPaneContinuedEvent => 0,
+        _ => throw new ArgumentException("The control event has no payload budget definition.", nameof(item)),
+    };
 
     private static TaskCompletionSource NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);

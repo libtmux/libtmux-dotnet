@@ -274,7 +274,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Post_start_cancellation_throws_TmuxOperationCanceledException_with_true_execution_risk_and_client_pid()
     {
-        var process = FakeProcessHandle.Running(7048, [], []);
+        var process = FakeProcessHandle.Running(7048, [], [], rejectAdditionalExitWaits: true);
         var transport = CreateTransport(process);
         using var cancellation = new CancellationTokenSource();
         Task<TmuxCommandResult> execution = transport.ExecuteAsync(
@@ -293,6 +293,32 @@ public sealed class TmuxProcessTransportTests
     }
 
     [UnixFact]
+    public async Task Cancellation_stops_owned_output_reads_after_the_client_has_exited()
+    {
+        var heldOutput = new BlockingReadStream();
+        var process = FakeProcessHandle.CompletedWithStreams(
+            7068, heldOutput, new MemoryStream([], writable: false), exitCode: 0);
+        var transport = CreateTransport(process);
+        using var cancellation = new CancellationTokenSource();
+        Task<TmuxCommandResult> execution = transport.ExecuteAsync(["wait-for", "held-output"], cancellation.Token);
+        await process.Started.Task.WaitAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            await cancellation.CancelAsync();
+            TmuxOperationCanceledException failure = await Assert.ThrowsAsync<TmuxOperationCanceledException>(() =>
+                execution.WaitAsync(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken));
+
+            Assert.Equal(cancellation.Token, failure.CancellationToken);
+            Assert.True(process.HasExited);
+        }
+        finally
+        {
+            heldOutput.Complete();
+            await IgnoreFailureAsync(execution);
+        }
+    }
+
+    [UnixFact]
     public async Task Cleanup_failure_throws_TmuxCleanupException_with_original_context()
     {
         var cleanupFailure = new IOException("cleanup fault");
@@ -301,7 +327,8 @@ public sealed class TmuxProcessTransportTests
             new MemoryStream([], writable: false),
             new MemoryStream([], writable: false),
             killFailure: cleanupFailure,
-            exitWhenKillThrows: true);
+            exitWhenKillThrows: true,
+            rejectAdditionalExitWaits: true);
         var transport = CreateTransport(process);
         using var cancellation = new CancellationTokenSource();
         Task<TmuxCommandResult> execution = transport.ExecuteAsync(
@@ -343,7 +370,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Injects_launcher_clock_and_limits_without_wall_clock_sleeps()
     {
-        var heldOutput = new BlockingReadStream();
+        var heldOutput = new BlockingReadStream(ignoreCancellation: true);
         var process = FakeProcessHandle.CompletedWithStreams(
             7051,
             heldOutput,
@@ -382,7 +409,7 @@ public sealed class TmuxProcessTransportTests
     [UnixFact]
     public async Task Cleanup_preserves_an_injected_clock_failure_while_work_is_pending()
     {
-        var heldOutput = new BlockingReadStream();
+        var heldOutput = new BlockingReadStream(ignoreCancellation: true);
         var process = FakeProcessHandle.CompletedWithStreams(
             7062,
             heldOutput,
@@ -494,7 +521,7 @@ public sealed class TmuxProcessTransportTests
                 TestContext.Current.CancellationToken));
 
         Assert.True(process.WasKilled);
-        Assert.True(process.WaitCallCount >= 2);
+        Assert.True(process.HasExited);
         Assert.Contains(acquisitionFailure.Message, FlattenMessages(error));
     }
 
@@ -519,7 +546,7 @@ public sealed class TmuxProcessTransportTests
         string messages = FlattenMessages(error);
 
         Assert.True(process.WasKilled);
-        Assert.True(process.WaitCallCount >= 2);
+        Assert.True(process.HasExited);
         Assert.Contains(firstPumpFailure.Message, messages);
         Assert.Contains(secondPumpFailure.Message, messages);
         Assert.Contains(killFailure.Message, messages);
@@ -864,6 +891,7 @@ public sealed class TmuxProcessTransportTests
         private readonly Action? _onExitCode;
         private readonly Exception? _exitCodeFailure;
         private readonly Exception? _standardOutputFailure;
+        private readonly bool _rejectAdditionalExitWaits;
         private readonly int _exitCode;
         private readonly Stream _standardError;
         private readonly Stream _standardOutput;
@@ -881,7 +909,8 @@ public sealed class TmuxProcessTransportTests
             bool exitBeforeKill = false,
             Action? onKill = null,
             Action? onExitCode = null,
-            Exception? exitCodeFailure = null)
+            Exception? exitCodeFailure = null,
+            bool rejectAdditionalExitWaits = false)
         {
             Id = id;
             _standardOutput = standardOutput;
@@ -895,6 +924,7 @@ public sealed class TmuxProcessTransportTests
             _onKill = onKill;
             _onExitCode = onExitCode;
             _exitCodeFailure = exitCodeFailure;
+            _rejectAdditionalExitWaits = rejectAdditionalExitWaits;
             if (completed)
             {
                 _exit.SetResult();
@@ -969,7 +999,8 @@ public sealed class TmuxProcessTransportTests
             byte[] standardError,
             Exception? killFailure = null,
             Exception? standardOutputFailure = null,
-            bool exitBeforeKill = false) =>
+            bool exitBeforeKill = false,
+            bool rejectAdditionalExitWaits = false) =>
             new(
                 id,
                 new MemoryStream(standardOutput, writable: false),
@@ -978,7 +1009,8 @@ public sealed class TmuxProcessTransportTests
                 completed: false,
                 killFailure,
                 standardOutputFailure,
-                exitBeforeKill: exitBeforeKill);
+                exitBeforeKill: exitBeforeKill,
+                rejectAdditionalExitWaits: rejectAdditionalExitWaits);
 
         internal static FakeProcessHandle RunningWithStreams(
             int id,
@@ -987,7 +1019,8 @@ public sealed class TmuxProcessTransportTests
             Exception? killFailure = null,
             ManualResetEventSlim? killGate = null,
             bool exitWhenKillThrows = false,
-            Action? onKill = null) =>
+            Action? onKill = null,
+            bool rejectAdditionalExitWaits = false) =>
             new(
                 id,
                 standardOutput,
@@ -997,7 +1030,8 @@ public sealed class TmuxProcessTransportTests
                 killFailure,
                 killGate: killGate,
                 exitWhenKillThrows: exitWhenKillThrows,
-                onKill: onKill);
+                onKill: onKill,
+                rejectAdditionalExitWaits: rejectAdditionalExitWaits);
 
         public void Kill()
         {
@@ -1025,6 +1059,11 @@ public sealed class TmuxProcessTransportTests
         public async Task WaitForExitAsync(CancellationToken cancellationToken = default)
         {
             WaitCallCount++;
+            if (_rejectAdditionalExitWaits && WaitCallCount > 1)
+            {
+                throw new IOException("A competing process exit wait lost its notification.");
+            }
+
             Started.TrySetResult();
             await _exit.Task.WaitAsync(cancellationToken);
         }
@@ -1037,7 +1076,7 @@ public sealed class TmuxProcessTransportTests
         }
     }
 
-    private sealed class BlockingReadStream : Stream
+    private sealed class BlockingReadStream(bool ignoreCancellation = false) : Stream
     {
         private readonly TaskCompletionSource<int> _read = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1064,7 +1103,7 @@ public sealed class TmuxProcessTransportTests
         public override ValueTask<int> ReadAsync(
             Memory<byte> buffer,
             CancellationToken cancellationToken = default) =>
-            new(_read.Task.WaitAsync(cancellationToken));
+            new(_read.Task.WaitAsync(ignoreCancellation ? CancellationToken.None : cancellationToken));
 
         public override void Flush()
         {

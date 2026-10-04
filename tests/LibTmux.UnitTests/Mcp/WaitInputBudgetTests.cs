@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using System.Text.RegularExpressions;
 using LibTmux.Internal;
 using LibTmux.Mcp;
 using LibTmux.UnitTests.Connection;
@@ -56,6 +55,20 @@ public sealed class WaitInputBudgetTests
     }
 
     [Fact]
+    public void Oversized_pattern_lists_are_rejected_without_enumeration()
+    {
+        var patterns = new OversizedPatternList();
+
+        McpException mcp = Assert.Throws<McpException>(() =>
+            ReadTools.ValidateWaitPatterns(patterns, null, 4_000));
+        Assert.Contains("32", mcp.Message, StringComparison.Ordinal);
+
+        ArgumentException core = Assert.Throws<ArgumentException>(() =>
+            PaneWaitRequest.FromTextPatterns(patterns));
+        Assert.Contains("32", core.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Escaping_that_cannot_fit_the_result_is_rejected()
     {
         string escaped = new('\n', 700);
@@ -104,26 +117,41 @@ public sealed class WaitInputBudgetTests
     [Fact]
     public void A_cancelled_wait_stops_before_scanning_pane_text()
     {
-        Regex[] patterns = [ReadTools.CompilePattern("ready", ignoreCase: false)];
+        PaneWaitPattern[] patterns = PaneWaitRequest.FromTextPatterns(["ready"]).Snapshot().Wanted;
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
+        int matchingWork = 0;
 
-        Assert.Throws<OperationCanceledException>(() => ReadTools.Match(
+        Assert.Throws<OperationCanceledException>(() => PaneTextWaiter.Match(
             patterns,
             Enumerable.Repeat("not yet", 32_768).ToArray(),
+            ref matchingWork,
             cancellation.Token));
     }
 
     [Fact]
     public void A_wait_refuses_more_than_eight_mebibytes_of_matching_work()
     {
-        Regex[] patterns = [ReadTools.CompilePattern("not-present", ignoreCase: false)];
+        PaneWaitPattern[] patterns = PaneWaitRequest.FromTextPatterns(["not-present"]).Snapshot().Wanted;
+        int matchingWork = 0;
 
-        McpException error = Assert.Throws<McpException>(() => ReadTools.Match(
+        PaneTextWaiter.MatchWorkExceededException exceeded = Assert.Throws<PaneTextWaiter.MatchWorkExceededException>(() => PaneTextWaiter.Match(
             patterns,
             [new string('x', 8 * 1024 * 1024 + 1)],
+            ref matchingWork,
             TestContext.Current.CancellationToken));
+        McpException error = ReadTools.WaitMatchingError(exceeded);
 
         Assert.Contains("matching work limit", error.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class OversizedPatternList : IReadOnlyList<string>
+    {
+        public int Count => int.MaxValue;
+        public string this[int index] => throw new InvalidOperationException("Must not read entries.");
+        public IEnumerator<string> GetEnumerator() =>
+            throw new InvalidOperationException("Must not enumerate entries.");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() =>
+            GetEnumerator();
     }
 }

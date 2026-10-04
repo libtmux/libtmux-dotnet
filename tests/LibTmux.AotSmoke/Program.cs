@@ -54,12 +54,44 @@ internal static class Program
             Window window = scope.Window;
             Pane pane = scope.Pane;
 
+            Task<PaneWaitResult> textWait = pane.WaitForTextAsync(
+                PaneWaitRequest.FromTextPatterns(["aot-observer-ready"], simpleMatch: true)
+                    with { Timeout = TimeSpan.FromSeconds(3) });
+            await pane.SendKeysAsync(new SendKeysRequest
+            {
+                Text = "printf 'aot-%s\\n' observer-ready",
+                Literal = true,
+            });
+            PaneWaitResult textObserved = await textWait;
+            bool observerWorks = (textObserved.Outcome is PaneWaitOutcome.Matched
+                or PaneWaitOutcome.PresentAtEntry)
+                && textObserved.Tail.Any(line => line.Contains(
+                    "aot-observer-ready", StringComparison.Ordinal));
+
             await window.Options.SetAsync(new SetOptionRequest("automatic-rename", "off"));
             TmuxOption option = (await window.Options.GetAsync(
                 new GetOptionRequest("automatic-rename")))[0];
 
             await server.Buffers.SetAsync("aot", "libtmux-aot");
             string buffer = await server.Buffers.GetAsync("libtmux-aot");
+
+            Server inspected = await server.InspectAsync()
+                ?? throw new InvalidOperationException("The owned daemon disappeared.");
+            PaneId wanted = pane.Id;
+            QueryDocument source = QueryExtensions.Translate<Pane>(candidate => candidate.Id == wanted);
+            QueryResult<Pane> exact = await source.Plan<Pane>(inspected.DaemonVersion!.Value, QueryPushdown.Require)
+                .ExecuteAsync(inspected);
+            string sessionName = session.Name;
+            QueryDocument graph = QueryExtensions.Translate<Window>(candidate => candidate.Panes.Any()
+                && candidate.LinkedSessions.Any(parent => parent.Name == sessionName));
+            QueryPlan<Window> graphPlan = graph.Plan<Window>(inspected.DaemonVersion.Value);
+            QueryResult<Window> related = await graphPlan.ExecuteAsync(inspected);
+            bool sourceQueries = exact.Count == 1 && exact[0].Id == wanted
+                && related.Count == 1 && related[0].Panes.Count == 1
+                && related[0].LinkedSessions.Single().Name == sessionName
+                && graphPlan.PushedPredicate is null && graphPlan.ResidualPredicate is not null;
+            Console.WriteLine($"query-source {sourceQueries}");
+            Console.WriteLine($"pane-observer {observerWorks}");
 
             Console.WriteLine($"session {session.Name}");
             Console.WriteLine($"pane    {pane.Width}x{pane.Height}");
@@ -73,6 +105,8 @@ internal static class Program
                 && queryRoundTrips
                 && queryMatches
                 && queryTranslates
+                && sourceQueries
+                && observerWorks
                 ? 0
                 : 1;
         }
