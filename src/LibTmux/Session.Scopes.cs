@@ -22,7 +22,10 @@ public sealed partial class Session
     /// The client ignores its size, so it leaves window sizes alone, and is
     /// excluded wherever this library tells observers from people attached.
     /// tmux itself still lists it among the session's clients while it is
-    /// held. When control mode is unavailable the waits poll, and the handle
+    /// held, so the session counts as attached for <c>destroy-unattached</c>,
+    /// and the client keeps reading the session's output while no wait runs.
+    /// The hold is for this server process: one started again needs a new
+    /// one. When control mode is unavailable the waits poll, and the handle
     /// holds nothing.
     /// </para>
     /// </remarks>
