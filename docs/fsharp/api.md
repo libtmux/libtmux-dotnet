@@ -3,8 +3,10 @@
 Generated from compiled F# signatures and XML summaries. Regenerate with
 `uv run python eng/docs/render_api_reference.py --fsharp`.
 
-[Detailed member reference](../fsharp-reference/reference/index.md) includes
-parameters, return types and source links.
+This page is the map: a task table, then every signature with its summary.
+The [member reference](../fsharp-reference/reference/index.md) is the
+detail, with a page per module giving each member's parameters, returns,
+remarks, exceptions and source link.
 Core handles and request types appear in the
 [LibTmux API reference](../api/README.md).
 Signatures assume `open System`, `open System.Threading`,

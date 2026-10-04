@@ -5,9 +5,10 @@ server that lets an assistant drive tmux. It is a .NET tool rather than a
 library reference, and it is built on the same core as `LibTmux.FSharp`: its
 waits, command runs and pane reads are the ones `Pane.waitForText`,
 `Pane.run` and `Pane.capture` call. A tool package cannot be referenced, so
-an F# program runs it beside itself on a shared socket, as below, rather than
-adding its tools to an MCP server of its own; that takes building
-`LibTmux.Mcp` from source and calling `McpServerComposition.Add`.
+an F# program runs it beside itself on a shared socket, as below. Adding its
+tools to an MCP server of your own is not offered as a package: it takes
+building `LibTmux.Mcp` from source and calling `McpServerComposition.Add`,
+and that composition may change between prereleases.
 
 ```console
 $ dotnet tool install --global LibTmux.Mcp --prerelease

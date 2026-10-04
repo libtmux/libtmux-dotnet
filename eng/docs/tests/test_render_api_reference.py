@@ -121,7 +121,7 @@ def test_fsharp_renderer_uses_compiled_signatures_and_declaring_modules() -> Non
     )
 
     assert "# F# API reference" in rendered
-    assert "[Detailed member reference](../fsharp-reference/reference/index.md)" in rendered
+    assert "The [member reference](../fsharp-reference/reference/index.md) is the" in rendered
     assert "[LibTmux API reference](../api/README.md)" in rendered
     assert "## Filter" in rendered
     assert "`val eq: value: 'Value -> field: Field<'T,'Value> -> Filter<'T>`" in rendered
