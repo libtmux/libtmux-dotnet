@@ -162,10 +162,14 @@ public sealed class ControlModeSessionFailureTests
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new StalledWriteProcess();
         var writeLock = new SemaphoreSlim(1, 1);
+        // The grace period before a forced kill is read from this clock, so
+        // the test fires it rather than racing it against a loaded runner.
+        var clock = new ManualTimerTimeProvider();
         var session = new ControlModeSession(
             process,
             writeLock,
-            TimeSpan.FromMilliseconds(800));
+            TimeSpan.FromSeconds(10),
+            timeProvider: clock);
 
         await session.WaitForReadyAsync(token);
         Task<IReadOnlyList<string>> send = session.SendAsync(
@@ -173,7 +177,10 @@ public sealed class ControlModeSessionFailureTests
             token);
         await process.WriteStarted.Task.WaitAsync(token);
 
-        await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1), token);
+        Task disposal = session.DisposeAsync().AsTask();
+        Assert.False(disposal.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await disposal.WaitAsync(TimeSpan.FromSeconds(1), token);
         IOException writeFailure = await Assert.ThrowsAsync<IOException>(async () => await send);
 
         Assert.Equal("The client was killed during its write.", writeFailure.Message);
@@ -212,10 +219,12 @@ public sealed class ControlModeSessionFailureTests
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         var process = new StalledWriteProcess();
+        // A clock nothing advances: only the process exiting can end disposal.
         var session = new ControlModeSession(
             process,
-            disposalBudget: TimeSpan.FromMilliseconds(250),
-            limits: new ControlModeLimits(maxPendingCommands: 2));
+            disposalBudget: TimeSpan.FromSeconds(10),
+            limits: new ControlModeLimits(maxPendingCommands: 2),
+            timeProvider: new ManualTimerTimeProvider());
         await session.WaitForReadyAsync(token);
 
         Task<IReadOnlyList<string>> first = session.SendAsync(
