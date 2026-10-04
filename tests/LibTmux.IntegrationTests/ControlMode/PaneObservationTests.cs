@@ -29,6 +29,29 @@ public sealed class PaneObservationTests
         Assert.True(control.IsRunning);
     }
 
+    // tmux sends a control client output only from its own session, so a
+    // watch of a pane elsewhere would wait in silence.
+    [UnixFact]
+    public async Task A_pane_in_another_session_is_refused_rather_than_watched_in_silence()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        Server server = await ConnectAsync(raw, token);
+        RawTmuxResult other = await raw.ExecuteAsync(
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", raw.SessionName + "-other"],
+            token);
+        Pane elsewhere = await server.GetPaneAsync(PaneId.Parse(other.StandardOutputText.Trim()), token);
+        await using IControlModeSession control = await server.EnterControlModeAsync(raw.SessionName, token);
+
+        using var watchdog = CancellationTokenSource.CreateLinkedTokenSource(token);
+        watchdog.CancelAfter(TimeSpan.FromSeconds(5));
+        await using IAsyncEnumerator<TmuxEvent> reader = control.WatchAsync(elsewhere, watchdog.Token).GetAsyncEnumerator();
+        ArgumentException refused = await Assert.ThrowsAsync<ArgumentException>(async () => await reader.MoveNextAsync());
+
+        Assert.Contains(elsewhere.Id.ToString(), refused.Message, StringComparison.Ordinal);
+        Assert.True(control.IsRunning);
+    }
+
     [UnixFact]
     public async Task A_generic_async_event_source_cannot_silently_discard_buffered_output()
     {
