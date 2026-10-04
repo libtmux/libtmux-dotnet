@@ -39,6 +39,47 @@ public sealed class PaneWaitTests
         Assert.DoesNotContain(await building.Server.GetClientsAsync(token), client => client.IsControlClient);
     }
 
+    // A read through the wait's own control client is a round trip; one
+    // through a tmux process is a process start, about ten times the cost.
+    [UnixFact]
+    public async Task A_wait_reads_the_pane_through_its_control_client()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-window", "-d", "-P", "-F", "#{pane_id}", "-t", raw.SessionName, "sh"],
+            token);
+        int reads = 0;
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+                Interceptor = (request, next, cancellationToken) =>
+                {
+                    // A read captures the screen, or samples the grid state
+                    // around the capture.
+                    if (request.Arguments.Any(argument => argument == "capture-pane"
+                        || argument.Contains("#{history_size}", StringComparison.Ordinal)))
+                    {
+                        Interlocked.Increment(ref reads);
+                    }
+
+                    return next(cancellationToken);
+                },
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        Interlocked.Exchange(ref reads, 0);
+
+        PaneWaitResult result = await pane.SendTextAndWaitAsync(
+            "printf '%s-done\\n' read", "read-done", Arrival, token);
+
+        Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+        Assert.Equal(0, Volatile.Read(ref reads));
+    }
+
     [UnixFact]
     public async Task Text_already_showing_answers_at_once_and_absent_text_times_out()
     {

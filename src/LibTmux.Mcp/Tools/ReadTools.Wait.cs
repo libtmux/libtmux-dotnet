@@ -164,7 +164,13 @@ internal sealed partial class ReadTools
                 budget,
                 McpPaneReader.Failure,
                 (spent, last) => Report(progress, spent, budget, last.Length > 0 ? last : $"waiting on {id}"),
-                cancellationToken)
+                cancellationToken,
+                // Reads through the control client come back before a
+                // send_keys call settles its echo record, so a redraw an
+                // unmodelled key caused would be read while still discounted
+                // and then left behind the cursor. A process read is slow
+                // enough that the record has settled first.
+                readThroughControl: false)
             .ConfigureAwait(false);
 
         // The wire contract predates an alternate-screen outcome and reports

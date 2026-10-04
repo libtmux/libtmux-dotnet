@@ -271,6 +271,22 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         return CaptureSignal(SessionWatchKey.From(pane), pane.Id.ToString());
     }
 
+    /// <summary>Gets the control client streaming a pane's session, while one is.</summary>
+    /// <param name="pane">The pane about to be read.</param>
+    /// <returns>The client, or null when that session is not streaming.</returns>
+    /// <remarks>
+    /// A wait reads its pane through this client rather than starting a tmux
+    /// process for each read: a round trip on an attached client costs about
+    /// a tenth of a process start.
+    /// </remarks>
+    internal IControlModeSession? ControlFor(Pane pane)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+        return _watches.TryGetValue(SessionWatchKey.From(pane), out SessionWatch? watch)
+            ? watch.StreamingSession
+            : null;
+    }
+
     internal Task? CaptureSignal(string endpointId, string sessionId, string paneId) =>
         CaptureSignal(SessionWatchKey.ForTest(endpointId, sessionId), paneId);
 
@@ -309,14 +325,18 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
         private bool _retired;
         private int _leases;
 
-        internal bool IsStreaming
+        internal bool IsStreaming => StreamingSession is not null;
+
+        internal IControlModeSession? StreamingSession
         {
             get
             {
                 WatchRun? run = Volatile.Read(ref _run);
                 return run is not null
                     && Volatile.Read(ref run.Ended) == 0
-                    && run.Session.IsRunning;
+                    && run.Session.IsRunning
+                        ? run.Session
+                        : null;
             }
         }
 

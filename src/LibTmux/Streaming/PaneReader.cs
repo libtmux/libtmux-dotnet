@@ -54,6 +54,12 @@ internal static class PaneReader
 {
     private const int StableReadAttempts = 3;
 
+    // Well inside a control client's default block limits of 4,096 lines and
+    // 4 MiB, and its 64 KiB line limit, even if every cell takes four bytes.
+    private const int ControlCaptureRows = 1_024;
+    private const long ControlCaptureBytes = 1024 * 1024;
+    private const int ControlCaptureColumns = 8_000;
+
     /// <summary>Describes a read failure without naming any caller's tools.</summary>
     internal static Exception Failure(PaneReadFailure failure, Pane pane) => new TmuxPaneException(
         failure switch
@@ -74,24 +80,39 @@ internal static class PaneReader
     /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The read.</returns>
+    internal static Task<PaneRead> ReadVisibleAsync(
+        Pane pane,
+        string? baselinePid,
+        Func<PaneReadFailure, Pane, Exception> fail,
+        CancellationToken cancellationToken) =>
+        ReadVisibleAsync(pane, baselinePid, fail, null, cancellationToken);
+
+    /// <summary>Reads what is on screen now, through a control client when one is given.</summary>
+    /// <param name="pane">The pane to read.</param>
+    /// <param name="baselinePid">The pid the caller last saw, or null on a first read.</param>
+    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
+    /// <param name="control">A control client attached to the pane's session, or null.</param>
+    /// <param name="cancellationToken">Cancels the tmux queries.</param>
+    /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadVisibleAsync(
         Pane pane,
         string? baselinePid,
         Func<PaneReadFailure, Pane, Exception> fail,
+        IControlModeSession? control,
         CancellationToken cancellationToken)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
-            PaneGridState before = await RequireStateAsync(pane, fail, cancellationToken)
+            PaneGridState before = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
             if (baselinePid is null && before.Dead)
             {
                 throw fail(PaneReadFailure.Dead, pane);
             }
 
-            IReadOnlyList<string> lines = await CaptureAsync(pane, null, cancellationToken)
+            IReadOnlyList<string> lines = await CaptureAsync(pane, null, before, control, cancellationToken)
                 .ConfigureAwait(false);
-            PaneGridState after = await RequireStateAsync(pane, fail, cancellationToken)
+            PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
 
             if (before == after)
@@ -110,21 +131,36 @@ internal static class PaneReader
     /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
     /// <returns>The read.</returns>
+    internal static Task<PaneRead> ReadSinceAsync(
+        Pane pane,
+        PaneCursor cursor,
+        Func<PaneReadFailure, Pane, Exception> fail,
+        CancellationToken cancellationToken) =>
+        ReadSinceAsync(pane, cursor, fail, null, cancellationToken);
+
+    /// <summary>Reads what a pane has printed since a cursor, through a control client when one is given.</summary>
+    /// <param name="pane">The pane to read.</param>
+    /// <param name="cursor">Where the last read finished.</param>
+    /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
+    /// <param name="control">A control client attached to the pane's session, or null.</param>
+    /// <param name="cancellationToken">Cancels the tmux queries.</param>
+    /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadSinceAsync(
         Pane pane,
         PaneCursor cursor,
         Func<PaneReadFailure, Pane, Exception> fail,
+        IControlModeSession? control,
         CancellationToken cancellationToken)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
-            PaneGridState before = await RequireStateAsync(pane, fail, cancellationToken)
+            PaneGridState before = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
             RaiseIfPaneReplaced(pane, before, cursor, fail);
 
             if (AnchorLost(cursor, before))
             {
-                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
+                PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
                     .ConfigureAwait(false);
                 return missed with { LinesMissed = true, AnchorLost = true };
             }
@@ -135,12 +171,12 @@ internal static class PaneReader
                 ? -before.HistorySize
                 : Math.Min(previousStart, before.CursorY);
             IReadOnlyList<string> capturedRows = trimRisk
-                ? await CaptureAsync(pane, int.MinValue, cancellationToken).ConfigureAwait(false)
+                ? await CaptureAsync(pane, int.MinValue, before, control, cancellationToken).ConfigureAwait(false)
                 : captureStart >= before.PaneHeight
                     ? []
-                    : await CaptureAsync(pane, captureStart, cancellationToken).ConfigureAwait(false);
+                    : await CaptureAsync(pane, captureStart, before, control, cancellationToken).ConfigureAwait(false);
 
-            PaneGridState after = await RequireStateAsync(pane, fail, cancellationToken)
+            PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
             RaiseIfPaneReplaced(pane, after, cursor, fail);
 
@@ -155,7 +191,7 @@ internal static class PaneReader
                 int? match = FindUniqueAnchor(capturedRows, cursor, cancellationToken);
                 if (match is null)
                 {
-                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
+                    PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
                         .ConfigureAwait(false);
                     return missed with { LinesMissed = true, AnchorLost = true };
                 }
@@ -178,7 +214,7 @@ internal static class PaneReader
             return new PaneRead(after, reported, cursorRows, false, false);
         }
 
-        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, cancellationToken)
+        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
             .ConfigureAwait(false);
         return busy with { LinesMissed = true, AnchorLost = true };
     }
@@ -204,6 +240,85 @@ internal static class PaneReader
             int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
         };
         return await pane.CaptureAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A capture through the control client a wait already holds is a round
+    // trip, where a tmux process is a process start. It goes there only when
+    // its rows fit well inside the client's block limits: a block over them
+    // ends the client the wait is listening on.
+    private static async Task<IReadOnlyList<string>> CaptureAsync(
+        Pane pane,
+        int? start,
+        PaneGridState state,
+        IControlModeSession? control,
+        CancellationToken cancellationToken)
+    {
+        long rows = start switch
+        {
+            null => state.PaneHeight,
+            int.MinValue => (long)state.HistorySize + state.PaneHeight,
+            int value => (long)state.PaneHeight - value,
+        };
+        if (control is not null
+            && state.PaneWidth is > 0 and <= ControlCaptureColumns
+            && rows <= ControlCaptureRows
+            && rows * (state.PaneWidth + 1) * 4 <= ControlCaptureBytes)
+        {
+            CapturePaneRequest request = start switch
+            {
+                null => new CapturePaneRequest(),
+                int.MinValue => new CapturePaneRequest { StartLine = CapturePanePosition.BeginningOfHistory },
+                int value => new CapturePaneRequest { StartLine = new CapturePanePosition(value) },
+            };
+            if (await TryThroughControlAsync(pane, pane.BuildCaptureArguments(["-p"], request), control, cancellationToken)
+                .ConfigureAwait(false) is { } captured)
+            {
+                return captured;
+            }
+        }
+
+        return await CaptureAsync(pane, start, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Any failure through the control client, such as one that has just
+    // ended, is retried through a tmux process, so a caller sees the process
+    // path's results and errors.
+    private static async Task<IReadOnlyList<string>?> TryThroughControlAsync(
+        Pane pane,
+        List<string> arguments,
+        IControlModeSession? control,
+        CancellationToken cancellationToken)
+    {
+        if (control is null || !control.IsRunning)
+        {
+            return null;
+        }
+
+        IReadOnlyList<string> lines;
+        try
+        {
+            lines = await control.SendAsync(
+                    TmuxCommand.Create(arguments[0], [.. arguments.Skip(1)]) with
+                    {
+                        RequiredGeneration = pane.Generation,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+
+        // A tmux process's output drops its trailing empty lines; a control
+        // block keeps every row. Match the process, or row offsets shift.
+        int count = lines.Count;
+        while (count > 0 && lines[count - 1].Length == 0)
+        {
+            count--;
+        }
+
+        return count == lines.Count ? lines : [.. lines.Take(count)];
     }
 
     private static IReadOnlyList<string> CursorRowsFromCapture(
@@ -250,10 +365,18 @@ internal static class PaneReader
     private static async Task<PaneGridState> RequireStateAsync(
         Pane pane,
         Func<PaneReadFailure, Pane, Exception> fail,
+        IControlModeSession? control,
         CancellationToken cancellationToken)
     {
-        PaneGridState? state = await PaneGridState.ReadAsync(pane, cancellationToken)
-            .ConfigureAwait(false);
+        PaneGridState? state = await TryThroughControlAsync(
+                pane,
+                ["display-message", "-t", pane.Id.ToString(), "-p", "--", PaneGridState.Format],
+                control,
+                cancellationToken)
+            .ConfigureAwait(false) is { } lines
+            ? PaneGridState.Parse(lines)
+            : null;
+        state ??= await PaneGridState.ReadAsync(pane, cancellationToken).ConfigureAwait(false);
         return state ?? throw fail(PaneReadFailure.Unreported, pane);
     }
 

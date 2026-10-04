@@ -32,6 +32,10 @@ internal static class PaneTextWaiter
     /// <param name="progress">Told how long the wait has run and what the pane last showed.</param>
     /// <param name="cancellationToken">Stops the wait.</param>
     /// <param name="afterEntry">Runs once the screen at entry is read, before anything later is; it may send keys.</param>
+    /// <param name="readThroughControl">
+    /// Whether to read through the control client the wait attaches, a round
+    /// trip in place of a tmux process for each read.
+    /// </param>
     /// <returns>How the wait ended, what matched, and how long it took.</returns>
     internal static async Task<(PaneWaitOutcome Outcome, string? Match, TimeSpan Elapsed)> WaitAsync(
         Pane pane,
@@ -41,13 +45,15 @@ internal static class PaneTextWaiter
         Func<PaneReadFailure, Pane, Exception> fail,
         Action<TimeSpan, string>? progress,
         CancellationToken cancellationToken,
-        Func<CancellationToken, Task>? afterEntry = null)
+        Func<CancellationToken, Task>? afterEntry = null,
+        bool readThroughControl = true)
     {
         Stopwatch elapsed = Stopwatch.StartNew();
         IAsyncDisposable lease = await activity.WatchAsync(pane, cancellationToken).ConfigureAwait(false);
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
+        IControlModeSession? control = readThroughControl ? activity.ControlFor(pane) : null;
 
-        PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, fail, cancellationToken)
+        PaneRead first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
             .ConfigureAwait(false);
         PaneCursor cursor = PaneCursor.Build(pane, first.State, first.CursorRows);
         bool alternate = first.State.AlternateScreen;
@@ -69,7 +75,7 @@ internal static class PaneTextWaiter
             PaneRead read;
             try
             {
-                read = await PaneReader.ReadSinceAsync(pane, cursor, fail, cancellationToken)
+                read = await PaneReader.ReadSinceAsync(pane, cursor, fail, control, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception error) when (error is not OperationCanceledException)
@@ -140,6 +146,7 @@ internal static class PaneTextWaiter
         Stopwatch elapsed = Stopwatch.StartNew();
         IAsyncDisposable lease = await activity.WatchAsync(pane, cancellationToken).ConfigureAwait(false);
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
+        IControlModeSession? control = activity.ControlFor(pane);
         string? pid = null;
         while (true)
         {
@@ -147,7 +154,8 @@ internal static class PaneTextWaiter
             PaneRead read;
             try
             {
-                read = await PaneReader.ReadVisibleAsync(pane, pid, fail, cancellationToken).ConfigureAwait(false);
+                read = await PaneReader.ReadVisibleAsync(pane, pid, fail, control, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception error) when (pid is not null && error is not OperationCanceledException)
             {
