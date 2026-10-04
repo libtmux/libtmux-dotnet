@@ -12,13 +12,54 @@ version.
 
 ### Added
 
+- Inspect source-query plans before execution and use LINQ over matching
+  entities with their captured snapshot. Discover supported fields and
+  operators through `QueryFieldCatalog`. (#34)
+- Validate workspaces, review immutable plans, and apply them with action and
+  owned-cleanup journals. Cancellation preserves the caller token and partial
+  state through `WorkspaceOperationCanceledException`. (#34)
+- Load inherited workspace settings, command lists, Enter overrides, window
+  indices, `global_options` and `options_after`. Resolve supplied variables,
+  opt into host scripts, and export captured session structure. (#34)
+- Inspect existing daemons without starting them through `Server.InspectAsync`
+  and bind resource creation to the observed daemon generation. (#34)
+
 ### Fixed
 
+- Pane runs retain their same-pane reservation until completion is verified.
+  Cleanup failures preserve the original error or completed result, and MCP
+  failures identify owned resources to inspect before retrying. (#34)
+- MCP waits forward progress notifications and cancel pending requests when
+  the client closes stdin. (#34)
+- Native tmux calls preserve Unicode and tab-delimited output under the C
+  locale and finish bounded client cleanup after cancellation. (#34)
+
 ### Changed
+
+- **Query documents accept schema v2 exclusively.** Recreate v1 documents with
+  the current translator and replace `QueryJsonLimits.V1` with
+  `QueryJsonLimits.Default`. (#34)
+- **Workspace builds send input immediately by default.** Choose explicit
+  cooperative readiness when startup commands can signal completion;
+  inferred readiness and `PaneReadiness` settings are removed. (#34)
+- **Pane runs enforce command, timeout and output bounds.** Commands accept
+  at most 64 KiB of UTF-8 text, timeouts must be positive and at most one day,
+  and output defaults to the newest 1,000 lines within 64 KiB. (#34)
+- **Pane waits require control observation by default.** Enable polling
+  fallback explicitly; results disclose output loss and uncertain anchors.
+  Stop patterns take precedence at entry, and an already-exited program
+  returns `PaneExited`. Triggered waits exclude old text and typed echoes. (#34)
+- **Control notifications bound payload bytes as well as event count.** The
+  payload default is 4 MiB; adjust `ControlModeEventBufferMaxBytes` and refresh
+  state after reported loss. (#34)
 
 ### Removed
 
 ### Development
+
+- Build inspected local review packages from committed source with
+  `eng/package_review.py`. Checked restore, build and pack phases let
+  downstream consumers verify a specific source revision. (#34)
 
 ## [0.0.0-alpha.19] — 2026-10-04
 
