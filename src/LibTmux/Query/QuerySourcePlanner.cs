@@ -4,6 +4,8 @@ namespace LibTmux.Query;
 
 internal static class QuerySourcePlanner
 {
+    private const string TrueFormat = "#{==:1,1}";
+    private const string FalseFormat = "#{==:1,0}";
     private static readonly TmuxVersion LastVerifiedVersion = TmuxVersion.Parse("3.7c");
 
     internal static QuerySourceParts Prepare<T>(QueryDocument document, TmuxVersion version, QueryPushdown pushdown)
@@ -127,10 +129,10 @@ internal static class QuerySourcePlanner
 
     private static string? Exact(QueryNode node) => node switch
     {
-        ConstantNode { Value: BooleanConstant literal } => literal.Value ? "1" : "0",
+        ConstantNode { Value: BooleanConstant literal } => literal.Value ? TrueFormat : FalseFormat,
         FieldNode field => Boolean(field.WireName),
         ComparisonNode comparison => Comparison(comparison),
-        NotNode not when Exact(not.Operand) is { } operand => $"#{{!:{operand}}}",
+        NotNode not when Exact(not.Operand) is { } operand => $"#{{?{operand},0,1}}",
         AndNode and => ExactOperands(and.Operands, "&&"),
         OrNode or => ExactOperands(or.Operands, "||"),
         _ => null,
@@ -192,7 +194,7 @@ internal static class QuerySourcePlanner
         // A balanced format avoids tmux's recursion limit for a wide query.
         string Fold(int offset, int count) => count switch
         {
-            0 => operation == "&&" ? "1" : "0",
+            0 => operation == "&&" ? TrueFormat : FalseFormat,
             1 => operands[offset],
             _ => $"#{{{operation}:{Fold(offset, count / 2)},{Fold(offset + count / 2, count - count / 2)}}}",
         };
