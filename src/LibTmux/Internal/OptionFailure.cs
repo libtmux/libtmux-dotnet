@@ -21,6 +21,6 @@ internal static class OptionFailure
                 ? $"tmux rejected the option '{optionName}'."
                 : reported,
             optionName,
-            TmuxDispatchState.Dispatched);
+            TmuxCommandFailure.DispatchOf(result));
     }
 }

@@ -68,7 +68,7 @@ public sealed partial class Server
     {
         TmuxCommandResult result = await Dispatch(["kill-server"], cancellationToken)
             .ConfigureAwait(false);
-        if (result.ExitCode != 0 && !NamesMissingServer(result) && !NamesDyingServer(result))
+        if (result.ExitCode != 0 && !TmuxCommandFailure.NamesMissingServer(result) && !NamesDyingServer(result))
         {
             TmuxCommandFailure.ThrowIfFailed(result, "kill-server");
         }
@@ -267,7 +267,7 @@ public sealed partial class Server
     {
         TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
             .ConfigureAwait(false);
-        if (result.ExitCode != 0 && NamesMissingServer(result))
+        if (result.ExitCode != 0 && TmuxCommandFailure.NamesMissingServer(result))
         {
             return false;
         }
@@ -395,7 +395,7 @@ public sealed partial class Server
         {
             TmuxCommandResult result = await Dispatch(["list-sessions"], cancellationToken)
                 .ConfigureAwait(false);
-            if (result.ExitCode == 0 || NamesMissingServer(result))
+            if (result.ExitCode == 0 || TmuxCommandFailure.NamesMissingServer(result))
             {
                 return;
             }
@@ -405,17 +405,6 @@ public sealed partial class Server
 
         // An endpoint still in flux after the deadline is left for the caller's
         // next command to report, rather than failing here with less context.
-    }
-
-    // A socket that cannot be opened is not the same as a server that is
-    // already gone: "error connecting to" also covers a permission error
-    // against a live daemon, so on its own it must not read as absence.
-    private static bool NamesMissingServer(TmuxCommandResult result)
-    {
-        string standardError = string.Join('\n', result.StandardErrorLines);
-        return standardError.Contains("no server running", StringComparison.Ordinal)
-            || (standardError.Contains("error connecting to", StringComparison.Ordinal)
-                && standardError.Contains("No such file or directory", StringComparison.Ordinal));
     }
 
     // A dying server is success for Kill (already stopping is what was asked)

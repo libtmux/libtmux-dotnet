@@ -22,7 +22,8 @@ public sealed class TmuxOptionException : LibTmuxException
         OptionName = optionName;
     }
 
-    // tmux answered, so the command ran; Ran, not MayHaveRun, describes it.
+    // For a failure whose dispatch is known: one tmux answered ran, and one
+    // no server heard did not.
     internal TmuxOptionException(
         string message,
         string optionName,

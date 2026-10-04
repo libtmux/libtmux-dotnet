@@ -39,6 +39,28 @@ public sealed class ExceptionContractTests
             "history-limit"));
         Assert.Equal(TmuxDispatchState.Dispatched, refused.Dispatch);
 
+        // A client that finds no server listening sent the command nowhere, so
+        // it may be sent again; a permission error reaches a live server.
+        TmuxCommandResult Failed(string error) => new(
+            ["list-sessions"],
+            1,
+            ReadOnlyMemory<byte>.Empty,
+            ReadOnlyMemory<byte>.Empty,
+            [],
+            [error]);
+        Assert.Equal(
+            [TmuxDispatchState.NotDispatched, TmuxDispatchState.NotDispatched, TmuxDispatchState.Dispatched],
+            [
+                new TmuxCommandException("failed", Failed("no server running on /tmp/x")).Dispatch,
+                new TmuxCommandException("failed", Failed("error connecting to /tmp/x (No such file or directory)")).Dispatch,
+                new TmuxCommandException("failed", Failed("error connecting to /tmp/x (Permission denied)")).Dispatch,
+            ]);
+        Assert.Equal(
+            TmuxDispatchState.NotDispatched,
+            Assert.Throws<TmuxOptionException>(() => OptionFailure.ThrowIfFailed(
+                Failed("no server running on /tmp/x"),
+                "history-limit")).Dispatch);
+
         TmuxVersionTooLowException old = new(
             "needs 3.3a",
             TmuxVersion.Parse("3.3a"),

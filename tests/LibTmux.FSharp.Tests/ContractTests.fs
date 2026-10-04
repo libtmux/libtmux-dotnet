@@ -745,6 +745,7 @@ module FailureTests =
         task {
             let sent = ResizeArray<string>()
             let mutable flaky = 0
+            let mutable absent = 0
             let slow = TaskCompletionSource<TmuxCommandResult>()
 
             let connection =
@@ -757,8 +758,23 @@ module FailureTests =
                         if name = "flaky" then
                             flaky <- flaky + 1
 
+                        if name = "absent" then
+                            absent <- absent + 1
+
                         if name = "slow" then
                             slow.Task
+                        elif name = "absent" && absent = 1 then
+                            // The client ran, but no server listened.
+                            Task.FromResult(
+                                TmuxCommandResult(
+                                    request.LogicalArguments,
+                                    1,
+                                    ReadOnlyMemory.Empty,
+                                    ReadOnlyMemory.Empty,
+                                    [],
+                                    [ "no server running on /tmp/fsharp-retry-ledger" ]
+                                )
+                            )
                         elif name = "refused" || (name = "flaky" && flaky = 1) then
                             Task.FromException<TmuxCommandResult>(
                                 TmuxTransportException(
@@ -827,9 +843,28 @@ module FailureTests =
             // A lone command refused before dispatch is still repeated.
             let! recovered = Retry.ifNotSent CancellationToken.None 2 (run "flaky")
 
+            // A command no server heard is repeated, as while a server starts.
+            let! started =
+                Retry.ifNotSent CancellationToken.None 2 (fun token ->
+                    task {
+                        let! result = run "absent" token
+
+                        return
+                            if result.ExitCode = 0 then
+                                result
+                            else
+                                raise (TmuxCommandException("absent failed", result))
+                    })
+
             Assert.Equal(
-                (1, 1, 1, 2, 0),
-                (count "first", count "nested", count "slow", count "flaky", recovered.ExitCode)
+                (1, 1, 1, 2, 0, 2, 0),
+                (count "first",
+                 count "nested",
+                 count "slow",
+                 count "flaky",
+                 recovered.ExitCode,
+                 count "absent",
+                 started.ExitCode)
             )
         }
 
