@@ -22,12 +22,20 @@ public sealed class TmuxCommandDispatcherTests
         Assert.Empty(typed.StandardOutputLines);
     }
 
-    [Fact(Skip = "Intermittent command-timeout assertion: https://github.com/libtmux/libtmux-dotnet/issues/62.")]
+    [Fact]
     public async Task A_blocking_command_outlives_the_command_timeout()
     {
+        int calls = 0;
         var dispatcher = new TmuxCommandDispatcher(
-            static async (arguments, cancellationToken) =>
+            async (arguments, cancellationToken) =>
             {
+                // The first command never finishes by itself, so only the
+                // command timeout can end it; a timer race cannot let it win.
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                }
+
                 await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
                 return Result(arguments, exitCode: 0, error: null);
             },
