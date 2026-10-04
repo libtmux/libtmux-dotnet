@@ -6,13 +6,16 @@ producing output, windows appearing, sessions changing.
 
 <!-- snippet: WatchForWindowAdd -->
 ```csharp
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+TmuxCommand create =
+    TmuxCommand.Create("new-window", "-d", "-n", "build");
+await control.SendAsync(create, ct);
 
-await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
+await foreach (TmuxEvent seen in control.Events.WithCancellation(ct))
 {
-    if (observed is TmuxNotificationEvent { Name: "window-add" } added)
+    if (seen is TmuxNotificationEvent { Name: "window-add" } added)
     {
         Console.WriteLine($"window-add {added.Arguments[0]}");
         break;
@@ -119,21 +122,25 @@ dropped by the event buffer.
 
 <!-- snippet: NoticeDroppedEvents -->
 ```csharp
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
 
-await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+TmuxCommand create =
+    TmuxCommand.Create("new-window", "-d", "-n", "build");
+await control.SendAsync(create, ct);
 
-await foreach (TmuxEvent observed in control.Events.WithCancellation(ct))
+await foreach (TmuxEvent seen in control.Events.WithCancellation(ct))
 {
-    if (observed is TmuxEventsDroppedEvent dropped)
+    if (seen is TmuxEventsDroppedEvent dropped)
     {
         // Anything cached from this stream is now a guess, so the
         // marker is a signal to re-read rather than to log.
-        Console.WriteLine($"missed {dropped.Count}, {dropped.TotalDropped} in total");
+        Console.WriteLine(
+            $"missed {dropped.Count}, {dropped.TotalDropped} in total");
         continue;
     }
 
-    if (observed is TmuxNotificationEvent { Name: "window-add" })
+    if (seen is TmuxNotificationEvent { Name: "window-add" })
     {
         break;
     }
