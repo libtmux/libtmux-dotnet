@@ -118,7 +118,7 @@ targets `net8.0` and `net10.0`.
 | Need | F# call | Returns |
 | --- | --- | --- |
 | Split a pane | `Pane.split ct request pane` | the new `Pane` |
-| Create a session running one command | `server.CreateSessionAsync(NewSessionRequest(Name = name, Command = command), ct)`, the core call | `Session` |
+| Create a session running one command | `Server.newSession ct (SessionSpec.running name command) server` | `Session` |
 | Create a session with windows | `Server.newSession ct spec server` | `Session` |
 | Several commands, one tmux call | `Chain.start server \|> … \|> Chain.run ct` | `TmuxCommandResult` |
 | Read or set a typed option | `Options.get ct key options` | the key's value type |
@@ -210,10 +210,9 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // One session running a plain shell. The core call takes the command
-        // directly; Server.newSession describes several windows and splits.
+        // One session whose window runs a plain shell, whatever the user's login shell is.
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
+            owned.Value |> Server.newSession token (SessionSpec.running "build" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 

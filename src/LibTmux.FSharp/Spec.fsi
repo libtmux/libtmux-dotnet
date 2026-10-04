@@ -92,3 +92,7 @@ module WindowSpec =
 module SessionSpec =
     /// <summary>A named session with tmux's single default window.</summary>
     val named: name: string -> SessionSpec
+
+    /// <summary>A named session whose one window runs a command instead of the default shell.</summary>
+    /// <remarks>Such as <c>SessionSpec.running "build" "/bin/sh"</c>, for a shell that <c>Pane.run</c> accepts whatever the user's login shell is.</remarks>
+    val running: name: string -> command: string -> SessionSpec

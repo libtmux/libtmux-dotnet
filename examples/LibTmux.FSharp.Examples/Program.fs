@@ -180,10 +180,8 @@ let private runAsync () =
                     |> Server.createOwned cancellationToken
 
                 let! _ =
-                    owned.Value.CreateSessionAsync(
-                        NewSessionRequest(Name = "tour", Command = "/bin/sh"),
-                        cancellationToken
-                    )
+                    owned.Value
+                    |> Server.newSession cancellationToken (SessionSpec.running "tour" "/bin/sh")
 
                 return! GuideSnippets.runInShellAsync cancellationToken owned.Value
             }

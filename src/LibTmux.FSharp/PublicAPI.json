@@ -4023,6 +4023,42 @@
       "returnType": "LibTmux.FSharp.SessionSpec"
     },
     {
+      "id": "M:LibTmux.FSharp.SessionSpecModule.running(System.String,System.String)",
+      "package": "LibTmux.FSharp",
+      "name": "running",
+      "declaringType": "T:LibTmux.FSharp.SessionSpecModule",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val running: name: Microsoft.FSharp.Core.string -> command: Microsoft.FSharp.Core.string -> LibTmux.FSharp.SessionSpec",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.string -> Microsoft.FSharp.Core.string -> LibTmux.FSharp.SessionSpec"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "name",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        },
+        {
+          "name": "command",
+          "optional": false,
+          "type": "Microsoft.FSharp.Core.string"
+        }
+      ],
+      "argumentGroups": [
+        1,
+        1
+      ],
+      "compiledName": "running",
+      "genericParameters": [],
+      "returnType": "LibTmux.FSharp.SessionSpec"
+    },
+    {
       "id": "M:LibTmux.FSharp.Snapshot.relation``1(LibTmux.CapturedRelation{``0})",
       "package": "LibTmux.FSharp",
       "name": "relation",

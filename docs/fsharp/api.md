@@ -312,6 +312,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `module SessionSpec` | Starts session descriptions. |
 | `override ToString: unit -> string` | Names the session, without formatting through printf. |
 | `val named: name: string -> SessionSpec` | A named session with tmux's single default window. |
+| `val running: name: string -> command: string -> SessionSpec` | A named session whose one window runs a command instead of the default shell. |
 
 ## Snapshot
 

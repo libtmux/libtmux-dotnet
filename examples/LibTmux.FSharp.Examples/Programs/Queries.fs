@@ -105,7 +105,8 @@ let runAsync () =
 
         if existing.IsNone then
             let! _ =
-                owned.Value.CreateSessionAsync(NewSessionRequest(Name = "deploy", Command = "exec sleep 60"), token)
+                owned.Value
+                |> Server.newSession token (SessionSpec.running "deploy" "exec sleep 60")
 
             ()
 

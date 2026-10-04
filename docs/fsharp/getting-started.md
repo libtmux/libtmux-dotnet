@@ -84,7 +84,7 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "/bin/sh"), token)
+            owned.Value |> Server.newSession token (SessionSpec.running "work" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 

@@ -94,7 +94,8 @@ let runAsync () =
         use! owned = options |> Server.createOwned token
 
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "work", Command = "exec sleep 60"), token)
+            owned.Value
+            |> Server.newSession token (SessionSpec.running "work" "exec sleep 60")
 
         // The client buffers everything from the moment it attaches, so the
         // panes it should see can start afterwards.

@@ -18,10 +18,9 @@ let runAsync () =
 
         use! owned = options |> Server.createOwned token
 
-        // One session running a plain shell. The core call takes the command
-        // directly; Server.newSession describes several windows and splits.
+        // One session whose window runs a plain shell, whatever the user's login shell is.
         let! session =
-            owned.Value.CreateSessionAsync(NewSessionRequest(Name = "build", Command = "/bin/sh"), token)
+            owned.Value |> Server.newSession token (SessionSpec.running "build" "/bin/sh")
 
         let! pane = session |> Session.activePane token
 

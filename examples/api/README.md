@@ -10,9 +10,10 @@ file.
 
 The F# programs start a server of their own with `Server.createOwned` and work
 through `owned.Value`. A program that lays out windows and panes up front
-describes them for `Server.newSession`; one that needs a session running a
-single command calls the core `CreateSessionAsync`, where a spec would add
-nothing ([ADR 0009](../../docs/decisions/0009-fsharp-covers-idioms.md)). The F# facade supplies the query, wait,
+describes them for `Server.newSession`, and one running a single command
+names it with `SessionSpec.running`. A program that needs a request option
+no spec carries, such as a window name, calls the core `CreateSessionAsync`
+([ADR 0009](../../docs/decisions/0009-fsharp-covers-idioms.md)). The F# facade supplies the query, wait,
 run, mirror, option and snapshot helpers.
 
 | Program | Task |

@@ -83,3 +83,13 @@ module SessionSpec =
             Environment = Map.empty
             Windows = []
         }
+
+    let running name command =
+        { named name with
+            Windows =
+                [
+                    { WindowSpec.empty with
+                        Command = Some command
+                    }
+                ]
+        }
