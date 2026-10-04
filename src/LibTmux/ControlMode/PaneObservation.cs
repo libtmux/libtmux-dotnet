@@ -57,8 +57,10 @@ public static class PaneObservation
     /// own session.
     /// </exception>
     /// <exception cref="InvalidOperationException">
-    /// While reading, the pane's window left the client's session, so tmux
-    /// sends none of its output any more.
+    /// While reading, the pane's window left the client's session, or the
+    /// client moved to another session, so tmux sends none of its output any
+    /// more. tmux announces no change when <c>swap-window</c> trades the
+    /// window with another session's, so that move leaves the watch silent.
     /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
@@ -113,8 +115,10 @@ public static class PaneObservation
     /// control client output only from its own session.
     /// </exception>
     /// <exception cref="InvalidOperationException">
-    /// While reading, a pane's window left the client's session, so tmux sends
-    /// none of its output any more.
+    /// While reading, a pane's window left the client's session, or the client
+    /// moved to another session, so tmux sends none of its output any more.
+    /// tmux announces no change when <c>swap-window</c> trades the window with
+    /// another session's, so that move leaves the watch silent.
     /// </exception>
     /// <exception cref="NotSupportedException">
     /// A control session without an event watermark cannot establish which
@@ -316,9 +320,9 @@ public static class PaneObservation
                         + "sends a control client output only from that session. Watch it through a client entered "
                         + "on its session.")
                     : new InvalidOperationException(
-                        $"Pane {elsewhere.Id} left the session this control client is attached to, and tmux sends "
-                        + "a control client output only from that session. Watch it through a client entered on "
-                        + "its new session.");
+                        $"Pane {elsewhere.Id} is no longer in the session this control client is attached to, and "
+                        + "tmux sends a control client output only from that session. Watch it through a client "
+                        + "entered on the session that holds it.");
                 failure = error;
                 throw error;
             }
