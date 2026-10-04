@@ -98,7 +98,7 @@ def test_target_must_be_a_public_explicit_fsharp_declaration(example_tree, field
 @pytest.mark.parametrize("old, new, message", [
     ('<Compile Include="Program.fs" />', '<Compile Include="Helper.fs" />', "displayed entrypoint"),
     ("net8.0;net10.0", "net10.0", "both supported frameworks"),
-    ("[0.0.0-alpha.18]", "[0.0.0-alpha.17]", "exact library"),
+    ("[0.0.0-alpha.19]", "[0.0.0-alpha.18]", "exact library"),
     ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
     ("</Project>", '<Target Name="Hidden" BeforeTargets="Compile" /></Project>', "hidden source"),
 ])
@@ -194,7 +194,7 @@ def test_csharp_targets_must_belong_to_the_core_package(example_tree):
     ('<Compile Include="Program.cs" />', '<Compile Include="Helper.cs" />', "displayed entrypoint"),
     ("<ImplicitUsings>disable", "<ImplicitUsings>enable", "declare nullability, imports"),
     ("<EnableDefaultCompileItems>false", "<EnableDefaultCompileItems>true", "sole entrypoint"),
-    ("[0.0.0-alpha.18]", "[0.0.0-alpha.17]", "exact library"),
+    ("[0.0.0-alpha.19]", "[0.0.0-alpha.18]", "exact library"),
     ("</Project>", '<Import Project="hidden.props" /></Project>', "hidden source"),
 ])
 def test_csharp_standalone_setup_cannot_hide_context(example_tree, old, new, message):

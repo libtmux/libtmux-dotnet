@@ -12,6 +12,27 @@ version.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+### Removed
+
+### Development
+
+## [0.0.0-alpha.19] — 2026-10-04
+
+`LibTmux.FSharp` gains a function for every session, window and pane
+operation the MCP server offers, complete patterns for runs, waits and pane
+watches, and `TmuxAsync` for `async` workflows. A run ends within five seconds
+when its pane's program exits, pane waits read through the control client they
+attach and keep reading a busy pane, and failures say whether tmux saw the
+command, so `Retry.ifNotSentAfter` retries while a server starts.
+`SplitSpec.Size` becomes a `SplitSize`, and a control client's events allow one
+reader at a time; see Changed.
+
+### Added
+
 - `Pane.Active`, `Dead`, `DeadStatus`, `InMode`, `ProcessId`, `Synchronized`,
   `HistorySize`, `Tty` and `StartCommand`, and `Window.Active`, `Zoomed`,
   `Flags`, `BellAlert`, `ActivityAlert` and `SilenceAlert`, read pane and
@@ -160,8 +181,6 @@ version.
 - **Reading a control client's events while another reader is reading throws
   `InvalidOperationException`.** Two readers each received part of the
   stream. Open another control client to read independently. (#53)
-
-### Removed
 
 ### Development
 
@@ -1500,7 +1519,8 @@ it is: a published version can never be deleted from nuget.org, only unlisted.
 - `LibTmux.Workspace` — sessions from tmuxp workspace files.
 - `LibTmux.Mcp` — a Model Context Protocol server, installed as a .NET tool.
 
-[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.18...HEAD
+[Unreleased]: https://github.com/libtmux/libtmux-dotnet/compare/v0.0.0-alpha.19...HEAD
+[0.0.0-alpha.19]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.19
 [0.0.0-alpha.18]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.18
 [0.0.0-alpha.17]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.17
 [0.0.0-alpha.16]: https://github.com/libtmux/libtmux-dotnet/releases/tag/v0.0.0-alpha.16
