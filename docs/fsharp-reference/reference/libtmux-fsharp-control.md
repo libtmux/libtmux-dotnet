@@ -181,6 +181,8 @@ Streams one pane&#39;s output from a borrowed control client.
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The pane is not in the session the client is attached to; tmux sends a control client output only from that session.
+
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L74)
 
 <a name="watchPanes"></a>
@@ -203,7 +205,7 @@ Each output event names its pane. Each pane confirmed gone is reported by
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.collections.generic.iasyncenumerable-1">IAsyncEnumerable</a>&lt;TmuxEvent&gt;</span></code>
 
-[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty.
+[ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) The list is empty, or a pane is not in the session the client is attached to.
 
 [Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Control.fs#L77)
 

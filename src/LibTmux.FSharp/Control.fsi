@@ -72,6 +72,7 @@ module Control =
     /// <c>remain-on-exit</c>.
     /// </para>
     /// </remarks>
+    /// <exception cref="T:System.ArgumentException">The pane is not in the session the client is attached to; tmux sends a control client output only from that session.</exception>
     val watchPane: pane: LibTmux.Pane -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Streams several panes' output from one borrowed control client.</summary>
@@ -82,7 +83,7 @@ module Control =
     /// or with <c>TmuxExitEvent</c> when the client ends. Events after that stay
     /// unread for the client's next reader.
     /// </remarks>
-    /// <exception cref="T:System.ArgumentException">The list is empty.</exception>
+    /// <exception cref="T:System.ArgumentException">The list is empty, or a pane is not in the session the client is attached to.</exception>
     val watchPanes: panes: LibTmux.Pane list -> session: IControlModeSession -> IAsyncEnumerable<TmuxEvent>
 
     /// <summary>Awaits one handler at a time for each item until the stream ends.</summary>
