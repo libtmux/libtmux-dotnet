@@ -400,8 +400,10 @@ nothing behind.
 
 ## Logging
 
-Pass an `ILogger` when connecting and every tmux command is recorded once, at
-the single point they all pass through:
+Pass an `ILogger` when connecting and every tmux command the handle runs as a
+tmux process is recorded once, at the single point they all pass through.
+Commands sent through a control-mode client, including the reads a pane wait
+makes through one, are not:
 
 ```csharp
 Server logged = await Server.ConnectAsync(new ServerConnectionOptions { Logger = logger });
@@ -413,10 +415,10 @@ that can carry a payload is truncated, the command line included.
 
 ## Tracing and metrics
 
-Every command is also a span and a measurement. `TmuxDiagnostics` names the
-sources, so a telemetry pipeline subscribes by name and this library keeps its
-single dependency: pass `TmuxDiagnostics.ActivitySourceName` to OpenTelemetry's
-`AddSource`, and `TmuxDiagnostics.MeterName` to its `AddMeter`.
+Each of those commands is also a span and a measurement. `TmuxDiagnostics`
+names the sources, so a telemetry pipeline subscribes by name and this library
+keeps its single dependency: pass `TmuxDiagnostics.ActivitySourceName` to
+OpenTelemetry's `AddSource`, and `TmuxDiagnostics.MeterName` to its `AddMeter`.
 
 The span is named for the subcommand and tagged `tmux.subcommand`,
 `tmux.socket` and `tmux.exit_code`; a failure carries `error.type` and an error
