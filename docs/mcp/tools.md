@@ -123,6 +123,7 @@ An omitted parameter means:
 | Parameter | When omitted | Tools |
 |---|---|---|
 | `cursor` | start from what is on screen now | `capture_since` |
+| `destination` | the next free index, as an empty one does | `move_window` |
 | `height` | keep the current height | `resize_pane`, `resize_window` |
 | `height` | tmux's default of 24 | `create_session` |
 | `layout` | reapply the window's last preset layout, if it has had one | `select_layout` |

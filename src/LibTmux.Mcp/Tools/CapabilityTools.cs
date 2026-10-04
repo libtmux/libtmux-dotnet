@@ -730,7 +730,9 @@ internal sealed class CapabilityTools
 
     public async Task<ActionResult> MoveWindowAsync(
         [Description("The window id to move.")] string windowId,
-        [Description("The destination window index, or empty for the next free index.")]
+        [Description(
+            "The destination window index. Omit for the next free index, as an empty "
+            + "one does.")]
         string destination = "",
         [Description("The destination session id or name. Omit to stay in the window's session.")]
         string? session = null,
