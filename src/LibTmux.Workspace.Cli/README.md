@@ -220,7 +220,8 @@ document every field.
 Bash, with the bash-completion package:
 
 ```console
-$ tmux-workspace --generate bash > ~/.local/share/bash-completion/completions/tmux-workspace
+$ tmux-workspace --generate bash \
+    > ~/.local/share/bash-completion/completions/tmux-workspace
 ```
 
 zsh, into any directory on your `fpath`:
@@ -232,7 +233,8 @@ $ tmux-workspace --generate zsh > ~/.zfunc/_tmux-workspace
 fish:
 
 ```console
-$ tmux-workspace --generate fish > ~/.config/fish/completions/tmux-workspace.fish
+$ tmux-workspace --generate fish \
+    > ~/.config/fish/completions/tmux-workspace.fish
 ```
 
 `--generate man` writes a manual page.
