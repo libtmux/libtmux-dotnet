@@ -153,7 +153,7 @@ The pane must sit at a POSIX shell prompt. A command still running at
 
 Returns: <code><span><a href="https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1">Task</a>&lt;PaneRunResult&gt;</span></code>
 
-`TmuxPaneException` The pane is in a mode or not running a POSIX shell.
+`TmuxPaneException` The pane is in a mode, not running a POSIX shell, or its program has exited; or it changed during every read before the command was sent.
 
 `TmuxObjectNotFoundException`tmux no longer has the pane.
 

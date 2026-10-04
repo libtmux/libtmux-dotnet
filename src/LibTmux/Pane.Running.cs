@@ -23,7 +23,7 @@ public sealed partial class Pane
     /// <returns>The exit status and what the command printed.</returns>
     /// <inheritdoc cref="RunAsync(PaneRunRequest, CancellationToken)" path="/remarks" />
     /// <exception cref="ArgumentException"><paramref name="command" /> is blank.</exception>
-    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]
@@ -58,7 +58,7 @@ public sealed partial class Pane
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The timeout is negative or longer than 49 days.</exception>
-    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited.</exception>
+    /// <exception cref="TmuxPaneException">The pane is not at a POSIX shell, is in a mode, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="LibTmuxException">The command was sent but its result could not be read; inspect the pane before retrying.</exception>
     [UnsupportedOSPlatform("windows")]

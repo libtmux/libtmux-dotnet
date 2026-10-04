@@ -256,7 +256,7 @@ module Pane =
     /// that prints more than scrollback holds reports <c>LinesMissed</c>, and its
     /// <c>Output</c> is then what the pane still showed.
     /// </remarks>
-    /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode or not running a POSIX shell.</exception>
+    /// <exception cref="T:LibTmux.TmuxPaneException">The pane is in a mode, not running a POSIX shell, or its program has exited; or it changed during every read before the command was sent.</exception>
     /// <exception cref="T:LibTmux.TmuxObjectNotFoundException">tmux no longer has the pane.</exception>
     /// <exception cref="T:LibTmux.LibTmuxException">The command was sent and the run was cancelled or could not be observed; <c>TmuxFailure.MayHaveRun</c> matches it, and the pane needs inspecting before a retry.</exception>
     val run:
