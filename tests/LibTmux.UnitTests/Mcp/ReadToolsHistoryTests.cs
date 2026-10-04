@@ -85,7 +85,7 @@ public sealed class ReadToolsHistoryTests
             RowHashes: null);
 
         Assert.Throws<OperationCanceledException>(() =>
-            PaneReader.FindUniqueAnchor(rows, cursor, cancellation.Token));
+            PaneReader.FindUniqueAnchor(rows, cursor, int.MaxValue, cancellation.Token));
         Assert.InRange(rows.Reads, 8, 9);
     }
 

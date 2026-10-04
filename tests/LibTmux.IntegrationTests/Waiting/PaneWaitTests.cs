@@ -113,6 +113,84 @@ public sealed class PaneWaitTests
         Assert.True(result.Found, $"The wait ended {result.Outcome}.");
     }
 
+    // A character with combining marks stacked on it takes up to 21 bytes in
+    // one cell, so a wide row of them is longer than a control client accepts
+    // in a line; read through the client, it would end it.
+    [UnixFact]
+    public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string name = raw.SessionName + "-wide";
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "4000", "-y", "12", "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        async Task<string[]> ControlClientsAsync() =>
+            [.. (await server.GetClientsAsync(token)).Where(client => client.IsControlClient).Select(client => client.Name)];
+
+        await using (await pane.Session.HoldWaitClientAsync(token))
+        {
+            string[] held = await ControlClientsAsync();
+            PaneWaitResult result = await pane.SendTextAndWaitAsync(
+                "i=0; while [ $i -lt 3900 ]; do printf 'e\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201'; i=$((i+1)); done; printf '\\n%s-done\\n' wide",
+                "wide-done",
+                TimeSpan.FromSeconds(20),
+                token);
+
+            Assert.True(result.Found, $"The wait ended {result.Outcome}.");
+            Assert.Single(held);
+            Assert.Equal(held, await ControlClientsAsync());
+        }
+    }
+
+    // A narrower pane rewraps the rows above a position, which moves it down;
+    // near history-limit, where a read finds its place by content, it must
+    // still be found there.
+    [UnixFact]
+    public async Task A_position_is_found_again_after_the_pane_narrows()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using RawTmuxTestContext raw = await RawTmuxTestContext.StartAsync(token);
+        string name = raw.SessionName + "-narrow";
+        RawTmuxResult created = await raw.ExecuteAsync(
+            ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name, "-x", "60", "-y", "10", "sh"],
+            token);
+        Server server = await Server.ConnectAsync(
+            new ServerConnectionOptions
+            {
+                TmuxBinaryPath = raw.TmuxBinaryPath,
+                SocketPath = raw.SocketPath,
+                ConfigurationFile = "/dev/null",
+            },
+            token);
+        Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+
+        // 620 lines of 45 columns take three rows each at 20 columns: past
+        // nine tenths of tmux's default 2,000 lines of history.
+        await pane.SendTextAsync(
+            "seq -f 'line-%04g-padding-padding-padding-padding' 1 620; printf 'held-%s' here; sleep 2; printf '\\n%s-done\\n' narrow",
+            cancellationToken: token);
+        Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("held-here", StringComparison.Ordinal)), Arrival, token)).Found);
+        PaneOutputSince start = await pane.ReadOutputSinceAsync(cancellationToken: token);
+        await raw.ExecuteAsync(["resize-window", "-t", name, "-x", "20"], token);
+        Assert.True((await pane.WaitUntilAsync(rows => rows.Any(row => row.Contains("narrow-done", StringComparison.Ordinal)), Arrival, token)).Found);
+
+        PaneOutputSince next = await pane.ReadOutputSinceAsync(start.Position, token);
+
+        Assert.False(next.LinesMissed, string.Join(" | ", next.Lines));
+        Assert.Contains("narrow-done", next.Lines);
+    }
+
     [UnixFact]
     public async Task Reading_since_a_position_returns_only_what_is_new()
     {

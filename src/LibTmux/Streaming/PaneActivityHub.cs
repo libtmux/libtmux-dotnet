@@ -641,8 +641,22 @@ internal sealed partial class PaneActivityHub : IAsyncDisposable
             if (run is not null)
             {
                 StopSignaling();
-                await DisposeRunAsync(run).ConfigureAwait(false);
-                await run.Pump.ConfigureAwait(false);
+
+                // A client that ended on its own, such as on a line over its
+                // limits, must not turn the result of the wait releasing it
+                // into a failure; its cleanup failure is logged instead.
+                await ObserveCleanupAsync(run).ConfigureAwait(false);
+                try
+                {
+                    await run.Pump.ConfigureAwait(false);
+                }
+                catch (Exception error)
+                {
+                    if (hub._logger is not null)
+                    {
+                        LogControlClientCleanupFailed(hub._logger, error, key.SessionId);
+                    }
+                }
             }
         }
 

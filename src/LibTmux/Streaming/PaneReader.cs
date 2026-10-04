@@ -55,10 +55,12 @@ internal static class PaneReader
     private const int StableReadAttempts = 3;
 
     // Well inside a control client's default block limits of 4,096 lines and
-    // 4 MiB, and its 64 KiB line limit, even if every cell takes four bytes.
+    // 4 MiB, and its 64 KiB line limit, even if every cell takes the 21 bytes
+    // tmux allows one: a character with combining marks stacked on it.
     private const int ControlCaptureRows = 1_024;
-    private const long ControlCaptureBytes = 1024 * 1024;
-    private const int ControlCaptureColumns = 8_000;
+    private const long ControlCaptureBytes = 2 * 1024 * 1024;
+    private const int ControlCaptureColumns = 3_000;
+    private const int MostBytesPerCell = 21;
 
     /// <summary>Describes a read failure without naming any caller's tools.</summary>
     internal static Exception Failure(PaneReadFailure failure, Pane pane) => new TmuxPaneException(
@@ -188,7 +190,13 @@ internal static class PaneReader
             int previousOffset;
             if (trimRisk)
             {
-                int? match = FindUniqueAnchor(capturedRows, cursor, cancellationToken);
+                // Rows only move down when a narrower pane rewraps those above
+                // the anchor, so the anchor is sought no lower than it was
+                // while the width holds.
+                int highest = cursor.PaneWidth > 0 && cursor.PaneWidth == before.PaneWidth
+                    ? cursor.AnchorAbsolute
+                    : int.MaxValue;
+                int? match = FindUniqueAnchor(capturedRows, cursor, highest, cancellationToken);
                 if (match is null)
                 {
                     PaneRead missed = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
@@ -262,7 +270,7 @@ internal static class PaneReader
         if (control is not null
             && state.PaneWidth is > 0 and <= ControlCaptureColumns
             && rows <= ControlCaptureRows
-            && rows * (state.PaneWidth + 1) * 4 <= ControlCaptureBytes)
+            && rows * (state.PaneWidth + 1) * MostBytesPerCell <= ControlCaptureBytes)
         {
             CapturePaneRequest request = start switch
             {
@@ -294,7 +302,10 @@ internal static class PaneReader
             return null;
         }
 
+        // Bound like a command through a process, so a silent tmux cannot hold
+        // a read past CommandTimeout; the process rerun then reports it.
         IReadOnlyList<string> lines;
+        using var deadline = new TmuxCommandDispatcher.Deadline(pane.CommandTimeout, cancellationToken);
         try
         {
             lines = await control.SendAsync(
@@ -302,7 +313,7 @@ internal static class PaneReader
                     {
                         RequiredGeneration = pane.Generation,
                     },
-                    cancellationToken)
+                    deadline.Token)
                 .ConfigureAwait(false);
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
@@ -428,6 +439,7 @@ internal static class PaneReader
     internal static int? FindUniqueAnchor(
         IReadOnlyList<string> rows,
         PaneCursor cursor,
+        int highestIndex,
         CancellationToken cancellationToken)
     {
         if (cursor.AnchorHash is null)
@@ -441,12 +453,12 @@ internal static class PaneReader
             return null;
         }
 
-        // Rows only move up: tmux frees history from the top and appends below,
-        // so the anchor cannot sit lower than it did. A row further down that
-        // hashes the same is a different row, such as a fresh prompt below the
-        // one a command was typed into.
+        // Without a change of width, rows only move up: tmux frees history from
+        // the top and appends below, so the anchor cannot sit lower than it
+        // did. A row further down that hashes the same is a different row, such
+        // as a fresh prompt below the one a command was typed into.
         int? match = null;
-        for (int index = 0; index + fingerprintLength <= rows.Count && index <= cursor.AnchorAbsolute; index++)
+        for (int index = 0; index + fingerprintLength <= rows.Count && index <= highestIndex; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(

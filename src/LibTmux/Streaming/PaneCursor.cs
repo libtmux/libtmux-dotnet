@@ -27,7 +27,8 @@ internal sealed record PaneCursor(
     string? BelowHash,
     int SuffixCount,
     string? SuffixHash,
-    string? RowHashes)
+    string? RowHashes,
+    int PaneWidth = 0)
 {
     internal const int CurrentVersion = 3;
     private const int DigestHexLength = 64;
@@ -145,7 +146,8 @@ internal sealed record PaneCursor(
             BelowHash: belowCount > 0 ? HashRows(cursorRows, 1, belowCount) : null,
             SuffixCount: suffixCount,
             SuffixHash: suffixCount > 0 ? HashRows(cursorRows, 1, suffixCount) : null,
-            RowHashes: belowCount > 0 ? HashRowWindow(cursorRows, 1, belowCount) : null);
+            RowHashes: belowCount > 0 ? HashRowWindow(cursorRows, 1, belowCount) : null,
+            PaneWidth: state.PaneWidth);
         cursor.Validate();
         return cursor;
     }
@@ -176,6 +178,7 @@ internal sealed record PaneCursor(
             || !canonicalPanePid
             || HistorySize < 0
             || PaneHeight <= 0
+            || PaneWidth < 0
             || AnchorAbsolute < HistorySize
             || AnchorAbsolute > lastRow + (AnchorHash is null ? 1 : 0)
             || (AnchorHash is not null && !IsDigest(AnchorHash))

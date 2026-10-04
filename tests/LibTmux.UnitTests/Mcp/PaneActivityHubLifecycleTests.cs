@@ -319,6 +319,50 @@ public sealed class PaneActivityHubLifecycleTests
         Assert.True(await secondWait.WaitAsync(token));
     }
 
+    // A client that ended on its own, such as on a line over its limits,
+    // fails its disposal; the wait releasing it has its result already.
+    [Fact]
+    public async Task Releasing_a_watch_whose_client_failed_does_not_fail_the_release()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using PaneActivityHub hub = new();
+        FailingDisposalSession failing = new();
+
+        IAsyncDisposable lease = await hub.WatchAsync(
+            "$1",
+            _ => Task.FromResult<IControlModeSession>(failing),
+            token);
+        Assert.True(hub.IsStreaming);
+
+        await lease.DisposeAsync();
+        Assert.True(failing.Disposed);
+    }
+
+    private sealed class FailingDisposalSession : IControlModeSession
+    {
+        private readonly Channel<TmuxEvent> _events = Channel.CreateUnbounded<TmuxEvent>();
+
+        internal bool Disposed { get; private set; }
+
+        public IAsyncEnumerable<TmuxEvent> Events => _events.Reader.ReadAllAsync();
+
+        public bool IsRunning => !Disposed;
+
+        public Task<IReadOnlyList<string>> SendAsync(
+            TmuxCommand command,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            _events.Writer.TryComplete();
+            throw new TmuxProtocolException(
+                "A tmux control-mode line exceeded 65536 bytes.",
+                TmuxDispatchState.Unknown);
+        }
+    }
+
     private sealed class FakeControlModeSession : IControlModeSession
     {
         private readonly Channel<TmuxEvent> _events = Channel.CreateUnbounded<TmuxEvent>();

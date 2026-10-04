@@ -112,6 +112,9 @@ internal sealed class TmuxCommandDispatcher
         return result;
     }
 
+    /// <summary>Gets how long one command may take, or null when it is not bounded.</summary>
+    internal TimeSpan? CommandTimeout => _context?.CommandTimeout;
+
     [UnsupportedOSPlatform("windows")]
     internal Task<TmuxCommandResult> ExecuteAsync(
         IReadOnlyList<string> arguments,
