@@ -165,11 +165,12 @@ internal sealed partial class ReadTools
                 McpPaneReader.Failure,
                 (spent, last) => Report(progress, spent, budget, last.Length > 0 ? last : $"waiting on {id}"),
                 cancellationToken,
-                // Reads through the control client come back before a
-                // send_keys call settles its echo record, so a redraw an
-                // unmodelled key caused would be read while still discounted
-                // and then left behind the cursor. A process read is slow
-                // enough that the record has settled first.
+                // A send_keys call settles its echo record only after its
+                // dispatch returns, so a redraw an unmodelled key caused can be
+                // read while still discounted and then left behind the cursor.
+                // Process reads are slow enough that the record has nearly
+                // always settled first; they narrow that race rather than
+                // close it, which settling before the dispatch would.
                 readThroughControl: false)
             .ConfigureAwait(false);
 
