@@ -230,20 +230,47 @@ For a downstream review, `eng/package_review.py` runs the same restore, build,
 inventory, pack and inspection commands with a distinct prerelease identity.
 Use a clean, committed checkout with no concurrent builds or edits. Set
 `CORE_REVISION` to its full reviewed commit SHA and choose a version that has
-never been used for other bytes:
+never been used for other bytes. Run each phase separately with the same SDK,
+environment, version and output directory:
 
 ```console
 $ mise exec -- python3 eng/package_review.py \
+    --phase restore \
     --revision "$CORE_REVISION" \
     --version 0.0.0-review.1 \
     --output artifacts/review-packages
 ```
 
-The output directory must not exist. The recipe leaves the checkout's declared
-version unchanged, records command timings and archive hashes, and writes
-`provenance.json` only after inspection and a final clean-source check. Failed
-outputs are diagnostic artifacts; choose a new identity for changed source.
-Use an ignored artifact directory or a location outside the checkout.
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --phase build \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+```console
+$ mise exec -- python3 eng/package_review.py \
+    --phase pack \
+    --revision "$CORE_REVISION" \
+    --version 0.0.0-review.1 \
+    --output artifacts/review-packages
+```
+
+Omit `--phase` to run the complete recipe in one invocation. The output
+directory must not exist before restore. Build and pack require the preceding
+phase's receipt; they reject changed source, SDK, environment, override props,
+configuration, restored inputs or build outputs. Pack runs the compiler
+inventory and native package inspector and refuses existing archives.
+Tool packing can create publish copies and `DotnetToolSettings.xml`; these
+SDK outputs are excluded from the compiler-input hashes. Compiled DLL, PDB
+and XML inputs remain guarded, and the inspector checks the final archives.
+
+The recipe leaves the checkout's declared version unchanged, records command
+timings and archive hashes, and writes `provenance.json` only after inspection
+and a final integrity check. Failed outputs are diagnostic artifacts; choose
+a new identity for changed source. Use an ignored artifact directory or a
+location outside the checkout.
 
 The output also contains a portable `NuGet.config`, which maps `LibTmux*`
 exclusively to the directory containing that file. Pin the reviewed version
