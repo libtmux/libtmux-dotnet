@@ -194,6 +194,30 @@ public sealed class ControlModeSessionFailureTests
     }
 
     [Fact]
+    public async Task Output_is_read_while_a_write_holds_the_dispatch_lock()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var process = new StalledWriteProcess(replyOnRelease: true);
+        var session = new ControlModeSession(process);
+        await session.WaitForReadyAsync(token);
+        await using IAsyncEnumerator<TmuxEvent> events = session.Events.GetAsyncEnumerator(token);
+
+        Task<IReadOnlyList<string>> send = session.SendAsync(
+            TmuxCommand.Create("display-message", "-p", "held"),
+            token);
+        await process.WriteStarted.Task.WaitAsync(token);
+        // tmux stops reading a pane once its control clients hold unsent
+        // output, so the reader must keep draining while the write is stuck.
+        process.EmitOutput("%output %0 still-read");
+
+        Assert.True(await events.MoveNextAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1), token));
+        Assert.Equal("still-read", Assert.IsType<TmuxOutputEvent>(events.Current).Data);
+        process.ReleaseWrite();
+        Assert.Equal(["reply"], await send.WaitAsync(token));
+        await session.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Disposal_does_not_orphan_a_reply_from_an_enqueued_write()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
@@ -1068,6 +1092,8 @@ public sealed class ControlModeSessionFailureTests
         public void Dispose() => DisposeCalled = true;
 
         internal void ReleaseWrite() => _releaseWrite.TrySetResult();
+
+        internal void EmitOutput(string line) => _output.Writer.TryWrite(line);
     }
 
     private sealed class AmbiguousDispatchProcess : IControlModeProcess
