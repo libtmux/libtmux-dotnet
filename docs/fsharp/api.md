@@ -315,7 +315,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `Directory: string option` | The pane's working directory. |
 | `Environment: Map<string,string>` | Variables added to the pane's environment. |
 | `SplitSpec` | Describes a pane split off the pane created before it. |
-| `Size: string option` | The pane's size, in cells, or with a percent sign as a share of the space split. |
+| `Size: string option` | The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None. |
 | `module SplitSpec` | Starts split descriptions. |
 | `override ToString: unit -> string` | Names the split by its command, without formatting through printf. |
 | `val empty: SplitSpec` | A split below the pane before it, running the default shell. |

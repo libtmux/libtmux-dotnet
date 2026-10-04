@@ -58,7 +58,7 @@ Field type: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/refer
 
 #### <code>Size</code>
 
-The pane's size, in cells, or with a percent sign as a share of the space split.
+The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None.
 
 Field type: <code><span>string&#32;option</span></code>
 

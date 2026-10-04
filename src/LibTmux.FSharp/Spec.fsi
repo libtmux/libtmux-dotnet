@@ -12,7 +12,7 @@ type SplitSpec =
         Command: string option
         /// <summary>The pane's working directory.</summary>
         Directory: string option
-        /// <summary>The pane's size, in cells, or with a percent sign as a share of the space split.</summary>
+        /// <summary>The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None.</summary>
         Size: string option
         /// <summary>Variables added to the pane's environment.</summary>
         Environment: Map<string, string>
