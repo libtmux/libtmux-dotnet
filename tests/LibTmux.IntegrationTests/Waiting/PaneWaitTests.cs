@@ -138,10 +138,8 @@ public sealed class PaneWaitTests
         await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() => pane.RunAsync("true", Arrival, token));
     }
 
-    // A character with combining marks stacked on it takes up to 32 bytes in
-    // one cell, so a wide row of them is longer than a control client accepts
-    // in a line; read through the client, it would end it. 2,450 cells of 31
-    // bytes make a 75,950-byte row.
+    // Combining marks can fill a cell's UTF-8 storage. Keep the pane wider
+    // than the bounded control-capture path accepts, including after attach.
     [UnixFact]
     public async Task A_wide_row_of_combining_marks_leaves_the_held_client_running()
     {
@@ -160,6 +158,10 @@ public sealed class PaneWaitTests
             },
             token);
         Pane pane = await server.GetPaneAsync(PaneId.Parse(created.StandardOutputText.Trim()), token);
+        Assert.Equal(0, (await raw.ExecuteAsync(
+            ["set-window-option", "-t", pane.Window.Id.ToString(), "window-size", "manual"], token)).ExitCode);
+        Assert.Equal(0, (await raw.ExecuteAsync(
+            ["resize-window", "-t", pane.Window.Id.ToString(), "-x", "2500", "-y", "12"], token)).ExitCode);
 
         async Task<string[]> ControlClientsAsync() =>
             [.. (await server.GetClientsAsync(token)).Where(client => client.IsControlClient).Select(client => client.Name)];
@@ -167,6 +169,8 @@ public sealed class PaneWaitTests
         await using (await pane.Session.HoldWaitClientAsync(token))
         {
             string[] held = await ControlClientsAsync();
+            Assert.Equal("2500", (await raw.ExecuteAsync(
+                ["display-message", "-p", "-t", pane.Id.ToString(), "#{pane_width}"], token)).StandardOutputText.Trim());
             PaneWaitResult result = await pane.SendTextAndWaitAsync(
                 "i=0; while [ $i -lt 2450 ]; do printf 'e\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201\\314\\201'; i=$((i+1)); done; printf '\\n%s-done\\n' wide",
                 "wide-done",

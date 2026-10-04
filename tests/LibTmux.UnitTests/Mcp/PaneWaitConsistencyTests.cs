@@ -598,6 +598,121 @@ public sealed class PaneWaitConsistencyTests
         Assert.Contains("last line", result.Tail);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Lost_anchor_recovery_does_not_promote_old_readiness_from_an_ambiguous_grid(bool movedDown)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        await using Fixture fixture = new()
+        {
+            Unstable = false,
+            PaneWidth = 80,
+            CursorY = movedDown ? 5 : 2,
+            HistorySize = movedDown ? 1800 : 10,
+            CaptureUsesGridRows = true,
+            Output = movedDown ? "A\nB\nC\nD\nREADY\nprompt" : "A\nB\ncursor\nA\nB\nREADY",
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["READY"]) with
+            { Timeout = TimeSpan.FromSeconds(20) }).Snapshot(),
+            matchLines: null, tailLines: null, progress: null, cancellationToken: cancellation.Token,
+            afterEntry: _ =>
+            {
+                fixture.Output = movedDown ? "A\nB\ninserted\nC\nD\nREADY\nprompt" : "A\nB\nREADY";
+                fixture.HistorySize = movedDown ? 1800 : 0;
+                fixture.CursorY = movedDown ? 6 : 2;
+                return Task.CompletedTask;
+            }, readThroughControl: false);
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.Waiting.Task).WaitAsync(token);
+        if (ReferenceEquals(completed, waiting))
+        {
+            PaneWaitResult premature = await waiting;
+            Assert.False(premature.Found, $"Old READY ended the wait as {premature.Outcome}.");
+        }
+
+        Assert.Same(fixture.Clock.Waiting.Task, completed);
+        await cancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+    }
+
+    [Fact]
+    public async Task A_stable_fallback_after_moving_reads_keeps_new_trigger_output_and_rejects_old_stops()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        await using Fixture fixture = new()
+        {
+            Output = "old READY FATAL",
+            UnstableThroughCapture = 4,
+            PaneWidth = 80,
+            HistorySize = 13,
+            CaptureUsesGridRows = true,
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = PaneTextWaiter.WaitAsync(observer, pane,
+            (PaneWaitRequest.FromTextPatterns(["READY"], ["FATAL"]) with
+            { Timeout = TimeSpan.FromSeconds(20) }).Snapshot(),
+            matchLines: null, tailLines: null, progress: null, cancellationToken: cancellation.Token,
+            afterEntry: _ =>
+            {
+                fixture.Output = "old READY FATAL\nREADY";
+                return Task.CompletedTask;
+            }, readThroughControl: false);
+        Task completed = await Task.WhenAny(waiting, fixture.Clock.Waiting.Task).WaitAsync(token);
+        if (!ReferenceEquals(completed, waiting))
+        {
+            await cancellation.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+        }
+
+        Assert.True(ReferenceEquals(completed, waiting),
+            "The stable fallback discarded new READY after three moving captures.");
+        PaneWaitResult result = await waiting.WaitAsync(token);
+
+        Assert.Equal(PaneWaitOutcome.Matched, result.Outcome);
+        Assert.Equal("READY", result.Pattern);
+        Assert.InRange(fixture.Captures, 5, 6);
+    }
+
+    [Fact]
+    public async Task A_busy_fallback_does_not_trust_coordinates_after_history_resets_between_samples()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new()
+        {
+            Output = "old READY",
+            Unstable = false,
+            PaneWidth = 80,
+            CaptureUsesGridRows = true,
+            HistoryAfterCaptures = [13, 0, 1],
+        };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        PaneCursor cursor = PaneCursor.Build(pane,
+            new PaneGridState("123", 0, 2000, 24, 0, false, false, 80), ["old READY"]);
+
+        PaneRead read = await PaneReader.ReadSinceAsync(pane, cursor, PaneReader.Failure,
+            control: null, token, expectedAlternateScreen: false);
+
+        Assert.Equal([0, 13, 13, 0, 0, 1, 1, 1], fixture.GridHistorySamples);
+        Assert.Equal(4, fixture.Captures);
+        Assert.Equal(1, read.State.HistorySize);
+        Assert.Equal("old READY", Assert.Single(read.Lines));
+        Assert.True(read.LinesMissed);
+        Assert.True(read.AnchorLost);
+        Assert.Null(read.RowPositions);
+    }
+
     [Fact]
     public async Task A_core_text_wait_reports_original_process_replacement_as_pane_died()
     {
@@ -797,7 +912,7 @@ public sealed class PaneWaitConsistencyTests
     }
 
     [Fact]
-    public async Task A_pane_removed_between_state_and_capture_reports_pane_died()
+    public async Task A_pane_removed_before_the_first_snapshot_reports_not_found()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
         await using Fixture fixture = new() { DisappearsAtFirstCapture = true };
@@ -805,10 +920,33 @@ public sealed class PaneWaitConsistencyTests
         await using PaneActivityHub observer = new(
             (_, _) => Task.FromResult<IControlModeSession>(fixture.Control));
 
-        PaneWaitResult result = await WaitCoreAsync(observer,
+        TmuxObjectNotFoundException error = await Assert.ThrowsAsync<TmuxObjectNotFoundException>(() =>
+            WaitCoreAsync(observer, pane, PaneWaitRequest.FromTextPatterns(["never"]), token));
+
+        Assert.Contains(pane.Id.ToString(), error.Message, StringComparison.Ordinal);
+        Assert.Null(await fixture.Server.FindPaneAsync(pane.Id, token));
+    }
+
+    [Fact]
+    public async Task A_pane_removed_after_a_valid_snapshot_reports_pane_exited_with_its_last_screen()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using Fixture fixture = new() { Output = "last observed screen", Unstable = false };
+        Pane pane = Assert.Single(await fixture.Server.GetPanesAsync(token));
+        await using PaneActivityHub observer = new(
+            (_, _) => Task.FromResult<IControlModeSession>(fixture.Control),
+            timeProvider: fixture.Clock);
+
+        Task<PaneWaitResult> waiting = WaitCoreAsync(observer,
             pane, PaneWaitRequest.FromTextPatterns(["never"]), token);
+        await fixture.Clock.Waiting.Task.WaitAsync(token);
+        Assert.True(fixture.Captures > 0);
+        fixture.PaneExists = false;
+        fixture.Control.Emit(new TmuxNotificationEvent("window-close", ["@1"]));
+        PaneWaitResult result = await waiting.WaitAsync(token);
 
         Assert.Equal(PaneWaitOutcome.PaneExited, result.Outcome);
+        Assert.Contains("last observed screen", result.Tail);
         Assert.Null(await fixture.Server.FindPaneAsync(pane.Id, token));
     }
 
@@ -1018,6 +1156,9 @@ public sealed class PaneWaitConsistencyTests
         internal bool StableEntry { get; init; } = true;
         internal bool Dead { get; init; }
         internal string PanePid { get; set; } = "123";
+        internal int PaneWidth { get; init; }
+        internal int CursorY { get; set; }
+        internal bool CaptureUsesGridRows { get; init; }
         internal bool PadToHeight { get; init; }
         internal bool LinkedInCapturedSession { get; set; } = true;
         internal bool Unstable { get; set; } = true;
@@ -1039,6 +1180,8 @@ public sealed class PaneWaitConsistencyTests
         internal TaskCompletionSource GridStateReadRelease { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         internal int HistorySize { get; set; }
+        internal IReadOnlyList<int> HistoryAfterCaptures { get; init; } = [];
+        internal List<int> GridHistorySamples { get; } = [];
         internal TaskCompletionSource CaptureStarted { get; } = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource CaptureRelease { get; } = new(
@@ -1092,6 +1235,21 @@ public sealed class PaneWaitConsistencyTests
                 payload = PadToHeight
                     ? Output + new string('\n', _height)
                     : Output + "\n";
+                if (CaptureUsesGridRows)
+                {
+                    string[] rows = [.. Enumerable.Range(0, HistorySize)
+                        .Select(index => $"history {index}"), .. Output.Split('\n')];
+                    int captureStart = HistorySize;
+                    int startArgument = arguments.ToList().IndexOf("-S");
+                    if (startArgument >= 0)
+                    {
+                        string start = arguments[startArgument + 1];
+                        captureStart = start == "-" ? 0
+                            : Math.Max(0, HistorySize + int.Parse(start, CultureInfo.InvariantCulture));
+                    }
+
+                    payload = string.Join('\n', rows.Skip(captureStart)) + "\n";
+                }
                 if (Captures == ChangeOutputAfterCaptureNumber)
                 {
                     Output = OutputAfterCapture!;
@@ -1099,6 +1257,8 @@ public sealed class PaneWaitConsistencyTests
 
                 if (Captures == 1 && ReadyAfterBaseline)
                     Output = "ready";
+                if (Captures <= HistoryAfterCaptures.Count)
+                    HistorySize = HistoryAfterCaptures[Captures - 1];
             }
             else if (arguments.Contains("display-message", StringComparer.Ordinal)
                 && arguments.Any(value => value.Contains(FormatProjection.RowSeparator, StringComparison.Ordinal)))
@@ -1118,8 +1278,11 @@ public sealed class PaneWaitConsistencyTests
                     PaneExists = false;
                 }
 
+                if (HistoryAfterCaptures.Count > 0)
+                    GridHistorySamples.Add(HistorySize);
+
                 payload = PaneExists
-                    ? $"{PanePid}\t{HistorySize}\t2000\t{_height}\t0\t{(Dead ? 1 : 0)}\t0\n"
+                    ? $"{PanePid}\t{HistorySize}\t2000\t{_height}\t{CursorY}\t{(Dead ? 1 : 0)}\t0\t{PaneWidth}\n"
                     : string.Empty;
             }
             else

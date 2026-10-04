@@ -114,12 +114,18 @@ internal static class PaneTextWaiter
             PaneCursor? cursor = null;
             Dictionary<int, string>? triggerBaseline = null;
             int triggerFrontier = -1;
+            int triggerCursor = -1;
+            int triggerWidth = 0;
+            bool triggerAlternateScreen = false;
             bool triggerNeedsVisibleRebase = false;
             TimeSpan RemainingMatchBudget() => options.Timeout - elapsed.Elapsed;
+            bool? ExpectedTriggerScreen() => afterEntry is not null
+                && triggerBaseline is not null && !triggerNeedsVisibleRebase
+                    ? triggerAlternateScreen : null;
 
-            void RebaseTrigger(PaneRead read)
+            void RebaseTrigger(PaneRead read, IReadOnlyList<string>? projectedRows = null)
             {
-                IReadOnlyList<string> projected = ProjectMatch(read.Lines);
+                IReadOnlyList<string> projected = projectedRows ?? ProjectMatch(read.Lines);
                 if (projected.Count != read.Lines.Count)
                 {
                     triggerBaseline = null;
@@ -144,16 +150,135 @@ internal static class PaneTextWaiter
 
                 triggerBaseline = baseline;
                 triggerFrontier = checked(read.State.HistorySize + read.Lines.Count - 1);
+                triggerCursor = read.State.CursorAbsolute;
+                triggerWidth = read.State.PaneWidth;
+                triggerAlternateScreen = read.State.AlternateScreen;
                 triggerNeedsVisibleRebase = false;
+            }
+
+            bool RecoverVisibleTrigger(PaneRead read, IReadOnlyList<string> projected)
+            {
+                if (triggerBaseline is null || triggerWidth <= 0
+                    || triggerWidth != read.State.PaneWidth
+                    || triggerAlternateScreen != read.State.AlternateScreen
+                    || projected.Count != read.Lines.Count)
+                {
+                    return false;
+                }
+
+                // The prompt at the cursor can be rewritten and repeated below it.
+                // Recover from a unique unchanged pair above it, with one agreed
+                // nonpositive shift; downward or conflicting shifts are ambiguous.
+                Dictionary<string, int> previous = new(StringComparer.Ordinal);
+                foreach ((int position, string row) in triggerBaseline)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!previous.TryAdd(row, position))
+                    {
+                        previous[row] = -1;
+                    }
+                }
+
+                Dictionary<string, int> current = new(StringComparer.Ordinal);
+                int bytes = 0;
+                for (int index = 0; index < projected.Count; index++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    string row = projected[index];
+                    int lineBytes = Encoding.UTF8.GetByteCount(row);
+                    if (lineBytes > MaximumMatchWorkBytes - bytes)
+                    {
+                        throw new MatchWorkExceededException();
+                    }
+
+                    bytes += lineBytes;
+                    if (!current.TryAdd(row, index))
+                    {
+                        current[row] = -1;
+                    }
+                }
+
+                int? shift = null;
+                foreach ((string row, int index) in current)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (index < 0 || !previous.TryGetValue(row, out int old)
+                        || old < 0 || old >= triggerCursor)
+                    {
+                        continue;
+                    }
+
+                    int position = checked(read.State.HistorySize + index);
+                    bool neighbor = index > 0 && triggerBaseline.TryGetValue(old - 1, out string? above)
+                        && string.Equals(above, projected[index - 1], StringComparison.Ordinal)
+                        || index + 1 < projected.Count && old + 1 < triggerCursor
+                        && triggerBaseline.TryGetValue(old + 1, out string? below)
+                        && string.Equals(below, projected[index + 1], StringComparison.Ordinal);
+                    if (!neighbor)
+                    {
+                        continue;
+                    }
+
+                    int candidate = checked(position - old);
+                    if (candidate > 0 || shift is int agreed && candidate != agreed)
+                    {
+                        return false;
+                    }
+
+                    shift = candidate;
+                }
+
+                if (shift is not int recovered)
+                {
+                    return false;
+                }
+
+                if (recovered != 0)
+                {
+                    Dictionary<int, string> shifted = [];
+                    foreach ((int position, string row) in triggerBaseline)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        int moved = checked(position + recovered);
+                        if (moved >= 0)
+                        {
+                            shifted.Add(moved, row);
+                        }
+                    }
+
+                    triggerBaseline = shifted;
+                    triggerFrontier = checked(triggerFrontier + recovered);
+                    triggerCursor = checked(triggerCursor + recovered);
+                }
+
+                linesMissed = true;
+                return true;
             }
 
             IReadOnlyList<string> ProjectTrigger(PaneRead read, out MatchSpan[] spans)
             {
                 spans = [];
-                if (read.AnchorLost)
+                IReadOnlyList<string>? recoveredProjection = null;
+                bool trustedVisibleCoordinates = triggerBaseline is not null
+                    && !triggerNeedsVisibleRebase && triggerWidth > 0
+                    && triggerWidth == read.State.PaneWidth
+                    && triggerAlternateScreen == read.State.AlternateScreen
+                    && read.RowPositions?.Count == read.Lines.Count;
+                if (read.AnchorLost && !trustedVisibleCoordinates)
                 {
-                    RebaseTrigger(read);
-                    return [];
+                    recoveredProjection = ProjectMatch(read.Lines);
+                    if (!RecoverVisibleTrigger(read, recoveredProjection))
+                    {
+                        RebaseTrigger(read, recoveredProjection);
+                        return [];
+                    }
+
+                    read = read with
+                    {
+                        RowPositions = [.. Enumerable.Range(0, read.Lines.Count)
+                            .Select(index => checked(read.State.HistorySize + index))],
+                        AnchorShift = 0,
+                    };
                 }
 
                 if (triggerBaseline is null || read.RowPositions is null
@@ -164,8 +289,8 @@ internal static class PaneTextWaiter
                     return [];
                 }
 
-                IReadOnlyList<string> projected = read.Lines.Count == 0
-                    && typedProjection is not null ? read.Lines : ProjectMatch(read.Lines);
+                IReadOnlyList<string> projected = recoveredProjection ?? (read.Lines.Count == 0
+                    && typedProjection is not null ? read.Lines : ProjectMatch(read.Lines));
                 if (projected.Count != read.RowPositions.Count)
                 {
                     triggerBaseline = null;
@@ -246,8 +371,14 @@ internal static class PaneTextWaiter
             {
                 try
                 {
-                    if ((await capturedSession.GetPanesAsync(token).ConfigureAwait(false))
-                        .Any(candidate => candidate.Id == pane.Id))
+                    IReadOnlyList<string>? linked = await PaneReader.TryThroughControlAsync(
+                        pane, ["list-panes", "-t", $"{capturedSession.Id}:.{pane.Id}",
+                            "-F", "#{pane_id}", "-f", "#{==:#{pane_id}," + pane.Id + "}"],
+                        control, token).ConfigureAwait(false);
+                    if (linked is { Count: > 0 }
+                        ? linked.Contains(pane.Id.ToString(), StringComparer.Ordinal)
+                        : (await capturedSession.GetPanesAsync(token).ConfigureAwait(false))
+                            .Any(candidate => candidate.Id == pane.Id))
                     {
                         return;
                     }
@@ -325,7 +456,8 @@ internal static class PaneTextWaiter
                     {
                         try
                         {
-                            PaneRead delta = await ReadSinceAsync(pane, cursor, control, token)
+                            PaneRead delta = await ReadSinceAsync(pane, cursor, control, token,
+                                    ExpectedTriggerScreen())
                                 .ConfigureAwait(false);
                             linesMissed |= delta.LinesMissed;
                             anchorLost |= delta.AnchorLost;
@@ -617,7 +749,7 @@ internal static class PaneTextWaiter
                 PaneRead read;
                 try
                 {
-                    read = await ReadSinceAsync(pane, cursor, control, token)
+                    read = await ReadSinceAsync(pane, cursor, control, token, ExpectedTriggerScreen())
                         .ConfigureAwait(false);
                 }
                 catch (Exception error) when (error is PaneGoneException
@@ -953,8 +1085,10 @@ internal static class PaneTextWaiter
         Pane pane,
         PaneCursor cursor,
         IControlModeSession? control,
-        CancellationToken cancellationToken) =>
-        ReadAsync(() => PaneReader.ReadSinceAsync(pane, cursor, Failure, control, cancellationToken),
+        CancellationToken cancellationToken,
+        bool? expectedAlternateScreen = null) =>
+        ReadAsync(() => PaneReader.ReadSinceAsync(pane, cursor, Failure, control, cancellationToken,
+                expectedAlternateScreen),
             pane, cancellationToken);
 
     [UnsupportedOSPlatform("windows")]

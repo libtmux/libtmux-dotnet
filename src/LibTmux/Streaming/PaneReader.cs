@@ -131,12 +131,14 @@ internal static class PaneReader
         Func<PaneReadFailure, Pane, Exception> fail,
         IControlModeSession? control,
         CancellationToken cancellationToken,
-        bool rejectDeadAtEntry = true)
+        bool rejectDeadAtEntry = true,
+        Action<PaneGridState>? observeState = null)
     {
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
             PaneGridState before = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
+            observeState?.Invoke(before);
             if (rejectDeadAtEntry && baselinePid is null && before.Dead)
             {
                 throw fail(PaneReadFailure.Dead, pane);
@@ -146,6 +148,7 @@ internal static class PaneReader
                 .ConfigureAwait(false);
             PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
+            observeState?.Invoke(after);
 
             if (before == after)
             {
@@ -189,18 +192,37 @@ internal static class PaneReader
     /// <param name="fail">Builds the exception for a read that cannot be completed.</param>
     /// <param name="control">A control client attached to the pane's session, or null.</param>
     /// <param name="cancellationToken">Cancels the tmux queries.</param>
+    /// <param name="expectedAlternateScreen">The caller's known baseline screen mode, or null.</param>
     /// <returns>The read.</returns>
     internal static async Task<PaneRead> ReadSinceAsync(
         Pane pane,
         PaneCursor cursor,
         Func<PaneReadFailure, Pane, Exception> fail,
         IControlModeSession? control,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool? expectedAlternateScreen = null)
     {
+        // A busy read loses its text anchor, but not necessarily its row coordinates.
+        // Every sampled state must preserve them; public cursors lack screen mode.
+        bool trustedCoordinates = expectedAlternateScreen.HasValue && cursor.PaneWidth > 0;
+        int previousHistorySize = cursor.HistorySize;
+
+        void ObserveState(PaneGridState state)
+        {
+            trustedCoordinates &= state.PaneWidth == cursor.PaneWidth
+                && state.AlternateScreen == expectedAlternateScreen
+                && string.Equals(state.PanePid, cursor.PanePid, StringComparison.Ordinal)
+                && state.HistorySize >= previousHistorySize
+                && !AnchorLost(cursor, state)
+                && !TrimRisk(cursor, state);
+            previousHistorySize = state.HistorySize;
+        }
+
         for (int attempt = 0; attempt < StableReadAttempts; attempt++)
         {
             PaneGridState before = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
+            ObserveState(before);
             RaiseIfPaneReplaced(pane, before, cursor, fail);
 
             if (AnchorLost(cursor, before))
@@ -223,6 +245,7 @@ internal static class PaneReader
 
             PaneGridState after = await RequireStateAsync(pane, fail, control, cancellationToken)
                 .ConfigureAwait(false);
+            ObserveState(after);
             RaiseIfPaneReplaced(pane, after, cursor, fail);
 
             if (before != after)
@@ -276,9 +299,21 @@ internal static class PaneReader
             };
         }
 
-        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken)
+        PaneRead busy = await ReadVisibleAsync(pane, cursor.PanePid, fail, control, cancellationToken,
+                observeState: ObserveState)
             .ConfigureAwait(false);
-        return busy with { LinesMissed = true, AnchorLost = true };
+        List<int>? visiblePositions = null;
+        if (trustedCoordinates)
+        {
+            visiblePositions = new List<int>(busy.Lines.Count);
+            for (int index = 0; index < busy.Lines.Count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                visiblePositions.Add(checked(busy.State.HistorySize + index));
+            }
+        }
+
+        return busy with { LinesMissed = true, AnchorLost = true, RowPositions = visiblePositions };
     }
 
     /// <summary>Captures rows from a pane.</summary>
@@ -320,7 +355,8 @@ internal static class PaneReader
 
             if (stillExists == false)
             {
-                throw new TmuxPaneException($"Pane {pane.Id} closed during capture.", pane.Id);
+                throw new TmuxObjectNotFoundException(
+                    $"tmux no longer has pane '{pane.Id}'.", pane.Id.ToString(), failure);
             }
 
             throw;
@@ -368,7 +404,7 @@ internal static class PaneReader
     // Any failure through the control client, such as one that has just
     // ended, is retried through a tmux process, so a caller sees the process
     // path's results and errors.
-    private static async Task<IReadOnlyList<string>?> TryThroughControlAsync(
+    internal static async Task<IReadOnlyList<string>?> TryThroughControlAsync(
         Pane pane,
         List<string> arguments,
         IControlModeSession? control,
