@@ -83,6 +83,7 @@ public sealed class PaneObservationTests
         {
             while (await reader.MoveNextAsync())
             {
+                // Read on until the watch fails on the pane that moved away.
             }
         });
 

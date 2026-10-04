@@ -205,17 +205,16 @@ internal static class PaneRunner
                 bool paneExited = end == RunEnd.PaneExited;
 
                 elapsed.Stop();
-                int? status = end != RunEnd.Completed
-                    ? null
-                    : await sequence
-                        .ObserveAsync(() => ReadStatusAsync(pane, token, cancellationToken))
-                        .ConfigureAwait(false);
-                if (end == RunEnd.Completed && status is null)
+                int? status = null;
+                if (end == RunEnd.Completed)
                 {
-                    throw new LibTmuxException(
-                        "The command completed, but tmux did not return its authenticated "
-                        + "exit status. Do not retry it; inspect the pane instead.",
-                        TmuxDispatchState.Dispatched);
+                    status = await sequence
+                        .ObserveAsync(() => ReadStatusAsync(pane, token, cancellationToken))
+                        .ConfigureAwait(false)
+                        ?? throw new LibTmuxException(
+                            "The command completed, but tmux did not return its authenticated "
+                            + "exit status. Do not retry it; inspect the pane instead.",
+                            TmuxDispatchState.Dispatched);
                 }
 
                 completionAuthenticated = end == RunEnd.Completed;
@@ -1050,6 +1049,8 @@ internal static class PaneRunner
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            // The attempt was abandoned above for the end the watch saw; the
+            // open wait stays owned, for the follower to withdraw.
         }
 
         return seen;

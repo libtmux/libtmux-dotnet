@@ -149,6 +149,6 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
     private string Command(string marker) =>
         (DelayMs == 0
             ? ""
-            : string.Create(CultureInfo.InvariantCulture, $"sleep {(DelayMs + _marks % 5 * 10) / 1000.0:0.###}; "))
+            : string.Create(CultureInfo.InvariantCulture, $"sleep {(DelayMs + (_marks % 5) * 10.0) / 1000.0:0.###}; "))
         + $"printf '%s-done\\n' {marker[..marker.LastIndexOf('-')]}";
 }
