@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using LibTmux.IntegrationTests.Infrastructure;
 using LibTmux.IntegrationTests.Transport;
@@ -218,6 +219,7 @@ public sealed class OwnedServerAdoptionTests
         CancellationToken token = TestContext.Current.CancellationToken;
         string root = CreateSocketRoot();
         string started = Path.Join(root, "started");
+        string listed = Path.Join(root, "listed");
         string configuration = Path.Join(root, "tmux.conf");
         string tmux = Path.Join(root, "tmux");
 
@@ -227,18 +229,35 @@ public sealed class OwnedServerAdoptionTests
         await TestExecutable.WriteAsync(
             tmux,
             "#!/bin/sh\n"
-            + $"case \" $* \" in *\" start-server \"*) : > '{started}' ;; *\" list-sessions \"*) [ -e '{started}' ] && exit 1 ;; esac\n"
+            + $"case \" $* \" in *\" start-server \"*) : > '{started}' ;; *\" list-sessions \"*) [ -e '{started}' ] && printf x 1<>'{listed}' && exit 1 ;; esac\n"
             + $"exec '{Environment.GetEnvironmentVariable("LIBTMUX_TMUX") ?? "tmux"}' \"$@\"\n",
             token);
+        using (Process mkfifo = Process.Start(new ProcessStartInfo("mkfifo") { ArgumentList = { listed } })!)
+        {
+            await mkfifo.WaitForExitAsync(token);
+            Assert.Equal(0, mkfifo.ExitCode);
+        }
+
         ServerConnectionOptions options = Options(root, "owned") with { ConfigurationFile = configuration };
         Server observer = Server.Open(options);
+        // The wrapper writes to the FIFO once the start has run and a later
+        // check is under way; that read, not a guessed delay, triggers the cancel.
+        Task listing = Task.Run(
+            () =>
+            {
+                using FileStream fifo = new(listed, FileMode.Open, FileAccess.Read);
+                _ = fifo.ReadByte();
+            },
+            token);
         try
         {
             using CancellationTokenSource cancelled = CancellationTokenSource.CreateLinkedTokenSource(token);
-            cancelled.CancelAfter(TimeSpan.FromMilliseconds(300));
+            Task<OwnedServerScope> creating = Server.CreateOwnedAsync(options with { TmuxBinaryPath = tmux }, cancelled.Token);
+            await listing.WaitAsync(token);
+
+            await cancelled.CancelAsync();
             // The start had run, so the cancellation arrives as a failure that says so.
-            LibTmuxException failure = await Assert.ThrowsAnyAsync<LibTmuxException>(
-                () => Server.CreateOwnedAsync(options with { TmuxBinaryPath = tmux }, cancelled.Token));
+            LibTmuxException failure = await Assert.ThrowsAnyAsync<LibTmuxException>(() => creating);
             Assert.IsAssignableFrom<OperationCanceledException>(failure.InnerException);
 
             Assert.True(File.Exists(started));
@@ -246,6 +265,12 @@ public sealed class OwnedServerAdoptionTests
         }
         finally
         {
+            // A read-write open never blocks on a FIFO and releases a reader
+            // still waiting after a failure.
+            using (new FileStream(listed, FileMode.Open, FileAccess.ReadWrite))
+            {
+            }
+
             await CleanUpAsync(observer, root, token);
         }
     }
