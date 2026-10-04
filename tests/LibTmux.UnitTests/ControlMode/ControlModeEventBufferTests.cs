@@ -30,14 +30,20 @@ public sealed class ControlModeEventBufferTests
     public async Task An_oversized_event_wakes_an_empty_reader_with_loss_and_preserves_exit()
     {
         CancellationToken token = TestContext.Current.CancellationToken;
-        var buffer = new ControlModeEventBuffer(capacity: 8, maxBytes: 1);
+        var remaining = new List<int>();
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(
+            capacity: 8, afterDequeue: remaining.Add,
+            outputDiscarded: discarded.Add, maxBytes: 1);
         await using IAsyncEnumerator<TmuxEvent> reader = buffer.ReadAllAsync(token).GetAsyncEnumerator(token);
         Task<bool> pending = reader.MoveNextAsync().AsTask();
         Assert.False(pending.IsCompleted);
 
         Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "é")));
         Assert.True(await pending.WaitAsync(TimeSpan.FromSeconds(1), token));
-        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true }, reader.Current);
+        Assert.Equal([new PaneId(1)], discarded);
+        Assert.Equal([0], remaining);
         Assert.True(buffer.TryWrite(new TmuxExitEvent("too large")));
         buffer.Complete();
 
@@ -58,8 +64,64 @@ public sealed class ControlModeEventBufferTests
 
         await using ControlModeEventBuffer.Reader reader = buffer.CreateReader(token);
         Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
-        Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true }, reader.Current);
         Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
+    }
+
+    [Fact]
+    public async Task Oversized_loss_after_a_watermark_belongs_to_the_following_reader()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 4, maxBytes: 1);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(1), "a")));
+        long watermark = buffer.CaptureWatermark();
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(new PaneId(2), "é")));
+        buffer.Complete();
+
+        await using (ControlModeEventBuffer.Reader earlier = buffer.CreateReader(token))
+        {
+            Assert.Equal(ControlModeEventRead.Item, await earlier.MoveNextThroughAsync(watermark));
+            Assert.Equal(new TmuxOutputEvent(new PaneId(1), "a"), earlier.Current);
+            Assert.Equal(ControlModeEventRead.Boundary, await earlier.MoveNextThroughAsync(watermark));
+        }
+
+        await using ControlModeEventBuffer.Reader following = buffer.CreateReader(token);
+        Assert.Equal(ControlModeEventRead.Item, await following.MoveNextAsync());
+        Assert.Equal(
+            new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true },
+            following.Current);
+        Assert.Equal(ControlModeEventRead.Completed, await following.MoveNextAsync());
+    }
+
+    [Fact]
+    public async Task Saturated_loss_metadata_never_labels_notification_loss_as_output_only()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        var buffer = new ControlModeEventBuffer(capacity: 2, maxBytes: 1);
+        var watermarks = new List<long>();
+        for (int index = 0; index < 6; index++)
+        {
+            TmuxEvent dropped = index % 2 == 0
+                ? new TmuxOutputEvent(new PaneId(1), "é")
+                : Notification("nn");
+            Assert.True(buffer.TryWrite(dropped));
+            watermarks.Add(buffer.CaptureWatermark());
+        }
+
+        buffer.Complete();
+        await using ControlModeEventBuffer.Reader reader = buffer.CreateReader(token);
+        bool[] expectedOutputOnly = [true, false, false, false, true, false];
+        for (int index = 0; index < watermarks.Count; index++)
+        {
+            Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermarks[index]));
+            TmuxEventsDroppedEvent loss = Assert.IsType<TmuxEventsDroppedEvent>(reader.Current);
+            Assert.Equal(1, loss.Count);
+            Assert.Equal(6, loss.TotalDropped);
+            Assert.Equal(expectedOutputOnly[index], loss.OnlyOutput);
+            Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermarks[index]));
+        }
+
+        Assert.Equal(ControlModeEventRead.Completed, await reader.MoveNextAsync());
     }
 
     [Fact]
@@ -74,7 +136,7 @@ public sealed class ControlModeEventBufferTests
         await using (ControlModeEventBuffer.Reader reader = buffer.CreateReader(token))
         {
             Assert.Equal(ControlModeEventRead.Item, await reader.MoveNextThroughAsync(watermark));
-            Assert.Equal(new TmuxEventsDroppedEvent(1, 1), reader.Current);
+            Assert.Equal(new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true }, reader.Current);
             Assert.Equal(ControlModeEventRead.Boundary, await reader.MoveNextThroughAsync(watermark));
         }
 
@@ -103,6 +165,64 @@ public sealed class ControlModeEventBufferTests
         TmuxEventsDroppedEvent loss = Assert.IsType<TmuxEventsDroppedEvent>(observed[0]);
         Assert.Equal(1, loss.Count);
         Assert.Equal(64, observed.OfType<TmuxOutputEvent>().Count());
+    }
+
+    [Fact]
+    public async Task Byte_pressure_preserves_notifications_and_quiet_pane_output()
+    {
+        PaneId quiet = new(1);
+        PaneId loud = new(2);
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(
+            capacity: 8, outputDiscarded: discarded.Add, maxBytes: 12);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(quiet, "q")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(loud, "xxxx")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(loud, "yyyy")));
+        Assert.True(buffer.TryWrite(new TmuxNotificationEvent("layout", [])));
+        buffer.Complete();
+
+        List<TmuxEvent> observed = [];
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal([loud], discarded);
+        Assert.Equal(new TmuxOutputEvent(quiet, "q"), observed[0]);
+        Assert.Equal(new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true }, observed[1]);
+        Assert.Equal(new TmuxOutputEvent(loud, "yyyy"), observed[2]);
+        Assert.Equal("layout", Assert.IsType<TmuxNotificationEvent>(observed[3]).Name);
+        Assert.Equal(4, observed.Count);
+    }
+
+    [Fact]
+    public async Task Byte_pressure_discards_the_pane_holding_the_most_bytes()
+    {
+        PaneId quiet = new(1);
+        PaneId loud = new(2);
+        var discarded = new List<PaneId>();
+        var buffer = new ControlModeEventBuffer(
+            capacity: 8, outputDiscarded: discarded.Add, maxBytes: 10);
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(quiet, "q")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(quiet, "r")));
+        Assert.True(buffer.TryWrite(new TmuxOutputEvent(loud, "12345678")));
+        Assert.True(buffer.TryWrite(Notification("n")));
+        buffer.Complete();
+
+        var observed = new List<TmuxEvent>();
+        await foreach (TmuxEvent item in buffer.ReadAllAsync(TestContext.Current.CancellationToken))
+        {
+            observed.Add(item);
+        }
+
+        Assert.Equal([loud], discarded);
+        Assert.Equal(
+            new TmuxEventsDroppedEvent(1, 1) { OnlyOutput = true },
+            Assert.Single(observed.OfType<TmuxEventsDroppedEvent>()));
+        Assert.Equal(
+            [new TmuxOutputEvent(quiet, "q"), new TmuxOutputEvent(quiet, "r")],
+            observed.OfType<TmuxOutputEvent>());
+        Assert.Equal("n", Assert.Single(observed.OfType<TmuxNotificationEvent>()).Name);
     }
 
     [Fact]
@@ -156,7 +276,7 @@ public sealed class ControlModeEventBufferTests
 
         Assert.Equal([new PaneId(1)], discarded);
         Assert.Equal(
-            ["dropped 1, only output", "window-add", "%1: second", "layout-change"],
+            ["window-add", "dropped 1, only output", "%1: second", "layout-change"],
             observed.Select(item => item switch
             {
                 TmuxEventsDroppedEvent loss => $"dropped {loss.Count}{(loss.OnlyOutput ? ", only output" : "")}",
@@ -184,7 +304,7 @@ public sealed class ControlModeEventBufferTests
         }
 
         Assert.Equal([new PaneId(2)], discarded);
-        Assert.Equal(["dropped", "%1: quiet", "%2: flood-2", "%2: flood-3"], observed);
+        Assert.Equal(["%1: quiet", "dropped", "%2: flood-2", "%2: flood-3"], observed);
     }
 
     [Fact]
