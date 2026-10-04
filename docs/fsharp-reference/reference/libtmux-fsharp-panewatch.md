@@ -29,4 +29,4 @@ Returns: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/referenc
 
 [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) The event is not one a pane watch yields.
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L110)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L117)

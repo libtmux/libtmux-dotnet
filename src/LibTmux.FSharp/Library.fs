@@ -56,20 +56,27 @@ module Selection =
 
 [<RequireQualifiedAccess>]
 module TmuxFailure =
-    let (|NotSent|_|) (error: exn) =
+    // Async.AwaitTask and Task.Wait hand over a failed task's exception
+    // inside an AggregateException; one holding a single failure is that failure.
+    let rec private unwrap (error: exn) =
         match error with
+        | :? AggregateException as wrapped when wrapped.InnerExceptions.Count = 1 -> unwrap wrapped.InnerExceptions[0]
+        | _ -> error
+
+    let (|NotSent|_|) (error: exn) =
+        match unwrap error with
         | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.NotDispatched -> Some failure
         | _ -> None
 
     let (|Ran|_|) (error: exn) =
-        match error with
+        match unwrap error with
         | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Dispatched -> Some failure
         | _ -> None
 
     let (|MayHaveRun|_|) (error: exn) =
-        match error with
-        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Unknown -> Some error
-        | :? TmuxOperationCanceledException as canceled when canceled.CommandMayHaveExecuted -> Some error
+        match unwrap error with
+        | :? LibTmuxException as failure when failure.Dispatch = TmuxDispatchState.Unknown -> Some(failure :> exn)
+        | :? TmuxOperationCanceledException as canceled when canceled.CommandMayHaveExecuted -> Some(canceled :> exn)
         | _ -> None
 
 [<RequireQualifiedAccess>]

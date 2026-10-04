@@ -525,6 +525,28 @@ module FailureTests =
             |> List.map describe
         )
 
+    // Async.AwaitTask and Task.Wait wrap a failed task's exception; a match
+    // that missed it would read a command that may have run as some other failure.
+    [<Fact>]
+    let ``a failure wrapped by Async.AwaitTask is told apart the same way`` () =
+        let failed dispatch =
+            Task.FromException<unit>(failure dispatch) |> Async.AwaitTask |> Async.Catch |> Async.RunSynchronously
+
+        let wrapped =
+            [ TmuxDispatchState.NotDispatched; TmuxDispatchState.Dispatched; TmuxDispatchState.Unknown ]
+            |> List.map (fun dispatch ->
+                match failed dispatch with
+                | Choice2Of2 error -> error
+                | Choice1Of2() -> failwith "the task failed")
+
+        Assert.All(wrapped, fun error -> Assert.IsType<AggregateException>(error) |> ignore)
+        Assert.Equal<string list>([ "not sent"; "ran"; "may have run" ], wrapped |> List.map describe)
+
+        let both =
+            AggregateException(failure TmuxDispatchState.NotDispatched, failure TmuxDispatchState.Dispatched)
+
+        Assert.Equal("other", describe both)
+
     [<Fact>]
     let ``a chain's steps act on what the one before made and send nothing until run`` () =
         let generation = ServerGeneration(96, 906)

@@ -10,7 +10,9 @@ Every <code>LibTmuxException</code> says whether its command reached tmux, so ma
  on that rather than on the exception type. <code>NotSent</code> is the only failure
  after which running the same command again is always safe. It says nothing
  about commands sent before it: an operation that ran one command and then
- failed to send another has already acted.
+ failed to send another has already acted. <code>Async.AwaitTask</code> and
+ <code>Task.Wait</code> hand a failure over inside an <code>AggregateException</code>;
+ one holding a single failure is matched as that failure.
 
 ### Active patterns
 
@@ -26,7 +28,7 @@ Matches a failure, or a cancellation, after which tmux may already have acted.
 
 Returns: <code><span>exn&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L69)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L76)
 
 <a name="(%7cNotSent%7c_%7c)"></a>
 
@@ -40,7 +42,7 @@ Matches a failure whose command never reached tmux; running it again repeats not
 
 Returns: <code><span>LibTmuxException&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L59)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L66)
 
 <a name="(%7cRan%7c_%7c)"></a>
 
@@ -56,4 +58,4 @@ Running the command again repeats whatever it did; a read can simply be read aga
 
 Returns: <code><span>LibTmuxException&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L64)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Library.fs#L71)

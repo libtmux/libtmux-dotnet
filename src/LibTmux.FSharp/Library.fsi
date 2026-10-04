@@ -54,7 +54,9 @@ module Selection =
 /// on that rather than on the exception type. <c>NotSent</c> is the only failure
 /// after which running the same command again is always safe. It says nothing
 /// about commands sent before it: an operation that ran one command and then
-/// failed to send another has already acted.
+/// failed to send another has already acted. <c>Async.AwaitTask</c> and
+/// <c>Task.Wait</c> hand a failure over inside an <c>AggregateException</c>;
+/// one holding a single failure is matched as that failure.
 /// </remarks>
 [<RequireQualifiedAccess>]
 module TmuxFailure =
