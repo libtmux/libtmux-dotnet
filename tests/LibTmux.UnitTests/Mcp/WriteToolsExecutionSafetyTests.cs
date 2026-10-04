@@ -2457,6 +2457,28 @@ public sealed class WriteToolsExecutionSafetyTests
         Assert.Equal(WaitOutcome.Timeout, result.Outcome);
     }
 
+    // A pane busy through every attempt of a read, such as one a progress bar
+    // keeps redrawing, is read again rather than failing the wait.
+    [Fact]
+    public async Task A_wait_reads_again_when_the_pane_changed_during_every_attempt()
+    {
+        string[] staticRows = ["ALREADY_HERE_MARKER"];
+        await using var fixture = new ToolFixture(
+            new ServerPolicy { WaitCeiling = TimeSpan.FromSeconds(2) })
+        {
+            CaptureSequence = [staticRows],
+        };
+        fixture.DestabilizeNextStateSamples(6);
+
+        WaitResult result = await fixture.Reads.WaitForTextAsync(
+            paneId: "%1",
+            patterns: ["ALREADY_HERE_MARKER"],
+            timeoutSeconds: 1,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(WaitOutcome.PresentAtEntry, result.Outcome);
+    }
+
     [Fact]
     public async Task Wait_for_a_pattern_already_on_screen_reports_present_at_entry_not_timeout()
     {

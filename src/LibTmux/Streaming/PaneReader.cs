@@ -53,6 +53,7 @@ internal enum PaneReadFailure
 internal static class PaneReader
 {
     private const int StableReadAttempts = 3;
+    private const string UnstableKey = "LibTmux.PaneReadUnstable";
 
     // Well inside a control client's default block limits of 4,096 lines and
     // 4 MiB, and its 64 KiB line limit, even if every cell takes the most
@@ -153,8 +154,15 @@ internal static class PaneReader
             }
         }
 
-        throw fail(PaneReadFailure.Unstable, pane);
+        Exception unstable = fail(PaneReadFailure.Unstable, pane);
+        unstable.Data[UnstableKey] = true;
+        throw unstable;
     }
+
+    /// <summary>Tells whether a read failed only because the pane changed during every attempt.</summary>
+    /// <param name="error">The read's failure.</param>
+    /// <returns>Whether reading again later may succeed.</returns>
+    internal static bool IsUnstable(Exception error) => error.Data[UnstableKey] is true;
 
     /// <summary>Reads what a pane has printed since a cursor was issued.</summary>
     /// <param name="pane">The pane to read.</param>

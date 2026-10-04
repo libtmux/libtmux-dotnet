@@ -53,22 +53,42 @@ internal static class PaneTextWaiter
         await using ConfiguredAsyncDisposable _ = lease.ConfigureAwait(false);
         IControlModeSession? control = readThroughControl ? activity.ControlFor(pane) : null;
 
-        PaneRead first;
-        try
+        PaneRead? first = null;
+        while (first is null)
         {
-            first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is not OperationCanceledException and not TmuxPaneException)
-        {
-            Exception explained = await PaneReader.ExplainFailureAsync(pane, error, cancellationToken)
-                .ConfigureAwait(false);
-            if (ReferenceEquals(explained, error))
+            object? entrySignal = activity.CaptureSignal(pane);
+            try
             {
-                throw;
+                first = await PaneReader.ReadVisibleAsync(pane, null, fail, control, cancellationToken)
+                    .ConfigureAwait(false);
             }
+            catch (Exception error) when (PaneReader.IsUnstable(error))
+            {
+                // A pane busy through every attempt is read again at its next
+                // output: the signal taken before the read has already fired.
+                if (budget - elapsed.Elapsed <= TimeSpan.Zero)
+                {
+                    return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
+                }
 
-            throw explained;
+                await activity.WaitForActivityAsync(
+                        pane.Id.ToString(),
+                        entrySignal,
+                        budget - elapsed.Elapsed,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is not OperationCanceledException and not TmuxPaneException)
+            {
+                Exception explained = await PaneReader.ExplainFailureAsync(pane, error, cancellationToken)
+                    .ConfigureAwait(false);
+                if (ReferenceEquals(explained, error))
+                {
+                    throw;
+                }
+
+                throw explained;
+            }
         }
 
         PaneCursor cursor = PaneCursor.Build(pane, first.State, first.CursorRows);
@@ -88,11 +108,15 @@ internal static class PaneTextWaiter
             // Taken before the read, so output arriving during the read wakes
             // the next sleep instead of being slept through.
             object? signal = activity.CaptureSignal(pane);
-            PaneRead read;
+            PaneRead? read = null;
             try
             {
                 read = await PaneReader.ReadSinceAsync(pane, cursor, fail, control, cancellationToken)
                     .ConfigureAwait(false);
+            }
+            catch (Exception error) when (PaneReader.IsUnstable(error))
+            {
+                // Judged at the pane's next output instead; see the entry read.
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
@@ -108,22 +132,25 @@ internal static class PaneTextWaiter
                 throw;
             }
 
-            cursor = PaneCursor.Build(pane, read.State, read.CursorRows);
-            if (read.Lines.Count > 0 && classify(read.Lines, false) is { } verdict)
+            if (read is not null)
             {
-                return (verdict.Outcome, verdict.Match, elapsed.Elapsed);
-            }
+                cursor = PaneCursor.Build(pane, read.State, read.CursorRows);
+                if (read.Lines.Count > 0 && classify(read.Lines, false) is { } verdict)
+                {
+                    return (verdict.Outcome, verdict.Match, elapsed.Elapsed);
+                }
 
-            if (read.State.Dead)
-            {
-                return (PaneWaitOutcome.PaneExited, null, elapsed.Elapsed);
-            }
+                if (read.State.Dead)
+                {
+                    return (PaneWaitOutcome.PaneExited, null, elapsed.Elapsed);
+                }
 
-            // A full-screen program repaints rather than appending, so "what is
-            // new" stops meaning anything.
-            if (!alternate && read.State.AlternateScreen)
-            {
-                return (PaneWaitOutcome.AlternateScreen, null, elapsed.Elapsed);
+                // A full-screen program repaints rather than appending, so
+                // "what is new" stops meaning anything.
+                if (!alternate && read.State.AlternateScreen)
+                {
+                    return (PaneWaitOutcome.AlternateScreen, null, elapsed.Elapsed);
+                }
             }
 
             // Checked after the read, so output that woke the last sleep as
@@ -133,7 +160,7 @@ internal static class PaneTextWaiter
                 return (PaneWaitOutcome.TimedOut, null, elapsed.Elapsed);
             }
 
-            progress?.Invoke(elapsed.Elapsed, read.Lines.Count > 0 ? read.Lines[^1] : string.Empty);
+            progress?.Invoke(elapsed.Elapsed, read is { Lines.Count: > 0 } ? read.Lines[^1] : string.Empty);
             await activity.WaitForActivityAsync(
                     pane.Id.ToString(),
                     signal,
@@ -172,6 +199,23 @@ internal static class PaneTextWaiter
             {
                 read = await PaneReader.ReadVisibleAsync(pane, pid, fail, control, cancellationToken)
                     .ConfigureAwait(false);
+            }
+            catch (Exception error) when (PaneReader.IsUnstable(error))
+            {
+                // A pane busy through every attempt is judged at its next
+                // output: the signal taken before the read has already fired.
+                if (budget - elapsed.Elapsed <= TimeSpan.Zero)
+                {
+                    return (PaneWaitOutcome.TimedOut, elapsed.Elapsed);
+                }
+
+                await activity.WaitForActivityAsync(
+                        pane.Id.ToString(),
+                        signal,
+                        budget - elapsed.Elapsed,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
             }
             catch (Exception error) when (pid is null
                 && error is not OperationCanceledException and not TmuxPaneException)
