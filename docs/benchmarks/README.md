@@ -68,7 +68,7 @@ Turn the result into a record:
 
 ```console
 $ uv run python eng/benchmarks/record_modes.py \
-    --report artifacts/benchmarks/results/LibTmux.Benchmarks.ModeBenchmarks-report-full.json \
+    --report artifacts/benchmarks/results/*ModeBenchmarks-report-full.json \
     --tmux-version 3.7b \
     --collected 2026-08-16 \
     --out docs/benchmarks/runs
@@ -132,7 +132,7 @@ BenchmarkDotNet JSON and run log. On a committed tree, record them together:
 
 ```console
 $ python3 eng/benchmarks/record_modes.py \
-    --report artifacts/benchmarks/mode-workload/results/LibTmux.Benchmarks.ModeWorkloadBenchmarks-report-full.json \
+    --report artifacts/benchmarks/mode-workload/results/*-report-full.json \
     --tmux-version 3.7d \
     --collected 2026-09-27 \
     --out docs/benchmarks/runs
