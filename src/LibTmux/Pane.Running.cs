@@ -16,7 +16,9 @@ public sealed partial class Pane
     /// <param name="timeout">How long to wait for it.</param>
     /// <param name="cancellationToken">
     /// Stops waiting. A command already sent keeps running, so cancelling then raises
-    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />.
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />,
+    /// which <see cref="Task.Wait()" /> and F#'s <c>Async.AwaitTask</c> replace with a bare
+    /// <see cref="TaskCanceledException" />.
     /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <inheritdoc cref="RunAsync(PaneRunRequest, CancellationToken)" path="/remarks" />
@@ -35,7 +37,9 @@ public sealed partial class Pane
     /// <param name="request">The command and how long to wait.</param>
     /// <param name="cancellationToken">
     /// Stops waiting. A command already sent keeps running, so cancelling then raises
-    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />.
+    /// <see cref="LibTmuxException" /> saying it may have run, not <see cref="OperationCanceledException" />,
+    /// which <see cref="Task.Wait()" /> and F#'s <c>Async.AwaitTask</c> replace with a bare
+    /// <see cref="TaskCanceledException" />.
     /// </param>
     /// <returns>The exit status and what the command printed.</returns>
     /// <remarks>

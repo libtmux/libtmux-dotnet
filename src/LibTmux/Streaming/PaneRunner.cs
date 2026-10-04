@@ -233,6 +233,9 @@ internal static class PaneRunner
             catch (TmuxOperationCanceledException error)
                 when (dispatch.PayloadMayHaveReachedTmux && error.CommandMayHaveExecuted)
             {
+                // Raised as a failure, not a cancellation: a cancelled task
+                // reaches Task.Wait and Async.AwaitTask callers as a bare
+                // TaskCanceledException that no longer says the command may run.
                 throw new LibTmuxException(
                     "The command may have reached tmux before cancellation. Do not retry "
                     + "until you inspect the pane.",

@@ -464,8 +464,8 @@ module internal GuideSnippets =
                 | PaneRun.TimedOut -> return "still running after five minutes"
             with
             // Cancelled or lost once the command was sent: it may be running.
-            // Matched first, because that cancellation is also an
-            // OperationCanceledException.
+            // Matched first, because it also matches a tmux client cancelled
+            // after it started, which is an OperationCanceledException.
             | TmuxFailure.MayHaveRun _ -> return "may have run; read the pane before trying again"
             // Cancelled before anything reached the pane: nothing ran.
             | :? OperationCanceledException -> return "cancelled before it was sent"
