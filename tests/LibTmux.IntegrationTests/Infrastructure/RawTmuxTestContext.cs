@@ -155,6 +155,8 @@ internal sealed class RawTmuxTestContext : IAsyncDisposable
 
             await Task.Delay(TimeSpan.FromMilliseconds(5), cancellationToken);
         }
+
+        throw new TimeoutException("The tmux server neither served nor went away.");
     }
 
     internal ProcessStartInfo CreateStartInfo(
