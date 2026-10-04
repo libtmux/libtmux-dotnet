@@ -222,8 +222,8 @@ public sealed partial class Server
     /// <returns>The open wait, which must be disposed to withdraw it.</returns>
     /// <remarks>
     /// Prefer this to <see cref="WaitForAsync" /> whenever the wait has a
-    /// deadline. Cancelling a waiting <c>wait-for</c> kills its client while
-    /// tmux keeps the registration, and that registration eats the next signal.
+    /// deadline. Cancelling a waiting <c>wait-for</c> kills its client, and tmux
+    /// before 3.8 keeps the registration, which takes the next signal.
     /// </remarks>
     [UnsupportedOSPlatform("windows")]
     public TmuxWaitChannel OpenWaitChannel(string channel) => new(this, channel);
