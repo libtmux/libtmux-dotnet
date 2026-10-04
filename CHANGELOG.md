@@ -12,13 +12,173 @@ version.
 
 ### Added
 
+- `Pane.Active`, `Dead`, `DeadStatus`, `InMode`, `ProcessId`, `Synchronized`,
+  `HistorySize`, `Tty` and `StartCommand`, and `Window.Active`, `Zoomed`,
+  `Flags`, `BellAlert`, `ActivityAlert` and `SilenceAlert`, read pane and
+  window state; queries filter on them, and on `Window.Layout`, through tmux.
+  `LibTmux.FSharp` adds the matching `PaneFields` and `WindowFields`. (#53)
+- `LibTmux.FSharp.Pane.sendLine`, `Pane.sendText` and `Pane.pressKey` type a
+  line, type text, and press one key by its tmux name, without building a
+  `SendKeysRequest`. (#53)
+- `Session.GetActivePaneAsync` and `Window.GetActivePaneAsync` read the pane a
+  session or window shows, and `LibTmux.FSharp.Session.activePane` and
+  `Window.activePane` do the same from F#. (#53)
+- `LibTmux.FSharp.PaneRun.Exited`, `Ended`, `NotStarted` and `TimedOut` match
+  how a `Pane.run` ended, and `PaneWait.Found`, `Printed`, `Stopped`, `TimedOut`
+  and `Ended` how a wait did, so a match that leaves an ending out draws a
+  compiler warning. (#53)
+- `Pane.ReadOutputSinceAsync` and `LibTmux.FSharp.Pane.readSince` read what a
+  pane printed since a position the last read returned, as the MCP server's
+  `capture_since` does. (#53)
+- `LibTmux.FSharp.SessionSpec.running` describes a session whose one window
+  runs a command, for `Server.newSession`. (#53)
+- `LibTmux.FSharp.Session.rename`, `kill` and `newWindow`, `Window.rename`,
+  `select`, `kill`, `selectLayout`, `resize` and `move`, and `Pane.select`,
+  `kill`, `setTitle`, `resize`, `swap`, `respawn` and `clearHistory` act on a
+  handle at the end of a pipe, one for each session, window and pane
+  operation the MCP server offers, without naming the token as the core
+  methods' optional parameters require. (#53)
+- `LibTmux.FSharp.TmuxAsync.awaitTask` and `awaitUnitTask` await a call in an
+  `async` workflow and raise a tmux client cancelled after it may have acted as
+  itself, so `TmuxFailure.MayHaveRun` still matches it where `Async.AwaitTask`
+  raises a bare `TaskCanceledException`. (#53)
+- `Session.HoldWaitClientAsync` and `LibTmux.FSharp.Session.holdWaitClient`
+  keep the control client a session's pane waits use attached, so a series of
+  waits attaches it once. (#53)
+- `LibTmux.FSharp.PaneWatch.Output`, `Paused`, `Continued`, `Dropped`, `Gone`
+  and `Exited` match what `Control.watchPane` and `Control.watchPanes` yield,
+  so a match that leaves out a loss report draws a compiler warning. (#53)
+- `LibTmux.FSharp.Mirror.tryWaitUntil` returns `None` when no view matches in
+  time, where `Mirror.waitUntil` raises. (#53)
+- `LibTmux.FSharp.Retry.ifNotSentAfter` retries unsent work after each of a
+  list of delays, for a server still starting. (#53)
+- `LibTmux.FSharp.Server.createOwned` and `Server.connect` start and attach to
+  a server without qualifying the core `LibTmux.Server` type. (#53)
+- The MCP server's `list_panes`, `list_windows` and `snapshot_pane` advertise
+  `anthropic/alwaysLoad`, so a client that defers tool schemas keeps them
+  loaded. (#53)
+- Every optional parameter the MCP server advertises says what omitting it
+  does, such as acting on the pane the first session shows, or using the
+  server's line and wait limits. (#53)
+
 ### Fixed
 
+- **`Server.CreateOwnedAsync` refuses the default socket while a server is
+  listening there.** It took that server over and stopped it when the scope
+  was disposed. Give an owned server a socket of its own, or use
+  `ConnectAsync` to attach without owning it. When tmux cannot say whether a
+  server listens, such as on a socket it may not open, the call raises
+  `TmuxCommandException`. (#53)
+- `Server.CreateOwnedAsync` stops a server it started when it then fails or
+  is cancelled; it left the server running with nothing to stop it. (#53)
+- `OwnedServerScope.DisposeAsync` stops the server when called again after a
+  failed attempt, and a call made while another is stopping it waits for that
+  stop and its outcome; both returned at once. (#53)
+- `ServerMirror` publishes a view only when something changed: client activity
+  times and write counts, the saved cursor, window offsets and
+  synchronized-output toggles no longer count. (#53)
+- `ServerMirror` attaches a new control client when its client is killed
+  without `%exit`, and tries a failed attach again; it ended instead. (#53)
+- **`PaneObservation.WatchAsync`, `LibTmux.FSharp.Control.watchPane` and
+  `Control.watchPanes` raise `ArgumentException` for a pane outside the
+  control client's session, and `InvalidOperationException` when a watched
+  pane's window moves to another session.** tmux sends that pane's output to
+  no client of another session, so the watch waited until cancelled. Attach
+  the control client to the pane's session. (#53)
+- An MCP tool called without `paneId` or `windowId` acts on the pane or
+  window the first session shows. It took the first window's active pane,
+  so in a session showing a later window, `send_keys` and
+  `run_shell_command` typed into a pane nobody was looking at. (#53)
+- A pane wait, and the MCP server's `wait_for_text`, over a pane that keeps
+  changing, such as one redrawing a progress bar, reads it again until a read
+  holds still or the time runs out; it failed at once, saying the pane
+  changed during every snapshot attempt. (#53)
+- `Pane.RunAsync`, `LibTmux.FSharp.Pane.run` and the MCP server's
+  `run_shell_command` end within five seconds when the pane's program exits
+  mid-run, with `PaneRunResult.PaneExited` set (`PaneRun.Ended` from F#,
+  `paneExited` from the MCP server), and with the exit status when the
+  command recorded one but its completion signal was lost. They waited out
+  the timeout, then reported a timeout, or raised a `LibTmuxException`
+  saying the pane was running a different process. (#53)
+- The `LibTmux.FSharp.TmuxFailure` patterns match a failure that
+  `Async.AwaitTask` or `Task.Wait` wrapped in an `AggregateException`. In an
+  `async` workflow they matched nothing, so a command that may have run fell
+  through to whatever caught the rest. (#53)
+- The MCP server detaches every control client it attached when it shuts
+  down. A client that had already failed stopped it detaching the rest. (#53)
+- A `TmuxOptionException` for an option command tmux refused, a value that
+  does not parse as its key's type, or no value reported has
+  `Dispatch = Dispatched`, so `LibTmux.FSharp.TmuxFailure.Ran` matches it. It
+  said `Unknown`, which `MayHaveRun` matched. (#53)
+- `Pane.RunAsync` and `LibTmux.FSharp.Pane.run` refusing a pane that is not
+  waiting at a shell raise `TmuxPaneException` with
+  `Dispatch = NotDispatched`, so `TmuxFailure.NotSent` matches it. It said
+  `Unknown`, which `MayHaveRun` matched as though the command might have
+  run. (#53)
+- A command sent where no tmux server listens fails with
+  `Dispatch = NotDispatched`, so `LibTmux.FSharp.TmuxFailure.NotSent` matches
+  it and `Retry.ifNotSentAfter` retries it while a server starts. It said
+  `Dispatched`, and no retry repeated it. (#53)
+- Pane waits, and the MCP server's `wait_for_text` and `capture_since`, no
+  longer miss a shell's new output once the pane's history reaches nine
+  tenths of `history-limit`; from 1,800 lines of tmux's default 2,000 a wait
+  timed out and a read found nothing new until tmux first freed history. (#53)
+- `PaneObservation.WatchAsync` and `LibTmux.FSharp.Control.watchPanes` check
+  which watched panes remain with one tmux command after a layout change,
+  where they sent one per pane and could fall far enough behind to drop
+  events. (#53)
+- A typed filter comparing with a number beyond plus or minus 2^53 is checked
+  locally only; tmux read it inexactly, so `Width < long.MaxValue` returned
+  no panes. (#53)
+- `ServerConnectionOptions.CommandTimeout` no longer ends a `WaitForAsync`
+  wait or lock, or an `OpenWaitChannel` wait. tmux kept the ended client's
+  place, so before tmux 3.7a a queued lock went to it for good. (#53)
+- `RunShellRequest.Delay` keeps its fraction of a second; half a second ran
+  at once. (#53)
+- A failed command with the text `has-session` among its arguments, such as
+  `send-keys -l has-session`, no longer reports tmux's error as its output.
+  (#53)
+- Package pages on nuget.org no longer open with the logo's HTML shown as
+  text. (#53)
+
 ### Changed
+
+- **A pane wait on a pane tmux no longer has raises
+  `TmuxObjectNotFoundException`, as `Pane.RunAsync` does.** It raised
+  `TmuxCommandException` from `capture-pane`, where `TmuxPaneException` was
+  documented. Catch `TmuxObjectNotFoundException` for a pane that is gone;
+  `TmuxPaneException` still means its program had already exited. (#53)
+- Pane waits read the pane through the control client they attach rather than
+  starting tmux processes, so a wait for output already printed takes about
+  half as long and allocates less than half as much. (#53)
+- **`LibTmux.FSharp.SplitSpec.Size` is a `SplitSize option`.** A string read
+  as cells, or with a percent sign as a share, became `SplitSize.Cells` and
+  `SplitSize.Percent`: write `Some(SplitSize.Percent 50)` for `Some "50%"`
+  and `Some(SplitSize.Cells 20)` for `Some "20"`. `Server.newSession` raises
+  `ArgumentOutOfRangeException` for fewer than one cell or a share outside 1
+  to 100 before it creates anything. (#53)
+- **Reading a control client's events while another reader is reading throws
+  `InvalidOperationException`.** Two readers each received part of the
+  stream. Open another control client to read independently. (#53)
 
 ### Removed
 
 ### Development
+
+- F# benchmark records state whether the host was a virtual machine, how many
+  cores the run could use, the CPU governor and the load averages. (#53)
+- `FSharpMirrorBenchmarks` measures what one tmux change costs a live mirror,
+  against the capture each rebuild performs. (#53)
+- `FSharpPaneFloodBenchmarks` measures reading a pane's output flood through
+  a real control client, by hand and through `Control.watchPane`. (#53)
+- `FSharpWaitLatencyBenchmarks` measures `Pane.sendAndWait` and `Pane.run`
+  against polling the screen every 50 ms, for output printed at once and
+  after a delay, with and without a held control client. (#53)
+- The `benchmarks` workflow fails a run in which pushdown is less than three
+  times as fast as listing everything or allocates no less, in which a rename
+  seen through a mirror costs more than 1.65 captures, or in which reading a
+  pane's flood through `Control.watchPane` costs more than 1.6 times reading
+  it by hand. (#53)
 
 ## [0.0.0-alpha.18] — 2026-10-03
 
