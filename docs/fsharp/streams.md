@@ -57,8 +57,8 @@ let readPaneUntilAsync
                         return StreamStep.Stop output
                     else
                         return StreamStep.Continue output
-                // Output tmux held back or the buffer dropped never arrives;
-                // capture the pane to read what the screen shows instead.
+                // Held-back or dropped output never arrives; capture the
+                // pane to read the screen.
                 | PaneWatch.Paused _
                 | PaneWatch.Continued _
                 | PaneWatch.Dropped _ -> return StreamStep.Continue output

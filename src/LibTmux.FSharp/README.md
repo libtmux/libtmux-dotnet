@@ -40,7 +40,8 @@ let runInShellAsync
     (server: Server)
     =
     task {
-        // List and filter: tmux narrows the listing, then every row is rechecked.
+        // List and filter: tmux narrows the listing, then each row is
+        // rechecked.
         let! shells =
             server
             |> Server.panes

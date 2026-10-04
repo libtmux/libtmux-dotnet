@@ -42,7 +42,8 @@ module internal GuideSnippets =
         (server: Server)
         =
         task {
-            // List and filter: tmux narrows the listing, then every row is rechecked.
+            // List and filter: tmux narrows the listing, then each row is
+            // rechecked.
             let! shells =
                 server
                 |> Server.panes
@@ -168,7 +169,7 @@ module internal GuideSnippets =
         let isEditor: Pane -> bool = Filter.toPredicate editor
         let firstEditor: Pane option = panes |> List.tryFind isEditor
 
-        // A relation filter reads captured children; its document says how deep.
+        // A relation filter reads captured children; its document says how far.
         let hasEditor: Filter<Session> =
             editor
             |> Filter.any WindowFields.panes
@@ -351,8 +352,8 @@ module internal GuideSnippets =
                             return StreamStep.Stop output
                         else
                             return StreamStep.Continue output
-                    // Output tmux held back or the buffer dropped never arrives;
-                    // capture the pane to read what the screen shows instead.
+                    // Held-back or dropped output never arrives; capture the
+                    // pane to read the screen.
                     | PaneWatch.Paused _
                     | PaneWatch.Continued _
                     | PaneWatch.Dropped _ -> return StreamStep.Continue output
@@ -483,8 +484,8 @@ module internal GuideSnippets =
                         ]
                 )
 
-            // Creates the session, its windows and panes, and sends each pane its
-            // commands once its shell is ready.
+            // Creates the session, its windows and panes, then sends each pane
+            // its commands once its shell is ready.
             let! built =
                 WorkspaceBuilder(server)
                     .BuildAsync(description, cancellationToken)
@@ -710,11 +711,10 @@ module internal GuideSnippets =
             let entries = Dictionary<int, string>()
             entries[3] <- "display-message fsharp-hook"
 
-            let! hook =
-                server.Hooks.SetAsync(
-                    SetHooksRequest("alert-bell", entries, ClearExisting = true),
-                    cancellationToken
-                )
+            let request =
+                SetHooksRequest("alert-bell", entries, ClearExisting = true)
+
+            let! hook = server.Hooks.SetAsync(request, cancellationToken)
 
             let! _ =
                 session.Environment.SetAsync(
@@ -974,7 +974,7 @@ module internal GuideSnippets =
     open System.Threading.Tasks
     open LibTmux
 
-    /// Lets one task at a time type into a pane, run in it, or wait on what it typed.
+    /// Lets one task at a time type into a pane, run in it, or wait on it.
     type PaneGate() =
         let gates = ConcurrentDictionary<PaneId, SemaphoreSlim>()
 
