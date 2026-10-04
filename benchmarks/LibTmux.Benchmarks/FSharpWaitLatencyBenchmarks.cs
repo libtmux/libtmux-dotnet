@@ -12,9 +12,11 @@ namespace LibTmux.Benchmarks;
 /// sleeps on the pane's output through a control client it attaches for the
 /// wait. The polling route captures the screen every 50 ms until the output
 /// shows, as Python libtmux's <c>retry_until</c> does by default, since Python
-/// libtmux has no wait of its own; output already there is its best case. The
-/// marker is assembled by <c>printf</c>, so the typed command's echo cannot
-/// match it.
+/// libtmux has no wait of its own; output already there is its best case. A
+/// delayed command sleeps 0 to 40 ms longer in turn, so the polls land at
+/// every point of their interval rather than the same point each time, as
+/// they do against output nothing synchronizes with them. The marker is
+/// assembled by <c>printf</c>, so the typed command's echo cannot match it.
 /// </remarks>
 [UnsupportedOSPlatform("windows")]
 [MemoryDiagnoser]
@@ -29,7 +31,7 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
     private Pane _pane = null!;
     private int _marks;
 
-    /// <summary>How long the command sleeps before printing, in milliseconds.</summary>
+    /// <summary>How long the command sleeps before printing, in milliseconds, before the spread.</summary>
     [Params(0, 250)]
     public int DelayMs { get; set; }
 
@@ -107,6 +109,8 @@ public class FSharpWaitLatencyBenchmarks : IAsyncDisposable
     // The echo shows the format and the number apart; only printf's output
     // joins them into the marker.
     private string Command(string marker) =>
-        (DelayMs == 0 ? "" : string.Create(CultureInfo.InvariantCulture, $"sleep {DelayMs / 1000.0:0.###}; "))
+        (DelayMs == 0
+            ? ""
+            : string.Create(CultureInfo.InvariantCulture, $"sleep {(DelayMs + _marks % 5 * 10) / 1000.0:0.###}; "))
         + $"printf '%s-done\\n' {marker[..marker.LastIndexOf('-')]}";
 }
