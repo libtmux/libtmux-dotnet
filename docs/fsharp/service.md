@@ -84,8 +84,8 @@ repeats nothing; `Retry.ifNotSent` and `Retry.ifNotSentAfter` retry exactly
 that case. After `Ran` or `MayHaveRun`, read the state back before deciding,
 and never send a mutation, keys or a run again blindly. The library does not
 retry on its own. In an `async` workflow, await with `TmuxAsync.awaitTask`:
-`Async.AwaitTask` turns a tmux client cancelled after it started into a bare
-`TaskCanceledException`, which `MayHaveRun` cannot match.
+`Async.AwaitTask` turns a tmux client cancelled after it may have acted into a
+bare `TaskCanceledException`, which `MayHaveRun` cannot match.
 
 This program meets each kind on a real server, and retries only the unsent
 one:
