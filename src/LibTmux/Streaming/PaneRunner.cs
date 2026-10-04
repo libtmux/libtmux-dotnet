@@ -36,7 +36,8 @@ internal readonly record struct PaneRunRoute(string TmuxBinaryPath, string Socke
         {
             throw new TmuxPaneException(
                 $"Pane {pane.Id} cannot run a command: the tmux executable '{binary}' or the pane's socket has no absolute path.",
-                pane.Id);
+                pane.Id,
+                TmuxDispatchState.NotDispatched);
         }
 
         return new PaneRunRoute(resolved, socket, pane.Id);
@@ -153,7 +154,10 @@ internal static class PaneRunner
         {
             if (route.PaneId != pane.Id)
             {
-                throw new TmuxPaneException($"The run route belongs to pane {route.PaneId}, not {pane.Id}.", pane.Id);
+                throw new TmuxPaneException(
+                    $"The run route belongs to pane {route.PaneId}, not {pane.Id}.",
+                    pane.Id,
+                    TmuxDispatchState.NotDispatched);
             }
 
             long? daemonProcessStart = CaptureDaemonProcessStart(pane.Generation);

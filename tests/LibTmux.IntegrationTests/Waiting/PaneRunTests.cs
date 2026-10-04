@@ -133,7 +133,7 @@ public sealed class PaneRunTests
         TmuxPaneException refusal = await Assert.ThrowsAsync<TmuxPaneException>(
             () => busy.RunAsync("echo never", Allowed, token));
 
-        Assert.Equal(busy.Id, refusal.PaneId);
+        Assert.Equal((busy.Id, TmuxDispatchState.NotDispatched), (refusal.PaneId, refusal.Dispatch));
         RawTmuxResult buffers = await raw.ExecuteAsync(["list-buffers"], token);
         Assert.Empty(buffers.StandardOutputLines);
     }

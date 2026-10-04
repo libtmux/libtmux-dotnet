@@ -80,7 +80,8 @@ public sealed partial class Pane
         {
             throw new TmuxPaneException(
                 $"Pane {Id} cannot run a command: it is running '{command}' or is in a mode, not waiting at a POSIX shell.",
-                Id);
+                Id,
+                TmuxDispatchState.NotDispatched);
         }
 
         PaneRunOutcome outcome = await PaneRunner
