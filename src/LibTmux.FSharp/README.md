@@ -68,9 +68,10 @@ line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
 the lines the command printed, and `PaneRun.Exited` matches a command that
-exited, with its status. `server` comes from
-`Server.connect` for a tmux already running, or from `Server.createOwned`,
-which the quick start below uses to run these steps on an isolated server.
+exited, with its status. `server` comes from `Server.createOwned`, which the
+quick start below uses to run these steps on an isolated server. Pass a server
+from `Server.connect` only with care: the sample types into the first shell it
+finds, and on a tmux already running that may be the terminal you are reading.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
 uses .NET SDK 10 and tmux 3.2a through 3.7c on Linux or macOS. The package
@@ -145,7 +146,7 @@ targets `net8.0` and `net10.0`.
   when the program exits, and raises `TmuxPaneException` if it already had.
   [Which wait](https://github.com/libtmux/libtmux-dotnet/blob/master/docs/fsharp/getting-started.md#which-wait)
   compares them and their `PaneWait` outcomes.
-- **Runs:** `Pane.run` needs a POSIX shell prompt.
+- **Runs:** `Pane.run` needs a POSIX shell prompt; it refuses fish, PowerShell and a REPL.
 - **Bounds:** a handle from `Server.within` shares its bound with the
   sessions, windows and panes taken from it.
 - **Live state:** `Mirror.start` returns a mirror to `use!`.
@@ -270,6 +271,10 @@ The [quickstart source](https://github.com/libtmux/libtmux-dotnet/blob/master/ex
 is the published block. CI restores only `LibTmux.FSharp` as a direct package
 reference from freshly packed artifacts, runs this program against real tmux
 on both target frameworks, and compares what it prints with the block above.
+To build that project from a checkout, pack first and restore with an empty
+package cache, as [CONTRIBUTING](https://github.com/libtmux/libtmux-dotnet/blob/master/.github/CONTRIBUTING.md)
+shows: it compiles against the packages the checkout would publish, and an
+older pack of the same version fails with missing functions.
 
 ## Existing tmux
 
