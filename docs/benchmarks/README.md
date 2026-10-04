@@ -1,7 +1,9 @@
 # Benchmarks
 
 Recorded runs, each naming the tmux, host, runtime and commit that produced it.
-Nothing here is a promise about your machine.
+Nothing here is a promise about your machine. A record is dated by the UTC
+day it was collected on, so an evening run in the Americas carries the next
+day's date.
 
 ## Runs
 
