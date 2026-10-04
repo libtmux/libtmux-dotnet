@@ -8,6 +8,10 @@ namespace LibTmux;
 /// </remarks>
 /// <example>
 /// <code>
+/// try
+/// {
+///     await server.GetSessionsAsync(ct);
+/// }
 /// catch (LibTmuxException error)
 ///     when (error.Dispatch == TmuxDispatchState.NotDispatched)
 /// {
