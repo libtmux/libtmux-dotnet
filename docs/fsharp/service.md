@@ -134,12 +134,12 @@ let runAsync () =
         let! history = session.Options |> Options.get token TmuxOptionKey.HistoryLimit
         printfn "history-limit: %d" history
 
-        // No tmux program to start, so no command reached a server.
+        // No server listens on this socket, so no command reached one.
         let missing =
-            ServerConnectionOptions(SocketName = socket, TmuxBinaryPath = "/nonexistent/tmux")
+            ServerConnectionOptions(SocketName = socket + "-none", ConfigurationFile = "/dev/null")
 
         let! notSent = kind (fun () -> missing |> Server.connect token :> Task)
-        printfn "A tmux that cannot start: %s" notSent
+        printfn "A server that is not running: %s" notSent
 
         // tmux ran the command and refused it.
         let refuse (cancellationToken: CancellationToken) =
@@ -160,7 +160,8 @@ let runAsync () =
 
         printfn "A run cancelled after it was sent: %s" mayHaveRun
 
-        // Retry sends again only while nothing reached tmux.
+        // Retry sends again only while nothing reached tmux, as while a
+        // server is still starting.
         let delays = [ TimeSpan.FromMilliseconds 10.; TimeSpan.FromMilliseconds 20. ]
         let attempts = ref 0
 
@@ -187,7 +188,7 @@ It prints:
 <!-- fsharp-output: FailureKinds -->
 ```text
 history-limit: 50000
-A tmux that cannot start: NotSent
+A server that is not running: NotSent
 A value tmux refuses: Ran
 A run cancelled after it was sent: MayHaveRun
 Retried while NotSent: 3 attempts, then NotSent
