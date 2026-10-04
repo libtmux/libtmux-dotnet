@@ -2,6 +2,7 @@ namespace LibTmux.FSharp
 
 open System
 open System.Collections.Generic
+open System.Globalization
 open System.Threading
 open LibTmux
 open LibTmux.Query
@@ -42,7 +43,14 @@ module Server =
                             Direction = Option.toNullable split.Direction,
                             Command = Option.toObj split.Command,
                             StartDirectory = Option.toObj split.Directory,
-                            Size = Option.toObj split.Size,
+                            Size =
+                                (match split.Size with
+                                 | Some(SplitSize.Cells cells) -> cells.ToString(CultureInfo.InvariantCulture)
+                                 | _ -> null),
+                            Percentage =
+                                (match split.Size with
+                                 | Some(SplitSize.Percent percent) -> Nullable percent
+                                 | _ -> Nullable()),
                             Environment = environment split.Environment
                         ),
                         cancellationToken
@@ -74,6 +82,16 @@ module Server =
                 )
             )
         | _ -> ()
+
+        // Checked before anything is created, so a bad size cannot leave half a session behind.
+        for window in spec.Windows do
+            for split in window.Splits do
+                match split.Size with
+                | Some(SplitSize.Cells cells) when cells < 1 ->
+                    raise (ArgumentOutOfRangeException(nameof spec, cells, "A split's size in cells is at least 1."))
+                | Some(SplitSize.Percent percent) when percent < 1 || percent > 100 ->
+                    raise (ArgumentOutOfRangeException(nameof spec, percent, "A split's share runs from 1 to 100."))
+                | _ -> ()
 
         backgroundTask {
             let! session =

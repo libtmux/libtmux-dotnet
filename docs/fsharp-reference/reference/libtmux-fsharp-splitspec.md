@@ -22,7 +22,7 @@ The command the pane runs instead of the default shell.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L12)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L23)
 
 <a name="Direction"></a>
 
@@ -32,7 +32,7 @@ Where the new pane goes, beside the pane before it; tmux puts it below when None
 
 Field type: <code><span>PaneDirection&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L10)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L21)
 
 <a name="Directory"></a>
 
@@ -42,7 +42,7 @@ The pane's working directory.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L14)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L25)
 
 <a name="Environment"></a>
 
@@ -52,14 +52,14 @@ Variables added to the pane's environment.
 
 Field type: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-collections-fsharpmap-2">Map</a>&lt;<span>string,&#32;string</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L18)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L29)
 
 <a name="Size"></a>
 
 #### <code>Size</code>
 
-The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None.
+The pane&#39;s size, such as <code>SplitSize.Cells 20</code> or <code>SplitSize.Percent 30</code>; tmux splits in half when None.
 
-Field type: <code><span>string&#32;option</span></code>
+Field type: <code><span><a href="../reference/libtmux-fsharp-splitsize.md">SplitSize</a>&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L16)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L27)

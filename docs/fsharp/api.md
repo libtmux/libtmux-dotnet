@@ -20,7 +20,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Fields to filter on | [`PaneFields.currentCommand`](#panefields), [`WindowFields.name`](#windowfields), [`SessionFields.name`](#sessionfields) | [PaneFields](#panefields), [WindowFields](#windowfields), [SessionFields](#sessionfields), [ClientFields](#clientfields) |
 | Pick one match, or panes showing text | [`Query.exactlyOne`](#query), [`Query.atMostOne`](#query), [`Query.showing`](#query), [`Server.tryFindPane`](#server) | [Selection](#selection), [CardinalityError](#cardinalityerror), [ScreenSearch](#screensearch) |
 | Start or attach to a server | [`Server.createOwned`](#server), [`Server.connect`](#server), [`Server.within`](#server) | [Server](#server), [Options](#options) |
-| Describe sessions, windows and splits | [`Server.newSession`](#server), [`SessionSpec.named`](#sessionspec), [`WindowSpec.named`](#windowspec), [`SplitSpec.empty`](#splitspec) | [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec) |
+| Describe sessions, windows and splits | [`Server.newSession`](#server), [`SessionSpec.named`](#sessionspec), [`WindowSpec.named`](#windowspec), [`SplitSpec.empty`](#splitspec) | [SessionSpec](#sessionspec), [WindowSpec](#windowspec), [SplitSpec](#splitspec), [SplitSize](#splitsize) |
 | Split panes and find the active one | [`Pane.split`](#pane), [`Session.activePane`](#session), [`Window.activePane`](#window) | [Session](#session), [Window](#window), [WindowPlacementKey](#windowplacementkey) |
 | Type into a pane | [`Pane.sendLine`](#pane), [`Pane.sendKeys`](#pane), [`Pane.pressKey`](#pane) | [Pane](#pane), [Chain](#chain) |
 | Wait, run and read results | [`Pane.sendAndWait`](#pane), [`Pane.waitForText`](#pane), [`Pane.run`](#pane), [`Pane.capture`](#pane) | [PaneWait](#panewait), [PaneRun](#panerun) |
@@ -312,6 +312,15 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `val relation: relation: CapturedRelation<'T> -> CaptureState<IReadOnlyList<'T>>` | Distinguishes captured children from an unread relation. |
 | `val value: value: CapturedValue<'T> -> CaptureState<'T> when 'T: not struct and 'T: not null` | Distinguishes a captured child from an unread value. |
 
+## SplitSize
+
+| Signature | Summary |
+|---|---|
+| `Cells of cells: int` | A number of cells: columns for a split beside, rows for one above or below; at least 1. |
+| `SplitSize` | How much of the space split a new pane takes. |
+| `Percent of percent: int` | A share of the space split, from 1 to 100. |
+| `override ToString: unit -> string` | Names the size, such as "20 cells" or "50%", without formatting through printf. |
+
 ## SplitSpec
 
 | Signature | Summary |
@@ -321,7 +330,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `Directory: string option` | The pane's working directory. |
 | `Environment: Map<string,string>` | Variables added to the pane's environment. |
 | `SplitSpec` | Describes a pane split off the pane created before it. |
-| `Size: string option` | The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None. |
+| `Size: SplitSize option` | The pane's size, such as SplitSize.Cells 20 or SplitSize.Percent 30; tmux splits in half when None. |
 | `module SplitSpec` | Starts split descriptions. |
 | `override ToString: unit -> string` | Names the split by its command, without formatting through printf. |
 | `val empty: SplitSpec` | A split below the pane before it, running the default shell. |

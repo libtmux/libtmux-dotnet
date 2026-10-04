@@ -20,4 +20,4 @@ A named session with tmux's single default window.
 
 Returns: <code><a href="../reference/libtmux-fsharp-sessionspec.md">SessionSpec</a></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L68)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fs#L79)

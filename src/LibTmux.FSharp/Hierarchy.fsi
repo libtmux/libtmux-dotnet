@@ -64,8 +64,8 @@ module Server =
     /// </remarks>
     /// <returns>The session, read again after its windows and panes exist.</returns>
     /// <exception cref="T:System.ArgumentException">
-    /// The session and its first window name different directories, or the
-    /// first window sets an environment.
+    /// The session and its first window name different directories, the
+    /// first window sets an environment, or a split's size is out of range.
     /// </exception>
     /// <exception cref="T:LibTmux.TmuxSessionExistsException">The name is already taken.</exception>
     val newSession:

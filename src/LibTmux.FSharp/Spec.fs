@@ -1,16 +1,27 @@
 namespace LibTmux.FSharp
 
+open System.Globalization
 open LibTmux
 
 // Each spec spells out its own ToString: the one F# would generate goes
 // through FSharp.Core's reflection-based formatter, which NativeAOT rejects.
+
+[<RequireQualifiedAccess>]
+type SplitSize =
+    | Cells of cells: int
+    | Percent of percent: int
+
+    override this.ToString() =
+        match this with
+        | SplitSize.Cells cells -> cells.ToString(CultureInfo.InvariantCulture) + " cells"
+        | SplitSize.Percent percent -> percent.ToString(CultureInfo.InvariantCulture) + "%"
 
 type SplitSpec =
     {
         Direction: PaneDirection option
         Command: string option
         Directory: string option
-        Size: string option
+        Size: SplitSize option
         Environment: Map<string, string>
     }
 

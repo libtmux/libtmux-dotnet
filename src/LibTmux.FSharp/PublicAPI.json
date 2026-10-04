@@ -3988,6 +3988,30 @@
       "returnType": "LibTmux.FSharp.CaptureState<'T>"
     },
     {
+      "id": "M:LibTmux.FSharp.SplitSize.ToString",
+      "package": "LibTmux.FSharp",
+      "name": "ToString",
+      "declaringType": "T:LibTmux.FSharp.SplitSize",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "override ToString: Microsoft.FSharp.Core.unit -> Microsoft.FSharp.Core.string",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "Microsoft.FSharp.Core.unit -> Microsoft.FSharp.Core.string"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [
+        0
+      ],
+      "compiledName": "ToString",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Core.string"
+    },
+    {
       "id": "M:LibTmux.FSharp.SplitSpec.ToString",
       "package": "LibTmux.FSharp",
       "name": "ToString",
@@ -5056,13 +5080,13 @@
       "declaringType": "T:LibTmux.FSharp.SplitSpec",
       "visibility": "public",
       "kind": "field",
-      "signature": "Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option",
+      "signature": "LibTmux.FSharp.SplitSize Microsoft.FSharp.Core.option",
       "language": "F#",
       "implicitDeclaration": false,
       "accessor": false,
       "interfaces": [],
       "exposedTypes": [
-        "Microsoft.FSharp.Core.string Microsoft.FSharp.Core.option"
+        "LibTmux.FSharp.SplitSize Microsoft.FSharp.Core.option"
       ],
       "attributes": [],
       "parameters": [],
@@ -6414,6 +6438,78 @@
       "argumentGroups": [],
       "genericParameters": [],
       "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.SplitSize",
+      "package": "LibTmux.FSharp",
+      "name": "SplitSize",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "union",
+      "signature": "LibTmux.FSharp.SplitSize",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [
+        "System.Collections.IStructuralEquatable",
+        "System.IComparable<LibTmux.FSharp.SplitSize>",
+        "System.IComparable",
+        "System.Collections.IStructuralComparable"
+      ],
+      "exposedTypes": [
+        "LibTmux.FSharp.SplitSize"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
+    },
+    {
+      "id": "T:LibTmux.FSharp.SplitSize.Cells",
+      "package": "LibTmux.FSharp",
+      "name": "Cells",
+      "declaringType": "T:LibTmux.FSharp.SplitSize",
+      "visibility": "public",
+      "kind": "unionCase",
+      "signature": "Cells of cells: Microsoft.FSharp.Core.int",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "cells: Microsoft.FSharp.Core.int"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "caseIndex": 0
+    },
+    {
+      "id": "T:LibTmux.FSharp.SplitSize.Percent",
+      "package": "LibTmux.FSharp",
+      "name": "Percent",
+      "declaringType": "T:LibTmux.FSharp.SplitSize",
+      "visibility": "public",
+      "kind": "unionCase",
+      "signature": "Percent of percent: Microsoft.FSharp.Core.int",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "percent: Microsoft.FSharp.Core.int"
+      ],
+      "attributes": [],
+      "parameters": [],
+      "argumentGroups": [],
+      "caseIndex": 1
     },
     {
       "id": "T:LibTmux.FSharp.SplitSpec",

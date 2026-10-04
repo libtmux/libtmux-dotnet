@@ -164,7 +164,7 @@ FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
      ("Server", "Options")),
     ("Describe sessions, windows and splits",
      ("Server.newSession", "SessionSpec.named", "WindowSpec.named", "SplitSpec.empty"),
-     ("SessionSpec", "WindowSpec", "SplitSpec")),
+     ("SessionSpec", "WindowSpec", "SplitSpec", "SplitSize")),
     ("Split panes and find the active one",
      ("Pane.split", "Session.activePane", "Window.activePane"),
      ("Session", "Window", "WindowPlacementKey")),

@@ -548,10 +548,35 @@ module FailureTests =
                 Assert.ThrowsAsync<ArgumentException>(fun () ->
                     Server.newSession CancellationToken.None windowEnvironment server :> Task)
 
+            // A size tmux would refuse is refused before the session exists.
+            for size in [ SplitSize.Cells 0; SplitSize.Percent 101 ] do
+                let sized =
+                    { SessionSpec.named "dev" with
+                        Windows =
+                            [
+                                { WindowSpec.named "editor" with
+                                    Splits =
+                                        [
+                                            { SplitSpec.empty with
+                                                Size = Some size
+                                            }
+                                        ]
+                                }
+                            ]
+                    }
+
+                let! _ =
+                    Assert.ThrowsAsync<ArgumentOutOfRangeException>(fun () ->
+                        Server.newSession CancellationToken.None sized server :> Task)
+
+                ()
+
             Assert.Equal(
                 ("session dev", "window editor", "split running the default shell"),
                 (string conflicting, string conflicting.Windows[0], string SplitSpec.empty)
             )
+
+            Assert.Equal(("20 cells", "50%"), (string (SplitSize.Cells 20), string (SplitSize.Percent 50)))
         }
 
     [<Fact>]

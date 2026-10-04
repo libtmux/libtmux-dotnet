@@ -22,7 +22,7 @@ The command the first pane runs instead of the default shell.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L31)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L42)
 
 <a name="Directory"></a>
 
@@ -32,7 +32,7 @@ The first pane's working directory.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L33)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L44)
 
 <a name="Environment"></a>
 
@@ -42,7 +42,7 @@ Variables added to the first pane's environment; a session's first window takes 
 
 Field type: <code><span><a href="https://fsharp.github.io/fsharp-core-docs/reference/fsharp-collections-fsharpmap-2">Map</a>&lt;<span>string,&#32;string</span>&gt;</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L35)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L46)
 
 <a name="Name"></a>
 
@@ -52,7 +52,7 @@ The window's name; tmux names it after its command when None.
 
 Field type: <code><span>string&#32;option</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L29)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L40)
 
 <a name="Splits"></a>
 
@@ -62,4 +62,4 @@ The panes split off in order, each beside the pane before it.
 
 Field type: <code><span><a href="../reference/libtmux-fsharp-splitspec.md">SplitSpec</a>&#32;list</span></code>
 
-[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L37)
+[Source](https://github.com/libtmux/libtmux-dotnet/blob/master/src/LibTmux.FSharp/Spec.fsi#L48)

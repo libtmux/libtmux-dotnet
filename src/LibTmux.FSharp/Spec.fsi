@@ -2,6 +2,17 @@ namespace LibTmux.FSharp
 
 open LibTmux
 
+/// <summary>How much of the space split a new pane takes.</summary>
+[<RequireQualifiedAccess>]
+type SplitSize =
+    /// <summary>A number of cells: columns for a split beside, rows for one above or below; at least 1.</summary>
+    | Cells of cells: int
+    /// <summary>A share of the space split, from 1 to 100.</summary>
+    | Percent of percent: int
+
+    /// <summary>Names the size, such as "20 cells" or "50%", without formatting through printf.</summary>
+    override ToString: unit -> string
+
 /// <summary>Describes a pane split off the pane created before it.</summary>
 /// <remarks>Build one from <c>SplitSpec.empty</c> with a copy-and-update expression.</remarks>
 type SplitSpec =
@@ -12,8 +23,8 @@ type SplitSpec =
         Command: string option
         /// <summary>The pane's working directory.</summary>
         Directory: string option
-        /// <summary>The pane's size: cells, such as "20", or a share of the space split, such as "50%"; tmux splits in half when None.</summary>
-        Size: string option
+        /// <summary>The pane's size, such as <c>SplitSize.Cells 20</c> or <c>SplitSize.Percent 30</c>; tmux splits in half when None.</summary>
+        Size: SplitSize option
         /// <summary>Variables added to the pane's environment.</summary>
         Environment: Map<string, string>
     }
