@@ -69,11 +69,11 @@ cannot match, and checks every row it returns. `Pane.sendAndWait` types the
 line, then waits for a later line to contain the text; the screen before it and
 the line's own echo do not count. It sleeps on the pane's output instead of
 polling, and ends early if the program exits while it waits. `Pane.run` returns
-the lines the command printed, and `PaneRun` tells a command that exited,
-with its status, from one whose shell exited first, one that never started,
-and one that ran out of time. `server` comes from `Server.createOwned`, which the
-quick start below uses to run these steps on an isolated server. Pass a server
-from `Server.connect` only with care: the sample types into the first shell it
+the lines the command printed, and `PaneRun` tells a command that exited, with
+its status, from one whose shell exited first, one that never started, and one
+that ran out of time. `server` comes from `Server.createOwned`, which the quick
+start below uses to run these steps on an isolated server. Pass a server from
+`Server.connect` only with care: the sample types into the first shell it
 finds, and on a tmux already running that may be the terminal you are reading.
 
 Alpha API: pin a package version and upgrade deliberately. The walkthrough
