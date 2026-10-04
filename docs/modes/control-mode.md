@@ -178,9 +178,10 @@ discards that answer until tmux finishes the command, preserving later replies.
 The typed control overload keeps a requested Enter as a separate command:
 
 ```csharp
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-IReadOnlyList<string> replies = await new SendKeysRequest { Text = "make", Literal = true }
-    .ExecuteAsync(pane, control, ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
+SendKeysRequest request = new() { Text = "make", Literal = true };
+IReadOnlyList<string> replies = await request.ExecuteAsync(pane, control, ct);
 ```
 
 The result concatenates reply lines in command order; it contains no separate
