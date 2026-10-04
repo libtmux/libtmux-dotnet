@@ -396,15 +396,106 @@ public sealed class WorkspaceApplyTests
             CompensateOnFailure = true,
         }, token);
 
-        WorkspaceBuildException failure = await Assert.ThrowsAsync<WorkspaceBuildException>(() => builder.ApplyAsync(plan, application.Token));
+        Task<WorkspaceResult> applying = builder.ApplyAsync(plan, application.Token);
+        WorkspaceOperationCanceledException failure = await Assert.ThrowsAsync<WorkspaceOperationCanceledException>(() => applying);
 
         Assert.IsAssignableFrom<OperationCanceledException>(failure.InnerException);
+        Assert.Equal(existing.Id, Assert.IsType<WorkspaceResult>(failure.PartialResult).Session.Id);
+        Assert.Equal(TmuxDispatchState.Dispatched, failure.Dispatch);
         Assert.Equal(WorkspaceActionKind.OpenReadinessChannel, failure.Journal[0].Action.Kind);
         Assert.Equal(WorkspaceActionState.Completed, failure.Journal[0].State);
         Assert.Equal(0, creations);
         Assert.All(failure.Journal.Skip(1), outcome => Assert.Equal(WorkspaceActionState.NotStarted, outcome.State));
         Assert.Equal(WorkspaceActionState.Completed, Assert.Single(failure.CompensationJournal,
             outcome => outcome.Action.Kind == WorkspaceActionKind.CloseReadinessChannel).State);
+        Assert.Equal(original.Id, Assert.Single(await existing.GetWindowsAsync(token)).Id);
+        Assert.Equal(application.Token, failure.CancellationToken);
+        Assert.True(applying.IsCanceled);
+    }
+
+    [Theory(Skip = "Requires a Unix process environment.", SkipType = typeof(UnixTestEnvironment), SkipUnless = nameof(UnixTestEnvironment.IsUnix))]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Native_action_cancellation_preserves_dispatch_and_caller_classification(
+        bool callerCancelled, bool callerCancelledDuringCleanup)
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        using CancellationTokenSource application = CancellationTokenSource.CreateLinkedTokenSource(token);
+        using CancellationTokenSource native = CancellationTokenSource.CreateLinkedTokenSource(application.Token);
+        var operation = new TmuxOperationCanceledException("Injected native cancellation.", native.Token,
+            commandMayHaveExecuted: true, clientProcessId: 123);
+        int cleanupCancellations = 0;
+        TmuxInterceptor interceptor = (invocation, next, cancellation) =>
+        {
+            if (callerCancelledDuringCleanup
+                && invocation.Arguments.Contains("wait-for", StringComparer.Ordinal)
+                && invocation.Arguments.Contains("-S", StringComparer.Ordinal))
+            {
+                Assert.True(native.IsCancellationRequested);
+                Assert.False(application.IsCancellationRequested);
+                Assert.NotEqual(application.Token, cancellation);
+                cleanupCancellations++;
+                application.Cancel();
+            }
+            if (!invocation.Arguments.Contains("new-window", StringComparer.Ordinal))
+                return next(cancellation);
+            if (callerCancelled)
+                application.Cancel();
+            else
+                native.Cancel();
+            return Task.FromException<TmuxCommandResult>(operation);
+        };
+        await using TemporaryServerScope scope = await new TmuxTestFactory().CreateServerAsync(Options(interceptor), token);
+        Session existing = await scope.Server.CreateSessionAsync(new() { Name = "planned", Command = "exec /bin/cat" }, token);
+        Window original = Assert.Single(await existing.GetWindowsAsync(token));
+        WorkspaceBuilder builder = new(scope.Server);
+        WorkspacePlan plan = await builder.PlanAsync(new("planned", windows: [new WorkspaceWindow()]), new()
+        {
+            ExistingSession = WorkspaceExistingSession.Append,
+            Readiness = callerCancelledDuringCleanup ? WorkspaceReadiness.Cooperative : WorkspaceReadiness.Immediate,
+            CompensateOnFailure = true,
+        }, token);
+
+        Task<WorkspaceResult> applying = builder.ApplyAsync(plan, application.Token);
+        Exception? observed = await Record.ExceptionAsync(() => applying);
+        IReadOnlyList<WorkspaceActionOutcome> journal;
+        IReadOnlyList<WorkspaceActionOutcome> cleanup;
+        if (callerCancelled)
+        {
+            WorkspaceOperationCanceledException failure = Assert.IsType<WorkspaceOperationCanceledException>(observed);
+            Assert.Equal(application.Token, failure.CancellationToken);
+            Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+            Assert.Equal(existing.Id, Assert.IsType<WorkspaceResult>(failure.PartialResult).Session.Id);
+            Assert.True(applying.IsCanceled);
+            journal = failure.Journal;
+            cleanup = failure.CompensationJournal;
+        }
+        else
+        {
+            WorkspaceBuildException failure = Assert.IsType<WorkspaceBuildException>(observed);
+            Assert.Equal(callerCancelledDuringCleanup, application.IsCancellationRequested);
+            Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+            Assert.Equal(existing.Id, Assert.IsType<WorkspaceResult>(failure.PartialResult).Session.Id);
+            Assert.True(applying.IsFaulted);
+            journal = failure.Journal;
+            cleanup = failure.CompensationJournal;
+        }
+        Assert.Same(operation, observed!.InnerException);
+        Assert.True(native.IsCancellationRequested);
+        WorkspaceActionOutcome interrupted = Assert.Single(journal,
+            outcome => outcome.Action.Kind == WorkspaceActionKind.CreateWindow);
+        Assert.Equal(WorkspaceActionState.Unknown, interrupted.State);
+        Assert.Equal(TmuxDispatchState.Unknown, interrupted.Dispatch);
+        Assert.Same(operation, interrupted.Failure);
+        Assert.All(journal.SkipWhile(outcome => !ReferenceEquals(outcome, interrupted)).Skip(1),
+            outcome => Assert.Equal(WorkspaceActionState.NotStarted, outcome.State));
+        Assert.Equal(callerCancelledDuringCleanup ? 1 : 0, cleanupCancellations);
+        if (callerCancelledDuringCleanup)
+            Assert.Equal(WorkspaceActionState.Completed, Assert.Single(cleanup,
+                outcome => outcome.Action.Kind == WorkspaceActionKind.CloseReadinessChannel).State);
+        Assert.All(cleanup.Where(outcome => outcome.Action.Kind != WorkspaceActionKind.CloseReadinessChannel),
+            outcome => Assert.Equal(WorkspaceActionState.NotStarted, outcome.State));
         Assert.Equal(original.Id, Assert.Single(await existing.GetWindowsAsync(token)).Id);
     }
 

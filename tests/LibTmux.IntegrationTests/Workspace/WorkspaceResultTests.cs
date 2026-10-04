@@ -20,6 +20,37 @@ public sealed class WorkspaceResultTests
     }
 
     [Fact]
+    public void Cancellation_preserves_host_evidence_and_cleanup_failures()
+    {
+        using CancellationTokenSource cancellation = new();
+        cancellation.Cancel();
+        WorkspaceHostResult host = new(true, 137, "partial", "diagnostic", 17);
+        var operation = new WorkspaceHostCanceledException(host,
+            new OperationCanceledException(cancellation.Token), cancellation.Token);
+        var cleanupFailure = new IOException("Owned cleanup failed.");
+        WorkspaceActionOutcome interrupted = new(new(WorkspaceActionKind.RunHostScript, "host"),
+            WorkspaceActionState.Unknown, TmuxDispatchState.Unknown, host, operation);
+        WorkspaceActionOutcome compensation = new(new(WorkspaceActionKind.UnlinkWindow, "window:0"),
+            WorkspaceActionState.Failed, TmuxDispatchState.NotDispatched, failure: cleanupFailure);
+        List<WorkspaceActionOutcome> journal = [interrupted];
+        List<WorkspaceActionOutcome> cleanup = [compensation];
+        (Session session, Window window) = Entities();
+        WorkspaceResult partial = new(session, [window], []);
+
+        var failure = new WorkspaceOperationCanceledException(partial, operation, journal, cleanup, cancellation.Token);
+        journal.Clear();
+        cleanup.Clear();
+
+        Assert.Same(operation, failure.InnerException);
+        Assert.Equal(cancellation.Token, failure.CancellationToken);
+        Assert.Same(partial, failure.PartialResult);
+        Assert.Equal(TmuxDispatchState.Unknown, failure.Dispatch);
+        Assert.Same(interrupted, Assert.Single(failure.Journal));
+        Assert.Same(host, Assert.Single(failure.Journal).Result);
+        Assert.Same(cleanupFailure, Assert.Single(failure.CompensationJournal).Failure);
+    }
+
+    [Fact]
     public void Collection_initializers_snapshot_their_inputs()
     {
         (Session session, Window window) = Entities();

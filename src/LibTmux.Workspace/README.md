@@ -221,6 +221,13 @@ cleanup. Application failures throw `WorkspaceBuildException`; its
 `PartialResult` contains materialized state, or is null when no session could
 be read. Planning and declaration errors fail before application begins.
 
+Caller cancellation during application throws `WorkspaceOperationCanceledException`,
+which derives from `OperationCanceledException` and retains the caller's token.
+It carries the same partial state and journals, plus `Dispatch` evidence.
+Cancellation leaves the returned task canceled; it does not imply rollback.
+Cancellation before application starts throws `OperationCanceledException`
+without an application journal.
+
 `CompensateOnFailure = true` requests cleanup of resources proven to have been
 created by this application. Cleanup has its own bounded `CleanupTimeout`.
 It does not reverse shell commands or host effects, and uncertain creations

@@ -1,4 +1,10 @@
 #nullable enable
+LibTmux.Workspace.WorkspaceOperationCanceledException
+LibTmux.Workspace.WorkspaceOperationCanceledException.CompensationJournal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspaceOperationCanceledException.Dispatch.get -> LibTmux.TmuxDispatchState
+LibTmux.Workspace.WorkspaceOperationCanceledException.Journal.get -> System.Collections.Generic.IReadOnlyList<LibTmux.Workspace.WorkspaceActionOutcome!>!
+LibTmux.Workspace.WorkspaceOperationCanceledException.PartialResult.get -> LibTmux.Workspace.WorkspaceResult?
+LibTmux.Workspace.WorkspaceOperationCanceledException.WorkspaceOperationCanceledException(LibTmux.Workspace.WorkspaceResult? partialResult, System.OperationCanceledException! failure, System.Threading.CancellationToken cancellationToken) -> void
 LibTmux.Workspace.WorkspaceBuildException
 LibTmux.Workspace.WorkspaceBuildException.PartialResult.get -> LibTmux.Workspace.WorkspaceResult?
 LibTmux.Workspace.WorkspaceBuildException.WorkspaceBuildException(LibTmux.Workspace.WorkspaceResult? partialResult, System.Exception! failure) -> void

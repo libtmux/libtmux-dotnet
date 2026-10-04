@@ -7,6 +7,7 @@ public sealed partial class WorkspaceBuilder
     /// <param name="cancellationToken">Stops further application and cancels the current operation.</param>
     /// <returns>The materialized session, created windows and complete action journal.</returns>
     /// <exception cref="ArgumentException">The plan selects another endpoint.</exception>
+    /// <exception cref="WorkspaceOperationCanceledException">The caller canceled application; the exception carries state and action journals.</exception>
     /// <exception cref="WorkspaceBuildException">Preconditions, application or owned cleanup failed.</exception>
     /// <remarks>
     /// Native defaults and hooks remain runtime dependencies. Input acknowledgement is
@@ -49,6 +50,8 @@ public sealed partial class WorkspaceBuilder
         }
         catch (Exception failure)
         {
+            OperationCanceledException? callerCancellation = cancellationToken.IsCancellationRequested
+                ? failure as OperationCanceledException : null;
             if (current >= 0 && current < journal.Length && journal[current].State == WorkspaceActionState.NotStarted)
             {
                 WorkspaceAction action = plan.Actions[current];
@@ -57,7 +60,10 @@ public sealed partial class WorkspaceBuilder
                 journal[current] = FailedOutcome(action, failure, materialized);
             }
             await CompensateWorkspaceAsync(plan, state, cleanup).ConfigureAwait(false);
-            throw new WorkspaceBuildException(state.Result(journal, cleanup), failure, journal, cleanup);
+            WorkspaceResult? result = state.Result(journal, cleanup);
+            if (callerCancellation is not null)
+                throw new WorkspaceOperationCanceledException(result, callerCancellation, journal, cleanup, cancellationToken);
+            throw new WorkspaceBuildException(result, failure, journal, cleanup);
         }
     }
 

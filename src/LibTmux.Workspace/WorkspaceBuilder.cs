@@ -24,6 +24,7 @@ public sealed partial class WorkspaceBuilder
     /// <returns>The materialized result and complete action journal.</returns>
     /// <exception cref="WorkspaceFormatException">The workspace declaration is invalid.</exception>
     /// <exception cref="TmuxSessionExistsException">The requested session already exists.</exception>
+    /// <exception cref="WorkspaceOperationCanceledException">The caller canceled application; the exception carries state and action journals.</exception>
     /// <exception cref="WorkspaceBuildException">Application failed; the exception carries the action journal.</exception>
     /// <remarks>
     /// Uses the same plan and application engine as explicit PlanAsync and ApplyAsync.

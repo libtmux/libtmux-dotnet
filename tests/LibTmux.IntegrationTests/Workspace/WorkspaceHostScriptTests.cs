@@ -105,6 +105,7 @@ public sealed class WorkspaceHostScriptTests
         Assert.NotNull(failure.Result.ExitCode);
         Assert.NotEmpty(failure.Result.StandardOutput);
         Assert.Equal(cancellation.Token, failure.CancellationToken);
+        Assert.True(execution.IsCanceled);
         await fixture.AssertProcessesExitedAsync();
     }
 

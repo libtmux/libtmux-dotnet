@@ -34,7 +34,7 @@ public sealed class WorkspaceBuildException : LibTmuxException
     /// <summary>Gets attempted cleanup outcomes and their failures without replacing the original cause.</summary>
     public IReadOnlyList<WorkspaceActionOutcome> CompensationJournal { get; }
 
-    private static TmuxDispatchState DispatchFor(Exception failure, IReadOnlyList<WorkspaceActionOutcome> journal)
+    internal static TmuxDispatchState DispatchFor(Exception failure, IReadOnlyList<WorkspaceActionOutcome> journal)
     {
         ArgumentNullException.ThrowIfNull(failure);
         if (journal.Any(outcome => outcome.Dispatch == TmuxDispatchState.Unknown || outcome.Result is WorkspaceHostResult { Started: true }))
