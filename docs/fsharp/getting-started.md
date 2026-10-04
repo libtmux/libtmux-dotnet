@@ -201,7 +201,9 @@ what `TmuxFailure.MayHaveRun` matches rather than an
 `OperationCanceledException`. A cancelled task loses that: `Async.AwaitTask`
 and `Task.Wait` raise a bare `TaskCanceledException` in its place, where a
 failed task keeps its exception inside an `AggregateException`, which the
-`TmuxFailure` patterns look through. One handler covers both:
+`TmuxFailure` patterns look through. In an `async` workflow, await with
+`TmuxAsync.awaitTask`, which also keeps a tmux client's cancellation. One
+handler covers both:
 
 <!-- fsharp-snippet: RunCancellation -->
 ```fsharp

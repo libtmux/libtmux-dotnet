@@ -4270,6 +4270,71 @@
       "returnType": "Microsoft.FSharp.Core.string"
     },
     {
+      "id": "M:LibTmux.FSharp.TmuxAsync.awaitTask``1(System.Threading.Tasks.Task{``0})",
+      "package": "LibTmux.FSharp",
+      "name": "awaitTask",
+      "declaringType": "T:LibTmux.FSharp.TmuxAsync",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val awaitTask: task: System.Threading.Tasks.Task<'T> -> Microsoft.FSharp.Control.Async<'T>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.Tasks.Task<'T> -> Microsoft.FSharp.Control.Async<'T>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "task",
+          "optional": false,
+          "type": "System.Threading.Tasks.Task<'T>"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "awaitTask",
+      "genericParameters": [
+        {
+          "constraints": [],
+          "name": "T"
+        }
+      ],
+      "returnType": "Microsoft.FSharp.Control.Async<'T>"
+    },
+    {
+      "id": "M:LibTmux.FSharp.TmuxAsync.awaitUnitTask(System.Threading.Tasks.Task)",
+      "package": "LibTmux.FSharp",
+      "name": "awaitUnitTask",
+      "declaringType": "T:LibTmux.FSharp.TmuxAsync",
+      "visibility": "public",
+      "kind": "member",
+      "signature": "val awaitUnitTask: task: System.Threading.Tasks.Task -> Microsoft.FSharp.Control.Async<Microsoft.FSharp.Core.unit>",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "System.Threading.Tasks.Task -> Microsoft.FSharp.Control.Async<Microsoft.FSharp.Core.unit>"
+      ],
+      "attributes": [],
+      "parameters": [
+        {
+          "name": "task",
+          "optional": false,
+          "type": "System.Threading.Tasks.Task"
+        }
+      ],
+      "argumentGroups": [
+        1
+      ],
+      "compiledName": "awaitUnitTask",
+      "genericParameters": [],
+      "returnType": "Microsoft.FSharp.Control.Async<Microsoft.FSharp.Core.unit>"
+    },
+    {
       "id": "M:LibTmux.FSharp.TmuxFailure.|MayHaveRun|_|(System.Exception)",
       "package": "LibTmux.FSharp",
       "name": "(|MayHaveRun|_|)",
@@ -7015,6 +7080,33 @@
       "parameters": [],
       "argumentGroups": [],
       "caseIndex": 1
+    },
+    {
+      "id": "T:LibTmux.FSharp.TmuxAsync",
+      "package": "LibTmux.FSharp",
+      "name": "TmuxAsync",
+      "declaringType": "",
+      "visibility": "public",
+      "kind": "module",
+      "signature": "LibTmux.FSharp.TmuxAsync",
+      "language": "F#",
+      "implicitDeclaration": false,
+      "accessor": false,
+      "interfaces": [],
+      "exposedTypes": [
+        "LibTmux.FSharp.TmuxAsync"
+      ],
+      "attributes": [
+        {
+          "arguments": [],
+          "signature": "[<Microsoft.FSharp.Core.RequireQualifiedAccess>]",
+          "type": "Microsoft.FSharp.Core.RequireQualifiedAccessAttribute"
+        }
+      ],
+      "parameters": [],
+      "argumentGroups": [],
+      "genericParameters": [],
+      "publicRepresentation": true
     },
     {
       "id": "T:LibTmux.FSharp.TmuxFailure",

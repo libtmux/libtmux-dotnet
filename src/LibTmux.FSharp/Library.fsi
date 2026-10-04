@@ -113,6 +113,22 @@ module PaneWatch =
     val (|Output|Paused|Continued|Dropped|Gone|Exited|):
         event: TmuxEvent -> Choice<TmuxOutputEvent, PaneId, PaneId, TmuxEventsDroppedEvent, PaneId, string option>
 
+/// <summary>Awaits tasks in an <c>async</c> workflow without losing whether tmux may have acted.</summary>
+/// <remarks>
+/// <c>Async.AwaitTask</c> turns a <c>TmuxOperationCanceledException</c> into a bare
+/// <c>TaskCanceledException</c>, losing <c>CommandMayHaveExecuted</c>, and wraps a failure in an
+/// <c>AggregateException</c>. These raise a tmux client cancelled after it started as itself, so
+/// <c>TmuxFailure.MayHaveRun</c> matches it in <c>try ... with</c>; any other cancellation cancels the
+/// workflow, and a failure is raised as the task raised it.
+/// </remarks>
+[<RequireQualifiedAccess>]
+module TmuxAsync =
+    /// <summary>Awaits a task that returns a value.</summary>
+    val awaitTask: task: Task<'T> -> Async<'T>
+
+    /// <summary>Awaits a task that returns nothing.</summary>
+    val awaitUnitTask: task: Task -> Async<unit>
+
 /// <summary>Runs an operation again only when tmux never saw it.</summary>
 [<RequireQualifiedAccess>]
 module Retry =

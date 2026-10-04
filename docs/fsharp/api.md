@@ -27,6 +27,7 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | Stream events | [`Control.withSession`](#control), [`Control.watchPane`](#control), [`Control.watchPanes`](#control), [`Control.foldWhile`](#control) | [Control](#control), [StreamStep](#streamstep), [PaneWatch](#panewatch) |
 | Live state and snapshots | [`Mirror.start`](#mirror), [`Mirror.tryWaitUntil`](#mirror), [`Server.capture`](#server) | [Mirror](#mirror), [Snapshot](#snapshot), [CaptureState](#capturestate) |
 | Failures and retries | [`Retry.ifNotSent`](#retry), [`Retry.ifNotSentAfter`](#retry) | [TmuxFailure](#tmuxfailure), [Retry](#retry) |
+| Async workflows | [`TmuxAsync.awaitTask`](#tmuxasync), [`TmuxAsync.awaitUnitTask`](#tmuxasync) | [TmuxAsync](#tmuxasync) |
 
 ## CaptureState
 
@@ -354,6 +355,14 @@ with a module here, such as `LibTmux.Pane`, keeps its prefix.
 | `Continue of state: 'State` | Retains state and reads the next event. |
 | ``StreamStep`1`` | Represents a decision to continue or stop an event fold. |
 | `Stop of state: 'State` | Retains state and stops before reading another event. |
+
+## TmuxAsync
+
+| Signature | Summary |
+|---|---|
+| `module TmuxAsync` | Awaits tasks in an async workflow without losing whether tmux may have acted. |
+| `val awaitTask: task: Task<'T> -> Async<'T>` | Awaits a task that returns a value. |
+| `val awaitUnitTask: task: Task -> Async<unit>` | Awaits a task that returns nothing. |
 
 ## TmuxFailure
 

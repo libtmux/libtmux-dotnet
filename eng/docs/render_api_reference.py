@@ -177,6 +177,7 @@ FSHARP_TASKS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("Live state and snapshots", ("Mirror.start", "Mirror.tryWaitUntil", "Server.capture"),
      ("Mirror", "Snapshot", "CaptureState")),
     ("Failures and retries", ("Retry.ifNotSent", "Retry.ifNotSentAfter"), ("TmuxFailure", "Retry")),
+    ("Async workflows", ("TmuxAsync.awaitTask", "TmuxAsync.awaitUnitTask"), ("TmuxAsync",)),
 )
 
 

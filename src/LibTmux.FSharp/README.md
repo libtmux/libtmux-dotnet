@@ -145,6 +145,7 @@ targets `net8.0` and `net10.0`.
 | --- | --- | --- |
 | Tell failures apart | `TmuxFailure.NotSent`, `Ran`, `MayHaveRun` | active patterns |
 | Retry only unsent work | `Retry.ifNotSent ct retries operation`, or `Retry.ifNotSentAfter ct delays operation` | the operation's result |
+| Await a call in an `async` workflow | `TmuxAsync.awaitTask task`, `TmuxAsync.awaitUnitTask task` | `Async`; keeps what `MayHaveRun` matches |
 
 ### Caveats
 

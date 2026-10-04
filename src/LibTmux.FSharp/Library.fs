@@ -126,6 +126,45 @@ module PaneWatch =
             raise (ArgumentOutOfRangeException(nameof event, box other, "The event is not one a pane watch yields."))
 
 [<RequireQualifiedAccess>]
+module TmuxAsync =
+    // The outcome is taken before a continuation runs, so an exception the
+    // continuation raises is not mistaken for the task's.
+    let private settle (result: unit -> 'T) ok (error: exn -> unit) (cancel: OperationCanceledException -> unit) =
+        let outcome =
+            try
+                Ok(result ())
+            with
+            | :? TmuxOperationCanceledException as kept -> Error(Choice1Of2(kept :> exn))
+            | :? OperationCanceledException as canceled -> Error(Choice2Of2 canceled)
+            | failure -> Error(Choice1Of2 failure)
+
+        match outcome with
+        | Ok value -> ok value
+        | Error(Choice1Of2 failure) -> error failure
+        | Error(Choice2Of2 canceled) -> cancel canceled
+
+    let awaitTask (task: Task<'T>) : Async<'T> =
+        ArgumentNullException.ThrowIfNull task
+
+        Async.FromContinuations(fun (ok, error, cancel) ->
+            task.ContinueWith(
+                Action<Task<'T>>(fun completed ->
+                    settle (fun () -> completed.GetAwaiter().GetResult()) ok error cancel),
+                TaskContinuationOptions.ExecuteSynchronously
+            )
+            |> ignore)
+
+    let awaitUnitTask (task: Task) : Async<unit> =
+        ArgumentNullException.ThrowIfNull task
+
+        Async.FromContinuations(fun (ok, error, cancel) ->
+            task.ContinueWith(
+                Action<Task>(fun completed -> settle (fun () -> completed.GetAwaiter().GetResult()) ok error cancel),
+                TaskContinuationOptions.ExecuteSynchronously
+            )
+            |> ignore)
+
+[<RequireQualifiedAccess>]
 module Retry =
     let private retrying
         (cancellationToken: CancellationToken)

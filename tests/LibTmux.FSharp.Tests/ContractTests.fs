@@ -590,6 +590,46 @@ module FailureTests =
             |> List.map describe
         )
 
+    // Async.AwaitTask loses a tmux client's cancellation after it started;
+    // TmuxAsync keeps it, and still cancels the workflow for any other.
+    [<Fact>]
+    let ``an async workflow keeps the cancellation that says tmux may have acted`` () =
+        use canceled = new CancellationTokenSource()
+        canceled.Cancel()
+
+        let kept () : Task<int> =
+            task { return raise (TmuxOperationCanceledException("may have run", canceled.Token, true, 7)) }
+
+        let plain () : Task<int> =
+            task { return raise (OperationCanceledException(canceled.Token)) }
+
+        let failed () : Task =
+            task { return raise (failure TmuxDispatchState.Unknown) } :> Task
+
+        let describe (work: Async<unit>) =
+            let attempt =
+                async {
+                    try
+                        do! work
+                        return "ran"
+                    with TmuxFailure.MayHaveRun error ->
+                        return "may have run: " + error.GetType().Name
+                }
+
+            try
+                Async.RunSynchronously attempt
+            with :? OperationCanceledException ->
+                "cancelled"
+
+        Assert.Equal(
+            "may have run: TmuxOperationCanceledException",
+            describe (TmuxAsync.awaitTask (kept ()) |> Async.Ignore)
+        )
+
+        Assert.Equal("cancelled", describe (TmuxAsync.awaitTask (plain ()) |> Async.Ignore))
+        Assert.Equal("may have run: LibTmuxException", describe (TmuxAsync.awaitUnitTask (failed ())))
+        Assert.Equal("cancelled", describe (Async.AwaitTask(kept ()) |> Async.Ignore))
+
     // Async.AwaitTask and Task.Wait wrap a failed task's exception; a match
     // that missed it would read a command that may have run as some other failure.
     [<Fact>]

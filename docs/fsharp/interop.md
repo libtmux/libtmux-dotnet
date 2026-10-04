@@ -11,13 +11,15 @@ token to the façade function explicitly and preserve core exceptions. Use
 `Selection.exactlyOne` when zero and multiple local matches need different
 outcomes.
 
-A task starts when called; an `Async` workflow starts when run. If cancellation
-details matter, await the core task directly. Passing it through
-`Async.AwaitTask` and `Async.StartAsTask` can replace
-`TmuxOperationCanceledException` with `TaskCanceledException`, losing
-`CommandMayHaveExecuted` and `ClientProcessId`. Depending on continuation
-timing, the outer task can be canceled or faulted. The companion does not
-expose an `Async` adapter with an unproved cancellation contract.
+A task starts when called; an `Async` workflow starts when run. In an `async`
+workflow, await with `TmuxAsync.awaitTask` or `TmuxAsync.awaitUnitTask`.
+`Async.AwaitTask` replaces `TmuxOperationCanceledException` with
+`TaskCanceledException`, losing `CommandMayHaveExecuted` and
+`ClientProcessId`, and wraps a failure in an `AggregateException`.
+`TmuxAsync` raises that cancellation as itself, so `TmuxFailure.MayHaveRun`
+matches it, raises a failure unwrapped, and cancels the workflow for any other
+cancellation. `Async.StartAsTask` on the way back can still make the outer
+task canceled or faulted, depending on continuation timing.
 
 `LibTmux.Query.Json` remains optional. Add it only when a portable filter must
 cross a process or language boundary. It serializes the core `QueryDocument`;
