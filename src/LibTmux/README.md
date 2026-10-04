@@ -230,7 +230,8 @@ Session and window lookups stay within their owner.
 
 <!-- snippet: ReadCapturedState -->
 ```csharp
-Window created = await session.CreateWindowAsync(new NewWindowRequest { Name = "lookup" }, ct);
+NewWindowRequest request = new() { Name = "lookup" };
+Window created = await session.CreateWindowAsync(request, ct);
 Server connected = await server.ConnectAsync(ct);
 Window read = await connected.GetWindowAsync(created.Id, ct);
 Console.WriteLine($"{read.Name} {read.Width}x{read.Height}");
