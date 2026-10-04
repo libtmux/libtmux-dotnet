@@ -113,7 +113,8 @@ predicate nodes; a regex already running still has its separate one-second
 match ceiling.
 
 ```csharp run
-Console.WriteLine($"depth {QueryJsonLimits.Default.MaximumDepth}, nodes {QueryJsonLimits.Default.MaximumNodes}");
+QueryJsonLimits limits = QueryJsonLimits.Default;
+Console.WriteLine($"depth {limits.MaximumDepth}, nodes {limits.MaximumNodes}");
 ```
 
 ## The field catalog is closed
