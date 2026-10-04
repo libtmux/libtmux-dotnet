@@ -302,7 +302,9 @@ has a shell print 1,000 or 20,000 numbered lines and a marker, and reads a
 real control client's events until the marker arrives: once by keeping the
 pane's output by hand, and once through `Control.watchPane`. It measures how
 fast output crosses tmux, the control client and the reader, and what the
-watch adds under a flood. Setup fails unless both routes see every line.
+watch adds under a flood. Setup fails unless both routes see every line, and
+the [regression gate](#regression-gate) bounds the watch at 1.6 times reading
+by hand.
 
 ## F# live mirror
 
@@ -337,7 +339,7 @@ $ gh workflow run benchmarks.yml -f tmux=3.2a
 
 Absolute timings are not gated in CI: the same case moves by more than half
 between runs on one machine, so a threshold loose enough to pass would catch
-nothing. Three things are gated instead:
+nothing. Four things are gated instead:
 
 - An integration test counts the tmux processes a pushed-down query starts and
   the rows tmux returns through the connection interceptor, and fails when a
@@ -355,6 +357,11 @@ nothing. Three things are gated instead:
   a mirror made to capture twice per change measured 1.86 with sixteen
   sessions and 2.39 with one. Records made before the mirror benchmark carry no mirror
   class and pass this check.
+- It also fails a run in which reading a pane's flood through the watch costs
+  more than 1.6 times reading every event by hand. The workstation measured
+  0.95 to 1.13; a watch made to list the panes on each output event measured
+  2.33 for 20,000 lines and 1.32 for 1,000, too few events to show it. Records
+  made before the flood benchmark pass this check.
 
 Check a record with:
 

@@ -129,3 +129,31 @@ def test_the_gate_fails_a_mirror_that_captures_twice_per_change() -> None:
     assert record_fsharp.gate(mirror_record(93.36, 50.25)) == [
         "FSharpMirrorBenchmarks Sessions=16: a rename seen through the mirror costs 1.9 captures; the gate allows 1.65"
     ]
+
+
+def flood_record(lines_ns: dict[str, tuple[float, float]]) -> dict:
+    record = pushdown_record(9.0, 82.0, 1_000_000, 30_000_000)
+    record["classes"].append(
+        {
+            "name": "FSharpPaneFloodBenchmarks",
+            "cases": [
+                {"method": method, "parameters": f"Lines={lines}", "median_ns": median_ns, "allocated_bytes": 1}
+                for lines, (watched_ns, read_ns) in lines_ns.items()
+                for method, median_ns in (("WatchPane", watched_ns), ("ReadEvents", read_ns))
+            ],
+        }
+    )
+    return record
+
+
+def test_the_gate_passes_a_watch_that_costs_what_reading_by_hand_does() -> None:
+    # The workstation's medians in milliseconds, at the head that added the gate.
+    assert record_fsharp.gate(flood_record({"1000": (5.09, 5.38), "20000": (24.04, 21.32)})) == []
+
+
+def test_the_gate_fails_a_watch_that_lists_the_panes_on_each_output_event() -> None:
+    # The medians a watch made to run list-panes on every output event measured.
+    assert record_fsharp.gate(flood_record({"1000": (7.56, 5.74), "20000": (45.02, 19.36)})) == [
+        "FSharpPaneFloodBenchmarks Lines=20000: reading a flood through the watch costs 2.3 times "
+        "reading every event; the gate allows 1.6"
+    ]

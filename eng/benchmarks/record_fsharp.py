@@ -198,31 +198,45 @@ MINIMUM_SPEEDUP = 3.0
 MIRROR_CLASS = "FSharpMirrorBenchmarks"
 MAXIMUM_MIRROR_RATIO = 1.65
 
+# A pane watch passes the client's events through as they arrive, so reading a
+# flood through it costs what reading every event by hand does: 0.95 to 1.13
+# times on the workstation. A watch made to list the panes on each output event
+# measured 2.33 for 20,000 lines; a short flood has too few events to show it.
+FLOOD_CLASS = "FSharpPaneFloodBenchmarks"
+MAXIMUM_FLOOD_RATIO = 1.6
+
 
 def gate(record: dict) -> list[str]:
-    """Return why pushdown or the mirror missed its bar in this run, if either did."""
-    return _pushdown_failures(record) + _mirror_failures(record)
+    """Return why pushdown, the mirror or the pane watch missed its bar in this run, if any did."""
+    return (
+        _pushdown_failures(record)
+        + _ratio_failures(
+            record, MIRROR_CLASS, "RenameUntilSeen", "CaptureSnapshot", MAXIMUM_MIRROR_RATIO,
+            "a rename seen through the mirror costs {ratio:.1f} captures",
+        )
+        + _ratio_failures(
+            record, FLOOD_CLASS, "WatchPane", "ReadEvents", MAXIMUM_FLOOD_RATIO,
+            "reading a flood through the watch costs {ratio:.1f} times reading every event",
+        )
+    )
 
 
-def _mirror_failures(record: dict) -> list[str]:
-    # Records made before the mirror benchmark existed carry no mirror class.
-    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == MIRROR_CLASS), None)
+def _ratio_failures(record: dict, name: str, method: str, baseline: str, maximum: float, costs: str) -> list[str]:
+    # Records made before a class's benchmark existed do not carry it.
+    cases = next((entry["cases"] for entry in record["classes"] if entry["name"] == name), None)
     if cases is None:
         return []
     by_case = {(case["method"], case["parameters"]): case for case in cases}
     failures = []
     for parameters in sorted({case["parameters"] for case in cases}):
-        seen = by_case.get(("RenameUntilSeen", parameters))
-        captured = by_case.get(("CaptureSnapshot", parameters))
-        if seen is None or captured is None:
-            failures.append(f"{MIRROR_CLASS} {parameters}: the rename or the capture is missing")
+        measured = by_case.get((method, parameters))
+        reference = by_case.get((baseline, parameters))
+        if measured is None or reference is None:
+            failures.append(f"{name} {parameters}: {method} or {baseline} is missing")
             continue
-        ratio = seen["median_ns"] / captured["median_ns"]
-        if ratio > MAXIMUM_MIRROR_RATIO:
-            failures.append(
-                f"{MIRROR_CLASS} {parameters}: a rename seen through the mirror costs {ratio:.1f} captures; "
-                f"the gate allows {MAXIMUM_MIRROR_RATIO:g}"
-            )
+        ratio = measured["median_ns"] / reference["median_ns"]
+        if ratio > maximum:
+            failures.append(f"{name} {parameters}: {costs.format(ratio=ratio)}; the gate allows {maximum:g}")
     return failures
 
 
