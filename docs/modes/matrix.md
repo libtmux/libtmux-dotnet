@@ -18,12 +18,16 @@ the shape of what comes back, not a byte-exact string to assert against.
 Create a window named `build`.
 
 ```csharp
-Window window = await session.CreateWindowAsync(new NewWindowRequest { Name = "build" }, ct);
+NewWindowRequest request = new() { Name = "build" };
+Window window = await session.CreateWindowAsync(request, ct);
 ```
 
 ```csharp
-await using IControlModeSession control = await server.EnterControlModeAsync(cancellationToken: ct);
-await control.SendAsync(TmuxCommand.Create("new-window", "-d", "-n", "build"), ct);
+await using IControlModeSession control =
+    await server.EnterControlModeAsync(cancellationToken: ct);
+await control.SendAsync(
+    TmuxCommand.Create("new-window", "-d", "-n", "build"),
+    ct);
 ```
 
 ```csharp
