@@ -312,6 +312,22 @@ lines took 5.09 ms by hand and 5.23 ms through the watch, 1.03 times, and
 20,000 lines 21.8 ms and 23 ms, 1.06 times. The two routes allocated within
 4% of each other, so the watch adds a filter, not a copy of the output.
 
+## F# wait latency
+
+[`FSharpWaitLatencyBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpWaitLatencyBenchmarks.cs)
+types a command into a shell and returns once its output is on the pane,
+printed at once or after 250 ms. `Pane.sendAndWait` sleeps on the pane's
+output through a control client it attaches for the wait. The baseline
+captures the screen every 50 ms until the output shows, as Python libtmux's
+`retry_until` does by default; Python libtmux has no wait of its own.
+
+A wait pays a fixed cost a poll does not: it attaches a control client before
+reading the screen, and reads the pane with three tmux commands each time it
+wakes. Output already printed is a poll's best case, found by its first
+capture. A poll pays instead for every interval the output takes: a capture,
+which is a tmux process, every 50 ms, and up to 50 ms of latency after the
+output appears.
+
 ## F# live mirror
 
 [`FSharpMirrorBenchmarks`](../../benchmarks/LibTmux.Benchmarks/FSharpMirrorBenchmarks.cs)
